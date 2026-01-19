@@ -1,0 +1,94 @@
+.css-1h6cyx-MuiDrawer-docked .MuiDrawer-paper {
+    margin-top: 60px !important;
+}
+
+.css-10rpcwg-MuiDrawer-docked .MuiDrawer-paper {
+    margin-top: 60px !important;
+}
+
+.slick-dots {
+    bottom: 1px !important;
+}
+
+
+.slick-dots li button:before {
+    font-size: 10px !important;
+    /* color: #f7c965 !important; */
+    opacity: 1;
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    transition: all 0.3s ease;
+}
+
+
+.slick-dots li.slick-active button:before {
+    /* background-color: #fec03d; */
+    width: 24px;
+    height: 8px;
+    border-radius: 16px;
+    content: '';
+    display: inline-block;
+    opacity: 1;
+    transition: all 0.3s ease;
+    margin-top: 5px;
+}
+.css-3f3rm9-MuiDrawer-docked .MuiDrawer-paper{
+    margin-left: 0px !important;
+    display: none;
+}
+.custom-calendar .react-calendar__tile--active {
+    background-color: #DB4700 !important;
+    color: white !important;
+}
+
+.custom-calendar .react-calendar__tile--active:focus {
+    background-color: #DB4700 !important;
+    color: white !important;
+}
+.rmdp-range{
+    background-color: #DB4700 !important;
+    color: #fff !important;
+    box-shadow: none !important;
+}
+
+/* .rmdp-day{
+    width: 50px !important;
+} */
+.rmdp-day:not(.rmdp-disabled, .rmdp-day-hidden) span:hover{
+    background-color: rgba(219, 71, 0, 0.09) !important;
+    color: black !important;
+}
+.rmdp-day.rmdp-today span{
+    background-color: rgba(219, 71, 0, 0.3) !important;
+    color: black !important;
+}
+.rmdp-week-day{
+    color: #777 !important;
+}
+.rmdp-arrow{
+    border: solid #000 !important;
+    border-width: 0 2px 2px 0 !important;
+}
+.rmdp-arrow-container:hover{
+    background-color: #f2f2f2 !important;
+    box-shadow: none !important;
+    color: white !important;
+}
+
+.highlight-red {
+    background-color: red !important;
+    color: white !important;
+    border-radius: 50%;
+  }
+  
+  .highlight-red.today {
+    border: 2px solid darkred;
+  }
+  
+  .teal .highlight-red:not(.selected) {
+    font-weight: normal;
+  }
+ 

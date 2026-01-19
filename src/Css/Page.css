@@ -1,0 +1,104 @@
+.mainmenuStyle:active {
+    background-color: black;
+}
+
+.mainmenuStyle:focus {
+    background-color: black;
+}
+
+.mainmenuStyle:hover {
+    background-color: black !important;
+}
+
+.leftBorder {
+    border: 1px solid #e8e8e8;
+    border-top: none;
+    border-right: none;
+    border-bottom: none;
+}
+
+.loader {
+    height: 40px;
+    aspect-ratio: 2.5;
+    --dot1: no-repeat radial-gradient(farthest-side, #FF005D 90%, transparent);
+    --dot2: no-repeat radial-gradient(farthest-side, #008D34 90%, transparent);
+    --dot3: no-repeat radial-gradient(farthest-side, #64009C 90%, transparent);
+    --dot4: no-repeat radial-gradient(farthest-side, #EB8200 90%, transparent);
+
+    background: var(--dot1), var(--dot2), var(--dot3), var(--dot4);
+    background-size: 20% 50%;
+    animation: l43 1s infinite linear;
+}
+
+@keyframes l43 {
+    0% {
+        background-position: calc(0*100%/3) 50%, calc(1*100%/3) 50%, calc(2*100%/3) 50%, calc(3*100%/3) 50%;
+    }
+
+    16.67% {
+        background-position: calc(0*100%/3) 0, calc(1*100%/3) 50%, calc(2*100%/3) 50%, calc(3*100%/3) 50%;
+    }
+
+    33.33% {
+        background-position: calc(0*100%/3) 100%, calc(1*100%/3) 0, calc(2*100%/3) 50%, calc(3*100%/3) 50%;
+    }
+
+    50% {
+        background-position: calc(0*100%/3) 50%, calc(1*100%/3) 100%, calc(2*100%/3) 0, calc(3*100%/3) 50%;
+    }
+
+    66.67% {
+        background-position: calc(0*100%/3) 50%, calc(1*100%/3) 50%, calc(2*100%/3) 100%, calc(3*100%/3) 0;
+    }
+
+    83.33% {
+        background-position: calc(0*100%/3) 50%, calc(1*100%/3) 50%, calc(2*100%/3) 50%, calc(3*100%/3) 100%;
+    }
+
+    100% {
+        background-position: calc(0*100%/3) 50%, calc(1*100%/3) 50%, calc(2*100%/3) 50%, calc(3*100%/3) 50%;
+    }
+}
+
+.popoverSelection {
+    border: 1px solid #fff !important;
+    padding-top: 0px !important;
+    padding-bottom: 0px !important;
+    padding-left: 5px !important;
+    padding-right: 10px !important;
+    border-radius: 50px !important;
+    color: #fff !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+}
+
+.popoverSelection:focus {
+    background-color: #fff !important;
+    color: #000 !important;
+}
+
+.Popoverdot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%; 
+    margin-right: 3px;
+}
+
+.sectionSelected {
+    background-color: #fff !important;
+    color: #000 !important;
+}
+
+.classdropdownOptions {
+    font-size: 13px;
+    padding-top: 5px;
+    padding-bottom: 5px !important;
+    padding-left: 10px;
+    padding-right: 10px;
+    color: #fff;
+    background-color: #000;
+    cursor: pointer;
+  }
+  .classdropdownOptions:hover{
+    background-color: #444;
+  }
