@@ -132,6 +132,8 @@ import AdditionalFeeApprovalPage from "./Components/Approvals/ApprovalPages/FeeA
 import AdditionalFeeApprovalStatus from "./Components/MyProjects/ApprovalStatusComps/FeeStatusComps/AdditionalFeeApprovalStatus";
 import EcaFeeApprovalPage from "./Components/Approvals/ApprovalPages/FeeApprovalComps/EcaFeeApprovalPage";
 import AdditionalFeeManage from "./Components/StudentComps/FeeFinanceComps/AdditionalFeeComps/AdditionalFeeManage";
+import VehicleCreationPage from "./Components/AssetsComps/TransportAssetComps/VehicleDetailsComps/VehicleCreationPage";
+import VehicleSafetyCompliancePage from "./Components/AssetsComps/TransportAssetComps/VehicleDetailsComps/VehicleSafetyCompliancePage";
 
 
 export default function RouterPage() {
@@ -286,10 +288,13 @@ export default function RouterPage() {
                 <Route path="asset/transport" element={<TrasnportAssetPage />} />
 
                 <Route path="asset/transport/details" element={<VehicleDetailsPage />} />
-                <Route path="asset/transport/details/add" element={<AddVehiclePage />} />
+                <Route path="asset/transport/details/add" element={<VehicleCreationPage />} />
                 <Route path="asset/transport/details/edit" element={<EditVehicleDetails />} />
                 <Route path="asset/transport/details/view" element={<ViewVehicleDetails />} />
                 <Route path="asset/transport/route" element={<RouteManagement />} />
+                <Route path="asset/transport/safety-compliance" element={<VehicleSafetyCompliancePage />} />
+
+                
 
                 {/* --------------------------------------------------------------------------------------------------- */}
 

@@ -1194,7 +1194,7 @@ export default function BillingScreen() {
                 <Box sx={{ position: "absolute", bottom: -30, left: -30, width: 100, height: 100, borderRadius: "50%", background: websiteSettings.mainColor, opacity: 0.08 }} />
 
                 {/* Close Button */}
-                {!paymentProcessing && !paymentSuccess && (
+                {!paymentProcessing && !paymentSuccess && ( 
                   <IconButton
                     onClick={handleClosePaymentPopup}
                     sx={{

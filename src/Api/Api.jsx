@@ -255,11 +255,24 @@ const getFeesById = `${schoolFee}getFeesById`;
 
 // Assets 
 const vehicle = `${baseApiurl}vehicle/`;
+
 const getAllVehicleDetails = `${vehicle}getAllVehicleDetails`;
 const postVehicle = `${vehicle}postVehicle`;
 const updateVehicleDetails = `${vehicle}updateVehicleDetails`;
 const getVehicleDetailById = `${vehicle}getVehicleDetailById`;
 const deleteVehicleById = `${vehicle}deleteVehicleById`;
+
+
+const transportManagement = `${baseApiurl}transportManagement/`;
+const generateVehicleAssetId = `${transportManagement}generateVehicleAssetId`;
+const postVehicleAcquisitionDetail = `${transportManagement}postVehicleAcquisitionDetail`;
+const postVehicleSpecification = `${transportManagement}postVehicleSpecification`;
+const postVehicleRegistrationOwnership = `${transportManagement}postVehicleRegistrationOwnership`;
+const postVehicleInsuranceCompliance = `${transportManagement}postVehicleInsuranceCompliance`;
+const postVehicleWarrantyServiceClaim = `${transportManagement}postVehicleWarrantyServiceClaim`;
+const postVehicleDocuments = `${transportManagement}postVehicleDocuments`;
+const findVehicleManagementDetails = `${transportManagement}findVehicleManagementDetails`;
+const getAllVehicles = `${transportManagement}getAllVehicles`;
 
 // Access control
 const GetUsersBaseDetails = `${baseApiurl}Dashboard/GetUsersBaseDetails`;
@@ -464,5 +477,15 @@ export {
     updateAdditionalFee,
     deleteAdditionalFeesStructure,
     findStudentSchoolFeesBilling,
-    findStudents
+    findStudents,
+    generateVehicleAssetId,
+    postVehicleAcquisitionDetail,
+    postVehicleSpecification,
+    postVehicleRegistrationOwnership,
+    postVehicleInsuranceCompliance,
+    postVehicleWarrantyServiceClaim,
+    postVehicleDocuments,
+    findVehicleManagementDetails,
+    getAllVehicles,
+
 }
