@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
     Box,
     Grid,
@@ -15,11 +15,20 @@ import {
     FormControlLabel,
     Collapse
 } from "@mui/material";
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import UploadFileIcon from "@mui/icons-material/UploadFile";
-import { useNavigate } from "react-router-dom";
+import axios from "axios";
+import SnackBar from "../../../SnackBar";
+import {
+    postVehicleFCDetail,
+    postVehiclePermitDetail,
+    postVehiclePUCDetail,
+    postVehicleRoadTransportTax,
+    postVehicleCctvCameraInstallation,
+    postVehicleBusBrandingVisualIdentity,
+    findVehicleSafetyComplianceDetails
+} from "../../../../Api/Api";
 
 // Reusable style objects
 const inputSx = {
@@ -54,11 +63,14 @@ const blackLabelSx = {
 
 // Expandable Section Component
 const ExpandableSection = ({ title, expanded, onToggle, children }) => (
-    <Paper sx={{ borderRadius: "8px", mb: 2, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
+    <Paper sx={{borderRadius:"5px",  mb: 2, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
         <Box
             onClick={onToggle}
             sx={{
                 backgroundColor: "#FFF1F1",
+                borderTopLeftRadius:"5px",
+                borderTopRightRadius:"5px",
+                border:"1px solid rgba(0, 0, 0, 0.1)",
                 p: 1.5,
                 display: "flex",
                 justifyContent: "space-between",
@@ -69,7 +81,7 @@ const ExpandableSection = ({ title, expanded, onToggle, children }) => (
                 }
             }}
         >
-            <Typography fontWeight={600} fontSize="13px" color="#333">
+            <Typography fontWeight={600} fontSize="15px" color="#333">
                 {title}
             </Typography>
             <IconButton size="small" sx={{ p: 0 }}>
@@ -89,95 +101,189 @@ const ExpandableSection = ({ title, expanded, onToggle, children }) => (
 );
 
 // Document Upload Box Component
-const DocumentUploadBox = ({ label }) => (
-    <Box sx={{ textAlign: "center" }}>
-        <Box
-            sx={{
-                width: 90,
-                height: 80,
-                border: "2px dashed #90CAF9",
-                borderRadius: "8px",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-                backgroundColor: "#FAFAFA",
-                mx: "auto",
-                mb: 0.5,
-                "&:hover": {
-                    backgroundColor: "#F5F5F5",
-                    borderColor: "#64B5F6"
-                }
-            }}
-        >
-            <UploadFileIcon sx={{ color: "#1976D2", fontSize: 24, mb: 0.3 }} />
-            <Typography fontSize={8} textAlign="center" color="#666" px={0.5} lineHeight={1.2}>
-                Drag and Drop files here or Choose file
+const DocumentUploadBox = ({ label, file, preview, onFileChange, onDrop, inputRef }) => {
+    const handleDragOver = (e) => {
+        e.preventDefault();
+    };
+
+    return (
+        <Box sx={{ textAlign: "center" }}>
+            <input
+                type="file"
+                ref={inputRef}
+                onChange={onFileChange}
+                accept="image/*,.pdf"
+                style={{ display: 'none' }}
+            />
+            <Box
+                onClick={() => inputRef.current?.click()}
+                onDrop={onDrop}
+                onDragOver={handleDragOver}
+                sx={{
+                    width: 180,
+                    height: 150,
+                    border: "2px dashed #1976D2",
+                    borderRadius: "12px",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                    backgroundColor: "#E3F2FD",
+                    mx: "auto",
+                    mb: 0.5,
+                    overflow: "hidden",
+                    "&:hover": {
+                        backgroundColor: "#BBDEFB",
+                        borderColor: "#1565C0"
+                    }
+                }}
+            >
+                {preview ? (
+                    <img src={preview} alt={label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                    <>
+                        <Box sx={{ position: "relative", mb: 1.5 }}>
+                            <UploadFileIcon sx={{ color: "#000", fontSize: 48 }} />
+                            <Box
+                                sx={{
+                                    position: "absolute",
+                                    bottom: -4,
+                                    right: -8,
+                                    backgroundColor: "#1976D2",
+                                    borderRadius: "50%",
+                                    width: 22,
+                                    height: 22,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center"
+                                }}
+                            >
+                                <Typography sx={{ color: "#fff", fontSize: 14, fontWeight: "bold", lineHeight: 1 }}>↑</Typography>
+                            </Box>
+                        </Box>
+                        <Typography fontSize={12} textAlign="center" color="#333" fontWeight={500}>
+                            Drag and Drop files here
+                        </Typography>
+                        <Typography fontSize={12} textAlign="center" color="#333">
+                            or <span style={{ textDecoration: "underline", fontWeight: 500 }}>Choose file</span>
+                        </Typography>
+                    </>
+                )}
+            </Box>
+            <Typography color="#ff0000" fontSize={10} fontWeight={600}>
+                {label}
             </Typography>
+            {preview && (
+                <Typography
+                    color="#4CAF50"
+                    fontSize={10}
+                    sx={{ cursor: "pointer", "&:hover": { textDecoration: "underline" } }}
+                    onClick={() => window.open(preview, '_blank')}
+                >
+                    View Document
+                </Typography>
+            )}
         </Box>
-        <Typography color="#ff0000" fontSize={10} fontWeight={600}>
-            {label}
-        </Typography>
-        <Typography
-            color="#4CAF50"
-            fontSize={10}
-            sx={{ cursor: "pointer", "&:hover": { textDecoration: "underline" } }}
-        >
-            View Document
-        </Typography>
-    </Box>
-);
+    );
+};
 
 // Branding Image Upload Box with Radio
-const BrandingImageUploadBoxWithRadio = ({ side, label, value, onChange }) => (
-    <Box sx={{ textAlign: "center" }}>
-        {/* Side label with radio buttons */}
-        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1, mb: 1 }}>
-            <Typography fontSize="10px">{side} :</Typography>
-            <RadioGroup row value={value} onChange={onChange}>
-                <FormControlLabel value="Yes" control={<Radio size="small" sx={{ p: 0.4 }} />} label={<Typography fontSize="10px">Yes</Typography>} sx={{ mr: 1.5 }} />
-                <FormControlLabel value="No" control={<Radio size="small" sx={{ p: 0.4 }} />} label={<Typography fontSize="10px">No</Typography>} />
-            </RadioGroup>
-        </Box>
-        {/* Upload Box */}
-        <Box
-            sx={{
-                width: 80,
-                height: 70,
-                border: "2px dashed #90CAF9",
-                borderRadius: "6px",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-                backgroundColor: "#FAFAFA",
-                mx: "auto",
-                mb: 0.5,
-                "&:hover": {
-                    backgroundColor: "#F5F5F5",
-                    borderColor: "#64B5F6"
-                }
-            }}
-        >
-            <UploadFileIcon sx={{ color: "#1976D2", fontSize: 22 }} />
-            <Typography fontSize={7} textAlign="center" color="#666" lineHeight={1.2} px={0.5}>
-                Drag and Drop files here or Choose file
+const BrandingImageUploadBoxWithRadio = ({ side, label, value, onChange, file, preview, onFileChange, onDrop, inputRef }) => {
+    const handleDragOver = (e) => {
+        e.preventDefault();
+    };
+
+    return (
+        <Box sx={{ textAlign: "center" }}>
+            {/* Side label with radio buttons */}
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1, mb: 1 }}>
+                <Typography fontSize="10px">{side} :</Typography>
+                <RadioGroup row value={value} onChange={onChange}>
+                    <FormControlLabel value="Yes" control={<Radio size="small" sx={{ p: 0.4 }} />} label={<Typography fontSize="10px">Yes</Typography>} sx={{ mr: 1.5 }} />
+                    <FormControlLabel value="No" control={<Radio size="small" sx={{ p: 0.4 }} />} label={<Typography fontSize="10px">No</Typography>} />
+                </RadioGroup>
+            </Box>
+            {/* Upload Box */}
+            <input
+                type="file"
+                ref={inputRef}
+                onChange={onFileChange}
+                accept="image/*"
+                style={{ display: 'none' }}
+            />
+            <Box
+                onClick={() => inputRef.current?.click()}
+                onDrop={onDrop}
+                onDragOver={handleDragOver}
+                sx={{
+                    width: 180,
+                    height: 150,
+                    border: "2px dashed #1976D2",
+                    borderRadius: "12px",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                    backgroundColor: "#E3F2FD",
+                    mx: "auto",
+                    mb: 0.5,
+                    overflow: "hidden",
+                    "&:hover": {
+                        backgroundColor: "#BBDEFB",
+                        borderColor: "#1565C0"
+                    }
+                }}
+            >
+                {preview ? (
+                    <img src={preview} alt={label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                    <>
+                        <Box sx={{ position: "relative", mb: 1.5 }}>
+                            <UploadFileIcon sx={{ color: "#000", fontSize: 48 }} />
+                            <Box
+                                sx={{
+                                    position: "absolute",
+                                    bottom: -4,
+                                    right: -8,
+                                    backgroundColor: "#1976D2",
+                                    borderRadius: "50%",
+                                    width: 22,
+                                    height: 22,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center"
+                                }}
+                            >
+                                <Typography sx={{ color: "#fff", fontSize: 14, fontWeight: "bold", lineHeight: 1 }}>↑</Typography>
+                            </Box>
+                        </Box>
+                        <Typography fontSize={12} textAlign="center" color="#333" fontWeight={500}>
+                            Drag and Drop files here
+                        </Typography>
+                        <Typography fontSize={12} textAlign="center" color="#333">
+                            or <span style={{ textDecoration: "underline", fontWeight: 500 }}>Choose file</span>
+                        </Typography>
+                    </>
+                )}
+            </Box>
+            <Typography color="#ff0000" fontSize={10} fontWeight={600}>
+                {label}
             </Typography>
+            {preview && (
+                <Typography
+                    color="#4CAF50"
+                    fontSize={10}
+                    sx={{ cursor: "pointer", "&:hover": { textDecoration: "underline" } }}
+                    onClick={() => window.open(preview, '_blank')}
+                >
+                    View Photo
+                </Typography>
+            )}
         </Box>
-        <Typography color="#ff0000" fontSize={10} fontWeight={600}>
-            {label}
-        </Typography>
-        <Typography
-            color="#4CAF50"
-            fontSize={10}
-            sx={{ cursor: "pointer", "&:hover": { textDecoration: "underline" } }}
-        >
-            View Photo
-        </Typography>
-    </Box>
-);
+    );
+};
 
 // Action Buttons Component
 const ActionButtons = ({ onClear, onSave }) => (
@@ -213,8 +319,15 @@ const ActionButtons = ({ onClear, onSave }) => (
     </Box>
 );
 
-export default function VehicleSafetyCompliancePage() {
-    const navigate = useNavigate();
+export default function VehicleSafetyCompliancePage({ vehicleAssetId }) {
+    const token = "123";
+    const [isLoading, setIsLoading] = useState(false);
+
+    // SnackBar state
+    const [open, setOpen] = useState(false);
+    const [status, setStatus] = useState(false);
+    const [color, setColor] = useState(false);
+    const [message, setMessage] = useState('');
 
     // Expandable sections state
     const [expandedSections, setExpandedSections] = useState({
@@ -231,6 +344,22 @@ export default function VehicleSafetyCompliancePage() {
             ...prev,
             [section]: !prev[section]
         }));
+    };
+
+    // Helper function to format date to DD-MM-YYYY
+    const formatDateToDDMMYYYY = (dateString) => {
+        if (!dateString) return "";
+        const date = new Date(dateString);
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${day}-${month}-${year}`;
+    };
+
+    // Validation helper functions
+    const isEndDateAfterStartDate = (startDate, endDate) => {
+        if (!startDate || !endDate) return true;
+        return new Date(endDate) >= new Date(startDate);
     };
 
     // FC Details State
@@ -348,24 +477,687 @@ export default function VehicleSafetyCompliancePage() {
     const [signageLeftSide, setSignageLeftSide] = useState("Yes");
     const [signageRightSide, setSignageRightSide] = useState("Yes");
 
+    // ==================== FILE UPLOAD STATES ====================
+    // School Name Display Files
+    const [schoolNameFrontFile, setSchoolNameFrontFile] = useState(null);
+    const [schoolNameFrontPreview, setSchoolNameFrontPreview] = useState(null);
+    const [schoolNameBackFile, setSchoolNameBackFile] = useState(null);
+    const [schoolNameBackPreview, setSchoolNameBackPreview] = useState(null);
+    const [schoolNameLeftFile, setSchoolNameLeftFile] = useState(null);
+    const [schoolNameLeftPreview, setSchoolNameLeftPreview] = useState(null);
+    const [schoolNameRightFile, setSchoolNameRightFile] = useState(null);
+    const [schoolNameRightPreview, setSchoolNameRightPreview] = useState(null);
+
+    // Internal Name & Photo Display Files
+    const [internalNameFrontFile, setInternalNameFrontFile] = useState(null);
+    const [internalNameFrontPreview, setInternalNameFrontPreview] = useState(null);
+    const [internalNameBackFile, setInternalNameBackFile] = useState(null);
+    const [internalNameBackPreview, setInternalNameBackPreview] = useState(null);
+    const [internalNameLeftFile, setInternalNameLeftFile] = useState(null);
+    const [internalNameLeftPreview, setInternalNameLeftPreview] = useState(null);
+    const [internalNameRightFile, setInternalNameRightFile] = useState(null);
+    const [internalNameRightPreview, setInternalNameRightPreview] = useState(null);
+
+    // Reflective Tapes Display Files
+    const [reflectiveTapesFrontFile, setReflectiveTapesFrontFile] = useState(null);
+    const [reflectiveTapesFrontPreview, setReflectiveTapesFrontPreview] = useState(null);
+    const [reflectiveTapesBackFile, setReflectiveTapesBackFile] = useState(null);
+    const [reflectiveTapesBackPreview, setReflectiveTapesBackPreview] = useState(null);
+    const [reflectiveTapesLeftFile, setReflectiveTapesLeftFile] = useState(null);
+    const [reflectiveTapesLeftPreview, setReflectiveTapesLeftPreview] = useState(null);
+    const [reflectiveTapesRightFile, setReflectiveTapesRightFile] = useState(null);
+    const [reflectiveTapesRightPreview, setReflectiveTapesRightPreview] = useState(null);
+
+    // Signage Display Files
+    const [signageFrontFile, setSignageFrontFile] = useState(null);
+    const [signageFrontPreview, setSignageFrontPreview] = useState(null);
+    const [signageBackFile, setSignageBackFile] = useState(null);
+    const [signageBackPreview, setSignageBackPreview] = useState(null);
+    const [signageLeftFile, setSignageLeftFile] = useState(null);
+    const [signageLeftPreview, setSignageLeftPreview] = useState(null);
+    const [signageRightFile, setSignageRightFile] = useState(null);
+    const [signageRightPreview, setSignageRightPreview] = useState(null);
+
+    // ==================== FILE UPLOAD REFS ====================
+    const schoolNameFrontRef = useRef(null);
+    const schoolNameBackRef = useRef(null);
+    const schoolNameLeftRef = useRef(null);
+    const schoolNameRightRef = useRef(null);
+    const internalNameFrontRef = useRef(null);
+    const internalNameBackRef = useRef(null);
+    const internalNameLeftRef = useRef(null);
+    const internalNameRightRef = useRef(null);
+    const reflectiveTapesFrontRef = useRef(null);
+    const reflectiveTapesBackRef = useRef(null);
+    const reflectiveTapesLeftRef = useRef(null);
+    const reflectiveTapesRightRef = useRef(null);
+    const signageFrontRef = useRef(null);
+    const signageBackRef = useRef(null);
+    const signageLeftRef = useRef(null);
+    const signageRightRef = useRef(null);
+
+    // ==================== FILE UPLOAD HANDLERS ====================
+    const handleFileChange = (e, setFile, setPreview) => {
+        const file = e.target.files[0];
+        if (file) {
+            setFile(file);
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setPreview(reader.result);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleFileDrop = (e, setFile, setPreview) => {
+        e.preventDefault();
+        const file = e.dataTransfer.files[0];
+        if (file && (file.type.startsWith('image/') || file.type === 'application/pdf')) {
+            setFile(file);
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setPreview(reader.result);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    // ==================== CLEAR HANDLERS ====================
+
+    // FC Details Clear
+    const handleFCDetailsClear = () => {
+        setFcType("");
+        setFcNumber("");
+        setFcIssueDate("");
+        setFcExpiryDate("");
+        setFcValidityDuration("");
+        setFcLastValidDate("");
+        setFcRenewalReminder("30 days before Expiry");
+        setFcCurrentStatus("");
+        setFcNotesAboutInspection("");
+    };
+
+    // Permit Detail Clear
+    const handlePermitDetailClear = () => {
+        setPermitNumber("");
+        setPermitType("");
+        setIssuingRto("");
+        setPermitValidDateFrom("");
+        setPermitValidTill("");
+        setPermitValidityDuration("");
+        setPermitAreaOfOperation("");
+        setPermitRoute("");
+    };
+
+    // PUC Detail Clear
+    const handlePUCDetailClear = () => {
+        setPucCertificateNumber("");
+        setPucIssueDate("");
+        setPucExpiryDate("");
+        setPucValidityStatus("");
+    };
+
+    // Road Tax Clear
+    const handleRoadTaxClear = () => {
+        setTaxType("");
+        setTaxPaidDate("");
+        setTaxExpiryDate("");
+        setTaxStatus("");
+    };
+
+    // CCTV Camera Clear
+    const handleCCTVCameraClear = () => {
+        setCctvInstalled("Yes");
+        setNumberOfCameras("");
+        setCctvDealerInstallerSame("Yes");
+        // Camera 1 Details
+        setCamera1DateOfInstallation("");
+        setCamera1DealerInstallerName("");
+        setCamera1Type("");
+        setCamera1DealerInstallerName2("");
+        setCamera1VendorContactDetails("");
+        setCamera1Remarks("");
+        // First Aid Kit
+        setFirstAidKitInstallation("Yes");
+        setFirstAidDateOfInstallation("");
+        setFirstAidExpiryCheckDueDate("");
+        setFirstAidLastInspectionDate("");
+        setFirstAidRemarks("");
+        // Safety Grills
+        setSafetyGrillsInstallation("Yes");
+        setSafetyGrillsInstalled("Yes");
+        setGrillLocation("");
+        setEmergencyExitAvailable("Yes");
+        setEmergencyExitLocation("");
+        setComplianceAsPerNorms("Yes");
+        setSafetyInstallationInspectionDate("");
+        setSafetyRemarks("");
+        // Speed Governor
+        setSpeedGovernorInstallation("Yes");
+        setSpeedGovernorDateOfInstallation("");
+        setSpeedGovernorVendorName("");
+        setSpeedLimitSet("");
+        setSpeedGovernorCertificateNumber("");
+        setSpeedGovernorValidityDate("");
+        setSpeedGovernorRemarks("");
+        // Fire Extinguisher
+        setFireExtinguisherInstallation("Yes");
+        setFireExtinguisherDateOfInstallation("");
+        setFireExtinguisherExpiryDate("");
+        setExtinguisherTypeCapacity("");
+        setFireExtinguisherVendorDetails("");
+        setFireExtinguisherRemarks("");
+        // GPS Tracker
+        setGpsTrackerInstallation("Yes");
+        setGpsDateOfInstallation("");
+        setGpsDeviceIdImei("");
+        setGpsHardwareWarranty("");
+        setGpsOwnerNameAddress("");
+        setGpsSimNumber("");
+        setGpsSubscriptionValidTill("");
+        setGpsRemarks("");
+    };
+
+    // Bus Branding Clear
+    const handleBusBrandingClear = () => {
+        setSchoolNameFrontSide("Yes");
+        setSchoolNameBackSide("Yes");
+        setSchoolNameLeftSide("Yes");
+        setSchoolNameRightSide("Yes");
+        setInternalNameFrontSide("Yes");
+        setInternalNameBackSide("Yes");
+        setInternalNameLeftSide("Yes");
+        setInternalNameRightSide("Yes");
+        setReflectiveTapesFrontSide("Yes");
+        setReflectiveTapesBackSide("Yes");
+        setReflectiveTapesLeftSide("Yes");
+        setReflectiveTapesRightSide("Yes");
+        setSignageFrontSide("Yes");
+        setSignageBackSide("Yes");
+        setSignageLeftSide("Yes");
+        setSignageRightSide("Yes");
+        // Clear file states
+        setSchoolNameFrontFile(null);
+        setSchoolNameFrontPreview(null);
+        setSchoolNameBackFile(null);
+        setSchoolNameBackPreview(null);
+        setSchoolNameLeftFile(null);
+        setSchoolNameLeftPreview(null);
+        setSchoolNameRightFile(null);
+        setSchoolNameRightPreview(null);
+        setInternalNameFrontFile(null);
+        setInternalNameFrontPreview(null);
+        setInternalNameBackFile(null);
+        setInternalNameBackPreview(null);
+        setInternalNameLeftFile(null);
+        setInternalNameLeftPreview(null);
+        setInternalNameRightFile(null);
+        setInternalNameRightPreview(null);
+        setReflectiveTapesFrontFile(null);
+        setReflectiveTapesFrontPreview(null);
+        setReflectiveTapesBackFile(null);
+        setReflectiveTapesBackPreview(null);
+        setReflectiveTapesLeftFile(null);
+        setReflectiveTapesLeftPreview(null);
+        setReflectiveTapesRightFile(null);
+        setReflectiveTapesRightPreview(null);
+        setSignageFrontFile(null);
+        setSignageFrontPreview(null);
+        setSignageBackFile(null);
+        setSignageBackPreview(null);
+        setSignageLeftFile(null);
+        setSignageLeftPreview(null);
+        setSignageRightFile(null);
+        setSignageRightPreview(null);
+    };
+
+    // ==================== SUBMIT HANDLERS ====================
+
+    // FC Details Submit
+    const handleFCDetailsSubmit = async () => {
+        // Validation
+        if (!vehicleAssetId) {
+            setMessage("Vehicle Asset ID is required. Please generate or select a vehicle first.");
+            setOpen(true);
+            setColor(false);
+            setStatus(false);
+            return;
+        }
+
+        if (!isEndDateAfterStartDate(fcIssueDate, fcExpiryDate)) {
+            setMessage("FC Expiry Date must be after FC Issue Date");
+            setOpen(true);
+            setColor(false);
+            setStatus(false);
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            const sendData = {
+                VehicleAssetID: vehicleAssetId,
+                FCType: fcType,
+                FCNumber: fcNumber,
+                FCIssueDate: formatDateToDDMMYYYY(fcIssueDate),
+                FCExpiryDate: formatDateToDDMMYYYY(fcExpiryDate),
+                FCValidityDuration: fcValidityDuration,
+                LastValidDate: formatDateToDDMMYYYY(fcLastValidDate),
+                RenewalReminder: fcRenewalReminder,
+                CurrentFCStatus: fcCurrentStatus,
+                NotesAboutInspection: fcNotesAboutInspection
+            };
+
+            await axios.post(postVehicleFCDetail, sendData, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json"
+                },
+            });
+
+            setOpen(true);
+            setColor(true);
+            setStatus(true);
+            setMessage("FC Details saved successfully");
+        } catch (error) {
+            setMessage("An error occurred while saving FC Details.");
+            setOpen(true);
+            setColor(false);
+            setStatus(false);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Permit Detail Submit
+    const handlePermitDetailSubmit = async () => {
+        // Validation
+        if (!vehicleAssetId) {
+            setMessage("Vehicle Asset ID is required. Please generate or select a vehicle first.");
+            setOpen(true);
+            setColor(false);
+            setStatus(false);
+            return;
+        }
+
+        if (!isEndDateAfterStartDate(permitValidDateFrom, permitValidTill)) {
+            setMessage("Valid Till date must be after Valid Date From");
+            setOpen(true);
+            setColor(false);
+            setStatus(false);
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            const sendData = {
+                VehicleAssetID: vehicleAssetId,
+                PermitNumber: permitNumber,
+                PermitType: permitType,
+                IssuingRTO: issuingRto,
+                ValidDateFrom: formatDateToDDMMYYYY(permitValidDateFrom),
+                ValidTill: formatDateToDDMMYYYY(permitValidTill),
+                PermitValidityDuration: permitValidityDuration,
+                PermitAreaOfOperation: permitAreaOfOperation,
+                PermitRoute: permitRoute
+            };
+
+            await axios.post(postVehiclePermitDetail, sendData, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json"
+                },
+            });
+
+            setOpen(true);
+            setColor(true);
+            setStatus(true);
+            setMessage("Permit Details saved successfully");
+        } catch (error) {
+            setMessage("An error occurred while saving Permit Details.");
+            setOpen(true);
+            setColor(false);
+            setStatus(false);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // PUC Detail Submit
+    const handlePUCDetailSubmit = async () => {
+        // Validation
+        if (!vehicleAssetId) {
+            setMessage("Vehicle Asset ID is required. Please generate or select a vehicle first.");
+            setOpen(true);
+            setColor(false);
+            setStatus(false);
+            return;
+        }
+
+        if (!isEndDateAfterStartDate(pucIssueDate, pucExpiryDate)) {
+            setMessage("PUC Expiry Date must be after PUC Issue Date");
+            setOpen(true);
+            setColor(false);
+            setStatus(false);
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            const sendData = {
+                VehicleAssetID: vehicleAssetId,
+                PUCNumber: pucCertificateNumber,
+                PUCIssueDate: formatDateToDDMMYYYY(pucIssueDate),
+                PUCExpiryDate: formatDateToDDMMYYYY(pucExpiryDate),
+                PUCValidityStatus: pucValidityStatus
+            };
+
+            await axios.post(postVehiclePUCDetail, sendData, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json"
+                },
+            });
+
+            setOpen(true);
+            setColor(true);
+            setStatus(true);
+            setMessage("PUC Details saved successfully");
+        } catch (error) {
+            setMessage("An error occurred while saving PUC Details.");
+            setOpen(true);
+            setColor(false);
+            setStatus(false);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Road Tax Submit
+    const handleRoadTaxSubmit = async () => {
+        // Validation
+        if (!vehicleAssetId) {
+            setMessage("Vehicle Asset ID is required. Please generate or select a vehicle first.");
+            setOpen(true);
+            setColor(false);
+            setStatus(false);
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            const sendData = {
+                VehicleAssetID: vehicleAssetId,
+                TaxType: taxType,
+                TaxPaidDate: formatDateToDDMMYYYY(taxPaidDate),
+                TaxValidDate: formatDateToDDMMYYYY(taxExpiryDate),
+                TaxStatus: taxStatus
+            };
+
+            await axios.post(postVehicleRoadTransportTax, sendData, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json"
+                },
+            });
+
+            setOpen(true);
+            setColor(true);
+            setStatus(true);
+            setMessage("Road Tax Details saved successfully");
+        } catch (error) {
+            setMessage("An error occurred while saving Road Tax Details.");
+            setOpen(true);
+            setColor(false);
+            setStatus(false);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // CCTV Camera Submit
+    const handleCCTVCameraSubmit = async () => {
+        // Validation
+        if (!vehicleAssetId) {
+            setMessage("Vehicle Asset ID is required. Please generate or select a vehicle first.");
+            setOpen(true);
+            setColor(false);
+            setStatus(false);
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            const sendData = {
+                VehicleAssetID: vehicleAssetId,
+                CCTVInstalled: cctvInstalled,
+                NumberOfCameras: numberOfCameras,
+                CCTVDealerInstallerSame: cctvDealerInstallerSame,
+                // Camera 1 Details
+                Camera1DateOfInstallation: formatDateToDDMMYYYY(camera1DateOfInstallation),
+                Camera1DealerInstallerName: camera1DealerInstallerName,
+                Camera1Type: camera1Type,
+                Camera1DealerInstallerName2: camera1DealerInstallerName2,
+                Camera1VendorContactDetails: camera1VendorContactDetails,
+                Camera1Remarks: camera1Remarks,
+                // First Aid Kit
+                FirstAidKitInstallation: firstAidKitInstallation,
+                FirstAidDateOfInstallation: formatDateToDDMMYYYY(firstAidDateOfInstallation),
+                FirstAidExpiryCheckDueDate: formatDateToDDMMYYYY(firstAidExpiryCheckDueDate),
+                FirstAidLastInspectionDate: formatDateToDDMMYYYY(firstAidLastInspectionDate),
+                FirstAidRemarks: firstAidRemarks,
+                // Safety Grills & Exit Doors
+                SafetyGrillsInstallation: safetyGrillsInstallation,
+                SafetyGrillsInstalled: safetyGrillsInstalled,
+                GrillLocation: grillLocation,
+                EmergencyExitAvailable: emergencyExitAvailable,
+                EmergencyExitLocation: emergencyExitLocation,
+                ComplianceAsPerNorms: complianceAsPerNorms,
+                SafetyInstallationInspectionDate: formatDateToDDMMYYYY(safetyInstallationInspectionDate),
+                SafetyRemarks: safetyRemarks,
+                // Speed Governor
+                SpeedGovernorInstallation: speedGovernorInstallation,
+                SpeedGovernorDateOfInstallation: formatDateToDDMMYYYY(speedGovernorDateOfInstallation),
+                SpeedGovernorVendorName: speedGovernorVendorName,
+                SpeedLimitSet: speedLimitSet,
+                SpeedGovernorCertificateNumber: speedGovernorCertificateNumber,
+                SpeedGovernorValidityDate: formatDateToDDMMYYYY(speedGovernorValidityDate),
+                SpeedGovernorRemarks: speedGovernorRemarks,
+                // Fire Extinguisher
+                FireExtinguisherInstallation: fireExtinguisherInstallation,
+                FireExtinguisherDateOfInstallation: formatDateToDDMMYYYY(fireExtinguisherDateOfInstallation),
+                FireExtinguisherExpiryDate: formatDateToDDMMYYYY(fireExtinguisherExpiryDate),
+                ExtinguisherTypeCapacity: extinguisherTypeCapacity,
+                FireExtinguisherVendorDetails: fireExtinguisherVendorDetails,
+                FireExtinguisherRemarks: fireExtinguisherRemarks,
+                // GPS Tracker
+                GPSTrackerInstallation: gpsTrackerInstallation,
+                GPSDateOfInstallation: formatDateToDDMMYYYY(gpsDateOfInstallation),
+                GPSDeviceIdIMEI: gpsDeviceIdImei,
+                GPSHardwareWarranty: gpsHardwareWarranty,
+                GPSOwnerNameAddress: gpsOwnerNameAddress,
+                GPSSimNumber: gpsSimNumber,
+                GPSSubscriptionValidTill: formatDateToDDMMYYYY(gpsSubscriptionValidTill),
+                GPSRemarks: gpsRemarks
+            };
+
+            await axios.post(postVehicleCctvCameraInstallation, sendData, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json"
+                },
+            });
+
+            setOpen(true);
+            setColor(true);
+            setStatus(true);
+            setMessage("CCTV Camera & Safety Details saved successfully");
+        } catch (error) {
+            setMessage("An error occurred while saving CCTV Camera & Safety Details.");
+            setOpen(true);
+            setColor(false);
+            setStatus(false);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Bus Branding Submit
+    const handleBusBrandingSubmit = async () => {
+        // Validation
+        if (!vehicleAssetId) {
+            setMessage("Vehicle Asset ID is required. Please generate or select a vehicle first.");
+            setOpen(true);
+            setColor(false);
+            setStatus(false);
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            const sendData = new FormData();
+            sendData.append("VehicleAssetID", vehicleAssetId);
+
+            // School Name Display
+            sendData.append("SchoolNameFrontSide", schoolNameFrontSide);
+            sendData.append("SchoolNameBackSide", schoolNameBackSide);
+            sendData.append("SchoolNameLeftSide", schoolNameLeftSide);
+            sendData.append("SchoolNameRightSide", schoolNameRightSide);
+
+            // Internal Name & Photo Display
+            sendData.append("InternalNameFrontSide", internalNameFrontSide);
+            sendData.append("InternalNameBackSide", internalNameBackSide);
+            sendData.append("InternalNameLeftSide", internalNameLeftSide);
+            sendData.append("InternalNameRightSide", internalNameRightSide);
+
+            // Reflective Tapes Display
+            sendData.append("ReflectiveTapesFrontSide", reflectiveTapesFrontSide);
+            sendData.append("ReflectiveTapesBackSide", reflectiveTapesBackSide);
+            sendData.append("ReflectiveTapesLeftSide", reflectiveTapesLeftSide);
+            sendData.append("ReflectiveTapesRightSide", reflectiveTapesRightSide);
+
+            // Signage Display
+            sendData.append("SignageFrontSide", signageFrontSide);
+            sendData.append("SignageBackSide", signageBackSide);
+            sendData.append("SignageLeftSide", signageLeftSide);
+            sendData.append("SignageRightSide", signageRightSide);
+
+            // School Name Display Files
+            if (schoolNameFrontFile) {
+                sendData.append("SchoolNameFrontFile", schoolNameFrontFile);
+                sendData.append("SchoolNameFrontFileType", schoolNameFrontFile.type.startsWith('image/') ? 'image' : 'pdf');
+            }
+            if (schoolNameBackFile) {
+                sendData.append("SchoolNameBackFile", schoolNameBackFile);
+                sendData.append("SchoolNameBackFileType", schoolNameBackFile.type.startsWith('image/') ? 'image' : 'pdf');
+            }
+            if (schoolNameLeftFile) {
+                sendData.append("SchoolNameLeftFile", schoolNameLeftFile);
+                sendData.append("SchoolNameLeftFileType", schoolNameLeftFile.type.startsWith('image/') ? 'image' : 'pdf');
+            }
+            if (schoolNameRightFile) {
+                sendData.append("SchoolNameRightFile", schoolNameRightFile);
+                sendData.append("SchoolNameRightFileType", schoolNameRightFile.type.startsWith('image/') ? 'image' : 'pdf');
+            }
+
+            // Internal Name & Photo Display Files
+            if (internalNameFrontFile) {
+                sendData.append("InternalNameFrontFile", internalNameFrontFile);
+                sendData.append("InternalNameFrontFileType", internalNameFrontFile.type.startsWith('image/') ? 'image' : 'pdf');
+            }
+            if (internalNameBackFile) {
+                sendData.append("InternalNameBackFile", internalNameBackFile);
+                sendData.append("InternalNameBackFileType", internalNameBackFile.type.startsWith('image/') ? 'image' : 'pdf');
+            }
+            if (internalNameLeftFile) {
+                sendData.append("InternalNameLeftFile", internalNameLeftFile);
+                sendData.append("InternalNameLeftFileType", internalNameLeftFile.type.startsWith('image/') ? 'image' : 'pdf');
+            }
+            if (internalNameRightFile) {
+                sendData.append("InternalNameRightFile", internalNameRightFile);
+                sendData.append("InternalNameRightFileType", internalNameRightFile.type.startsWith('image/') ? 'image' : 'pdf');
+            }
+
+            // Reflective Tapes Display Files
+            if (reflectiveTapesFrontFile) {
+                sendData.append("ReflectiveTapesFrontFile", reflectiveTapesFrontFile);
+                sendData.append("ReflectiveTapesFrontFileType", reflectiveTapesFrontFile.type.startsWith('image/') ? 'image' : 'pdf');
+            }
+            if (reflectiveTapesBackFile) {
+                sendData.append("ReflectiveTapesBackFile", reflectiveTapesBackFile);
+                sendData.append("ReflectiveTapesBackFileType", reflectiveTapesBackFile.type.startsWith('image/') ? 'image' : 'pdf');
+            }
+            if (reflectiveTapesLeftFile) {
+                sendData.append("ReflectiveTapesLeftFile", reflectiveTapesLeftFile);
+                sendData.append("ReflectiveTapesLeftFileType", reflectiveTapesLeftFile.type.startsWith('image/') ? 'image' : 'pdf');
+            }
+            if (reflectiveTapesRightFile) {
+                sendData.append("ReflectiveTapesRightFile", reflectiveTapesRightFile);
+                sendData.append("ReflectiveTapesRightFileType", reflectiveTapesRightFile.type.startsWith('image/') ? 'image' : 'pdf');
+            }
+
+            // Signage Display Files
+            if (signageFrontFile) {
+                sendData.append("SignageFrontFile", signageFrontFile);
+                sendData.append("SignageFrontFileType", signageFrontFile.type.startsWith('image/') ? 'image' : 'pdf');
+            }
+            if (signageBackFile) {
+                sendData.append("SignageBackFile", signageBackFile);
+                sendData.append("SignageBackFileType", signageBackFile.type.startsWith('image/') ? 'image' : 'pdf');
+            }
+            if (signageLeftFile) {
+                sendData.append("SignageLeftFile", signageLeftFile);
+                sendData.append("SignageLeftFileType", signageLeftFile.type.startsWith('image/') ? 'image' : 'pdf');
+            }
+            if (signageRightFile) {
+                sendData.append("SignageRightFile", signageRightFile);
+                sendData.append("SignageRightFileType", signageRightFile.type.startsWith('image/') ? 'image' : 'pdf');
+            }
+
+            await axios.post(postVehicleBusBrandingVisualIdentity, sendData, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            setOpen(true);
+            setColor(true);
+            setStatus(true);
+            setMessage("Bus Branding & Visual Identity saved successfully");
+        } catch (error) {
+            setMessage("An error occurred while saving Bus Branding & Visual Identity.");
+            setOpen(true);
+            setColor(false);
+            setStatus(false);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Generate Vehicle ID
+    const handleGenerateVehicleId = () => {
+        setMessage("Vehicle ID Generated Successfully!");
+        setOpen(true);
+        setColor(true);
+        setStatus(true);
+    };
+
+    // Reset All
+    const handleResetAll = () => {
+        handleFCDetailsClear();
+        handlePermitDetailClear();
+        handlePUCDetailClear();
+        handleRoadTaxClear();
+        handleCCTVCameraClear();
+        handleBusBrandingClear();
+        setMessage("All fields have been reset");
+        setOpen(true);
+        setColor(true);
+        setStatus(true);
+    };
+
     return (
-        <Box sx={{ backgroundColor: "#FAFAFA", minHeight: "100vh" }}>
-            {/* Header */}
-            <Box sx={{
-                backgroundColor: "#fff",
-                px: 2,
-                py: 1.5,
-                borderBottom: "1px solid #eee",
-                display: "flex",
-                alignItems: "center"
-            }}>
-                <IconButton onClick={() => navigate(-1)} sx={{ mr: 1, p: 0.5 }}>
-                    <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
-                </IconButton>
-                <Typography fontWeight={600} fontSize="15px">
-                    Vehicle Safety & Compliance Installation detail
-                </Typography>
-            </Box>
+        <Box sx={{ backgroundColor: "#FAFAFA" }}>
+            <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
 
             <Box sx={{ p: 2 }}>
                 {/* ==================== FC Details Section ==================== */}
@@ -441,7 +1233,7 @@ export default function VehicleSafetyCompliancePage() {
                         </Grid>
                     </Grid>
 
-                    <ActionButtons onClear={() => { }} onSave={() => { }} />
+                    <ActionButtons onClear={handleFCDetailsClear} onSave={handleFCDetailsSubmit} />
                 </ExpandableSection>
 
                 {/* ==================== Permit Detail Section ==================== */}
@@ -499,7 +1291,7 @@ export default function VehicleSafetyCompliancePage() {
                         </Grid>
                     </Grid>
 
-                    <ActionButtons onClear={() => { }} onSave={() => { }} />
+                    <ActionButtons onClear={handlePermitDetailClear} onSave={handlePermitDetailSubmit} />
                 </ExpandableSection>
 
                 {/* ==================== Pollution Under Control (PUC) Detail Section ==================== */}
@@ -527,7 +1319,7 @@ export default function VehicleSafetyCompliancePage() {
                         </Grid>
                     </Grid>
 
-                    <ActionButtons onClear={() => { }} onSave={() => { }} />
+                    <ActionButtons onClear={handlePUCDetailClear} onSave={handlePUCDetailSubmit} />
                 </ExpandableSection>
 
                 {/* ==================== State Road Transport Tax Section ==================== */}
@@ -560,7 +1352,7 @@ export default function VehicleSafetyCompliancePage() {
                         </Grid>
                     </Grid>
 
-                    <ActionButtons onClear={() => { }} onSave={() => { }} />
+                    <ActionButtons onClear={handleRoadTaxClear} onSave={handleRoadTaxSubmit} />
                 </ExpandableSection>
 
                 {/* ==================== CCTV Camera Installation Detail Section ==================== */}
@@ -979,6 +1771,11 @@ export default function VehicleSafetyCompliancePage() {
                                     label="Bus photographs (Front Side)"
                                     value={schoolNameFrontSide}
                                     onChange={(e) => setSchoolNameFrontSide(e.target.value)}
+                                    file={schoolNameFrontFile}
+                                    preview={schoolNameFrontPreview}
+                                    onFileChange={(e) => handleFileChange(e, setSchoolNameFrontFile, setSchoolNameFrontPreview)}
+                                    onDrop={(e) => handleFileDrop(e, setSchoolNameFrontFile, setSchoolNameFrontPreview)}
+                                    inputRef={schoolNameFrontRef}
                                 />
                             </Grid>
                             <Grid size={{ xs: 6, sm: 3 }}>
@@ -987,6 +1784,11 @@ export default function VehicleSafetyCompliancePage() {
                                     label="Bus photographs (Back Side)"
                                     value={schoolNameBackSide}
                                     onChange={(e) => setSchoolNameBackSide(e.target.value)}
+                                    file={schoolNameBackFile}
+                                    preview={schoolNameBackPreview}
+                                    onFileChange={(e) => handleFileChange(e, setSchoolNameBackFile, setSchoolNameBackPreview)}
+                                    onDrop={(e) => handleFileDrop(e, setSchoolNameBackFile, setSchoolNameBackPreview)}
+                                    inputRef={schoolNameBackRef}
                                 />
                             </Grid>
                             <Grid size={{ xs: 6, sm: 3 }}>
@@ -995,6 +1797,11 @@ export default function VehicleSafetyCompliancePage() {
                                     label="Bus photographs (Left side)"
                                     value={schoolNameLeftSide}
                                     onChange={(e) => setSchoolNameLeftSide(e.target.value)}
+                                    file={schoolNameLeftFile}
+                                    preview={schoolNameLeftPreview}
+                                    onFileChange={(e) => handleFileChange(e, setSchoolNameLeftFile, setSchoolNameLeftPreview)}
+                                    onDrop={(e) => handleFileDrop(e, setSchoolNameLeftFile, setSchoolNameLeftPreview)}
+                                    inputRef={schoolNameLeftRef}
                                 />
                             </Grid>
                             <Grid size={{ xs: 6, sm: 3 }}>
@@ -1003,6 +1810,11 @@ export default function VehicleSafetyCompliancePage() {
                                     label="Bus photographs (Right side)"
                                     value={schoolNameRightSide}
                                     onChange={(e) => setSchoolNameRightSide(e.target.value)}
+                                    file={schoolNameRightFile}
+                                    preview={schoolNameRightPreview}
+                                    onFileChange={(e) => handleFileChange(e, setSchoolNameRightFile, setSchoolNameRightPreview)}
+                                    onDrop={(e) => handleFileDrop(e, setSchoolNameRightFile, setSchoolNameRightPreview)}
+                                    inputRef={schoolNameRightRef}
                                 />
                             </Grid>
                         </Grid>
@@ -1018,6 +1830,11 @@ export default function VehicleSafetyCompliancePage() {
                                     label="Bus photographs (Front Side)"
                                     value={internalNameFrontSide}
                                     onChange={(e) => setInternalNameFrontSide(e.target.value)}
+                                    file={internalNameFrontFile}
+                                    preview={internalNameFrontPreview}
+                                    onFileChange={(e) => handleFileChange(e, setInternalNameFrontFile, setInternalNameFrontPreview)}
+                                    onDrop={(e) => handleFileDrop(e, setInternalNameFrontFile, setInternalNameFrontPreview)}
+                                    inputRef={internalNameFrontRef}
                                 />
                             </Grid>
                             <Grid size={{ xs: 6, sm: 3 }}>
@@ -1026,6 +1843,11 @@ export default function VehicleSafetyCompliancePage() {
                                     label="Bus photographs (Back Side)"
                                     value={internalNameBackSide}
                                     onChange={(e) => setInternalNameBackSide(e.target.value)}
+                                    file={internalNameBackFile}
+                                    preview={internalNameBackPreview}
+                                    onFileChange={(e) => handleFileChange(e, setInternalNameBackFile, setInternalNameBackPreview)}
+                                    onDrop={(e) => handleFileDrop(e, setInternalNameBackFile, setInternalNameBackPreview)}
+                                    inputRef={internalNameBackRef}
                                 />
                             </Grid>
                             <Grid size={{ xs: 6, sm: 3 }}>
@@ -1034,6 +1856,11 @@ export default function VehicleSafetyCompliancePage() {
                                     label="Bus photographs (Left side)"
                                     value={internalNameLeftSide}
                                     onChange={(e) => setInternalNameLeftSide(e.target.value)}
+                                    file={internalNameLeftFile}
+                                    preview={internalNameLeftPreview}
+                                    onFileChange={(e) => handleFileChange(e, setInternalNameLeftFile, setInternalNameLeftPreview)}
+                                    onDrop={(e) => handleFileDrop(e, setInternalNameLeftFile, setInternalNameLeftPreview)}
+                                    inputRef={internalNameLeftRef}
                                 />
                             </Grid>
                             <Grid size={{ xs: 6, sm: 3 }}>
@@ -1042,6 +1869,11 @@ export default function VehicleSafetyCompliancePage() {
                                     label="Bus photographs (Right side)"
                                     value={internalNameRightSide}
                                     onChange={(e) => setInternalNameRightSide(e.target.value)}
+                                    file={internalNameRightFile}
+                                    preview={internalNameRightPreview}
+                                    onFileChange={(e) => handleFileChange(e, setInternalNameRightFile, setInternalNameRightPreview)}
+                                    onDrop={(e) => handleFileDrop(e, setInternalNameRightFile, setInternalNameRightPreview)}
+                                    inputRef={internalNameRightRef}
                                 />
                             </Grid>
                         </Grid>
@@ -1057,6 +1889,11 @@ export default function VehicleSafetyCompliancePage() {
                                     label="Bus photographs (Front Side)"
                                     value={reflectiveTapesFrontSide}
                                     onChange={(e) => setReflectiveTapesFrontSide(e.target.value)}
+                                    file={reflectiveTapesFrontFile}
+                                    preview={reflectiveTapesFrontPreview}
+                                    onFileChange={(e) => handleFileChange(e, setReflectiveTapesFrontFile, setReflectiveTapesFrontPreview)}
+                                    onDrop={(e) => handleFileDrop(e, setReflectiveTapesFrontFile, setReflectiveTapesFrontPreview)}
+                                    inputRef={reflectiveTapesFrontRef}
                                 />
                             </Grid>
                             <Grid size={{ xs: 6, sm: 3 }}>
@@ -1065,6 +1902,11 @@ export default function VehicleSafetyCompliancePage() {
                                     label="Bus photographs (Back Side)"
                                     value={reflectiveTapesBackSide}
                                     onChange={(e) => setReflectiveTapesBackSide(e.target.value)}
+                                    file={reflectiveTapesBackFile}
+                                    preview={reflectiveTapesBackPreview}
+                                    onFileChange={(e) => handleFileChange(e, setReflectiveTapesBackFile, setReflectiveTapesBackPreview)}
+                                    onDrop={(e) => handleFileDrop(e, setReflectiveTapesBackFile, setReflectiveTapesBackPreview)}
+                                    inputRef={reflectiveTapesBackRef}
                                 />
                             </Grid>
                             <Grid size={{ xs: 6, sm: 3 }}>
@@ -1073,6 +1915,11 @@ export default function VehicleSafetyCompliancePage() {
                                     label="Bus photographs (Left side)"
                                     value={reflectiveTapesLeftSide}
                                     onChange={(e) => setReflectiveTapesLeftSide(e.target.value)}
+                                    file={reflectiveTapesLeftFile}
+                                    preview={reflectiveTapesLeftPreview}
+                                    onFileChange={(e) => handleFileChange(e, setReflectiveTapesLeftFile, setReflectiveTapesLeftPreview)}
+                                    onDrop={(e) => handleFileDrop(e, setReflectiveTapesLeftFile, setReflectiveTapesLeftPreview)}
+                                    inputRef={reflectiveTapesLeftRef}
                                 />
                             </Grid>
                             <Grid size={{ xs: 6, sm: 3 }}>
@@ -1081,6 +1928,11 @@ export default function VehicleSafetyCompliancePage() {
                                     label="Bus photographs (Right side)"
                                     value={reflectiveTapesRightSide}
                                     onChange={(e) => setReflectiveTapesRightSide(e.target.value)}
+                                    file={reflectiveTapesRightFile}
+                                    preview={reflectiveTapesRightPreview}
+                                    onFileChange={(e) => handleFileChange(e, setReflectiveTapesRightFile, setReflectiveTapesRightPreview)}
+                                    onDrop={(e) => handleFileDrop(e, setReflectiveTapesRightFile, setReflectiveTapesRightPreview)}
+                                    inputRef={reflectiveTapesRightRef}
                                 />
                             </Grid>
                         </Grid>
@@ -1096,6 +1948,11 @@ export default function VehicleSafetyCompliancePage() {
                                     label="Bus photographs (Front Side)"
                                     value={signageFrontSide}
                                     onChange={(e) => setSignageFrontSide(e.target.value)}
+                                    file={signageFrontFile}
+                                    preview={signageFrontPreview}
+                                    onFileChange={(e) => handleFileChange(e, setSignageFrontFile, setSignageFrontPreview)}
+                                    onDrop={(e) => handleFileDrop(e, setSignageFrontFile, setSignageFrontPreview)}
+                                    inputRef={signageFrontRef}
                                 />
                             </Grid>
                             <Grid size={{ xs: 6, sm: 3 }}>
@@ -1104,6 +1961,11 @@ export default function VehicleSafetyCompliancePage() {
                                     label="Bus photographs (Back Side)"
                                     value={signageBackSide}
                                     onChange={(e) => setSignageBackSide(e.target.value)}
+                                    file={signageBackFile}
+                                    preview={signageBackPreview}
+                                    onFileChange={(e) => handleFileChange(e, setSignageBackFile, setSignageBackPreview)}
+                                    onDrop={(e) => handleFileDrop(e, setSignageBackFile, setSignageBackPreview)}
+                                    inputRef={signageBackRef}
                                 />
                             </Grid>
                             <Grid size={{ xs: 6, sm: 3 }}>
@@ -1112,6 +1974,11 @@ export default function VehicleSafetyCompliancePage() {
                                     label="Bus photographs (Left side)"
                                     value={signageLeftSide}
                                     onChange={(e) => setSignageLeftSide(e.target.value)}
+                                    file={signageLeftFile}
+                                    preview={signageLeftPreview}
+                                    onFileChange={(e) => handleFileChange(e, setSignageLeftFile, setSignageLeftPreview)}
+                                    onDrop={(e) => handleFileDrop(e, setSignageLeftFile, setSignageLeftPreview)}
+                                    inputRef={signageLeftRef}
                                 />
                             </Grid>
                             <Grid size={{ xs: 6, sm: 3 }}>
@@ -1120,43 +1987,17 @@ export default function VehicleSafetyCompliancePage() {
                                     label="Bus photographs (Right side)"
                                     value={signageRightSide}
                                     onChange={(e) => setSignageRightSide(e.target.value)}
+                                    file={signageRightFile}
+                                    preview={signageRightPreview}
+                                    onFileChange={(e) => handleFileChange(e, setSignageRightFile, setSignageRightPreview)}
+                                    onDrop={(e) => handleFileDrop(e, setSignageRightFile, setSignageRightPreview)}
+                                    inputRef={signageRightRef}
                                 />
                             </Grid>
                         </Grid>
                     </Box>
                 </ExpandableSection>
 
-                {/* ==================== Bottom Action Buttons ==================== */}
-                <Box sx={{ display: "flex", justifyContent: "center", gap: 2, mt: 3, mb: 2 }}>
-                    <Button
-                        variant="outlined"
-                        sx={{
-                            borderRadius: "20px",
-                            px: 4,
-                            textTransform: "none",
-                            borderColor: "#333",
-                            color: "#333",
-                            fontSize: "13px"
-                        }}
-                    >
-                        Reset All
-                    </Button>
-                    <Button
-                        variant="contained"
-                        sx={{
-                            backgroundColor: "#FBBF24",
-                            color: "#000",
-                            textTransform: "none",
-                            fontWeight: 600,
-                            borderRadius: "20px",
-                            px: 4,
-                            fontSize: "13px",
-                            "&:hover": { backgroundColor: "#F59E0B" }
-                        }}
-                    >
-                        Generate Vehicle ID
-                    </Button>
-                </Box>
 
             </Box>
         </Box>

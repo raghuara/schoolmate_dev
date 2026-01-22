@@ -26,7 +26,7 @@ export default function TrasnportAssetPage() {
     { color: "#A749CC", icon: SettingsIcon, text: "Vehicle Details", bgColor: "#FBF9FC", iconBgColor: "#F7F0F9", path: 'details', },
     { color: "#ED9146", icon: AirlineStopsIcon, text: "Route Management", bgColor: "#FCFBF9", iconBgColor: "#FBF4EF", path: 'route', },
     { color: "#7DC353", icon: AccountTreeIcon, text: "Student Mapping", bgColor: "#F9FBF7", iconBgColor: "#F2F8EE", path: 'student-map' },
-    { color: "#E10052", icon: AccountTreeIcon, text: "Vehicle Safety & Compliance", bgColor: "#FCF8F9", iconBgColor: "#FBEBF1", path: 'safety-compliance', },
+    // { color: "#E10052", icon: AccountTreeIcon, text: "Vehicle Safety & Compliance", bgColor: "#FCF8F9", iconBgColor: "#FBEBF1", path: 'safety-compliance', },
   ];
 
   if (userType !== "superadmin" && userType !== "admin" && userType !== "staff") {

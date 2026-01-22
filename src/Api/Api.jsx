@@ -262,7 +262,6 @@ const updateVehicleDetails = `${vehicle}updateVehicleDetails`;
 const getVehicleDetailById = `${vehicle}getVehicleDetailById`;
 const deleteVehicleById = `${vehicle}deleteVehicleById`;
 
-
 const transportManagement = `${baseApiurl}transportManagement/`;
 const generateVehicleAssetId = `${transportManagement}generateVehicleAssetId`;
 const postVehicleAcquisitionDetail = `${transportManagement}postVehicleAcquisitionDetail`;
@@ -273,6 +272,30 @@ const postVehicleWarrantyServiceClaim = `${transportManagement}postVehicleWarran
 const postVehicleDocuments = `${transportManagement}postVehicleDocuments`;
 const findVehicleManagementDetails = `${transportManagement}findVehicleManagementDetails`;
 const getAllVehicles = `${transportManagement}getAllVehicles`;
+
+const updateVehicleAcquisitionDetail = `${transportManagement}updateVehicleAcquisitionDetail`;
+const updateVehicleSpecification = `${transportManagement}updateVehicleSpecification`;
+const updateVehicleRegistrationOwnership = `${transportManagement}updateVehicleRegistrationOwnership`;
+const updateVehicleInsuranceCompliance = `${transportManagement}updateVehicleInsuranceCompliance`;
+const updateVehicleWarrantyServiceClaim = `${transportManagement}updateVehicleWarrantyServiceClaim`;
+const updateVehicleDocuments = `${transportManagement}updateVehicleDocuments`;
+
+
+
+// Vehicle Safety & Compliance APIs
+const postVehicleFCDetail = `${transportManagement}postVehicleFCDetail`;
+const updateVehicleFCDetail = `${transportManagement}updateVehicleFCDetail`;
+const postVehiclePermitDetail = `${transportManagement}postVehiclePermitDetail`;
+const updateVehiclePermitDetail = `${transportManagement}updateVehiclePermitDetail`;
+const postVehiclePUCDetail = `${transportManagement}postVehiclePUCDetail`;
+const updateVehiclePUCDetail = `${transportManagement}updateVehiclePUCDetail`;
+const postVehicleRoadTransportTax = `${transportManagement}postVehicleRoadTransportTax`;
+const updateVehicleRoadTransportTax = `${transportManagement}updateVehicleRoadTransportTax`;
+const postVehicleCctvCameraInstallation = `${transportManagement}postVehicleCctvCameraInstallation`;
+const updateVehicleCctvCameraInstallation = `${transportManagement}updateVehicleCctvCameraInstallation`;
+const postVehicleBusBrandingVisualIdentity = `${transportManagement}postVehicleBusBrandingVisualIdentity`;
+const updateVehicleBusBrandingVisualIdentity = `${transportManagement}updateVehicleBusBrandingVisualIdentity`;
+const findVehicleSafetyComplianceDetails = `${transportManagement}findVehicleSafetyComplianceDetails`;
 
 // Access control
 const GetUsersBaseDetails = `${baseApiurl}Dashboard/GetUsersBaseDetails`;
@@ -487,5 +510,24 @@ export {
     postVehicleDocuments,
     findVehicleManagementDetails,
     getAllVehicles,
+    postVehicleFCDetail,
+    updateVehicleFCDetail,
+    postVehiclePermitDetail,
+    updateVehiclePermitDetail,
+    postVehiclePUCDetail,
+    updateVehiclePUCDetail,
+    postVehicleRoadTransportTax,
+    updateVehicleRoadTransportTax,
+    postVehicleCctvCameraInstallation,
+    updateVehicleCctvCameraInstallation,
+    postVehicleBusBrandingVisualIdentity,
+    updateVehicleBusBrandingVisualIdentity,
+    findVehicleSafetyComplianceDetails,
+    updateVehicleAcquisitionDetail,
+    updateVehicleSpecification,
+    updateVehicleRegistrationOwnership,
+    updateVehicleInsuranceCompliance,
+    updateVehicleWarrantyServiceClaim,
+    updateVehicleDocuments,
 
 }

@@ -134,6 +134,8 @@ import EcaFeeApprovalPage from "./Components/Approvals/ApprovalPages/FeeApproval
 import AdditionalFeeManage from "./Components/StudentComps/FeeFinanceComps/AdditionalFeeComps/AdditionalFeeManage";
 import VehicleCreationPage from "./Components/AssetsComps/TransportAssetComps/VehicleDetailsComps/VehicleCreationPage";
 import VehicleSafetyCompliancePage from "./Components/AssetsComps/TransportAssetComps/VehicleDetailsComps/VehicleSafetyCompliancePage";
+import QuestionPaperGeneratorPage from "./Components/QuestionPaperGenerator/QuestionPaperGeneratorPage";
+import VehicleManagementPage from "./Components/AssetsComps/TransportAssetComps/VehicleDetailsComps/VehicleManagePage";
 
 
 export default function RouterPage() {
@@ -156,7 +158,7 @@ export default function RouterPage() {
             <Route path="forgot-password" element={<ForgotPasswordPage />} />
             <Route path="dashboardmenu" element={<DashBoardLayout />}>
                 <Route path="soon" element={<SoonPage />} />
-                
+
                 {/*Main Pages */}
                 <Route path="dashboard" element={<DashBoardPage />} />
                 <Route path="transport" element={<TransportPage />} />
@@ -288,13 +290,13 @@ export default function RouterPage() {
                 <Route path="asset/transport" element={<TrasnportAssetPage />} />
 
                 <Route path="asset/transport/details" element={<VehicleDetailsPage />} />
-                <Route path="asset/transport/details/add" element={<VehicleCreationPage />} />
+                <Route path="asset/transport/details/add" element={<VehicleManagementPage />} />
                 <Route path="asset/transport/details/edit" element={<EditVehicleDetails />} />
                 <Route path="asset/transport/details/view" element={<ViewVehicleDetails />} />
                 <Route path="asset/transport/route" element={<RouteManagement />} />
-                <Route path="asset/transport/safety-compliance" element={<VehicleSafetyCompliancePage />} />
+                {/* <Route path="asset/transport/safety-compliance" element={<VehicleSafetyCompliancePage />} /> */}
 
-                
+
 
                 {/* --------------------------------------------------------------------------------------------------- */}
 
@@ -357,7 +359,7 @@ export default function RouterPage() {
 
                 {/* Access Control */}
                 <Route path="access" element={<AccessControlPage />} />
-                
+
                 <Route path="access/users" element={<UsersPage />} />
                 <Route path="access/useractivity" element={<UserActivityPage />} />
                 <Route path="access/password" element={<PasswordManagementPage />} />
@@ -368,7 +370,8 @@ export default function RouterPage() {
                 <Route path="access/subject/create" element={<SubjectCreatePage />} />
 
                 {/* --------------------------------------------------------------------------------------------------- */}
-
+                {/* Question Paper Generator */}
+                <Route path="dashboard/question" element={<QuestionPaperGeneratorPage />} />
             </Route>
         </Routes>
     );
