@@ -271,6 +271,7 @@ const postVehicleInsuranceCompliance = `${transportManagement}postVehicleInsuran
 const postVehicleWarrantyServiceClaim = `${transportManagement}postVehicleWarrantyServiceClaim`;
 const postVehicleDocuments = `${transportManagement}postVehicleDocuments`;
 const findVehicleManagementDetails = `${transportManagement}findVehicleManagementDetails`;
+const findVehicleSafetyComplianceInstallationDetail = `${transportManagement}findVehicleSafetyComplianceInstallationDetail`;
 const getAllVehicles = `${transportManagement}getAllVehicles`;
 
 const updateVehicleAcquisitionDetail = `${transportManagement}updateVehicleAcquisitionDetail`;
@@ -529,5 +530,6 @@ export {
     updateVehicleInsuranceCompliance,
     updateVehicleWarrantyServiceClaim,
     updateVehicleDocuments,
+    findVehicleSafetyComplianceInstallationDetail
 
 }

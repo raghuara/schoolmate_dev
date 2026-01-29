@@ -136,6 +136,8 @@ import VehicleCreationPage from "./Components/AssetsComps/TransportAssetComps/Ve
 import VehicleSafetyCompliancePage from "./Components/AssetsComps/TransportAssetComps/VehicleDetailsComps/VehicleSafetyCompliancePage";
 import QuestionPaperGeneratorPage from "./Components/QuestionPaperGenerator/QuestionPaperGeneratorPage";
 import VehicleManagementPage from "./Components/AssetsComps/TransportAssetComps/VehicleDetailsComps/VehicleManagePage";
+import StudentMapping from "./Components/AssetsComps/TransportAssetComps/StudentMappingComps/StudentMapping";
+import FinanceDashboard from "./Components/StudentComps/FeeFinanceComps/FinanceDashboardComps/FinanceDashboard";
 
 
 export default function RouterPage() {
@@ -258,6 +260,7 @@ export default function RouterPage() {
 
                 <Route path="fee/pay-fees" element={<PayStudentFeePage />} />
                 <Route path="fee/billing" element={<BillingScreen />} />
+                <Route path="fee/dashboard" element={<FinanceDashboard />} />
                 <Route path="fee/special" element={<SpecialConcession />} />
 
                 <Route path="fee/report" element={<FeesReportPage />} />
@@ -294,6 +297,7 @@ export default function RouterPage() {
                 <Route path="asset/transport/details/edit" element={<EditVehicleDetails />} />
                 <Route path="asset/transport/details/view" element={<ViewVehicleDetails />} />
                 <Route path="asset/transport/route" element={<RouteManagement />} />
+                <Route path="asset/transport/student-map" element={<StudentMapping />} />
                 {/* <Route path="asset/transport/safety-compliance" element={<VehicleSafetyCompliancePage />} /> */}
 
 

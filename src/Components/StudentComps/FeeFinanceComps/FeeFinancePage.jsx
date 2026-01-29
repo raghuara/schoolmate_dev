@@ -14,6 +14,7 @@ import SportsBasketballIcon from "@mui/icons-material/SportsBasketball";
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import SportsSoccerIcon from '@mui/icons-material/SportsSoccer';
 import AddBoxIcon from '@mui/icons-material/AddBox';
+import DashboardIcon from '@mui/icons-material/Dashboard';
 
 const items = [
     {
@@ -23,6 +24,15 @@ const items = [
         bgColor: "#FCF8F9",
         iconBgColor: "#fbebf1",
         path: "pay-fees",
+        disabled: false,
+    },
+    {
+        color: "#FF6B35",
+        icon: DashboardIcon,
+        text: "Finance Dashboard",
+        bgColor: "#FFF5F2",
+        iconBgColor: "#FF6B351A",
+        path: "dashboard",
         disabled: false,
     },
     {

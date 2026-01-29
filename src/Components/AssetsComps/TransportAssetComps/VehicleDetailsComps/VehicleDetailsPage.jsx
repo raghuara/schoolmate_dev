@@ -12,7 +12,7 @@ import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
 import DirectionsBusIcon from '@mui/icons-material/DirectionsBus';
 import BusImage from "../../../../Images/PagesImage/bus.png"
-import { getAllVehicleDetails } from '../../../../Api/Api';
+import { getAllVehicleDetails, getAllVehicles } from '../../../../Api/Api';
 import axios from 'axios';
 
 export default function VehicleDetailsPage() {
@@ -47,12 +47,12 @@ export default function VehicleDetailsPage() {
     const getUsers = async () => {
         setIsLoading(true);
         try {
-            const res = await axios.get(getAllVehicleDetails, {
+            const res = await axios.get(getAllVehicles, {
                 headers: {
                     Authorization: `Bearer ${token}`,
                 },
             });
-            setVehicleDetails(res.data?.data || []);
+            setVehicleDetails(res.data?.vehicles || []);
         } catch (error) {
             console.error("Error while inserting news data:", error);
         } finally {
@@ -62,11 +62,12 @@ export default function VehicleDetailsPage() {
 
     const filteredVehicleDetails = vehicleDetails.filter((vehicle) => {
         if (!searchQuery.trim()) return true;
-    
+
         const query = searchQuery.toLowerCase();
-    
+
         return (
-            vehicle.busInternalName?.toLowerCase().includes(query) ||
+            vehicle.vehicleAssetID?.toLowerCase().includes(query) ||
+            vehicle.vehicleBrand?.toLowerCase().includes(query) ||
             vehicle.registrationNumber?.toLowerCase().includes(query)
         );
     });
@@ -142,20 +143,20 @@ export default function VehicleDetailsPage() {
             <Box sx={{ p: 2, height: "80vh", overflowY: "auto" }}>
                 <Grid container spacing={4}>
                    {filteredVehicleDetails.map((vehicle) => (
-                        <Grid key={vehicle.id} size={{ xs: 12, sm: 12, md: 6, lg: 4 }}>
+                        <Grid key={vehicle.vehicleAssetID} size={{ xs: 12, sm: 12, md: 6, lg: 4 }}>
                             <Box sx={{ backgroundColor: "#8600BB", borderTopLeftRadius: "10px", borderTopRightRadius: "10px", color: "#fff", pl: 1.5, py: 0.5 }}>
-                                Bus Internal Name : {vehicle.busInternalName}
+                                {vehicle.vehicleAssetType || "Vehicle"} : {vehicle.vehicleAssetID}
                             </Box>
                             <Grid container spacing={4} sx={{ p: 2, border: "1px solid #D98AA6", backgroundColor: "rgba(255, 0, 4, 0.03)" }}>
                                 <Grid size={{ xs: 7, sm: 7, md: 7, lg: 7 }}>
 
                                     <Typography sx={{ fontSize: "16px", color: "#B0B0B0", mt: 1 }}>Registration number </Typography>
-                                    <Typography sx={{ fontSize: "14px", color: "#555", fontWeight: "600", display: "flex", alignItems: "center" }}><DirectionsBusIcon />  &nbsp;{vehicle.registrationNumber} </Typography>
+                                    <Typography sx={{ fontSize: "14px", color: "#555", fontWeight: "600", display: "flex", alignItems: "center" }}><DirectionsBusIcon />  &nbsp;{vehicle.registrationNumber || "-"} </Typography>
 
-                                    <Typography sx={{ fontSize: "14px", color: "#B0B0B0", mt: 1 }}>Seat capacity </Typography>
-                                    <Typography sx={{ fontSize: "14px", color: "#555", fontWeight: "600", display: "flex", alignItems: "center" }}><DirectionsBusIcon /> &nbsp;{vehicle.totalSeatsCount}+1 (Driver)</Typography>
+                                    <Typography sx={{ fontSize: "14px", color: "#B0B0B0", mt: 1 }}>Mode of Acquisition </Typography>
+                                    <Typography sx={{ fontSize: "14px", color: "#555", fontWeight: "600", display: "flex", alignItems: "center" }}><DirectionsBusIcon /> &nbsp;{vehicle.modeOfAcquisition || "-"}</Typography>
 
-                                    <Typography sx={{ fontSize: "14px", color: "#B0B0B0", mt: 1 }}>Bus Modal & Make Year </Typography>
+                                    <Typography sx={{ fontSize: "14px", color: "#B0B0B0", mt: 1 }}>Vehicle Brand </Typography>
                                     <Typography
                                         sx={{
                                             fontSize: "14px",
@@ -167,10 +168,7 @@ export default function VehicleDetailsPage() {
                                     >
                                         <DirectionsBusIcon />
                                         &nbsp;
-                                        {vehicle.vehicleBrand || vehicle.manufacturingYear
-                                            ? `${vehicle.vehicleBrand || ""}${vehicle.vehicleBrand && vehicle.manufacturingYear ? " - " : ""}${vehicle.manufacturingYear || ""}`
-                                            : "-"
-                                        }
+                                        {vehicle.vehicleBrand || "-"}
                                     </Typography>
 
 
@@ -183,7 +181,7 @@ export default function VehicleDetailsPage() {
                                 </Grid>
                                 <Grid size={{ xs: 12, sm: 12, md: 12, lg: 12 }} sx={{ marginTop: "-10px" }}>
                                     <Button
-                                    onClick={() => handleViewEditClick(vehicle.id)}
+                                    onClick={() => handleViewEditClick(vehicle.vehicleAssetID)}
                                         sx={{ width: "100%", border: "1px solid #00963C", color: "#00963C", textTransform: "none", borderRadius: "999px" }}
                                     >
                                         View details / Edit

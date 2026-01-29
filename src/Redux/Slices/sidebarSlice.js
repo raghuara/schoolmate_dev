@@ -18,4 +18,5 @@ const sidebarSlice = createSlice({
 });
 
 export const { toggleSidebar, setSidebar } = sidebarSlice.actions;
+export const selectSidebarExpanded = (state) => state.sidebar.isExpanded;
 export default sidebarSlice.reducer;

@@ -63,10 +63,6 @@ const dummyFeeData = [
   { id: 5, feeName: "Laboratory Fee", amount: 2500, status: "Unpaid", paidAmount: 0, pendingAmount: 2500, dueDate: "20/11/2025" },
 ];
 
-const transactionHistory = [
-  { billNumber: "MS/25/FRE/002360", billDate: "27-11-2025", time: "3:00 pm", feeName: "Admission Fee", paymentMode: "Cash", amount: 5000 },
-  { billNumber: "MS/25/FRE/002361", billDate: "28-11-2025", time: "11:30 am", feeName: "Tuition Fee", paymentMode: "UPI", amount: 6000 },
-];
 
 const dummyData1 = [
   {
@@ -121,6 +117,7 @@ export default function BillingScreen() {
   const [selectedRows, setSelectedRows] = useState([]);
   const [openPreview, setOpenPreview] = useState(false);
   const [selectedFee, setSelectedFee] = useState(null);
+  const [toPayAmounts, setToPayAmounts] = useState({});
 
   const currentYear = new Date().getFullYear();
   const currentAcademicYear = `${currentYear}-${currentYear + 1}`;
@@ -149,6 +146,7 @@ export default function BillingScreen() {
   const location = useLocation();
   const { rollNumber } = location.state || {};
   const [details, setDetails] = useState([]);
+  const [schoolFee, setSchoolFee] = useState([]);
   const [feeData, setFeeData] = useState(dummyFeeData);
 
   const [paymentStep, setPaymentStep] = useState(0);
@@ -191,8 +189,56 @@ export default function BillingScreen() {
     { id: 'card', name: 'Card Payment', icon: <CreditCardIcon />, description: 'Credit / Debit Card', color: '#ef4444' },
   ];
 
+
+  useEffect(() => {
+    if (schoolFee && schoolFee.length > 0) {
+      const initialAmounts = {};
+      schoolFee.forEach((fee, index) => {
+        initialAmounts[index] = fee.pendingAmount;
+      });
+      setToPayAmounts(initialAmounts);
+    }
+  }, [schoolFee]);
+
+  
+  const handleToPayChange = (index, value) => {
+    const numValue = parseFloat(value) || 0;
+    const pendingAmount = schoolFee[index].pendingAmount;
+
+    // Prevent amount higher than pending amount
+    if (numValue > pendingAmount) {
+      setMessage(`Amount cannot exceed pending amount of ₹${pendingAmount}`);
+      setStatus(false);
+      setColor(false);
+      setOpen(true);
+      return;
+    }
+
+    // Prevent negative amounts
+    if (numValue < 0) {
+      return;
+    }
+
+    setToPayAmounts(prev => ({
+      ...prev,
+      [index]: numValue
+    }));
+  };
+
   const handleOpenPaymentPopup = () => {
-    const totalSelected = selectedRows.reduce((sum, idx) => sum + feeData[idx].pendingAmount, 0);
+    // Calculate total based on selected rows and their toPay amounts
+    const totalSelected = selectedRows.reduce((sum, idx) => {
+      return sum + (toPayAmounts[idx] || 0);
+    }, 0);
+
+    if (totalSelected === 0) {
+      setMessage('Please enter an amount to pay');
+      setStatus(false);
+      setColor(false);
+      setOpen(true);
+      return;
+    }
+
     setPaymentFormData(prev => ({ ...prev, amount: totalSelected.toString() }));
     setOpenPaymentPopup(true);
     setPaymentStep(0);
@@ -245,13 +291,43 @@ export default function BillingScreen() {
     setTimeout(() => {
       setPaymentProcessing(false);
       setPaymentSuccess(true);
-      // Update fee data after successful payment
+      // Update fee data after successful payment based on toPay amounts
       setFeeData(prev => prev.map((fee, idx) => {
         if (selectedRows.includes(idx)) {
-          return { ...fee, status: 'Paid', paidAmount: fee.amount, pendingAmount: 0 };
+          const paymentAmount = toPayAmounts[idx] || 0;
+          const newPaidAmount = fee.paidAmount + paymentAmount;
+          const newPendingAmount = fee.pendingAmount - paymentAmount;
+
+          // Determine new status
+          let newStatus = 'Unpaid';
+          if (newPendingAmount === 0) {
+            newStatus = 'Paid';
+          } else if (newPaidAmount > 0) {
+            newStatus = 'Partially Paid';
+          }
+
+          return {
+            ...fee,
+            status: newStatus,
+            paidAmount: newPaidAmount,
+            pendingAmount: newPendingAmount >= 0 ? newPendingAmount : 0
+          };
         }
         return fee;
       }));
+
+      // Reset toPay amounts for paid rows to new pending amounts
+      setToPayAmounts(prev => {
+        const updated = { ...prev };
+        selectedRows.forEach(idx => {
+          const fee = feeData[idx];
+          const paymentAmount = toPayAmounts[idx] || 0;
+          const newPendingAmount = fee.pendingAmount - paymentAmount;
+          updated[idx] = newPendingAmount >= 0 ? newPendingAmount : 0;
+        });
+        return updated;
+      });
+
       setSelectedRows([]);
     }, 2500);
   };
@@ -261,7 +337,8 @@ export default function BillingScreen() {
   };
 
   const getTotalPending = () => {
-    return selectedRows.reduce((sum, idx) => sum + feeData[idx].pendingAmount, 0);
+    // Calculate total based on selected rows and their toPay amounts
+    return selectedRows.reduce((sum, idx) => sum + (toPayAmounts[idx] || 0), 0);
   };
 
   const getTotalYearlyFees = () => {
@@ -341,14 +418,16 @@ export default function BillingScreen() {
           Authorization: `Bearer ${token}`,
         },
       });
-
-      setDetails(res.data.data)
+      const feeDetail = res.data.data
+      setDetails(feeDetail)
+      setSchoolFee(feeDetail.feesElements)
     } catch (error) {
       console.error("Error while inserting news data:", error);
     } finally {
       setIsLoading(false);
     }
   }
+
   return (
     <Box sx={{ width: "100%", }}>
       <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
@@ -678,6 +757,7 @@ export default function BillingScreen() {
                     "Payment Status",
                     "Paid Amount",
                     "Pending Amount",
+                    "To Pay",
                     "Due Date",
                     "Print",
                   ].map((header, index) => (
@@ -700,7 +780,7 @@ export default function BillingScreen() {
               </TableHead>
 
               <TableBody>
-                {dummyFeeData.map((row, rowIndex) => {
+                {schoolFee.map((row, rowIndex) => {
                   const isSelected = selectedRows.includes(rowIndex);
                   return (
                     <TableRow
@@ -756,7 +836,7 @@ export default function BillingScreen() {
                           textAlign: "center",
                         }}
                       >
-                        {row.feeName}
+                        {row.feeDetails}
                       </TableCell>
 
                       <TableCell
@@ -766,7 +846,7 @@ export default function BillingScreen() {
                           textAlign: "center",
                         }}
                       >
-                        ₹{row.amount}
+                        ₹{row.feeAmount}
                       </TableCell>
 
                       <TableCell
@@ -804,6 +884,52 @@ export default function BillingScreen() {
                         }}
                       >
                         ₹{row.pendingAmount}
+                      </TableCell>
+
+                      <TableCell
+                        sx={{
+                          borderRight: 1,
+                          borderColor: "#E601542A",
+                          textAlign: "center",
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <TextField
+                          size='small'
+                          type="number"
+                          value={toPayAmounts[rowIndex] || 0}
+                          onChange={(e) => handleToPayChange(rowIndex, e.target.value)}
+                          disabled={!isSelected || row.pendingAmount === 0}
+                          inputProps={{
+                            min: 0,
+                            max: row.pendingAmount,
+                            step: 1
+                          }}
+                          sx={{
+                            width: '120px',
+                            '& .MuiOutlinedInput-root': {
+                              '& fieldset': {
+                                borderColor: isSelected ? '#E60154' : '#ccc',
+                              },
+                              '&:hover fieldset': {
+                                borderColor: '#E60154',
+                              },
+                              '&.Mui-focused fieldset': {
+                                borderColor: '#E60154',
+                              },
+                              '&.Mui-disabled': {
+                                backgroundColor: '#f5f5f5',
+                              }
+                            },
+                            '& input': {
+                              textAlign: 'center',
+                              fontWeight: 600
+                            }
+                          }}
+                          InputProps={{
+                            startAdornment: <Typography sx={{ mr: 0.5 }}>₹</Typography>
+                          }}
+                        />
                       </TableCell>
 
                       <TableCell
@@ -1186,7 +1312,7 @@ export default function BillingScreen() {
                   pb: 4,
                   position: "relative",
                   overflow: "hidden",
-                  minHeight:"100px"
+                  minHeight: "100px"
                 }}
               >
                 {/* Decorative Elements */}
@@ -1194,7 +1320,7 @@ export default function BillingScreen() {
                 <Box sx={{ position: "absolute", bottom: -30, left: -30, width: 100, height: 100, borderRadius: "50%", background: websiteSettings.mainColor, opacity: 0.08 }} />
 
                 {/* Close Button */}
-                {!paymentProcessing && !paymentSuccess && ( 
+                {!paymentProcessing && !paymentSuccess && (
                   <IconButton
                     onClick={handleClosePaymentPopup}
                     sx={{
@@ -1222,7 +1348,7 @@ export default function BillingScreen() {
                     <Typography sx={{ fontSize: "0.9rem", color: websiteSettings.textColor, mb: 3 }}>
                       {paymentSuccess ? "Your transaction was successful" : "Pay your school fees securely"}
                     </Typography>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2, backgroundColor:"#fff", width:"fit-content", px:2, py:0.3, borderRadius:"999px" }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2, backgroundColor: "#fff", width: "fit-content", px: 2, py: 0.3, borderRadius: "999px" }}>
                       <LockIcon sx={{ fontSize: 16, color: "#10b981" }} />
                       <Typography sx={{ fontSize: "0.75rem", color: "#10b981", fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase" }}>
                         Secure Payment

@@ -21,7 +21,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import Loader from '../../../Loader'
 import SnackBar from '../../../SnackBar'
 import axios from 'axios'
-import { findVehicleManagementDetails, findVehicleSafetyComplianceDetails, deleteVehicleById } from '../../../../Api/Api'
+import { findVehicleManagementDetails, findVehicleSafetyComplianceDetails, deleteVehicleById, findVehicleSafetyComplianceInstallationDetail } from '../../../../Api/Api'
 import BusImage from "../../../../Images/PagesImage/bus.png"
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -279,8 +279,22 @@ export default function ViewVehicleDetails() {
     const [message, setMessage] = useState('')
 
     const { vehicleId } = location.state || {}
-    const [vehicleData, setVehicleData] = useState({});
-    const [safetyData, setSafetyData] = useState({});
+    const [vehicleData, setVehicleData] = useState({
+        acquisitionDetail: {},
+        specification: {},
+        registrationOwnership: {},
+        insuranceCompliance: {},
+        warrantyServiceClaim: {},
+        documents: {}
+    });
+    const [safetyData, setSafetyData] = useState({
+        fcDetail: {},
+        permitDetail: {},
+        pucDetail: {},
+        roadTransportTaxDetail: {},
+        cctvComplianceDetail: {},
+        brandingVisualIdentity: {}
+    });
     const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [tabValue, setTabValue] = useState(0);
@@ -307,7 +321,15 @@ export default function ViewVehicleDetails() {
                 params: { VehicleAssetID: vehicleId },
                 headers: { Authorization: `Bearer ${token}` },
             });
-            setVehicleData(res.data?.data || {});
+            const data = res.data || {};
+            setVehicleData({
+                acquisitionDetail: data.acquisitionDetail || {},
+                specification: data.specification || {},
+                registrationOwnership: data.registrationOwnership || {},
+                insuranceCompliance: data.insuranceCompliance || {},
+                warrantyServiceClaim: data.warrantyServiceClaim || {},
+                documents: data.documents || {}
+            });
         } catch (error) {
             console.error("Error fetching vehicle details:", error);
         } finally {
@@ -317,11 +339,19 @@ export default function ViewVehicleDetails() {
 
     const fetchSafetyComplianceDetails = async () => {
         try {
-            const res = await axios.get(findVehicleSafetyComplianceDetails, {
+            const res = await axios.get(findVehicleSafetyComplianceInstallationDetail, {
                 params: { VehicleAssetID: vehicleId },
                 headers: { Authorization: `Bearer ${token}` },
             });
-            setSafetyData(res.data?.data || {});
+            const data = res.data || {};
+            setSafetyData({
+                fcDetail: data.fcDetail || {},
+                permitDetail: data.permitDetail || {},
+                pucDetail: data.pucDetail || {},
+                roadTransportTaxDetail: data.roadTransportTaxDetail || {},
+                cctvComplianceDetail: data.cctvComplianceDetail || {},
+                brandingVisualIdentity: data.brandingVisualIdentity || {}
+            });
         } catch (error) {
             console.error("Error fetching safety compliance details:", error);
         }
@@ -376,7 +406,7 @@ export default function ViewVehicleDetails() {
                 right: 0,
                 backgroundColor: "#f2f2f2",
                 px: 2,
-                py:0.5,
+                py: 0.5,
                 borderBottom: "1px solid #ddd",
                 zIndex: 1200,
                 transition: "left 0.3s ease-in-out",
@@ -393,7 +423,7 @@ export default function ViewVehicleDetails() {
                         <ArrowBackIcon />
                     </IconButton>
                     <Typography sx={{ fontWeight: 600, fontSize: 20, }}>
-                        Vehicle Details
+                        View Vehicle Details
                     </Typography>
                 </Box>
 
@@ -403,7 +433,7 @@ export default function ViewVehicleDetails() {
                         variant="outlined"
                         startIcon={<DeleteIcon sx={{ fontSize: 18 }} />}
                         sx={{
-                            height:"28px",
+                            height: "28px",
                             textTransform: "none",
                             borderRadius: "8px",
                             px: 2.5,
@@ -426,7 +456,7 @@ export default function ViewVehicleDetails() {
                         variant="contained"
                         startIcon={<EditIcon sx={{ fontSize: 18 }} />}
                         sx={{
-                            height:"28px",
+                            height: "28px",
                             textTransform: "none",
                             borderRadius: "8px",
                             px: 2.5,
@@ -469,13 +499,13 @@ export default function ViewVehicleDetails() {
                                     }}
                                 >
                                     <img
-                                        src={vehicleData.busPhotoUrl || BusImage}
+                                        src={vehicleData.acquisitionDetail?.busPhotoFilePath || BusImage}
                                         alt="Vehicle"
                                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                     />
                                 </Box>
                                 <Chip
-                                    label={vehicleData.vehicleAssetId || vehicleId || "N/A"}
+                                    label={vehicleData.acquisitionDetail?.vehicleAssetID || vehicleId || "N/A"}
                                     size="small"
                                     sx={{
                                         background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
@@ -493,12 +523,12 @@ export default function ViewVehicleDetails() {
                         <Grid size={{ xs: 12, md: 10 }}>
                             <Grid container spacing={2}>
                                 {[
-                                    { label: "Vehicle Type", value: vehicleData.vehicleAssetType, color: "#E3F2FD" },
-                                    { label: "Brand", value: vehicleData.vehicleBrand, color: "#FFF3E0" },
-                                    { label: "Model", value: vehicleData.busModelAndMake, color: "#F3E5F5" },
-                                    { label: "Registration No.", value: vehicleData.registrationNumberAsPerRC, color: "#E8F5E9", highlight: true },
-                                    { label: "Seating Capacity", value: vehicleData.seatingCapacity, color: "#FCE4EC" },
-                                    { label: "Fuel Type", value: vehicleData.fuelTypeAsPerRC, color: "#E0F7FA" }
+                                    { label: "Vehicle Type", value: vehicleData.acquisitionDetail?.vehicleAssetType, color: "#E3F2FD" },
+                                    { label: "Brand", value: vehicleData.acquisitionDetail?.vehicleBrand, color: "#FFF3E0" },
+                                    { label: "Model", value: vehicleData.specification?.busModelAndMake, color: "#F3E5F5" },
+                                    { label: "Registration No.", value: vehicleData.registrationOwnership?.registrationNumberAsPerRC, color: "#E8F5E9", highlight: true },
+                                    { label: "Seating Capacity", value: vehicleData.specification?.seatingCapacity, color: "#FCE4EC" },
+                                    { label: "Fuel Type", value: vehicleData.specification?.fuelTypeAsPerRC, color: "#E0F7FA" }
                                 ].map((item, index) => (
                                     <Grid size={{ xs: 6, sm: 4, md: 2 }} key={index}>
                                         <Box sx={{
@@ -587,17 +617,17 @@ export default function ViewVehicleDetails() {
                                 colorScheme={sectionColors.acquisition}
                             />
                             <Grid container spacing={2} sx={{ mb: 3 }}>
-                                <DetailItem label="Mode of Acquisition" value={vehicleData.modeOfAcquisition} />
-                                <DetailItem label="Acquisition Source Type" value={vehicleData.vehicleAcquisitionSourceType} />
-                                <DetailItem label="Acquisition Date" value={vehicleData.vehicleAcquisitionDate} />
-                                <DetailItem label="Vehicle Asset Type" value={vehicleData.vehicleAssetType} />
-                                <DetailItem label="Vehicle Asset Sub Type" value={vehicleData.vehicleAssetSubType} />
-                                <DetailItem label="Vehicle Brand" value={vehicleData.vehicleBrand} />
-                                <DetailItem label="Dealer Name" value={vehicleData.dealerName} />
-                                <DetailItem label="Dealer Contact" value={vehicleData.dealerContactNumber} />
-                                <DetailItem label="Dealer Address" value={vehicleData.dealerAddress} fullWidth />
-                                <DetailItem label="Dealer GSTIN" value={vehicleData.dealerGSTIN} />
-                                <DetailItem label="Invoice/Transfer Number" value={vehicleData.invoiceOrTransferOrDonationNumber} />
+                                <DetailItem label="Mode of Acquisition" value={vehicleData.acquisitionDetail?.modeOfAcquisition} />
+                                <DetailItem label="Acquisition Source Type" value={vehicleData.acquisitionDetail?.vehicleAcquisitionSourceType} />
+                                <DetailItem label="Acquisition Date" value={vehicleData.acquisitionDetail?.vehicleAcquisitionDate} />
+                                <DetailItem label="Vehicle Asset Type" value={vehicleData.acquisitionDetail?.vehicleAssetType} />
+                                <DetailItem label="Vehicle Asset Sub Type" value={vehicleData.acquisitionDetail?.vehicleAssetSubType} />
+                                <DetailItem label="Vehicle Brand" value={vehicleData.acquisitionDetail?.vehicleBrand} />
+                                <DetailItem label="Dealer Name" value={vehicleData.acquisitionDetail?.dealerName} />
+                                <DetailItem label="Dealer Contact" value={vehicleData.acquisitionDetail?.dealerContactNumber} />
+                                <DetailItem label="Dealer Address" value={vehicleData.acquisitionDetail?.dealerAddress} fullWidth />
+                                <DetailItem label="Dealer GSTIN" value={vehicleData.acquisitionDetail?.dealerGSTIN} />
+                                <DetailItem label="Invoice/Transfer Number" value={vehicleData.acquisitionDetail?.invoiceOrTransferOrDonationNumber} />
                             </Grid>
 
                             <Divider sx={{ my: 4 }} />
@@ -609,17 +639,17 @@ export default function ViewVehicleDetails() {
                                 colorScheme={sectionColors.specification}
                             />
                             <Grid container spacing={2} sx={{ mb: 3 }}>
-                                <DetailItem label="Bus Model & Make" value={vehicleData.busModelAndMake} />
-                                <DetailItem label="Year of Manufacture" value={vehicleData.yearOfManufacture} />
-                                <DetailItem label="Engine Number" value={vehicleData.engineNumberAsPerRC} />
-                                <DetailItem label="Chassis Number" value={vehicleData.engineChasisNumberAsPerRC} />
-                                <DetailItem label="Fuel Type" value={vehicleData.fuelTypeAsPerRC} />
-                                <DetailItem label="Vehicle Class" value={vehicleData.vehicleClassAsPerRC} />
-                                <DetailItem label="Fuel Tank Capacity" value={vehicleData.fuelTankCapacity} />
-                                <DetailItem label="Seating Capacity" value={vehicleData.seatingCapacity} />
-                                <DetailItem label="Seats per Row" value={vehicleData.seatsPerRow} />
-                                <DetailItem label="Standing Space" value={vehicleData.standingSpace} />
-                                <DetailItem label="Vehicle Colour" value={vehicleData.vehicleColour} />
+                                <DetailItem label="Bus Model & Make" value={vehicleData.specification?.busModelAndMake} />
+                                <DetailItem label="Year of Manufacture" value={vehicleData.specification?.yearOfManufacture} />
+                                <DetailItem label="Engine Number" value={vehicleData.specification?.engineNumberAsPerRC} />
+                                <DetailItem label="Chassis Number" value={vehicleData.specification?.engineChasisNumberAsPerRC} />
+                                <DetailItem label="Fuel Type" value={vehicleData.specification?.fuelTypeAsPerRC} />
+                                <DetailItem label="Vehicle Class" value={vehicleData.specification?.vehicleClassAsPerRC} />
+                                <DetailItem label="Fuel Tank Capacity" value={vehicleData.specification?.fuelTankCapacity} />
+                                <DetailItem label="Seating Capacity" value={vehicleData.specification?.seatingCapacity} />
+                                <DetailItem label="Seats per Row" value={vehicleData.specification?.seatsPerRow} />
+                                <DetailItem label="Standing Space" value={vehicleData.specification?.standingSpace} />
+                                <DetailItem label="Vehicle Colour" value={vehicleData.specification?.vehicleColour} />
                             </Grid>
 
                             <Divider sx={{ my: 4 }} />
@@ -631,14 +661,14 @@ export default function ViewVehicleDetails() {
                                 colorScheme={sectionColors.registration}
                             />
                             <Grid container spacing={2} sx={{ mb: 3 }}>
-                                <DetailItem label="Registration Number" value={vehicleData.registrationNumberAsPerRC} />
-                                <DetailItem label="RTO Name & Code" value={vehicleData.rtoNameAndCodeAsPerRC} />
-                                <DetailItem label="Registration Date" value={vehicleData.registrationDate} />
-                                <DetailItem label="Ownership Type" value={vehicleData.vehicleOwnershipType} />
-                                <DetailItem label="Owner Name" value={vehicleData.vehicleOwnerNameAsPerRC} />
-                                <DetailItem label="Owner Contact" value={vehicleData.ownerContactNumber} />
-                                <DetailItem label="Owner Address" value={vehicleData.ownerPermanentAddress} fullWidth />
-                                <DetailItem label="Owner Legal ID / GST" value={vehicleData.vehicleOwnerLegalIdOrGST} />
+                                <DetailItem label="Registration Number" value={vehicleData.registrationOwnership?.registrationNumberAsPerRC} />
+                                <DetailItem label="RTO Name & Code" value={vehicleData.registrationOwnership?.rtoNameAndCodeAsPerRC} />
+                                <DetailItem label="Registration Date" value={vehicleData.registrationOwnership?.registrationDate} />
+                                <DetailItem label="Ownership Type" value={vehicleData.registrationOwnership?.vehicleOwnershipType} />
+                                <DetailItem label="Owner Name" value={vehicleData.registrationOwnership?.vehicleOwnerNameAsPerRC} />
+                                <DetailItem label="Owner Contact" value={vehicleData.registrationOwnership?.ownerContactNumber} />
+                                <DetailItem label="Owner Address" value={vehicleData.registrationOwnership?.ownerPermanentAddress} fullWidth />
+                                <DetailItem label="Owner Legal ID / GST" value={vehicleData.registrationOwnership?.vehicleOwnerLegalIdOrGST} />
                             </Grid>
 
                             <Divider sx={{ my: 4 }} />
@@ -647,18 +677,18 @@ export default function ViewVehicleDetails() {
                             <SectionHeader
                                 icon={VerifiedUserIcon}
                                 title="Insurance Details"
-                                chipLabel={vehicleData.currentInsuranceStatus}
-                                chipColor={vehicleData.currentInsuranceStatus === "Active" ? "success" : "error"}
+                                chipLabel={vehicleData.insuranceCompliance?.currentInsuranceStatus}
+                                chipColor={vehicleData.insuranceCompliance?.currentInsuranceStatus === "Active" ? "success" : "error"}
                                 colorScheme={sectionColors.insurance}
                             />
                             <Grid container spacing={2} sx={{ mb: 3 }}>
-                                <DetailItem label="Insurance Company" value={vehicleData.insuranceCompanyName} />
-                                <DetailItem label="Policy Number" value={vehicleData.insurancePolicyNumber} />
-                                <DetailItem label="Policy Type" value={vehicleData.insurancePolicyType} />
-                                <DetailItem label="Policy Start Date" value={vehicleData.policyStartDate} />
-                                <DetailItem label="Policy End Date" value={vehicleData.policyEndDate} />
-                                <DetailItem label="Primary Identifier" value={vehicleData.primaryInsuranceIdentifier} />
-                                <DetailItem label="Premium Amount" value={vehicleData.insurancePremiumAmount ? `₹ ${vehicleData.insurancePremiumAmount}` : null} />
+                                <DetailItem label="Insurance Company" value={vehicleData.insuranceCompliance?.insuranceCompanyName} />
+                                <DetailItem label="Policy Number" value={vehicleData.insuranceCompliance?.insurancePolicyNumber} />
+                                <DetailItem label="Policy Type" value={vehicleData.insuranceCompliance?.insurancePolicyType} />
+                                <DetailItem label="Policy Start Date" value={vehicleData.insuranceCompliance?.policyStartDate} />
+                                <DetailItem label="Policy End Date" value={vehicleData.insuranceCompliance?.policyEndDate} />
+                                <DetailItem label="Primary Identifier" value={vehicleData.insuranceCompliance?.primaryInsuranceIdentifier} />
+                                <DetailItem label="Premium Amount" value={vehicleData.insuranceCompliance?.insurancePremiumAmount ? `₹ ${vehicleData.insuranceCompliance.insurancePremiumAmount}` : null} />
                             </Grid>
 
                             <Divider sx={{ my: 4 }} />
@@ -670,13 +700,13 @@ export default function ViewVehicleDetails() {
                                 colorScheme={sectionColors.warranty}
                             />
                             <Grid container spacing={2} sx={{ mb: 3 }}>
-                                <DetailItem label="Warranty" value={vehicleData.warranty} />
-                                <DetailItem label="Warranty Provided By" value={vehicleData.warrantyProvidedBy} />
-                                <DetailItem label="Warranty Type" value={vehicleData.warrantyType} />
-                                <DetailItem label="Coverage For" value={vehicleData.warrantyCoverageFor} />
-                                <DetailItem label="Warranty Start Date" value={vehicleData.fullVehicleWarrantyStartDate} />
-                                <DetailItem label="Warranty End Date" value={vehicleData.fullVehicleWarrantyEndDate} />
-                                <DetailItem label="Warranty Period" value={vehicleData.fullVehicleWarrantyPeriod} />
+                                <DetailItem label="Warranty" value={vehicleData.warrantyServiceClaim?.warranty} />
+                                <DetailItem label="Warranty Provided By" value={vehicleData.warrantyServiceClaim?.warrantyProvidedBy} />
+                                <DetailItem label="Warranty Type" value={vehicleData.warrantyServiceClaim?.warrantyType} />
+                                <DetailItem label="Coverage For" value={vehicleData.warrantyServiceClaim?.warrantyCoverageFor} />
+                                <DetailItem label="Warranty Start Date" value={vehicleData.warrantyServiceClaim?.fullVehicleWarrantyStartDate} />
+                                <DetailItem label="Warranty End Date" value={vehicleData.warrantyServiceClaim?.fullVehicleWarrantyEndDate} />
+                                <DetailItem label="Warranty Period" value={vehicleData.warrantyServiceClaim?.fullVehicleWarrantyPeriod} />
                             </Grid>
 
                             <Divider sx={{ my: 4 }} />
@@ -689,22 +719,22 @@ export default function ViewVehicleDetails() {
                             />
                             <Grid container spacing={3}>
                                 <Grid size={{ xs: 6, sm: 4, md: 2 }}>
-                                    <DocumentPreview label="RC Book" url={vehicleData.rcBookFileUrl} colorScheme={sectionColors.documents} />
+                                    <DocumentPreview label="RC Book" url={vehicleData.documents?.rcBookFilePath} colorScheme={sectionColors.documents} />
                                 </Grid>
                                 <Grid size={{ xs: 6, sm: 4, md: 2 }}>
-                                    <DocumentPreview label="Fitness Certificate" url={vehicleData.fitnessCertificateFileUrl} colorScheme={sectionColors.fc} />
+                                    <DocumentPreview label="Fitness Certificate" url={vehicleData.documents?.fitnessCertificateFilePath} colorScheme={sectionColors.fc} />
                                 </Grid>
                                 <Grid size={{ xs: 6, sm: 4, md: 2 }}>
-                                    <DocumentPreview label="Road Tax" url={vehicleData.roadTaxCertificateFileUrl} colorScheme={sectionColors.roadTax} />
+                                    <DocumentPreview label="Road Tax" url={vehicleData.documents?.roadTaxCertificateFilePath} colorScheme={sectionColors.roadTax} />
                                 </Grid>
                                 <Grid size={{ xs: 6, sm: 4, md: 2 }}>
-                                    <DocumentPreview label="Insurance" url={vehicleData.insuranceDocumentFileUrl} colorScheme={sectionColors.insurance} />
+                                    <DocumentPreview label="Insurance" url={vehicleData.documents?.insuranceDocumentFilePath} colorScheme={sectionColors.insurance} />
                                 </Grid>
                                 <Grid size={{ xs: 6, sm: 4, md: 2 }}>
-                                    <DocumentPreview label="PUC Certificate" url={vehicleData.pucCertificateFileUrl} colorScheme={sectionColors.puc} />
+                                    <DocumentPreview label="PUC Certificate" url={vehicleData.documents?.pucCertificateFilePath} colorScheme={sectionColors.puc} />
                                 </Grid>
                                 <Grid size={{ xs: 6, sm: 4, md: 2 }}>
-                                    <DocumentPreview label="Permit Document" url={vehicleData.permitDocumentFileUrl} colorScheme={sectionColors.permit} />
+                                    <DocumentPreview label="Permit Document" url={vehicleData.documents?.permitDocumentFilePath} colorScheme={sectionColors.permit} />
                                 </Grid>
                             </Grid>
                         </Box>
@@ -717,16 +747,20 @@ export default function ViewVehicleDetails() {
                             <SectionHeader
                                 icon={VerifiedUserIcon}
                                 title="Fitness Certificate (FC) Details"
-                                chipLabel={safetyData.fcValidityStatus}
+                                chipLabel={safetyData.fcDetail?.currentFcStatus}
+                                chipColor={safetyData.fcDetail?.currentFcStatus === "Active" ? "success" : "error"}
                                 colorScheme={sectionColors.fc}
                             />
                             <Grid container spacing={2} sx={{ mb: 3 }}>
-                                <DetailItem label="FC Number" value={safetyData.fcNumber} />
-                                <DetailItem label="FC Issue Date" value={safetyData.fcIssueDate} />
-                                <DetailItem label="FC Expiry Date" value={safetyData.fcExpiryDate} />
-                                <DetailItem label="FC Validity Duration" value={safetyData.fcValidityDuration} />
-                                <DetailItem label="Next Inspection Date" value={safetyData.nextInspectionDate} />
-                                <DetailItem label="Issuing Authority" value={safetyData.fcIssuingAuthority} />
+                                <DetailItem label="FC Type" value={safetyData.fcDetail?.fcType} />
+                                <DetailItem label="FC Number" value={safetyData.fcDetail?.fcNumber} />
+                                <DetailItem label="FC Issue Date" value={safetyData.fcDetail?.fcIssueDate} />
+                                <DetailItem label="FC Expiry Date" value={safetyData.fcDetail?.fcExpiryDate} />
+                                <DetailItem label="FC Validity Duration" value={safetyData.fcDetail?.fcValidityDuration} />
+                                <DetailItem label="Last Valid Date" value={safetyData.fcDetail?.lastValidDate} />
+                                <DetailItem label="Renewal Reminder" value={safetyData.fcDetail?.renewalReminder} />
+                                <DetailItem label="Current Status" value={safetyData.fcDetail?.currentFcStatus} />
+                                <DetailItem label="Notes" value={safetyData.fcDetail?.notesAboutInspection} fullWidth />
                             </Grid>
 
                             <Divider sx={{ my: 4 }} />
@@ -738,13 +772,14 @@ export default function ViewVehicleDetails() {
                                 colorScheme={sectionColors.permit}
                             />
                             <Grid container spacing={2} sx={{ mb: 3 }}>
-                                <DetailItem label="Permit Type" value={safetyData.permitType} />
-                                <DetailItem label="Permit Number" value={safetyData.permitNumber} />
-                                <DetailItem label="Permit Issue Date" value={safetyData.permitIssueDate} />
-                                <DetailItem label="Permit Expiry Date" value={safetyData.permitExpiryDate} />
-                                <DetailItem label="Permit Validity Duration" value={safetyData.permitValidityDuration} />
-                                <DetailItem label="Area of Operation" value={safetyData.permitAreaOfOperation} />
-                                <DetailItem label="Permit Route" value={safetyData.permitRoute} />
+                                <DetailItem label="Permit Number" value={safetyData.permitDetail?.permitNumber} />
+                                <DetailItem label="Permit Type" value={safetyData.permitDetail?.permitType} />
+                                <DetailItem label="Issuing RTO" value={safetyData.permitDetail?.issuingRto} />
+                                <DetailItem label="Valid From" value={safetyData.permitDetail?.validDateFrom} />
+                                <DetailItem label="Valid Till" value={safetyData.permitDetail?.validTill} />
+                                <DetailItem label="Validity Duration" value={safetyData.permitDetail?.permitValidityDuration} />
+                                <DetailItem label="Area of Operation" value={safetyData.permitDetail?.permitAreaOfOperation} />
+                                <DetailItem label="Permit Route" value={safetyData.permitDetail?.permitRouteOptional} />
                             </Grid>
 
                             <Divider sx={{ my: 4 }} />
@@ -753,14 +788,13 @@ export default function ViewVehicleDetails() {
                             <SectionHeader
                                 icon={LocalGasStationIcon}
                                 title="Pollution Under Control (PUC) Details"
-                                chipLabel={safetyData.pucValidityStatus}
                                 colorScheme={sectionColors.puc}
                             />
                             <Grid container spacing={2} sx={{ mb: 3 }}>
-                                <DetailItem label="PUC Certificate Number" value={safetyData.pucCertificateNumber} />
-                                <DetailItem label="PUC Issue Date" value={safetyData.pucIssueDate} />
-                                <DetailItem label="PUC Expiry Date" value={safetyData.pucExpiryDate} />
-                                <DetailItem label="PUC Validity Status" value={safetyData.pucValidityStatus} />
+                                <DetailItem label="PUC Certificate Number" value={safetyData.pucDetail?.pucCertificateNumber} />
+                                <DetailItem label="PUC Issue Date" value={safetyData.pucDetail?.pucIssueDate} />
+                                <DetailItem label="PUC Expiry Date" value={safetyData.pucDetail?.expiryDate} />
+                                <DetailItem label="Validity (Auto Calculated)" value={safetyData.pucDetail?.pucValidityAutoCalculated} />
                             </Grid>
 
                             <Divider sx={{ my: 4 }} />
@@ -772,10 +806,10 @@ export default function ViewVehicleDetails() {
                                 colorScheme={sectionColors.roadTax}
                             />
                             <Grid container spacing={2} sx={{ mb: 3 }}>
-                                <DetailItem label="Tax Type" value={safetyData.taxType} />
-                                <DetailItem label="Tax Paid Date" value={safetyData.taxPaidDate} />
-                                <DetailItem label="Tax Expiry Date" value={safetyData.taxExpiryDate} />
-                                <DetailItem label="Tax Status" value={safetyData.taxStatus} />
+                                <DetailItem label="Tax Type" value={safetyData.roadTransportTaxDetail?.taxType} />
+                                <DetailItem label="Tax Last Paid Date" value={safetyData.roadTransportTaxDetail?.taxLastPaidDate} />
+                                <DetailItem label="Valid Till" value={safetyData.roadTransportTaxDetail?.validTill} />
+                                <DetailItem label="Validity Period (Auto)" value={safetyData.roadTransportTaxDetail?.taxValidityPeriodAutoCalculated} />
                             </Grid>
 
                             <Divider sx={{ my: 4 }} />
@@ -784,17 +818,19 @@ export default function ViewVehicleDetails() {
                             <SectionHeader
                                 icon={CameraAltIcon}
                                 title="CCTV Camera Installation"
-                                chipLabel={safetyData.cctvInstalled}
-                                chipColor={safetyData.cctvInstalled === "Yes" ? "success" : "default"}
+                                chipLabel={safetyData.cctvComplianceDetail?.cctvCameraInstallation}
+                                chipColor={safetyData.cctvComplianceDetail?.cctvCameraInstallation === "Yes" ? "success" : "default"}
                                 colorScheme={sectionColors.cctv}
                             />
                             <Grid container spacing={2} sx={{ mb: 3 }}>
-                                <DetailItem label="CCTV Installed" value={safetyData.cctvInstalled} />
-                                <DetailItem label="Number of Cameras" value={safetyData.numberOfCameras} />
-                                <DetailItem label="Dealer/Installer Same" value={safetyData.cctvDealerInstallerSame} />
-                                <DetailItem label="Installation Date" value={safetyData.camera1DateOfInstallation} />
-                                <DetailItem label="Camera Type" value={safetyData.camera1Type} />
-                                <DetailItem label="Dealer/Installer Name" value={safetyData.camera1DealerInstallerName} />
+                                <DetailItem label="CCTV Installed" value={safetyData.cctvComplianceDetail?.cctvCameraInstallation} />
+                                <DetailItem label="Number of Cameras" value={safetyData.cctvComplianceDetail?.numberOfCctvCamerasInstalled} />
+                                <DetailItem label="Dealer/Installer Same" value={safetyData.cctvComplianceDetail?.isCctvDealerInstallerSame} />
+                                <DetailItem label="Camera 1 Installation Date" value={safetyData.cctvComplianceDetail?.camera1DateOfInstallation} />
+                                <DetailItem label="Camera 1 Type" value={safetyData.cctvComplianceDetail?.camera1TypeFrontRearBoth} />
+                                <DetailItem label="Camera 1 Dealer/Installer" value={safetyData.cctvComplianceDetail?.camera1DealerOrInstallerName} />
+                                <DetailItem label="Camera 1 Contact" value={safetyData.cctvComplianceDetail?.camera1VendorContactDetails} />
+                                <DetailItem label="Camera 1 Remarks" value={safetyData.cctvComplianceDetail?.camera1Remarks} />
                             </Grid>
 
                             {/* First Aid Kit & Safety Grills */}
@@ -812,19 +848,19 @@ export default function ViewVehicleDetails() {
                                         <Grid container spacing={2}>
                                             <Grid size={{ xs: 6 }}>
                                                 <Typography sx={{ fontSize: "10px", color: "#666", fontWeight: 600, textTransform: "uppercase" }}>Installed</Typography>
-                                                <StatusChip status={safetyData.firstAidKitInstallation} />
+                                                <StatusChip status={safetyData.cctvComplianceDetail?.firstAidKitInstallation} />
                                             </Grid>
                                             <Grid size={{ xs: 6 }}>
                                                 <Typography sx={{ fontSize: "10px", color: "#666", fontWeight: 600, textTransform: "uppercase" }}>Installation Date</Typography>
-                                                <Typography sx={{ fontSize: "13px", fontWeight: 500, mt: 0.5 }}>{safetyData.firstAidDateOfInstallation || "- - -"}</Typography>
+                                                <Typography sx={{ fontSize: "13px", fontWeight: 500, mt: 0.5 }}>{safetyData.cctvComplianceDetail?.firstAidDateOfInstallation || "- - -"}</Typography>
                                             </Grid>
                                             <Grid size={{ xs: 6 }}>
                                                 <Typography sx={{ fontSize: "10px", color: "#666", fontWeight: 600, textTransform: "uppercase" }}>Expiry Check Due</Typography>
-                                                <Typography sx={{ fontSize: "13px", fontWeight: 500, mt: 0.5 }}>{safetyData.firstAidExpiryCheckDueDate || "- - -"}</Typography>
+                                                <Typography sx={{ fontSize: "13px", fontWeight: 500, mt: 0.5 }}>{safetyData.cctvComplianceDetail?.firstAidExpiryCheckDueDate || "- - -"}</Typography>
                                             </Grid>
                                             <Grid size={{ xs: 6 }}>
                                                 <Typography sx={{ fontSize: "10px", color: "#666", fontWeight: 600, textTransform: "uppercase" }}>Last Inspection</Typography>
-                                                <Typography sx={{ fontSize: "13px", fontWeight: 500, mt: 0.5 }}>{safetyData.firstAidLastInspectionDate || "- - -"}</Typography>
+                                                <Typography sx={{ fontSize: "13px", fontWeight: 500, mt: 0.5 }}>{safetyData.cctvComplianceDetail?.firstAidLastInspectionDate || "- - -"}</Typography>
                                             </Grid>
                                         </Grid>
                                     </Box>
@@ -842,19 +878,19 @@ export default function ViewVehicleDetails() {
                                         <Grid container spacing={2}>
                                             <Grid size={{ xs: 6 }}>
                                                 <Typography sx={{ fontSize: "10px", color: "#666", fontWeight: 600, textTransform: "uppercase" }}>Grills Installed</Typography>
-                                                <StatusChip status={safetyData.safetyGrillsInstalled} />
+                                                <StatusChip status={safetyData.cctvComplianceDetail?.safetyGrillsInstalled} />
                                             </Grid>
                                             <Grid size={{ xs: 6 }}>
                                                 <Typography sx={{ fontSize: "10px", color: "#666", fontWeight: 600, textTransform: "uppercase" }}>Grill Location</Typography>
-                                                <Typography sx={{ fontSize: "13px", fontWeight: 500, mt: 0.5 }}>{safetyData.grillLocation || "- - -"}</Typography>
+                                                <Typography sx={{ fontSize: "13px", fontWeight: 500, mt: 0.5 }}>{safetyData.cctvComplianceDetail?.grillLocation || "- - -"}</Typography>
                                             </Grid>
                                             <Grid size={{ xs: 6 }}>
                                                 <Typography sx={{ fontSize: "10px", color: "#666", fontWeight: 600, textTransform: "uppercase" }}>Emergency Exit</Typography>
-                                                <StatusChip status={safetyData.emergencyExitAvailable} />
+                                                <StatusChip status={safetyData.cctvComplianceDetail?.emergencyExitAvailable} />
                                             </Grid>
                                             <Grid size={{ xs: 6 }}>
                                                 <Typography sx={{ fontSize: "10px", color: "#666", fontWeight: 600, textTransform: "uppercase" }}>Compliance</Typography>
-                                                <StatusChip status={safetyData.complianceAsPerNorms} />
+                                                <StatusChip status={safetyData.cctvComplianceDetail?.complianceAsPerNorms} />
                                             </Grid>
                                         </Grid>
                                     </Box>
@@ -874,23 +910,23 @@ export default function ViewVehicleDetails() {
                                     >
                                         <Box sx={{ mb: 1.5 }}>
                                             <Typography sx={{ fontSize: "10px", color: "#666", fontWeight: 600, textTransform: "uppercase" }}>Installation</Typography>
-                                            <StatusChip status={safetyData.speedGovernorInstallation} />
+                                            <StatusChip status={safetyData.cctvComplianceDetail?.speedGovernorInstallation} />
                                         </Box>
                                         <Box sx={{ mb: 1.5 }}>
                                             <Typography sx={{ fontSize: "10px", color: "#666", fontWeight: 600, textTransform: "uppercase" }}>Installation Date</Typography>
-                                            <Typography sx={{ fontSize: "13px", fontWeight: 500 }}>{safetyData.speedGovernorDateOfInstallation || "- - -"}</Typography>
+                                            <Typography sx={{ fontSize: "13px", fontWeight: 500 }}>{safetyData.cctvComplianceDetail?.speedGovernorDateOfInstallation || "- - -"}</Typography>
                                         </Box>
                                         <Box sx={{ mb: 1.5 }}>
                                             <Typography sx={{ fontSize: "10px", color: "#666", fontWeight: 600, textTransform: "uppercase" }}>Speed Limit (Kmph)</Typography>
-                                            <Typography sx={{ fontSize: "13px", fontWeight: 500 }}>{safetyData.speedLimitSet || "- - -"}</Typography>
+                                            <Typography sx={{ fontSize: "13px", fontWeight: 500 }}>{safetyData.cctvComplianceDetail?.speedLimitSetKmph || "- - -"}</Typography>
                                         </Box>
                                         <Box sx={{ mb: 1.5 }}>
                                             <Typography sx={{ fontSize: "10px", color: "#666", fontWeight: 600, textTransform: "uppercase" }}>Certificate No.</Typography>
-                                            <Typography sx={{ fontSize: "13px", fontWeight: 500 }}>{safetyData.speedGovernorCertificateNumber || "- - -"}</Typography>
+                                            <Typography sx={{ fontSize: "13px", fontWeight: 500 }}>{safetyData.cctvComplianceDetail?.certificateApprovalNumber || "- - -"}</Typography>
                                         </Box>
                                         <Box>
                                             <Typography sx={{ fontSize: "10px", color: "#666", fontWeight: 600, textTransform: "uppercase" }}>Validity Date</Typography>
-                                            <Typography sx={{ fontSize: "13px", fontWeight: 500 }}>{safetyData.speedGovernorValidityDate || "- - -"}</Typography>
+                                            <Typography sx={{ fontSize: "13px", fontWeight: 500 }}>{safetyData.cctvComplianceDetail?.validityCalibrationDueDate || "- - -"}</Typography>
                                         </Box>
                                     </InfoCard>
                                 </Grid>
@@ -904,23 +940,23 @@ export default function ViewVehicleDetails() {
                                     >
                                         <Box sx={{ mb: 1.5 }}>
                                             <Typography sx={{ fontSize: "10px", color: "#666", fontWeight: 600, textTransform: "uppercase" }}>Installation</Typography>
-                                            <StatusChip status={safetyData.fireExtinguisherInstallation} />
+                                            <StatusChip status={safetyData.cctvComplianceDetail?.fireExtinguisherInstallation} />
                                         </Box>
                                         <Box sx={{ mb: 1.5 }}>
                                             <Typography sx={{ fontSize: "10px", color: "#666", fontWeight: 600, textTransform: "uppercase" }}>Installation Date</Typography>
-                                            <Typography sx={{ fontSize: "13px", fontWeight: 500 }}>{safetyData.fireExtinguisherDateOfInstallation || "- - -"}</Typography>
+                                            <Typography sx={{ fontSize: "13px", fontWeight: 500 }}>{safetyData.cctvComplianceDetail?.fireDateOfInstallation || "- - -"}</Typography>
                                         </Box>
                                         <Box sx={{ mb: 1.5 }}>
                                             <Typography sx={{ fontSize: "10px", color: "#666", fontWeight: 600, textTransform: "uppercase" }}>Expiry/Refill Due</Typography>
-                                            <Typography sx={{ fontSize: "13px", fontWeight: 500 }}>{safetyData.fireExtinguisherExpiryDate || "- - -"}</Typography>
+                                            <Typography sx={{ fontSize: "13px", fontWeight: 500 }}>{safetyData.cctvComplianceDetail?.fireExpiryOrRefillDueDate || "- - -"}</Typography>
                                         </Box>
                                         <Box sx={{ mb: 1.5 }}>
                                             <Typography sx={{ fontSize: "10px", color: "#666", fontWeight: 600, textTransform: "uppercase" }}>Type & Capacity</Typography>
-                                            <Typography sx={{ fontSize: "13px", fontWeight: 500 }}>{safetyData.extinguisherTypeCapacity || "- - -"}</Typography>
+                                            <Typography sx={{ fontSize: "13px", fontWeight: 500 }}>{safetyData.cctvComplianceDetail?.extinguisherTypeCapacityKg || "- - -"}</Typography>
                                         </Box>
                                         <Box>
                                             <Typography sx={{ fontSize: "10px", color: "#666", fontWeight: 600, textTransform: "uppercase" }}>Vendor</Typography>
-                                            <Typography sx={{ fontSize: "13px", fontWeight: 500 }}>{safetyData.fireExtinguisherVendorDetails || "- - -"}</Typography>
+                                            <Typography sx={{ fontSize: "13px", fontWeight: 500 }}>{safetyData.cctvComplianceDetail?.fireVendorDetails || "- - -"}</Typography>
                                         </Box>
                                     </InfoCard>
                                 </Grid>
@@ -933,24 +969,28 @@ export default function ViewVehicleDetails() {
                                         colorScheme={{ bg: "#E0F7FA", border: "#80DEEA", icon: "#00838F" }}
                                     >
                                         <Box sx={{ mb: 1.5 }}>
+                                            <Typography sx={{ fontSize: "10px", color: "#666", fontWeight: 600, textTransform: "uppercase" }}>Installation</Typography>
+                                            <StatusChip status={safetyData.cctvComplianceDetail?.gpsTrackerInstallation} />
+                                        </Box>
+                                        <Box sx={{ mb: 1.5 }}>
                                             <Typography sx={{ fontSize: "10px", color: "#666", fontWeight: 600, textTransform: "uppercase" }}>Installation Date</Typography>
-                                            <Typography sx={{ fontSize: "13px", fontWeight: 500 }}>{safetyData.gpsDateOfInstallation || "- - -"}</Typography>
+                                            <Typography sx={{ fontSize: "13px", fontWeight: 500 }}>{safetyData.cctvComplianceDetail?.gpsDateOfInstallation || "- - -"}</Typography>
                                         </Box>
                                         <Box sx={{ mb: 1.5 }}>
                                             <Typography sx={{ fontSize: "10px", color: "#666", fontWeight: 600, textTransform: "uppercase" }}>GPS ID / IMEI</Typography>
-                                            <Typography sx={{ fontSize: "13px", fontWeight: 500 }}>{safetyData.gpsDeviceIdImei || "- - -"}</Typography>
+                                            <Typography sx={{ fontSize: "13px", fontWeight: 500 }}>{safetyData.cctvComplianceDetail?.gpsIdImei || "- - -"}</Typography>
                                         </Box>
                                         <Box sx={{ mb: 1.5 }}>
                                             <Typography sx={{ fontSize: "10px", color: "#666", fontWeight: 600, textTransform: "uppercase" }}>Hardware Warranty</Typography>
-                                            <Typography sx={{ fontSize: "13px", fontWeight: 500 }}>{safetyData.gpsHardwareWarranty || "- - -"}</Typography>
+                                            <Typography sx={{ fontSize: "13px", fontWeight: 500 }}>{safetyData.cctvComplianceDetail?.gpsHardwareWarranty || "- - -"}</Typography>
                                         </Box>
                                         <Box sx={{ mb: 1.5 }}>
                                             <Typography sx={{ fontSize: "10px", color: "#666", fontWeight: 600, textTransform: "uppercase" }}>SIM Number</Typography>
-                                            <Typography sx={{ fontSize: "13px", fontWeight: 500 }}>{safetyData.gpsSimNumber || "- - -"}</Typography>
+                                            <Typography sx={{ fontSize: "13px", fontWeight: 500 }}>{safetyData.cctvComplianceDetail?.simNumberMasked || "- - -"}</Typography>
                                         </Box>
                                         <Box>
                                             <Typography sx={{ fontSize: "10px", color: "#666", fontWeight: 600, textTransform: "uppercase" }}>Subscription Valid</Typography>
-                                            <Typography sx={{ fontSize: "13px", fontWeight: 500 }}>{safetyData.gpsSubscriptionValidTill || "- - -"}</Typography>
+                                            <Typography sx={{ fontSize: "13px", fontWeight: 500 }}>{safetyData.cctvComplianceDetail?.subscriptionValidTill || "- - -"}</Typography>
                                         </Box>
                                     </InfoCard>
                                 </Grid>
@@ -977,14 +1017,35 @@ export default function ViewVehicleDetails() {
                                     School Name Display
                                 </Typography>
                                 <Grid container spacing={2}>
-                                    {["Front", "Back", "Left", "Right"].map((side) => (
-                                        <Grid size={{ xs: 6, sm: 3 }} key={side}>
-                                            <Box sx={{ textAlign: "center", backgroundColor: "#fff", borderRadius: "8px", p: 1.5 }}>
-                                                <Typography sx={{ fontSize: "10px", color: "#666", mb: 0.5, fontWeight: 600, textTransform: "uppercase" }}>{side} Side</Typography>
-                                                <StatusChip status={safetyData[`schoolName${side}Side`]} />
-                                            </Box>
-                                        </Grid>
-                                    ))}
+                                    {["Front", "Back", "Left", "Right"].map((side) => {
+                                        const status = safetyData.brandingVisualIdentity?.[`schoolNameDisplay${side}`];
+                                        const imagePath = safetyData.brandingVisualIdentity?.[`schoolNameDisplay${side}FilePath`];
+                                        return (
+                                            <Grid size={{ xs: 6, sm: 3 }} key={side}>
+                                                <Box sx={{ textAlign: "center", backgroundColor: "#fff", borderRadius: "8px", p: 1.5 }}>
+                                                    <Typography sx={{ fontSize: "10px", color: "#666", mb: 0.5, fontWeight: 600, textTransform: "uppercase" }}>{side} Side</Typography>
+                                                    <StatusChip status={status} />
+                                                    {status === "Yes" && imagePath && (
+                                                        <Box
+                                                            sx={{
+                                                                mt: 1,
+                                                                width: "100%",
+                                                                height: 80,
+                                                                borderRadius: "8px",
+                                                                overflow: "hidden",
+                                                                border: "1px solid #FFE082",
+                                                                cursor: "pointer",
+                                                                "&:hover": { opacity: 0.8 }
+                                                            }}
+                                                            onClick={() => window.open(imagePath, '_blank')}
+                                                        >
+                                                            <img src={imagePath} alt={`School Name ${side}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                        </Box>
+                                                    )}
+                                                </Box>
+                                            </Grid>
+                                        );
+                                    })}
                                 </Grid>
                             </Box>
 
@@ -1000,14 +1061,35 @@ export default function ViewVehicleDetails() {
                                     Reflective Tapes Display
                                 </Typography>
                                 <Grid container spacing={2}>
-                                    {["Front", "Back", "Left", "Right"].map((side) => (
-                                        <Grid size={{ xs: 6, sm: 3 }} key={side}>
-                                            <Box sx={{ textAlign: "center", backgroundColor: "#fff", borderRadius: "8px", p: 1.5 }}>
-                                                <Typography sx={{ fontSize: "10px", color: "#666", mb: 0.5, fontWeight: 600, textTransform: "uppercase" }}>{side} Side</Typography>
-                                                <StatusChip status={safetyData[`reflectiveTapes${side}Side`]} />
-                                            </Box>
-                                        </Grid>
-                                    ))}
+                                    {["Front", "Back", "Left", "Right"].map((side) => {
+                                        const status = safetyData.brandingVisualIdentity?.[`reflectiveTapes${side}`];
+                                        const imagePath = safetyData.brandingVisualIdentity?.[`reflectiveTapes${side}FilePath`];
+                                        return (
+                                            <Grid size={{ xs: 6, sm: 3 }} key={side}>
+                                                <Box sx={{ textAlign: "center", backgroundColor: "#fff", borderRadius: "8px", p: 1.5 }}>
+                                                    <Typography sx={{ fontSize: "10px", color: "#666", mb: 0.5, fontWeight: 600, textTransform: "uppercase" }}>{side} Side</Typography>
+                                                    <StatusChip status={status} />
+                                                    {status === "Yes" && imagePath && (
+                                                        <Box
+                                                            sx={{
+                                                                mt: 1,
+                                                                width: "100%",
+                                                                height: 80,
+                                                                borderRadius: "8px",
+                                                                overflow: "hidden",
+                                                                border: "1px solid #9FA8DA",
+                                                                cursor: "pointer",
+                                                                "&:hover": { opacity: 0.8 }
+                                                            }}
+                                                            onClick={() => window.open(imagePath, '_blank')}
+                                                        >
+                                                            <img src={imagePath} alt={`Reflective Tapes ${side}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                        </Box>
+                                                    )}
+                                                </Box>
+                                            </Grid>
+                                        );
+                                    })}
                                 </Grid>
                             </Box>
 
@@ -1022,14 +1104,35 @@ export default function ViewVehicleDetails() {
                                     School Bus Signage Display
                                 </Typography>
                                 <Grid container spacing={2}>
-                                    {["Front", "Back", "Left", "Right"].map((side) => (
-                                        <Grid size={{ xs: 6, sm: 3 }} key={side}>
-                                            <Box sx={{ textAlign: "center", backgroundColor: "#fff", borderRadius: "8px", p: 1.5 }}>
-                                                <Typography sx={{ fontSize: "10px", color: "#666", mb: 0.5, fontWeight: 600, textTransform: "uppercase" }}>{side} Side</Typography>
-                                                <StatusChip status={safetyData[`signage${side}Side`]} />
-                                            </Box>
-                                        </Grid>
-                                    ))}
+                                    {["Front", "Back", "Left", "Right"].map((side) => {
+                                        const status = safetyData.brandingVisualIdentity?.[`signage${side}`];
+                                        const imagePath = safetyData.brandingVisualIdentity?.[`signage${side}FilePath`];
+                                        return (
+                                            <Grid size={{ xs: 6, sm: 3 }} key={side}>
+                                                <Box sx={{ textAlign: "center", backgroundColor: "#fff", borderRadius: "8px", p: 1.5 }}>
+                                                    <Typography sx={{ fontSize: "10px", color: "#666", mb: 0.5, fontWeight: 600, textTransform: "uppercase" }}>{side} Side</Typography>
+                                                    <StatusChip status={status} />
+                                                    {status === "Yes" && imagePath && (
+                                                        <Box
+                                                            sx={{
+                                                                mt: 1,
+                                                                width: "100%",
+                                                                height: 80,
+                                                                borderRadius: "8px",
+                                                                overflow: "hidden",
+                                                                border: "1px solid #CE93D8",
+                                                                cursor: "pointer",
+                                                                "&:hover": { opacity: 0.8 }
+                                                            }}
+                                                            onClick={() => window.open(imagePath, '_blank')}
+                                                        >
+                                                            <img src={imagePath} alt={`Signage ${side}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                        </Box>
+                                                    )}
+                                                </Box>
+                                            </Grid>
+                                        );
+                                    })}
                                 </Grid>
                             </Box>
                         </Box>
