@@ -31,7 +31,7 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs from 'dayjs';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import axios from 'axios';
-import { findStudents, findStudentSchoolFeesBilling } from '../../../../Api/Api';
+import { findStudentEcaFeesBilling, findStudents, findStudentSchoolFeesBilling, findStudentAdditionalFeesBilling, postPaymentMethod, postEcaPaymentMethod, postAdditionalPaymentMethod } from '../../../../Api/Api';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import CreditCardIcon from '@mui/icons-material/CreditCard';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
@@ -43,64 +43,10 @@ import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 import PrintIcon from '@mui/icons-material/Print';
 import HistoryIcon from '@mui/icons-material/History';
 import LockIcon from '@mui/icons-material/Lock';
-const notesList = [2000, 500, 200, 100, 50, 20, 10];
+const notesList = [2000, 500, 200, 100, 50, 20, 10, 5, 2, 1];
 const MAX_AMOUNT = 99999999;
 
-const studentData = {
-  name: "Nisha Preethi S.",
-  rollNo: "25002",
-  gender: "Female",
-  grade: "Prekg",
-  section: "C",
-  avatar: "NP"
-};
 
-const dummyFeeData = [
-  { id: 1, feeName: "Admission Fee", amount: 5000, status: "Paid", paidAmount: 5000, pendingAmount: 0, dueDate: "01/11/2025" },
-  { id: 2, feeName: "Tuition Fee", amount: 10000, status: "Partially Paid", paidAmount: 6000, pendingAmount: 4000, dueDate: "05/11/2025" },
-  { id: 3, feeName: "Library Fee", amount: 1500, status: "Unpaid", paidAmount: 0, pendingAmount: 1500, dueDate: "10/11/2025" },
-  { id: 4, feeName: "Transportation Fee", amount: 3000, status: "Paid", paidAmount: 3000, pendingAmount: 0, dueDate: "15/11/2025" },
-  { id: 5, feeName: "Laboratory Fee", amount: 2500, status: "Unpaid", paidAmount: 0, pendingAmount: 2500, dueDate: "20/11/2025" },
-];
-
-
-const dummyData1 = [
-  {
-    feeName: "Admission Fee",
-    amount: "5000",
-    status: "Paid",
-    paidAmount: "5000",
-    pendingAmount: "0",
-    date: "01/11/2025"
-  },
-  {
-    feeName: "Tuition Fee",
-    amount: "10000",
-    status: "Partially Paid",
-    paidAmount: "6000",
-    pendingAmount: "4000",
-    date: "05/11/2025"
-  },
-];
-
-const dummyData2 = [
-  {
-    billNumber: "MS/25/FRE/002360",
-    billDate: "27-11-2025",
-    time: "3:00 pm",
-    feeName: "Admission Fee",
-    paymentMode: "Gpay",
-    amount: "5000",
-  },
-  {
-    billNumber: "MS/25/FRE/002360",
-    billDate: "27-11-2025",
-    time: "3:00 pm",
-    feeName: "Admission Fee",
-    paymentMode: "Gpay",
-    amount: "5000",
-  },
-];
 export default function BillingScreen() {
   const navigate = useNavigate()
   const dispatch = useDispatch();
@@ -127,11 +73,83 @@ export default function BillingScreen() {
     notesList.reduce((acc, n) => ({ ...acc, [n]: 0 }), {})
   );
 
+  const [changeCounts, setChangeCounts] = useState(
+    notesList.reduce((acc, n) => ({ ...acc, [n]: 0 }), {})
+  );
+
   const printRef = useRef();
   const componentRef = useRef(null);
   const [openPaymentPopup, setOpenPaymentPopup] = useState(false);
+  const [showCloseConfirmation, setShowCloseConfirmation] = useState(false);
 
-  const handleClosePaymentPopup = () => setOpenPaymentPopup(false);
+  const hasUnsavedData = () => {
+    if (paymentSuccess) return false;
+
+    const hasFormData =
+      paymentFormData.upiId ||
+      paymentFormData.transactionId ||
+      paymentFormData.bankName ||
+      paymentFormData.chequeNo ||
+      paymentFormData.cardType ||
+      paymentFormData.cardLast4 ||
+      paymentFormData.remarks;
+
+    const hasCashData = notesList.some(note => counts[note] > 0);
+    const hasChangeData = notesList.some(note => changeCounts[note] > 0);
+
+    return hasFormData || hasCashData || hasChangeData;
+  };
+
+  const handleCloseAttempt = () => {
+    if (paymentProcessing) {
+      setMessage('Please wait while payment is being processed');
+      setStatus(false);
+      setColor(false);
+      setOpen(true);
+      return;
+    }
+
+    if (hasUnsavedData()) {
+      setShowCloseConfirmation(true);
+    } else {
+      handleForceClose();
+    }
+  };
+
+  const handleForceClose = () => {
+    setOpenPaymentPopup(false);
+    setShowCloseConfirmation(false);
+    setPaymentStep(0);
+    setSelectedPaymentMethod('');
+    setPaymentProcessing(false);
+    setPaymentSuccess(false);
+    setCompletedPaymentAmount(0);
+    setPaymentFormData({
+      upiId: '',
+      transactionId: '',
+      bankName: '',
+      chequeNo: '',
+      chequeDate: '',
+      cardType: '',
+      cardLast4: '',
+      remarks: '',
+      amount: '',
+    });
+    setCounts(notesList.reduce((acc, n) => ({ ...acc, [n]: 0 }), {}));
+    setChangeCounts(notesList.reduce((acc, n) => ({ ...acc, [n]: 0 }), {}));
+  };
+
+  const handleClosePaymentPopup = () => {
+    handleForceClose();
+  };
+
+  const handleCancelClose = () => {
+    setShowCloseConfirmation(false);
+  };
+
+  const handleConfirmClose = () => {
+    handleForceClose();
+  };
   const [openPaymentAccordion, setOpenPaymentAccordion] = useState("");
 
   const [openHistoryPopup, setOpenHistoryPopup] = useState(false);
@@ -144,15 +162,24 @@ export default function BillingScreen() {
   const handleOpenCal = () => setOpenCal(true);
   const handleCloseCal = () => setOpenCal(false);
   const location = useLocation();
-  const { rollNumber } = location.state || {};
+  const { rollNumber, activeTab } = location.state || {};
   const [details, setDetails] = useState([]);
   const [schoolFee, setSchoolFee] = useState([]);
-  const [feeData, setFeeData] = useState(dummyFeeData);
+
+  const [ecaDetails, setEcaDetails] = useState([]);
+  const [ecaFeeElements, setEcaFeeElements] = useState([]);
+
+  const [transportDetails, setTransportDetails] = useState([]);
+  const [transportFeeElements, setTransportFeeElements] = useState([]);
+
+  const [additionalDetails, setAdditionalDetails] = useState([]);
+  const [additionalFeeElements, setAdditionalFeeElements] = useState([]);
 
   const [paymentStep, setPaymentStep] = useState(0);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
   const [paymentProcessing, setPaymentProcessing] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [completedPaymentAmount, setCompletedPaymentAmount] = useState(0);
   const [paymentFormData, setPaymentFormData] = useState({
     upiId: '',
     transactionId: '',
@@ -190,22 +217,11 @@ export default function BillingScreen() {
   ];
 
 
-  useEffect(() => {
-    if (schoolFee && schoolFee.length > 0) {
-      const initialAmounts = {};
-      schoolFee.forEach((fee, index) => {
-        initialAmounts[index] = fee.pendingAmount;
-      });
-      setToPayAmounts(initialAmounts);
-    }
-  }, [schoolFee]);
-
-  
   const handleToPayChange = (index, value) => {
     const numValue = parseFloat(value) || 0;
-    const pendingAmount = schoolFee[index].pendingAmount;
+    const currentFeeData = getCurrentFeeData();
+    const pendingAmount = currentFeeData[index]?.pendingAmount || 0;
 
-    // Prevent amount higher than pending amount
     if (numValue > pendingAmount) {
       setMessage(`Amount cannot exceed pending amount of ₹${pendingAmount}`);
       setStatus(false);
@@ -214,7 +230,6 @@ export default function BillingScreen() {
       return;
     }
 
-    // Prevent negative amounts
     if (numValue < 0) {
       return;
     }
@@ -226,7 +241,6 @@ export default function BillingScreen() {
   };
 
   const handleOpenPaymentPopup = () => {
-    // Calculate total based on selected rows and their toPay amounts
     const totalSelected = selectedRows.reduce((sum, idx) => {
       return sum + (toPayAmounts[idx] || 0);
     }, 0);
@@ -261,6 +275,9 @@ export default function BillingScreen() {
   const getSubtotal = (note) => note * counts[note];
   const totalCash = notesList.reduce((sum, note) => sum + getSubtotal(note), 0);
 
+  const getChangeSubtotal = (note) => note * changeCounts[note];
+  const totalChange = notesList.reduce((sum, note) => sum + getChangeSubtotal(note), 0);
+
   const canUpdate = (note, newCount) => {
     const newSubtotal = note * newCount;
     const otherSum = totalCash - getSubtotal(note);
@@ -274,11 +291,186 @@ export default function BillingScreen() {
     setCounts((prev) => ({ ...prev, [note]: num }));
   };
 
+  const handleChangeCount = (note, value) => {
+    const num = Number(value);
+    if (isNaN(num) || num < 0) return;
+    setChangeCounts((prev) => ({ ...prev, [note]: num }));
+  };
+
   const handlePaymentMethodSelect = (methodId) => {
     setSelectedPaymentMethod(methodId);
   };
 
+  const sanitizeInput = (input) => {
+    if (!input || typeof input !== 'string') return '';
+    return input
+      .trim()
+      .replace(/[<>]/g, '')
+      .substring(0, 200);
+  };
+
+  const validateUPIID = (upiId) => {
+    if (!upiId || !upiId.trim()) return { valid: false, message: 'UPI ID is required' };
+    const upiRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9]+$/;
+    if (!upiRegex.test(upiId.trim())) {
+      return { valid: false, message: 'Invalid UPI ID format (e.g., user@bank)' };
+    }
+    return { valid: true };
+  };
+
+  const validateTransactionID = (txnId, paymentMethod) => {
+    if (!txnId || !txnId.trim()) return { valid: false, message: 'Transaction ID is required' };
+    const sanitized = sanitizeInput(txnId);
+    if (sanitized.length < 4) {
+      return { valid: false, message: 'Transaction ID must be at least 4 characters' };
+    }
+    return { valid: true };
+  };
+
+  const validateBankName = (bankName) => {
+    if (!bankName || !bankName.trim()) return { valid: false, message: 'Bank name is required' };
+    const sanitized = sanitizeInput(bankName);
+    if (sanitized.length < 3) {
+      return { valid: false, message: 'Bank name must be at least 3 characters' };
+    }
+    return { valid: true };
+  };
+
+  const validateChequeNo = (chequeNo) => {
+    if (!chequeNo || !chequeNo.trim()) return { valid: false, message: 'Cheque number is required' };
+    const sanitized = sanitizeInput(chequeNo);
+    if (!/^\d{6,}$/.test(sanitized)) {
+      return { valid: false, message: 'Cheque number must be at least 6 digits' };
+    }
+    return { valid: true };
+  };
+
+  const validateCardLast4 = (cardLast4) => {
+    if (!cardLast4 || !cardLast4.trim()) return { valid: false, message: 'Last 4 digits are required' };
+    if (!/^\d{4}$/.test(cardLast4.trim())) {
+      return { valid: false, message: 'Must be exactly 4 digits' };
+    }
+    return { valid: true };
+  };
+
+  const validateCardType = (cardType) => {
+    if (!cardType || !cardType.trim()) return { valid: false, message: 'Card type is required' };
+    const validTypes = ['visa', 'mastercard', 'rupay', 'amex'];
+    if (!validTypes.includes(cardType.toLowerCase())) {
+      return { valid: false, message: 'Invalid card type' };
+    }
+    return { valid: true };
+  };
+
+  const validateCashPayment = () => {
+    const amountToPay = getTotalPending();
+    if (amountToPay <= 0) {
+      return { valid: false, message: 'No amount to pay' };
+    }
+    if (totalCash <= 0) {
+      return { valid: false, message: 'Please enter cash received' };
+    }
+    if (totalCash < amountToPay) {
+      const shortAmount = amountToPay - totalCash;
+      return { valid: false, message: `Short amount: ₹${shortAmount.toLocaleString()}. Please collect sufficient cash.` };
+    }
+
+    const changeAmount = totalCash - amountToPay;
+    if (changeAmount > 0) {
+      if (totalChange <= 0) {
+        return { valid: false, message: `Change of ₹${changeAmount.toLocaleString()} needs to be returned. Please enter change denomination breakdown.` };
+      }
+
+      if (totalChange !== changeAmount) {
+        const difference = Math.abs(totalChange - changeAmount);
+        return {
+          valid: false,
+          message: `Change denomination mismatch! Expected: ₹${changeAmount.toLocaleString()}, Entered: ₹${totalChange.toLocaleString()}. ${totalChange < changeAmount ? 'Add' : 'Reduce'} ₹${difference.toLocaleString()}.`
+        };
+      }
+    }
+
+    return { valid: true };
+  };
+
+  const validatePaymentForm = () => {
+    switch (selectedPaymentMethod) {
+      case 'upi': {
+        const upiValidation = validateUPIID(paymentFormData.upiId);
+        if (!upiValidation.valid) return upiValidation;
+
+        const txnValidation = validateTransactionID(paymentFormData.transactionId, 'UPI');
+        if (!txnValidation.valid) return txnValidation;
+
+        return { valid: true };
+      }
+
+      case 'netbanking': {
+        const txnValidation = validateTransactionID(paymentFormData.transactionId, 'Net Banking');
+        if (!txnValidation.valid) return txnValidation;
+
+        const bankValidation = validateBankName(paymentFormData.bankName);
+        if (!bankValidation.valid) return bankValidation;
+
+        return { valid: true };
+      }
+
+      case 'cheque': {
+        const chequeValidation = validateChequeNo(paymentFormData.chequeNo);
+        if (!chequeValidation.valid) return chequeValidation;
+
+        const bankValidation = validateBankName(paymentFormData.bankName);
+        if (!bankValidation.valid) return bankValidation;
+
+        if (!paymentFormData.chequeDate) {
+          return { valid: false, message: 'Cheque date is required' };
+        }
+
+        return { valid: true };
+      }
+
+      case 'card': {
+        const cardTypeValidation = validateCardType(paymentFormData.cardType);
+        if (!cardTypeValidation.valid) return cardTypeValidation;
+
+        const cardLast4Validation = validateCardLast4(paymentFormData.cardLast4);
+        if (!cardLast4Validation.valid) return cardLast4Validation;
+
+        const txnValidation = validateTransactionID(paymentFormData.transactionId, 'Card');
+        if (!txnValidation.valid) return txnValidation;
+
+        return { valid: true };
+      }
+
+      case 'cash': {
+        return validateCashPayment();
+      }
+
+      default:
+        return { valid: false, message: 'Please select a payment method' };
+    }
+  };
+
   const handlePaymentNext = () => {
+    if (paymentStep === 0 && !selectedPaymentMethod) {
+      setMessage('Please select a payment method');
+      setStatus(false);
+      setColor(false);
+      setOpen(true);
+      return;
+    }
+
+    if (paymentStep === 1) {
+      const validation = validatePaymentForm();
+      if (!validation.valid) {
+        setMessage(validation.message);
+        setStatus(false);
+        setColor(false);
+        setOpen(true);
+        return;
+      }
+    }
+
     if (paymentStep < 2) setPaymentStep(paymentStep + 1);
   };
 
@@ -286,64 +478,309 @@ export default function BillingScreen() {
     if (paymentStep > 0) setPaymentStep(paymentStep - 1);
   };
 
-  const handlePaymentConfirm = () => {
+  const handlePaymentConfirm = async () => {
+    if (paymentProcessing) {
+      return;
+    }
+
+    if (!selectedRows || selectedRows.length === 0) {
+      setMessage('No fees selected for payment');
+      setStatus(false);
+      setColor(false);
+      setOpen(true);
+      return;
+    }
+
+    const totalAmount = getTotalPending();
+    if (totalAmount <= 0) {
+      setMessage('Payment amount must be greater than zero');
+      setStatus(false);
+      setColor(false);
+      setOpen(true);
+      return;
+    }
+
+    if (totalAmount > MAX_AMOUNT) {
+      setMessage(`Payment amount cannot exceed ₹${MAX_AMOUNT.toLocaleString()}`);
+      setStatus(false);
+      setColor(false);
+      setOpen(true);
+      return;
+    }
+
+    if (!selectedPaymentMethod) {
+      setMessage('Please select a payment method');
+      setStatus(false);
+      setColor(false);
+      setOpen(true);
+      return;
+    }
+
+    const validation = validatePaymentForm();
+    if (!validation.valid) {
+      setMessage(validation.message);
+      setStatus(false);
+      setColor(false);
+      setOpen(true);
+      return;
+    }
+
+    const currentFeeData = getCurrentFeeData();
+    for (const index of selectedRows) {
+      const paidAmount = toPayAmounts[index] || 0;
+      const fee = currentFeeData[index];
+
+      if (paidAmount <= 0) {
+        setMessage(`Invalid amount for ${fee?.feeName || fee?.feeDetails || 'fee item'}`);
+        setStatus(false);
+        setColor(false);
+        setOpen(true);
+        return;
+      }
+
+      if (paidAmount > fee.pendingAmount) {
+        setMessage(`Amount for ${fee?.feeName || fee?.feeDetails || 'fee item'} exceeds pending amount`);
+        setStatus(false);
+        setColor(false);
+        setOpen(true);
+        return;
+      }
+    }
+
     setPaymentProcessing(true);
-    setTimeout(() => {
-      setPaymentProcessing(false);
-      setPaymentSuccess(true);
-      // Update fee data after successful payment based on toPay amounts
-      setFeeData(prev => prev.map((fee, idx) => {
-        if (selectedRows.includes(idx)) {
-          const paymentAmount = toPayAmounts[idx] || 0;
-          const newPaidAmount = fee.paidAmount + paymentAmount;
-          const newPendingAmount = fee.pendingAmount - paymentAmount;
 
-          // Determine new status
-          let newStatus = 'Unpaid';
-          if (newPendingAmount === 0) {
-            newStatus = 'Paid';
-          } else if (newPaidAmount > 0) {
-            newStatus = 'Partially Paid';
-          }
+    try {
+      setCompletedPaymentAmount(totalAmount);
 
-          return {
-            ...fee,
-            status: newStatus,
-            paidAmount: newPaidAmount,
-            pendingAmount: newPendingAmount >= 0 ? newPendingAmount : 0
-          };
+      const payFeesElements = selectedRows.map((index) => {
+        const fee = currentFeeData[index];
+        const paidAmount = toPayAmounts[index] || 0;
+
+        const dateFormat = (value === 3) ? 'YYYY-MM-DD' : 'DD-MM-YYYY';
+
+        const baseElement = {
+          feesElementID: fee.feesElementID || fee.id || index + 1,
+          paidDate: dayjs().format(dateFormat),
+          paidAmount: Math.round(paidAmount * 100) / 100
+        };
+
+        switch (value) {
+          case 0:
+            return {
+              primeSchoolFeesID: fee.primeSchoolFeesID || fee.id || 1,
+              ...baseElement
+            };
+          case 1:
+            return {
+              transportFeesID: fee.transportFeesID || fee.id || 1,
+              ...baseElement
+            };
+          case 2:
+            return {
+              ecaFeesID: fee.ecaFeesID || fee.id || 1,
+              ...baseElement
+            };
+          case 3:
+            return {
+              additionalFeesID: fee.additionalFeesID || fee.id || 1,
+              ...baseElement
+            };
+          default:
+            return {
+              primeSchoolFeesID: fee.primeSchoolFeesID || fee.id || 1,
+              ...baseElement
+            };
         }
-        return fee;
-      }));
-
-      // Reset toPay amounts for paid rows to new pending amounts
-      setToPayAmounts(prev => {
-        const updated = { ...prev };
-        selectedRows.forEach(idx => {
-          const fee = feeData[idx];
-          const paymentAmount = toPayAmounts[idx] || 0;
-          const newPendingAmount = fee.pendingAmount - paymentAmount;
-          updated[idx] = newPendingAmount >= 0 ? newPendingAmount : 0;
-        });
-        return updated;
       });
 
-      setSelectedRows([]);
-    }, 2500);
+      const totalPaidAmount = Math.round(totalAmount * 100) / 100;
+
+      const paymentMethods = {
+        totalPaidAmount: totalPaidAmount,
+        paymentOption: selectedPaymentMethod.toUpperCase(),
+        Remark: sanitizeInput(paymentFormData.remarks || `Payment via ${paymentMethodOptions.find(m => m.id === selectedPaymentMethod)?.name}`)
+      };
+
+      switch (selectedPaymentMethod) {
+        case 'upi':
+          paymentMethods.UPIID = sanitizeInput(paymentFormData.upiId || '');
+          paymentMethods.TransactionID = sanitizeInput(paymentFormData.transactionId || `UPI-TXN-${Date.now()}`);
+          break;
+
+        case 'netbanking':
+          paymentMethods.TransactionID = sanitizeInput(paymentFormData.transactionId || `NB-TXN-${Date.now()}`);
+          paymentMethods.BankName = sanitizeInput(paymentFormData.bankName || '');
+          break;
+
+        case 'cheque':
+          paymentMethods.TransactionID = sanitizeInput(paymentFormData.transactionId || `CHQ-TXN-${Date.now()}`);
+          paymentMethods.ChequeNo = sanitizeInput(paymentFormData.chequeNo || '');
+          paymentMethods.BankName = sanitizeInput(paymentFormData.bankName || '');
+          paymentMethods.ChequeDate = paymentFormData.chequeDate ? dayjs(paymentFormData.chequeDate).format('DD-MM-YYYY') : dayjs().format('DD-MM-YYYY');
+          break;
+
+        case 'card':
+          paymentMethods.TransactionID = sanitizeInput(paymentFormData.transactionId || `CARD-TXN-${Date.now()}`);
+          paymentMethods.CardType = sanitizeInput(paymentFormData.cardType || '');
+          paymentMethods.CardLastFourDigits = paymentFormData.cardLast4?.replace(/\D/g, '').substring(0, 4) || '';
+          break;
+
+        case 'cash':
+          if (totalCash > 0) {
+            paymentMethods.CashReceived = Math.round(totalCash * 100) / 100;
+            const balance = totalCash - totalPaidAmount;
+            if (balance > 0) {
+              paymentMethods.ChangeReturned = Math.round(balance * 100) / 100;
+            }
+          }
+          paymentMethods.inwardsDinomination = convertToInwardsDenomination();
+          paymentMethods.outwardsDinomination = convertToOutwardsDenomination();
+          break;
+
+        default:
+          throw new Error('Invalid payment method');
+      }
+
+      const payload = {
+        payFeesElements,
+        paymentMethods
+      };
+
+      let apiEndpoint;
+      switch (value) {
+        case 0:
+          apiEndpoint = postPaymentMethod;
+          break;
+        case 1:
+          apiEndpoint = postPaymentMethod;
+          break;
+        case 2:
+          apiEndpoint = postEcaPaymentMethod;
+          break;
+        case 3:
+          apiEndpoint = postAdditionalPaymentMethod;
+          break;
+        default:
+          apiEndpoint = postPaymentMethod;
+      }
+
+      const res = await axios.post(apiEndpoint, payload, {
+        params: {
+          RollNumber: rollNumber,
+          Year: selectedYear
+        },
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+      });
+
+      if (res.data.success || res.status === 200) {
+        setPaymentProcessing(false);
+        setPaymentSuccess(true);
+
+        switch (value) {
+          case 0:
+            await fetchStatusDetails();
+            break;
+          case 1:
+            await fetchTransportDetails();
+            break;
+          case 2:
+            await fetchEcaDetails();
+            break;
+          case 3:
+            await fetchAdditionalDetails();
+            break;
+          default:
+            await fetchStatusDetails();
+        }
+
+        setSelectedRows([]);
+        setMessage('Payment completed successfully!');
+        setStatus(true);
+        setColor(true);
+        setOpen(true);
+      } else {
+        throw new Error(res.data.message || 'Payment failed');
+      }
+    } catch (error) {
+      console.error("Error while processing payment:", error);
+      setPaymentProcessing(false);
+      setMessage(error.response?.data?.message || error.message || 'Payment failed. Please try again.');
+      setStatus(false);
+      setColor(false);
+      setOpen(true);
+    }
   };
 
   const handlePaymentFormChange = (field, value) => {
-    setPaymentFormData(prev => ({ ...prev, [field]: value }));
+    let sanitizedValue = value;
+
+    if (typeof value === 'string') {
+      if (field === 'upiId' || field === 'transactionId' || field === 'bankName' ||
+          field === 'chequeNo' || field === 'cardType' || field === 'remarks') {
+        sanitizedValue = sanitizeInput(value);
+      }
+
+      if (field === 'cardLast4') {
+        sanitizedValue = value.replace(/\D/g, '').substring(0, 4);
+      }
+    }
+
+    setPaymentFormData(prev => ({ ...prev, [field]: sanitizedValue }));
   };
 
   const getTotalPending = () => {
-    // Calculate total based on selected rows and their toPay amounts
     return selectedRows.reduce((sum, idx) => sum + (toPayAmounts[idx] || 0), 0);
   };
 
-  const getTotalYearlyFees = () => {
-    return feeData.reduce((sum, fee) => sum + fee.amount, 0);
+  const calculateChangeDenomination = (changeAmount) => {
+    const denominations = [2000, 500, 200, 100, 50, 20, 10, 5, 2, 1];
+    const result = {};
+    let remaining = changeAmount;
+
+    denominations.forEach(denom => {
+      if (remaining >= denom) {
+        const count = Math.floor(remaining / denom);
+        result[denom] = count;
+        remaining = remaining % denom;
+      }
+    });
+
+    return result;
   };
+
+  const convertToInwardsDenomination = () => {
+    return {
+      inWards2000: counts[2000] || 0,
+      inWards500: counts[500] || 0,
+      inWards200: counts[200] || 0,
+      inWards100: counts[100] || 0,
+      inWards50: counts[50] || 0,
+      inWards20: counts[20] || 0,
+      inWards10: counts[10] || 0,
+      inWards5: counts[5] || 0,
+      inWards2: counts[2] || 0,
+      inWards1: counts[1] || 0
+    };
+  };
+
+  const convertToOutwardsDenomination = () => {
+    return {
+      outWards2000: changeCounts[2000] || 0,
+      outWards500: changeCounts[500] || 0,
+      outWards200: changeCounts[200] || 0,
+      outWards100: changeCounts[100] || 0,
+      outWards50: changeCounts[50] || 0,
+      outWards20: changeCounts[20] || 0,
+      outWards10: changeCounts[10] || 0,
+      outWards5: changeCounts[5] || 0,
+      outWards2: changeCounts[2] || 0,
+      outWards1: changeCounts[1] || 0
+    };
+  };
+
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -354,6 +791,98 @@ export default function BillingScreen() {
     }
   };
 
+  const getDaysRemaining = (dueDate) => {
+    if (!dueDate) return null;
+
+    const [day, month, year] = dueDate.split('/');
+    const due = new Date(year, month - 1, day);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    due.setHours(0, 0, 0, 0);
+
+    const diffTime = due - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    return diffDays;
+  };
+
+  const getDueDateInfo = (dueDate, paymentStatus, pendingAmount = 0) => {
+    const isPaid = paymentStatus?.toLowerCase() === 'paid' || pendingAmount === 0;
+
+    if (isPaid) {
+      return {
+        text: 'Paid',
+        color: '#10b981',
+        bgColor: '#d1fae5',
+        icon: '✓',
+        status: 'paid'
+      };
+    }
+
+    if (!dueDate || dueDate === '' || dueDate === '-') {
+      return {
+        text: 'No Due Date',
+        color: '#94a3b8',
+        bgColor: '#f1f5f9',
+        icon: '📅',
+        status: 'none'
+      };
+    }
+
+    const daysRemaining = getDaysRemaining(dueDate);
+
+    if (daysRemaining === null) {
+      return {
+        text: 'Invalid Date',
+        color: '#94a3b8',
+        bgColor: '#f1f5f9',
+        icon: '❓',
+        status: 'invalid'
+      };
+    }
+
+    if (daysRemaining < 0) {
+      return {
+        text: `Overdue by ${Math.abs(daysRemaining)} day${Math.abs(daysRemaining) > 1 ? 's' : ''}`,
+        color: '#dc2626',
+        bgColor: '#fee2e2',
+        icon: '⚠️',
+        status: 'overdue'
+      };
+    } else if (daysRemaining === 0) {
+      return {
+        text: 'Due Today',
+        color: '#ea580c',
+        bgColor: '#ffedd5',
+        icon: '🔔',
+        status: 'today'
+      };
+    } else if (daysRemaining <= 3) {
+      return {
+        text: `${daysRemaining} day${daysRemaining > 1 ? 's' : ''} left`,
+        color: '#f59e0b',
+        bgColor: '#fef3c7',
+        icon: '⏰',
+        status: 'soon'
+      };
+    } else if (daysRemaining <= 7) {
+      return {
+        text: `${daysRemaining} days left`,
+        color: '#3b82f6',
+        bgColor: '#dbeafe',
+        icon: '📆',
+        status: 'upcoming'
+      };
+    } else {
+      return {
+        text: dueDate,
+        color: '#10b981',
+        bgColor: '#d1fae5',
+        icon: '✓',
+        status: 'safe'
+      };
+    }
+  };
 
   const darkTheme = createTheme({
     palette: {
@@ -374,8 +903,81 @@ export default function BillingScreen() {
 
   const handleTabChange = (event, newValue) => {
     setValue(newValue);
+    setSelectedRows([]);
+    setToPayAmounts({});
   };
 
+  // Restore active tab when navigating back from transaction history
+  useEffect(() => {
+    if (activeTab !== undefined && activeTab !== null) {
+      setValue(activeTab);
+    }
+  }, [activeTab]);
+
+  const getCurrentFeeData = () => {
+    switch (value) {
+      case 0:
+        return schoolFee;
+      case 1:
+        return transportFeeElements;
+      case 2:
+        return ecaFeeElements;
+      case 3:
+        return additionalFeeElements;
+      default:
+        return [];
+    }
+  };
+
+  const getCurrentDetails = () => {
+    switch (value) {
+      case 0:
+        return details;
+      case 1:
+        return transportDetails;
+      case 2:
+        return ecaDetails;
+      case 3:
+        return additionalDetails;
+      default:
+        return {};
+    }
+  };
+
+  const getNoDataMessage = () => {
+    switch (value) {
+      case 0:
+        return "No School Fees Assigned";
+      case 1:
+        return "No Transport Fees Assigned";
+      case 2:
+        return "No ECA Fees Assigned";
+      case 3:
+        return "No Additional Fees Assigned";
+      default:
+        return "No Fees Found";
+    }
+  };
+
+  const getTotalFeeAmount = () => {
+    const currentFeeData = getCurrentFeeData();
+    if (!currentFeeData || currentFeeData.length === 0) return 0;
+
+    return currentFeeData.reduce((total, fee) => {
+      return total + (fee.feeAmount || 0);
+    }, 0);
+  };
+
+  useEffect(() => {
+    const currentFeeData = getCurrentFeeData();
+    if (currentFeeData && currentFeeData.length > 0) {
+      const initialAmounts = {};
+      currentFeeData.forEach((fee, index) => {
+        initialAmounts[index] = fee.pendingAmount;
+      });
+      setToPayAmounts(initialAmounts);
+    }
+  }, [schoolFee, ecaFeeElements, transportFeeElements, additionalFeeElements, value]);
 
   const handlePrint = useReactToPrint({
     contentRef: componentRef,
@@ -401,10 +1003,47 @@ export default function BillingScreen() {
     setSelectedFee(null);
   };
 
+  // Check if all fees in current tab are fully paid
+  const areAllFeesPaid = () => {
+    const currentFeeData = getCurrentFeeData();
+    if (!currentFeeData || currentFeeData.length === 0) return false;
+    return currentFeeData.every(fee => fee.pendingAmount === 0);
+  };
+
+  // Calculate total amount for all fees
+  const getTotalAmountForAllFees = (fees) => {
+    if (!fees || fees.length === 0) return 0;
+    return fees.reduce((total, fee) => total + (fee.feeAmount || 0), 0);
+  };
+
+  // Handle print entire bill
+  const handlePrintEntireBill = () => {
+    const currentFeeData = getCurrentFeeData();
+    if (currentFeeData && currentFeeData.length > 0) {
+      setSelectedFee(currentFeeData); // Set as array for entire bill
+      setOpenPreview(true);
+    }
+  };
+
 
   useEffect(() => {
-    fetchStatusDetails()
-  }, [selectedYear,]);
+    switch (value) {
+      case 0:
+        fetchStatusDetails();
+        break;
+      case 1:
+        fetchTransportDetails();
+        break;
+      case 2:
+        fetchEcaDetails();
+        break;
+      case 3:
+        fetchAdditionalDetails();
+        break;
+      default:
+        fetchStatusDetails();
+    }
+  }, [selectedYear, value]);
 
   const fetchStatusDetails = async () => {
     setIsLoading(true);
@@ -423,6 +1062,100 @@ export default function BillingScreen() {
       setSchoolFee(feeDetail.feesElements)
     } catch (error) {
       console.error("Error while inserting news data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+
+  const fetchEcaDetails = async () => {
+    setIsLoading(true);
+    try {
+      const res = await axios.get(findStudentEcaFeesBilling, {
+        params: {
+          RollNumber: rollNumber,
+          Year: selectedYear
+        },
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const feeDetail = res.data.data
+      setEcaDetails(feeDetail)
+      setEcaFeeElements(feeDetail.feesElements)
+    } catch (error) {
+      console.error("Error while fetching ECA fee data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  const fetchTransportDetails = async () => {
+    setIsLoading(true);
+    try {
+      const dummyTransportData = {
+        rollnumber: rollNumber || "4654",
+        name: details.name || "HASVANTH. M",
+        grade: details.grade || "VII",
+        section: details.section || "A1",
+        gender: details.gender || "Male",
+        filePath: null,
+        feesElements: [
+          {
+            id: 1,
+            transportFeesID: 1,
+            routeName: "Route A - Main Gate",
+            pickupPoint: "Main Bus Stop",
+            dueDate: "2026-03-15",
+            feeAmount: 12000,
+            paidAmount: 5000,
+            pendingAmount: 7000,
+            status: "partiallypaid",
+            feeDetails: "Monthly Transport Fee",
+            feeDescription: "School Bus Service - Route A"
+          },
+          {
+            id: 2,
+            transportFeesID: 1,
+            routeName: "Route A - Main Gate",
+            pickupPoint: "Main Bus Stop",
+            dueDate: "2026-04-15",
+            feeAmount: 12000,
+            paidAmount: 0,
+            pendingAmount: 12000,
+            status: "notpaid",
+            feeDetails: "Monthly Transport Fee",
+            feeDescription: "School Bus Service - Route A"
+          }
+        ]
+      };
+
+      setTransportDetails(dummyTransportData);
+      setTransportFeeElements(dummyTransportData.feesElements);
+    } catch (error) {
+      console.error("Error while loading transport fee data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  const fetchAdditionalDetails = async () => {
+    setIsLoading(true);
+    try {
+      const res = await axios.get(findStudentAdditionalFeesBilling, {
+        params: {
+          RollNumber: rollNumber,
+          Year: selectedYear
+        },
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const feeDetail = res.data.data
+      setAdditionalDetails(feeDetail)
+      setAdditionalFeeElements(feeDetail.feesElements)
+    } catch (error) {
+      console.error("Error while fetching additional fee data:", error);
     } finally {
       setIsLoading(false);
     }
@@ -572,7 +1305,7 @@ export default function BillingScreen() {
                         display: "block",
                       }}
                     >
-                      {details.name}
+                      {getCurrentDetails().name}
                     </Typography>
                   </Box>
                 </Grid>
@@ -594,7 +1327,7 @@ export default function BillingScreen() {
                       Roll No
                     </Typography>
                     <Typography sx={{ color: "#000", fontSize: "16px", py: 1 }}>
-                      25002
+                    {getCurrentDetails().rollnumber}
                     </Typography>
                   </Box>
                 </Grid>
@@ -615,7 +1348,7 @@ export default function BillingScreen() {
                       Gender
                     </Typography>
                     <Typography sx={{ color: "#000", fontSize: "16px", py: 1 }}>
-                      Male
+                    {getCurrentDetails().gender}
                     </Typography>
                   </Box>
                 </Grid>
@@ -637,7 +1370,7 @@ export default function BillingScreen() {
                       Grade
                     </Typography>
                     <Typography sx={{ color: "#000", fontSize: "16px", py: 1 }}>
-                      Prekg
+                    {getCurrentDetails().grade}
                     </Typography>
                   </Box>
                 </Grid>
@@ -659,7 +1392,7 @@ export default function BillingScreen() {
                       Section
                     </Typography>
                     <Typography sx={{ color: "#000", fontSize: "16px", py: 1 }}>
-                      C
+                    {getCurrentDetails().section}
                     </Typography>
                   </Box>
                 </Grid>
@@ -780,21 +1513,49 @@ export default function BillingScreen() {
               </TableHead>
 
               <TableBody>
-                {schoolFee.map((row, rowIndex) => {
-                  const isSelected = selectedRows.includes(rowIndex);
-                  return (
-                    <TableRow
-                      key={rowIndex}
-                      onClick={() => handleSelect(rowIndex)}
-                      sx={{
-                        cursor: "pointer",
-                        backgroundColor: isSelected ? "#FFF7F7" : "transparent",
-                        "&:hover": {
-                          backgroundColor: isSelected ? "#ff00001A" : "#fafafa",
-                        },
-                        transition: "background-color 0.2s ease",
-                      }}
-                    >
+                {getCurrentFeeData().length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={9} sx={{ textAlign: "center", py: 8 }}>
+                      <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                        <Box
+                          sx={{
+                            width: 80,
+                            height: 80,
+                            borderRadius: "50%",
+                            backgroundColor: "#f1f5f9",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            mb: 1
+                          }}
+                        >
+                          <Typography sx={{ fontSize: "40px" }}>📋</Typography>
+                        </Box>
+                        <Typography sx={{ fontSize: "18px", fontWeight: 600, color: "#64748b" }}>
+                          {getNoDataMessage()}
+                        </Typography>
+                        <Typography sx={{ fontSize: "14px", color: "#94a3b8" }}>
+                          No fee records found for this student in the selected category
+                        </Typography>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  getCurrentFeeData().map((row, rowIndex) => {
+                    const isSelected = selectedRows.includes(rowIndex);
+                    return (
+                      <TableRow
+                        key={rowIndex}
+                        onClick={() => handleSelect(rowIndex)}
+                        sx={{
+                          cursor: "pointer",
+                          backgroundColor: isSelected ? "#FFF7F7" : "transparent",
+                          "&:hover": {
+                            backgroundColor: isSelected ? "#ff00001A" : "#fafafa",
+                          },
+                          transition: "background-color 0.2s ease",
+                        }}
+                      >
 
                       <TableCell
                         sx={{
@@ -836,7 +1597,12 @@ export default function BillingScreen() {
                           textAlign: "center",
                         }}
                       >
-                        {row.feeDetails}
+                        {value === 2
+                          ? `${row.activityName || "-"} - ${row.activityCategory || "-"}`
+                          : value === 3
+                          ? (row.feeName || "-")
+                          : (row.feeDetails || "-")
+                        }
                       </TableCell>
 
                       <TableCell
@@ -854,16 +1620,69 @@ export default function BillingScreen() {
                           borderRight: 1,
                           borderColor: "#E601542A",
                           textAlign: "center",
-                          color:
-                            row.status === "Paid"
-                              ? "green"
-                              : row.status === "Pending"
-                                ? "red"
-                                : "#f57c00",
-                          fontWeight: 500,
+                          padding: "8px",
                         }}
                       >
-                        {row.status}
+                        {(() => {
+                          const status = row.status?.toLowerCase();
+                          let statusConfig = {
+                            text: 'Unknown',
+                            color: '#64748b',
+                            bgColor: '#f1f5f9',
+                            icon: '❓'
+                          };
+
+                          if (status === 'paid') {
+                            statusConfig = {
+                              text: 'Paid',
+                              color: '#10b981',
+                              bgColor: '#d1fae5',
+                              icon: '✓'
+                            };
+                          } else if (status === 'notpaid') {
+                            statusConfig = {
+                              text: 'Not Paid',
+                              color: '#ef4444',
+                              bgColor: '#fee2e2',
+                              icon: '✗'
+                            };
+                          } else if (status === 'partiallypaid') {
+                            statusConfig = {
+                              text: 'Partially Paid',
+                              color: '#f59e0b',
+                              bgColor: '#fef3c7',
+                              icon: '◐'
+                            };
+                          }
+
+                          return (
+                            <Box
+                              sx={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 0.5,
+                                px: 1.5,
+                                py: 0.5,
+                                borderRadius: "6px",
+                                backgroundColor: statusConfig.bgColor,
+                                border: `1px solid ${statusConfig.color}30`,
+                              }}
+                            >
+                              <Typography sx={{ fontSize: "14px" }}>
+                                {statusConfig.icon}
+                              </Typography>
+                              <Typography
+                                sx={{
+                                  fontSize: "12px",
+                                  fontWeight: 600,
+                                  color: statusConfig.color,
+                                }}
+                              >
+                                {statusConfig.text}
+                              </Typography>
+                            </Box>
+                          );
+                        })()}
                       </TableCell>
 
                       <TableCell
@@ -937,9 +1756,39 @@ export default function BillingScreen() {
                           borderRight: 1,
                           borderColor: "#E601542A",
                           textAlign: "center",
+                          padding: "8px",
                         }}
                       >
-                        {row.dueDate}
+                        {(() => {
+                          const dueDateInfo = getDueDateInfo(row.dueDate, row.status, row.pendingAmount);
+                          return (
+                            <Box
+                              sx={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 0.5,
+                                px: 1.5,
+                                py: 0.5,
+                                borderRadius: "6px",
+                                backgroundColor: dueDateInfo.bgColor,
+                                border: `1px solid ${dueDateInfo.color}30`,
+                              }}
+                            >
+                              <Typography sx={{ fontSize: "14px" }}>
+                                {dueDateInfo.icon}
+                              </Typography>
+                              <Typography
+                                sx={{
+                                  fontSize: "12px",
+                                  fontWeight: 600,
+                                  color: dueDateInfo.color,
+                                }}
+                              >
+                                {dueDateInfo.text}
+                              </Typography>
+                            </Box>
+                          );
+                        })()}
                       </TableCell>
 
                       <TableCell
@@ -979,11 +1828,14 @@ export default function BillingScreen() {
                       </TableCell>
                     </TableRow>
                   );
-                })}
+                })
+                )}
               </TableBody>
             </Table>
           </TableContainer>
-          <Dialog open={openPreview} onClose={handleClose} maxWidth="md" fullWidth keepMounted>
+
+          <>
+            <Dialog open={openPreview} onClose={handleClose} maxWidth="md" fullWidth keepMounted>
             <Box sx={{ p: 2 }}>
               <Box
                 ref={componentRef}
@@ -1007,7 +1859,7 @@ export default function BillingScreen() {
                 >
                   <img src={websiteSettings?.logo} width="70px" alt="school logo" />
                   <Typography sx={{ fontWeight: 700, fontSize: "20px", color: "#000" }}>
-                    {websiteSettings?.title || "MORNING STAR MATRICULATION SCHOOL"}
+                    {websiteSettings?.title || ""}
                   </Typography>
                 </Box>
 
@@ -1029,7 +1881,7 @@ export default function BillingScreen() {
                     color: "#000",
                   }}
                 >
-                  School Fee
+                   {Array.isArray(selectedFee) ? `Complete ${feeTabs[value]} Bill` : feeTabs[value]}
                 </Typography>
 
                 <Box
@@ -1040,11 +1892,11 @@ export default function BillingScreen() {
                   }}
                 >
                   {[
-                    { label: "SI No", value: "MS/25/FRE/002360" },
-                    { label: "Student Name", value: "Nisha Preethi S." },
-                    { label: "Roll No", value: "25002" },
-                    { label: "Class & Section", value: "Prekg A1" },
-                    { label: "Bill Date", value: "31/10/2025" },
+                    { label: "SI No", value: selectedFee?.id || "-" },
+                    { label: "Student Name", value: getCurrentDetails()?.name || "-" },
+                    { label: "Roll No", value: getCurrentDetails()?.rollnumber || rollNumber || "-" },
+                    { label: "Class & Section", value: `${getCurrentDetails()?.grade || '-'} ${getCurrentDetails()?.section || ''}`.trim() },
+                    { label: "Bill Date", value: dayjs().format("DD/MM/YYYY") },
                   ].map((item, i) => (
                     <Box
                       key={i}
@@ -1096,22 +1948,69 @@ export default function BillingScreen() {
                     </TableHead>
 
                     <TableBody>
-                      {dummyData1.map((row, rowIndex) => (
-                        <TableRow key={rowIndex}>
-                          <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A" }}>
-                            {rowIndex + 1}
-                          </TableCell>
-                          <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A" }}>
-                            {row.feeName}
-                          </TableCell>
-                          <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A" }}>
-                            {row.feeName}
-                          </TableCell>
-                          <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A" }}>
-                            {row.amount}
+                      {selectedFee ? (
+                        Array.isArray(selectedFee) ? (
+                          // Multiple fees - Entire Bill
+                          selectedFee.map((fee, index) => (
+                            <TableRow key={index}>
+                              <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px" }}>
+                                {index + 1}
+                              </TableCell>
+                              <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px" }}>
+                                {value === 2
+                                  ? `${fee.activityName || "-"} - ${fee.activityCategory || "-"}`
+                                  : value === 3
+                                  ? (fee.feeName || "-")
+                                  : (fee.feeDetails || "-")
+                                }
+                              </TableCell>
+                              <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px" }}>
+                                {value === 2
+                                  ? (fee.activityCategory || "-")
+                                  : value === 3
+                                  ? (fee.remarks || "-")
+                                  : (fee.feeDescription || "-")
+                                }
+                              </TableCell>
+                              <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px" }}>
+                                ₹{(fee.feeAmount || fee.amount || 0).toLocaleString()}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        ) : (
+                          // Single fee
+                          <TableRow>
+                            <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px" }}>
+                              1
+                            </TableCell>
+                            <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px" }}>
+                              {value === 2
+                                ? `${selectedFee.activityName || "-"} - ${selectedFee.activityCategory || "-"}`
+                                : value === 3
+                                ? (selectedFee.feeName || "-")
+                                : (selectedFee.feeDetails || "-")
+                              }
+                            </TableCell>
+                            <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px" }}>
+                              {value === 2
+                                ? (selectedFee.activityCategory || "-")
+                                : value === 3
+                                ? (selectedFee.remarks || "-")
+                                : (selectedFee.feeDescription || "-")
+                              }
+                            </TableCell>
+                            <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px" }}>
+                              ₹{(selectedFee.feeAmount || selectedFee.amount || 0).toLocaleString()}
+                            </TableCell>
+                          </TableRow>
+                        )
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={4} sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#999", fontSize: "14px", py: 3 }}>
+                            No fee selected
                           </TableCell>
                         </TableRow>
-                      ))}
+                      )}
                     </TableBody>
                   </Table>
                 </TableContainer>
@@ -1131,7 +2030,11 @@ export default function BillingScreen() {
                       borderBottomRightRadius: "5px",
                     }}
                   >
-                    Total Amount: <span style={{ marginLeft: "20px" }}>Rs.15,000</span>
+                    Total Amount: <span style={{ marginLeft: "20px" }}>₹{
+                      Array.isArray(selectedFee)
+                        ? getTotalAmountForAllFees(selectedFee).toLocaleString()
+                        : ((selectedFee?.feeAmount || selectedFee?.amount || 0)).toLocaleString()
+                    }</span>
                   </Box>
                 </Box>
 
@@ -1142,8 +2045,14 @@ export default function BillingScreen() {
                     mt: 1,
                   }}
                 >
-                  <Typography sx={{ fontSize: "15px" }}>
-                    <b>Total amount in words :</b> Fifteen Thousand Rupees only
+                  <Typography sx={{ fontSize: "15px", color: "#000" }}>
+                    <b>Total amount in words :</b> {
+                      Array.isArray(selectedFee)
+                        ? `Rupees ${getTotalAmountForAllFees(selectedFee).toLocaleString()} only`
+                        : (selectedFee?.feeAmount || selectedFee?.amount)
+                          ? `Rupees ${(selectedFee?.feeAmount || selectedFee?.amount).toLocaleString()} only`
+                          : "No amount"
+                    }
                   </Typography>
 
                   <Box sx={{ textAlign: "center" }}>
@@ -1208,90 +2117,111 @@ export default function BillingScreen() {
               </DialogActions>
             </Box>
           </Dialog>
-          <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-            <Box sx={{ display: "flex", ml: 12 }}>
-              <Box sx={{ border: "1px solid #ccc", py: 1, px: 3, color: "#00963C", fontWeight: "600", borderTop: "none", borderBottomLeftRadius: "5px", backgroundColor: "#fff", }}>
-                Total Yearly Fees Amount
-              </Box>
-              <Box sx={{ border: "1px solid #ccc", borderLeft: "none", fontWeight: "600", py: 1, px: 2, color: "#00963C", borderTop: "none", borderBottomRightRadius: "5px", backgroundColor: "#fff", }}>
-                Rs.45,000
-              </Box>
-            </Box>
-            <Box
-              sx={{
-                textTransform: "none",
-                textDecoration: "underline",
-                color: "#1F73C2",
-                mt: 1,
-                cursor: "pointer",
-                display: "inline-block",
-                transition: "color 0.2s ease",
-                userSelect: "none",
-                "&:hover": {
-                  color: "#145A9E",
-                },
-                "&:active": {
-                  transform: "scale(0.98)",
-                },
-              }}
-              onClick={() => {
-                console.log("Print Entire Bill clicked");
-              }}
-            >
-              Print as Entire Bill
-            </Box>
 
-          </Box>
-          <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-            <Box
-              sx={{
-                textTransform: "none",
-                textDecoration: "underline",
-                color: "#1F73C2",
-                mt: 2,
-                cursor: "pointer",
-                display: "inline-block",
-                transition: "color 0.2s ease",
-                userSelect: "none",
-                "&:hover": {
-                  color: "#145A9E",
-                },
-                "&:active": {
-                  transform: "scale(0.98)",
-                },
-              }}
-              onClick={() => {
-                setOpenHistoryPopup(true)
-              }}
-            >
-              View Previous bill Transaction History
-            </Box>
-            <Button
-              variant="contained"
-              size="small"
-              disabled={selectedRows.length === 0}
-              onClick={handleOpenPaymentPopup}
-              sx={{
-                backgroundColor: "#2e7d32",
-                textTransform: "none",
-                borderRadius: "8px",
-                mt: 1,
-                px: 3,
-                "&:hover": {
-                  backgroundColor: "#1b5e20",
-                },
-                fontSize: 13,
-                boxShadow: "none",
-              }}
-            >
-              Pay ₹{getTotalPending().toLocaleString()}
-            </Button>
+          {getCurrentFeeData().length > 0 && (
+            <>
+              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                <Box sx={{ display: "flex", ml: 12 }}>
+                  <Box sx={{ border: "1px solid #ccc", py: 1, px: 3, color: "#00963C", fontWeight: "600", borderTop: "none", borderBottomLeftRadius: "5px", backgroundColor: "#fff", }}>
+                    Total Fees Amount
+                  </Box>
+                  <Box sx={{ border: "1px solid #ccc", borderLeft: "none", fontWeight: "600", py: 1, px: 2, color: "#00963C", borderTop: "none", borderBottomRightRadius: "5px", backgroundColor: "#fff", }}>
+                    ₹{getTotalFeeAmount().toLocaleString()}
+                  </Box>
+                </Box>
+                {areAllFeesPaid() && (
+                  <Box
+                    sx={{
+                      textTransform: "none",
+                      textDecoration: "underline",
+                      color: "#1F73C2",
+                      mt: 1,
+                      cursor: "pointer",
+                      display: "inline-block",
+                      transition: "color 0.2s ease",
+                      userSelect: "none",
+                      "&:hover": {
+                        color: "#145A9E",
+                      },
+                      "&:active": {
+                        transform: "scale(0.98)",
+                      },
+                    }}
+                    onClick={handlePrintEntireBill}
+                  >
+                    Print as Entire Bill
+                  </Box>
+                )}
+              </Box>
 
-            <Dialog
+              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                <Box
+                  sx={{
+                    textTransform: "none",
+                    textDecoration: "underline",
+                    color: "#1F73C2",
+                    mt: 2,
+                    cursor: "pointer",
+                    display: "inline-block",
+                    transition: "color 0.2s ease",
+                    userSelect: "none",
+                    "&:hover": {
+                      color: "#145A9E",
+                    },
+                    "&:active": {
+                      transform: "scale(0.98)",
+                    },
+                  }}
+                  onClick={() => {
+                    // Map tab value to feeType
+                    const feeTypeMap = {
+                      0: 'schoolfee',
+                      1: 'transport',
+                      2: 'eca',
+                      3: 'additional'
+                    };
+                    navigate('/dashboardmenu/fee/transaction-history', {
+                      state: {
+                        rollNumber,
+                        year: selectedYear,
+                        feeType: feeTypeMap[value],
+                        activeTab: value
+                      }
+                    });
+                  }}
+                >
+                  View Previous bill Transaction History
+                </Box>
+                <Button
+                  variant="contained"
+                  size="small"
+                  disabled={selectedRows.length === 0}
+                  onClick={handleOpenPaymentPopup}
+                  sx={{
+                    backgroundColor: "#2e7d32",
+                    textTransform: "none",
+                    borderRadius: "8px",
+                    mt: 1,
+                    px: 3,
+                    "&:hover": {
+                      backgroundColor: "#1b5e20",
+                    },
+                    fontSize: 13,
+                    boxShadow: "none",
+                  }}
+                >
+                  Pay ₹{getTotalPending().toLocaleString()}
+                </Button>
+              </Box>
+            </>
+          )}
+
+          <Dialog
               open={openPaymentPopup}
-              onClose={!paymentProcessing ? handleClosePaymentPopup : undefined}
+              onClose={!paymentProcessing ? handleCloseAttempt : undefined}
               maxWidth="sm"
               fullWidth
+              disableEscapeKeyDown={paymentProcessing || paymentSuccess}
               PaperProps={{
                 sx: {
                   borderRadius: "10px",
@@ -1322,7 +2252,7 @@ export default function BillingScreen() {
                 {/* Close Button */}
                 {!paymentProcessing && !paymentSuccess && (
                   <IconButton
-                    onClick={handleClosePaymentPopup}
+                    onClick={handleCloseAttempt}
                     sx={{
                       position: "absolute",
                       top: 16,
@@ -1572,6 +2502,200 @@ export default function BillingScreen() {
                               ₹{totalCash.toLocaleString()}
                             </Typography>
                           </Box>
+
+                          {/* Balance Calculation */}
+                          {(() => {
+                            const amountToPay = getTotalPending();
+                            const balance = totalCash - amountToPay;
+                            const isExact = balance === 0;
+                            const isOverpaid = balance > 0;
+                            const isUnderpaid = balance < 0;
+
+                            return (
+                              <Box sx={{ mt: 2 }}>
+                                {/* Amount to Pay */}
+                                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", p: 2, background: "#fff", borderRadius: "12px", border: "1px solid #e2e8f0", mb: 1 }}>
+                                  <Typography sx={{ fontWeight: 600, fontSize: "0.9rem", color: "#64748b" }}>Amount to Pay</Typography>
+                                  <Typography sx={{ fontWeight: 700, fontSize: "1.1rem", color: "#1e293b" }}>
+                                    ₹{amountToPay.toLocaleString()}
+                                  </Typography>
+                                </Box>
+
+                                {/* Balance/Change Display */}
+                                {!isExact && totalCash > 0 && (
+                                  <>
+                                    <Box
+                                      sx={{
+                                        display: "flex",
+                                        justifyContent: "space-between",
+                                        alignItems: "center",
+                                        p: 2,
+                                        background: isOverpaid ? "#ecfdf5" : "#fef2f2",
+                                        borderRadius: "12px",
+                                        border: `1px solid ${isOverpaid ? "#10b981" : "#ef4444"}`,
+                                      }}
+                                    >
+                                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                        <Typography sx={{ fontSize: "1.2rem" }}>
+                                          {isOverpaid ? "💰" : "⚠️"}
+                                        </Typography>
+                                        <Typography sx={{ fontWeight: 600, fontSize: "0.9rem", color: isOverpaid ? "#059669" : "#dc2626" }}>
+                                          {isOverpaid ? "Change to Return" : "Short Amount"}
+                                        </Typography>
+                                      </Box>
+                                      <Typography sx={{ fontWeight: 800, fontSize: "1.3rem", color: isOverpaid ? "#10b981" : "#ef4444" }}>
+                                        ₹{Math.abs(balance).toLocaleString()}
+                                      </Typography>
+                                    </Box>
+
+                                    {/* Change Denomination Input */}
+                                    {isOverpaid && (
+                                      <Box sx={{ mt: 1 }}>
+                                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
+                                          <Typography sx={{ fontWeight: 600, fontSize: "0.85rem", color: "#059669" }}>
+                                            💵 Enter Change Denomination
+                                          </Typography>
+                                          <Button
+                                            size="small"
+                                            onClick={() => {
+                                              const changeDenomination = calculateChangeDenomination(Math.abs(balance));
+                                              const newChangeCounts = { ...notesList.reduce((acc, n) => ({ ...acc, [n]: 0 }), {}) };
+                                              Object.entries(changeDenomination).forEach(([denom, count]) => {
+                                                newChangeCounts[denom] = count;
+                                              });
+                                              setChangeCounts(newChangeCounts);
+                                            }}
+                                            sx={{
+                                              textTransform: "none",
+                                              fontSize: "0.7rem",
+                                              color: "#059669",
+                                              border: "1px solid #10b981",
+                                              "&:hover": { bgcolor: "#f0fdf4" },
+                                            }}
+                                          >
+                                            Auto Fill
+                                          </Button>
+                                        </Box>
+
+                                        <Box sx={{ background: "#f0fdf4", borderRadius: "12px", p: 2, border: "1px solid #10b981" }}>
+                                          {notesList.map((note, idx) => (
+                                            <Box
+                                              key={note}
+                                              sx={{
+                                                display: "flex",
+                                                alignItems: "center",
+                                                gap: 1.5,
+                                                py: 1,
+                                                borderBottom: idx < notesList.length - 1 ? "1px solid #10b98130" : "none",
+                                              }}
+                                            >
+                                              <Box sx={{ width: 50, py: 0.5, px: 1, background: "#fff", borderRadius: "6px", border: "1px solid #10b981", textAlign: "center" }}>
+                                                <Typography sx={{ fontWeight: 700, fontSize: "0.75rem", color: "#047857" }}>₹{note}</Typography>
+                                              </Box>
+                                              <Typography sx={{ color: "#059669", fontSize: "1rem" }}>×</Typography>
+                                              <TextField
+                                                size="small"
+                                                type="number"
+                                                value={changeCounts[note]}
+                                                onChange={(e) => handleChangeCount(note, e.target.value)}
+                                                sx={{
+                                                  width: 60,
+                                                  "& .MuiOutlinedInput-root": {
+                                                    borderRadius: "6px",
+                                                    background: "#fff",
+                                                    "& input": { textAlign: "center", fontWeight: 600, py: 0.5, fontSize: "0.8rem" },
+                                                  },
+                                                }}
+                                              />
+                                              <Typography sx={{ color: "#059669", fontSize: "1rem" }}>=</Typography>
+                                              <Box sx={{ flex: 1, textAlign: "right" }}>
+                                                <Typography sx={{ fontWeight: 700, fontSize: "0.8rem", color: getChangeSubtotal(note) > 0 ? "#047857" : "#94a3b8" }}>
+                                                  ₹{getChangeSubtotal(note).toLocaleString()}
+                                                </Typography>
+                                              </Box>
+                                            </Box>
+                                          ))}
+
+                                          <Divider sx={{ my: 1.5, borderColor: "#10b98130" }} />
+
+                                          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", p: 1, background: "#fff", borderRadius: "8px" }}>
+                                            <Typography sx={{ fontWeight: 600, fontSize: "0.85rem", color: "#059669" }}>Total Change Given</Typography>
+                                            <Typography sx={{ fontWeight: 800, fontSize: "1.1rem", color: "#047857" }}>
+                                              ₹{totalChange.toLocaleString()}
+                                            </Typography>
+                                          </Box>
+
+                                          {/* Validation Message */}
+                                          {totalChange !== Math.abs(balance) && totalChange > 0 && (
+                                            <Box sx={{ mt: 1, p: 1, background: "#fef2f2", borderRadius: "8px", border: "1px solid #ef4444" }}>
+                                              <Typography sx={{ fontSize: "0.7rem", color: "#dc2626", textAlign: "center" }}>
+                                                ⚠️ Change mismatch: Expected ₹{Math.abs(balance).toLocaleString()} but giving ₹{totalChange.toLocaleString()}
+                                              </Typography>
+                                            </Box>
+                                          )}
+
+                                          {totalChange === Math.abs(balance) && totalChange > 0 && (
+                                            <Box sx={{ mt: 1, p: 1, background: "#ecfdf5", borderRadius: "8px", border: "1px solid #10b981" }}>
+                                              <Typography sx={{ fontSize: "0.7rem", color: "#059669", textAlign: "center" }}>
+                                                ✓ Change amount matches correctly
+                                              </Typography>
+                                            </Box>
+                                          )}
+                                        </Box>
+                                      </Box>
+                                    )}
+                                  </>
+                                )}
+
+                                {/* Exact Payment Success */}
+                                {isExact && totalCash > 0 && (
+                                  <Box
+                                    sx={{
+                                      display: "flex",
+                                      justifyContent: "center",
+                                      alignItems: "center",
+                                      gap: 1,
+                                      p: 2,
+                                      background: "#ecfdf5",
+                                      borderRadius: "12px",
+                                      border: "1px solid #10b981",
+                                    }}
+                                  >
+                                    <CheckCircleIcon sx={{ color: "#10b981", fontSize: 20 }} />
+                                    <Typography sx={{ fontWeight: 600, fontSize: "0.9rem", color: "#059669" }}>
+                                      Exact Amount - No Change Required
+                                    </Typography>
+                                  </Box>
+                                )}
+
+                                {/* Collection Summary */}
+                                {totalCash > 0 && (
+                                  <Box sx={{ mt: 2, p: 2, background: "#f8fafc", borderRadius: "12px", border: "1px solid #e2e8f0" }}>
+                                    <Typography sx={{ fontWeight: 600, fontSize: "0.85rem", color: "#64748b", mb: 1 }}>
+                                      📊 Collection Summary
+                                    </Typography>
+                                    <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+                                      {notesList.map((note) => {
+                                        if (counts[note] > 0) {
+                                          return (
+                                            <Box key={note} sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                              <Typography sx={{ fontSize: "0.8rem", color: "#64748b" }}>
+                                                ₹{note} × {counts[note]}
+                                              </Typography>
+                                              <Typography sx={{ fontSize: "0.8rem", fontWeight: 600, color: "#1e293b" }}>
+                                                ₹{(note * counts[note]).toLocaleString()}
+                                              </Typography>
+                                            </Box>
+                                          );
+                                        }
+                                        return null;
+                                      })}
+                                    </Box>
+                                  </Box>
+                                )}
+                              </Box>
+                            );
+                          })()}
                         </Box>
                       )}
 
@@ -1848,7 +2972,7 @@ export default function BillingScreen() {
                                 <Typography sx={{ color: "#64748b", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
                                   Student Name
                                 </Typography>
-                                <Typography sx={{ fontWeight: 700, fontSize: "0.95rem", color: "#1e293b" }}>{studentData.name}</Typography>
+                                <Typography sx={{ fontWeight: 700, fontSize: "0.95rem", color: "#1e293b" }}>{details.name}</Typography>
                               </Box>
                             </Grid>
                             <Grid size={{ xs: 6 }} >
@@ -1856,7 +2980,7 @@ export default function BillingScreen() {
                                 <Typography sx={{ color: "#64748b", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
                                   Roll Number
                                 </Typography>
-                                <Typography sx={{ fontWeight: 700, fontSize: "0.95rem", color: "#1e293b" }}>{studentData.rollNo}</Typography>
+                                <Typography sx={{ fontWeight: 700, fontSize: "0.95rem", color: "#1e293b" }}>{details.rollnumber}</Typography>
                               </Box>
                             </Grid>
                             <Grid size={{ xs: 6 }} >
@@ -1864,7 +2988,7 @@ export default function BillingScreen() {
                                 <Typography sx={{ color: "#64748b", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
                                   Class & Section
                                 </Typography>
-                                <Typography sx={{ fontWeight: 700, fontSize: "0.95rem", color: "#1e293b" }}>{studentData.grade} - {studentData.section}</Typography>
+                                <Typography sx={{ fontWeight: 700, fontSize: "0.95rem", color: "#1e293b" }}>{details.grade} - {details.section}</Typography>
                               </Box>
                             </Grid>
                             <Grid size={{ xs: 6 }} >
@@ -1872,7 +2996,9 @@ export default function BillingScreen() {
                                 <Typography sx={{ color: "#64748b", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
                                   Fee Type
                                 </Typography>
-                                <Typography sx={{ fontWeight: 700, fontSize: "0.95rem", color: "#1e293b" }}>School Fee</Typography>
+                                <Typography sx={{ fontWeight: 700, fontSize: "0.95rem", color: "#1e293b" }}>
+                                {feeTabs[value]}
+                                </Typography>
                               </Box>
                             </Grid>
                           </Grid>
@@ -1894,12 +3020,109 @@ export default function BillingScreen() {
                               <Box sx={{ width: 40, height: 40, borderRadius: "10px", background: "#10b981", display: "flex", alignItems: "center", justifyContent: "center" }}>
                                 <PaymentsIcon sx={{ color: "#fff", fontSize: 20 }} />
                               </Box>
-                              <Typography sx={{ fontWeight: 700, fontSize: "1.1rem", color: "#1e293b" }}>Total Payable</Typography>
+                              <Typography sx={{ fontWeight: 700, fontSize: "1.1rem", color: "#1e293b" }}>Amount to Pay</Typography>
                             </Box>
                             <Typography sx={{ fontWeight: 800, fontSize: "1.75rem", color: "#10b981" }}>
-                              ₹{selectedPaymentMethod === "cash" ? totalCash.toLocaleString() : getTotalPending().toLocaleString()}
+                              ₹{getTotalPending().toLocaleString()}
                             </Typography>
                           </Box>
+
+                          {/* Cash Payment Details */}
+                          {selectedPaymentMethod === "cash" && (
+                            <>
+                              {/* Cash Received */}
+                              <Box
+                                sx={{
+                                  mt: 2,
+                                  p: 2,
+                                  background: "#f0f9ff",
+                                  borderRadius: "12px",
+                                  border: "1px solid #3b82f6",
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  alignItems: "center",
+                                }}
+                              >
+                                <Typography sx={{ fontWeight: 600, fontSize: "0.95rem", color: "#1e40af" }}>
+                                  💵 Cash Received
+                                </Typography>
+                                <Typography sx={{ fontWeight: 700, fontSize: "1.3rem", color: "#3b82f6" }}>
+                                  ₹{totalCash.toLocaleString()}
+                                </Typography>
+                              </Box>
+
+                              {/* Change to Return */}
+                              {(() => {
+                                const balance = totalCash - getTotalPending();
+                                if (balance > 0) {
+                                  return (
+                                    <Box
+                                      sx={{
+                                        mt: 2,
+                                        p: 2,
+                                        background: "#ecfdf5",
+                                        borderRadius: "12px",
+                                        border: "1px solid #10b981",
+                                        display: "flex",
+                                        justifyContent: "space-between",
+                                        alignItems: "center",
+                                      }}
+                                    >
+                                      <Typography sx={{ fontWeight: 600, fontSize: "0.95rem", color: "#059669" }}>
+                                        💰 Change to Return
+                                      </Typography>
+                                      <Typography sx={{ fontWeight: 700, fontSize: "1.3rem", color: "#10b981" }}>
+                                        ₹{balance.toLocaleString()}
+                                      </Typography>
+                                    </Box>
+                                  );
+                                } else if (balance < 0) {
+                                  return (
+                                    <Box
+                                      sx={{
+                                        mt: 2,
+                                        p: 2,
+                                        background: "#fef2f2",
+                                        borderRadius: "12px",
+                                        border: "1px solid #ef4444",
+                                        display: "flex",
+                                        justifyContent: "space-between",
+                                        alignItems: "center",
+                                      }}
+                                    >
+                                      <Typography sx={{ fontWeight: 600, fontSize: "0.95rem", color: "#dc2626" }}>
+                                        ⚠️ Short Amount
+                                      </Typography>
+                                      <Typography sx={{ fontWeight: 700, fontSize: "1.3rem", color: "#ef4444" }}>
+                                        ₹{Math.abs(balance).toLocaleString()}
+                                      </Typography>
+                                    </Box>
+                                  );
+                                } else {
+                                  return (
+                                    <Box
+                                      sx={{
+                                        mt: 2,
+                                        p: 2,
+                                        background: "#ecfdf5",
+                                        borderRadius: "12px",
+                                        border: "1px solid #10b981",
+                                        display: "flex",
+                                        justifyContent: "center",
+                                        alignItems: "center",
+                                        gap: 1,
+                                      }}
+                                    >
+                                      <CheckCircleIcon sx={{ color: "#10b981", fontSize: 20 }} />
+                                      <Typography sx={{ fontWeight: 600, fontSize: "0.9rem", color: "#059669" }}>
+                                        Exact Amount - No Change Required
+                                      </Typography>
+                                    </Box>
+                                  );
+                                }
+                              })()}
+                            </>
+                          )}
                         </CardContent>
                       </Card>
 
@@ -1961,7 +3184,7 @@ export default function BillingScreen() {
                 {/* Payment Success */}
                 {paymentSuccess && (
                   <Fade in timeout={400}>
-                    <Box sx={{ textAlign: "center", py: 3 }}>
+                    <Box sx={{ textAlign: "center", py: 3, px: 2 }}>
                       {/* Success Icon with Animation Effect */}
                       <Box sx={{ position: "relative", display: "inline-block", mb: 3 }}>
                         <Box
@@ -2001,63 +3224,269 @@ export default function BillingScreen() {
                         Your transaction has been completed successfully
                       </Typography>
 
-                      {/* Transaction Details Card */}
+                      {/* Student Info Card */}
                       <Card
                         sx={{
-                          borderRadius: "20px",
-                          border: "none",
-                          maxWidth: 420,
+                          borderRadius: "16px",
+                          border: "1px solid #e2e8f0",
+                          maxWidth: 600,
                           mx: "auto",
                           mb: 3,
-                          background: "linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)",
-                          boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
-                          overflow: "hidden",
+                          boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
                         }}
                       >
-                        <Box sx={{ background: "linear-gradient(135deg, #10b981 0%, #059669 100%)", py: 2, px: 3 }}>
-                          <Typography sx={{ color: "#fff", fontWeight: 700, fontSize: "0.9rem", textTransform: "uppercase", letterSpacing: "0.1em" }}>
-                            Transaction Receipt
-                          </Typography>
-                        </Box>
                         <CardContent sx={{ p: 3 }}>
-                          <Grid container spacing={2}>
-                            <Grid size={{ xs: 6 }} >
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}>
+                            <Avatar
+                              sx={{
+                                width: 56,
+                                height: 56,
+                                background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                                fontSize: "1.3rem",
+                                fontWeight: 700,
+                              }}
+                            >
+                              {details?.name?.split(' ').map(n => n[0]).join('').slice(0, 2) || 'ST'}
+                            </Avatar>
+                            <Box sx={{ textAlign: "left", flex: 1 }}>
+                              <Typography sx={{ fontWeight: 700, fontSize: "1.1rem", color: "#1e293b", mb: 0.5 }}>
+                                {details?.name || 'Student Name'}
+                              </Typography>
+                              <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
+                                <Typography sx={{ fontSize: "0.85rem", color: "#64748b" }}>
+                                  Roll: <span style={{ fontWeight: 600, color: "#1e293b" }}>{details?.rollNumber || rollNumber || '-'}</span>
+                                </Typography>
+                                <Typography sx={{ fontSize: "0.85rem", color: "#64748b" }}>
+                                  Grade: <span style={{ fontWeight: 600, color: "#1e293b" }}>{details?.grade || '-'}</span>
+                                </Typography>
+                                <Typography sx={{ fontSize: "0.85rem", color: "#64748b" }}>
+                                  Section: <span style={{ fontWeight: 600, color: "#1e293b" }}>{details?.section || '-'}</span>
+                                </Typography>
+                              </Box>
+                            </Box>
+                          </Box>
+
+                          <Divider sx={{ my: 2 }} />
+
+                          {/* Transaction Details */}
+                          <Grid container spacing={2} sx={{ mb: 2 }}>
+                            <Grid size={{ xs: 6 }}>
                               <Box sx={{ textAlign: "left" }}>
                                 <Typography sx={{ color: "#94a3b8", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
                                   Transaction ID
                                 </Typography>
-                                <Typography sx={{ fontWeight: 700, fontSize: "0.9rem", color: "#1e293b" }}>TXN{Date.now()}</Typography>
+                                <Typography sx={{ fontWeight: 700, fontSize: "0.85rem", color: "#1e293b" }}>
+                                  TXN{Date.now().toString().slice(-10)}
+                                </Typography>
                               </Box>
                             </Grid>
-                            <Grid size={{ xs: 6 }} >
+                            <Grid size={{ xs: 6 }}>
                               <Box sx={{ textAlign: "left" }}>
                                 <Typography sx={{ color: "#94a3b8", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
                                   Date & Time
                                 </Typography>
-                                <Typography sx={{ fontWeight: 700, fontSize: "0.9rem", color: "#1e293b" }}>{dayjs().format("DD MMM YYYY, hh:mm A")}</Typography>
+                                <Typography sx={{ fontWeight: 700, fontSize: "0.85rem", color: "#1e293b" }}>
+                                  {dayjs().format("DD MMM YYYY")}
+                                </Typography>
+                                <Typography sx={{ fontSize: "0.75rem", color: "#64748b" }}>
+                                  {dayjs().format("hh:mm A")}
+                                </Typography>
                               </Box>
                             </Grid>
-                            <Grid size={{ xs: 6 }} >
+                            <Grid size={{ xs: 6 }}>
                               <Box sx={{ textAlign: "left" }}>
                                 <Typography sx={{ color: "#94a3b8", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
                                   Payment Method
                                 </Typography>
-                                <Typography sx={{ fontWeight: 700, fontSize: "0.9rem", color: "#1e293b" }}>
-                                  {paymentMethodOptions.find(m => m.id === selectedPaymentMethod)?.name}
-                                </Typography>
+                                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                  {paymentMethodOptions.find(m => m.id === selectedPaymentMethod)?.icon}
+                                  <Typography sx={{ fontWeight: 700, fontSize: "0.9rem", color: "#1e293b" }}>
+                                    {paymentMethodOptions.find(m => m.id === selectedPaymentMethod)?.name}
+                                  </Typography>
+                                </Box>
                               </Box>
                             </Grid>
-                            <Grid size={{ xs: 6 }} >
+                            <Grid size={{ xs: 6 }}>
                               <Box sx={{ textAlign: "left" }}>
                                 <Typography sx={{ color: "#94a3b8", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
-                                  Amount Paid
+                                  Paid Amount
                                 </Typography>
-                                <Typography sx={{ fontWeight: 800, fontSize: "1.25rem", color: "#10b981" }}>
-                                  ₹{selectedPaymentMethod === "cash" ? totalCash.toLocaleString() : getTotalPending().toLocaleString()}
+                                <Typography sx={{ fontWeight: 800, fontSize: "1.15rem", color: "#10b981" }}>
+                                  ₹{completedPaymentAmount.toLocaleString()}
                                 </Typography>
                               </Box>
                             </Grid>
                           </Grid>
+
+                          <Divider sx={{ my: 2 }} />
+
+                          {/* Payment Breakdown */}
+                          <Box sx={{ textAlign: "left" }}>
+                            <Typography sx={{ color: "#1e293b", fontSize: "0.9rem", fontWeight: 700, mb: 2 }}>
+                              Payment Summary
+                            </Typography>
+
+                            <Box sx={{ display: "flex", justifyContent: "space-between", mb: 1.5 }}>
+                              <Typography sx={{ fontSize: "0.9rem", color: "#64748b" }}>
+                                Amount Paid
+                              </Typography>
+                              <Typography sx={{ fontSize: "0.95rem", fontWeight: 700, color: "#1e293b" }}>
+                                ₹{completedPaymentAmount.toLocaleString()}
+                              </Typography>
+                            </Box>
+
+                            {selectedPaymentMethod === "cash" && (
+                              <>
+                                <Box sx={{ display: "flex", justifyContent: "space-between", mb: 1.5 }}>
+                                  <Typography sx={{ fontSize: "0.9rem", color: "#64748b" }}>
+                                    💵 Cash Received
+                                  </Typography>
+                                  <Typography sx={{ fontSize: "0.95rem", fontWeight: 700, color: "#1e293b" }}>
+                                    ₹{totalCash.toLocaleString()}
+                                  </Typography>
+                                </Box>
+
+                                {(() => {
+                                  const balance = totalCash - completedPaymentAmount;
+                                  if (balance > 0) {
+                                    return (
+                                      <Box
+                                        sx={{
+                                          mt: 2,
+                                          p: 2,
+                                          background: "linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)",
+                                          borderRadius: "12px",
+                                          border: "1px solid #10b981",
+                                        }}
+                                      >
+                                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                          <Typography sx={{ fontWeight: 600, fontSize: "0.95rem", color: "#059669" }}>
+                                            💰 Change to Return
+                                          </Typography>
+                                          <Typography sx={{ fontWeight: 800, fontSize: "1.3rem", color: "#10b981" }}>
+                                            ₹{balance.toLocaleString()}
+                                          </Typography>
+                                        </Box>
+                                        {totalChange > 0 && (
+                                          <Box sx={{ mt: 1.5, pt: 1.5, borderTop: "1px solid #10b98130" }}>
+                                            <Typography sx={{ fontSize: "0.75rem", color: "#059669", fontWeight: 600, mb: 1 }}>
+                                              Change Breakdown:
+                                            </Typography>
+                                            <Grid container spacing={1}>
+                                              {notesList.map((note) => {
+                                                if (changeCounts[note] > 0) {
+                                                  return (
+                                                    <Grid size={{ xs: 6 }} key={note}>
+                                                      <Box sx={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem" }}>
+                                                        <Typography sx={{ color: "#047857" }}>
+                                                          ₹{note} × {changeCounts[note]}
+                                                        </Typography>
+                                                        <Typography sx={{ fontWeight: 600, color: "#047857" }}>
+                                                          ₹{(note * changeCounts[note]).toLocaleString()}
+                                                        </Typography>
+                                                      </Box>
+                                                    </Grid>
+                                                  );
+                                                }
+                                                return null;
+                                              })}
+                                            </Grid>
+                                          </Box>
+                                        )}
+                                      </Box>
+                                    );
+                                  } else if (balance < 0) {
+                                    return (
+                                      <Box
+                                        sx={{
+                                          mt: 2,
+                                          p: 2,
+                                          background: "#fef2f2",
+                                          borderRadius: "12px",
+                                          border: "1px solid #ef4444",
+                                          display: "flex",
+                                          justifyContent: "space-between",
+                                          alignItems: "center",
+                                        }}
+                                      >
+                                        <Typography sx={{ fontWeight: 600, fontSize: "0.95rem", color: "#dc2626" }}>
+                                          ⚠️ Short Amount
+                                        </Typography>
+                                        <Typography sx={{ fontWeight: 700, fontSize: "1.3rem", color: "#ef4444" }}>
+                                          ₹{Math.abs(balance).toLocaleString()}
+                                        </Typography>
+                                      </Box>
+                                    );
+                                  } else {
+                                    return (
+                                      <Box
+                                        sx={{
+                                          mt: 2,
+                                          p: 2,
+                                          background: "#ecfdf5",
+                                          borderRadius: "12px",
+                                          border: "1px solid #10b981",
+                                          display: "flex",
+                                          justifyContent: "center",
+                                          alignItems: "center",
+                                          gap: 1,
+                                        }}
+                                      >
+                                        <CheckCircleIcon sx={{ color: "#10b981", fontSize: 20 }} />
+                                        <Typography sx={{ fontWeight: 600, fontSize: "0.9rem", color: "#059669" }}>
+                                          Exact Amount - No Change Required
+                                        </Typography>
+                                      </Box>
+                                    );
+                                  }
+                                })()}
+                              </>
+                            )}
+
+                            <Divider sx={{ my: 2 }} />
+
+                            {/* Fee Items Paid */}
+                            <Typography sx={{ color: "#1e293b", fontSize: "0.9rem", fontWeight: 700, mb: 1.5 }}>
+                              Fee Items Paid ({selectedRows.length})
+                            </Typography>
+                            <Box sx={{ maxHeight: 180, overflowY: "auto", pr: 1 }}>
+                              {selectedRows.map((index) => {
+                                const fee = getCurrentFeeData()[index];
+                                const amountPaid = toPayAmounts[index] || 0;
+                                return (
+                                  <Box
+                                    key={index}
+                                    sx={{
+                                      display: "flex",
+                                      justifyContent: "space-between",
+                                      mb: 1,
+                                      p: 1.5,
+                                      background: "#f8fafc",
+                                      borderRadius: "8px",
+                                      border: "1px solid #e2e8f0",
+                                    }}
+                                  >
+                                    <Box sx={{ flex: 1 }}>
+                                      <Typography sx={{ fontSize: "0.85rem", fontWeight: 600, color: "#1e293b", mb: 0.3 }}>
+                                        {fee?.feeName || fee?.feeDetails || fee?.activityName || `Fee ${index + 1}`}
+                                      </Typography>
+                                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b" }}>
+                                        Total: ₹{fee?.feeAmount || fee?.amount || 0} | Pending: ₹{fee?.pendingAmount || 0}
+                                      </Typography>
+                                    </Box>
+                                    <Box sx={{ textAlign: "right" }}>
+                                      <Typography sx={{ fontSize: "0.9rem", fontWeight: 700, color: "#10b981" }}>
+                                        ₹{amountPaid.toLocaleString()}
+                                      </Typography>
+                                      <Typography sx={{ fontSize: "0.7rem", color: "#64748b" }}>
+                                        paid
+                                      </Typography>
+                                    </Box>
+                                  </Box>
+                                );
+                              })}
+                            </Box>
+                          </Box>
                         </CardContent>
                       </Card>
 
@@ -2115,7 +3544,7 @@ export default function BillingScreen() {
 
                 {!paymentSuccess && (
                   <Button
-                    onClick={handleClosePaymentPopup}
+                    onClick={handleCloseAttempt}
                     disabled={paymentProcessing}
                     sx={{
                       borderRadius: "12px",
@@ -2189,7 +3618,7 @@ export default function BillingScreen() {
                       transition: "all 0.2s ease",
                     }}
                   >
-                    {paymentProcessing ? "Processing..." : `Pay ₹${selectedPaymentMethod === "cash" ? totalCash.toLocaleString() : getTotalPending().toLocaleString()}`}
+                    {paymentProcessing ? "Processing..." : `Pay ₹${getTotalPending().toLocaleString()}`}
                   </Button>
                 )}
 
@@ -2240,6 +3669,82 @@ export default function BillingScreen() {
                     </Button>
                   </>
                 )}
+              </DialogActions>
+            </Dialog>
+
+            {/* Confirmation Dialog for Closing with Unsaved Data */}
+            <Dialog
+              open={showCloseConfirmation}
+              onClose={handleCancelClose}
+              maxWidth="xs"
+              fullWidth
+              PaperProps={{
+                sx: {
+                  borderRadius: "16px",
+                  overflow: "hidden",
+                },
+              }}
+            >
+              <DialogContent sx={{ pt: 4, pb: 2, px: 3, textAlign: "center" }}>
+                <Box
+                  sx={{
+                    width: 64,
+                    height: 64,
+                    borderRadius: "50%",
+                    bgcolor: "#FEF2F2",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    mx: "auto",
+                    mb: 2,
+                  }}
+                >
+                  <Typography sx={{ fontSize: "32px" }}>⚠️</Typography>
+                </Box>
+                <Typography sx={{ fontSize: "20px", fontWeight: 700, color: "#1e293b", mb: 1 }}>
+                  Discard Payment Details?
+                </Typography>
+                <Typography sx={{ fontSize: "14px", color: "#64748b", mb: 3 }}>
+                  You have unsaved payment information. If you close now, all entered data will be lost.
+                </Typography>
+              </DialogContent>
+              <DialogActions sx={{ px: 3, pb: 3, gap: 2, justifyContent: "center" }}>
+                <Button
+                  onClick={handleCancelClose}
+                  variant="outlined"
+                  sx={{
+                    borderRadius: "10px",
+                    textTransform: "none",
+                    fontWeight: 600,
+                    px: 3,
+                    py: 1.2,
+                    border: "2px solid #e2e8f0",
+                    color: "#64748b",
+                    "&:hover": {
+                      border: "2px solid #cbd5e1",
+                      background: "#f8fafc",
+                    },
+                  }}
+                >
+                  Continue Payment
+                </Button>
+                <Button
+                  onClick={handleConfirmClose}
+                  variant="contained"
+                  sx={{
+                    borderRadius: "10px",
+                    textTransform: "none",
+                    fontWeight: 700,
+                    px: 3,
+                    py: 1.2,
+                    background: "#ef4444",
+                    "&:hover": {
+                      background: "#dc2626",
+                    },
+                  }}
+                >
+                  Discard & Close
+                </Button>
               </DialogActions>
             </Dialog>
 
@@ -2294,94 +3799,10 @@ export default function BillingScreen() {
                     </Box>
                   ))}
                 </Box>
-                {/* {dummyData2.map((row, index) => (
-                  <TableContainer
-                    key={index}
-                    sx={{
-                      border: "1px solid #E601542A",
-                      mt: 2,
-                      borderRadius: "6px",
-                      overflow: "hidden",
-                    }}
-                  >
-                    <Table>
-                      <TableHead>
-                        <TableRow>
-                          {[
-                            "S.No",
-                            "Bill Number",
-                            "Bill Date",
-                            "Fee Details",
-                            "Payment Mode",
-                            "Received Amount",
-                            "Print",
-                          ].map((header, i) => (
-                            <TableCell
-                              key={i}
-                              sx={{
-                                backgroundColor: "#ff00001A",
-                                fontWeight: 600,
-                                textAlign: "center",
-                                border: "1px solid #E601542A",
-                                fontSize: "14px",
-                              }}
-                            >
-                              {header}
-                            </TableCell>
-                          ))}
-                        </TableRow>
-                      </TableHead>
-
-                      <TableBody>
-                        <TableRow>
-                          <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A" }}>
-                            {index + 1}
-                          </TableCell>
-
-                          <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A" }}>
-                            {row.billNumber}
-                          </TableCell>
-
-                          <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A" }}>
-                            {row.billDate} – {row.time}
-                          </TableCell>
-
-                          <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A" }}>
-                            {row.feeName}
-                          </TableCell>
-
-                          <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A" }}>
-                            {row.paymentMode}
-                          </TableCell>
-
-                          <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A" }}>
-                            ₹{row.amount}
-                          </TableCell>
-
-                          <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A" }}>
-                            <Button
-                              variant="outlined"
-                              sx={{
-                                borderRadius: "999px",
-                                borderColor: "#E10052",
-                                color: "#E10052",
-                                height: "28px",
-                                width: "100px",
-                                fontSize: "12px",
-                                textTransform: "none",
-                              }}
-                            >
-                              Print
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                ))} */}
+                
               </DialogContent>
             </Dialog>
-          </Box>
+          </>
         </Box>
       </Box>
     </Box>

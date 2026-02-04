@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
     Box,
     Grid,
@@ -17,10 +17,10 @@ import {
     TableCell,
     TableHead,
     TableRow,
-    Autocomplete,
     InputAdornment,
     Tooltip,
     Chip,
+    CircularProgress,
 } from "@mui/material";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AddIcon from '@mui/icons-material/Add';
@@ -53,6 +53,9 @@ import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { selectWebsiteSettings } from "../../../../Redux/Slices/websiteSettingsSlice";
 import { selectSidebarExpanded } from "../../../../Redux/Slices/sidebarSlice";
+import axios from 'axios';
+import { getAllRoutes, postNewRoute, getAllVehicles, getRouteById, updateNewRoute, deleteRouteById } from '../../../../Api/Api';
+import SnackBar from '../../../SnackBar';
 
 // Modern Professional Styles - Sharp Edges
 const inputSx = {
@@ -108,19 +111,30 @@ export default function RouteManagement() {
     const isExpanded = useSelector(selectSidebarExpanded);
 
     // State for view mode
-    const [viewMode, setViewMode] = useState("list"); // "list" or "create"
+    const [viewMode, setViewMode] = useState("list");
     const [editingRoute, setEditingRoute] = useState(null);
+
+    // API Data States
+    const [isLoading, setIsLoading] = useState(false);
+    const [routes, setRoutes] = useState([]);
+    const [vehicles, setVehicles] = useState([]);
+    const [stats, setStats] = useState({
+        totalRoutes: 0,
+        activeRoutes: 0,
+        pickup: 0,
+        drop: 0
+    });
 
     // State for route form
     const [routeName, setRouteName] = useState("");
     const [tripType, setTripType] = useState("");
-    const [tripDate, setTripDate] = useState("everyday");
+    const [tripDate, setTripDate] = useState("");
     const [selectedDays, setSelectedDays] = useState([]);
     const [tripTime, setTripTime] = useState("");
     const [tripDuration, setTripDuration] = useState("");
     const [assignedBus, setAssignedBus] = useState("");
     const [assignedDriver, setAssignedDriver] = useState("");
-
+    const token = "123"
     // State for stops
     const [stops, setStops] = useState([
         { id: 1, name: "", type: "stop", arrivalTime: "", waitTime: "2" }
@@ -133,61 +147,22 @@ export default function RouteManagement() {
     const [deleteDialog, setDeleteDialog] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState(null);
 
-    // Sample data
-    const [routes, setRoutes] = useState([
-        {
-            id: 1,
-            name: "Morning Pickup - Route A",
-            type: "Pickup",
-            date: "Everyday",
-            time: "07:00 AM",
-            duration: "45 mins",
-            bus: "Bus A (TN-45-AB-1234)",
-            driver: "Rajesh Kumar",
-            stops: 6,
-            status: "Active"
-        },
-        {
-            id: 2,
-            name: "Afternoon Drop - Route A",
-            type: "Drop",
-            date: "Everyday",
-            time: "03:30 PM",
-            duration: "50 mins",
-            bus: "Bus A (TN-45-AB-1234)",
-            driver: "Rajesh Kumar",
-            stops: 6,
-            status: "Active"
-        },
-        {
-            id: 3,
-            name: "Morning Pickup - Route B",
-            type: "Pickup",
-            date: "Mon, Wed, Fri",
-            time: "07:30 AM",
-            duration: "35 mins",
-            bus: "Bus B (TN-45-CD-5678)",
-            driver: "Suresh Babu",
-            stops: 4,
-            status: "Active"
-        },
-    ]);
+    // SnackBar states
+    const [open, setOpen] = useState(false);
+    const [status, setStatus] = useState(false);
+    const [color, setColor] = useState(false);
+    const [message, setMessage] = useState('');
 
     const tripTypes = [
         { value: "Pickup", label: "Pickup", icon: <AirportShuttleIcon sx={{ fontSize: 16, color: "#3B82F6" }} /> },
         { value: "Drop", label: "Drop", icon: <HomeIcon sx={{ fontSize: 16, color: "#F59E0B" }} /> },
-        { value: "Round Trip", label: "Round Trip", icon: <SyncAltIcon sx={{ fontSize: 16, color: "#8B5CF6" }} /> }
+        // { value: "Round Trip", label: "Round Trip", icon: <SyncAltIcon sx={{ fontSize: 16, color: "#8B5CF6" }} /> }
     ];
     const TripSlot = [
         { value: "Morning", label: "Morning", icon: <WbTwilightIcon sx={{ fontSize: 16, color: "#F97316" }} /> },
         { value: "Afternoon", label: "Afternoon", icon: <WbSunnyIcon sx={{ fontSize: 16, color: "#EAB308" }} /> },
         { value: "Evening", label: "Evening", icon: <NightsStayIcon sx={{ fontSize: 16, color: "#6366F1" }} /> },
         { value: "Special", label: "Special", icon: <StarIcon sx={{ fontSize: 16, color: "#EC4899" }} /> }
-    ];
-    const buses = [
-        { id: 1, name: "Bus A", number: "TN-45-AB-1234" },
-        { id: 2, name: "Bus B", number: "TN-45-CD-5678" },
-        { id: 3, name: "Bus C", number: "TN-45-EF-9012" },
     ];
     const drivers = [
         { id: 1, name: "Rajesh Kumar", phone: "9876543210" },
@@ -196,22 +171,27 @@ export default function RouteManagement() {
     ];
     const dayOptions = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-    // Sample location suggestions
-    const locationSuggestions = [
-        "Morning Star Matriculation School, Thanjavur",
-        "Thanjavur Tanjore - Old Bus Stand, S Rampart",
-        "Brihadeeswara Temple, Balaganapathy Nagar",
-        "Annai Sathya Stadium, 44/1, 2nd St, Rajja Nagar",
-        "Municipal Colony, Eiswari Nagar, Thanjavur",
-        "Mangalapuram, Ramani Nagar, Thanjavur",
-        "Thanjavur Medical College, Medical College Rd",
-        "Thanjavur Railway Junction",
-        "Big Bazaar, South Main Street",
-        "VOC Park, Gandhiji Road"
-    ];
+    // SnackBar helper functions
+    const showSuccess = (msg) => {
+        setMessage(msg);
+        setOpen(true);
+        setColor(true);
+        setStatus(true);
+    };
+
+    const showError = (msg) => {
+        setMessage(msg);
+        setOpen(true);
+        setColor(false);
+        setStatus(false);
+    };
 
     // Add new stop
     const addStop = () => {
+        if (stops.length >= 30) {
+            showError('Maximum limit of 30 stops reached');
+            return;
+        }
         const newId = Math.max(...stops.map(s => s.id), 0) + 1;
         setStops([...stops, { id: newId, name: "", type: "stop", arrivalTime: "", waitTime: "2" }]);
     };
@@ -248,18 +228,84 @@ export default function RouteManagement() {
     };
 
     // Handle edit route
-    const handleEditRoute = (route) => {
-        setViewMode("create");
-        setEditingRoute(route);
-        setRouteName(route.name);
-        setTripType(route.type);
+    const handleEditRoute = async (route) => {
+        setIsLoading(true);
+        try {
+            const response = await axios.get(getRouteById, {
+                params: { routeInformationId: route.id },
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            if (response.data.error === false) {
+                const data = response.data;
+                const routeInfo = data.routeInformation;
+
+                // Set editing route with full data
+                // Use routeInfo.id as the routeInformationId (not data.routeInformationId which can be 0)
+                setEditingRoute({
+                    ...route,
+                    routeInformationId: routeInfo.id,
+                    fullData: data
+                });
+
+                console.log('=== Edit Route Loaded ===');
+                console.log('Setting routeInformationId to:', routeInfo.id);
+
+                // Populate form fields
+                setRouteName(routeInfo.tripName);
+                setTripType(routeInfo.tripType.charAt(0).toUpperCase() + routeInfo.tripType.slice(1));
+                setTripDate(routeInfo.tripSlot.charAt(0).toUpperCase() + routeInfo.tripSlot.slice(1));
+
+                // Convert 12-hour time to 24-hour format for input
+                const convert12to24 = (time12) => {
+                    if (!time12) return '';
+                    const [time, period] = time12.split(' ');
+                    let [hours, minutes] = time.split(':');
+                    hours = parseInt(hours);
+
+                    if (period === 'PM' && hours !== 12) hours += 12;
+                    if (period === 'AM' && hours === 12) hours = 0;
+
+                    return `${hours.toString().padStart(2, '0')}:${minutes}`;
+                };
+
+                setTripTime(convert12to24(routeInfo.time));
+                setTripDuration(routeInfo.duration.replace(' mins', ''));
+
+                // Find and set the vehicle
+                const vehicle = vehicles.find(v =>
+                    v.busName === routeInfo.assignBus ||
+                    v.vehicleBrand === routeInfo.assignBus
+                );
+                setAssignedBus(vehicle ? vehicle.vehicleAssetID : routeInfo.assignBus);
+
+                // Map route stops
+                const mappedStops = data.routeStops.map((stop, index) => ({
+                    id: index + 1,
+                    name: stop.place,
+                    type: "stop",
+                    arrivalTime: convert12to24(stop.arrivalTime),
+                    waitTime: stop.wait || "2",
+                    remarks: stop.remarks || ''
+                }));
+
+                setStops(mappedStops);
+                setViewMode("create");
+                showSuccess('Route loaded for editing');
+            }
+        } catch (error) {
+            console.error("Error fetching route details:", error);
+            showError('Failed to load route details');
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     // Reset form
     const resetForm = () => {
         setRouteName("");
         setTripType("");
-        setTripDate("everyday");
+        setTripDate("");
         setSelectedDays([]);
         setTripTime("");
         setTripDuration("");
@@ -269,10 +315,179 @@ export default function RouteManagement() {
     };
 
     // Handle save/create trip
-    const handleSaveTrip = () => {
-        // Validation and save logic here
-        console.log("Saving trip...");
-        setViewMode("list");
+    const handleSaveTrip = async () => {
+        // Validation
+        if (!routeName.trim()) {
+            showError('Please enter trip name');
+            return;
+        }
+        if (!assignedBus) {
+            showError('Please assign a bus');
+            return;
+        }
+        if (!tripType) {
+            showError('Please select trip type');
+            return;
+        }
+        if (!tripDate) {
+            showError('Please select trip slot');
+            return;
+        }
+        if (stops.length === 0) {
+            showError('Please add at least one stop');
+            return;
+        }
+
+        // Validate stops
+        for (let i = 0; i < stops.length; i++) {
+            if (!stops[i].name.trim()) {
+                showError(`Please enter location for stop ${i === 0 ? 'starting point' : i === stops.length - 1 ? 'final destination' : i}`);
+                return;
+            }
+        }
+
+        setIsLoading(true);
+        try {
+            // Format time to 12-hour format if needed
+            const formatTime = (time24) => {
+                if (!time24) return '';
+                const [hours, minutes] = time24.split(':');
+                const hour = parseInt(hours);
+                const ampm = hour >= 12 ? 'PM' : 'AM';
+                const hour12 = hour % 12 || 12;
+                return `${hour12.toString().padStart(2, '0')}:${minutes} ${ampm}`;
+            };
+
+            // Get current timestamp
+            const getCurrentTimestamp = () => {
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const day = String(now.getDate()).padStart(2, '0');
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const seconds = String(now.getSeconds()).padStart(2, '0');
+                return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+            };
+
+            // Get point label based on index
+            const getPointLabel = (index) => {
+                if (index === 0) return 'Starting Point';
+                if (index === stops.length - 1) return 'Final Destination';
+                return `Stop ${index}`;
+            };
+
+            // Get remarks based on position
+            const getRemarks = (index) => {
+                if (index === 0) return 'Start';
+                if (index === stops.length - 1) return 'Drop';
+                return '';
+            };
+
+            // Prepare route information
+            const selectedVehicle = vehicles.find(v => v.vehicleAssetID === assignedBus);
+            const busDisplayName = selectedVehicle
+                ? (selectedVehicle.busName || selectedVehicle.vehicleBrand || 'No Name')
+                : assignedBus;
+
+            const routeInformation = {
+                tripName: routeName,
+                assignBus: busDisplayName,
+                tripType: tripType.toLowerCase(),
+                tripSlot: tripDate.toLowerCase(),
+                time: formatTime(tripTime),
+                duration: `${tripDuration} mins`,
+                createdOn: getCurrentTimestamp()
+            };
+
+            // Prepare route stops
+            const routeStops = stops.map((stop, index) => ({
+                point: getPointLabel(index),
+                place: stop.name,
+                arrivalTime: formatTime(stop.arrivalTime),
+                wait: stop.waitTime || '2',
+                remarks: getRemarks(index)
+            }));
+
+            // Determine if this is an update or create
+            const isUpdate = editingRoute && editingRoute.routeInformationId !== undefined;
+
+            console.log('=== Save Route Debug ===');
+            console.log('editingRoute:', editingRoute);
+            console.log('isUpdate:', isUpdate);
+            console.log('routeInformationId:', editingRoute?.routeInformationId);
+
+            let payload;
+            let response;
+
+            if (isUpdate) {
+                // Prepare update payload
+                payload = {
+                    routeInformationId: editingRoute.routeInformationId,
+                    routeInformation: {
+                        tripName: routeName,
+                        assignBus: busDisplayName,
+                        tripType: tripType.toLowerCase(),
+                        tripSlot: tripDate.toLowerCase(),
+                        time: formatTime(tripTime),
+                        duration: `${tripDuration} mins`,
+                        createdOn: editingRoute.fullData?.routeInformation?.createdOn || getCurrentTimestamp()
+                    },
+                    routeStops: stops.map((stop, index) => ({
+                        point: getPointLabel(index),
+                        place: stop.name,
+                        arrivalTime: formatTime(stop.arrivalTime),
+                        wait: stop.waitTime || '2',
+                        remarks: getRemarks(index)
+                    }))
+                };
+
+                console.log('=== UPDATING ROUTE (PUT) ===');
+                console.log('Endpoint:', updateNewRoute);
+                console.log('Payload:', payload);
+
+                // PUT request for update
+                response = await axios.put(updateNewRoute, payload, {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+            } else {
+                // Prepare create payload
+                payload = {
+                    routeInformation,
+                    routeStops
+                };
+
+                console.log('=== CREATING ROUTE (POST) ===');
+                console.log('Endpoint:', postNewRoute);
+                console.log('Payload:', payload);
+
+                // POST request for create
+                response = await axios.post(postNewRoute, payload, {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+            }
+
+            if (response.data.error === false) {
+                showSuccess(response.data.message || (isUpdate ? 'Route updated successfully' : 'Route created successfully'));
+                setViewMode("list");
+                resetForm();
+                setEditingRoute(null);
+                fetchRoutes(); // Refresh routes after saving
+            } else {
+                showError(response.data.message || (isUpdate ? 'Failed to update route' : 'Failed to create route'));
+            }
+        } catch (error) {
+            console.error(editingRoute ? "Error updating route:" : "Error creating route:", error);
+            showError(error.response?.data?.message || (editingRoute ? 'Failed to update route' : 'Failed to create route'));
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     // Handle delete
@@ -281,10 +496,30 @@ export default function RouteManagement() {
         setDeleteDialog(true);
     };
 
-    const confirmDelete = () => {
-        setRoutes(routes.filter(r => r.id !== deleteTarget.id));
-        setDeleteDialog(false);
-        setDeleteTarget(null);
+    const confirmDelete = async () => {
+        if (!deleteTarget) return;
+
+        setIsLoading(true);
+        try {
+            const response = await axios.delete(deleteRouteById, {
+                params: { routeInformationId: deleteTarget.id },
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            if (response.data.error === false) {
+                showSuccess(response.data.message || 'Route deleted successfully');
+                setDeleteDialog(false);
+                setDeleteTarget(null);
+                fetchRoutes(); // Refresh routes after deletion
+            } else {
+                showError(response.data.message || 'Failed to delete route');
+            }
+        } catch (error) {
+            console.error("Error deleting route:", error);
+            showError(error.response?.data?.message || 'Failed to delete route');
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     // Filter routes
@@ -299,16 +534,132 @@ export default function RouteManagement() {
         );
     });
 
+    useEffect(() => {
+        fetchRoutes();
+        fetchVehicles();
+    }, []);
+
+    const fetchVehicles = async () => {
+        try {
+            const response = await axios.get(getAllVehicles, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            if (response.data.error === false) {
+                setVehicles(response.data.vehicles || []);
+            } else {
+                console.error('Failed to fetch vehicles:', response.data.message);
+            }
+        } catch (error) {
+            console.error("Error fetching vehicles:", error);
+        }
+    };
+
+    const fetchByIdVehicles = async () => {
+        try {
+            const response = await axios.get(getRouteById, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            if (response.data.error === false) {
+                setVehicles(response.data.vehicles || []);
+            } else {
+                console.error('Failed to fetch vehicles:', response.data.message);
+            }
+        } catch (error) {
+            console.error("Error fetching vehicles:", error);
+        }
+    };
+
+    const fetchRoutes = async () => {
+        setIsLoading(true);
+        try {
+            const response = await axios.get(getAllRoutes, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            if (response.data.error === false) {
+                const data = response.data;
+
+                // Set statistics
+                setStats({
+                    totalRoutes: data.totalRoutes || 0,
+                    activeRoutes: data.activeRoutes || 0,
+                    pickup: data.pickup || 0,
+                    drop: data.drop || 0
+                });
+
+                // Map API response to component structure
+                const mappedRoutes = data.routes.map(route => ({
+                    id: route.routeInformationId,
+                    name: route.tripName,
+                    type: route.tripType.charAt(0).toUpperCase() + route.tripType.slice(1).toLowerCase(),
+                    date: route.tripSlot.charAt(0).toUpperCase() + route.tripSlot.slice(1).toLowerCase(),
+                    time: route.time,
+                    duration: route.duration,
+                    bus: route.assignBus,
+                    driver: route.assignDriver || "Not Assigned",
+                    stops: route.totalStops || 0,
+                    status: route.active
+                }));
+
+                setRoutes(mappedRoutes);
+                showSuccess('Routes loaded successfully');
+            } else {
+                showError(response.data.message || 'Failed to fetch routes');
+            }
+        } catch (error) {
+            console.error("Error fetching routes:", error);
+            showError('Failed to load routes');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     // Render List View
-    const renderListView = () => (
+    const renderListView = () => {
+        if (isLoading) {
+            return (
+                <Box sx={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    height: '60vh',
+                    flexDirection: 'column',
+                    gap: 2
+                }}>
+                    <Box sx={{
+                        width: 60,
+                        height: 60,
+                        border: '4px solid #E5E7EB',
+                        borderTop: '4px solid #6366F1',
+                        borderRadius: '50%',
+                        animation: 'spin 1s linear infinite',
+                        '@keyframes spin': {
+                            '0%': { transform: 'rotate(0deg)' },
+                            '100%': { transform: 'rotate(360deg)' }
+                        }
+                    }} />
+                    <Typography fontSize="14px" color="#6B7280">Loading routes...</Typography>
+                </Box>
+            );
+        }
+
+        return (
         <Box sx={{ maxWidth: 1400, mx: "auto" }}>
             {/* Stats Cards */}
             <Grid container spacing={2} sx={{ mb: 2.5 }}>
                 {[
-                    { label: "Total Routes", value: routes.length, color: "#5B21B6", bg: "#EDE9FE", borderColor: "#C4B5FD", iconBg: "#DDD6FE", icon: <RouteIcon sx={{ fontSize: 18 }} /> },
-                    { label: "Active", value: routes.filter(r => r.status === "Active").length, color: "#047857", bg: "#D1FAE5", borderColor: "#6EE7B7", iconBg: "#A7F3D0", icon: <CheckCircleIcon sx={{ fontSize: 18 }} /> },
-                    { label: "Pickup", value: routes.filter(r => r.type === "Pickup").length, color: "#1D4ED8", bg: "#DBEAFE", borderColor: "#93C5FD", iconBg: "#BFDBFE", icon: <TrendingUpIcon sx={{ fontSize: 18 }} /> },
-                    { label: "Drop", value: routes.filter(r => r.type === "Drop").length, color: "#B45309", bg: "#FEF3C7", borderColor: "#FCD34D", iconBg: "#FDE68A", icon: <NearMeIcon sx={{ fontSize: 18 }} /> },
+                    { label: "Total Routes", value: stats.totalRoutes, color: "#5B21B6", bg: "#EDE9FE", borderColor: "#C4B5FD", iconBg: "#DDD6FE", icon: <RouteIcon sx={{ fontSize: 18 }} /> },
+                    { label: "Active", value: stats.activeRoutes, color: "#047857", bg: "#D1FAE5", borderColor: "#6EE7B7", iconBg: "#A7F3D0", icon: <CheckCircleIcon sx={{ fontSize: 18 }} /> },
+                    { label: "Pickup", value: stats.pickup, color: "#1D4ED8", bg: "#DBEAFE", borderColor: "#93C5FD", iconBg: "#BFDBFE", icon: <TrendingUpIcon sx={{ fontSize: 18 }} /> },
+                    { label: "Drop", value: stats.drop, color: "#B45309", bg: "#FEF3C7", borderColor: "#FCD34D", iconBg: "#FDE68A", icon: <NearMeIcon sx={{ fontSize: 18 }} /> },
                 ].map((stat, idx) => (
                     <Grid size={{ xs: 6, sm: 3 }} key={idx}>
                         <Paper sx={{
@@ -594,7 +945,8 @@ export default function RouteManagement() {
                 </Table>
             </Paper>
         </Box>
-    );
+        );
+    };
 
     // Render Create/Edit View
     const renderCreateView = () => (
@@ -664,11 +1016,13 @@ export default function RouteManagement() {
                                 <MenuItem value="" disabled>
                                     <Typography color="#9CA3AF">Select a bus</Typography>
                                 </MenuItem>
-                                {buses.map((bus) => (
-                                    <MenuItem key={bus.id} value={bus.id}>
+                                {vehicles.map((vehicle) => (
+                                    <MenuItem key={vehicle.vehicleAssetID} value={vehicle.vehicleAssetID}>
                                         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
                                             <DirectionsBusIcon sx={{ fontSize: 18, color: websiteSettings.mainColor }} />
-                                            <Typography fontSize="14px">{bus.name} ({bus.number})</Typography>
+                                            <Typography fontSize="14px">
+                                                {vehicle.busName || 'No Name'} {vehicle.registrationNumber ? `(${vehicle.registrationNumber})` : ''}
+                                            </Typography>
                                         </Box>
                                     </MenuItem>
                                 ))}
@@ -807,17 +1161,18 @@ export default function RouteManagement() {
                             <Typography fontWeight={600} fontSize="14px" color="#047857">
                                 Route Stops
                             </Typography>
-                            <Typography fontSize="11px" color="#059669">
-                                {stops.length} stop{stops.length > 1 ? 's' : ''} configured
+                            <Typography fontSize="11px" color={stops.length >= 30 ? "#f44336" : "#059669"}>
+                                {stops.length}/30 stops configured
                             </Typography>
                         </Box>
                     </Box>
                     <Button
                         startIcon={<AddIcon sx={{ fontSize: 16 }} />}
                         onClick={addStop}
+                        disabled={stops.length >= 30}
                         size="small"
                         sx={{
-                            backgroundColor: "#10B981",
+                            backgroundColor: stops.length >= 30 ? "#9CA3AF" : "#10B981",
                             color: "#fff",
                             textTransform: "none",
                             borderRadius: "4px",
@@ -826,7 +1181,12 @@ export default function RouteManagement() {
                             px: 1.5,
                             py: 0.5,
                             boxShadow: "none",
-                            "&:hover": { backgroundColor: "#059669", boxShadow: "none" }
+                            "&:hover": { backgroundColor: stops.length >= 30 ? "#9CA3AF" : "#059669", boxShadow: "none" },
+                            "&.Mui-disabled": {
+                                backgroundColor: "#9CA3AF",
+                                color: "#fff",
+                                opacity: 0.7
+                            }
                         }}
                     >
                         Add Stop
@@ -941,33 +1301,25 @@ export default function RouteManagement() {
                                         <Typography fontSize="11px" color="#6B7280" fontWeight={500} mb={0.5}>
                                             {index === 0 ? "Starting Point" : index === stops.length - 1 ? "Final Destination" : `Stop ${index}`}
                                         </Typography>
-                                        <Autocomplete
-                                            freeSolo
-                                            options={locationSuggestions}
+                                        <TextField
+                                            fullWidth
                                             value={stop.name}
-                                            onChange={(e, value) => updateStop(stop.id, "name", value || "")}
-                                            onInputChange={(e, value) => updateStop(stop.id, "name", value)}
-                                            renderInput={(params) => (
-                                                <TextField
-                                                    {...params}
-                                                    fullWidth
-                                                    placeholder={index === 0 ? "e.g., School Main Gate" : "Enter location"}
-                                                    sx={{
-                                                        "& .MuiOutlinedInput-root": {
-                                                            height: 40,
-                                                            borderRadius: "4px",
-                                                            fontSize: "14px",
-                                                            backgroundColor: "#fff",
-                                                            border: "1px solid #D1D5DB",
-                                                            "&:hover": { borderColor: "#9CA3AF" },
-                                                            "&.Mui-focused": {
-                                                                borderColor: "#6366F1",
-                                                                boxShadow: "0 0 0 2px rgba(99, 102, 241, 0.1)"
-                                                            }
-                                                        }
-                                                    }}
-                                                />
-                                            )}
+                                            onChange={(e) => updateStop(stop.id, "name", e.target.value)}
+                                            placeholder={index === 0 ? "e.g., School Main Gate" : "Enter location"}
+                                            sx={{
+                                                "& .MuiOutlinedInput-root": {
+                                                    height: 40,
+                                                    borderRadius: "4px",
+                                                    fontSize: "14px",
+                                                    backgroundColor: "#fff",
+                                                    border: "1px solid #D1D5DB",
+                                                    "&:hover": { borderColor: "#9CA3AF" },
+                                                    "&.Mui-focused": {
+                                                        borderColor: "#6366F1",
+                                                        boxShadow: "0 0 0 2px rgba(99, 102, 241, 0.1)"
+                                                    }
+                                                }
+                                            }}
                                         />
                                     </Box>
 
@@ -1063,7 +1415,11 @@ export default function RouteManagement() {
             }}>
                 <Button
                     variant="outlined"
-                    onClick={() => setViewMode("list")}
+                    onClick={() => {
+                        setViewMode("list");
+                        setEditingRoute(null);
+                        resetForm();
+                    }}
                     sx={{
                         borderColor: "#D1D5DB",
                         color: "#6B7280",
@@ -1098,6 +1454,8 @@ export default function RouteManagement() {
                 <Button
                     variant="contained"
                     onClick={handleSaveTrip}
+                    disabled={isLoading}
+                    startIcon={isLoading ? <CircularProgress size={16} sx={{ color: "#9CA3AF" }} /> : null}
                     sx={{
                         backgroundColor: websiteSettings.mainColor,
                         color: websiteSettings.textColor,
@@ -1111,17 +1469,23 @@ export default function RouteManagement() {
                         "&:hover": {
                             backgroundColor: websiteSettings.darkColor || websiteSettings.mainColor,
                             boxShadow: "none"
+                        },
+                        "&:disabled": {
+                            backgroundColor: "#D1D5DB",
+                            color: "#9CA3AF"
                         }
                     }}
                 >
-                    {editingRoute ? "Update Route" : "Create Route"}
+                    {isLoading ? "Creating Route..." : editingRoute ? "Update Route" : "Create Route"}
                 </Button>
             </Box>
         </Box>
     );
 
     return (
-        <Box sx={{ width: '100%',  }}>
+        <Box sx={{ width: '100%', }}>
+            <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
+
             {/* Header */}
             <Box sx={{
                 position: "fixed",
@@ -1144,7 +1508,15 @@ export default function RouteManagement() {
                 }}>
                     <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
                         <IconButton
-                            onClick={() => viewMode === "create" ? setViewMode("list") : navigate(-1)}
+                            onClick={() => {
+                                if (viewMode === "create") {
+                                    setViewMode("list");
+                                    setEditingRoute(null);
+                                    resetForm();
+                                } else {
+                                    navigate(-1);
+                                }
+                            }}
                             sx={{
                                 width: 32,
                                 height: 32,
@@ -1182,7 +1554,7 @@ export default function RouteManagement() {
                             }}>
                                 <RouteIcon sx={{ color: "#8B5CF6", fontSize: 16 }} />
                                 <Typography fontSize="12px" fontWeight={600} color="#7C3AED">
-                                    {routes.length} Routes
+                                    {stats.totalRoutes} Routes
                                 </Typography>
                             </Box>
                         </Box>
@@ -1198,7 +1570,7 @@ export default function RouteManagement() {
             {/* Delete Confirmation Dialog */}
             <Dialog
                 open={deleteDialog}
-                onClose={() => setDeleteDialog(false)}
+                onClose={() => !isLoading && setDeleteDialog(false)}
                 PaperProps={{
                     sx: { borderRadius: "4px", minWidth: 400, overflow: "hidden", border: "1px solid #E5E7EB" }
                 }}
@@ -1238,6 +1610,7 @@ export default function RouteManagement() {
                         <DialogActions sx={{ justifyContent: 'center', p: 0, gap: 2 }}>
                             <Button
                                 onClick={() => setDeleteDialog(false)}
+                                disabled={isLoading}
                                 sx={{
                                     textTransform: "none",
                                     color: "#374151",
@@ -1246,13 +1619,19 @@ export default function RouteManagement() {
                                     border: "1px solid #D1D5DB",
                                     px: 3,
                                     py: 1,
-                                    "&:hover": { backgroundColor: "#F9FAFB", borderColor: "#9CA3AF" }
+                                    "&:hover": { backgroundColor: "#F9FAFB", borderColor: "#9CA3AF" },
+                                    "&:disabled": {
+                                        color: "#9CA3AF",
+                                        borderColor: "#E5E7EB"
+                                    }
                                 }}
                             >
                                 Cancel
                             </Button>
                             <Button
                                 onClick={confirmDelete}
+                                disabled={isLoading}
+                                startIcon={isLoading ? <CircularProgress size={16} sx={{ color: "#fff" }} /> : null}
                                 sx={{
                                     textTransform: "none",
                                     backgroundColor: "#DC2626",
@@ -1262,10 +1641,14 @@ export default function RouteManagement() {
                                     px: 3,
                                     py: 1,
                                     boxShadow: "none",
-                                    "&:hover": { backgroundColor: "#B91C1C", boxShadow: "none" }
+                                    "&:hover": { backgroundColor: "#B91C1C", boxShadow: "none" },
+                                    "&:disabled": {
+                                        backgroundColor: "#FECACA",
+                                        color: "#fff"
+                                    }
                                 }}
                             >
-                                Delete Route
+                                {isLoading ? "Deleting..." : "Delete Route"}
                             </Button>
                         </DialogActions>
                     </Box>

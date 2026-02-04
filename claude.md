@@ -246,6 +246,64 @@ Ensure you have the following configured:
 </Grid>
 ```
 
+### MUI TextField - REQUIRED SPECIFICATIONS
+
+**ALWAYS use `slotProps` instead of the legacy `InputProps`:**
+
+```jsx
+// ✅ CORRECT - Always use slotProps (Modern MUI API)
+<TextField
+  slotProps={{
+    input: {
+      startAdornment: (
+        <InputAdornment position="start">
+          <Typography>₹</Typography>
+        </InputAdornment>
+      ),
+      endAdornment: (
+        <InputAdornment position="end">
+          <IconButton>
+            <SearchIcon />
+          </IconButton>
+        </InputAdornment>
+      ),
+    }
+  }}
+/>
+
+// ❌ INCORRECT - Don't use legacy InputProps
+<TextField
+  InputProps={{
+    startAdornment: <InputAdornment position="start">₹</InputAdornment>
+  }}
+/>
+```
+
+**Common slotProps usage:**
+```jsx
+// For input adornments
+slotProps={{
+  input: {
+    startAdornment: <InputAdornment position="start">Icon</InputAdornment>,
+    endAdornment: <InputAdornment position="end">Icon</InputAdornment>,
+  }
+}}
+
+// For input label
+slotProps={{
+  inputLabel: {
+    shrink: true,
+  }
+}}
+
+// For helper text
+slotProps={{
+  formHelperText: {
+    sx: { color: 'error.main' }
+  }
+}}
+```
+
 ### Color Coding Standards
 
 **Component Colors:**

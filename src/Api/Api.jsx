@@ -247,6 +247,14 @@ const deleteAdditionalFeesStructure = `${additionalFees}deleteAdditionalFeesStru
 const schoolFeesBilling = `${baseApiurl}schoolFeesBilling/`;
 const findStudents = `${schoolFeesBilling}findStudents`;
 const findStudentSchoolFeesBilling = `${schoolFeesBilling}findStudentSchoolFeesBilling`;
+const postPaymentMethod = `${schoolFeesBilling}postPaymentMethod`;
+const findStudentEcaFeesBilling = `${schoolFeesBilling}findStudentEcaFeesBilling`;
+const schoolFeesRecordGet = `${schoolFeesBilling}schoolFeesRecordGet`;
+const postEcaPaymentMethod = `${schoolFeesBilling}postEcaPaymentMethod`;
+const ecaFeesRecordGet = `${schoolFeesBilling}ecaFeesRecordGet`;
+const findStudentAdditionalFeesBilling = `${schoolFeesBilling}findStudentAdditionalFeesBilling`;
+const postAdditionalPaymentMethod = `${schoolFeesBilling}postAdditionalPaymentMethod`;
+const additionalFeesRecordGet = `${schoolFeesBilling}additionalFeesRecordGet`;
 
 
 const approvalStatusCheck = `${schoolFee}approvalStatusCheck`;
@@ -280,6 +288,14 @@ const updateVehicleRegistrationOwnership = `${transportManagement}updateVehicleR
 const updateVehicleInsuranceCompliance = `${transportManagement}updateVehicleInsuranceCompliance`;
 const updateVehicleWarrantyServiceClaim = `${transportManagement}updateVehicleWarrantyServiceClaim`;
 const updateVehicleDocuments = `${transportManagement}updateVehicleDocuments`;
+
+
+
+const postNewRoute = `${transportManagement}postNewRoute`;
+const updateNewRoute = `${transportManagement}updateNewRoute`;
+const getAllRoutes = `${transportManagement}getAllRoutes`;
+const getRouteById = `${transportManagement}getRouteById`;
+const deleteRouteById = `${transportManagement}deleteRouteById`;
 
 
 
@@ -530,6 +546,19 @@ export {
     updateVehicleInsuranceCompliance,
     updateVehicleWarrantyServiceClaim,
     updateVehicleDocuments,
-    findVehicleSafetyComplianceInstallationDetail
+    findVehicleSafetyComplianceInstallationDetail,
+    postPaymentMethod,
+    findStudentEcaFeesBilling,
+    schoolFeesRecordGet,
+    postEcaPaymentMethod,
+    ecaFeesRecordGet,
+    findStudentAdditionalFeesBilling,
+    postAdditionalPaymentMethod,
+    additionalFeesRecordGet,
+    postNewRoute,
+    updateNewRoute,
+    getAllRoutes,
+    getRouteById,
+    deleteRouteById,
 
 }

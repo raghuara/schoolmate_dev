@@ -147,7 +147,7 @@ export default function ConcessionPage() {
               <Grid container spacing={3} sx={{ width: "100%" }}>
                 <Grid size={{ lg: 2.4, md: 4, sm: 6, xs: 6 }}>
                   <Typography sx={{ color: "#777", fontSize: "12px" }}>Staff designation / Staff category</Typography>
-                  <Typography sx={{ color: "#000", fontSize: "14px", fontWeight: "600" }}>Teaching Staff / Teacher</Typography>
+                  <Typography sx={{ color: "#000", fontSize: "14px",  }}>Teaching Staff / Teacher</Typography>
                 </Grid>
                 <Grid size={{ lg: 2.4, md: 4, sm: 6, xs: 6 }}>
                   <Typography sx={{ color: "#777", fontSize: "12px" }}>Employment Status</Typography>

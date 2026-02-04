@@ -505,7 +505,7 @@ export default function ViewVehicleDetails() {
                                     />
                                 </Box>
                                 <Chip
-                                    label={vehicleData.acquisitionDetail?.vehicleAssetID || vehicleId || "N/A"}
+                                    label={vehicleData.acquisitionDetail?.busName || "..."}
                                     size="small"
                                     sx={{
                                         background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
@@ -627,6 +627,7 @@ export default function ViewVehicleDetails() {
                                 <DetailItem label="Dealer Contact" value={vehicleData.acquisitionDetail?.dealerContactNumber} />
                                 <DetailItem label="Dealer Address" value={vehicleData.acquisitionDetail?.dealerAddress} fullWidth />
                                 <DetailItem label="Dealer GSTIN" value={vehicleData.acquisitionDetail?.dealerGSTIN} />
+                                <DetailItem label="Bus Name" value={vehicleData.acquisitionDetail?.busName} />
                                 <DetailItem label="Invoice/Transfer Number" value={vehicleData.acquisitionDetail?.invoiceOrTransferOrDonationNumber} />
                             </Grid>
 

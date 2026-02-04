@@ -280,6 +280,7 @@ export default function VehicleCreationPage({ generatedVehicleId }) {
     const [dealerAddress, setDealerAddress] = useState("");
     const [dealerGstin, setDealerGstin] = useState("");
     const [invoiceNumber, setInvoiceNumber] = useState("");
+    const [busName, setBusName] = useState("");
     const [busPhoto, setBusPhoto] = useState(null);
     const [busPhotoPreview, setBusPhotoPreview] = useState(null);
     const busPhotoInputRef = useRef(null);
@@ -423,6 +424,7 @@ export default function VehicleCreationPage({ generatedVehicleId }) {
         setDealerAddress("");
         setDealerGstin("");
         setInvoiceNumber("");
+        setBusName("");
         setBusPhoto(null);
         setBusPhotoPreview(null);
     };
@@ -513,6 +515,7 @@ export default function VehicleCreationPage({ generatedVehicleId }) {
             sendData.append("VehicleAcquisitionSourceType", acquisitionSourceType);
             sendData.append("VehicleAssetSubType", assetSubType);
             sendData.append("VehicleBrand", vehicleBrand);
+            sendData.append("BusName", busName);
             sendData.append("DealerName", dealerName);
             sendData.append("DealerContactNumber", dealerContactNumber);
             sendData.append("DealerAddress", dealerAddress);
@@ -923,6 +926,10 @@ export default function VehicleCreationPage({ generatedVehicleId }) {
                                     </RadioGroup>
                                 </Grid>
 
+                                <Grid size={{ xs: 12, md: 3 }}>
+                                    <InputLabel sx={labelSx}>Bus Name</InputLabel>
+                                    <TextField fullWidth sx={inputSx} value={busName} onChange={(e) => setBusName(e.target.value)} placeholder="Enter bus name" />
+                                </Grid>
                                 <Grid size={{ xs: 12, md: 3 }}>
                                     <InputLabel sx={labelSx}>Vehicle Acquisition Source Type</InputLabel>
                                     <Select fullWidth sx={selectSx} value={acquisitionSourceType} onChange={(e) => setAcquisitionSourceType(e.target.value)}>

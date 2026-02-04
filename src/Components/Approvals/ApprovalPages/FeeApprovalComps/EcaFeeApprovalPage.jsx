@@ -49,11 +49,8 @@ export default function EcaFeeApprovalPage() {
     const [selectedGradeId, setSelectedGradeId] = useState(null);
     const [selectedGradeSign, setSelectedGradeSign] = useState(null);
     const [details, setDetails] = useState([]);
-    const [selectedFee, setSelectedFee] = useState(null);
 
     const isExpanded = useSelector((state) => state.sidebar.isExpanded);
-
-
 
     const academicYears = [
         `${currentYear - 2}-${currentYear - 1}`,

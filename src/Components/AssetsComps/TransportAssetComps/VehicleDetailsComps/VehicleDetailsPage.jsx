@@ -145,7 +145,7 @@ export default function VehicleDetailsPage() {
                    {filteredVehicleDetails.map((vehicle) => (
                         <Grid key={vehicle.vehicleAssetID} size={{ xs: 12, sm: 12, md: 6, lg: 4 }}>
                             <Box sx={{ backgroundColor: "#8600BB", borderTopLeftRadius: "10px", borderTopRightRadius: "10px", color: "#fff", pl: 1.5, py: 0.5 }}>
-                                {vehicle.vehicleAssetType || "Vehicle"} : {vehicle.vehicleAssetID}
+                                {vehicle.busName || "..."}
                             </Box>
                             <Grid container spacing={4} sx={{ p: 2, border: "1px solid #D98AA6", backgroundColor: "rgba(255, 0, 4, 0.03)" }}>
                                 <Grid size={{ xs: 7, sm: 7, md: 7, lg: 7 }}>

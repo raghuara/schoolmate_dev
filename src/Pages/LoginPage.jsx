@@ -1,10 +1,12 @@
 import { Box, Button, IconButton, InputAdornment, TextField, Typography } from '@mui/material';
 import React, { useEffect, useState } from 'react';
 import Grid from '@mui/material/Grid';
+import { motion } from 'framer-motion';
 import Logo from "../Images/Login/MSMSLogo.png";
 import slider1 from "../Images/Login/01.png";
 import slider2 from "../Images/Login/02.png";
 import slider3 from "../Images/Login/03.png";
+import LoginImage from "../Images/Login/image.jpg";
 import "../Css/Style.css";
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -131,222 +133,402 @@ export default function LoginPage() {
     const isButtonEnabled = userId.trim() !== '' && password.trim() !== '';
 
     return (
-        <Box
-            sx={{
-                backgroundColor: websiteSettings.backgroundColor,
-                minHeight: "100vh",
-                width: "100%",
-                padding: 0,
-                margin: 0,
-            }}
-        >
+        <Box sx={{ height: "100vh", width: "100%" }}>
             {isLoading && <Loader />}
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
-            <Box sx={{ backgroundColor: "#FFF", height: "60px", display: "flex", alignItems: "center", pl: 2 }}>
-                <img src={productLogo} width={"150px"} alt="logo" />
-            </Box>
-            <Box>
-                <Box >
-                    <Grid container>
-                        <Grid
-                            sx={{ height: "100%" }}
-                            size={{
-                                xs: 12,
-                                sm: 12,
-                                md: 4,
-                                lg: 4.25
-                            }}>
-                            <Box
-                                sx={{
-                                    borderRadius: "6px",
-                                }}>
-                                <style>
-                                    {`
-                                .slick-dots{
-                                  padding-bottom:15px !important;
-                                }
-                                .slick-dots li button {
-                                    color: #fff !important;
-                                }
-                                .slick-dots li button:before {
-                                    color: #fff !important;
-                                }
-                                .slick-dots li.slick-active button:before {
-                                    background-color: #fff !important;
-                                }
-                                `}
-                                </style>
-                                <Slider style={{ padding: "0px", boxShadow: "none" }} {...settings}>
-                                    <Box sx={{ borderRadius: "6px", position: "relative" }}>
-                                        <img width={"100%"} src={slider1} alt="sliderimg" />
-                                    </Box>
-                                    <Box sx={{ borderRadius: "6px", position: "relative" }}>
-                                        <img width={"100%"} src={slider2} alt="sliderimg" />
-                                    </Box>
-                                    <Box sx={{ borderRadius: "6px", position: "relative" }}>
-                                        <img width={"100%"} src={slider3} alt="sliderimg" />
-                                    </Box>
-                                </Slider>
+
+            <Grid container sx={{ height: "100%" }}>
+                {/* Slider Section - Left Side */}
+                <Grid
+                    sx={{
+                        backgroundColor: "#FFFBE2",
+                        display: { xs: "none", md: "flex" },
+                        alignItems: "center",
+                        justifyContent: "center",
+                        position: "relative",
+                        p: 3,
+                        height: "100%"
+                    }}
+                    size={{
+                        xs: 12,
+                        sm: 12,
+                        md: 6,
+                        lg: 6
+                    }}
+                >
+                    
+
+                    <motion.img
+                        initial={{ opacity: 0, x: -50 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.8, ease: "easeOut" }}
+                        style={{
+                            width: "100%",
+                            maxHeight: "100%",
+                            height: "auto",
+                            display: "block",
+                            objectFit: "contain"
+                        }}
+                        src={LoginImage}
+                        alt="sliderimg"
+                    />
+                </Grid>
+
+                {/* Login Form Section - Right Side */}
+                <Grid
+                    sx={{
+                        backgroundColor: "#ffffff",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center", 
+                        p: { xs: 3, md: 4 },
+                        height: "100%"  
+                    }}
+                    size={{
+                        xs: 12,
+                        sm: 12,
+                        md: 6,
+                        lg: 6
+                    }}
+                >
+                   
+                    
+                    <Box sx={{ width: "100%", maxWidth: "460px", position: "relative", zIndex: 1 }}>
+                        {/* Title */}
+                        <Box sx={{ display: "flex", justifyContent: "center", mb: 2 }}>
+                            <motion.img
+                                initial={{ opacity: 0, scale: 0.5 }}
+                                animate={{
+                                    opacity: 1,
+                                    scale: 1,
+                                    y: [0, -10, 0]
+                                }}
+                                transition={{
+                                    opacity: { duration: 0.5, ease: "easeOut" },
+                                    scale: { duration: 0.5, ease: "easeOut" },
+                                    y: {
+                                        duration: 2,
+                                        repeat: Infinity,
+                                        ease: "easeInOut",
+                                        delay: 0.5
+                                    }
+                                }}
+                                src={SchoolLogo}
+                                alt="logo"
+                                width={"100px"}
+                            />
+                        </Box>
+                        <Box sx={{ mb: 3, display: "flex", justifyContent: "center" }}>
+                            <motion.div
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.6, delay: 0.2, ease: "easeOut" }}
+                            >
+                                <Typography
+                                    sx={{
+                                        fontWeight: 800,
+                                        fontSize: { xs: "28px", md: "32px" },
+                                        color: "#1a202c",
+                                        mb: 0.5,
+                                        letterSpacing: "-1px"
+                                    }}
+                                >
+                                    Welcome Back
+                                </Typography>
+                                <Typography
+                                    sx={{
+                                        fontWeight: 400,
+                                        fontSize: "14px",
+                                        color: "#718096",
+                                    }}
+                                >
+                                    Please login to continue to your account
+                                </Typography>
+                            </motion.div>
+                        </Box>
+
+                        {/* Form */}
+                        <Form onSubmit={handleSubmit}>
+                            {/* Username Field */}
+                            <motion.div
+                                initial={{ opacity: 0, x: -20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ duration: 0.5, delay: 0.4, ease: "easeOut" }}
+                            >
+                            <Box sx={{ mb: 2.5 }}>
+                                <Typography
+                                    sx={{
+                                        fontSize: "15px",
+                                        fontWeight: 600,
+                                        color: "#2d3748",
+                                        mb: 1
+                                    }}
+                                >
+                                    Login ID
+                                </Typography>
+                                <TextField
+                                    fullWidth
+                                    id="outlined-username"
+                                    placeholder="Enter your unique ID"
+                                    variant="outlined"
+                                    value={userId}
+                                    onChange={(e) => setUserId(e.target.value)}
+                                    sx={{
+                                        "& .MuiOutlinedInput-root": {
+                                            borderRadius: "12px",
+                                            backgroundColor: "#f7fafc",
+                                            transition: "all 0.2s",
+                                            "& fieldset": {
+                                                borderColor: activateError ? "#f56565" : activateSuccess ? "#48bb78" : "#e2e8f0",
+                                                borderWidth: "2px",
+                                            },
+                                            "&:hover": {
+                                                backgroundColor: "#edf2f7",
+                                                "& fieldset": {
+                                                    borderColor: activateError ? "#f56565" : activateSuccess ? "#48bb78" : "#cbd5e0",
+                                                }
+                                            },
+                                            "&.Mui-focused": {
+                                                backgroundColor: "#ffffff",
+                                                "& fieldset": {
+                                                    borderColor: activateError ? "#f56565" : activateSuccess ? "#48bb78" : "#4299e1",
+                                                    borderWidth: "2px",
+                                                }
+                                            },
+                                            "& input": {
+                                                padding: "15px 18px",
+                                                fontSize: "15px",
+                                                color: "#2d3748",
+                                                fontWeight: 500,
+                                            },
+                                        }
+                                    }}
+                                />
+                                {activateError && (
+                                    <Typography
+                                        sx={{
+                                            color: "#f56565",
+                                            mt: 1,
+                                            fontSize: "13px",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            fontWeight: 500
+                                        }}
+                                    >
+                                        <ErrorIcon sx={{ fontSize: "17px", mr: 0.5 }} />
+                                        Incorrect Unique ID
+                                    </Typography>
+                                )}
                             </Box>
-                        </Grid>
+                            </motion.div>
 
-                        <Grid
-                            size={{
-                                xs: 12,
-                                sm: 12,
-                                md: 8,
-                                lg: 7.5
-                            }}>
-                            <Grid container spacing={0} sx={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
-                                <Grid
-                                    size={{
-                                        xs: 8,
-                                        md: 8,
-                                        lg: 8
-                                    }}>
-                                    <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", pt: 5 }}>
-                                        <img src={SchoolLogo} height={110} alt="Logo" />
-                                    </Box>
-
-                                    <Typography sx={{ mt: 7, fontWeight: 600 }} variant='h5'> Log Into your </Typography>
-                                    <Typography sx={{ mt: 1, fontWeight: 700 }} variant='h4'> MSMS account </Typography>
-                                    <Form onSubmit={handleSubmit}>
-                                        <TextField
-                                            className='textFieldStyle'
-                                            sx={{
-                                                width: "100%",
-                                                mt: 3,
-                                                "& .MuiOutlinedInput-root": {
-                                                    "& fieldset": {
-                                                        borderColor: activateError ? "red" : activateSuccess ? "green" : "black",
-                                                        borderWidth: activateError ? "2px" : activateSuccess ? "2px" : "1px",
-                                                    },
-                                                    "&:hover fieldset": {
-                                                        borderColor: activateError ? "red" : activateSuccess ? "green" : "black",
-                                                    },
-                                                    "&.Mui-focused fieldset": {
-                                                        borderColor: activateError ? "red" : activateSuccess ? "green" : "black",
-                                                    },
-                                                    "& input": {
-                                                        color: activateError ? "red" : activateSuccess ? "green" : "#000",
-                                                    },
+                            {/* Password Field */}
+                            <motion.div
+                                initial={{ opacity: 0, x: -20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ duration: 0.5, delay: 0.5, ease: "easeOut" }}
+                            >
+                            <Box sx={{ mb: 1.5 }}>
+                                <Typography
+                                    sx={{
+                                        fontSize: "15px",
+                                        fontWeight: 600,
+                                        color: "#2d3748",
+                                        mb: 1
+                                    }}
+                                >
+                                    Password
+                                </Typography>
+                                <TextField
+                                    fullWidth
+                                    id="outlined-password"
+                                    placeholder="Enter your password"
+                                    variant="outlined"
+                                    type={showPassword ? 'text' : 'password'}
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    required
+                                    autoComplete='off'
+                                    inputProps={{
+                                        onCopy: (e) => e.preventDefault(),
+                                        onPaste: (e) => e.preventDefault(),
+                                        onCut: (e) => e.preventDefault(),
+                                    }}
+                                    InputProps={{
+                                        endAdornment: (
+                                            <InputAdornment position="end">
+                                                <IconButton
+                                                    aria-label="toggle password visibility"
+                                                    onClick={togglePasswordVisibility}
+                                                    edge="end"
+                                                    sx={{
+                                                        color: "#718096",
+                                                        "&:hover": {
+                                                            backgroundColor: "rgba(0,0,0,0.04)"
+                                                        }
+                                                    }}
+                                                >
+                                                    {showPassword ? <VisibilityIcon /> : <VisibilityOffIcon />}
+                                                </IconButton>
+                                            </InputAdornment>
+                                        ),
+                                    }}
+                                    sx={{
+                                        "& .MuiOutlinedInput-root": {
+                                            borderRadius: "12px",
+                                            backgroundColor: "#f7fafc",
+                                            transition: "all 0.2s",
+                                            "& fieldset": {
+                                                borderColor: activateError ? "#f56565" : activateSuccess ? "#48bb78" : "#e2e8f0",
+                                                borderWidth: "2px",
+                                            },
+                                            "&:hover": {
+                                                backgroundColor: "#edf2f7",
+                                                "& fieldset": {
+                                                    borderColor: activateError ? "#f56565" : activateSuccess ? "#48bb78" : "#cbd5e0",
                                                 }
-                                            }}
-                                            id="outlined-username"
-                                            placeholder="Enter Unique ID"
-                                            variant="outlined"
-                                            value={userId}
-                                            onChange={(e) => setUserId(e.target.value)}
-                                        />
-                                        {activateError &&
-                                            <Typography sx={{ color: "red", mt: 0.5, fontSize: "14px", display: "flex", alignItems: "center" }}>
-                                                <ErrorIcon style={{ fontSize: "20px", marginRight: "5px" }} /> Enter Correct Unique ID</Typography>
-                                        }
-
-                                        <TextField
-                                            className='textFieldStyle'
-                                            sx={{
-                                                width: "100%",
-                                                mt: 3,
-                                                "& .MuiOutlinedInput-root": {
-                                                    "& fieldset": {
-                                                        borderColor: activateError ? "red" : activateSuccess ? "green" : "black",
-                                                        borderWidth: activateError ? "2px" : activateSuccess ? "2px" : "1px",
-                                                    },
-                                                    "&:hover fieldset": {
-                                                        borderColor: activateError ? "red" : activateSuccess ? "green" : "black",
-                                                    },
-                                                    "&.Mui-focused fieldset": {
-                                                        borderColor: activateError ? "red" : activateSuccess ? "green" : "black",
-                                                    },
-                                                    "& input": {
-                                                        color: activateError ? "red" : activateSuccess ? "green" : "#000",
-                                                    },
+                                            },
+                                            "&.Mui-focused": {
+                                                backgroundColor: "#ffffff",
+                                                "& fieldset": {
+                                                    borderColor: activateError ? "#f56565" : activateSuccess ? "#48bb78" : "#4299e1",
+                                                    borderWidth: "2px",
                                                 }
-                                            }}
-                                            id="outlined-password"
-                                            placeholder="Enter Password"
-                                            variant="outlined"
-                                            type={showPassword ? 'text' : 'password'}
-                                            value={password}
-                                            onChange={(e) => setPassword(e.target.value)}
-                                            required
-                                            autoComplete='off'
-                                            inputProps={{
-                                                onCopy: (e) => e.preventDefault(),
-                                                onPaste: (e) => e.preventDefault(),
-                                                onCut: (e) => e.preventDefault(),
-                                            }}
-                                            InputProps={{
-                                                endAdornment: (
-                                                    <InputAdornment position="end">
-                                                        <IconButton
-                                                            aria-label="toggle password visibility"
-                                                            onClick={togglePasswordVisibility}
-                                                            edge="end"
-                                                        >
-                                                            {showPassword ? <VisibilityIcon style={{ color: '#000' }} /> : <VisibilityOffIcon style={{ color: activateError ? "red" : activateSuccess ? "green" : '#000' }} />}
-                                                        </IconButton>
-                                                    </InputAdornment>
-                                                ),
-                                            }}
-                                        />
-
-                                        {activateError &&
-                                            <Typography sx={{ color: "red", mt: 0.5, fontSize: "14px", display: "flex", alignItems: "center" }}>
-                                                <ErrorIcon style={{ fontSize: "20px", marginRight: "5px" }} /> Enter Correct Password</Typography>
+                                            },
+                                            "& input": {
+                                                padding: "15px 18px",
+                                                fontSize: "15px",
+                                                color: "#2d3748",
+                                                fontWeight: 500,
+                                            },
                                         }
+                                    }}
+                                />
+                                {activateError && (
+                                    <Typography
+                                        sx={{
+                                            color: "#f56565",
+                                            mt: 1,
+                                            fontSize: "13px",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            fontWeight: 500
+                                        }}
+                                    >
+                                        <ErrorIcon sx={{ fontSize: "17px", mr: 0.5 }} />
+                                        Incorrect Password
+                                    </Typography>
+                                )}
+                            </Box>
+                            </motion.div>
 
-                                        <Box sx={{ mt: 4 }}>
-                                            <Grid container spacing={2} alignItems="center">
-                                                <Grid
-                                                    size={{
-                                                        xs: 12,
-                                                        sm: 6
-                                                    }}>
-                                                    <Button
-                                                        type='submit'
-                                                        disabled={!isButtonEnabled}
-                                                        sx={{
-                                                            backgroundColor: isButtonEnabled ? websiteSettings.mainColor : websiteSettings.lightColor,
-                                                            color: websiteSettings.textColor,
-                                                            "&.Mui-disabled": {
-                                                                backgroundColor: websiteSettings.lightColor
-                                                            },
-                                                            width: { xs: "100%", sm: "auto" }
-                                                        }}
-                                                        className='LoginButton'
-                                                        variant="contained"
-                                                    >
-                                                        Login
-                                                    </Button>
-                                                </Grid>
+                            {/* Forgot Password */}
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                transition={{ duration: 0.5, delay: 0.6, ease: "easeOut" }}
+                            >
+                            <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 3 }}>
+                                <motion.div
+                                    animate={{
+                                        opacity: [1, 0.7, 1]
+                                    }}
+                                    transition={{
+                                        duration: 2,
+                                        repeat: Infinity,
+                                        ease: "easeInOut"
+                                    }}
+                                >
+                                    <Link
+                                        to="#"
+                                        style={{
+                                            color: "#4299e1",
+                                            textDecoration: "none",
+                                            fontSize: "14px",
+                                            fontWeight: 600,
+                                        }}
+                                    >
+                                        Forgot Password?
+                                    </Link>
+                                </motion.div>
+                            </Box>
+                            </motion.div>
 
-                                                <Grid
-                                                    sx={{ display: "flex", justifyContent: { xs: "center", sm: "flex-end" } }}
-                                                    size={{
-                                                        xs: 12,
-                                                        sm: 6
-                                                    }}>
-                                                    <Typography sx={{ p: { xs: 1, sm: 3 }, textAlign: { xs: "center", sm: "right" } }}>
-                                                        Forgot Password?{" "}
-                                                        <Link
-                                                            to="#"
-                                                            style={{ color: websiteSettings.mainColor, textDecoration: "none" }}
-                                                        >
-                                                            Click here
-                                                        </Link>
-                                                    </Typography>
-                                                </Grid>
-                                            </Grid>
-                                        </Box>
-                                    </Form>
-                                </Grid>
-                            </Grid>
-                        </Grid>
-                    </Grid>
-                </Box>
-            </Box>
+                            {/* Login Button */}
+                            <motion.div
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{
+                                    opacity: 1,
+                                    y: 0,
+                                    scale: isButtonEnabled ? [1, 1.02, 1] : 1
+                                }}
+                                transition={{
+                                    opacity: { duration: 0.5, delay: 0.7, ease: "easeOut" },
+                                    y: { duration: 0.5, delay: 0.7, ease: "easeOut" },
+                                    scale: isButtonEnabled ? {
+                                        duration: 2,
+                                        repeat: Infinity,
+                                        ease: "easeInOut",
+                                        delay: 1
+                                    } : { duration: 0 }
+                                }}
+                            >
+                            <Button
+                                type='submit'
+                                fullWidth
+                                disabled={!isButtonEnabled}
+                                variant="contained"
+                                sx={{
+                                    backgroundColor: isButtonEnabled ? "#4299e1" : "#e2e8f0",
+                                    color: isButtonEnabled ? "#ffffff" : "#a0aec0",
+                                    padding: "12px 24px",
+                                    fontSize: "16px",
+                                    fontWeight: 700,
+                                    borderRadius: "999px",
+                                    textTransform: "none",
+                                    boxShadow: "none",
+                                    transition: "all 0.3s ease",
+                                    "&:hover": {
+                                        backgroundColor: isButtonEnabled ? "#3182ce" : "#e2e8f0",
+                                        transform: isButtonEnabled ? "translateY(-2px)" : "none",
+                                        boxShadow: isButtonEnabled ? "0 6px 20px rgba(66, 153, 225, 0.5)" : "none",
+                                    },
+                                    "&.Mui-disabled": {
+                                        backgroundColor: "#e2e8f0",
+                                        color: "#a0aec0"
+                                    }
+                                }}
+                            >
+                                Login
+                            </Button>
+                            </motion.div>
+
+                            {/* Footer */}
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: [1, 0.6, 1] }}
+                                transition={{
+                                    opacity: {
+                                        duration: 3,
+                                        repeat: Infinity,
+                                        ease: "easeInOut",
+                                        delay: 1
+                                    }
+                                }}
+                            >
+                            <Box sx={{ mt: 3, textAlign: "center" }}>
+                                <Typography sx={{ fontSize: "13px", color: "#a0aec0", mb: 1 }}>
+                                    Secure Login • SchoolMate © 2024
+                                </Typography>
+                                <Typography sx={{ fontSize: "12px", color: "#cbd5e0" }}>
+                                    Protected by enterprise-grade security
+                                </Typography>
+                            </Box>
+                            </motion.div>
+                        </Form>
+                    </Box>
+                </Grid>
+            </Grid>
         </Box>
     );
 }

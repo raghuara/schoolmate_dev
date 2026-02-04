@@ -103,6 +103,7 @@ import ExtraFeeStructure from "./Components/StudentComps/FeeFinanceComps/FeesStr
 import ExtraCurricularFeeStructure from "./Components/StudentComps/FeeFinanceComps/FeesStructure/ExtraCurricularFeeStructure";
 import PayStudentFeePage from "./Components/StudentComps/FeeFinanceComps/PayStudentFees/PayStudentFeesPage";
 import BillingScreen from "./Components/StudentComps/FeeFinanceComps/PayStudentFees/BillingScreen";
+import TransactionHistory from "./Components/StudentComps/FeeFinanceComps/PayStudentFees/TransactionHistory";
 import FeesReportPage from "./Components/StudentComps/FeeFinanceComps/FeesReport/FeesReportPage";
 import SpecialConcession from "./Components/StudentComps/FeeFinanceComps/PayStudentFees/SpecialConcession";
 import CreateConcessionPage from "./Components/StudentComps/FeeFinanceComps/Concession/CreateConcessionPage";
@@ -255,11 +256,13 @@ export default function RouterPage() {
                 <Route path="fee/concession/create" element={<CreateConcessionPage />} />
 
                 <Route path="fee/school" element={<SchoolFeeStructure />} />
+                <Route path="fee/transport" element={<TransportFeeStructure />} />
                 <Route path="fee/extra" element={<ExtraFeeStructure />} />
                 <Route path="fee/extra-curricular" element={<ExtraCurricularFeeStructure />} />
 
                 <Route path="fee/pay-fees" element={<PayStudentFeePage />} />
                 <Route path="fee/billing" element={<BillingScreen />} />
+                <Route path="fee/transaction-history" element={<TransactionHistory />} />
                 <Route path="fee/dashboard" element={<FinanceDashboard />} />
                 <Route path="fee/special" element={<SpecialConcession />} />
 
@@ -279,7 +282,7 @@ export default function RouterPage() {
                 {/* --------------------------------------------------------------------------------------------------- */}
 
                 {/* Transport */}
-                <Route path="transport" element={<TransportFeeStructure />} />
+                <Route path="transport" element={<TransportPage />} />
 
                 {/* --------------------------------------------------------------------------------------------------- */}
 
