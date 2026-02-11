@@ -421,6 +421,11 @@ export default function FinanceDashboard() {
                             iconPosition="start"
                             label="Fee Report"
                         />
+                        <Tab
+                            icon={<AccountBalanceWalletIcon sx={{ fontSize: 18 }} />}
+                            iconPosition="start"
+                            label="Expenses"
+                        />
                     </Tabs>
                 </Box>
             </Box>
@@ -1933,6 +1938,527 @@ export default function FinanceDashboard() {
             {value === 2 && (
                 <Box>
                     <CashDenominationTracker />
+                </Box>
+            )}
+
+            {/* Tab Panel 6: Expenses */}
+            {value === 6 && (
+                <Box>
+                    {/* Petty Cash Summary Cards - Professional Style */}
+                    <Grid container spacing={2} sx={{ mb: 3 }}>
+                        {/* Allocated Amount */}
+                        <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
+                            <Card sx={{
+                                height: '100%',
+                                boxShadow: 'none',
+                                border: '1px solid #10B981',
+                                borderRadius: '4px',
+                                bgcolor: '#F0FDF4',
+                                transition: 'transform 0.2s, box-shadow 0.2s',
+                                '&:hover': {
+                                    transform: 'translateY(-4px)',
+                                    boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                                }
+                            }}>
+                                <CardContent>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                        <Box sx={{ flex: 1 }}>
+                                            <Typography sx={{ fontSize: '12px', color: '#666', mb: 0.5 }}>
+                                                Allocated Amount
+                                            </Typography>
+                                            <Typography sx={{ fontSize: '24px', fontWeight: '700', color: '#1a1a1a', mb: 0.5 }}>
+                                                ₹50,000
+                                            </Typography>
+                                            <Typography sx={{ fontSize: '11px', color: '#999' }}>
+                                                February 2026
+                                            </Typography>
+                                        </Box>
+                                        <Avatar sx={{
+                                            bgcolor: '#F0FDF4',
+                                            width: 48,
+                                            height: 48,
+                                        }}>
+                                            <AccountBalanceWalletIcon sx={{ color: '#10B981', fontSize: 24 }} />
+                                        </Avatar>
+                                    </Box>
+                                </CardContent>
+                            </Card>
+                        </Grid>
+
+                        {/* Total Spent */}
+                        <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
+                            <Card sx={{
+                                height: '100%',
+                                boxShadow: 'none',
+                                border: '1px solid #F97316',
+                                borderRadius: '4px',
+                                bgcolor: '#FFF7ED',
+                                transition: 'transform 0.2s, box-shadow 0.2s',
+                                '&:hover': {
+                                    transform: 'translateY(-4px)',
+                                    boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                                }
+                            }}>
+                                <CardContent>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                        <Box sx={{ flex: 1 }}>
+                                            <Typography sx={{ fontSize: '12px', color: '#666', mb: 0.5 }}>
+                                                Total Spent
+                                            </Typography>
+                                            <Typography sx={{ fontSize: '24px', fontWeight: '700', color: '#1a1a1a', mb: 0.5 }}>
+                                                ₹32,450
+                                            </Typography>
+                                            <Typography sx={{ fontSize: '11px', color: '#999' }}>
+                                                87 Transactions
+                                            </Typography>
+                                        </Box>
+                                        <Avatar sx={{
+                                            bgcolor: '#FFF7ED',
+                                            width: 48,
+                                            height: 48,
+                                        }}>
+                                            <ReceiptIcon sx={{ color: '#F97316', fontSize: 24 }} />
+                                        </Avatar>
+                                    </Box>
+                                </CardContent>
+                            </Card>
+                        </Grid>
+
+                        {/* Remaining Balance */}
+                        <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
+                            <Card sx={{
+                                height: '100%',
+                                boxShadow: 'none',
+                                border: '1px solid #3B82F6',
+                                borderRadius: '4px',
+                                bgcolor: '#EFF6FF',
+                                transition: 'transform 0.2s, box-shadow 0.2s',
+                                '&:hover': {
+                                    transform: 'translateY(-4px)',
+                                    boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                                }
+                            }}>
+                                <CardContent>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                        <Box sx={{ flex: 1 }}>
+                                            <Typography sx={{ fontSize: '12px', color: '#666', mb: 0.5 }}>
+                                                Remaining Balance
+                                            </Typography>
+                                            <Typography sx={{ fontSize: '24px', fontWeight: '700', color: '#1a1a1a', mb: 0.5 }}>
+                                                ₹17,550
+                                            </Typography>
+                                            <Typography sx={{ fontSize: '11px', color: '#999' }}>
+                                                Available to Use
+                                            </Typography>
+                                        </Box>
+                                        <Avatar sx={{
+                                            bgcolor: '#EFF6FF',
+                                            width: 48,
+                                            height: 48,
+                                        }}>
+                                            <CheckCircleIcon sx={{ color: '#3B82F6', fontSize: 24 }} />
+                                        </Avatar>
+                                    </Box>
+                                </CardContent>
+                            </Card>
+                        </Grid>
+
+                        {/* Budget Utilization */}
+                        <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
+                            <Card sx={{
+                                height: '100%',
+                                boxShadow: 'none',
+                                border: '1px solid #F59E0B',
+                                borderRadius: '4px',
+                                bgcolor: '#FFFBEB',
+                                transition: 'transform 0.2s, box-shadow 0.2s',
+                                '&:hover': {
+                                    transform: 'translateY(-4px)',
+                                    boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                                }
+                            }}>
+                                <CardContent>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                        <Box sx={{ flex: 1 }}>
+                                            <Typography sx={{ fontSize: '12px', color: '#666', mb: 0.5 }}>
+                                                Budget Utilization
+                                            </Typography>
+                                            <Typography sx={{ fontSize: '24px', fontWeight: '700', color: '#1a1a1a', mb: 0.5 }}>
+                                                64.9%
+                                            </Typography>
+                                            <Typography sx={{ fontSize: '11px', color: '#999' }}>
+                                                Of Allocated
+                                            </Typography>
+                                        </Box>
+                                        <Avatar sx={{
+                                            bgcolor: '#FFFBEB',
+                                            width: 48,
+                                            height: 48,
+                                        }}>
+                                            <PendingActionsIcon sx={{ color: '#F59E0B', fontSize: 24 }} />
+                                        </Avatar>
+                                    </Box>
+                                </CardContent>
+                            </Card>
+                        </Grid>
+                    </Grid>
+
+                    {/* Expense Period Summary Cards */}
+                    <Grid container spacing={2} sx={{ mb: 3 }}>
+                        {/* Today's Expenses */}
+                        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                            <Card sx={{
+                                boxShadow: 'none',
+                                border: '1px solid #E8E8E8',
+                                borderRadius: '4px',
+                                bgcolor: '#FFFFFF',
+                                transition: 'transform 0.2s, box-shadow 0.2s',
+                                '&:hover': {
+                                    transform: 'translateY(-4px)',
+                                    boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                                }
+                            }}>
+                                <CardContent>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                        <Box>
+                                            <Typography sx={{ fontSize: '12px', color: '#666', mb: 0.5 }}>
+                                                Today's Expenses
+                                            </Typography>
+                                            <Typography sx={{ fontSize: '24px', fontWeight: '700', color: '#1a1a1a', mb: 0.5 }}>
+                                                ₹2,350
+                                            </Typography>
+                                            <Typography sx={{ fontSize: '11px', color: '#999' }}>
+                                                5 Transactions
+                                            </Typography>
+                                        </Box>
+                                        <Avatar sx={{
+                                            bgcolor: '#EFF6FF',
+                                            width: 48,
+                                            height: 48,
+                                        }}>
+                                            <TodayIcon sx={{ color: '#3B82F6', fontSize: 24 }} />
+                                        </Avatar>
+                                    </Box>
+                                </CardContent>
+                            </Card>
+                        </Grid>
+
+                        {/* This Week's Expenses */}
+                        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                            <Card sx={{
+                                boxShadow: 'none',
+                                border: '1px solid #E8E8E8',
+                                borderRadius: '4px',
+                                bgcolor: '#FFFFFF',
+                                transition: 'transform 0.2s, box-shadow 0.2s',
+                                '&:hover': {
+                                    transform: 'translateY(-4px)',
+                                    boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                                }
+                            }}>
+                                <CardContent>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                        <Box>
+                                            <Typography sx={{ fontSize: '12px', color: '#666', mb: 0.5 }}>
+                                                This Week's Expenses
+                                            </Typography>
+                                            <Typography sx={{ fontSize: '24px', fontWeight: '700', color: '#1a1a1a', mb: 0.5 }}>
+                                                ₹15,480
+                                            </Typography>
+                                            <Typography sx={{ fontSize: '11px', color: '#999' }}>
+                                                28 Transactions
+                                            </Typography>
+                                        </Box>
+                                        <Avatar sx={{
+                                            bgcolor: '#F5F3FF',
+                                            width: 48,
+                                            height: 48,
+                                        }}>
+                                            <AssessmentIcon sx={{ color: '#8B5CF6', fontSize: 24 }} />
+                                        </Avatar>
+                                    </Box>
+                                </CardContent>
+                            </Card>
+                        </Grid>
+
+                        {/* This Month's Expenses */}
+                        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                            <Card sx={{
+                                boxShadow: 'none',
+                                border: '1px solid #E8E8E8',
+                                borderRadius: '4px',
+                                bgcolor: '#FFFFFF',
+                                transition: 'transform 0.2s, box-shadow 0.2s',
+                                '&:hover': {
+                                    transform: 'translateY(-4px)',
+                                    boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                                }
+                            }}>
+                                <CardContent>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                        <Box>
+                                            <Typography sx={{ fontSize: '12px', color: '#666', mb: 0.5 }}>
+                                                This Month's Expenses
+                                            </Typography>
+                                            <Typography sx={{ fontSize: '24px', fontWeight: '700', color: '#1a1a1a', mb: 0.5 }}>
+                                                ₹32,450
+                                            </Typography>
+                                            <Typography sx={{ fontSize: '11px', color: '#999' }}>
+                                                87 Transactions
+                                            </Typography>
+                                        </Box>
+                                        <Avatar sx={{
+                                            bgcolor: '#FFF7ED',
+                                            width: 48,
+                                            height: 48,
+                                        }}>
+                                            <AccountBalanceWalletIcon sx={{ color: '#F97316', fontSize: 24 }} />
+                                        </Avatar>
+                                    </Box>
+                                </CardContent>
+                            </Card>
+                        </Grid>
+                    </Grid>
+
+                    {/* Expense Breakdown Chart and Category Summary */}
+                    <Grid container spacing={3} sx={{ mb: 3 }}>
+                        {/* Expense by Category */}
+                        <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }}>
+                            <Card sx={{ boxShadow: 'none', border: '1px solid #E8E8E8', borderRadius: '4px', bgcolor: '#FFFFFF' }}>
+                                <CardContent>
+                                    <Typography sx={{ fontSize: '18px', fontWeight: '600', mb: 3 }}>
+                                        Expense by Category
+                                    </Typography>
+                                    <Box>
+                                        <Box sx={{ mb: 2.5 }}>
+                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                    <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#3B82F6' }} />
+                                                    <Typography sx={{ fontSize: '13px', color: '#666' }}>Stationery & Supplies</Typography>
+                                                </Box>
+                                                <Typography sx={{ fontSize: '14px', fontWeight: '600' }}>₹12,500 (38.5%)</Typography>
+                                            </Box>
+                                            <LinearProgress
+                                                variant="determinate"
+                                                value={38.5}
+                                                sx={{
+                                                    height: 8,
+                                                    borderRadius: 4,
+                                                    bgcolor: '#E8E8E8',
+                                                    '& .MuiLinearProgress-bar': {
+                                                        bgcolor: '#3B82F6',
+                                                        borderRadius: 4,
+                                                    },
+                                                }}
+                                            />
+                                        </Box>
+                                        <Box sx={{ mb: 2.5 }}>
+                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                    <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#10B981' }} />
+                                                    <Typography sx={{ fontSize: '13px', color: '#666' }}>Maintenance & Repairs</Typography>
+                                                </Box>
+                                                <Typography sx={{ fontSize: '14px', fontWeight: '600' }}>₹9,800 (30.2%)</Typography>
+                                            </Box>
+                                            <LinearProgress
+                                                variant="determinate"
+                                                value={30.2}
+                                                sx={{
+                                                    height: 8,
+                                                    borderRadius: 4,
+                                                    bgcolor: '#E8E8E8',
+                                                    '& .MuiLinearProgress-bar': {
+                                                        bgcolor: '#10B981',
+                                                        borderRadius: 4,
+                                                    },
+                                                }}
+                                            />
+                                        </Box>
+                                        <Box sx={{ mb: 2.5 }}>
+                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                    <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#F59E0B' }} />
+                                                    <Typography sx={{ fontSize: '13px', color: '#666' }}>Utilities & Bills</Typography>
+                                                </Box>
+                                                <Typography sx={{ fontSize: '14px', fontWeight: '600' }}>₹6,350 (19.6%)</Typography>
+                                            </Box>
+                                            <LinearProgress
+                                                variant="determinate"
+                                                value={19.6}
+                                                sx={{
+                                                    height: 8,
+                                                    borderRadius: 4,
+                                                    bgcolor: '#E8E8E8',
+                                                    '& .MuiLinearProgress-bar': {
+                                                        bgcolor: '#F59E0B',
+                                                        borderRadius: 4,
+                                                    },
+                                                }}
+                                            />
+                                        </Box>
+                                        <Box>
+                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                    <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#8B5CF6' }} />
+                                                    <Typography sx={{ fontSize: '13px', color: '#666' }}>Miscellaneous</Typography>
+                                                </Box>
+                                                <Typography sx={{ fontSize: '14px', fontWeight: '600' }}>₹3,800 (11.7%)</Typography>
+                                            </Box>
+                                            <LinearProgress
+                                                variant="determinate"
+                                                value={11.7}
+                                                sx={{
+                                                    height: 8,
+                                                    borderRadius: 4,
+                                                    bgcolor: '#E8E8E8',
+                                                    '& .MuiLinearProgress-bar': {
+                                                        bgcolor: '#8B5CF6',
+                                                        borderRadius: 4,
+                                                    },
+                                                }}
+                                            />
+                                        </Box>
+                                    </Box>
+                                </CardContent>
+                            </Card>
+                        </Grid>
+
+                        {/* Payment Method Breakdown */}
+                        <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }}>
+                            <Card sx={{ boxShadow: 'none', border: '1px solid #E8E8E8', borderRadius: '4px', bgcolor: '#FFFFFF' }}>
+                                <CardContent>
+                                    <Typography sx={{ fontSize: '16px', fontWeight: '600', mb: 2 }}>
+                                        Payment Method Breakdown
+                                    </Typography>
+                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#10B981' }} />
+                                                <Typography sx={{ fontSize: '12px', color: '#666' }}>Petty Cash</Typography>
+                                            </Box>
+                                            <Typography sx={{ fontSize: '13px', fontWeight: '600' }}>₹32,450</Typography>
+                                        </Box>
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#3B82F6' }} />
+                                                <Typography sx={{ fontSize: '12px', color: '#666' }}>Online Payment</Typography>
+                                            </Box>
+                                            <Typography sx={{ fontSize: '13px', fontWeight: '600' }}>₹18,250</Typography>
+                                        </Box>
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#F97316' }} />
+                                                <Typography sx={{ fontSize: '12px', color: '#666' }}>Cheque</Typography>
+                                            </Box>
+                                            <Typography sx={{ fontSize: '13px', fontWeight: '600' }}>₹12,800</Typography>
+                                        </Box>
+                                        <Divider sx={{ my: 1 }} />
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <Typography sx={{ fontSize: '13px', fontWeight: '600' }}>Total Expenses</Typography>
+                                            <Typography sx={{ fontSize: '15px', fontWeight: '700', color: '#F97316' }}>
+                                                ₹63,500
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+                                </CardContent>
+                            </Card>
+                        </Grid>
+                    </Grid>
+
+                    {/* Recent Expense Transactions */}
+                    <Card sx={{ boxShadow: 'none', border: '1px solid #E8E8E8', borderRadius: '4px', bgcolor: '#FFFFFF' }}>
+                        <CardContent>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                                <Typography sx={{ fontSize: '18px', fontWeight: '600' }}>
+                                    Recent Expense Transactions
+                                </Typography>
+                                <Button
+                                    variant="outlined"
+                                    size="small"
+                                    sx={{
+                                        textTransform: 'none',
+                                        fontSize: '12px',
+                                        fontWeight: '600',
+                                        borderColor: '#7DC353',
+                                        color: '#7DC353',
+                                        '&:hover': {
+                                            borderColor: '#6BA93F',
+                                            bgcolor: '#F0F9E8'
+                                        }
+                                    }}
+                                    onClick={() => navigate('/dashboard/fee-finance/expense')}
+                                >
+                                    View All
+                                </Button>
+                            </Box>
+
+                            <TableContainer>
+                                <Table>
+                                    <TableHead>
+                                        <TableRow sx={{ bgcolor: '#F9FAFB' }}>
+                                            <TableCell sx={{ fontWeight: '700', fontSize: '12px', color: '#374151' }}>Date</TableCell>
+                                            <TableCell sx={{ fontWeight: '700', fontSize: '12px', color: '#374151' }}>Expense ID</TableCell>
+                                            <TableCell sx={{ fontWeight: '700', fontSize: '12px', color: '#374151' }}>Category</TableCell>
+                                            <TableCell sx={{ fontWeight: '700', fontSize: '12px', color: '#374151' }}>Description</TableCell>
+                                            <TableCell sx={{ fontWeight: '700', fontSize: '12px', color: '#374151' }}>Payment Method</TableCell>
+                                            <TableCell sx={{ fontWeight: '700', fontSize: '12px', color: '#374151' }}>Amount</TableCell>
+                                        </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                        {[
+                                            { date: '2026-02-05', id: 'EXP-2045', category: 'Stationery & Supplies', description: 'Office Stationery Purchase', method: 'Petty Cash', amount: 2350 },
+                                            { date: '2026-02-04', id: 'EXP-2044', category: 'Maintenance & Repairs', description: 'AC Maintenance Service', method: 'Online Payment', amount: 5500 },
+                                            { date: '2026-02-03', id: 'EXP-2043', category: 'Utilities & Bills', description: 'Electricity Bill Payment', method: 'Cheque', amount: 4200 },
+                                            { date: '2026-02-02', id: 'EXP-2042', category: 'Stationery & Supplies', description: 'Printing Paper & Cartridges', method: 'Petty Cash', amount: 3800 },
+                                            { date: '2026-02-01', id: 'EXP-2041', category: 'Miscellaneous', description: 'Cleaning Supplies', method: 'Petty Cash', amount: 1850 },
+                                        ].map((transaction, index) => (
+                                            <TableRow
+                                                key={index}
+                                                sx={{
+                                                    '&:hover': { bgcolor: '#F9FAFB' },
+                                                    borderBottom: '1px solid #E8E8E8'
+                                                }}
+                                            >
+                                                <TableCell sx={{ fontSize: '12px', color: '#6B7280' }}>
+                                                    {transaction.date}
+                                                </TableCell>
+                                                <TableCell sx={{ fontSize: '12px', fontWeight: '600', color: '#1F2937' }}>
+                                                    {transaction.id}
+                                                </TableCell>
+                                                <TableCell sx={{ fontSize: '12px', color: '#6B7280' }}>
+                                                    {transaction.category}
+                                                </TableCell>
+                                                <TableCell sx={{ fontSize: '12px', color: '#6B7280' }}>
+                                                    {transaction.description}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Chip
+                                                        label={transaction.method}
+                                                        size="small"
+                                                        sx={{
+                                                            bgcolor:
+                                                                transaction.method === 'Petty Cash' ? '#DCFCE7' :
+                                                                transaction.method === 'Online Payment' ? '#DBEAFE' :
+                                                                '#FFF7ED',
+                                                            color:
+                                                                transaction.method === 'Petty Cash' ? '#10B981' :
+                                                                transaction.method === 'Online Payment' ? '#3B82F6' :
+                                                                '#F97316',
+                                                            fontWeight: '600',
+                                                            fontSize: '11px'
+                                                        }}
+                                                    />
+                                                </TableCell>
+                                                <TableCell sx={{ fontSize: '13px', fontWeight: '700', color: '#F97316' }}>
+                                                    ₹{transaction.amount.toLocaleString()}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+                        </CardContent>
+                    </Card>
                 </Box>
             )}
         </Box>

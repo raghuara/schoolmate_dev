@@ -290,12 +290,30 @@ const updateVehicleWarrantyServiceClaim = `${transportManagement}updateVehicleWa
 const updateVehicleDocuments = `${transportManagement}updateVehicleDocuments`;
 
 
+const postStudentRouteMapping = `${transportManagement}postStudentRouteMapping`;
+const getRouteFullDetailsById = `${transportManagement}getRouteFullDetailsById`;
+const getAllStudentMappingCards = `${transportManagement}getAllStudentMappingCards`;
+
+
 
 const postNewRoute = `${transportManagement}postNewRoute`;
 const updateNewRoute = `${transportManagement}updateNewRoute`;
 const getAllRoutes = `${transportManagement}getAllRoutes`;
 const getRouteById = `${transportManagement}getRouteById`;
 const deleteRouteById = `${transportManagement}deleteRouteById`;
+
+
+const getAllTrip = `${transportManagement}getAllTrip`;
+const postTranspoartFee = `${baseApiurl}postTranspoartFee`;
+const transpoartFeeFetch = `${baseApiurl}transpoartFeeFetch`;
+const transpoartFeeFetchID = `${baseApiurl}transpoartFeeFetchID`;
+const transpoartActivityFetch = `${baseApiurl}transpoartActivityFetch`;
+
+const transpoartFee = `${baseApiurl}transpoartFee/`;
+const updateTranspoartFeesApprovalAction = `${transpoartFee}updateTranspoartFeesApprovalAction`;
+const approvalStatusCheckTranspoart = `${transpoartFee}approvalStatusCheckTranspoart`;
+const updateTranspoartSchoolFee = `${transpoartFee}updateTranspoartSchoolFee`;
+const deleteTranspoartFeesStructure = `${transpoartFee}deleteTranspoartFeesStructure`;
 
 
 
@@ -325,7 +343,8 @@ const fetchSubjectsByID = `${baseApiurl}GradeValueFetch/fetchSubjectsByID`;
 const updatePrimaryAndSecondarySubjects = `${baseApiurl}GradeValueFetch/updatePrimaryAndSecondarySubjects`;
 
 export {
-    poststudyMaterial, deleteDashboardSlider,
+    poststudyMaterial,
+    deleteDashboardSlider,
     LoginList,
     postDairyStatus,
     postSiblingMapping,
@@ -560,5 +579,16 @@ export {
     getAllRoutes,
     getRouteById,
     deleteRouteById,
-
+    postStudentRouteMapping,
+    getRouteFullDetailsById,
+    getAllStudentMappingCards,
+    getAllTrip,
+    postTranspoartFee,
+    transpoartFeeFetch,
+    transpoartFeeFetchID,
+    transpoartActivityFetch,
+    updateTranspoartFeesApprovalAction,
+    approvalStatusCheckTranspoart,
+    updateTranspoartSchoolFee,
+    deleteTranspoartFeesStructure,
 }

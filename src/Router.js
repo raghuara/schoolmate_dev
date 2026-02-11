@@ -99,6 +99,7 @@ import SubjectMangementPage from "./Components/AccessControlComps/AcademicsComps
 import SubjectCreatePage from "./Components/AccessControlComps/AcademicsComps/SubjectCreatePage";
 import SchoolFeeStructure from "./Components/StudentComps/FeeFinanceComps/FeesStructure/SchoolFeeStructure";
 import TransportFeeStructure from "./Components/StudentComps/FeeFinanceComps/FeesStructure/TransportFeeStructure";
+import CreatedTransportFees from "./Components/StudentComps/FeeFinanceComps/FeesStructure/CreatedTransportFees";
 import ExtraFeeStructure from "./Components/StudentComps/FeeFinanceComps/FeesStructure/ExtraFeeStructure";
 import ExtraCurricularFeeStructure from "./Components/StudentComps/FeeFinanceComps/FeesStructure/ExtraCurricularFeeStructure";
 import PayStudentFeePage from "./Components/StudentComps/FeeFinanceComps/PayStudentFees/PayStudentFeesPage";
@@ -109,7 +110,7 @@ import SpecialConcession from "./Components/StudentComps/FeeFinanceComps/PayStud
 import CreateConcessionPage from "./Components/StudentComps/FeeFinanceComps/Concession/CreateConcessionPage";
 import ConcessionPage from "./Components/StudentComps/FeeFinanceComps/Concession/ConcessionPage";
 import ProfileManagement from "./Components/ProfileManagementComps/ProfileManagement";
-import LeaveAttendancePage from "./Components/LeaveAttendanceComps/LeaveAttendancePage";
+import LeaveAttendanceMainPage from "./Components/LeaveAttendanceComps/LeaveAttendanceMainPage";
 import InventoryPage from "./Components/InventoryComps/InventoryPage";
 import StaffPage from "./Components/ProfileManagementComps/StaffComps/StaffPage";
 import EcaStudents from "./Components/StudentComps/FeeFinanceComps/EcaCreationComps/EcaStudents";
@@ -139,6 +140,9 @@ import QuestionPaperGeneratorPage from "./Components/QuestionPaperGenerator/Ques
 import VehicleManagementPage from "./Components/AssetsComps/TransportAssetComps/VehicleDetailsComps/VehicleManagePage";
 import StudentMapping from "./Components/AssetsComps/TransportAssetComps/StudentMappingComps/StudentMapping";
 import FinanceDashboard from "./Components/StudentComps/FeeFinanceComps/FinanceDashboardComps/FinanceDashboard";
+import ExpensePage from "./Components/StudentComps/FeeFinanceComps/ExpenseComps/ExpensePage";
+import TransportFeeApprovalPage from "./Components/Approvals/ApprovalPages/FeeApprovalComps/TransportFeeApprovalPage";
+import AddEditPayroll from "./Components/LeaveAttendanceComps/PayrollComps/AddEditPayroll";
 
 
 export default function RouterPage() {
@@ -257,6 +261,7 @@ export default function RouterPage() {
 
                 <Route path="fee/school" element={<SchoolFeeStructure />} />
                 <Route path="fee/transport" element={<TransportFeeStructure />} />
+                <Route path="fee/transport/created-fees" element={<CreatedTransportFees />} />
                 <Route path="fee/extra" element={<ExtraFeeStructure />} />
                 <Route path="fee/extra-curricular" element={<ExtraCurricularFeeStructure />} />
 
@@ -267,6 +272,7 @@ export default function RouterPage() {
                 <Route path="fee/special" element={<SpecialConcession />} />
 
                 <Route path="fee/report" element={<FeesReportPage />} />
+                <Route path="fee/expense" element={<ExpensePage />} />
 
                 <Route path="fee/eca-manage" element={<ExtraCurricularManage />} />
                 <Route path="fee/additional-manage" element={<AdditionalFeeManage />} />
@@ -276,8 +282,9 @@ export default function RouterPage() {
 
                 {/* --------------------------------------------------------------------------------------------------- */}
 
-                {/*Leave & Attendance*/}
-                <Route path="Leave" element={<LeaveAttendancePage />} />
+                {/*Leave & payroll - Single Page with Tabs*/}
+                <Route path="Leave" element={<LeaveAttendanceMainPage />} />
+                <Route path="Leave/payroll-form" element={<AddEditPayroll />} />
 
                 {/* --------------------------------------------------------------------------------------------------- */}
 
@@ -358,7 +365,7 @@ export default function RouterPage() {
 
                 {/* Fee Approval Pages  */}
                 <Route path="approvals/school" element={<SchoolFeeApprovalPage />} />
-                <Route path="approvals/transport" element={<SchoolFeeApprovalPage />} />
+                <Route path="approvals/transport" element={<TransportFeeApprovalPage />} />
                 <Route path="approvals/eca" element={<EcaFeeApprovalPage />} />
                 <Route path="approvals/additional" element={<AdditionalFeeApprovalPage />} />
 

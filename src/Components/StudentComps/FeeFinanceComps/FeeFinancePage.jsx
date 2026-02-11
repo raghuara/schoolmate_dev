@@ -15,17 +15,10 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import SportsSoccerIcon from '@mui/icons-material/SportsSoccer';
 import AddBoxIcon from '@mui/icons-material/AddBox';
 import DashboardIcon from '@mui/icons-material/Dashboard';
+import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 
 const items = [
-    {
-        color: "#E30053",
-        icon: PaymentIcon,
-        text: "Billing Screen",
-        bgColor: "#FCF8F9",
-        iconBgColor: "#fbebf1",
-        path: "pay-fees",
-        disabled: false,
-    },
+  
     {
         color: "#8600BB",
         icon: DashboardIcon,
@@ -33,6 +26,15 @@ const items = [
         bgColor: "#f9f4fc",
         iconBgColor: "#8600BB1A",
         path: "dashboard",
+        disabled: false,
+    },
+    {
+        color: "#E30053",
+        icon: PaymentIcon,
+        text: "Billing Screen",
+        bgColor: "#FCF8F9",
+        iconBgColor: "#fbebf1",
+        path: "pay-fees",
         disabled: false,
     },
     // {
@@ -71,15 +73,15 @@ const items = [
         path: "additional-manage",
         disabled: false,
     },
-    // {
-    //     color: "#7DC353",
-    //     icon: AddBoxIcon,
-    //     text: "Additional Fee Management",
-    //     bgColor: "#CFE8BB1A",
-    //     iconBgColor: "#7DC3531A",
-    //     path: "additional-manage",
-    //     disabled: false,
-    // },
+    {
+        color: "#7DC353",
+        icon: AccountBalanceWalletIcon,
+        text: "Expense",
+        bgColor: "#CFE8BB1A",
+        iconBgColor: "#7DC3531A",
+        path: "expense",
+        disabled: false,
+    },
 ];
 
 export default function FeeFinancePage() {
@@ -161,7 +163,7 @@ export default function FeeFinancePage() {
                             xs: 12,
                         }}>
                         <Grid container spacing={2} sx={{ display: 'flex', justifyContent: { lg: "end", xs: "center" } }}>
-                            <Grid
+                            {/* <Grid
                                 size={{
                                     lg: 5.3,
                                     md: 5.3,
@@ -174,7 +176,7 @@ export default function FeeFinancePage() {
                                         <PersonAddAlt1Icon style={{ paddingRight: "10px", paddingLeft: "5px", }} />  Manage /Create Concession
                                     </Button>
                                 </Link>
-                            </Grid>
+                            </Grid> */}
                             <Grid
                                 size={{
                                     lg: 5.3,

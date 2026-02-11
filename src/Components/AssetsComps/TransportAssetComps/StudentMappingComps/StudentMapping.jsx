@@ -55,7 +55,9 @@ import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import Loader from '../../../Loader'
 import SnackBar from '../../../SnackBar'
+import StudentSelectionPopup from '../../../Tools/StudentSelectionPopup'
 import axios from 'axios'
+import { getRouteFullDetailsById, GetUsersBaseDetails, postStudentRouteMapping, getAllStudentMappingCards } from '../../../../Api/Api'
 
 // Color palette for bus cards - darker header/buttons with light card bg
 const busColors = [
@@ -123,10 +125,7 @@ const BusCard = ({
     bus,
     colorScheme,
     onAddStudents,
-    onViewExisting,
-    onRemoveStudents,
-    onTransferStudents,
-    onViewRemovedTransferred
+    onViewExisting
 }) => {
     const [showStops, setShowStops] = useState(false);
 
@@ -156,7 +155,7 @@ const BusCard = ({
             }}>
                 <DirectionsBusIcon sx={{ fontSize: 20, color: colorScheme.text }} />
                 <Typography sx={{ fontWeight: 600, fontSize: "15px", color: colorScheme.text }}>
-                    {bus.busName || bus.vehicleInternalName || "Bus"}
+                    {bus.routeName || "Route"}
                 </Typography>
             </Box>
 
@@ -165,16 +164,29 @@ const BusCard = ({
                 {/* Route and Seat Availability */}
                 <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 2.5 }}>
                     <Box sx={{ flex: 1, pr: 2 }}>
-                        {/* Bus Route */}
+                        {/* Assigned Bus */}
                         <Box sx={{ mb: 1.5 }}>
                             <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 0.3 }}>
-                                <RouteIcon sx={{ fontSize: 14, color: colorScheme.text }} />
+                                <DirectionsBusIcon sx={{ fontSize: 14, color: colorScheme.text }} />
                                 <Typography sx={{ fontSize: "11px", color: "#888", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                                    Bus Route
+                                    Assigned Bus
                                 </Typography>
                             </Box>
                             <Typography sx={{ fontSize: "13px", fontWeight: 600, color: "#333", pl: 2.3 }}>
-                                {bus.routeName || "N/A"}
+                                {bus.busName || "N/A"}
+                            </Typography>
+                        </Box>
+
+                        {/* Bus Route */}
+                        <Box sx={{ mb: 1.5, height:"60px" }}>
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 0.3 }}>
+                                <RouteIcon sx={{ fontSize: 14, color: colorScheme.text }} />
+                                <Typography sx={{ fontSize: "11px", color: "#888", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                                    Route
+                                </Typography>
+                            </Box>
+                            <Typography sx={{ fontSize: "13px", fontWeight: 600, color: "#333", pl: 2.3 }}>
+                                {bus.busRoute || "N/A"}
                             </Typography>
                         </Box>
 
@@ -187,7 +199,7 @@ const BusCard = ({
                                 </Typography>
                             </Box>
                             <Typography sx={{ fontSize: "13px", fontWeight: 600, color: "#333", pl: 2.3 }}>
-                                {bus.tripStartTime || "N/A"} - {bus.tripEndTime || "N/A"} ({bus.duration || "N/A"})
+                                {bus.tripTimeAndDuration || `${bus.tripStartTime || "N/A"} (${bus.duration || "N/A"})`}
                             </Typography>
                         </Box>
                     </Box>
@@ -218,7 +230,7 @@ const BusCard = ({
                                 {bus.existingStudents || 0} students
                             </Typography>
                         </Box>
-                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        {/* <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                             <Typography sx={{ fontSize: "12px", color: "#555" }}>Transferred</Typography>
                             <Typography sx={{ fontSize: "12px", fontWeight: 600, color: "#059669" }}>
                                 {bus.transferredIn || 0} IN / {bus.transferredOut || 0} OUT
@@ -229,7 +241,7 @@ const BusCard = ({
                             <Typography sx={{ fontSize: "12px", fontWeight: 600, color: "#DC2626" }}>
                                 {bus.removedStudents || 0}
                             </Typography>
-                        </Box>
+                        </Box> */}
                     </Box>
                 </Box>
 
@@ -257,12 +269,26 @@ const BusCard = ({
                 <Collapse in={showStops}>
                     <Box sx={{
                         backgroundColor: colorScheme.light,
-                        borderRadius: 0,
+                        borderRadius: "8px",
                         p: 1.5,
                         mb: 2,
-                        maxHeight: 150,
+                        maxHeight: 200,
                         overflowY: "auto",
-                        border: `1px solid ${colorScheme.border}`
+                        border: `1px solid ${colorScheme.border}`,
+                        '&::-webkit-scrollbar': {
+                            width: '6px',
+                        },
+                        '&::-webkit-scrollbar-track': {
+                            backgroundColor: colorScheme.light,
+                            borderRadius: '10px',
+                        },
+                        '&::-webkit-scrollbar-thumb': {
+                            backgroundColor: colorScheme.border,
+                            borderRadius: '10px',
+                            '&:hover': {
+                                backgroundColor: colorScheme.text,
+                            },
+                        },
                     }}>
                         {bus.intermediateStops && bus.intermediateStops.length > 0 ? (
                             bus.intermediateStops.map((stop, index) => (
@@ -272,16 +298,27 @@ const BusCard = ({
                                         display: "flex",
                                         alignItems: "center",
                                         gap: 1,
-                                        py: 0.5,
-                                        borderBottom: index < bus.intermediateStops.length - 1 ? "1px dashed #E5E7EB" : "none"
+                                        py: 0.8,
+                                        px: 0.5,
+                                        borderBottom: index < bus.intermediateStops.length - 1 ? "1px dashed #E5E7EB" : "none",
+                                        transition: "background-color 0.2s",
+                                        '&:hover': {
+                                            backgroundColor: 'rgba(0,0,0,0.02)',
+                                            borderRadius: '4px'
+                                        }
                                     }}
                                 >
                                     <LocationOnIcon sx={{ fontSize: 14, color: colorScheme.text }} />
-                                    <Typography sx={{ fontSize: "11px", color: "#555" }}>
-                                        {stop.stopName} - {stop.time}
-                                    </Typography>
+                                    <Box sx={{ flex: 1 }}>
+                                        <Typography sx={{ fontSize: "11px", color: "#333", fontWeight: 600 }}>
+                                            {stop.point}
+                                        </Typography>
+                                        <Typography sx={{ fontSize: "10px", color: "#666" }}>
+                                            {stop.stopName} - {stop.time}
+                                        </Typography>
+                                    </Box>
                                     <Chip
-                                        label={`${stop.studentsCount || 0} students`}
+                                        label={`${stop.studentsCount || 0}`}
                                         size="small"
                                         sx={{
                                             ml: "auto",
@@ -290,13 +327,14 @@ const BusCard = ({
                                             backgroundColor: colorScheme.headerBg,
                                             color: colorScheme.text,
                                             borderRadius: "4px",
-                                            border: `1px solid ${colorScheme.border}`
+                                            border: `1px solid ${colorScheme.border}`,
+                                            fontWeight: 600
                                         }}
                                     />
                                 </Box>
                             ))
                         ) : (
-                            <Typography sx={{ fontSize: "11px", color: "#999", textAlign: "center" }}>
+                            <Typography sx={{ fontSize: "11px", color: "#999", textAlign: "center", py: 2 }}>
                                 No intermediate stops configured
                             </Typography>
                         )}
@@ -327,9 +365,9 @@ const BusCard = ({
                                 }
                             }}
                         >
-                            Add
+                            Add / Remove
                         </Button>
-                        <Button
+                        {/* <Button
                             fullWidth
                             variant="contained"
                             startIcon={<PersonRemoveIcon sx={{ fontSize: 16 }} />}
@@ -372,7 +410,7 @@ const BusCard = ({
                             }}
                         >
                             Transfer
-                        </Button>
+                        </Button> */}
                     </Box>
 
                     {/* View Actions Row */}
@@ -399,28 +437,6 @@ const BusCard = ({
                         >
                             View Students
                         </Button>
-                        <Button
-                            fullWidth
-                            variant="outlined"
-                            startIcon={<HistoryIcon sx={{ fontSize: 16 }} />}
-                            onClick={() => onViewRemovedTransferred(bus)}
-                            sx={{
-                                borderColor: "#FDE68A",
-                                color: "#D97706",
-                                backgroundColor: "#fff",
-                                textTransform: "none",
-                                borderRadius: "8px",
-                                py: 0.8,
-                                fontSize: "11px",
-                                fontWeight: 600,
-                                "&:hover": {
-                                    borderColor: "#D97706",
-                                    backgroundColor: "#FEF3C7"
-                                }
-                            }}
-                        >
-                            History
-                        </Button>
                     </Box>
                 </Box>
             </Box>
@@ -441,402 +457,356 @@ export default function StudentMapping() {
 
     const [searchQuery, setSearchQuery] = useState("");
     const [busRoutes, setBusRoutes] = useState([]);
+    const [users, setUsers] = useState([]);
+    const [routeDetails, setRouteDetails] = useState(null);
 
     // Dialog states
-    const [addStudentDialog, setAddStudentDialog] = useState(false);
+    const [openStudentPopup, setOpenStudentPopup] = useState(false);
     const [viewExistingDialog, setViewExistingDialog] = useState(false);
-    const [removeStudentDialog, setRemoveStudentDialog] = useState(false);
-    const [transferStudentDialog, setTransferStudentDialog] = useState(false);
-    const [viewRemovedDialog, setViewRemovedDialog] = useState(false);
-    const [confirmRemoveDialog, setConfirmRemoveDialog] = useState(false);
-    const [confirmTransferDialog, setConfirmTransferDialog] = useState(false);
     const [selectedBus, setSelectedBus] = useState(null);
 
     // Student selection states
-    const [availableStudents, setAvailableStudents] = useState([]);
     const [existingStudents, setExistingStudents] = useState([]);
-    const [removedStudents, setRemovedStudents] = useState([]);
-    const [transferredStudents, setTransferredStudents] = useState([]);
     const [selectedStudents, setSelectedStudents] = useState([]);
     const [studentSearchQuery, setStudentSearchQuery] = useState("");
-    const [selectedStop, setSelectedStop] = useState(null);
-    const [targetBus, setTargetBus] = useState(null);
-    const [targetStop, setTargetStop] = useState(null);
-    const [removeReason, setRemoveReason] = useState("");
-    const [historyTabValue, setHistoryTabValue] = useState(0);
 
-    
-    // Mock data - Replace with API call
+    const currentYear = new Date().getFullYear();
+    const currentAcademicYear = `${currentYear}-${currentYear + 1}`;
+    const [selectedYear, setSelectedYear] = useState(currentAcademicYear);
+  
+    const academicYears = [
+      `${currentYear - 2}-${currentYear - 1}`,
+      `${currentYear - 1}-${currentYear}`,
+      `${currentYear}-${currentYear + 1}`,
+    ];
+
+    // Fetch initial data
     useEffect(() => {
+        getUsers();
         fetchBusRoutes();
     }, []);
+
+    const getUsers = async () => {
+        try {
+            const res = await axios.get(GetUsersBaseDetails, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+            setUsers(res.data.users);
+        } catch (error) {
+            console.error("Error fetching users:", error);
+            setMessage("Failed to fetch students");
+            setOpen(true);
+            setColor(false);
+            setStatus(false);
+        }
+    };
 
     const fetchBusRoutes = async () => {
         setIsLoading(true);
         try {
-            // Replace with actual API call
-            // const res = await axios.get(getBusRoutesWithStudentMapping, {
-            //     headers: { Authorization: `Bearer ${token}` },
-            // });
-            // setBusRoutes(res.data?.routes || []);
+            const response = await axios.get(getAllStudentMappingCards, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
 
-            // Mock data for demonstration
-            setBusRoutes([
-                {
-                    id: 1,
-                    busName: "Bus A",
-                    vehicleInternalName: "Bus A",
-                    routeName: "OBS to NBS",
-                    tripStartTime: "9.00 AM",
-                    tripEndTime: "10.00 PM",
-                    duration: "60 mins",
-                    tripDate: "Everyday",
-                    occupiedSeats: 25,
-                    totalSeats: 35,
-                    existingStudents: 20,
-                    transferredIn: 4,
-                    transferredOut: 5,
-                    removedStudents: 0,
-                    intermediateStops: [
-                        { stopName: "Main Gate", time: "9:00 AM", studentsCount: 5 },
-                        { stopName: "City Center", time: "9:15 AM", studentsCount: 8 },
-                        { stopName: "Park Avenue", time: "9:30 AM", studentsCount: 7 },
-                    ]
-                },
-                {
-                    id: 2,
-                    busName: "Bus B",
-                    vehicleInternalName: "Bus B",
-                    routeName: "OBS to NBS",
-                    tripStartTime: "9.00 AM",
-                    tripEndTime: "10.00 PM",
-                    duration: "60 mins",
-                    tripDate: "Everyday",
-                    occupiedSeats: 35,
-                    totalSeats: 35,
-                    existingStudents: 20,
-                    transferredIn: 4,
-                    transferredOut: 5,
-                    removedStudents: 0,
-                    intermediateStops: [
-                        { stopName: "North Block", time: "9:00 AM", studentsCount: 10 },
-                        { stopName: "South Block", time: "9:20 AM", studentsCount: 12 },
-                        { stopName: "East Wing", time: "9:40 AM", studentsCount: 13 },
-                    ]
-                },
-                {
-                    id: 3,
-                    busName: "Bus C",
-                    vehicleInternalName: "Bus C",
-                    routeName: "OBS to NBS",
-                    tripStartTime: "9.00 AM",
-                    tripEndTime: "10.00 PM",
-                    duration: "60 mins",
-                    tripDate: "Everyday",
-                    occupiedSeats: 25,
-                    totalSeats: 35,
-                    existingStudents: 20,
-                    transferredIn: 4,
-                    transferredOut: 5,
-                    removedStudents: 0,
-                    intermediateStops: [
-                        { stopName: "West Point", time: "9:00 AM", studentsCount: 6 },
-                        { stopName: "Central Hub", time: "9:25 AM", studentsCount: 9 },
-                        { stopName: "Final Stop", time: "9:50 AM", studentsCount: 10 },
-                    ]
-                },
-            ]);
+            if (response.data.error === false) {
+                const mappedRoutes = response.data.routes.map(route => {
+                    // Parse seat availability (format: "occupied/total")
+                    const [occupiedSeats, totalSeats] = route.seatAvailability.split('/').map(s => parseInt(s) || 0);
+
+                    return {
+                        id: route.routeInformationId,
+                        routeName: route.tripName, // Route name for card header
+                        busName: route.assignBus, // Bus name for display
+                        busRoute: route.busRoute, // Full route description
+                        tripStartTime: route.time,
+                        tripEndTime: "", // Not provided in API
+                        duration: route.duration,
+                        tripTimeAndDuration: route.tripTimeAndDuration,
+                        occupiedSeats: occupiedSeats,
+                        totalSeats: totalSeats,
+                        seatNote: route.seatNote,
+                        existingStudents: route.studentStatistics.existingStudents,
+                        transferredIn: route.studentStatistics.transferredIn,
+                        transferredOut: route.studentStatistics.transferredOut,
+                        removedStudents: route.studentStatistics.removed,
+                        active: route.active,
+                        intermediateStops: route.routeStops.map(stop => ({
+                            stopName: stop.place,
+                            point: stop.point,
+                            time: stop.arrivalTime,
+                            studentsCount: stop.studentsCount,
+                            wait: stop.wait,
+                            remarks: stop.remarks
+                        }))
+                    };
+                });
+
+                setBusRoutes(mappedRoutes);
+                setMessage("Routes loaded successfully");
+                setOpen(true);
+                setColor(true);
+                setStatus(true);
+            } else {
+                setMessage(response.data.message || "Failed to load routes");
+                setOpen(true);
+                setColor(false);
+                setStatus(false);
+            }
         } catch (error) {
             console.error("Error fetching bus routes:", error);
+            setMessage("Failed to load routes");
+            setOpen(true);
+            setColor(false);
+            setStatus(false);
         } finally {
             setIsLoading(false);
         }
     };
 
-    const fetchAvailableStudents = async () => {
+    const fetchExistingStudents = async (routeInformationId) => {
+        setIsLoading(true);
         try {
-            // Replace with actual API call
-            // const res = await axios.get(getAvailableStudentsForMapping, {
-            //     headers: { Authorization: `Bearer ${token}` },
-            // });
-            // setAvailableStudents(res.data?.students || []);
+            // Fetch route details to get student mappings
+            const response = await axios.get(getRouteFullDetailsById, {
+                params: { routeInformationId },
+                headers: { Authorization: `Bearer ${token}` }
+            });
 
-            // Mock data
-            setAvailableStudents([
-                { id: 1, name: "John Smith", rollNumber: "STU001", grade: "Grade 5", section: "A", address: "123 Main St", phone: "9876543210" },
-                { id: 2, name: "Emma Wilson", rollNumber: "STU002", grade: "Grade 5", section: "B", address: "456 Oak Ave", phone: "9876543211" },
-                { id: 3, name: "Michael Brown", rollNumber: "STU003", grade: "Grade 6", section: "A", address: "789 Pine Rd", phone: "9876543212" },
-                { id: 4, name: "Sarah Davis", rollNumber: "STU004", grade: "Grade 6", section: "B", address: "321 Elm St", phone: "9876543213" },
-                { id: 5, name: "James Johnson", rollNumber: "STU005", grade: "Grade 7", section: "A", address: "654 Maple Dr", phone: "9876543214" },
-            ]);
-        } catch (error) {
-            console.error("Error fetching students:", error);
-        }
-    };
+            if (response.data.error === false && response.data.studentRouteMappings) {
+                const mappedStudents = response.data.studentRouteMappings;
 
-    const fetchExistingStudents = async (busId) => {
-        try {
-            // Replace with actual API call
-            // const res = await axios.get(getExistingStudentsForBus, {
-            //     params: { busId },
-            //     headers: { Authorization: `Bearer ${token}` },
-            // });
-            // setExistingStudents(res.data?.students || []);
+                // Match roll numbers with user details
+                const studentsWithDetails = mappedStudents.map(mapping => {
+                    // Find user by roll number
+                    const user = users.find(u => u.rollNumber === mapping.rollNumber);
 
-            // Mock data - students already mapped to this bus
-            setExistingStudents([
-                { id: 101, name: "Alice Cooper", rollNumber: "STU101", grade: "Grade 5", section: "A", address: "100 School St", phone: "9876543220", stopName: "Main Gate", mappedDate: "2024-01-15" },
-                { id: 102, name: "Bob Martin", rollNumber: "STU102", grade: "Grade 5", section: "B", address: "200 College Rd", phone: "9876543221", stopName: "City Center", mappedDate: "2024-01-16" },
-                { id: 103, name: "Carol White", rollNumber: "STU103", grade: "Grade 6", section: "A", address: "300 Park Ave", phone: "9876543222", stopName: "Park Avenue", mappedDate: "2024-01-17" },
-                { id: 104, name: "David Lee", rollNumber: "STU104", grade: "Grade 6", section: "B", address: "400 Lake View", phone: "9876543223", stopName: "Main Gate", mappedDate: "2024-01-18" },
-                { id: 105, name: "Eva Green", rollNumber: "STU105", grade: "Grade 7", section: "A", address: "500 Hill Top", phone: "9876543224", stopName: "City Center", mappedDate: "2024-01-19" },
-            ]);
+                    if (user) {
+                        return {
+                            id: user._id || user.id,
+                            name: user.name || 'N/A',
+                            rollNumber: mapping.rollNumber,
+                            grade: user.grade || 'N/A',
+                            section: user.section || 'N/A',
+                            phone: user.phone || user.phoneNumber || 'N/A',
+                            email: user.email || 'N/A',
+                            stopName: mapping.busStop || 'N/A',
+                            stopPoint: mapping.busStopPoint || '',
+                            mappedDate: mapping.mappedDate || mapping.createdAt || new Date().toISOString().split('T')[0],
+                            status: mapping.status || 'Active'
+                        };
+                    }
+                    return null;
+                }).filter(Boolean); // Remove null values
+
+                setExistingStudents(studentsWithDetails);
+
+                if (studentsWithDetails.length === 0) {
+                    setMessage("No students mapped to this route yet");
+                    setOpen(true);
+                    setColor(false);
+                    setStatus(false);
+                }
+            } else {
+                setExistingStudents([]);
+                setMessage("No students found for this route");
+                setOpen(true);
+                setColor(false);
+                setStatus(false);
+            }
         } catch (error) {
             console.error("Error fetching existing students:", error);
+            setExistingStudents([]);
+            setMessage("Failed to load student details");
+            setOpen(true);
+            setColor(false);
+            setStatus(false);
+        } finally {
+            setIsLoading(false);
         }
     };
 
-    const fetchRemovedTransferredStudents = async (busId) => {
-        try {
-            // Replace with actual API call
-            // Mock data for removed students
-            setRemovedStudents([
-                { id: 201, name: "Frank Miller", rollNumber: "STU201", grade: "Grade 5", section: "A", removedDate: "2024-01-20", reason: "Parent request", removedBy: "Admin" },
-                { id: 202, name: "Grace Hall", rollNumber: "STU202", grade: "Grade 6", section: "B", removedDate: "2024-01-21", reason: "Changed residence", removedBy: "Admin" },
-            ]);
-
-            // Mock data for transferred students
-            setTransferredStudents([
-                { id: 301, name: "Henry Wilson", rollNumber: "STU301", grade: "Grade 5", section: "A", transferDate: "2024-01-22", fromBus: "Bus A", toBus: "Bus B", fromStop: "Main Gate", toStop: "North Block" },
-                { id: 302, name: "Ivy Chen", rollNumber: "STU302", grade: "Grade 6", section: "B", transferDate: "2024-01-23", fromBus: "Bus B", toBus: "Bus A", fromStop: "South Block", toStop: "City Center" },
-                { id: 303, name: "Jack Brown", rollNumber: "STU303", grade: "Grade 7", section: "A", transferDate: "2024-01-24", fromBus: "Bus A", toBus: "Bus C", fromStop: "Park Avenue", toStop: "West Point" },
-            ]);
-        } catch (error) {
-            console.error("Error fetching removed/transferred students:", error);
-        }
-    };
-
-    // Filter bus routes based on search
+    // Filter routes based on search
     const filteredBusRoutes = busRoutes.filter((bus) => {
         if (!searchQuery.trim()) return true;
         const query = searchQuery.toLowerCase();
         return (
-            bus.busName?.toLowerCase().includes(query) ||
             bus.routeName?.toLowerCase().includes(query) ||
-            bus.vehicleInternalName?.toLowerCase().includes(query)
+            bus.busName?.toLowerCase().includes(query) ||
+            bus.busRoute?.toLowerCase().includes(query)
         );
     });
 
-    // Filter students based on search
-    const filteredStudents = availableStudents.filter((student) => {
-        if (!studentSearchQuery.trim()) return true;
-        const query = studentSearchQuery.toLowerCase();
-        return (
-            student.name?.toLowerCase().includes(query) ||
-            student.rollNumber?.toLowerCase().includes(query) ||
-            student.grade?.toLowerCase().includes(query)
-        );
-    });
+    // Fetch route details by ID
+    const fetchRouteDetails = async (routeInformationId) => {
+        setIsLoading(true);
+        try {
+            const response = await axios.get(getRouteFullDetailsById, {
+                params: { routeInformationId },
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            if (response.data.error === false) {
+                setRouteDetails(response.data);
+                setMessage("Route details loaded successfully");
+                setOpen(true);
+                setColor(true);
+                setStatus(true);
+                return response.data;
+            } else {
+                setMessage(response.data.message || "Failed to fetch route details");
+                setOpen(true);
+                setColor(false);
+                setStatus(false);
+                return null;
+            }
+        } catch (error) {
+            console.error("Error fetching route details:", error);
+            setMessage("Failed to load route details");
+            setOpen(true);
+            setColor(false);
+            setStatus(false);
+            return null;
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     // Handlers
-    const handleAddStudents = (bus) => {
+    const handleAddStudents = async (bus) => {
         setSelectedBus(bus);
-        setSelectedStudents([]);
-        setSelectedStop(null);
-        setStudentSearchQuery("");
-        fetchAvailableStudents();
-        setAddStudentDialog(true);
+        // Fetch route details before opening popup
+        const details = await fetchRouteDetails(bus.id);
+        if (details) {
+            setOpenStudentPopup(true);
+        }
+    };
+
+    const handleCloseStudentPopup = () => {
+        setOpenStudentPopup(false);
+        setSelectedBus(null);
+        setRouteDetails(null);
+    };
+
+    const handleSaveStudents = async (payload) => {
+
+        if (!payload || !payload.selectedStudents || payload.selectedStudents.length === 0) {
+            setMessage("Please select at least one student");
+            setOpen(true);
+            setColor(false);
+            setStatus(false);
+            return;
+        }
+
+        if (!payload.busStop) {
+            setMessage("Please select a bus stop");
+            setOpen(true);
+            setColor(false);
+            setStatus(false);
+            return;
+        }
+
+        // Construct payload with selected bus stop information
+        const transformedPayload = {
+            routeInfo: {
+                routeInformationId: routeDetails.routeInformationId,
+                busStop: payload.busStop, // This is now the place name (e.g., "City Center")
+                busStopPoint: payload.busStopPoint, // This is the point identifier (e.g., "stop1")
+                rollNumbers: payload.selectedStudents.map(student => student.rollNumber || student)
+            }
+        };
+
+        console.log("Transformed payload for API:", transformedPayload);
+        console.log("Selected bus stop details:", payload.busStopDetails);
+
+        setIsLoading(true);
+        try {
+            const response = await axios.post(postStudentRouteMapping, transformedPayload, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (response.data.error === false) {
+                setMessage(response.data.message || "Students mapped successfully");
+                setOpen(true);
+                setColor(true);
+                setStatus(true);
+                handleCloseStudentPopup();
+                fetchBusRoutes();
+            } else {
+                setMessage(response.data.message || "Failed to map students");
+                setOpen(true);
+                setColor(false);
+                setStatus(false);
+            }
+        } catch (error) {
+            console.error("Error saving students:", error);
+            setMessage(error.response?.data?.message || "Failed to map students");
+            setOpen(true);
+            setColor(false);
+            setStatus(false);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const handleViewExisting = (bus) => {
         setSelectedBus(bus);
         setSelectedStudents([]);
         setStudentSearchQuery("");
-        fetchExistingStudents(bus.id);
+        fetchExistingStudents(bus.id); // Pass route information ID
         setViewExistingDialog(true);
     };
 
-    const handleRemoveStudents = (bus) => {
-        setSelectedBus(bus);
-        setSelectedStudents([]);
-        setStudentSearchQuery("");
-        setRemoveReason("");
-        fetchExistingStudents(bus.id);
-        setRemoveStudentDialog(true);
-    };
 
-    const handleTransferStudents = (bus) => {
-        setSelectedBus(bus);
-        setSelectedStudents([]);
-        setStudentSearchQuery("");
-        setTargetBus(null);
-        setTargetStop(null);
-        fetchExistingStudents(bus.id);
-        setTransferStudentDialog(true);
-    };
+    // const handleSaveStudentMapping = async () => {
+    //     if (selectedStudents.length === 0) {
+    //         setMessage("Please select at least one student");
+    //         setColor(false);
+    //         setStatus(false);
+    //         setOpen(true);
+    //         return;
+    //     }
 
-    const handleViewRemovedTransferred = (bus) => {
-        setSelectedBus(bus);
-        setHistoryTabValue(0);
-        fetchRemovedTransferredStudents(bus.id);
-        setViewRemovedDialog(true);
-    };
+    //     if (!selectedStop) {
+    //         setMessage("Please select a bus stop");
+    //         setColor(false);
+    //         setStatus(false);
+    //         setOpen(true);
+    //         return;
+    //     }
 
-    const handleStudentSelect = (student) => {
-        setSelectedStudents(prev => {
-            const isSelected = prev.find(s => s.id === student.id);
-            if (isSelected) {
-                return prev.filter(s => s.id !== student.id);
-            }
-            return [...prev, student];
-        });
-    };
+    //     setIsLoading(true);
+    //     try {
+    //         // Replace with actual API call
+    //         // await axios.post(addStudentsToBusRoute, {
+    //         //     busId: selectedBus.id,
+    //         //     stopId: selectedStop.id,
+    //         //     studentIds: selectedStudents.map(s => s.id)
+    //         // }, {
+    //         //     headers: { Authorization: `Bearer ${token}` },
+    //         // });
 
-    const handleSelectAll = (event) => {
-        if (event.target.checked) {
-            setSelectedStudents(filteredStudents);
-        } else {
-            setSelectedStudents([]);
-        }
-    };
+    //         setMessage(`${selectedStudents.length} students added successfully`);
+    //         setColor(true);
+    //         setStatus(true);
+    //         setOpen(true);
+    //         setAddStudentDialog(false);
+    //         fetchBusRoutes();
+    //     } catch (error) {
+    //         console.error("Error adding students:", error);
+    //         setMessage("Failed to add students");
+    //         setColor(false);
+    //         setStatus(false);
+    //         setOpen(true);
+    //     } finally {
+    //         setIsLoading(false);
+    //     }
+    // };
 
-    const handleSaveStudentMapping = async () => {
-        if (selectedStudents.length === 0) {
-            setMessage("Please select at least one student");
-            setColor(false);
-            setStatus(false);
-            setOpen(true);
-            return;
-        }
-
-        if (!selectedStop) {
-            setMessage("Please select a bus stop");
-            setColor(false);
-            setStatus(false);
-            setOpen(true);
-            return;
-        }
-
-        setIsLoading(true);
-        try {
-            // Replace with actual API call
-            // await axios.post(addStudentsToBusRoute, {
-            //     busId: selectedBus.id,
-            //     stopId: selectedStop.id,
-            //     studentIds: selectedStudents.map(s => s.id)
-            // }, {
-            //     headers: { Authorization: `Bearer ${token}` },
-            // });
-
-            setMessage(`${selectedStudents.length} students added successfully`);
-            setColor(true);
-            setStatus(true);
-            setOpen(true);
-            setAddStudentDialog(false);
-            fetchBusRoutes();
-        } catch (error) {
-            console.error("Error adding students:", error);
-            setMessage("Failed to add students");
-            setColor(false);
-            setStatus(false);
-            setOpen(true);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const handleConfirmRemove = async () => {
-        if (selectedStudents.length === 0) {
-            setMessage("Please select at least one student to remove");
-            setColor(false);
-            setStatus(false);
-            setOpen(true);
-            return;
-        }
-
-        setIsLoading(true);
-        try {
-            // Replace with actual API call
-            // await axios.post(removeStudentsFromBus, {
-            //     busId: selectedBus.id,
-            //     studentIds: selectedStudents.map(s => s.id),
-            //     reason: removeReason
-            // }, {
-            //     headers: { Authorization: `Bearer ${token}` },
-            // });
-
-            setMessage(`${selectedStudents.length} students removed successfully`);
-            setColor(true);
-            setStatus(true);
-            setOpen(true);
-            setRemoveStudentDialog(false);
-            setConfirmRemoveDialog(false);
-            fetchBusRoutes();
-        } catch (error) {
-            console.error("Error removing students:", error);
-            setMessage("Failed to remove students");
-            setColor(false);
-            setStatus(false);
-            setOpen(true);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const handleConfirmTransfer = async () => {
-        if (selectedStudents.length === 0) {
-            setMessage("Please select at least one student to transfer");
-            setColor(false);
-            setStatus(false);
-            setOpen(true);
-            return;
-        }
-
-        if (!targetBus) {
-            setMessage("Please select a target bus");
-            setColor(false);
-            setStatus(false);
-            setOpen(true);
-            return;
-        }
-
-        if (!targetStop) {
-            setMessage("Please select a target bus stop");
-            setColor(false);
-            setStatus(false);
-            setOpen(true);
-            return;
-        }
-
-        setIsLoading(true);
-        try {
-            // Replace with actual API call
-            // await axios.post(transferStudentsBetweenBuses, {
-            //     fromBusId: selectedBus.id,
-            //     toBusId: targetBus.id,
-            //     toStopId: targetStop.id,
-            //     studentIds: selectedStudents.map(s => s.id)
-            // }, {
-            //     headers: { Authorization: `Bearer ${token}` },
-            // });
-
-            setMessage(`${selectedStudents.length} students transferred successfully to ${targetBus.busName}`);
-            setColor(true);
-            setStatus(true);
-            setOpen(true);
-            setTransferStudentDialog(false);
-            setConfirmTransferDialog(false);
-            fetchBusRoutes();
-        } catch (error) {
-            console.error("Error transferring students:", error);
-            setMessage("Failed to transfer students");
-            setColor(false);
-            setStatus(false);
-            setOpen(true);
-        } finally {
-            setIsLoading(false);
-        }
-    };
 
     // Filter existing students based on search
     const filteredExistingStudents = existingStudents.filter((student) => {
@@ -846,7 +816,10 @@ export default function StudentMapping() {
             student.name?.toLowerCase().includes(query) ||
             student.rollNumber?.toLowerCase().includes(query) ||
             student.grade?.toLowerCase().includes(query) ||
-            student.stopName?.toLowerCase().includes(query)
+            student.section?.toLowerCase().includes(query) ||
+            student.stopName?.toLowerCase().includes(query) ||
+            student.phone?.toLowerCase().includes(query) ||
+            student.email?.toLowerCase().includes(query)
         );
     });
 
@@ -882,7 +855,7 @@ export default function StudentMapping() {
                 </Box>
 
                 <TextField
-                    placeholder="Search by bus name or route..."
+                    placeholder="Search by route name, bus, or route..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     InputProps={{
@@ -900,6 +873,31 @@ export default function StudentMapping() {
                     }}
                     sx={{ width: 300 }}
                 />
+                <Autocomplete
+                  size="small"
+                  options={academicYears}
+                  sx={{ width: "170px" }}
+                  value={selectedYear}
+                  onChange={(e, newValue) => setSelectedYear(newValue)}
+                  renderInput={(params) => (
+                    <TextField
+                      placeholder="Select Academic Year"
+                      {...params}
+                      variant="outlined"
+                      sx={{
+                        "& .MuiOutlinedInput-root": {
+                          borderRadius: "5px",
+                          fontSize: 14,
+                          height: 35,
+                        },
+                        "& .MuiOutlinedInput-input": {
+                          textAlign: "center",
+                          fontWeight: "600"
+                        },
+                      }}
+                    />
+                  )}
+                />
             </Box>
 
             {/* Main Content */}
@@ -912,9 +910,6 @@ export default function StudentMapping() {
                                 colorScheme={busColors[index % busColors.length]}
                                 onAddStudents={handleAddStudents}
                                 onViewExisting={handleViewExisting}
-                                onRemoveStudents={handleRemoveStudents}
-                                onTransferStudents={handleTransferStudents}
-                                onViewRemovedTransferred={handleViewRemovedTransferred}
                             />
                         </Grid>
                     ))}
@@ -934,190 +929,18 @@ export default function StudentMapping() {
                 )}
             </Box>
 
-            {/* Add Students Dialog */}
-            <Dialog
-                open={addStudentDialog}
-                onClose={() => setAddStudentDialog(false)}
-                maxWidth="md"
-                fullWidth
-                PaperProps={{ sx: { borderRadius: 0, border: "1px solid #E5E7EB" } }}
-            >
-                <DialogTitle sx={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    borderBottom: "1px solid #E5E7EB",
-                    py: 1.5,
-                    px: 2.5,
-                    backgroundColor: "#fff"
-                }}>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                        <Box sx={{
-                            width: 36,
-                            height: 36,
-                            backgroundColor: "#ECFDF5",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            borderRadius: "8px"
-                        }}>
-                            <PersonAddIcon sx={{ color: "#059669", fontSize: 20 }} />
-                        </Box>
-                        <Typography sx={{ fontWeight: 600, fontSize: "16px", color: "#111827" }}>
-                            Add Students to {selectedBus?.busName}
-                        </Typography>
-                    </Box>
-                    <IconButton onClick={() => setAddStudentDialog(false)} sx={{ color: "#6B7280" }}>
-                        <CloseIcon />
-                    </IconButton>
-                </DialogTitle>
+            {/* Student Selection Popup */}
+            <StudentSelectionPopup
+                open={openStudentPopup}
+                
+                onClose={handleCloseStudentPopup}
+                users={users}
+                activity={routeDetails}
+                value={routeDetails?.studentRouteMappings?.map(s => s.rollNumber).join(', ') || ''}
+                onSave={(payload) => handleSaveStudents(payload)}
+            />
 
-                <DialogContent sx={{ p: 2.5 }}>
-                    {/* Select Stop */}
-                    <Box sx={{ mb: 2.5 }}>
-                        <Typography sx={{ fontSize: "12px", fontWeight: 600, mb: 1, color: "#374151", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                            Select Bus Stop *
-                        </Typography>
-                        <Autocomplete
-                            options={selectedBus?.intermediateStops || []}
-                            getOptionLabel={(option) => `${option.stopName} - ${option.time}`}
-                            value={selectedStop}
-                            onChange={(e, value) => setSelectedStop(value)}
-                            renderInput={(params) => (
-                                <TextField
-                                    {...params}
-                                    placeholder="Select a bus stop"
-                                    size="small"
-                                />
-                            )}
-                        />
-                    </Box>
-
-                    {/* Search Students */}
-                    <TextField
-                        fullWidth
-                        placeholder="Search students by name, roll number, or grade..."
-                        value={studentSearchQuery}
-                        onChange={(e) => setStudentSearchQuery(e.target.value)}
-                        InputProps={{
-                            startAdornment: (
-                                <InputAdornment position="start">
-                                    <SearchIcon sx={{ color: "#9CA3AF" }} />
-                                </InputAdornment>
-                            ),
-                        }}
-                        sx={{ mb: 2.5 }}
-                        size="small"
-                    />
-
-                    {/* Selected Count */}
-                    <Box sx={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        mb: 2.5,
-                        p: 1.5,
-                        backgroundColor: selectedStudents.length > 0 ? "#ECFDF5" : "#F9FAFB",
-                        border: selectedStudents.length > 0 ? "1px solid #A7F3D0" : "1px solid #E5E7EB",
-                        borderRadius: "8px"
-                    }}>
-                        <Typography sx={{ fontSize: "13px", color: selectedStudents.length > 0 ? "#059669" : "#6B7280", fontWeight: 500 }}>
-                            {selectedStudents.length} student(s) selected
-                        </Typography>
-                        <Chip
-                            label={`Available Seats: ${(selectedBus?.totalSeats || 0) - (selectedBus?.occupiedSeats || 0)}`}
-                            size="small"
-                            sx={{ backgroundColor: "#ECFDF5", color: "#059669", borderRadius: "4px", fontWeight: 600 }}
-                        />
-                    </Box>
-
-                    {/* Students Table */}
-                    <Box sx={{
-                        maxHeight: 350,
-                        overflowY: "auto",
-                        border: "1px solid #E5E7EB",
-                        borderRadius: "8px"
-                    }}>
-                        <Table size="small" stickyHeader>
-                            <TableHead>
-                                <TableRow>
-                                    <TableCell padding="checkbox" sx={{ backgroundColor: "#F9FAFB", borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB" }}>
-                                        <Checkbox
-                                            checked={selectedStudents.length === filteredStudents.length && filteredStudents.length > 0}
-                                            indeterminate={selectedStudents.length > 0 && selectedStudents.length < filteredStudents.length}
-                                            onChange={handleSelectAll}
-                                            sx={{ color: "#059669", "&.Mui-checked": { color: "#059669" }, "&.MuiCheckbox-indeterminate": { color: "#059669" } }}
-                                        />
-                                    </TableCell>
-                                    <TableCell sx={{ fontWeight: 600, backgroundColor: "#F9FAFB", color: "#374151", borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", fontSize: "12px" }}>Student Name</TableCell>
-                                    <TableCell sx={{ fontWeight: 600, backgroundColor: "#F9FAFB", color: "#374151", borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", fontSize: "12px" }}>Roll Number</TableCell>
-                                    <TableCell sx={{ fontWeight: 600, backgroundColor: "#F9FAFB", color: "#374151", borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", fontSize: "12px" }}>Grade</TableCell>
-                                    <TableCell sx={{ fontWeight: 600, backgroundColor: "#F9FAFB", color: "#374151", borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", fontSize: "12px" }}>Section</TableCell>
-                                    <TableCell sx={{ fontWeight: 600, backgroundColor: "#F9FAFB", color: "#374151", borderBottom: "1px solid #E5E7EB", fontSize: "12px" }}>Address</TableCell>
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {filteredStudents.map((student, idx) => (
-                                    <TableRow
-                                        key={student.id}
-                                        hover
-                                        onClick={() => handleStudentSelect(student)}
-                                        sx={{
-                                            cursor: "pointer",
-                                            backgroundColor: selectedStudents.find(s => s.id === student.id) ? "#ECFDF5" : idx % 2 === 0 ? "#fff" : "#F9FAFB"
-                                        }}
-                                    >
-                                        <TableCell padding="checkbox" sx={{ borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB" }}>
-                                            <Checkbox
-                                                checked={!!selectedStudents.find(s => s.id === student.id)}
-                                                sx={{ color: "#059669", "&.Mui-checked": { color: "#059669" } }}
-                                            />
-                                        </TableCell>
-                                        <TableCell sx={{ borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", py: 1.5 }}>
-                                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                                                <Avatar sx={{ width: 28, height: 28, fontSize: "12px", backgroundColor: "#ECFDF5", color: "#059669" }}>
-                                                    {student.name?.charAt(0)}
-                                                </Avatar>
-                                                <Typography sx={{ fontSize: "13px", fontWeight: 500 }}>{student.name}</Typography>
-                                            </Box>
-                                        </TableCell>
-                                        <TableCell sx={{ borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", py: 1.5, fontSize: "13px" }}>{student.rollNumber}</TableCell>
-                                        <TableCell sx={{ borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", py: 1.5, fontSize: "13px" }}>{student.grade}</TableCell>
-                                        <TableCell sx={{ borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", py: 1.5, fontSize: "13px" }}>{student.section}</TableCell>
-                                        <TableCell sx={{ borderBottom: "1px solid #E5E7EB", py: 1.5, fontSize: "12px", color: "#6B7280" }}>{student.address}</TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </Box>
-                </DialogContent>
-
-                <DialogActions sx={{ px: 2.5, py: 2, borderTop: "1px solid #E5E7EB", backgroundColor: "#F9FAFB", gap: 1.5 }}>
-                    <Button
-                        onClick={() => setAddStudentDialog(false)}
-                        sx={{ textTransform: "none", borderRadius: "8px", border: "1px solid #D1D5DB", color: "#374151", px: 3 }}
-                    >
-                        Cancel
-                    </Button>
-                    <Button
-                        variant="contained"
-                        onClick={handleSaveStudentMapping}
-                        disabled={selectedStudents.length === 0 || !selectedStop}
-                        sx={{
-                            textTransform: "none",
-                            borderRadius: "8px",
-                            backgroundColor: "#059669",
-                            px: 3,
-                            fontWeight: 600,
-                            "&:hover": { backgroundColor: "#047857" }
-                        }}
-                    >
-                        Add {selectedStudents.length} Student(s)
-                    </Button>
-                </DialogActions>
-            </Dialog>
-
-            {/* View Existing Students Dialog */}
+            {/* View Existing Students Dialog */} 
             <Dialog
                 open={viewExistingDialog}
                 onClose={() => setViewExistingDialog(false)}
@@ -1126,830 +949,368 @@ export default function StudentMapping() {
                 PaperProps={{ sx: { borderRadius: 0, border: "1px solid #E5E7EB" } }}
             >
                 <DialogTitle sx={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    borderBottom: "1px solid #E5E7EB",
-                    py: 1.5,
-                    px: 2.5,
-                    backgroundColor: "#fff"
+                    backgroundColor: '#fff',
+                    py: 2.5,
+                    px: 3,
+                    borderBottom: '2px solid #E5E7EB'
                 }}>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                        <Box sx={{
-                            width: 36,
-                            height: 36,
-                            backgroundColor: "#EFF6FF",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            borderRadius: "8px"
-                        }}>
-                            <PeopleIcon sx={{ color: "#2563EB", fontSize: 20 }} />
+                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                            <Box sx={{
+                                width: 44,
+                                height: 44,
+                                backgroundColor: '#F3F4F6',
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                borderRadius: "8px",
+                                border: '1px solid #E5E7EB'
+                            }}>
+                                <PeopleIcon sx={{ color: "#6B7280", fontSize: 24 }} />
+                            </Box>
+                            <Box>
+                                <Typography sx={{ fontWeight: 700, fontSize: "17px", color: "#111827" }}>
+                                    Mapped Students
+                                </Typography>
+                                <Typography sx={{ fontSize: "13px", color: "#6B7280" }}>
+                                    {selectedBus?.routeName} • {selectedBus?.busName}
+                                </Typography>
+                            </Box>
                         </Box>
-                        <Typography sx={{ fontWeight: 600, fontSize: "16px", color: "#111827" }}>
-                            Existing Students - {selectedBus?.busName}
-                        </Typography>
-                        <Chip
-                            label={`${existingStudents.length} Students`}
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                            <Chip
+                                icon={<SchoolIcon sx={{ fontSize: 16 }} />}
+                                label={`${existingStudents.length} Students`}
+                                sx={{
+                                    backgroundColor: '#F3F4F6',
+                                    color: "#374151",
+                                    fontWeight: 600,
+                                    borderRadius: "6px",
+                                    border: '1px solid #D1D5DB',
+                                    fontSize: '13px'
+                                }}
+                            />
+                            <IconButton
+                                onClick={() => setViewExistingDialog(false)}
+                                sx={{
+                                    color: "#6B7280",
+                                    '&:hover': {
+                                        backgroundColor: '#F3F4F6',
+                                        color: '#374151'
+                                    }
+                                }}
+                            >
+                                <CloseIcon />
+                            </IconButton>
+                        </Box>
+                    </Box>
+                </DialogTitle>
+
+                <DialogContent sx={{ p: 3, backgroundColor: '#F9FAFB' }}>
+                    {/* Search Bar */}
+                    <Box sx={{ mb: 3 }}>
+                        <TextField
+                            fullWidth
+                            placeholder="Search by name, roll number, grade, section, or bus stop..."
+                            value={studentSearchQuery}
+                            onChange={(e) => setStudentSearchQuery(e.target.value)}
+                            slotProps={{
+                                input: {
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <SearchIcon sx={{ color: "#9CA3AF", fontSize: 20 }} />
+                                        </InputAdornment>
+                                    ),
+                                }
+                            }}
+                            sx={{
+                                backgroundColor: '#fff',
+                                '& .MuiOutlinedInput-root': {
+                                    borderRadius: '8px',
+                                    '& fieldset': {
+                                        borderColor: '#D1D5DB',
+                                    },
+                                    '&:hover fieldset': {
+                                        borderColor: '#9CA3AF',
+                                    },
+                                    '&.Mui-focused fieldset': {
+                                        borderColor: '#6B7280',
+                                        borderWidth: '2px'
+                                    },
+                                }
+                            }}
                             size="small"
-                            sx={{ backgroundColor: "#EFF6FF", color: "#2563EB", fontWeight: 600, borderRadius: "4px" }}
                         />
                     </Box>
-                    <IconButton onClick={() => setViewExistingDialog(false)} sx={{ color: "#6B7280" }}>
-                        <CloseIcon />
-                    </IconButton>
-                </DialogTitle>
-
-                <DialogContent sx={{ p: 2.5 }}>
-                    {/* Search */}
-                    <TextField
-                        fullWidth
-                        placeholder="Search by name, roll number, grade, or stop..."
-                        value={studentSearchQuery}
-                        onChange={(e) => setStudentSearchQuery(e.target.value)}
-                        InputProps={{
-                            startAdornment: (
-                                <InputAdornment position="start">
-                                    <SearchIcon sx={{ color: "#9CA3AF" }} />
-                                </InputAdornment>
-                            ),
-                        }}
-                        sx={{ mb: 2.5 }}
-                        size="small"
-                    />
 
                     {/* Students Table */}
-                    <Box sx={{
-                        maxHeight: 400,
-                        overflowY: "auto",
-                        border: "1px solid #E5E7EB",
-                        borderRadius: "8px"
-                    }}>
-                        <Table size="small" stickyHeader>
-                            <TableHead>
-                                <TableRow>
-                                    <TableCell sx={{ fontWeight: 600, backgroundColor: "#F9FAFB", color: "#374151", borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", fontSize: "12px" }}>Student Name</TableCell>
-                                    <TableCell sx={{ fontWeight: 600, backgroundColor: "#F9FAFB", color: "#374151", borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", fontSize: "12px" }}>Roll Number</TableCell>
-                                    <TableCell sx={{ fontWeight: 600, backgroundColor: "#F9FAFB", color: "#374151", borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", fontSize: "12px" }}>Grade</TableCell>
-                                    <TableCell sx={{ fontWeight: 600, backgroundColor: "#F9FAFB", color: "#374151", borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", fontSize: "12px" }}>Section</TableCell>
-                                    <TableCell sx={{ fontWeight: 600, backgroundColor: "#F9FAFB", color: "#374151", borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", fontSize: "12px" }}>Bus Stop</TableCell>
-                                    <TableCell sx={{ fontWeight: 600, backgroundColor: "#F9FAFB", color: "#374151", borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", fontSize: "12px" }}>Phone</TableCell>
-                                    <TableCell sx={{ fontWeight: 600, backgroundColor: "#F9FAFB", color: "#374151", borderBottom: "1px solid #E5E7EB", fontSize: "12px" }}>Mapped Date</TableCell>
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {filteredExistingStudents.length > 0 ? (
-                                    filteredExistingStudents.map((student, idx) => (
-                                        <TableRow key={student.id} hover sx={{ backgroundColor: idx % 2 === 0 ? "#fff" : "#F9FAFB" }}>
-                                            <TableCell sx={{ borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", py: 1.5 }}>
-                                                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                                                    <Avatar sx={{ width: 28, height: 28, fontSize: "12px", backgroundColor: "#EFF6FF", color: "#2563EB" }}>
-                                                        {student.name?.charAt(0)}
-                                                    </Avatar>
-                                                    <Typography sx={{ fontSize: "13px", fontWeight: 500 }}>{student.name}</Typography>
-                                                </Box>
-                                            </TableCell>
-                                            <TableCell sx={{ borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", py: 1.5, fontSize: "13px" }}>{student.rollNumber}</TableCell>
-                                            <TableCell sx={{ borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", py: 1.5, fontSize: "13px" }}>{student.grade}</TableCell>
-                                            <TableCell sx={{ borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", py: 1.5, fontSize: "13px" }}>{student.section}</TableCell>
-                                            <TableCell sx={{ borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", py: 1.5 }}>
-                                                <Chip
-                                                    icon={<LocationOnIcon sx={{ fontSize: 14 }} />}
-                                                    label={student.stopName}
-                                                    size="small"
-                                                    sx={{ backgroundColor: "#EFF6FF", color: "#1D4ED8", fontSize: "11px", borderRadius: "4px", fontWeight: 600 }}
-                                                />
-                                            </TableCell>
-                                            <TableCell sx={{ borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", py: 1.5, fontSize: "12px" }}>{student.phone}</TableCell>
-                                            <TableCell sx={{ borderBottom: "1px solid #E5E7EB", py: 1.5, fontSize: "12px", color: "#6B7280" }}>{student.mappedDate}</TableCell>
-                                        </TableRow>
-                                    ))
-                                ) : (
+                    {existingStudents.length > 0 ? (
+                        <Box sx={{
+                            maxHeight: 450,
+                            overflowY: "auto",
+                            backgroundColor: '#fff',
+                            borderRadius: "12px",
+                            border: "1px solid #E5E7EB",
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                            '&::-webkit-scrollbar': {
+                                width: '8px',
+                            },
+                            '&::-webkit-scrollbar-track': {
+                                backgroundColor: '#F3F4F6',
+                                borderRadius: '10px',
+                            },
+                            '&::-webkit-scrollbar-thumb': {
+                                backgroundColor: '#D1D5DB',
+                                borderRadius: '10px',
+                                '&:hover': {
+                                    backgroundColor: '#9CA3AF',
+                                },
+                            },
+                        }}>
+                            <Table size="small" stickyHeader>
+                                <TableHead>
                                     <TableRow>
-                                        <TableCell colSpan={7} sx={{ textAlign: "center", py: 4, color: "#9CA3AF" }}>
-                                            No students found
+                                        <TableCell sx={{
+                                            fontWeight: 600,
+                                            backgroundColor: '#F9FAFB',
+                                            color: "#374151",
+                                            fontSize: "12px",
+                                            textTransform: 'uppercase',
+                                            letterSpacing: '0.5px',
+                                            py: 2,
+                                            borderBottom: '2px solid #E5E7EB'
+                                        }}>
+                                            Student Details
+                                        </TableCell>
+                                        <TableCell sx={{
+                                            fontWeight: 600,
+                                            backgroundColor: '#F9FAFB',
+                                            color: "#374151",
+                                            fontSize: "12px",
+                                            textTransform: 'uppercase',
+                                            letterSpacing: '0.5px',
+                                            borderBottom: '2px solid #E5E7EB'
+                                        }}>
+                                            Roll Number
+                                        </TableCell>
+                                        <TableCell sx={{
+                                            fontWeight: 600,
+                                            backgroundColor: '#F9FAFB',
+                                            color: "#374151",
+                                            fontSize: "12px",
+                                            textTransform: 'uppercase',
+                                            letterSpacing: '0.5px',
+                                            borderBottom: '2px solid #E5E7EB'
+                                        }}>
+                                            Class
+                                        </TableCell>
+                                        <TableCell sx={{
+                                            fontWeight: 600,
+                                            backgroundColor: '#F9FAFB',
+                                            color: "#374151",
+                                            fontSize: "12px",
+                                            textTransform: 'uppercase',
+                                            letterSpacing: '0.5px',
+                                            borderBottom: '2px solid #E5E7EB'
+                                        }}>
+                                            Bus Stop
+                                        </TableCell>
+                                        <TableCell sx={{
+                                            fontWeight: 600,
+                                            backgroundColor: '#F9FAFB',
+                                            color: "#374151",
+                                            fontSize: "12px",
+                                            textTransform: 'uppercase',
+                                            letterSpacing: '0.5px',
+                                            borderBottom: '2px solid #E5E7EB'
+                                        }}>
+                                            Contact
+                                        </TableCell>
+                                        <TableCell sx={{
+                                            fontWeight: 600,
+                                            backgroundColor: '#F9FAFB',
+                                            color: "#374151",
+                                            fontSize: "12px",
+                                            textTransform: 'uppercase',
+                                            letterSpacing: '0.5px',
+                                            borderBottom: '2px solid #E5E7EB'
+                                        }}>
+                                            Status
                                         </TableCell>
                                     </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
-                    </Box>
-                </DialogContent>
+                                </TableHead>
+                                <TableBody>
+                                    {filteredExistingStudents.length > 0 ? (
+                                        filteredExistingStudents.map((student, idx) => (
+                                            <TableRow
+                                                key={student.id}
+                                                hover
+                                                sx={{
+                                                    backgroundColor: idx % 2 === 0 ? "#fff" : "#F9FAFB",
+                                                    '&:hover': {
+                                                        backgroundColor: '#F3F4F6 !important',
+                                                        transition: 'all 0.2s ease'
+                                                    }
+                                                }}
+                                            >
+                                                {/* Student Details */}
+                                                <TableCell sx={{ borderBottom: "1px solid #E5E7EB", py: 2 }}>
+                                                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                                                        <Avatar sx={{
+                                                            width: 36,
+                                                            height: 36,
+                                                            fontSize: "14px",
+                                                            backgroundColor: '#F3F4F6',
+                                                            color: "#374151",
+                                                            fontWeight: 600,
+                                                            border: '2px solid #E5E7EB'
+                                                        }}>
+                                                            {student.name?.charAt(0)?.toUpperCase()}
+                                                        </Avatar>
+                                                        <Box>
+                                                            <Typography sx={{ fontSize: "14px", fontWeight: 600, color: '#111827' }}>
+                                                                {student.name}
+                                                            </Typography>
+                                                            {student.email && student.email !== 'N/A' && (
+                                                                <Typography sx={{ fontSize: "11px", color: "#6B7280" }}>
+                                                                    {student.email}
+                                                                </Typography>
+                                                            )}
+                                                        </Box>
+                                                    </Box>
+                                                </TableCell>
 
-                <DialogActions sx={{ px: 2.5, py: 2, borderTop: "1px solid #E5E7EB", backgroundColor: "#F9FAFB" }}>
-                    <Button
-                        onClick={() => setViewExistingDialog(false)}
-                        sx={{ textTransform: "none", borderRadius: "8px", border: "1px solid #D1D5DB", color: "#374151", px: 3, fontWeight: 600 }}
-                    >
-                        Close
-                    </Button>
-                </DialogActions>
-            </Dialog>
+                                                {/* Roll Number */}
+                                                <TableCell sx={{ borderBottom: "1px solid #E5E7EB", py: 2 }}>
+                                                    <Chip
+                                                        label={student.rollNumber}
+                                                        size="small"
+                                                        sx={{
+                                                            backgroundColor: "#F9FAFB",
+                                                            color: "#374151",
+                                                            fontWeight: 600,
+                                                            fontSize: "12px",
+                                                            border: '1px solid #D1D5DB'
+                                                        }}
+                                                    />
+                                                </TableCell>
 
-            {/* Remove Students Dialog */}
-            <Dialog
-                open={removeStudentDialog}
-                onClose={() => setRemoveStudentDialog(false)}
-                maxWidth="lg"
-                fullWidth
-                PaperProps={{ sx: { borderRadius: 0, border: "1px solid #E5E7EB" } }}
-            >
-                <DialogTitle sx={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    borderBottom: "1px solid #E5E7EB",
-                    py: 1.5,
-                    px: 2.5,
-                    backgroundColor: "#fff"
-                }}>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                        <Box sx={{ width: 36, height: 36, backgroundColor: "#FEE2E2", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "8px" }}>
-                            <PersonRemoveIcon sx={{ color: "#DC2626", fontSize: 20 }} />
+                                                {/* Grade & Section */}
+                                                <TableCell sx={{ borderBottom: "1px solid #E5E7EB", py: 2 }}>
+                                                    <Box>
+                                                        <Typography sx={{ fontSize: "13px", fontWeight: 600, color: '#111827' }}>
+                                                            {student.grade}
+                                                        </Typography>
+                                                        <Typography sx={{ fontSize: "11px", color: "#6B7280" }}>
+                                                            Section {student.section}
+                                                        </Typography>
+                                                    </Box>
+                                                </TableCell>
+
+                                                {/* Bus Stop */}
+                                                <TableCell sx={{ borderBottom: "1px solid #E5E7EB", py: 2 }}>
+                                                    <Chip
+                                                        icon={<LocationOnIcon sx={{ fontSize: 14 }} />}
+                                                        label={student.stopName}
+                                                        size="small"
+                                                        sx={{
+                                                            backgroundColor: "#F9FAFB",
+                                                            color: "#374151",
+                                                            fontSize: "12px",
+                                                            borderRadius: "6px",
+                                                            fontWeight: 500,
+                                                            border: '1px solid #D1D5DB'
+                                                        }}
+                                                    />
+                                                </TableCell>
+
+                                                {/* Contact */}
+                                                <TableCell sx={{ borderBottom: "1px solid #E5E7EB", py: 2 }}>
+                                                    <Typography sx={{ fontSize: "13px", color: "#374151", fontWeight: 500 }}>
+                                                        {student.phone}
+                                                    </Typography>
+                                                </TableCell>
+
+                                                {/* Status */}
+                                                <TableCell sx={{ borderBottom: "1px solid #E5E7EB", py: 2 }}>
+                                                    <Chip
+                                                        label={student.status || 'Active'}
+                                                        size="small"
+                                                        icon={<CheckCircleIcon sx={{ fontSize: 14 }} />}
+                                                        sx={{
+                                                            backgroundColor: "#ECFDF5",
+                                                            color: "#047857",
+                                                            fontWeight: 600,
+                                                            fontSize: "11px",
+                                                            border: '1px solid #A7F3D0'
+                                                        }}
+                                                    />
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    ) : (
+                                        <TableRow>
+                                            <TableCell colSpan={6} sx={{ textAlign: "center", py: 6 }}>
+                                                <SchoolIcon sx={{ fontSize: 48, color: "#D1D5DB", mb: 2 }} />
+                                                <Typography sx={{ fontSize: "14px", color: "#9CA3AF", fontWeight: 500 }}>
+                                                    No students match your search
+                                                </Typography>
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
                         </Box>
-                        <Typography sx={{ fontWeight: 600, fontSize: "16px", color: "#111827" }}>
-                            Remove Students from {selectedBus?.busName}
-                        </Typography>
-                    </Box>
-                    <IconButton onClick={() => setRemoveStudentDialog(false)} sx={{ color: "#6B7280" }}>
-                        <CloseIcon />
-                    </IconButton>
-                </DialogTitle>
-
-                <DialogContent sx={{ p: 2.5 }}>
-                    {/* Search */}
-                    <TextField
-                        fullWidth
-                        placeholder="Search students to remove..."
-                        value={studentSearchQuery}
-                        onChange={(e) => setStudentSearchQuery(e.target.value)}
-                        InputProps={{
-                            startAdornment: (
-                                <InputAdornment position="start">
-                                    <SearchIcon sx={{ color: "#999" }} />
-                                </InputAdornment>
-                            ),
-                        }}
-                        sx={{ mb: 2.5 }}
-                        size="small"
-                    />
-
-                    {/* Selected Count */}
-                    <Box sx={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        mb: 2.5,
-                        p: 1.5,
-                        backgroundColor: selectedStudents.length > 0 ? "#FEF2F2" : "#F9FAFB",
-                        borderRadius: "8px",
-                        border: selectedStudents.length > 0 ? "1px solid #FECACA" : "1px solid #E5E7EB"
-                    }}>
-                        <Typography sx={{ fontSize: "13px", color: selectedStudents.length > 0 ? "#DC2626" : "#6B7280", fontWeight: 500 }}>
-                            {selectedStudents.length} student(s) selected for removal
-                        </Typography>
-                    </Box>
-
-                    {/* Students Table */}
-                    <Box sx={{
-                        maxHeight: 350,
-                        overflowY: "auto",
-                        border: "1px solid #E5E7EB",
-                        borderRadius: "8px"
-                    }}>
-                        <Table size="small" stickyHeader>
-                            <TableHead>
-                                <TableRow>
-                                    <TableCell padding="checkbox" sx={{ backgroundColor: "#F9FAFB", borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB" }}>
-                                        <Checkbox
-                                            checked={selectedStudents.length === filteredExistingStudents.length && filteredExistingStudents.length > 0}
-                                            indeterminate={selectedStudents.length > 0 && selectedStudents.length < filteredExistingStudents.length}
-                                            onChange={(e) => {
-                                                if (e.target.checked) {
-                                                    setSelectedStudents(filteredExistingStudents);
-                                                } else {
-                                                    setSelectedStudents([]);
-                                                }
-                                            }}
-                                            sx={{ color: "#DC2626", "&.Mui-checked": { color: "#DC2626" }, "&.MuiCheckbox-indeterminate": { color: "#DC2626" } }}
-                                        />
-                                    </TableCell>
-                                    <TableCell sx={{ fontWeight: 600, backgroundColor: "#F9FAFB", color: "#374151", borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", fontSize: "12px" }}>Student Name</TableCell>
-                                    <TableCell sx={{ fontWeight: 600, backgroundColor: "#F9FAFB", color: "#374151", borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", fontSize: "12px" }}>Roll Number</TableCell>
-                                    <TableCell sx={{ fontWeight: 600, backgroundColor: "#F9FAFB", color: "#374151", borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", fontSize: "12px" }}>Grade</TableCell>
-                                    <TableCell sx={{ fontWeight: 600, backgroundColor: "#F9FAFB", color: "#374151", borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", fontSize: "12px" }}>Bus Stop</TableCell>
-                                    <TableCell sx={{ fontWeight: 600, backgroundColor: "#F9FAFB", color: "#374151", borderBottom: "1px solid #E5E7EB", fontSize: "12px" }}>Phone</TableCell>
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {filteredExistingStudents.map((student, idx) => (
-                                    <TableRow
-                                        key={student.id}
-                                        hover
-                                        onClick={() => handleStudentSelect(student)}
-                                        sx={{
-                                            cursor: "pointer",
-                                            backgroundColor: selectedStudents.find(s => s.id === student.id) ? "#FEF2F2" : idx % 2 === 0 ? "#fff" : "#F9FAFB"
-                                        }}
-                                    >
-                                        <TableCell padding="checkbox" sx={{ borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB" }}>
-                                            <Checkbox checked={!!selectedStudents.find(s => s.id === student.id)} sx={{ color: "#DC2626", "&.Mui-checked": { color: "#DC2626" } }} />
-                                        </TableCell>
-                                        <TableCell sx={{ borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", fontSize: "12px" }}>
-                                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                                                <Avatar sx={{ width: 28, height: 28, fontSize: "12px", backgroundColor: "#FEE2E2", color: "#DC2626" }}>
-                                                    {student.name?.charAt(0)}
-                                                </Avatar>
-                                                {student.name}
-                                            </Box>
-                                        </TableCell>
-                                        <TableCell sx={{ borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", fontSize: "12px" }}>{student.rollNumber}</TableCell>
-                                        <TableCell sx={{ borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", fontSize: "12px" }}>{student.grade}</TableCell>
-                                        <TableCell sx={{ borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", fontSize: "12px" }}>
-                                            <Chip
-                                                icon={<LocationOnIcon sx={{ fontSize: 14 }} />}
-                                                label={student.stopName}
-                                                size="small"
-                                                sx={{ backgroundColor: "#EFF6FF", color: "#1D4ED8", fontSize: "11px", borderRadius: "4px" }}
-                                            />
-                                        </TableCell>
-                                        <TableCell sx={{ borderBottom: "1px solid #E5E7EB", fontSize: "12px" }}>{student.phone}</TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </Box>
-
-                    {/* Removal Reason */}
-                    {selectedStudents.length > 0 && (
-                        <Box sx={{ mt: 2.5 }}>
-                            <Typography sx={{ fontSize: "13px", fontWeight: 600, mb: 1, color: "#374151" }}>
-                                Reason for Removal (Optional)
+                    ) : (
+                        <Box sx={{
+                            textAlign: 'center',
+                            py: 8,
+                            backgroundColor: '#fff',
+                            borderRadius: '12px',
+                            border: '2px dashed #E5E7EB'
+                        }}>
+                            <SchoolIcon sx={{ fontSize: 64, color: "#D1D5DB", mb: 2 }} />
+                            <Typography sx={{ fontSize: "16px", fontWeight: 600, color: "#374151", mb: 1 }}>
+                                No Students Mapped Yet
                             </Typography>
-                            <TextField
-                                fullWidth
-                                multiline
-                                rows={2}
-                                placeholder="Enter reason for removing students..."
-                                value={removeReason}
-                                onChange={(e) => setRemoveReason(e.target.value)}
-                                size="small"
-                            />
+                            <Typography sx={{ fontSize: "13px", color: "#9CA3AF" }}>
+                                Click "Add / Remove" button to map students to this route
+                            </Typography>
                         </Box>
                     )}
                 </DialogContent>
 
-                <DialogActions sx={{ px: 2.5, py: 2, borderTop: "1px solid #E5E7EB", backgroundColor: "#F9FAFB" }}>
-                    <Button
-                        onClick={() => setRemoveStudentDialog(false)}
-                        sx={{ textTransform: "none", borderRadius: "8px", border: "1px solid #D1D5DB", color: "#374151" }}
-                    >
-                        Cancel
-                    </Button>
+                <DialogActions sx={{
+                    px: 3,
+                    py: 2.5,
+                    borderTop: "2px solid #E5E7EB",
+                    backgroundColor: "#fff",
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                }}>
+                    <Typography sx={{ fontSize: "13px", color: "#6B7280", fontWeight: 500 }}>
+                        Total: {existingStudents.length} student{existingStudents.length !== 1 ? 's' : ''} mapped to this route
+                    </Typography>
                     <Button
                         variant="contained"
-                        onClick={() => setConfirmRemoveDialog(true)}
-                        disabled={selectedStudents.length === 0}
+                        onClick={() => setViewExistingDialog(false)}
                         sx={{
                             textTransform: "none",
                             borderRadius: "8px",
-                            backgroundColor: "#DC2626",
-                            "&:hover": { backgroundColor: "#B91C1C" }
+                            px: 4,
+                            py: 1,
+                            fontWeight: 600,
+                            fontSize: 14,
+                            backgroundColor: '#374151',
+                            boxShadow: 'none',
+                            '&:hover': {
+                                backgroundColor: '#1F2937',
+                                boxShadow: 'none',
+                            }
                         }}
-                    >
-                        Remove {selectedStudents.length} Student(s)
-                    </Button>
-                </DialogActions>
-            </Dialog>
-
-            {/* Transfer Students Dialog */}
-            <Dialog
-                open={transferStudentDialog}
-                onClose={() => setTransferStudentDialog(false)}
-                maxWidth="lg"
-                fullWidth
-                PaperProps={{ sx: { borderRadius: 0, border: "1px solid #E5E7EB" } }}
-            >
-                <DialogTitle sx={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    borderBottom: "1px solid #E5E7EB",
-                    py: 1.5,
-                    px: 2.5,
-                    backgroundColor: "#fff"
-                }}>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                        <Box sx={{ width: 36, height: 36, backgroundColor: "#EDE9FE", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "8px" }}>
-                            <SwapHorizIcon sx={{ color: "#7C3AED", fontSize: 20 }} />
-                        </Box>
-                        <Typography sx={{ fontWeight: 600, fontSize: "16px", color: "#111827" }}>
-                            Transfer Students from {selectedBus?.busName}
-                        </Typography>
-                    </Box>
-                    <IconButton onClick={() => setTransferStudentDialog(false)} sx={{ color: "#6B7280" }}>
-                        <CloseIcon />
-                    </IconButton>
-                </DialogTitle>
-
-                <DialogContent sx={{ p: 2.5 }}>
-                    {/* Transfer To Section */}
-                    <Box sx={{ mb: 2.5, p: 2, backgroundColor: "#FAFAFA", borderRadius: "8px", border: "1px solid #E5E7EB" }}>
-                        <Typography sx={{ fontSize: "14px", fontWeight: 600, mb: 2, color: "#374151" }}>
-                            Transfer To
-                        </Typography>
-                        <Grid container spacing={2}>
-                            <Grid size={{ xs: 12, md: 6 }}>
-                                <Typography sx={{ fontSize: "12px", fontWeight: 600, mb: 0.5, color: "#333" }}>
-                                    Select Target Bus *
-                                </Typography>
-                                <Autocomplete
-                                    options={busRoutes.filter(b => b.id !== selectedBus?.id)}
-                                    getOptionLabel={(option) => `${option.busName} - ${option.routeName}`}
-                                    value={targetBus}
-                                    onChange={(e, value) => {
-                                        setTargetBus(value);
-                                        setTargetStop(null);
-                                    }}
-                                    renderInput={(params) => (
-                                        <TextField
-                                            {...params}
-                                            placeholder="Select a bus to transfer to"
-                                            size="small"
-                                        />
-                                    )}
-                                />
-                            </Grid>
-                            <Grid size={{ xs: 12, md: 6 }}>
-                                <Typography sx={{ fontSize: "12px", fontWeight: 600, mb: 0.5, color: "#333" }}>
-                                    Select Target Bus Stop *
-                                </Typography>
-                                <Autocomplete
-                                    options={targetBus?.intermediateStops || []}
-                                    getOptionLabel={(option) => `${option.stopName} - ${option.time}`}
-                                    value={targetStop}
-                                    onChange={(e, value) => setTargetStop(value)}
-                                    disabled={!targetBus}
-                                    renderInput={(params) => (
-                                        <TextField
-                                            {...params}
-                                            placeholder={targetBus ? "Select a bus stop" : "Select a bus first"}
-                                            size="small"
-                                        />
-                                    )}
-                                />
-                            </Grid>
-                        </Grid>
-                        {targetBus && (
-                            <Box sx={{ mt: 2, display: "flex", alignItems: "center", gap: 1 }}>
-                                <Chip
-                                    label={`Available Seats: ${(targetBus.totalSeats || 0) - (targetBus.occupiedSeats || 0)}`}
-                                    size="small"
-                                    sx={{ backgroundColor: "#ECFDF5", color: "#059669", borderRadius: "4px" }}
-                                />
-                            </Box>
-                        )}
-                    </Box>
-
-                    {/* Search */}
-                    <TextField
-                        fullWidth
-                        placeholder="Search students to transfer..."
-                        value={studentSearchQuery}
-                        onChange={(e) => setStudentSearchQuery(e.target.value)}
-                        InputProps={{
-                            startAdornment: (
-                                <InputAdornment position="start">
-                                    <SearchIcon sx={{ color: "#999" }} />
-                                </InputAdornment>
-                            ),
-                        }}
-                        sx={{ mb: 2.5 }}
-                        size="small"
-                    />
-
-                    {/* Selected Count */}
-                    <Box sx={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        mb: 2.5,
-                        p: 1.5,
-                        backgroundColor: selectedStudents.length > 0 ? "#F5F3FF" : "#F9FAFB",
-                        borderRadius: "8px",
-                        border: selectedStudents.length > 0 ? "1px solid #DDD6FE" : "1px solid #E5E7EB"
-                    }}>
-                        <Typography sx={{ fontSize: "13px", color: selectedStudents.length > 0 ? "#7C3AED" : "#6B7280", fontWeight: 500 }}>
-                            {selectedStudents.length} student(s) selected for transfer
-                        </Typography>
-                    </Box>
-
-                    {/* Students Table */}
-                    <Box sx={{
-                        maxHeight: 300,
-                        overflowY: "auto",
-                        border: "1px solid #E5E7EB",
-                        borderRadius: "8px"
-                    }}>
-                        <Table size="small" stickyHeader>
-                            <TableHead>
-                                <TableRow>
-                                    <TableCell padding="checkbox" sx={{ backgroundColor: "#F9FAFB", borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB" }}>
-                                        <Checkbox
-                                            checked={selectedStudents.length === filteredExistingStudents.length && filteredExistingStudents.length > 0}
-                                            indeterminate={selectedStudents.length > 0 && selectedStudents.length < filteredExistingStudents.length}
-                                            onChange={(e) => {
-                                                if (e.target.checked) {
-                                                    setSelectedStudents(filteredExistingStudents);
-                                                } else {
-                                                    setSelectedStudents([]);
-                                                }
-                                            }}
-                                            sx={{ color: "#7C3AED", "&.Mui-checked": { color: "#7C3AED" }, "&.MuiCheckbox-indeterminate": { color: "#7C3AED" } }}
-                                        />
-                                    </TableCell>
-                                    <TableCell sx={{ fontWeight: 600, backgroundColor: "#F9FAFB", color: "#374151", borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", fontSize: "12px" }}>Student Name</TableCell>
-                                    <TableCell sx={{ fontWeight: 600, backgroundColor: "#F9FAFB", color: "#374151", borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", fontSize: "12px" }}>Roll Number</TableCell>
-                                    <TableCell sx={{ fontWeight: 600, backgroundColor: "#F9FAFB", color: "#374151", borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", fontSize: "12px" }}>Grade</TableCell>
-                                    <TableCell sx={{ fontWeight: 600, backgroundColor: "#F9FAFB", color: "#374151", borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", fontSize: "12px" }}>Current Stop</TableCell>
-                                    <TableCell sx={{ fontWeight: 600, backgroundColor: "#F9FAFB", color: "#374151", borderBottom: "1px solid #E5E7EB", fontSize: "12px" }}>Phone</TableCell>
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {filteredExistingStudents.map((student, idx) => (
-                                    <TableRow
-                                        key={student.id}
-                                        hover
-                                        onClick={() => handleStudentSelect(student)}
-                                        sx={{
-                                            cursor: "pointer",
-                                            backgroundColor: selectedStudents.find(s => s.id === student.id) ? "#F5F3FF" : idx % 2 === 0 ? "#fff" : "#F9FAFB"
-                                        }}
-                                    >
-                                        <TableCell padding="checkbox" sx={{ borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB" }}>
-                                            <Checkbox checked={!!selectedStudents.find(s => s.id === student.id)} sx={{ color: "#7C3AED", "&.Mui-checked": { color: "#7C3AED" } }} />
-                                        </TableCell>
-                                        <TableCell sx={{ borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", fontSize: "12px" }}>
-                                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                                                <Avatar sx={{ width: 28, height: 28, fontSize: "12px", backgroundColor: "#EDE9FE", color: "#7C3AED" }}>
-                                                    {student.name?.charAt(0)}
-                                                </Avatar>
-                                                {student.name}
-                                            </Box>
-                                        </TableCell>
-                                        <TableCell sx={{ borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", fontSize: "12px" }}>{student.rollNumber}</TableCell>
-                                        <TableCell sx={{ borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", fontSize: "12px" }}>{student.grade}</TableCell>
-                                        <TableCell sx={{ borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", fontSize: "12px" }}>
-                                            <Chip
-                                                icon={<LocationOnIcon sx={{ fontSize: 14 }} />}
-                                                label={student.stopName}
-                                                size="small"
-                                                sx={{ backgroundColor: "#EFF6FF", color: "#1D4ED8", fontSize: "11px", borderRadius: "4px" }}
-                                            />
-                                        </TableCell>
-                                        <TableCell sx={{ borderBottom: "1px solid #E5E7EB", fontSize: "12px" }}>{student.phone}</TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </Box>
-                </DialogContent>
-
-                <DialogActions sx={{ px: 2.5, py: 2, borderTop: "1px solid #E5E7EB", backgroundColor: "#F9FAFB" }}>
-                    <Button
-                        onClick={() => setTransferStudentDialog(false)}
-                        sx={{ textTransform: "none", borderRadius: "8px", border: "1px solid #D1D5DB", color: "#374151" }}
-                    >
-                        Cancel
-                    </Button>
-                    <Button
-                        variant="contained"
-                        onClick={() => setConfirmTransferDialog(true)}
-                        disabled={selectedStudents.length === 0 || !targetBus || !targetStop}
-                        sx={{
-                            textTransform: "none",
-                            borderRadius: "8px",
-                            backgroundColor: "#7C3AED",
-                            "&:hover": { backgroundColor: "#6D28D9" }
-                        }}
-                    >
-                        Transfer {selectedStudents.length} Student(s)
-                    </Button>
-                </DialogActions>
-            </Dialog>
-
-            {/* View Removed/Transferred Students Dialog */}
-            <Dialog
-                open={viewRemovedDialog}
-                onClose={() => setViewRemovedDialog(false)}
-                maxWidth="lg"
-                fullWidth
-                PaperProps={{ sx: { borderRadius: 0, border: "1px solid #E5E7EB" } }}
-            >
-                <DialogTitle sx={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    borderBottom: "1px solid #E5E7EB",
-                    py: 1.5,
-                    px: 2.5,
-                    backgroundColor: "#fff"
-                }}>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                        <Box sx={{ width: 36, height: 36, backgroundColor: "#FEF3C7", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "8px" }}>
-                            <HistoryIcon sx={{ color: "#D97706", fontSize: 20 }} />
-                        </Box>
-                        <Typography sx={{ fontWeight: 600, fontSize: "16px", color: "#111827" }}>
-                            Student History - {selectedBus?.busName}
-                        </Typography>
-                    </Box>
-                    <IconButton onClick={() => setViewRemovedDialog(false)} sx={{ color: "#6B7280" }}>
-                        <CloseIcon />
-                    </IconButton>
-                </DialogTitle>
-
-                <DialogContent sx={{ p: 0 }}>
-                    {/* Tabs */}
-                    <Box sx={{ borderBottom: "1px solid #E5E7EB" }}>
-                        <Tabs
-                            value={historyTabValue}
-                            onChange={(e, newValue) => setHistoryTabValue(newValue)}
-                            sx={{
-                                px: 2,
-                                "& .MuiTab-root": { textTransform: "none", fontWeight: 600, color: "#6B7280" },
-                                "& .Mui-selected": { color: "#374151" },
-                                "& .MuiTabs-indicator": { backgroundColor: "#374151" }
-                            }}
-                        >
-                            <Tab
-                                label={
-                                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                                        <PersonRemoveIcon sx={{ fontSize: 18 }} />
-                                        Removed Students
-                                        <Chip label={removedStudents.length} size="small" sx={{ height: 20, fontSize: "11px", backgroundColor: "#FEE2E2", color: "#DC2626", borderRadius: "4px" }} />
-                                    </Box>
-                                }
-                            />
-                            <Tab
-                                label={
-                                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                                        <SwapHorizIcon sx={{ fontSize: 18 }} />
-                                        Transferred Students
-                                        <Chip label={transferredStudents.length} size="small" sx={{ height: 20, fontSize: "11px", backgroundColor: "#EDE9FE", color: "#7C3AED", borderRadius: "4px" }} />
-                                    </Box>
-                                }
-                            />
-                        </Tabs>
-                    </Box>
-
-                    {/* Tab Content */}
-                    <Box sx={{ p: 2.5 }}>
-                        {historyTabValue === 0 && (
-                            <Box sx={{
-                                maxHeight: 400,
-                                overflowY: "auto",
-                                border: "1px solid #E5E7EB",
-                                borderRadius: "8px"
-                            }}>
-                                <Table size="small" stickyHeader>
-                                    <TableHead>
-                                        <TableRow>
-                                            <TableCell sx={{ fontWeight: 600, backgroundColor: "#F9FAFB", color: "#374151", borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", fontSize: "12px" }}>Student Name</TableCell>
-                                            <TableCell sx={{ fontWeight: 600, backgroundColor: "#F9FAFB", color: "#374151", borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", fontSize: "12px" }}>Roll Number</TableCell>
-                                            <TableCell sx={{ fontWeight: 600, backgroundColor: "#F9FAFB", color: "#374151", borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", fontSize: "12px" }}>Grade</TableCell>
-                                            <TableCell sx={{ fontWeight: 600, backgroundColor: "#F9FAFB", color: "#374151", borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", fontSize: "12px" }}>Removed Date</TableCell>
-                                            <TableCell sx={{ fontWeight: 600, backgroundColor: "#F9FAFB", color: "#374151", borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", fontSize: "12px" }}>Reason</TableCell>
-                                            <TableCell sx={{ fontWeight: 600, backgroundColor: "#F9FAFB", color: "#374151", borderBottom: "1px solid #E5E7EB", fontSize: "12px" }}>Removed By</TableCell>
-                                        </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {removedStudents.length > 0 ? (
-                                            removedStudents.map((student, idx) => (
-                                                <TableRow key={student.id} hover sx={{ backgroundColor: idx % 2 === 0 ? "#fff" : "#F9FAFB" }}>
-                                                    <TableCell sx={{ borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", fontSize: "12px" }}>
-                                                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                                                            <Avatar sx={{ width: 28, height: 28, fontSize: "12px", backgroundColor: "#FEE2E2", color: "#DC2626" }}>
-                                                                {student.name?.charAt(0)}
-                                                            </Avatar>
-                                                            {student.name}
-                                                        </Box>
-                                                    </TableCell>
-                                                    <TableCell sx={{ borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", fontSize: "12px" }}>{student.rollNumber}</TableCell>
-                                                    <TableCell sx={{ borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", fontSize: "12px" }}>{student.grade}</TableCell>
-                                                    <TableCell sx={{ borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", fontSize: "12px" }}>{student.removedDate}</TableCell>
-                                                    <TableCell sx={{ borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", fontSize: "12px" }}>
-                                                        <Chip
-                                                            label={student.reason}
-                                                            size="small"
-                                                            sx={{ backgroundColor: "#FEF2F2", color: "#DC2626", fontSize: "11px", borderRadius: "4px" }}
-                                                        />
-                                                    </TableCell>
-                                                    <TableCell sx={{ borderBottom: "1px solid #E5E7EB", fontSize: "12px" }}>{student.removedBy}</TableCell>
-                                                </TableRow>
-                                            ))
-                                        ) : (
-                                            <TableRow>
-                                                <TableCell colSpan={6} sx={{ textAlign: "center", py: 4, color: "#9CA3AF" }}>
-                                                    No removed students found
-                                                </TableCell>
-                                            </TableRow>
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            </Box>
-                        )}
-
-                        {historyTabValue === 1 && (
-                            <Box sx={{
-                                maxHeight: 400,
-                                overflowY: "auto",
-                                border: "1px solid #E5E7EB",
-                                borderRadius: "8px"
-                            }}>
-                                <Table size="small" stickyHeader>
-                                    <TableHead>
-                                        <TableRow>
-                                            <TableCell sx={{ fontWeight: 600, backgroundColor: "#F9FAFB", color: "#374151", borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", fontSize: "12px" }}>Student Name</TableCell>
-                                            <TableCell sx={{ fontWeight: 600, backgroundColor: "#F9FAFB", color: "#374151", borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", fontSize: "12px" }}>Roll Number</TableCell>
-                                            <TableCell sx={{ fontWeight: 600, backgroundColor: "#F9FAFB", color: "#374151", borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", fontSize: "12px" }}>Grade</TableCell>
-                                            <TableCell sx={{ fontWeight: 600, backgroundColor: "#F9FAFB", color: "#374151", borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", fontSize: "12px" }}>Transfer Date</TableCell>
-                                            <TableCell sx={{ fontWeight: 600, backgroundColor: "#F9FAFB", color: "#374151", borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", fontSize: "12px" }}>From</TableCell>
-                                            <TableCell sx={{ fontWeight: 600, backgroundColor: "#F9FAFB", color: "#374151", borderBottom: "1px solid #E5E7EB", fontSize: "12px" }}>To</TableCell>
-                                        </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {transferredStudents.length > 0 ? (
-                                            transferredStudents.map((student, idx) => (
-                                                <TableRow key={student.id} hover sx={{ backgroundColor: idx % 2 === 0 ? "#fff" : "#F9FAFB" }}>
-                                                    <TableCell sx={{ borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", fontSize: "12px" }}>
-                                                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                                                            <Avatar sx={{ width: 28, height: 28, fontSize: "12px", backgroundColor: "#EDE9FE", color: "#7C3AED" }}>
-                                                                {student.name?.charAt(0)}
-                                                            </Avatar>
-                                                            {student.name}
-                                                        </Box>
-                                                    </TableCell>
-                                                    <TableCell sx={{ borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", fontSize: "12px" }}>{student.rollNumber}</TableCell>
-                                                    <TableCell sx={{ borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", fontSize: "12px" }}>{student.grade}</TableCell>
-                                                    <TableCell sx={{ borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", fontSize: "12px" }}>{student.transferDate}</TableCell>
-                                                    <TableCell sx={{ borderBottom: "1px solid #E5E7EB", borderRight: "1px solid #E5E7EB", fontSize: "12px" }}>
-                                                        <Box>
-                                                            <Typography sx={{ fontSize: "12px", fontWeight: 600 }}>{student.fromBus}</Typography>
-                                                            <Typography sx={{ fontSize: "10px", color: "#6B7280" }}>{student.fromStop}</Typography>
-                                                        </Box>
-                                                    </TableCell>
-                                                    <TableCell sx={{ borderBottom: "1px solid #E5E7EB", fontSize: "12px" }}>
-                                                        <Box>
-                                                            <Typography sx={{ fontSize: "12px", fontWeight: 600, color: "#059669" }}>{student.toBus}</Typography>
-                                                            <Typography sx={{ fontSize: "10px", color: "#6B7280" }}>{student.toStop}</Typography>
-                                                        </Box>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))
-                                        ) : (
-                                            <TableRow>
-                                                <TableCell colSpan={6} sx={{ textAlign: "center", py: 4, color: "#9CA3AF" }}>
-                                                    No transferred students found
-                                                </TableCell>
-                                            </TableRow>
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            </Box>
-                        )}
-                    </Box>
-                </DialogContent>
-
-                <DialogActions sx={{ px: 2.5, py: 2, borderTop: "1px solid #E5E7EB", backgroundColor: "#F9FAFB" }}>
-                    <Button
-                        onClick={() => setViewRemovedDialog(false)}
-                        sx={{ textTransform: "none", borderRadius: "8px", border: "1px solid #D1D5DB", color: "#374151" }}
                     >
                         Close
-                    </Button>
-                </DialogActions>
-            </Dialog>
-
-            {/* Confirm Remove Dialog */}
-            <Dialog
-                open={confirmRemoveDialog}
-                onClose={() => setConfirmRemoveDialog(false)}
-                maxWidth="sm"
-                PaperProps={{ sx: { borderRadius: "12px", border: "1px solid #E5E7EB" } }}
-            >
-                <DialogTitle sx={{ pb: 1, borderBottom: "1px solid #E5E7EB", backgroundColor: "#fff" }}>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                        <Box sx={{
-                            width: 40,
-                            height: 40,
-                            borderRadius: "8px",
-                            backgroundColor: "#FEE2E2",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center"
-                        }}>
-                            <PersonRemoveIcon sx={{ color: "#DC2626" }} />
-                        </Box>
-                        <Typography sx={{ fontWeight: 600, fontSize: "16px", color: "#111827" }}>
-                            Confirm Removal
-                        </Typography>
-                    </Box>
-                </DialogTitle>
-                <DialogContent sx={{ p: 2.5 }}>
-                    <Typography sx={{ fontSize: "14px", color: "#6B7280", mb: 2.5 }}>
-                        Are you sure you want to remove <strong>{selectedStudents.length} student(s)</strong> from <strong>{selectedBus?.busName}</strong>?
-                    </Typography>
-                    {removeReason && (
-                        <Box sx={{ backgroundColor: "#FEF2F2", p: 2, borderRadius: "8px", border: "1px solid #FECACA" }}>
-                            <Typography sx={{ fontSize: "12px", color: "#DC2626", fontWeight: 600 }}>Reason:</Typography>
-                            <Typography sx={{ fontSize: "13px", color: "#374151" }}>{removeReason}</Typography>
-                        </Box>
-                    )}
-                </DialogContent>
-                <DialogActions sx={{ px: 2.5, py: 2, borderTop: "1px solid #E5E7EB", backgroundColor: "#F9FAFB" }}>
-                    <Button
-                        onClick={() => setConfirmRemoveDialog(false)}
-                        sx={{ textTransform: "none", borderRadius: "8px", border: "1px solid #D1D5DB", color: "#374151" }}
-                    >
-                        Cancel
-                    </Button>
-                    <Button
-                        variant="contained"
-                        onClick={handleConfirmRemove}
-                        sx={{
-                            textTransform: "none",
-                            borderRadius: "8px",
-                            backgroundColor: "#DC2626",
-                            "&:hover": { backgroundColor: "#B91C1C" }
-                        }}
-                    >
-                        Yes, Remove
-                    </Button>
-                </DialogActions>
-            </Dialog>
-
-            {/* Confirm Transfer Dialog */}
-            <Dialog
-                open={confirmTransferDialog}
-                onClose={() => setConfirmTransferDialog(false)}
-                maxWidth="sm"
-                PaperProps={{ sx: { borderRadius: "12px", border: "1px solid #E5E7EB" } }}
-            >
-                <DialogTitle sx={{ pb: 1, borderBottom: "1px solid #E5E7EB", backgroundColor: "#fff" }}>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                        <Box sx={{
-                            width: 40,
-                            height: 40,
-                            borderRadius: "8px",
-                            backgroundColor: "#EDE9FE",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center"
-                        }}>
-                            <SwapHorizIcon sx={{ color: "#7C3AED" }} />
-                        </Box>
-                        <Typography sx={{ fontWeight: 600, fontSize: "16px", color: "#111827" }}>
-                            Confirm Transfer
-                        </Typography>
-                    </Box>
-                </DialogTitle>
-                <DialogContent sx={{ p: 2.5 }}>
-                    <Typography sx={{ fontSize: "14px", color: "#6B7280", mb: 2.5 }}>
-                        Are you sure you want to transfer <strong>{selectedStudents.length} student(s)</strong>?
-                    </Typography>
-                    <Box sx={{ backgroundColor: "#FAFAFA", p: 2, borderRadius: "8px", border: "1px solid #E5E7EB" }}>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 2, justifyContent: "center" }}>
-                            <Box sx={{ textAlign: "center" }}>
-                                <Typography sx={{ fontSize: "11px", color: "#6B7280", fontWeight: 600 }}>FROM</Typography>
-                                <Typography sx={{ fontSize: "14px", fontWeight: 600, color: "#DC2626" }}>{selectedBus?.busName}</Typography>
-                            </Box>
-                            <SwapHorizIcon sx={{ color: "#9CA3AF", fontSize: 28 }} />
-                            <Box sx={{ textAlign: "center" }}>
-                                <Typography sx={{ fontSize: "11px", color: "#6B7280", fontWeight: 600 }}>TO</Typography>
-                                <Typography sx={{ fontSize: "14px", fontWeight: 600, color: "#059669" }}>{targetBus?.busName}</Typography>
-                                <Typography sx={{ fontSize: "11px", color: "#6B7280" }}>{targetStop?.stopName}</Typography>
-                            </Box>
-                        </Box>
-                    </Box>
-                </DialogContent>
-                <DialogActions sx={{ px: 2.5, py: 2, borderTop: "1px solid #E5E7EB", backgroundColor: "#F9FAFB" }}>
-                    <Button
-                        onClick={() => setConfirmTransferDialog(false)}
-                        sx={{ textTransform: "none", borderRadius: "8px", border: "1px solid #D1D5DB", color: "#374151" }}
-                    >
-                        Cancel
-                    </Button>
-                    <Button
-                        variant="contained"
-                        onClick={handleConfirmTransfer}
-                        sx={{
-                            textTransform: "none",
-                            borderRadius: "8px",
-                            backgroundColor: "#7C3AED",
-                            "&:hover": { backgroundColor: "#6D28D9" }
-                        }}
-                    >
-                        Yes, Transfer
                     </Button>
                 </DialogActions>
             </Dialog>

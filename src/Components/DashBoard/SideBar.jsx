@@ -616,7 +616,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
 
           {/* Leave Tab */}
           <ListItem onClick={() => handleMenuClickOne('leave')} sx={{ borderRadius: 2, px: 3, paddingTop: '3px', paddingBottom: '3px' }}>
-            <CustomTooltip title={isExpanded ? "" : "Leave & Attendance"} arrow placement="right-start">
+            <CustomTooltip title={isExpanded ? "" : "Leave & Payroll"} arrow placement="right-start">
               <Box
                 sx={{
                   display: 'flex',
@@ -657,7 +657,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
                 {isExpanded && (
                   <ListItemText>
                     <Typography className="activeSidebarText" sx={{ color: isActive('/dashboardmenu/leave') ? websiteSettings.textColor : '#000' }}>
-                      Leave & Attendance
+                    Leave & Payroll
                     </Typography>
                   </ListItemText>
                 )}
