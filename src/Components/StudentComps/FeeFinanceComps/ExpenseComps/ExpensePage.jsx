@@ -56,7 +56,10 @@ import HistoryIcon from '@mui/icons-material/History'
 import DashboardIcon from '@mui/icons-material/Dashboard'
 import CancelIcon from '@mui/icons-material/Cancel'
 import { useNavigate, useLocation } from 'react-router-dom'
-import toast from 'react-hot-toast'
+import axios from 'axios'
+import { useSelector } from 'react-redux'
+import { expenceDashboard, getAddedExpence, getAddedFund, postFund, postExpence, expenceApprovalStatusCheck, updateAddexpenceApprovalAction, fundApprovalStatusCheck, updateAddFundApprovalAction } from '../../../../Api/Api'
+import SnackBar from '../../../SnackBar'
 
 // Expense categories
 const expenseCategories = [
@@ -78,7 +81,6 @@ const paymentMethods = [
     "Bank Transfer",
     "Cheque",
     "Online Payment",
-    "Petty Cash"
 ];
 
 // Mock data for expense requests
@@ -156,17 +158,43 @@ const mockExpenseRequests = [
 ];
 
 export default function ExpensePage() {
+    const user = useSelector((state) => state.auth);
+    const rollNumber = user.rollNumber
+    const userType = user.userType
+    const userName = user.name
+    const [isLoading, setIsLoading] = useState('');
     const navigate = useNavigate();
+    const token = "123"
     const location = useLocation();
-    const [activeTab, setActiveTab] = useState(0); // 0: Dashboard, 1: Request, 2: Approvals, 3: History
+    const [activeTab, setActiveTab] = useState(0);
     const [searchQuery, setSearchQuery] = useState("");
     const [categoryFilter, setCategoryFilter] = useState("All");
-    const [statusFilter, setStatusFilter] = useState("All");
+    const [statusFilter, setStatusFilter] = useState("");
     const [expenseRequests, setExpenseRequests] = useState(mockExpenseRequests);
     const [openRequestDialog, setOpenRequestDialog] = useState(false);
     const [openAllocationDialog, setOpenAllocationDialog] = useState(false);
     const [openApprovalDialog, setOpenApprovalDialog] = useState(false);
     const [selectedRequest, setSelectedRequest] = useState(null);
+    const [dashboardData, setDashboardData] = useState(null);
+    const [dashboardExpenseData, setDashboardExpenseData] = useState([]);
+    const [historyData, setHistoryData] = useState([]);
+    const [historyAllocatedData, setHistoryAllocatedData] = useState([]);
+    const [historyTypeFilter, setHistoryTypeFilter] = useState("Expense");
+    const [approvalsTypeFilter, setApprovalsTypeFilter] = useState("Expense");
+    const [approvalsStatusFilter, setApprovalsStatusFilter] = useState("");
+    const [pendingExpenseData, setPendingExpenseData] = useState([]);
+    const [pendingFundData, setPendingFundData] = useState([]);
+    const [openFundApprovalDialog, setOpenFundApprovalDialog] = useState(false);
+    const [selectedFund, setSelectedFund] = useState(null);
+    const [fundApprovalAction, setFundApprovalAction] = useState("");
+    const [fundRejectionReason, setFundRejectionReason] = useState("");
+
+
+    const [open, setOpen] = useState(false);
+    const [status, setStatus] = useState(false);
+    const [color, setColor] = useState(false);
+    const [message, setMessage] = useState('');
+
 
     // Current user role (mock - replace with actual auth)
     const [currentUser] = useState({
@@ -177,16 +205,12 @@ export default function ExpensePage() {
 
     // Petty Cash Allocation
     const [allocation, setAllocation] = useState({
-        amount: 50000,
-        period: "Monthly",
-        allocatedDate: "2026-02-01",
-        notes: "Monthly petty cash allocation for February 2026"
+        amount: 5000,
+        notes: ""
     });
 
     const [newAllocation, setNewAllocation] = useState({
         amount: "",
-        period: "Monthly",
-        allocatedDate: new Date().toISOString().split('T')[0],
         notes: ""
     });
 
@@ -197,6 +221,7 @@ export default function ExpensePage() {
         description: "",
         amount: "",
         paymentMethod: "",
+        remarks: "",
         requestedBy: currentUser.name,
         requestedByEmail: currentUser.email
     });
@@ -252,98 +277,315 @@ export default function ExpensePage() {
         return matchesSearch && matchesCategory && matchesStatus;
     });
 
-    // Handle submit expense request
-    const handleSubmitRequest = () => {
+    // Format date from YYYY-MM-DD to DD-MM-YYYY for API
+    const formatDateForApi = (dateStr) => {
+        if (!dateStr) return '';
+        const [y, m, d] = dateStr.split('-');
+        return `${d}-${m}-${y}`;
+    };
+
+    // Handle submit expense request — calls POST API
+    const handleSubmitRequest = async () => {
         if (!newRequest.category || !newRequest.description || !newRequest.amount || !newRequest.paymentMethod) {
-            toast.error("Please fill all required fields");
+            setMessage("Please fill all required fields");
+            setOpen(true); setColor(false); setStatus(false);
             return;
         }
 
         if (parseFloat(newRequest.amount) <= 0) {
-            toast.error("Amount must be greater than 0");
+            setMessage("Amount must be greater than 0");
+            setOpen(true); setColor(false); setStatus(false);
             return;
         }
 
-        const request = {
-            id: expenseRequests.length + 1,
-            ...newRequest,
-            amount: parseFloat(newRequest.amount),
-            status: "Pending",
-            approvalDate: null,
-            approvedBy: null,
-            rejectionReason: null
-        };
+        setIsLoading(true);
+        try {
+            const sendData = {
+                createdByRollNumber: rollNumber,
+                expenceAmount: parseFloat(newRequest.amount),
+                date: formatDateForApi(newRequest.requestDate),
+                category: newRequest.category,
+                description: newRequest.description,
+                paymentMethod: newRequest.paymentMethod,
+                remarks: newRequest.remarks,
+            };
 
-        setExpenseRequests([request, ...expenseRequests]);
-        setOpenRequestDialog(false);
-        setNewRequest({
-            requestDate: new Date().toISOString().split('T')[0],
-            category: "",
-            description: "",
-            amount: "",
-            paymentMethod: "",
-            requestedBy: currentUser.name,
-            requestedByEmail: currentUser.email
-        });
-        toast.success("Expense request submitted successfully!");
-        setActiveTab(2); // Switch to approvals tab
+            await axios.post(postExpence, sendData, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            setNewRequest({
+                requestDate: new Date().toISOString().split('T')[0],
+                category: "",
+                description: "",
+                amount: "",
+                paymentMethod: "",
+                remarks: "",
+                requestedBy: currentUser.name,
+                requestedByEmail: currentUser.email
+            });
+            setMessage("Expense request submitted successfully!");
+            setOpen(true); setColor(true); setStatus(true);
+            fetchDashboardExpenseData();
+            setActiveTab(0);
+        } catch (error) {
+            console.error("Error submitting expense:", error);
+            setMessage("Failed to submit expense request. Please try again.");
+            setOpen(true); setColor(false); setStatus(false);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
-    // Handle approve/reject request
-    const handleApprovalAction = () => {
+    // Handle approve/reject request — calls POST API
+    const handleApprovalAction = async () => {
         if (!approvalAction) {
-            toast.error("Please select an action");
+            setMessage("Please select an action");
+            setOpen(true); setColor(false); setStatus(false);
             return;
         }
 
-        if (approvalAction === "reject" && !rejectionReason) {
-            toast.error("Please provide a rejection reason");
+        if (approvalAction === "decline" && !rejectionReason) {
+            setMessage("Please provide a rejection reason");
+            setOpen(true); setColor(false); setStatus(false);
             return;
         }
 
-        const updatedRequests = expenseRequests.map(req => {
-            if (req.id === selectedRequest.id) {
-                return {
-                    ...req,
-                    status: approvalAction === "approve" ? "Approved" : "Rejected",
-                    approvalDate: new Date().toISOString().split('T')[0],
-                    approvedBy: currentUser.name,
-                    rejectionReason: approvalAction === "reject" ? rejectionReason : null
-                };
-            }
-            return req;
-        });
+        setIsLoading(true);
+        try {
+            await axios.put(updateAddexpenceApprovalAction, null, {
+                params: {
+                    expenceId: selectedRequest.expenceId,
+                    RollNumber: rollNumber,
+                    Action: approvalAction === "approve" ? "accept" : "decline",
+                    Reason: approvalAction === "decline" ? rejectionReason : null,
+                },
+                headers: { Authorization: `Bearer ${token}` },
+            });
 
-        setExpenseRequests(updatedRequests);
-        setOpenApprovalDialog(false);
-        setSelectedRequest(null);
-        setApprovalAction("");
-        setRejectionReason("");
-        toast.success(`Request ${approvalAction === "approve" ? "approved" : "rejected"} successfully!`);
+            setOpenApprovalDialog(false);
+            setSelectedRequest(null);
+            setApprovalAction("");
+            setRejectionReason("");
+            setMessage(`Expense request ${approvalAction === "approve" ? "approved" : "rejected"} successfully!`);
+            setOpen(true); setColor(true); setStatus(true);
+            fetchPendingExpenseData();
+        } catch (error) {
+            console.error("Error processing approval:", error);
+            setMessage("Failed to process request. Please try again.");
+            setOpen(true); setColor(false); setStatus(false);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
-    // Handle set allocation
-    const handleSetAllocation = () => {
+    // Handle set allocation - calls POST API
+    const handleSetAllocation = async () => {
         if (!newAllocation.amount || parseFloat(newAllocation.amount) <= 0) {
-            toast.error("Please enter a valid allocation amount");
+            setMessage("Please enter a valid allocation amount");
+            setOpen(true);
+            setColor(false);
+            setStatus(false);
             return;
         }
 
-        setAllocation({
-            amount: parseFloat(newAllocation.amount),
-            period: newAllocation.period,
-            allocatedDate: newAllocation.allocatedDate,
-            notes: newAllocation.notes
-        });
+        setIsLoading(true);
+        try {
+            const sendData = {
+                createdByRollNumber: rollNumber,
+                fundAmount: parseFloat(newAllocation.amount),
+                description: newAllocation.notes,
+            };
 
-        setOpenAllocationDialog(false);
-        setNewAllocation({
-            amount: "",
-            period: "Monthly",
-            allocatedDate: new Date().toISOString().split('T')[0],
-            notes: ""
-        });
-        toast.success("Allocation updated successfully!");
+            await axios.post(postFund, sendData, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            setAllocation({
+                amount: parseFloat(newAllocation.amount),
+                notes: newAllocation.notes
+            });
+
+            setOpenAllocationDialog(false);
+            setNewAllocation({ amount: "", notes: "" });
+            setMessage(userType === "superadmin" ? "Allocation added successfully!" : "Allocation requested successfully!");
+            setOpen(true); setColor(true); setStatus(true);
+            fetchDashboardData();
+        } catch (error) {
+            console.error("Error while adding allocation:", error);
+            setMessage("Failed to add allocation. Please try again.");
+            setOpen(true); setColor(false); setStatus(false);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchDashboardData();
+        fetchDashboardExpenseData();
+    }, []);
+
+    useEffect(() => {
+        if (activeTab === 2) {
+            if (approvalsTypeFilter === "Expense") {
+                fetchPendingExpenseData();
+            } else {
+                fetchPendingFundData();
+            }
+        }
+    }, [activeTab, approvalsTypeFilter, approvalsStatusFilter]);
+
+    useEffect(() => {
+        if (activeTab === 3) {
+            if (historyTypeFilter === "Expense") {
+                fetchHistoryAllowData();
+            } else {
+                fetchHistoryData();
+            }
+        }
+    }, [activeTab, statusFilter, historyTypeFilter]);
+
+    const fetchDashboardData = async () => {
+        setIsLoading(true);
+        try {
+            const res = await axios.get(expenceDashboard, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+            setDashboardData(res.data.data)
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const fetchHistoryData = async () => {
+        setIsLoading(true);
+        try {
+            const res = await axios.get(getAddedFund, {
+                params:{
+                    RollNumber: rollNumber,
+                    Status:statusFilter,
+                },
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+            setHistoryData(res.data.data ?? [])
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Fetches expense data for dashboard table — always no status filter
+    const fetchDashboardExpenseData = async () => {
+        try {
+            const res = await axios.get(getAddedExpence, {
+                params: { RollNumber: rollNumber },
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            setDashboardExpenseData(res.data.data ?? []);
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
+    const fetchHistoryAllowData = async () => {
+        setIsLoading(true);
+        try {
+            const res = await axios.get(getAddedExpence, {
+                params:{
+                    RollNumber: rollNumber,
+                    Status:statusFilter,
+                },
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+            setHistoryAllocatedData(res.data.data ?? [])
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const fetchPendingExpenseData = async () => {
+        setIsLoading(true);
+        try {
+            const res = await axios.get(expenceApprovalStatusCheck, {
+                params: { RollNumber: rollNumber, Status: approvalsStatusFilter },
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            setPendingExpenseData(res.data.expences ?? []);
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const fetchPendingFundData = async () => {
+        setIsLoading(true);
+        try {
+            const res = await axios.get(fundApprovalStatusCheck, {
+                params: { RollNumber: rollNumber, Status: approvalsStatusFilter },
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            setPendingFundData(res.data.funds ?? []);
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleFundApprovalAction = async () => {
+        if (!fundApprovalAction) {
+            setMessage("Please select an action");
+            setOpen(true); setColor(false); setStatus(false);
+            return;
+        }
+
+        if (fundApprovalAction === "decline" && !fundRejectionReason) {
+            setMessage("Please provide a rejection reason");
+            setOpen(true); setColor(false); setStatus(false);
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            await axios.put(updateAddFundApprovalAction, null, {
+                params: {
+                    addFundId: selectedFund.addFundId,
+                    RollNumber: rollNumber,
+                    Action: fundApprovalAction === "approve" ? "accept" : "decline",
+                    Reason: fundApprovalAction === "decline" ? fundRejectionReason : null,
+                },
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            setOpenFundApprovalDialog(false);
+            setSelectedFund(null);
+            setFundApprovalAction("");
+            setFundRejectionReason("");
+            setMessage(`Fund allocation ${fundApprovalAction === "approve" ? "approved" : "rejected"} successfully!`);
+            setOpen(true); setColor(true); setStatus(true);
+            fetchPendingFundData();
+            if (fundApprovalAction === "approve") fetchDashboardData();
+        } catch (error) {
+            console.error("Error processing fund approval:", error);
+            setMessage("Failed to process request. Please try again.");
+            setOpen(true); setColor(false); setStatus(false);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     // Render Dashboard Tab
@@ -363,17 +605,10 @@ export default function ExpensePage() {
             }}>
                 <Box>
                     <Typography sx={{ fontSize: "14px", opacity: 0.7, mb: 0.5, fontWeight: 500, color: "#1565c0" }}>
-                        Current Allocation - {allocation.period}
+                        Current Allocation
                     </Typography>
                     <Typography sx={{ fontSize: "32px", fontWeight: 700, color: "#0d47a1" }}>
-                        ₹{allocation.amount.toLocaleString()}
-                    </Typography>
-                    <Typography sx={{ fontSize: "12px", opacity: 0.7, mt: 0.5, color: "#1976d2" }}>
-                        Allocated on {new Date(allocation.allocatedDate).toLocaleDateString('en-IN', {
-                            day: '2-digit',
-                            month: 'short',
-                            year: 'numeric'
-                        })}
+                        ₹{(dashboardData?.currentAllocationMonthly ?? 0).toLocaleString()}
                     </Typography>
                 </Box>
                 {(currentUser.role === "Admin" || currentUser.role === "Super Admin") && (
@@ -393,7 +628,7 @@ export default function ExpensePage() {
             </Box>
 
             {/* Warning Alert */}
-            {summary.utilization > 90 && (
+            {(dashboardData?.budgetUtilizationPercent ?? 0) > 90 && (
                 <Box sx={{
                     display: "flex",
                     alignItems: "center",
@@ -407,10 +642,10 @@ export default function ExpensePage() {
                     <WarningAmberIcon sx={{ fontSize: 24, color: "#DC2626" }} />
                     <Box>
                         <Typography sx={{ fontSize: "14px", color: "#991B1B", fontWeight: 600 }}>
-                            Budget Alert: {summary.utilization.toFixed(1)}% Utilized
+                            Budget Alert: {(dashboardData?.budgetUtilizationPercent ?? 0).toFixed(1)}% Utilized
                         </Typography>
                         <Typography sx={{ fontSize: "12px", color: "#DC2626", mt: 0.3 }}>
-                            Only ₹{summary.remaining.toLocaleString()} remaining from allocated amount
+                            Only ₹{(dashboardData?.remainingBalance ?? 0).toLocaleString()} remaining from allocated amount
                         </Typography>
                     </Box>
                 </Box>
@@ -437,10 +672,10 @@ export default function ExpensePage() {
                                         APPROVED EXPENSES
                                     </Typography>
                                     <Typography sx={{ fontSize: "26px", fontWeight: 700, color: "#064E3B", mb: 0.5 }}>
-                                        ₹{summary.approved.toLocaleString()}
+                                        ₹{(dashboardData?.approvedExpensesAmount ?? 0).toLocaleString()}
                                     </Typography>
                                     <Typography sx={{ fontSize: "11px", color: "#10B981", fontWeight: 500 }}>
-                                        {summary.approvedCount} requests approved
+                                        {dashboardData?.approvedExpensesCount ?? 0} requests approved
                                     </Typography>
                                 </Box>
                                 <Box sx={{
@@ -479,10 +714,10 @@ export default function ExpensePage() {
                                         PENDING APPROVAL
                                     </Typography>
                                     <Typography sx={{ fontSize: "26px", fontWeight: 700, color: "#78350F", mb: 0.5 }}>
-                                        ₹{summary.pending.toLocaleString()}
+                                        ₹{(dashboardData?.pendingApprovalAmount ?? 0).toLocaleString()}
                                     </Typography>
                                     <Typography sx={{ fontSize: "11px", color: "#F59E0B", fontWeight: 500 }}>
-                                        {summary.pendingCount} requests waiting
+                                        {dashboardData?.pendingApprovalCount ?? 0} requests waiting
                                     </Typography>
                                 </Box>
                                 <Box sx={{
@@ -504,14 +739,14 @@ export default function ExpensePage() {
 
                 <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                     <Card sx={{
-                        border: summary.remaining > 0 ? "1px solid #3B82F6" : "1px solid #DC2626",
+                        border: (dashboardData?.remainingBalance ?? 0) > 0 ? "1px solid #3B82F6" : "1px solid #DC2626",
                         borderRadius: "12px",
                         boxShadow: "none",
-                        bgcolor: summary.remaining > 0 ? "#EFF6FF" : "#FEF2F2",
+                        bgcolor: (dashboardData?.remainingBalance ?? 0) > 0 ? "#EFF6FF" : "#FEF2F2",
                         transition: "all 0.3s",
                         "&:hover": {
                             transform: "translateY(-4px)",
-                            boxShadow: summary.remaining > 0
+                            boxShadow: (dashboardData?.remainingBalance ?? 0) > 0
                                 ? "0 8px 20px rgba(59,130,246,0.2)"
                                 : "0 8px 20px rgba(220,38,38,0.2)"
                         }
@@ -521,7 +756,7 @@ export default function ExpensePage() {
                                 <Box sx={{ flex: 1 }}>
                                     <Typography sx={{
                                         fontSize: "12px",
-                                        color: summary.remaining > 0 ? "#1E40AF" : "#991B1B",
+                                        color: (dashboardData?.remainingBalance ?? 0) > 0 ? "#1E40AF" : "#991B1B",
                                         fontWeight: 600,
                                         mb: 1
                                     }}>
@@ -530,31 +765,31 @@ export default function ExpensePage() {
                                     <Typography sx={{
                                         fontSize: "26px",
                                         fontWeight: 700,
-                                        color: summary.remaining > 0 ? "#1E3A8A" : "#7F1D1D",
+                                        color: (dashboardData?.remainingBalance ?? 0) > 0 ? "#1E3A8A" : "#7F1D1D",
                                         mb: 0.5
                                     }}>
-                                        ₹{summary.remaining.toLocaleString()}
+                                        ₹{(dashboardData?.remainingBalance ?? 0).toLocaleString()}
                                     </Typography>
                                     <Typography sx={{
                                         fontSize: "11px",
-                                        color: summary.remaining > 0 ? "#3B82F6" : "#DC2626",
+                                        color: (dashboardData?.remainingBalance ?? 0) > 0 ? "#3B82F6" : "#DC2626",
                                         fontWeight: 500
                                     }}>
-                                        {summary.remaining > 0 ? "Available to use" : "Budget exceeded"}
+                                        {(dashboardData?.remainingBalance ?? 0) > 0 ? "Available to use" : "Budget exceeded"}
                                     </Typography>
                                 </Box>
                                 <Box sx={{
                                     width: 52,
                                     height: 52,
                                     borderRadius: "12px",
-                                    bgcolor: summary.remaining > 0 ? "#3B82F630" : "#DC262630",
+                                    bgcolor: (dashboardData?.remainingBalance ?? 0) > 0 ? "#3B82F630" : "#DC262630",
                                     display: "flex",
                                     alignItems: "center",
                                     justifyContent: "center",
-                                    border: summary.remaining > 0 ? "2px solid #3B82F6" : "2px solid #DC2626"
+                                    border: (dashboardData?.remainingBalance ?? 0) > 0 ? "2px solid #3B82F6" : "2px solid #DC2626"
                                 }}>
                                     <AccountBalanceWalletIcon sx={{
-                                        color: summary.remaining > 0 ? "#3B82F6" : "#DC2626",
+                                        color: (dashboardData?.remainingBalance ?? 0) > 0 ? "#3B82F6" : "#DC2626",
                                         fontSize: 28
                                     }} />
                                 </Box>
@@ -582,17 +817,17 @@ export default function ExpensePage() {
                                         BUDGET UTILIZATION
                                     </Typography>
                                     <Typography sx={{ fontSize: "26px", fontWeight: 700, color: "#4C1D95", mb: 0.5 }}>
-                                        {summary.utilization.toFixed(1)}%
+                                        {(dashboardData?.budgetUtilizationPercent ?? 0).toFixed(1)}%
                                     </Typography>
                                     <LinearProgress
                                         variant="determinate"
-                                        value={Math.min(summary.utilization, 100)}
+                                        value={Math.min(dashboardData?.budgetUtilizationPercent ?? 0, 100)}
                                         sx={{
                                             height: 8,
                                             borderRadius: 4,
                                             bgcolor: "#DDD6FE",
                                             "& .MuiLinearProgress-bar": {
-                                                bgcolor: summary.utilization > 90 ? "#DC2626" : "#8B5CF6",
+                                                bgcolor: (dashboardData?.budgetUtilizationPercent ?? 0) > 90 ? "#DC2626" : "#8B5CF6",
                                                 borderRadius: 4
                                             }
                                         }}
@@ -616,100 +851,171 @@ export default function ExpensePage() {
                 </Grid>
             </Grid>
 
-            {/* Recent Requests */}
-            <Card sx={{
+            {/* Recent Expense History Table */}
+            <Paper sx={{
                 border: "1px solid #E5E7EB",
                 borderRadius: "12px",
+                overflow: "hidden",
                 boxShadow: "0 1px 3px rgba(0,0,0,0.05)"
             }}>
+                {/* Header */}
                 <Box sx={{
-                    p: 2.5,
+                    px: 2.5,
+                    py: 2,
                     borderBottom: "2px solid #E5E7EB",
                     display: "flex",
                     justifyContent: "space-between",
-                    alignItems: "center"
+                    alignItems: "center",
+                    background: "linear-gradient(135deg, #f9fafb 0%, #ffffff 100%)"
                 }}>
-                    <Typography sx={{ fontSize: "16px", fontWeight: 700, color: "#111827" }}>
-                        Recent Expense Requests
-                    </Typography>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                        <Box sx={{
+                            width: 36,
+                            height: 36,
+                            borderRadius: "8px",
+                            bgcolor: "#FEF2F2",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            border: "1px solid #FCA5A5"
+                        }}>
+                            <ReceiptLongIcon sx={{ fontSize: 20, color: "#DC2626" }} />
+                        </Box>
+                        <Box>
+                            <Typography sx={{ fontSize: "15px", fontWeight: 700, color: "#111827" }}>
+                                Recent Expense History
+                            </Typography>
+                            <Typography sx={{ fontSize: "11px", color: "#6B7280" }}>
+                                Latest 5 expense transactions
+                            </Typography>
+                        </Box>
+                    </Box>
                     <Button
                         size="small"
-                        onClick={() => setActiveTab(3)}
+                        endIcon={<ReceiptLongIcon sx={{ fontSize: 14 }} />}
+                        onClick={() => {
+                            setHistoryTypeFilter("Expense");
+                            setActiveTab(3);
+                        }}
                         sx={{
                             textTransform: "none",
-                            fontSize: "13px",
-                            color: "#667eea"
+                            fontSize: "12px",
+                            fontWeight: 600,
+                            color: "#667eea",
+                            border: "1px solid #667eea",
+                            borderRadius: "20px",
+                            px: 2,
+                            "&:hover": { bgcolor: "#f0f0ff" }
                         }}
                     >
-                        View All →
+                        View All
                     </Button>
                 </Box>
-                <Box sx={{ maxHeight: 300, overflowY: "auto" }}>
-                    {expenseRequests.slice(0, 5).map((request) => (
-                        <Box
-                            key={request.id}
-                            sx={{
-                                p: 2,
-                                borderBottom: "1px solid #F3F4F6",
-                                display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "center",
-                                "&:hover": {
-                                    bgcolor: "#F9FAFB"
-                                }
-                            }}
-                        >
-                            <Box sx={{ display: "flex", alignItems: "center", gap: 2, flex: 1 }}>
-                                <Avatar sx={{
-                                    bgcolor: request.status === "Approved" ? "#ECFDF5" :
-                                        request.status === "Pending" ? "#FFFBEB" : "#FEF2F2",
-                                    color: request.status === "Approved" ? "#10B981" :
-                                        request.status === "Pending" ? "#F59E0B" : "#DC2626",
-                                    width: 44,
-                                    height: 44
-                                }}>
-                                    {request.category.charAt(0)}
-                                </Avatar>
-                                <Box sx={{ flex: 1 }}>
-                                    <Typography sx={{ fontSize: "14px", fontWeight: 600, color: "#111827", mb: 0.3 }}>
-                                        {request.category}
+
+                {/* Table */}
+                <Table>
+                    <TableHead>
+                        <TableRow>
+                            <TableCell sx={{ backgroundColor: "#F9FAFB", color: "#374151", fontWeight: 700, fontSize: "11px", textTransform: "uppercase", borderBottom: "1px solid #E5E7EB", py: 1.2 }}>
+                                Date
+                            </TableCell>
+                            <TableCell sx={{ backgroundColor: "#F9FAFB", color: "#374151", fontWeight: 700, fontSize: "11px", textTransform: "uppercase", borderBottom: "1px solid #E5E7EB", py: 1.2 }}>
+                                Category
+                            </TableCell>
+                            <TableCell sx={{ backgroundColor: "#F9FAFB", color: "#374151", fontWeight: 700, fontSize: "11px", textTransform: "uppercase", borderBottom: "1px solid #E5E7EB", py: 1.2 }}>
+                                Requested By
+                            </TableCell>
+                            <TableCell sx={{ backgroundColor: "#F9FAFB", color: "#374151", fontWeight: 700, fontSize: "11px", textTransform: "uppercase", borderBottom: "1px solid #E5E7EB", py: 1.2 }}>
+                                Description
+                            </TableCell>
+                            <TableCell sx={{ backgroundColor: "#F9FAFB", color: "#374151", fontWeight: 700, fontSize: "11px", textTransform: "uppercase", borderBottom: "1px solid #E5E7EB", py: 1.2 }}>
+                                Amount
+                            </TableCell>
+                            <TableCell sx={{ backgroundColor: "#F9FAFB", color: "#374151", fontWeight: 700, fontSize: "11px", textTransform: "uppercase", borderBottom: "1px solid #E5E7EB", py: 1.2 }}>
+                                Status
+                            </TableCell>
+                        </TableRow>
+                    </TableHead>
+                    <TableBody>
+                        {dashboardExpenseData.length > 0 ? (
+                            dashboardExpenseData.slice(0, 5).map((item, idx) => {
+                                const reqBy = parseUser(item.createdBy);
+                                const displayStatus = item.status === "Requested" ? "Pending" : item.status;
+                                return (
+                                    <TableRow
+                                        key={item.expenceId}
+                                        sx={{
+                                            backgroundColor: idx % 2 === 0 ? "#fff" : "#FAFAFA",
+                                            '&:hover': { backgroundColor: '#F3F4F6' },
+                                            '&:last-child td': { borderBottom: 'none' }
+                                        }}
+                                    >
+                                        <TableCell sx={{ fontSize: "12px", color: "#374151", borderBottom: "1px solid #F3F4F6", py: 1.5, whiteSpace: "nowrap" }}>
+                                            {new Date(item.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                        </TableCell>
+
+                                        <TableCell sx={{ borderBottom: "1px solid #F3F4F6", py: 1.5 }}>
+                                            <Chip
+                                                label={item.category || '-'}
+                                                size="small"
+                                                sx={{ fontSize: "10px", bgcolor: "#EFF6FF", color: "#1D4ED8", border: "1px solid #BFDBFE", fontWeight: 600, height: 20 }}
+                                            />
+                                        </TableCell>
+
+                                        <TableCell sx={{ borderBottom: "1px solid #F3F4F6", py: 1.5 }}>
+                                            <Typography sx={{ fontSize: "12px", fontWeight: 600, color: "#111827" }}>
+                                                {reqBy.name}
+                                            </Typography>
+                                            <Typography sx={{ fontSize: "10px", color: "#9CA3AF" }}>
+                                                {reqBy.roll}
+                                            </Typography>
+                                        </TableCell>
+
+                                        <TableCell sx={{ borderBottom: "1px solid #F3F4F6", py: 1.5, maxWidth: 220 }}>
+                                            <Tooltip title={item.description} arrow>
+                                                <Typography sx={{ fontSize: "12px", color: "#374151", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                                    {item.description || '-'}
+                                                </Typography>
+                                            </Tooltip>
+                                        </TableCell>
+
+                                        <TableCell sx={{ fontSize: "13px", fontWeight: 700, color: "#DC2626", borderBottom: "1px solid #F3F4F6", py: 1.5, whiteSpace: "nowrap" }}>
+                                            ₹{(item.expenceAmount ?? 0).toLocaleString()}
+                                        </TableCell>
+
+                                        <TableCell sx={{ borderBottom: "1px solid #F3F4F6", py: 1.5 }}>
+                                            <Chip
+                                                label={displayStatus}
+                                                size="small"
+                                                sx={{
+                                                    fontSize: "10px",
+                                                    fontWeight: 600,
+                                                    height: 20,
+                                                    bgcolor: displayStatus === "Approved" ? "#ECFDF5" :
+                                                        displayStatus === "Pending" ? "#FFFBEB" : "#FEF2F2",
+                                                    color: displayStatus === "Approved" ? "#047857" :
+                                                        displayStatus === "Pending" ? "#B45309" : "#991B1B",
+                                                    border: `1px solid ${displayStatus === "Approved" ? "#A7F3D0" :
+                                                        displayStatus === "Pending" ? "#FCD34D" : "#FCA5A5"}`
+                                                }}
+                                            />
+                                        </TableCell>
+                                    </TableRow>
+                                );
+                            })
+                        ) : (
+                            <TableRow>
+                                <TableCell colSpan={6} sx={{ textAlign: "center", py: 4, borderBottom: "none" }}>
+                                    <ReceiptLongIcon sx={{ fontSize: 36, color: "#D1D5DB", mb: 1, display: "block", mx: "auto" }} />
+                                    <Typography sx={{ fontSize: "13px", color: "#9CA3AF" }}>
+                                        {isLoading ? "Loading..." : "No expense records found"}
                                     </Typography>
-                                    <Typography sx={{
-                                        fontSize: "12px",
-                                        color: "#6B7280",
-                                        overflow: "hidden",
-                                        textOverflow: "ellipsis",
-                                        whiteSpace: "nowrap",
-                                        maxWidth: 300
-                                    }}>
-                                        {request.description}
-                                    </Typography>
-                                </Box>
-                            </Box>
-                            <Box sx={{ textAlign: "right" }}>
-                                <Typography sx={{ fontSize: "16px", fontWeight: 700, color: "#111827", mb: 0.3 }}>
-                                    ₹{request.amount.toLocaleString()}
-                                </Typography>
-                                <Chip
-                                    label={request.status}
-                                    size="small"
-                                    sx={{
-                                        fontSize: "10px",
-                                        fontWeight: 600,
-                                        height: "20px",
-                                        bgcolor: request.status === "Approved" ? "#ECFDF5" :
-                                            request.status === "Pending" ? "#FFFBEB" : "#FEF2F2",
-                                        color: request.status === "Approved" ? "#047857" :
-                                            request.status === "Pending" ? "#B45309" : "#991B1B",
-                                        border: `1px solid ${request.status === "Approved" ? "#A7F3D0" :
-                                            request.status === "Pending" ? "#FCD34D" : "#FCA5A5"}`
-                                    }}
-                                />
-                            </Box>
-                        </Box>
-                    ))}
-                </Box>
-            </Card>
+                                </TableCell>
+                            </TableRow>
+                        )}
+                    </TableBody>
+                </Table>
+            </Paper>
         </Box>
     );
 
@@ -803,9 +1109,13 @@ export default function ExpensePage() {
                                 fullWidth
                                 required
                                 label="Amount"
-                                type="number"
                                 value={newRequest.amount}
-                                onChange={(e) => setNewRequest({ ...newRequest, amount: e.target.value })}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (/^\d*\.?\d*$/.test(val)) {
+                                        setNewRequest({ ...newRequest, amount: val });
+                                    }
+                                }}
                                 slotProps={{
                                     input: {
                                         startAdornment: (
@@ -836,6 +1146,18 @@ export default function ExpensePage() {
                         </Grid>
 
                         <Grid size={{ xs: 12 }}>
+                            <TextField
+                                fullWidth
+                                label="Remarks (Optional)"
+                                multiline
+                                rows={2}
+                                value={newRequest.remarks}
+                                onChange={(e) => setNewRequest({ ...newRequest, remarks: e.target.value })}
+                                placeholder="Enter any additional remarks..."
+                            />
+                        </Grid>
+
+                        <Grid size={{ xs: 12 }}>
                             <Box sx={{
                                 p: 2,
                                 borderRadius: "8px",
@@ -846,10 +1168,10 @@ export default function ExpensePage() {
                                     Requestor Information
                                 </Typography>
                                 <Typography sx={{ fontSize: "12px", color: "#6B7280" }}>
-                                    Name: {newRequest.requestedBy}
+                                    RollNumber: {rollNumber}
                                 </Typography>
                                 <Typography sx={{ fontSize: "12px", color: "#6B7280" }}>
-                                    Email: {newRequest.requestedByEmail}
+                                    Name: {userName}
                                 </Typography>
                             </Box>
                         </Grid>
@@ -864,6 +1186,7 @@ export default function ExpensePage() {
                                 description: "",
                                 amount: "",
                                 paymentMethod: "",
+                                remarks: "",
                                 requestedBy: currentUser.name,
                                 requestedByEmail: currentUser.email
                             })}
@@ -899,197 +1222,409 @@ export default function ExpensePage() {
     );
 
     // Render Approvals Tab
-    const renderApprovals = () => {
-        const pendingRequests = expenseRequests.filter(req => req.status === "Pending");
+    const renderApprovals = () => (
+        <Box>
+            {/* Filter Bar */}
+            <Box sx={{ backgroundColor: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: "12px", p: 2, mb: 3 }}>
+                <Grid container spacing={2} sx={{ alignItems: "center" }}>
+                    {/* Type Toggle */}
+                    <Grid size={{ xs: 12, sm: 6, md: 5 }}>
+                        <Box sx={{ display: "flex", gap: 1 }}>
+                            {["Expense", "Fund (Allocation)"].map((type) => (
+                                <Button
+                                    key={type}
+                                    variant={approvalsTypeFilter === type ? "contained" : "outlined"}
+                                    size="small"
+                                    onClick={() => setApprovalsTypeFilter(type)}
+                                    sx={{
+                                        textTransform: "none",
+                                        borderRadius: "20px",
+                                        fontSize: "12px",
+                                        fontWeight: 600,
+                                        px: 2,
+                                        ...(approvalsTypeFilter === type ? {
+                                            bgcolor: "#667eea",
+                                            borderColor: "#667eea",
+                                            "&:hover": { bgcolor: "#5568d3" }
+                                        } : {
+                                            borderColor: "#D1D5DB",
+                                            color: "#6B7280",
+                                            "&:hover": { borderColor: "#667eea", color: "#667eea", bgcolor: "transparent" }
+                                        })
+                                    }}
+                                >
+                                    {type}
+                                </Button>
+                            ))}
+                        </Box>
+                    </Grid>
 
-        return (
-            <Box>
-                {pendingRequests.length === 0 ? (
-                    <Card sx={{
-                        border: "1px solid #E5E7EB",
-                        borderRadius: "12px",
-                        p: 6,
-                        textAlign: "center"
-                    }}>
+                    {/* Status Filter */}
+                    <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                        <FormControl fullWidth size="small">
+                            <InputLabel>Status</InputLabel>
+                            <Select
+                                value={approvalsStatusFilter}
+                                onChange={(e) => setApprovalsStatusFilter(e.target.value)}
+                                label="Status"
+                                sx={{ backgroundColor: "#fff", borderRadius: "8px" }}
+                            >
+                                <MenuItem value="">All Status</MenuItem>
+                                <MenuItem value="Requested">Pending</MenuItem>
+                                <MenuItem value="Approved">Approved</MenuItem>
+                                <MenuItem value="Declined">Rejected</MenuItem>
+                            </Select>
+                        </FormControl>
+                    </Grid>
+
+                    {/* Record count */}
+                    <Grid size={{ xs: 12, md: 3 }}>
+                        <Typography sx={{ fontSize: "13px", color: "#6B7280", textAlign: "right" }}>
+                            {approvalsTypeFilter === "Expense" ? pendingExpenseData.length : pendingFundData.length} records
+                        </Typography>
+                    </Grid>
+                </Grid>
+            </Box>
+
+            {approvalsTypeFilter === "Expense" ? (
+                /* ── Expense Approvals ── */
+                isLoading ? (
+                    <Box sx={{ textAlign: "center", py: 6 }}>
+                        <Typography sx={{ fontSize: "14px", color: "#9CA3AF" }}>Loading...</Typography>
+                    </Box>
+                ) : pendingExpenseData.length === 0 ? (
+                    <Card sx={{ border: "1px solid #E5E7EB", borderRadius: "12px", p: 6, textAlign: "center" }}>
                         <PendingActionsIcon sx={{ fontSize: 64, color: "#D1D5DB", mb: 2 }} />
                         <Typography sx={{ fontSize: "18px", fontWeight: 600, color: "#111827", mb: 1 }}>
-                            No Pending Approvals
+                            No Expense Records Found
                         </Typography>
                         <Typography sx={{ fontSize: "14px", color: "#6B7280" }}>
-                            All expense requests have been processed
+                            No records match the selected filter
                         </Typography>
                     </Card>
                 ) : (
                     <Grid container spacing={3}>
-                        {pendingRequests.map((request) => (
-                            <Grid size={{ xs: 12, md: 6 }} key={request.id}>
-                                <Card sx={{
-                                    border: "2px solid #1976d2",
-                                    borderRadius: "12px",
-                                    boxShadow: "0 4px 12px rgba(25,118,210,0.15)",
-                                    transition: "all 0.3s",
-                                    "&:hover": {
-                                        transform: "translateY(-4px)",
-                                        boxShadow: "0 8px 24px rgba(25,118,210,0.25)"
-                                    }
-                                }}>
-                                    <Box sx={{
-                                        p: 2,
-                                        borderBottom: "2px solid #e3f2fd",
-                                        bgcolor: "#e3f2fd",
-                                        display: "flex",
-                                        justifyContent: "space-between",
-                                        alignItems: "center"
+                        {pendingExpenseData.map((item) => {
+                            const requestedBy = parseUser(item.createdBy);
+                            return (
+                                <Grid size={{ xs: 12, md: 6 }} key={item.expenceId}>
+                                    <Card sx={{
+                                        border: "2px solid #1976d2",
+                                        borderRadius: "12px",
+                                        boxShadow: "0 4px 12px rgba(25,118,210,0.15)",
+                                        transition: "all 0.3s",
+                                        "&:hover": {
+                                            transform: "translateY(-4px)",
+                                            boxShadow: "0 8px 24px rgba(25,118,210,0.25)"
+                                        }
                                     }}>
-                                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                                            <Avatar sx={{
-                                                bgcolor: "#bbdefb",
-                                                color: "#0d47a1",
-                                                width: 40,
-                                                height: 40,
-                                                fontWeight: 700
-                                            }}>
-                                                {request.category.charAt(0)}
-                                            </Avatar>
-                                            <Box>
-                                                <Typography sx={{ fontSize: "14px", fontWeight: 700, color: "#0d47a1" }}>
-                                                    {request.category}
-                                                </Typography>
-                                                <Typography sx={{ fontSize: "11px", color: "#1565c0" }}>
-                                                    {new Date(request.requestDate).toLocaleDateString('en-IN')}
-                                                </Typography>
-                                            </Box>
-                                        </Box>
-                                        <Chip
-                                            label="PENDING"
-                                            size="small"
-                                            sx={{
-                                                bgcolor: "#1976d2",
-                                                color: "#fff",
-                                                fontWeight: 700,
-                                                fontSize: "10px"
-                                            }}
-                                        />
-                                    </Box>
-
-                                    <CardContent sx={{ p: 2.5 }}>
-                                        <Typography sx={{
-                                            fontSize: "13px",
-                                            color: "#374151",
-                                            mb: 2,
-                                            lineHeight: 1.6
+                                        <Box sx={{
+                                            p: 2,
+                                            borderBottom: "2px solid #e3f2fd",
+                                            bgcolor: "#e3f2fd",
+                                            display: "flex",
+                                            justifyContent: "space-between",
+                                            alignItems: "center"
                                         }}>
-                                            {request.description}
-                                        </Typography>
-
-                                        <Divider sx={{ my: 2 }} />
-
-                                        <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-                                            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                                                <Typography sx={{ fontSize: "12px", color: "#6B7280" }}>
-                                                    Amount:
-                                                </Typography>
-                                                <Typography sx={{ fontSize: "16px", fontWeight: 700, color: "#111827" }}>
-                                                    ₹{request.amount.toLocaleString()}
-                                                </Typography>
+                                            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                                                <Avatar sx={{ bgcolor: "#bbdefb", color: "#0d47a1", width: 40, height: 40, fontWeight: 700 }}>
+                                                    {(item.category || "E").charAt(0)}
+                                                </Avatar>
+                                                <Box>
+                                                    <Typography sx={{ fontSize: "14px", fontWeight: 700, color: "#0d47a1" }}>
+                                                        {item.category || "—"}
+                                                    </Typography>
+                                                    <Typography sx={{ fontSize: "11px", color: "#1565c0" }}>
+                                                        {item.date ? new Date(item.date).toLocaleDateString('en-IN') : '—'}
+                                                    </Typography>
+                                                </Box>
                                             </Box>
-                                            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                                                <Typography sx={{ fontSize: "12px", color: "#6B7280" }}>
-                                                    Payment Method:
-                                                </Typography>
+                                            {renderStatusChip(item.status)}
+                                        </Box>
+
+                                        <CardContent sx={{ p: 2.5 }}>
+                                            <Typography sx={{ fontSize: "13px", color: "#374151", mb: 2, lineHeight: 1.6 }}>
+                                                {item.description || "—"}
+                                            </Typography>
+
+                                            <Divider sx={{ my: 2 }} />
+
+                                            <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+                                                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                                                    <Typography sx={{ fontSize: "12px", color: "#6B7280" }}>Amount:</Typography>
+                                                    <Typography sx={{ fontSize: "16px", fontWeight: 700, color: "#111827" }}>
+                                                        ₹{(item.expenceAmount ?? 0).toLocaleString()}
+                                                    </Typography>
+                                                </Box>
+                                                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                                                    <Typography sx={{ fontSize: "12px", color: "#6B7280" }}>Payment Method:</Typography>
+                                                    <Chip label={item.paymentMethod || "—"} size="small" sx={{ fontSize: "11px", height: "22px", bgcolor: "#F3F4F6", color: "#374151" }} />
+                                                </Box>
+                                                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                                                    <Typography sx={{ fontSize: "12px", color: "#6B7280" }}>Requested By:</Typography>
+                                                    <Typography sx={{ fontSize: "12px", fontWeight: 600, color: "#111827" }}>
+                                                        {requestedBy.name}
+                                                    </Typography>
+                                                </Box>
+                                                {item.remarks && (
+                                                    <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                                                        <Typography sx={{ fontSize: "12px", color: "#6B7280" }}>Remarks:</Typography>
+                                                        <Typography sx={{ fontSize: "12px", color: "#374151" }}>{item.remarks}</Typography>
+                                                    </Box>
+                                                )}
+                                            </Box>
+
+                                            {(currentUser.role === "Admin" || currentUser.role === "Super Admin") && item.status === "Requested" && parseUser(item.createdBy).roll !== String(rollNumber) && (
+                                                <Box sx={{ display: "flex", gap: 2, mt: 3 }}>
+                                                    <Button
+                                                        fullWidth
+                                                        variant="outlined"
+                                                        startIcon={<ThumbDownIcon />}
+                                                        onClick={() => {
+                                                            setSelectedRequest(item);
+                                                            setApprovalAction("decline");
+                                                            setOpenApprovalDialog(true);
+                                                        }}
+                                                        sx={{ textTransform: "none", borderRadius: "8px", borderColor: "#DC2626", color: "#DC2626", "&:hover": { borderColor: "#B91C1C", bgcolor: "#FEF2F2" } }}
+                                                    >
+                                                        Reject
+                                                    </Button>
+                                                    <Button
+                                                        fullWidth
+                                                        variant="contained"
+                                                        startIcon={<ThumbUpIcon />}
+                                                        onClick={() => {
+                                                            setSelectedRequest(item);
+                                                            setApprovalAction("approve");
+                                                            setOpenApprovalDialog(true);
+                                                        }}
+                                                        sx={{ textTransform: "none", borderRadius: "8px", bgcolor: "#10B981", "&:hover": { bgcolor: "#059669" } }}
+                                                    >
+                                                        Approve
+                                                    </Button>
+                                                </Box>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+                                </Grid>
+                            );
+                        })}
+                    </Grid>
+                )
+            ) : (
+                    /* ── Fund (Allocation) Pending Approvals ── */
+                    isLoading ? (
+                        <Box sx={{ textAlign: "center", py: 6 }}>
+                            <Typography sx={{ fontSize: "14px", color: "#9CA3AF" }}>Loading...</Typography>
+                        </Box>
+                    ) : pendingFundData.length === 0 ? (
+                        <Card sx={{ border: "1px solid #E5E7EB", borderRadius: "12px", p: 6, textAlign: "center" }}>
+                            <AccountBalanceWalletIcon sx={{ fontSize: 64, color: "#D1D5DB", mb: 2 }} />
+                            <Typography sx={{ fontSize: "18px", fontWeight: 600, color: "#111827", mb: 1 }}>
+                                No Pending Fund Allocations
+                            </Typography>
+                            <Typography sx={{ fontSize: "14px", color: "#6B7280" }}>
+                                All fund allocation requests have been processed
+                            </Typography>
+                        </Card>
+                    ) : (
+                        <Grid container spacing={3}>
+                            {pendingFundData.map((fund) => {
+                                const addedBy = parseUser(fund.createdBy);
+                                return (
+                                    <Grid size={{ xs: 12, md: 6 }} key={fund.addFundId}>
+                                        <Card sx={{
+                                            border: "2px solid #667eea",
+                                            borderRadius: "12px",
+                                            boxShadow: "0 4px 12px rgba(102,126,234,0.15)",
+                                            transition: "all 0.3s",
+                                            "&:hover": {
+                                                transform: "translateY(-4px)",
+                                                boxShadow: "0 8px 24px rgba(102,126,234,0.25)"
+                                            }
+                                        }}>
+                                            <Box sx={{
+                                                p: 2,
+                                                borderBottom: "2px solid #ede9fe",
+                                                bgcolor: "#ede9fe",
+                                                display: "flex",
+                                                justifyContent: "space-between",
+                                                alignItems: "center"
+                                            }}>
+                                                <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                                                    <Avatar sx={{
+                                                        bgcolor: "#c4b5fd",
+                                                        color: "#4c1d95",
+                                                        width: 40,
+                                                        height: 40,
+                                                        fontWeight: 700
+                                                    }}>
+                                                        <AccountBalanceWalletIcon sx={{ fontSize: 22 }} />
+                                                    </Avatar>
+                                                    <Box>
+                                                        <Typography sx={{ fontSize: "14px", fontWeight: 700, color: "#4c1d95" }}>
+                                                            Fund Allocation
+                                                        </Typography>
+                                                        <Typography sx={{ fontSize: "11px", color: "#6d28d9" }}>
+                                                            {fund.date ? new Date(fund.date).toLocaleDateString('en-IN') : '—'}
+                                                        </Typography>
+                                                    </Box>
+                                                </Box>
                                                 <Chip
-                                                    label={request.paymentMethod}
+                                                    label="PENDING"
                                                     size="small"
-                                                    sx={{
-                                                        fontSize: "11px",
-                                                        height: "22px",
-                                                        bgcolor: "#F3F4F6",
-                                                        color: "#374151"
-                                                    }}
+                                                    sx={{ bgcolor: "#667eea", color: "#fff", fontWeight: 700, fontSize: "10px" }}
                                                 />
                                             </Box>
-                                            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                                                <Typography sx={{ fontSize: "12px", color: "#6B7280" }}>
-                                                    Requested By:
-                                                </Typography>
-                                                <Typography sx={{ fontSize: "12px", fontWeight: 600, color: "#111827" }}>
-                                                    {request.requestedBy}
-                                                </Typography>
-                                            </Box>
-                                        </Box>
 
-                                        {(currentUser.role === "Admin" || currentUser.role === "Super Admin") && (
-                                            <Box sx={{ display: "flex", gap: 2, mt: 3 }}>
-                                                <Button
-                                                    fullWidth
-                                                    variant="outlined"
-                                                    startIcon={<ThumbDownIcon />}
-                                                    onClick={() => {
-                                                        setSelectedRequest(request);
-                                                        setApprovalAction("reject");
-                                                        setOpenApprovalDialog(true);
-                                                    }}
-                                                    sx={{
-                                                        textTransform: "none",
-                                                        borderRadius: "8px",
-                                                        borderColor: "#DC2626",
-                                                        color: "#DC2626",
-                                                        "&:hover": {
-                                                            borderColor: "#B91C1C",
-                                                            bgcolor: "#FEF2F2"
-                                                        }
-                                                    }}
-                                                >
-                                                    Reject
-                                                </Button>
-                                                <Button
-                                                    fullWidth
-                                                    variant="contained"
-                                                    startIcon={<ThumbUpIcon />}
-                                                    onClick={() => {
-                                                        setSelectedRequest(request);
-                                                        setApprovalAction("approve");
-                                                        setOpenApprovalDialog(true);
-                                                    }}
-                                                    sx={{
-                                                        textTransform: "none",
-                                                        borderRadius: "8px",
-                                                        bgcolor: "#10B981",
-                                                        "&:hover": {
-                                                            bgcolor: "#059669"
-                                                        }
-                                                    }}
-                                                >
-                                                    Approve
-                                                </Button>
-                                            </Box>
-                                        )}
-                                    </CardContent>
-                                </Card>
-                            </Grid>
-                        ))}
-                    </Grid>
+                                            <CardContent sx={{ p: 2.5 }}>
+                                                <Typography sx={{ fontSize: "13px", color: "#374151", mb: 2, lineHeight: 1.6 }}>
+                                                    {fund.description || "—"}
+                                                </Typography>
+
+                                                <Divider sx={{ my: 2 }} />
+
+                                                <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+                                                    <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                                                        <Typography sx={{ fontSize: "12px", color: "#6B7280" }}>Amount:</Typography>
+                                                        <Typography sx={{ fontSize: "16px", fontWeight: 700, color: "#111827" }}>
+                                                            ₹{(fund.fundAmount ?? 0).toLocaleString()}
+                                                        </Typography>
+                                                    </Box>
+                                                    <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                                                        <Typography sx={{ fontSize: "12px", color: "#6B7280" }}>Added By:</Typography>
+                                                        <Typography sx={{ fontSize: "12px", fontWeight: 600, color: "#111827" }}>
+                                                            {addedBy.name}
+                                                        </Typography>
+                                                    </Box>
+                                                    {fund.remarks && (
+                                                        <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                                                            <Typography sx={{ fontSize: "12px", color: "#6B7280" }}>Remarks:</Typography>
+                                                            <Typography sx={{ fontSize: "12px", color: "#374151" }}>{fund.remarks}</Typography>
+                                                        </Box>
+                                                    )}
+                                                </Box>
+
+                                                {(currentUser.role === "Admin" || currentUser.role === "Super Admin") && fund.status === "Requested" && parseUser(fund.createdBy).roll !== String(rollNumber) && (
+                                                    <Box sx={{ display: "flex", gap: 2, mt: 3 }}>
+                                                        <Button
+                                                            fullWidth
+                                                            variant="outlined"
+                                                            startIcon={<ThumbDownIcon />}
+                                                            onClick={() => {
+                                                                setSelectedFund(fund);
+                                                                setFundApprovalAction("decline");
+                                                                setOpenFundApprovalDialog(true);
+                                                            }}
+                                                            sx={{
+                                                                textTransform: "none",
+                                                                borderRadius: "8px",
+                                                                borderColor: "#DC2626",
+                                                                color: "#DC2626",
+                                                                "&:hover": { borderColor: "#B91C1C", bgcolor: "#FEF2F2" }
+                                                            }}
+                                                        >
+                                                            Reject
+                                                        </Button>
+                                                        <Button
+                                                            fullWidth
+                                                            variant="contained"
+                                                            startIcon={<ThumbUpIcon />}
+                                                            onClick={() => {
+                                                                setSelectedFund(fund);
+                                                                setFundApprovalAction("approve");
+                                                                setOpenFundApprovalDialog(true);
+                                                            }}
+                                                            sx={{
+                                                                textTransform: "none",
+                                                                borderRadius: "8px",
+                                                                bgcolor: "#10B981",
+                                                                "&:hover": { bgcolor: "#059669" }
+                                                            }}
+                                                        >
+                                                            Approve
+                                                        </Button>
+                                                    </Box>
+                                                )}
+                                            </CardContent>
+                                        </Card>
+                                    </Grid>
+                                );
+                            })}
+                        </Grid>
+                    )
                 )}
             </Box>
+    );
+
+    // Render History Tab — Fund Addition History
+    const parseUser = (str) => {
+        if (!str) return { roll: '-', name: '-' };
+        const parts = str.split('-');
+        if (parts.length >= 3) {
+            return { roll: parts[0], name: parts.slice(1, -1).join(' ') };
+        }
+        return { roll: parts[0] || '-', name: parts[1] || '-' };
+    };
+
+    const activeHistoryData = historyTypeFilter === "Expense" ? historyAllocatedData : historyData;
+
+    const filteredHistory = activeHistoryData.filter((item) => {
+        const q = searchQuery.toLowerCase();
+        return (
+            !q ||
+            item.description?.toLowerCase().includes(q) ||
+            item.remarks?.toLowerCase().includes(q) ||
+            item.createdBy?.toLowerCase().includes(q) ||
+            item.category?.toLowerCase().includes(q)
+        );
+    });
+
+    const thCell = {
+        backgroundColor: "#F9FAFB",
+        color: "#374151",
+        fontWeight: 700,
+        fontSize: "12px",
+        textTransform: "uppercase",
+        borderBottom: "2px solid #E5E7EB",
+        whiteSpace: "nowrap"
+    };
+
+    const renderStatusChip = (rawStatus) => {
+        const displayStatus = rawStatus === "Requested" ? "Pending" : rawStatus === "Declined" ? "Rejected" : rawStatus;
+        return (
+            <Chip
+                label={displayStatus}
+                size="small"
+                icon={
+                    displayStatus === "Approved" ? <CheckCircleIcon sx={{ fontSize: 14 }} /> :
+                        displayStatus === "Pending" ? <PendingActionsIcon sx={{ fontSize: 14 }} /> :
+                            <CancelIcon sx={{ fontSize: 14 }} />
+                }
+                sx={{
+                    backgroundColor: displayStatus === "Approved" ? "#ECFDF5" :
+                        displayStatus === "Pending" ? "#FFFBEB" : "#FEF2F2",
+                    color: displayStatus === "Approved" ? "#047857" :
+                        displayStatus === "Pending" ? "#B45309" : "#991B1B",
+                    fontSize: "11px",
+                    fontWeight: 600,
+                    border: displayStatus === "Approved" ? "1px solid #A7F3D0" :
+                        displayStatus === "Pending" ? "1px solid #FCD34D" : "1px solid #FCA5A5"
+                }}
+            />
         );
     };
 
-    // Render History Tab
     const renderHistory = () => (
         <Box>
             {/* Filters */}
-            <Box sx={{
-                backgroundColor: "#F9FAFB",
-                border: "1px solid #E5E7EB",
-                borderRadius: "12px",
-                p: 2,
-                mb: 3
-            }}>
+            <Box sx={{ backgroundColor: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: "12px", p: 2, mb: 3 }}>
                 <Grid container spacing={2} sx={{ alignItems: "center" }}>
+                    {/* Search */}
                     <Grid size={{ xs: 12, md: 4 }}>
                         <TextField
                             fullWidth
-                            placeholder="Search by description, category..."
+                            placeholder="Search by description, category, name..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             slotProps={{
@@ -1101,236 +1636,285 @@ export default function ExpensePage() {
                                     )
                                 }
                             }}
-                            sx={{
-                                backgroundColor: "#fff",
-                                "& .MuiOutlinedInput-root": {
-                                    borderRadius: "8px"
-                                }
-                            }}
+                            sx={{ backgroundColor: "#fff", "& .MuiOutlinedInput-root": { borderRadius: "8px" } }}
                             size="small"
                         />
                     </Grid>
 
-                    <Grid size={{ xs: 12, md: 3 }}>
-                        <FormControl fullWidth size="small">
-                            <InputLabel>Category</InputLabel>
-                            <Select
-                                value={categoryFilter}
-                                onChange={(e) => setCategoryFilter(e.target.value)}
-                                label="Category"
-                                sx={{
-                                    backgroundColor: "#fff",
-                                    borderRadius: "8px"
-                                }}
-                            >
-                                <MenuItem value="All">All Categories</MenuItem>
-                                {expenseCategories.map((category) => (
-                                    <MenuItem key={category} value={category}>
-                                        {category}
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
-                    </Grid>
-
-                    <Grid size={{ xs: 12, md: 3 }}>
+                    {/* Status Filter */}
+                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                         <FormControl fullWidth size="small">
                             <InputLabel>Status</InputLabel>
                             <Select
                                 value={statusFilter}
                                 onChange={(e) => setStatusFilter(e.target.value)}
                                 label="Status"
-                                sx={{
-                                    backgroundColor: "#fff",
-                                    borderRadius: "8px"
-                                }}
+                                sx={{ backgroundColor: "#fff", borderRadius: "8px" }}
                             >
-                                <MenuItem value="All">All Status</MenuItem>
-                                <MenuItem value="Pending">Pending</MenuItem>
+                                <MenuItem value="">All Status</MenuItem>
+                                <MenuItem value="Requested">Pending</MenuItem>
                                 <MenuItem value="Approved">Approved</MenuItem>
-                                <MenuItem value="Rejected">Rejected</MenuItem>
+                                <MenuItem value="Declined">Rejected</MenuItem>
                             </Select>
                         </FormControl>
                     </Grid>
 
+                    {/* Type Toggle */}
+                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                        <Box sx={{ display: "flex", gap: 1 }}>
+                            {["Expense", "Fund (Allocation)"].map((type) => (
+                                <Button
+                                    key={type}
+                                    variant={historyTypeFilter === type ? "contained" : "outlined"}
+                                    size="small"
+                                    onClick={() => {
+                                        setHistoryTypeFilter(type);
+                                        setSearchQuery("");
+                                    }}
+                                    sx={{
+                                        textTransform: "none",
+                                        borderRadius: "20px",
+                                        fontSize: "12px",
+                                        fontWeight: 600,
+                                        px: 2,
+                                        ...(historyTypeFilter === type ? {
+                                            bgcolor: "#667eea",
+                                            borderColor: "#667eea",
+                                            "&:hover": { bgcolor: "#5568d3" }
+                                        } : {
+                                            borderColor: "#D1D5DB",
+                                            color: "#6B7280",
+                                            "&:hover": { borderColor: "#667eea", color: "#667eea", bgcolor: "transparent" }
+                                        })
+                                    }}
+                                >
+                                    {type}
+                                </Button>
+                            ))}
+                        </Box>
+                    </Grid>
+
+                    {/* Record count */}
                     <Grid size={{ xs: 12, md: 2 }}>
                         <Typography sx={{ fontSize: "13px", color: "#6B7280", textAlign: "right" }}>
-                            {filteredRequests.length} of {expenseRequests.length} requests
+                            {filteredHistory.length} of {activeHistoryData.length} records
                         </Typography>
                     </Grid>
                 </Grid>
             </Box>
 
             {/* Table */}
-            <Paper sx={{
-                border: "1px solid #E5E7EB",
-                borderRadius: "12px",
-                overflow: "hidden",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.05)"
-            }}>
+            <Paper sx={{ border: "1px solid #E5E7EB", borderRadius: "12px", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
                 <Box sx={{ maxHeight: 500, overflowY: "auto" }}>
-                    <Table stickyHeader>
-                        <TableHead>
-                            <TableRow>
-                                <TableCell sx={{
-                                    backgroundColor: "#F9FAFB",
-                                    color: "#374151",
-                                    fontWeight: 700,
-                                    fontSize: "12px",
-                                    textTransform: "uppercase",
-                                    borderBottom: "2px solid #E5E7EB"
-                                }}>
-                                    Date
-                                </TableCell>
-                                <TableCell sx={{
-                                    backgroundColor: "#F9FAFB",
-                                    color: "#374151",
-                                    fontWeight: 700,
-                                    fontSize: "12px",
-                                    textTransform: "uppercase",
-                                    borderBottom: "2px solid #E5E7EB"
-                                }}>
-                                    Category
-                                </TableCell>
-                                <TableCell sx={{
-                                    backgroundColor: "#F9FAFB",
-                                    color: "#374151",
-                                    fontWeight: 700,
-                                    fontSize: "12px",
-                                    textTransform: "uppercase",
-                                    borderBottom: "2px solid #E5E7EB"
-                                }}>
-                                    Description
-                                </TableCell>
-                                <TableCell sx={{
-                                    backgroundColor: "#F9FAFB",
-                                    color: "#374151",
-                                    fontWeight: 700,
-                                    fontSize: "12px",
-                                    textTransform: "uppercase",
-                                    borderBottom: "2px solid #E5E7EB"
-                                }}>
-                                    Amount
-                                </TableCell>
-                                <TableCell sx={{
-                                    backgroundColor: "#F9FAFB",
-                                    color: "#374151",
-                                    fontWeight: 700,
-                                    fontSize: "12px",
-                                    textTransform: "uppercase",
-                                    borderBottom: "2px solid #E5E7EB"
-                                }}>
-                                    Requested By
-                                </TableCell>
-                                <TableCell sx={{
-                                    backgroundColor: "#F9FAFB",
-                                    color: "#374151",
-                                    fontWeight: 700,
-                                    fontSize: "12px",
-                                    textTransform: "uppercase",
-                                    borderBottom: "2px solid #E5E7EB"
-                                }}>
-                                    Status
-                                </TableCell>
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {filteredRequests.length > 0 ? (
-                                filteredRequests.map((request, idx) => (
-                                    <TableRow
-                                        key={request.id}
-                                        hover
-                                        sx={{
-                                            backgroundColor: idx % 2 === 0 ? "#fff" : "#F9FAFB",
-                                            '&:hover': {
-                                                backgroundColor: '#F3F4F6 !important',
-                                            }
-                                        }}
-                                    >
-                                        <TableCell sx={{ fontSize: "13px", color: "#374151", borderBottom: "1px solid #E5E7EB" }}>
-                                            {new Date(request.requestDate).toLocaleDateString('en-IN', {
-                                                day: '2-digit',
-                                                month: 'short',
-                                                year: 'numeric'
-                                            })}
-                                        </TableCell>
-                                        <TableCell sx={{ borderBottom: "1px solid #E5E7EB" }}>
-                                            <Chip
-                                                label={request.category}
-                                                size="small"
+                    {historyTypeFilter === "Expense" ? (
+                        /* ── Expense Table ── */
+                        <Table stickyHeader>
+                            <TableHead>
+                                <TableRow>
+                                    <TableCell sx={{ ...thCell, width: 48 }}>S.No</TableCell>
+                                    <TableCell sx={thCell}>Date</TableCell>
+                                    <TableCell sx={thCell}>Category</TableCell>
+                                    <TableCell sx={thCell}>Requested By</TableCell>
+                                    <TableCell sx={thCell}>Description</TableCell>
+                                    <TableCell sx={thCell}>Payment Method</TableCell>
+                                    <TableCell sx={thCell}>Remarks</TableCell>
+                                    <TableCell sx={thCell}>Amount</TableCell>
+                                    <TableCell sx={thCell}>Status</TableCell>
+                                    <TableCell sx={thCell}>Approved By</TableCell>
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {filteredHistory.length > 0 ? (
+                                    filteredHistory.map((item, idx) => {
+                                        const requestedBy = parseUser(item.createdBy);
+                                        const approvedByUser = parseUser(item.approvedBy);
+                                        return (
+                                            <TableRow
+                                                key={item.expenceId}
+                                                hover
                                                 sx={{
-                                                    backgroundColor: "#F3F4F6",
-                                                    color: "#374151",
-                                                    fontSize: "11px",
-                                                    fontWeight: 600,
-                                                    border: "1px solid #D1D5DB"
+                                                    backgroundColor: idx % 2 === 0 ? "#fff" : "#F9FAFB",
+                                                    '&:hover': { backgroundColor: '#F3F4F6 !important' }
                                                 }}
-                                            />
-                                        </TableCell>
-                                        <TableCell sx={{ fontSize: "13px", color: "#111827", borderBottom: "1px solid #E5E7EB", maxWidth: 300 }}>
-                                            <Tooltip title={request.description} arrow>
-                                                <Typography sx={{
-                                                    fontSize: "13px",
-                                                    overflow: "hidden",
-                                                    textOverflow: "ellipsis",
-                                                    whiteSpace: "nowrap"
-                                                }}>
-                                                    {request.description}
-                                                </Typography>
-                                            </Tooltip>
-                                        </TableCell>
-                                        <TableCell sx={{ fontSize: "14px", fontWeight: 700, color: "#111827", borderBottom: "1px solid #E5E7EB" }}>
-                                            ₹{request.amount.toLocaleString()}
-                                        </TableCell>
-                                        <TableCell sx={{ fontSize: "12px", color: "#6B7280", borderBottom: "1px solid #E5E7EB" }}>
-                                            {request.requestedBy}
-                                        </TableCell>
-                                        <TableCell sx={{ borderBottom: "1px solid #E5E7EB" }}>
-                                            <Tooltip
-                                                title={
-                                                    request.status === "Approved"
-                                                        ? `Approved by ${request.approvedBy} on ${new Date(request.approvalDate).toLocaleDateString('en-IN')}`
-                                                        : request.status === "Rejected"
-                                                            ? `Rejected: ${request.rejectionReason}`
-                                                            : "Waiting for approval"
-                                                }
-                                                arrow
                                             >
-                                                <Chip
-                                                    label={request.status}
-                                                    size="small"
-                                                    icon={
-                                                        request.status === "Approved" ? <CheckCircleIcon sx={{ fontSize: 14 }} /> :
-                                                            request.status === "Pending" ? <PendingActionsIcon sx={{ fontSize: 14 }} /> :
-                                                                <CancelIcon sx={{ fontSize: 14 }} />
-                                                    }
-                                                    sx={{
-                                                        backgroundColor: request.status === "Approved" ? "#ECFDF5" :
-                                                            request.status === "Pending" ? "#FFFBEB" : "#FEF2F2",
-                                                        color: request.status === "Approved" ? "#047857" :
-                                                            request.status === "Pending" ? "#B45309" : "#991B1B",
-                                                        fontSize: "11px",
-                                                        fontWeight: 600,
-                                                        border: request.status === "Approved" ? "1px solid #A7F3D0" :
-                                                            request.status === "Pending" ? "1px solid #FCD34D" : "1px solid #FCA5A5"
-                                                    }}
-                                                />
-                                            </Tooltip>
+                                                <TableCell sx={{ fontSize: "13px", color: "#9CA3AF", borderBottom: "1px solid #E5E7EB" }}>
+                                                    {idx + 1}
+                                                </TableCell>
+
+                                                <TableCell sx={{ fontSize: "13px", color: "#374151", borderBottom: "1px solid #E5E7EB", whiteSpace: "nowrap" }}>
+                                                    {new Date(item.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                </TableCell>
+
+                                                <TableCell sx={{ borderBottom: "1px solid #E5E7EB" }}>
+                                                    <Chip
+                                                        label={item.category || '-'}
+                                                        size="small"
+                                                        sx={{ fontSize: "11px", bgcolor: "#EFF6FF", color: "#1D4ED8", border: "1px solid #BFDBFE", fontWeight: 600 }}
+                                                    />
+                                                </TableCell>
+
+                                                <TableCell sx={{ borderBottom: "1px solid #E5E7EB" }}>
+                                                    <Typography sx={{ fontSize: "13px", fontWeight: 600, color: "#111827" }}>
+                                                        {requestedBy.name}
+                                                    </Typography>
+                                                    <Typography sx={{ fontSize: "11px", color: "#6B7280" }}>
+                                                        Roll: {requestedBy.roll}
+                                                    </Typography>
+                                                </TableCell>
+
+                                                <TableCell sx={{ fontSize: "13px", color: "#111827", borderBottom: "1px solid #E5E7EB", maxWidth: 180 }}>
+                                                    <Tooltip title={item.description} arrow>
+                                                        <Typography sx={{ fontSize: "13px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                                            {item.description || '-'}
+                                                        </Typography>
+                                                    </Tooltip>
+                                                </TableCell>
+
+                                                <TableCell sx={{ fontSize: "13px", color: "#374151", borderBottom: "1px solid #E5E7EB", whiteSpace: "nowrap" }}>
+                                                    {item.paymentMethod || '-'}
+                                                </TableCell>
+
+                                                <TableCell sx={{ fontSize: "13px", color: "#6B7280", borderBottom: "1px solid #E5E7EB" }}>
+                                                    {item.remarks || '-'}
+                                                </TableCell>
+
+                                                <TableCell sx={{ fontSize: "14px", fontWeight: 700, color: "#DC2626", borderBottom: "1px solid #E5E7EB", whiteSpace: "nowrap" }}>
+                                                    ₹{(item.expenceAmount ?? 0).toLocaleString()}
+                                                </TableCell>
+
+                                                <TableCell sx={{ borderBottom: "1px solid #E5E7EB" }}>
+                                                    {renderStatusChip(item.status)}
+                                                </TableCell>
+
+                                                <TableCell sx={{ borderBottom: "1px solid #E5E7EB" }}>
+                                                    {item.approvedBy ? (
+                                                        <>
+                                                            <Typography sx={{ fontSize: "13px", fontWeight: 600, color: "#111827" }}>
+                                                                {approvedByUser.name}
+                                                            </Typography>
+                                                            <Typography sx={{ fontSize: "11px", color: "#6B7280" }}>
+                                                                {item.approvedOnDate
+                                                                    ? new Date(item.approvedOnDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+                                                                    : '-'}
+                                                            </Typography>
+                                                        </>
+                                                    ) : (
+                                                        <Typography sx={{ fontSize: "12px", color: "#9CA3AF" }}>—</Typography>
+                                                    )}
+                                                </TableCell>
+                                            </TableRow>
+                                        );
+                                    })
+                                ) : (
+                                    <TableRow>
+                                        <TableCell colSpan={10} sx={{ textAlign: "center", py: 6, borderBottom: "none" }}>
+                                            <ReceiptLongIcon sx={{ fontSize: 48, color: "#D1D5DB", mb: 2, display: "block", mx: "auto" }} />
+                                            <Typography sx={{ fontSize: "14px", color: "#9CA3AF", fontWeight: 500 }}>
+                                                {isLoading ? "Loading..." : "No expense records found"}
+                                            </Typography>
                                         </TableCell>
                                     </TableRow>
-                                ))
-                            ) : (
+                                )}
+                            </TableBody>
+                        </Table>
+                    ) : (
+                        /* ── Fund (Allocation) Table ── */
+                        <Table stickyHeader>
+                            <TableHead>
                                 <TableRow>
-                                    <TableCell colSpan={6} sx={{ textAlign: "center", py: 6, borderBottom: "none" }}>
-                                        <HistoryIcon sx={{ fontSize: 48, color: "#D1D5DB", mb: 2 }} />
-                                        <Typography sx={{ fontSize: "14px", color: "#9CA3AF", fontWeight: 500 }}>
-                                            No requests found matching your filters
-                                        </Typography>
-                                    </TableCell>
+                                    <TableCell sx={{ ...thCell, width: 48 }}>S.No</TableCell>
+                                    <TableCell sx={thCell}>Date</TableCell>
+                                    <TableCell sx={thCell}>Added By</TableCell>
+                                    <TableCell sx={thCell}>Description</TableCell>
+                                    <TableCell sx={thCell}>Remarks</TableCell>
+                                    <TableCell sx={thCell}>Amount</TableCell>
+                                    <TableCell sx={thCell}>Status</TableCell>
+                                    <TableCell sx={thCell}>Approved By</TableCell>
                                 </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
+                            </TableHead>
+                            <TableBody>
+                                {filteredHistory.length > 0 ? (
+                                    filteredHistory.map((item, idx) => {
+                                        const addedBy = parseUser(item.createdBy);
+                                        const approvedByUser = parseUser(item.approvedBy);
+                                        return (
+                                            <TableRow
+                                                key={item.addFundId}
+                                                hover
+                                                sx={{
+                                                    backgroundColor: idx % 2 === 0 ? "#fff" : "#F9FAFB",
+                                                    '&:hover': { backgroundColor: '#F3F4F6 !important' }
+                                                }}
+                                            >
+                                                <TableCell sx={{ fontSize: "13px", color: "#9CA3AF", borderBottom: "1px solid #E5E7EB" }}>
+                                                    {idx + 1}
+                                                </TableCell>
+
+                                                <TableCell sx={{ fontSize: "13px", color: "#374151", borderBottom: "1px solid #E5E7EB", whiteSpace: "nowrap" }}>
+                                                    {new Date(item.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                </TableCell>
+
+                                                <TableCell sx={{ borderBottom: "1px solid #E5E7EB" }}>
+                                                    <Typography sx={{ fontSize: "13px", fontWeight: 600, color: "#111827" }}>
+                                                        {addedBy.name}
+                                                    </Typography>
+                                                    <Typography sx={{ fontSize: "11px", color: "#6B7280" }}>
+                                                        Roll: {addedBy.roll}
+                                                    </Typography>
+                                                </TableCell>
+
+                                                <TableCell sx={{ fontSize: "13px", color: "#111827", borderBottom: "1px solid #E5E7EB", maxWidth: 200 }}>
+                                                    <Tooltip title={item.description} arrow>
+                                                        <Typography sx={{ fontSize: "13px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                                            {item.description || '-'}
+                                                        </Typography>
+                                                    </Tooltip>
+                                                </TableCell>
+
+                                                <TableCell sx={{ fontSize: "13px", color: "#6B7280", borderBottom: "1px solid #E5E7EB" }}>
+                                                    {item.remarks || '-'}
+                                                </TableCell>
+
+                                                <TableCell sx={{ fontSize: "14px", fontWeight: 700, color: "#10B981", borderBottom: "1px solid #E5E7EB", whiteSpace: "nowrap" }}>
+                                                    ₹{(item.fundAmount ?? 0).toLocaleString()}
+                                                </TableCell>
+
+                                                <TableCell sx={{ borderBottom: "1px solid #E5E7EB" }}>
+                                                    {renderStatusChip(item.status)}
+                                                </TableCell>
+
+                                                <TableCell sx={{ borderBottom: "1px solid #E5E7EB" }}>
+                                                    {item.approvedBy ? (
+                                                        <>
+                                                            <Typography sx={{ fontSize: "13px", fontWeight: 600, color: "#111827" }}>
+                                                                {approvedByUser.name}
+                                                            </Typography>
+                                                            <Typography sx={{ fontSize: "11px", color: "#6B7280" }}>
+                                                                {item.approvedOnDate
+                                                                    ? new Date(item.approvedOnDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+                                                                    : '-'}
+                                                            </Typography>
+                                                        </>
+                                                    ) : (
+                                                        <Typography sx={{ fontSize: "12px", color: "#9CA3AF" }}>—</Typography>
+                                                    )}
+                                                </TableCell>
+                                            </TableRow>
+                                        );
+                                    })
+                                ) : (
+                                    <TableRow>
+                                        <TableCell colSpan={8} sx={{ textAlign: "center", py: 6, borderBottom: "none" }}>
+                                            <HistoryIcon sx={{ fontSize: 48, color: "#D1D5DB", mb: 2, display: "block", mx: "auto" }} />
+                                            <Typography sx={{ fontSize: "14px", color: "#9CA3AF", fontWeight: 500 }}>
+                                                {isLoading ? "Loading..." : "No fund allocation records found"}
+                                            </Typography>
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    )}
                 </Box>
             </Paper>
         </Box>
@@ -1338,6 +1922,7 @@ export default function ExpensePage() {
 
     return (
         <Box sx={{ border: "1px solid #ccc", borderRadius: "20px", p: 2, height: "86vh", display: "flex", flexDirection: "column" }}>
+            <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
             {/* Header */}
             <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2, flexShrink: 0 }}>
                 <Box sx={{ display: "flex", alignItems: "center" }}>
@@ -1398,11 +1983,7 @@ export default function ExpensePage() {
                 >
                     <Tab icon={<DashboardIcon />} iconPosition="start" label="Dashboard" />
                     <Tab icon={<AddIcon />} iconPosition="start" label="Request Expense" />
-                    <Tab
-                        icon={<Badge badgeContent={summary.pendingCount} color="warning"><PendingActionsIcon /></Badge>}
-                        iconPosition="start"
-                        label="Pending Approvals"
-                    />
+                    <Tab icon={<PendingActionsIcon />} iconPosition="start" label="Pending Approvals" />
                     <Tab icon={<HistoryIcon />} iconPosition="start" label="History" />
                 </Tabs>
             </Box>
@@ -1448,7 +2029,7 @@ export default function ExpensePage() {
                             <AccountBalanceWalletIcon sx={{ color: "#3B82F6", fontSize: 24 }} />
                         </Box>
                         <Typography sx={{ fontSize: "18px", fontWeight: 700, color: "#111827" }}>
-                            Set Budget Allocation
+                            Add Budget Allocation
                         </Typography>
                     </Box>
                     <IconButton onClick={() => setOpenAllocationDialog(false)} sx={{ color: "#6B7280" }}>
@@ -1474,36 +2055,7 @@ export default function ExpensePage() {
                                         )
                                     }
                                 }}
-                                placeholder="Enter allocation amount (e.g., 50000)"
-                            />
-                        </Grid>
-
-                        <Grid size={{ xs: 12 }}>
-                            <FormControl fullWidth>
-                                <InputLabel>Period *</InputLabel>
-                                <Select
-                                    value={newAllocation.period}
-                                    onChange={(e) => setNewAllocation({ ...newAllocation, period: e.target.value })}
-                                    label="Period *"
-                                >
-                                    <MenuItem value="Weekly">Weekly</MenuItem>
-                                    <MenuItem value="Monthly">Monthly</MenuItem>
-                                </Select>
-                            </FormControl>
-                        </Grid>
-
-                        <Grid size={{ xs: 12 }}>
-                            <TextField
-                                fullWidth
-                                label="Allocation Date"
-                                type="date"
-                                value={newAllocation.allocatedDate}
-                                onChange={(e) => setNewAllocation({ ...newAllocation, allocatedDate: e.target.value })}
-                                slotProps={{
-                                    inputLabel: {
-                                        shrink: true,
-                                    }
-                                }}
+                                placeholder="Enter allocation"
                             />
                         </Grid>
 
@@ -1550,7 +2102,7 @@ export default function ExpensePage() {
                             }
                         }}
                     >
-                        Set Allocation
+                    {userType === "superadmin" ?    "Set Allocation" : "Request Allocation"}
                     </Button>
                 </DialogActions>
             </Dialog>
@@ -1634,31 +2186,51 @@ export default function ExpensePage() {
                                     <Grid size={{ xs: 6 }}>
                                         <Typography sx={{ fontSize: "12px", color: "#6B7280" }}>Category:</Typography>
                                         <Typography sx={{ fontSize: "13px", fontWeight: 600, color: "#111827" }}>
-                                            {selectedRequest.category}
+                                            {selectedRequest.category || "—"}
                                         </Typography>
                                     </Grid>
                                     <Grid size={{ xs: 6 }}>
                                         <Typography sx={{ fontSize: "12px", color: "#6B7280" }}>Amount:</Typography>
                                         <Typography sx={{ fontSize: "14px", fontWeight: 700, color: "#111827" }}>
-                                            ₹{selectedRequest.amount.toLocaleString()}
+                                            ₹{(selectedRequest.expenceAmount ?? 0).toLocaleString()}
+                                        </Typography>
+                                    </Grid>
+                                    <Grid size={{ xs: 6 }}>
+                                        <Typography sx={{ fontSize: "12px", color: "#6B7280" }}>Payment Method:</Typography>
+                                        <Typography sx={{ fontSize: "13px", fontWeight: 600, color: "#111827" }}>
+                                            {selectedRequest.paymentMethod || "—"}
+                                        </Typography>
+                                    </Grid>
+                                    <Grid size={{ xs: 6 }}>
+                                        <Typography sx={{ fontSize: "12px", color: "#6B7280" }}>Date:</Typography>
+                                        <Typography sx={{ fontSize: "13px", fontWeight: 600, color: "#111827" }}>
+                                            {selectedRequest.date ? new Date(selectedRequest.date).toLocaleDateString('en-IN') : "—"}
                                         </Typography>
                                     </Grid>
                                     <Grid size={{ xs: 12 }}>
                                         <Typography sx={{ fontSize: "12px", color: "#6B7280" }}>Description:</Typography>
                                         <Typography sx={{ fontSize: "13px", color: "#374151", mt: 0.5 }}>
-                                            {selectedRequest.description}
+                                            {selectedRequest.description || "—"}
                                         </Typography>
                                     </Grid>
                                     <Grid size={{ xs: 12 }}>
                                         <Typography sx={{ fontSize: "12px", color: "#6B7280" }}>Requested By:</Typography>
                                         <Typography sx={{ fontSize: "13px", fontWeight: 600, color: "#111827" }}>
-                                            {selectedRequest.requestedBy} ({selectedRequest.requestedByEmail})
+                                            {parseUser(selectedRequest.createdBy).name}
                                         </Typography>
                                     </Grid>
+                                    {selectedRequest.remarks && (
+                                        <Grid size={{ xs: 12 }}>
+                                            <Typography sx={{ fontSize: "12px", color: "#6B7280" }}>Remarks:</Typography>
+                                            <Typography sx={{ fontSize: "13px", color: "#374151", mt: 0.5 }}>
+                                                {selectedRequest.remarks}
+                                            </Typography>
+                                        </Grid>
+                                    )}
                                 </Grid>
                             </Box>
 
-                            {approvalAction === "reject" && (
+                            {approvalAction === "decline" && (
                                 <TextField
                                     fullWidth
                                     required
@@ -1681,10 +2253,10 @@ export default function ExpensePage() {
                                     border: "1px solid #A7F3D0"
                                 }}>
                                     <Typography sx={{ fontSize: "13px", color: "#047857", fontWeight: 500 }}>
-                                        ✓ This amount (₹{selectedRequest.amount.toLocaleString()}) will be deducted from the allocated budget upon approval.
+                                        ✓ This amount (₹{(selectedRequest.expenceAmount ?? 0).toLocaleString()}) will be deducted from the available fund upon approval.
                                     </Typography>
                                     <Typography sx={{ fontSize: "12px", color: "#065F46", mt: 1 }}>
-                                        Remaining after approval: ₹{(summary.remaining - selectedRequest.amount).toLocaleString()}
+                                        Available fund after approval: ₹{((selectedRequest.currentAvailableFund ?? 0) - (selectedRequest.expenceAmount ?? 0)).toLocaleString()}
                                     </Typography>
                                 </Box>
                             )}
@@ -1717,7 +2289,7 @@ export default function ExpensePage() {
                     <Button
                         onClick={handleApprovalAction}
                         variant="contained"
-                        disabled={approvalAction === "reject" && !rejectionReason}
+                        disabled={approvalAction === "decline" && !rejectionReason}
                         sx={{
                             textTransform: "none",
                             borderRadius: "8px",
@@ -1731,6 +2303,200 @@ export default function ExpensePage() {
                         }}
                     >
                         {approvalAction === "approve" ? "Approve Request" : "Reject Request"}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* ── Fund Allocation Approval Dialog ── */}
+            <Dialog
+                open={openFundApprovalDialog}
+                onClose={() => {
+                    setOpenFundApprovalDialog(false);
+                    setSelectedFund(null);
+                    setFundApprovalAction("");
+                    setFundRejectionReason("");
+                }}
+                maxWidth="sm"
+                fullWidth
+                PaperProps={{
+                    sx: {
+                        borderRadius: "16px",
+                        border: "2px solid " + (fundApprovalAction === "approve" ? "#10B981" : "#DC2626")
+                    }
+                }}
+            >
+                <DialogTitle sx={{
+                    backgroundColor: fundApprovalAction === "approve" ? "#ECFDF5" : "#FEF2F2",
+                    borderBottom: "2px solid " + (fundApprovalAction === "approve" ? "#A7F3D0" : "#FCA5A5"),
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center"
+                }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                        <Box sx={{
+                            width: 48,
+                            height: 48,
+                            borderRadius: "12px",
+                            bgcolor: fundApprovalAction === "approve" ? "#D1FAE5" : "#FEE2E2",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            border: "2px solid " + (fundApprovalAction === "approve" ? "#10B981" : "#DC2626")
+                        }}>
+                            {fundApprovalAction === "approve" ?
+                                <ThumbUpIcon sx={{ color: "#10B981", fontSize: 28 }} /> :
+                                <ThumbDownIcon sx={{ color: "#DC2626", fontSize: 28 }} />
+                            }
+                        </Box>
+                        <Typography sx={{
+                            fontSize: "20px",
+                            fontWeight: 700,
+                            color: fundApprovalAction === "approve" ? "#047857" : "#991B1B"
+                        }}>
+                            {fundApprovalAction === "approve" ? "Approve Fund Allocation" : "Reject Fund Allocation"}
+                        </Typography>
+                    </Box>
+                    <IconButton
+                        onClick={() => {
+                            setOpenFundApprovalDialog(false);
+                            setSelectedFund(null);
+                            setFundApprovalAction("");
+                            setFundRejectionReason("");
+                        }}
+                        sx={{ color: "#6B7280" }}
+                    >
+                        <CloseIcon />
+                    </IconButton>
+                </DialogTitle>
+
+                <DialogContent sx={{ p: 3, backgroundColor: "#fff" }}>
+                    {selectedFund && (
+                        <Box>
+                            <Typography sx={{ fontSize: "14px", fontWeight: 600, color: "#111827", mb: 2 }}>
+                                Fund Allocation Details:
+                            </Typography>
+                            <Box sx={{
+                                p: 2,
+                                borderRadius: "8px",
+                                bgcolor: "#F9FAFB",
+                                border: "1px solid #E5E7EB",
+                                mb: 3
+                            }}>
+                                <Grid container spacing={1.5}>
+                                    <Grid size={{ xs: 6 }}>
+                                        <Typography sx={{ fontSize: "12px", color: "#6B7280" }}>Fund Amount:</Typography>
+                                        <Typography sx={{ fontSize: "14px", fontWeight: 700, color: "#111827" }}>
+                                            ₹{(selectedFund.fundAmount ?? 0).toLocaleString()}
+                                        </Typography>
+                                    </Grid>
+                                    <Grid size={{ xs: 6 }}>
+                                        <Typography sx={{ fontSize: "12px", color: "#6B7280" }}>Current Fund:</Typography>
+                                        <Typography sx={{ fontSize: "14px", fontWeight: 700, color: "#111827" }}>
+                                        ₹{(dashboardData?.currentAllocationMonthly ?? 0).toLocaleString()}
+                                        </Typography>
+                                    </Grid>
+                                    <Grid size={{ xs: 6 }}>
+                                        <Typography sx={{ fontSize: "12px", color: "#6B7280" }}>Date:</Typography>
+                                        <Typography sx={{ fontSize: "13px", fontWeight: 600, color: "#111827" }}>
+                                            {selectedFund.date ? new Date(selectedFund.date).toLocaleDateString('en-IN') : "—"}
+                                        </Typography>
+                                    </Grid>
+                                    <Grid size={{ xs: 6 }}>
+                                        <Typography sx={{ fontSize: "12px", color: "#6B7280" }}>Requested By:</Typography>
+                                        <Typography sx={{ fontSize: "13px", fontWeight: 600, color: "#111827" }}>
+                                            {parseUser(selectedFund.createdBy).name}
+                                        </Typography>
+                                    </Grid>
+                                    <Grid size={{ xs: 12 }}>
+                                        <Typography sx={{ fontSize: "12px", color: "#6B7280" }}>Description:</Typography>
+                                        <Typography sx={{ fontSize: "13px", color: "#374151", mt: 0.5 }}>
+                                            {selectedFund.description || "—"}
+                                        </Typography>
+                                    </Grid>
+                                    {selectedFund.remarks && (
+                                        <Grid size={{ xs: 12 }}>
+                                            <Typography sx={{ fontSize: "12px", color: "#6B7280" }}>Remarks:</Typography>
+                                            <Typography sx={{ fontSize: "13px", color: "#374151", mt: 0.5 }}>
+                                                {selectedFund.remarks}
+                                            </Typography>
+                                        </Grid>
+                                    )}
+                                </Grid>
+                            </Box>
+
+                            {fundApprovalAction === "decline" && (
+                                <TextField
+                                    fullWidth
+                                    required
+                                    label="Rejection Reason"
+                                    multiline
+                                    rows={4}
+                                    value={fundRejectionReason}
+                                    onChange={(e) => setFundRejectionReason(e.target.value)}
+                                    placeholder="Please provide a clear reason for rejecting this fund allocation..."
+                                    error={!fundRejectionReason}
+                                    helperText={!fundRejectionReason ? "Rejection reason is required" : ""}
+                                />
+                            )}
+
+                            {fundApprovalAction === "approve" && (
+                                <Box sx={{
+                                    p: 2,
+                                    borderRadius: "8px",
+                                    bgcolor: "#F0FDF4",
+                                    border: "1px solid #A7F3D0"
+                                }}>
+                                    <Typography sx={{ fontSize: "13px", color: "#047857", fontWeight: 500 }}>
+                                        ✓ ₹{(selectedFund.fundAmount ?? 0).toLocaleString()} will be added to the available fund upon approval.
+                                    </Typography>
+                                    <Typography sx={{ fontSize: "12px", color: "#065F46", mt: 1 }}>
+                                        Available fund after approval: ₹{((selectedFund.currentFund ?? 0) + (selectedFund.fundAmount ?? 0)).toLocaleString()}
+                                    </Typography>
+                                </Box>
+                            )}
+                        </Box>
+                    )}
+                </DialogContent>
+
+                <DialogActions sx={{
+                    p: 2.5,
+                    borderTop: "2px solid #E5E7EB",
+                    backgroundColor: "#F9FAFB"
+                }}>
+                    <Button
+                        onClick={() => {
+                            setOpenFundApprovalDialog(false);
+                            setSelectedFund(null);
+                            setFundApprovalAction("");
+                            setFundRejectionReason("");
+                        }}
+                        variant="outlined"
+                        sx={{
+                            textTransform: "none",
+                            borderRadius: "8px",
+                            borderColor: "#D1D5DB",
+                            color: "#6B7280"
+                        }}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        onClick={handleFundApprovalAction}
+                        variant="contained"
+                        disabled={fundApprovalAction === "decline" && !fundRejectionReason}
+                        sx={{
+                            textTransform: "none",
+                            borderRadius: "8px",
+                            bgcolor: fundApprovalAction === "approve" ? "#10B981" : "#DC2626",
+                            "&:hover": {
+                                bgcolor: fundApprovalAction === "approve" ? "#059669" : "#B91C1C"
+                            },
+                            "&:disabled": {
+                                bgcolor: "#D1D5DB"
+                            }
+                        }}
+                    >
+                        {fundApprovalAction === "approve" ? "Approve Allocation" : "Reject Allocation"}
                     </Button>
                 </DialogActions>
             </Dialog>

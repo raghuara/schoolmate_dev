@@ -267,6 +267,27 @@ const approvalStatusCheck = `${schoolFee}approvalStatusCheck`;
 const updateSchoolFeesApprovalAction = `${schoolFee}updateSchoolFeesApprovalAction`;
 const getFeesById = `${schoolFee}getFeesById`;
 
+
+// Expense 
+const postFund = `${baseApiurl}postFund`;
+const fundApprovalStatusCheck = `${baseApiurl}fundApprovalStatusCheck`;
+const updateAddFundApprovalAction = `${baseApiurl}updateAddFundApprovalAction`;
+const getAddedFund = `${baseApiurl}getAddedFund`;
+const getAddedFundById = `${baseApiurl}getAddedFundById`;
+const updateFundById = `${baseApiurl}updateFundById`;
+
+
+
+const postExpence = `${baseApiurl}postExpence`;
+const expenceApprovalStatusCheck = `${baseApiurl}expenceApprovalStatusCheck`;
+const updateAddexpenceApprovalAction = `${baseApiurl}updateAddexpenceApprovalAction`;
+const getAddedExpence = `${baseApiurl}getAddedExpence`;
+const getAddedExpenceById = `${baseApiurl}getAddedExpenceById`;
+const updateExpenceById = `${baseApiurl}updateExpenceById`;
+const expenceDashboard = `${baseApiurl}expenceDashboard`;
+
+
+
 // Assets 
 const vehicle = `${baseApiurl}vehicle/`;
 
@@ -603,5 +624,18 @@ export {
     postSchoolFeeConcession,
     postEcaFeeConcession,
     postAdditionalFeeConcession,
-    postTransportFeeConcession
+    postTransportFeeConcession,
+    fundApprovalStatusCheck,
+    updateAddFundApprovalAction,
+    getAddedFund,
+    getAddedFundById,
+    updateFundById,
+    postFund,
+    postExpence,
+    expenceApprovalStatusCheck,
+    updateAddexpenceApprovalAction,
+    getAddedExpence,
+    getAddedExpenceById,
+    updateExpenceById,
+    expenceDashboard
 }

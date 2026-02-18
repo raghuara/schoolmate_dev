@@ -5,7 +5,8 @@
       "Bash(npm run build:*)",
       "Bash(npm start)",
       "Bash(ls:*)",
-      "Read(//c/Users/demom/React Projects/schoolmate_dev/**)"
+      "Read(//c/Users/demom/React Projects/schoolmate_dev/**)",
+      "Bash(find:*)"
     ]
   }
 }
