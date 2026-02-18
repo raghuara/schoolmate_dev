@@ -244,7 +244,7 @@ export default function FeeFinancePage() {
                     const IconComponent = item.icon;
                     return (
                         <Grid
-                            sx={{ display: "flex", justifyContent: "center", pb: 6, mb: 1, mt: 3 }}
+                            sx={{ display: "flex", justifyContent: "center", pb: 1.5, mb: 1, mt: 3 }}
                             key={index}
                             size={{
                                 xs: 12,

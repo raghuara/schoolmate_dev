@@ -1,8 +1,5 @@
-// Production Link 
-const baseApiurl = `https://schoolcommunication-gmdtekepd3g3ffb9.canadacentral-01.azurewebsites.net/api/`;
-
 // UAT Link
-// const baseApiurl = `https://schoolcommunicationwebapimsmsuat-dredbbfmhzergfhw.canadacentral-01.azurewebsites.net/api/`;
+const baseApiurl = `https://schoolcommunicationwebapimsmsuat-dredbbfmhzergfhw.canadacentral-01.azurewebsites.net/api/`;
 
 const Login = `${baseApiurl}Login`;
 
@@ -255,6 +252,15 @@ const ecaFeesRecordGet = `${schoolFeesBilling}ecaFeesRecordGet`;
 const findStudentAdditionalFeesBilling = `${schoolFeesBilling}findStudentAdditionalFeesBilling`;
 const postAdditionalPaymentMethod = `${schoolFeesBilling}postAdditionalPaymentMethod`;
 const additionalFeesRecordGet = `${schoolFeesBilling}additionalFeesRecordGet`;
+const findStudentTransportFeesBilling = `${schoolFeesBilling}findStudentTransportFeesBilling`;
+const postTransportPaymentMethod = `${schoolFeesBilling}postTransportPaymentMethod`;
+const transportFeesRecordGet = `${schoolFeesBilling}transportFeesRecordGet`;
+
+const schoolFeesSplConcession = `${baseApiurl}schoolFeesSplConcession/`;
+const postSchoolFeeConcession = `${schoolFeesSplConcession}postSchoolFeeConcession`;
+const postEcaFeeConcession = `${schoolFeesSplConcession}postEcaFeeConcession`;
+const postAdditionalFeeConcession = `${schoolFeesSplConcession}postAdditionalFeeConcession`;
+const postTransportFeeConcession = `${schoolFeesSplConcession}postTransportFeeConcession`;
 
 
 const approvalStatusCheck = `${schoolFee}approvalStatusCheck`;
@@ -574,6 +580,9 @@ export {
     findStudentAdditionalFeesBilling,
     postAdditionalPaymentMethod,
     additionalFeesRecordGet,
+    findStudentTransportFeesBilling,
+    postTransportPaymentMethod,
+    transportFeesRecordGet,
     postNewRoute,
     updateNewRoute,
     getAllRoutes,
@@ -591,4 +600,8 @@ export {
     approvalStatusCheckTranspoart,
     updateTranspoartSchoolFee,
     deleteTranspoartFeesStructure,
+    postSchoolFeeConcession,
+    postEcaFeeConcession,
+    postAdditionalFeeConcession,
+    postTransportFeeConcession
 }

@@ -712,7 +712,7 @@ export default function StudentMapping() {
             routeInfo: {
                 routeInformationId: routeDetails.routeInformationId,
                 busStop: payload.busStop, // This is now the place name (e.g., "City Center")
-                busStopPoint: payload.busStopPoint, // This is the point identifier (e.g., "stop1")
+                year:selectedYear,
                 rollNumbers: payload.selectedStudents.map(student => student.rollNumber || student)
             }
         };

@@ -31,7 +31,7 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs from 'dayjs';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import axios from 'axios';
-import { findStudentEcaFeesBilling, findStudents, findStudentSchoolFeesBilling, findStudentAdditionalFeesBilling, postPaymentMethod, postEcaPaymentMethod, postAdditionalPaymentMethod } from '../../../../Api/Api';
+import { findStudentEcaFeesBilling, findStudents, findStudentSchoolFeesBilling, findStudentAdditionalFeesBilling, postPaymentMethod, postEcaPaymentMethod, postAdditionalPaymentMethod, findStudentTransportFeesBilling, postTransportPaymentMethod } from '../../../../Api/Api';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import CreditCardIcon from '@mui/icons-material/CreditCard';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
@@ -45,6 +45,47 @@ import HistoryIcon from '@mui/icons-material/History';
 import LockIcon from '@mui/icons-material/Lock';
 const notesList = [2000, 500, 200, 100, 50, 20, 10, 5, 2, 1];
 const MAX_AMOUNT = 99999999;
+
+// Number to words converter for Indian numbering system
+const convertNumberToWords = (num) => {
+  if (num === 0) return "Zero";
+
+  const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"];
+  const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+  const teens = ["Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+
+  const convertHundreds = (n) => {
+    if (n === 0) return "";
+    if (n < 10) return ones[n];
+    if (n < 20) return teens[n - 10];
+    if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 ? " " + ones[n % 10] : "");
+    return ones[Math.floor(n / 100)] + " Hundred" + (n % 100 ? " " + convertHundreds(n % 100) : "");
+  };
+
+  if (num < 100) {
+    return convertHundreds(num);
+  }
+
+  if (num < 1000) {
+    return convertHundreds(num);
+  }
+
+  if (num < 100000) {
+    const thousands = Math.floor(num / 1000);
+    const remainder = num % 1000;
+    return convertHundreds(thousands) + " Thousand" + (remainder ? " " + convertHundreds(remainder) : "");
+  }
+
+  if (num < 10000000) {
+    const lakhs = Math.floor(num / 100000);
+    const remainder = num % 100000;
+    return convertHundreds(lakhs) + " Lakh" + (remainder ? " " + convertNumberToWords(remainder) : "");
+  }
+
+  const crores = Math.floor(num / 10000000);
+  const remainder = num % 10000000;
+  return convertHundreds(crores) + " Crore" + (remainder ? " " + convertNumberToWords(remainder) : "");
+};
 
 
 export default function BillingScreen() {
@@ -79,8 +120,10 @@ export default function BillingScreen() {
 
   const printRef = useRef();
   const componentRef = useRef(null);
+  const printReceiptRef = useRef(null);
   const [openPaymentPopup, setOpenPaymentPopup] = useState(false);
   const [showCloseConfirmation, setShowCloseConfirmation] = useState(false);
+  const [openPrintReceiptDialog, setOpenPrintReceiptDialog] = useState(false);
 
   const hasUnsavedData = () => {
     if (paymentSuccess) return false;
@@ -124,6 +167,7 @@ export default function BillingScreen() {
     setPaymentProcessing(false);
     setPaymentSuccess(false);
     setCompletedPaymentAmount(0);
+    setCompletedPaymentFees([]);
     setPaymentFormData({
       upiId: '',
       transactionId: '',
@@ -180,6 +224,7 @@ export default function BillingScreen() {
   const [paymentProcessing, setPaymentProcessing] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [completedPaymentAmount, setCompletedPaymentAmount] = useState(0);
+  const [completedPaymentFees, setCompletedPaymentFees] = useState([]);
   const [paymentFormData, setPaymentFormData] = useState({
     upiId: '',
     transactionId: '',
@@ -270,6 +315,35 @@ export default function BillingScreen() {
   const handleOpenPopup = (row) => {
     setSelectedFee(row);
     setOpenPreview(true);
+  };
+
+
+  const handleOpenPrintReceipt = () => {
+    console.log('Opening print receipt with:');
+    console.log('completedPaymentAmount:', completedPaymentAmount);
+    console.log('completedPaymentFees:', completedPaymentFees);
+    setOpenPrintReceiptDialog(true);
+  };
+
+  const handleClosePrintReceipt = () => {
+    setOpenPrintReceiptDialog(false);
+  };
+
+  const handlePrintReceipt = useReactToPrint({
+    content: () => printReceiptRef.current,
+    documentTitle: `Receipt_${details?.name || 'Student'}_${dayjs().format('DD-MM-YYYY')}`,
+  });
+
+  const handleDownloadReceipt = () => {
+    const element = printReceiptRef.current;
+    const opt = {
+      margin: 0.5,
+      filename: `Receipt_${details?.name || 'Student'}_${dayjs().format('DD-MM-YYYY')}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+    };
+    html2pdf().set(opt).from(element).save();
   };
 
   const getSubtotal = (note) => note * counts[note];
@@ -550,7 +624,30 @@ export default function BillingScreen() {
     setPaymentProcessing(true);
 
     try {
+      console.log('Payment processing - totalAmount:', totalAmount);
+      console.log('Payment processing - selectedRows:', selectedRows);
+      console.log('Payment processing - toPayAmounts:', toPayAmounts);
+
       setCompletedPaymentAmount(totalAmount);
+
+      // Save the fees being paid for the receipt
+      const paidFees = selectedRows.map((index) => {
+        const fee = currentFeeData[index];
+        const paidAmount = toPayAmounts[index] || 0;
+        console.log('Saving fee for receipt:', {
+          feeName: fee.feeDetails || fee.place || fee.feeName || fee.activityName,
+          feeAmount: fee.feeAmount || fee.amount,
+          paidAmount: paidAmount
+        });
+        return {
+          ...fee,
+          paidAmount: paidAmount,
+          actualPaidAmount: paidAmount // Backup field
+        };
+      });
+
+      console.log('completedPaymentFees set to:', paidFees);
+      setCompletedPaymentFees(paidFees);
 
       const payFeesElements = selectedRows.map((index) => {
         const fee = currentFeeData[index];
@@ -571,10 +668,8 @@ export default function BillingScreen() {
               ...baseElement
             };
           case 1:
-            return {
-              transportFeesID: fee.transportFeesID || fee.id || 1,
-              ...baseElement
-            };
+            // Transport fees only use feesElementID, paidDate, and paidAmount
+            return baseElement;
           case 2:
             return {
               ecaFeesID: fee.ecaFeesID || fee.id || 1,
@@ -595,34 +690,66 @@ export default function BillingScreen() {
 
       const totalPaidAmount = Math.round(totalAmount * 100) / 100;
 
+      // Transport fees use camelCase field names, other fees use PascalCase
+      const isTransportFee = value === 1;
+
       const paymentMethods = {
         totalPaidAmount: totalPaidAmount,
         paymentOption: selectedPaymentMethod.toUpperCase(),
-        Remark: sanitizeInput(paymentFormData.remarks || `Payment via ${paymentMethodOptions.find(m => m.id === selectedPaymentMethod)?.name}`)
+        paidDate: dayjs().format('YYYY-MM-DD')
       };
+
+      // Add remark field with correct casing based on fee type
+      if (isTransportFee) {
+        paymentMethods.remark = sanitizeInput(paymentFormData.remarks || `Payment via ${paymentMethodOptions.find(m => m.id === selectedPaymentMethod)?.name}`);
+      } else {
+        paymentMethods.Remark = sanitizeInput(paymentFormData.remarks || `Payment via ${paymentMethodOptions.find(m => m.id === selectedPaymentMethod)?.name}`);
+      }
 
       switch (selectedPaymentMethod) {
         case 'upi':
-          paymentMethods.UPIID = sanitizeInput(paymentFormData.upiId || '');
-          paymentMethods.TransactionID = sanitizeInput(paymentFormData.transactionId || `UPI-TXN-${Date.now()}`);
+          if (isTransportFee) {
+            paymentMethods.upiid = sanitizeInput(paymentFormData.upiId || '');
+            paymentMethods.transactionID = sanitizeInput(paymentFormData.transactionId || `UPI-TXN-${Date.now()}`);
+          } else {
+            paymentMethods.UPIID = sanitizeInput(paymentFormData.upiId || '');
+            paymentMethods.TransactionID = sanitizeInput(paymentFormData.transactionId || `UPI-TXN-${Date.now()}`);
+          }
           break;
 
         case 'netbanking':
-          paymentMethods.TransactionID = sanitizeInput(paymentFormData.transactionId || `NB-TXN-${Date.now()}`);
-          paymentMethods.BankName = sanitizeInput(paymentFormData.bankName || '');
+          if (isTransportFee) {
+            paymentMethods.transactionID = sanitizeInput(paymentFormData.transactionId || `NB-TXN-${Date.now()}`);
+            paymentMethods.bankName = sanitizeInput(paymentFormData.bankName || '');
+          } else {
+            paymentMethods.TransactionID = sanitizeInput(paymentFormData.transactionId || `NB-TXN-${Date.now()}`);
+            paymentMethods.BankName = sanitizeInput(paymentFormData.bankName || '');
+          }
           break;
 
         case 'cheque':
-          paymentMethods.TransactionID = sanitizeInput(paymentFormData.transactionId || `CHQ-TXN-${Date.now()}`);
-          paymentMethods.ChequeNo = sanitizeInput(paymentFormData.chequeNo || '');
-          paymentMethods.BankName = sanitizeInput(paymentFormData.bankName || '');
+          if (isTransportFee) {
+            paymentMethods.transactionID = sanitizeInput(paymentFormData.transactionId || `CHQ-TXN-${Date.now()}`);
+            paymentMethods.chequeNo = sanitizeInput(paymentFormData.chequeNo || '');
+            paymentMethods.bankName = sanitizeInput(paymentFormData.bankName || '');
+          } else {
+            paymentMethods.TransactionID = sanitizeInput(paymentFormData.transactionId || `CHQ-TXN-${Date.now()}`);
+            paymentMethods.ChequeNo = sanitizeInput(paymentFormData.chequeNo || '');
+            paymentMethods.BankName = sanitizeInput(paymentFormData.bankName || '');
+          }
           paymentMethods.ChequeDate = paymentFormData.chequeDate ? dayjs(paymentFormData.chequeDate).format('DD-MM-YYYY') : dayjs().format('DD-MM-YYYY');
           break;
 
         case 'card':
-          paymentMethods.TransactionID = sanitizeInput(paymentFormData.transactionId || `CARD-TXN-${Date.now()}`);
-          paymentMethods.CardType = sanitizeInput(paymentFormData.cardType || '');
-          paymentMethods.CardLastFourDigits = paymentFormData.cardLast4?.replace(/\D/g, '').substring(0, 4) || '';
+          if (isTransportFee) {
+            paymentMethods.transactionID = sanitizeInput(paymentFormData.transactionId || `CARD-TXN-${Date.now()}`);
+            paymentMethods.cardType = sanitizeInput(paymentFormData.cardType || '');
+            paymentMethods.cardLastFourDigits = paymentFormData.cardLast4?.replace(/\D/g, '').substring(0, 4) || '';
+          } else {
+            paymentMethods.TransactionID = sanitizeInput(paymentFormData.transactionId || `CARD-TXN-${Date.now()}`);
+            paymentMethods.CardType = sanitizeInput(paymentFormData.cardType || '');
+            paymentMethods.CardLastFourDigits = paymentFormData.cardLast4?.replace(/\D/g, '').substring(0, 4) || '';
+          }
           break;
 
         case 'cash':
@@ -652,7 +779,7 @@ export default function BillingScreen() {
           apiEndpoint = postPaymentMethod;
           break;
         case 1:
-          apiEndpoint = postPaymentMethod;
+          apiEndpoint = postTransportPaymentMethod;
           break;
         case 2:
           apiEndpoint = postEcaPaymentMethod;
@@ -719,7 +846,7 @@ export default function BillingScreen() {
 
     if (typeof value === 'string') {
       if (field === 'upiId' || field === 'transactionId' || field === 'bankName' ||
-          field === 'chequeNo' || field === 'cardType' || field === 'remarks') {
+        field === 'chequeNo' || field === 'cardType' || field === 'remarks') {
         sanitizedValue = sanitizeInput(value);
       }
 
@@ -1093,47 +1220,36 @@ export default function BillingScreen() {
   const fetchTransportDetails = async () => {
     setIsLoading(true);
     try {
-      const dummyTransportData = {
-        rollnumber: rollNumber || "4654",
-        name: details.name || "HASVANTH. M",
-        grade: details.grade || "VII",
-        section: details.section || "A1",
-        gender: details.gender || "Male",
-        filePath: null,
-        feesElements: [
-          {
-            id: 1,
-            transportFeesID: 1,
-            routeName: "Route A - Main Gate",
-            pickupPoint: "Main Bus Stop",
-            dueDate: "2026-03-15",
-            feeAmount: 12000,
-            paidAmount: 5000,
-            pendingAmount: 7000,
-            status: "partiallypaid",
-            feeDetails: "Monthly Transport Fee",
-            feeDescription: "School Bus Service - Route A"
-          },
-          {
-            id: 2,
-            transportFeesID: 1,
-            routeName: "Route A - Main Gate",
-            pickupPoint: "Main Bus Stop",
-            dueDate: "2026-04-15",
-            feeAmount: 12000,
-            paidAmount: 0,
-            pendingAmount: 12000,
-            status: "notpaid",
-            feeDetails: "Monthly Transport Fee",
-            feeDescription: "School Bus Service - Route A"
-          }
-        ]
-      };
+      const res = await axios.get(findStudentTransportFeesBilling, {
+        params: {
+          RollNumber: rollNumber,
+          Year: selectedYear
+        },
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
 
-      setTransportDetails(dummyTransportData);
-      setTransportFeeElements(dummyTransportData.feesElements);
+      if (res.data.error === false && res.data.data) {
+        const responseData = res.data.data;
+        setTransportDetails(responseData);
+        setTransportFeeElements(responseData.feesElements || []);
+      } else {
+        setMessage(res.data.message || 'Failed to fetch transport fees');
+        setOpen(true);
+        setStatus(false);
+        setColor(false);
+        setTransportDetails({});
+        setTransportFeeElements([]);
+      }
     } catch (error) {
       console.error("Error while loading transport fee data:", error);
+      setMessage('Failed to fetch transport fees');
+      setOpen(true);
+      setStatus(false);
+      setColor(false);
+      setTransportDetails({});
+      setTransportFeeElements([]);
     } finally {
       setIsLoading(false);
     }
@@ -1178,18 +1294,29 @@ export default function BillingScreen() {
 
           <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }} sx={{ display: "flex", alignItems: "center", justifyContent: 'end' }}>
             <Box sx={{ display: "flex", alignItems: "center", }}>
-              <Link to="/dashboardmenu/fee/special">
-                <Button
-                  sx={{
-                    textTransform: "none",
-                    backgroundColor: "#000",
-                    color: "#fff",
-                    mr: 2,
-                    fontSize: '14px',
-                    height: "33px"
-                  }}
-                >Special Concession / Reconcession</Button>
-              </Link>
+              <Button
+                onClick={() => navigate('/dashboardmenu/fee/special', {
+                  state: {
+                    selectedTab: value,
+                    allFeeData: {
+                      0: schoolFee,
+                      1: transportFeeElements,
+                      2: ecaFeeElements,
+                      3: additionalFeeElements,
+                    },
+                    rollNumber,
+                    selectedYear
+                  }
+                })}
+                sx={{
+                  textTransform: "none",
+                  backgroundColor: "#000",
+                  color: "#fff",
+                  mr: 2,
+                  fontSize: '14px',
+                  height: "33px"
+                }}
+              >Special Concession / Reconcession</Button>
               <Autocomplete
                 size="small"
                 options={academicYears}
@@ -1327,7 +1454,7 @@ export default function BillingScreen() {
                       Roll No
                     </Typography>
                     <Typography sx={{ color: "#000", fontSize: "16px", py: 1 }}>
-                    {getCurrentDetails().rollnumber}
+                      {getCurrentDetails().rollnumber}
                     </Typography>
                   </Box>
                 </Grid>
@@ -1348,7 +1475,7 @@ export default function BillingScreen() {
                       Gender
                     </Typography>
                     <Typography sx={{ color: "#000", fontSize: "16px", py: 1 }}>
-                    {getCurrentDetails().gender}
+                      {getCurrentDetails().gender}
                     </Typography>
                   </Box>
                 </Grid>
@@ -1370,7 +1497,7 @@ export default function BillingScreen() {
                       Grade
                     </Typography>
                     <Typography sx={{ color: "#000", fontSize: "16px", py: 1 }}>
-                    {getCurrentDetails().grade}
+                      {getCurrentDetails().grade}
                     </Typography>
                   </Box>
                 </Grid>
@@ -1392,7 +1519,7 @@ export default function BillingScreen() {
                       Section
                     </Typography>
                     <Typography sx={{ color: "#000", fontSize: "16px", py: 1 }}>
-                    {getCurrentDetails().section}
+                      {getCurrentDetails().section}
                     </Typography>
                   </Box>
                 </Grid>
@@ -1454,22 +1581,46 @@ export default function BillingScreen() {
               </Tabs>
             </Grid>
           </Grid>
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              backgroundColor: websiteSettings.mainColor,
-              py: 0.5,
-              width: "fit-content",
-              px: 4,
-              borderTopLeftRadius: "5px",
-              borderTopRightRadius: "5px",
-            }}
-          >
-            <Typography sx={{ color: websiteSettings.textColor }}>
-              {feeTabs[value]}
-            </Typography>
+          <Box sx={{ display: "flex",}}>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                backgroundColor: websiteSettings.mainColor,
+                py: 0.5,
+                width: "fit-content",
+                px: 4,
+                borderTopLeftRadius: "5px",
+                borderTopRightRadius: "5px",
+              }}
+            >
+              <Typography sx={{ color: websiteSettings.textColor }}>
+                {feeTabs[value]}
+              </Typography>
+            </Box>
+            {getCurrentFeeData().some(fee => parseFloat(fee.concessionAmount || 0) > 0) && (
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  gap: 0.5,
+                  backgroundColor: "#e8f5e9",
+                  border: "1px solid #4caf50",
+                  py: 0.5,
+                  width: "fit-content",
+                  px: 2,
+                  borderTopLeftRadius: "5px",
+                  borderTopRightRadius: "5px",
+                }}
+              >
+                <CheckCircleIcon sx={{ fontSize: 15, color: "#2e7d32" }} />
+                <Typography sx={{ color: "#2e7d32", fontSize: "12px", fontWeight: 600 }}>
+                  Concession Applied
+                </Typography>
+              </Box>
+            )}
           </Box>
 
           <TableContainer
@@ -1557,278 +1708,280 @@ export default function BillingScreen() {
                         }}
                       >
 
-                      <TableCell
-                        sx={{
-                          borderRight: 1,
-                          borderColor: "#E601542A",
-                          textAlign: "center",
-                        }}
-                      >
-                        <Box
+                        <TableCell
                           sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            gap: 0.5,
+                            borderRight: 1,
+                            borderColor: "#E601542A",
+                            textAlign: "center",
                           }}
                         >
-                          <Checkbox
-                            size="small"
-                            checked={isSelected}
-                            onChange={() => handleSelect(rowIndex)}
-                            color="secondary"
+                          <Box
                             sx={{
-                              "&.Mui-checked": {
-                                color: "#E60154",
-                              },
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              gap: 0.5,
                             }}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                          <Typography sx={{ fontSize: 14, color: "#333" }}>
-                            {rowIndex + 1}
-                          </Typography>
-                        </Box>
-                      </TableCell>
-
-                      <TableCell
-                        sx={{
-                          borderRight: 1,
-                          borderColor: "#E601542A",
-                          textAlign: "center",
-                        }}
-                      >
-                        {value === 2
-                          ? `${row.activityName || "-"} - ${row.activityCategory || "-"}`
-                          : value === 3
-                          ? (row.feeName || "-")
-                          : (row.feeDetails || "-")
-                        }
-                      </TableCell>
-
-                      <TableCell
-                        sx={{
-                          borderRight: 1,
-                          borderColor: "#E601542A",
-                          textAlign: "center",
-                        }}
-                      >
-                        ₹{row.feeAmount}
-                      </TableCell>
-
-                      <TableCell
-                        sx={{
-                          borderRight: 1,
-                          borderColor: "#E601542A",
-                          textAlign: "center",
-                          padding: "8px",
-                        }}
-                      >
-                        {(() => {
-                          const status = row.status?.toLowerCase();
-                          let statusConfig = {
-                            text: 'Unknown',
-                            color: '#64748b',
-                            bgColor: '#f1f5f9',
-                            icon: '❓'
-                          };
-
-                          if (status === 'paid') {
-                            statusConfig = {
-                              text: 'Paid',
-                              color: '#10b981',
-                              bgColor: '#d1fae5',
-                              icon: '✓'
-                            };
-                          } else if (status === 'notpaid') {
-                            statusConfig = {
-                              text: 'Not Paid',
-                              color: '#ef4444',
-                              bgColor: '#fee2e2',
-                              icon: '✗'
-                            };
-                          } else if (status === 'partiallypaid') {
-                            statusConfig = {
-                              text: 'Partially Paid',
-                              color: '#f59e0b',
-                              bgColor: '#fef3c7',
-                              icon: '◐'
-                            };
-                          }
-
-                          return (
-                            <Box
+                          >
+                            <Checkbox
+                              size="small"
+                              checked={isSelected}
+                              onChange={() => handleSelect(rowIndex)}
+                              color="secondary"
                               sx={{
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: 0.5,
-                                px: 1.5,
-                                py: 0.5,
-                                borderRadius: "6px",
-                                backgroundColor: statusConfig.bgColor,
-                                border: `1px solid ${statusConfig.color}30`,
+                                "&.Mui-checked": {
+                                  color: "#E60154",
+                                },
                               }}
-                            >
-                              <Typography sx={{ fontSize: "14px" }}>
-                                {statusConfig.icon}
-                              </Typography>
-                              <Typography
-                                sx={{
-                                  fontSize: "12px",
-                                  fontWeight: 600,
-                                  color: statusConfig.color,
-                                }}
-                              >
-                                {statusConfig.text}
-                              </Typography>
-                            </Box>
-                          );
-                        })()}
-                      </TableCell>
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                            <Typography sx={{ fontSize: 14, color: "#333" }}>
+                              {rowIndex + 1}
+                            </Typography>
+                          </Box>
+                        </TableCell>
 
-                      <TableCell
-                        sx={{
-                          borderRight: 1,
-                          borderColor: "#E601542A",
-                          textAlign: "center",
-                        }}
-                      >
-                        ₹{row.paidAmount}
-                      </TableCell>
-
-                      <TableCell
-                        sx={{
-                          borderRight: 1,
-                          borderColor: "#E601542A",
-                          textAlign: "center",
-                        }}
-                      >
-                        ₹{row.pendingAmount}
-                      </TableCell>
-
-                      <TableCell
-                        sx={{
-                          borderRight: 1,
-                          borderColor: "#E601542A",
-                          textAlign: "center",
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <TextField
-                          size='small'
-                          type="number"
-                          value={toPayAmounts[rowIndex] || 0}
-                          onChange={(e) => handleToPayChange(rowIndex, e.target.value)}
-                          disabled={!isSelected || row.pendingAmount === 0}
-                          inputProps={{
-                            min: 0,
-                            max: row.pendingAmount,
-                            step: 1
-                          }}
+                        <TableCell
                           sx={{
-                            width: '120px',
-                            '& .MuiOutlinedInput-root': {
-                              '& fieldset': {
-                                borderColor: isSelected ? '#E60154' : '#ccc',
-                              },
-                              '&:hover fieldset': {
-                                borderColor: '#E60154',
-                              },
-                              '&.Mui-focused fieldset': {
-                                borderColor: '#E60154',
-                              },
-                              '&.Mui-disabled': {
-                                backgroundColor: '#f5f5f5',
-                              }
-                            },
-                            '& input': {
-                              textAlign: 'center',
-                              fontWeight: 600
-                            }
-                          }}
-                          InputProps={{
-                            startAdornment: <Typography sx={{ mr: 0.5 }}>₹</Typography>
-                          }}
-                        />
-                      </TableCell>
-
-                      <TableCell
-                        sx={{
-                          borderRight: 1,
-                          borderColor: "#E601542A",
-                          textAlign: "center",
-                          padding: "8px",
-                        }}
-                      >
-                        {(() => {
-                          const dueDateInfo = getDueDateInfo(row.dueDate, row.status, row.pendingAmount);
-                          return (
-                            <Box
-                              sx={{
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: 0.5,
-                                px: 1.5,
-                                py: 0.5,
-                                borderRadius: "6px",
-                                backgroundColor: dueDateInfo.bgColor,
-                                border: `1px solid ${dueDateInfo.color}30`,
-                              }}
-                            >
-                              <Typography sx={{ fontSize: "14px" }}>
-                                {dueDateInfo.icon}
-                              </Typography>
-                              <Typography
-                                sx={{
-                                  fontSize: "12px",
-                                  fontWeight: 600,
-                                  color: dueDateInfo.color,
-                                }}
-                              >
-                                {dueDateInfo.text}
-                              </Typography>
-                            </Box>
-                          );
-                        })()}
-                      </TableCell>
-
-                      <TableCell
-                        sx={{
-                          borderRight: 1,
-                          borderColor: "#E601542A",
-                          textAlign: "center",
-                          color: "#6A1B9A",
-                          fontWeight: 500,
-                          textDecoration: "underline",
-                          "&:hover": { color: "#4A148C" },
-                          cursor: "pointer",
-                        }}
-                      >
-                        <Button
-                          variant="outlined"
-                          size="small"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenPopup(row);
-                          }}
-                          sx={{
-                            backgroundColor: "#E60154",
-                            color: "#fff",
-                            fontWeight: "600",
-                            textTransform: "none",
-                            borderRadius: "999px",
-                            height: "25px",
-                            width: "80px",
-                            fontSize: 13,
-                            boxShadow: "none",
-                            borderColor: "#E601542A"
+                            borderRight: 1,
+                            borderColor: "#E601542A",
+                            textAlign: "center",
                           }}
                         >
-                          Print
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
+                          {value === 1
+                            ? (row.place || "-")
+                            : value === 2
+                              ? `${row.activityName || "-"} - ${row.activityCategory || "-"}`
+                              : value === 3
+                                ? (row.feeName || "-")
+                                : (row.feeDetails || "-")
+                          }
+                        </TableCell>
+
+                        <TableCell
+                          sx={{
+                            borderRight: 1,
+                            borderColor: "#E601542A",
+                            textAlign: "center",
+                          }}
+                        >
+                          ₹{row.feeAmount}
+                        </TableCell>
+
+                        <TableCell
+                          sx={{
+                            borderRight: 1,
+                            borderColor: "#E601542A",
+                            textAlign: "center",
+                            padding: "8px",
+                          }}
+                        >
+                          {(() => {
+                            const status = row.status?.toLowerCase();
+                            let statusConfig = {
+                              text: 'Unknown',
+                              color: '#64748b',
+                              bgColor: '#f1f5f9',
+                              icon: '❓'
+                            };
+
+                            if (status === 'paid') {
+                              statusConfig = {
+                                text: 'Paid',
+                                color: '#10b981',
+                                bgColor: '#d1fae5',
+                                icon: '✓'
+                              };
+                            } else if (status === 'notpaid') {
+                              statusConfig = {
+                                text: 'Not Paid',
+                                color: '#ef4444',
+                                bgColor: '#fee2e2',
+                                icon: '✗'
+                              };
+                            } else if (status === 'partiallypaid') {
+                              statusConfig = {
+                                text: 'Partially Paid',
+                                color: '#f59e0b',
+                                bgColor: '#fef3c7',
+                                icon: '◐'
+                              };
+                            }
+
+                            return (
+                              <Box
+                                sx={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 0.5,
+                                  px: 1.5,
+                                  py: 0.5,
+                                  borderRadius: "6px",
+                                  backgroundColor: statusConfig.bgColor,
+                                  border: `1px solid ${statusConfig.color}30`,
+                                }}
+                              >
+                                <Typography sx={{ fontSize: "14px" }}>
+                                  {statusConfig.icon}
+                                </Typography>
+                                <Typography
+                                  sx={{
+                                    fontSize: "12px",
+                                    fontWeight: 600,
+                                    color: statusConfig.color,
+                                  }}
+                                >
+                                  {statusConfig.text}
+                                </Typography>
+                              </Box>
+                            );
+                          })()}
+                        </TableCell>
+
+                        <TableCell
+                          sx={{
+                            borderRight: 1,
+                            borderColor: "#E601542A",
+                            textAlign: "center",
+                          }}
+                        >
+                          ₹{row.paidAmount}
+                        </TableCell>
+
+                        <TableCell
+                          sx={{
+                            borderRight: 1,
+                            borderColor: "#E601542A",
+                            textAlign: "center",
+                          }}
+                        >
+                          ₹{row.pendingAmount}
+                        </TableCell>
+
+                        <TableCell
+                          sx={{
+                            borderRight: 1,
+                            borderColor: "#E601542A",
+                            textAlign: "center",
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <TextField
+                            size='small'
+                            type="number"
+                            value={toPayAmounts[rowIndex] || 0}
+                            onChange={(e) => handleToPayChange(rowIndex, e.target.value)}
+                            disabled={!isSelected || row.pendingAmount === 0}
+                            inputProps={{
+                              min: 0,
+                              max: row.pendingAmount,
+                              step: 1
+                            }}
+                            sx={{
+                              width: '120px',
+                              '& .MuiOutlinedInput-root': {
+                                '& fieldset': {
+                                  borderColor: isSelected ? '#E60154' : '#ccc',
+                                },
+                                '&:hover fieldset': {
+                                  borderColor: '#E60154',
+                                },
+                                '&.Mui-focused fieldset': {
+                                  borderColor: '#E60154',
+                                },
+                                '&.Mui-disabled': {
+                                  backgroundColor: '#f5f5f5',
+                                }
+                              },
+                              '& input': {
+                                textAlign: 'center',
+                                fontWeight: 600
+                              }
+                            }}
+                            InputProps={{
+                              startAdornment: <Typography sx={{ mr: 0.5 }}>₹</Typography>
+                            }}
+                          />
+                        </TableCell>
+
+                        <TableCell
+                          sx={{
+                            borderRight: 1,
+                            borderColor: "#E601542A",
+                            textAlign: "center",
+                            padding: "8px",
+                          }}
+                        >
+                          {(() => {
+                            const dueDateInfo = getDueDateInfo(row.dueDate, row.status, row.pendingAmount);
+                            return (
+                              <Box
+                                sx={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 0.5,
+                                  px: 1.5,
+                                  py: 0.5,
+                                  borderRadius: "6px",
+                                  backgroundColor: dueDateInfo.bgColor,
+                                  border: `1px solid ${dueDateInfo.color}30`,
+                                }}
+                              >
+                                <Typography sx={{ fontSize: "14px" }}>
+                                  {dueDateInfo.icon}
+                                </Typography>
+                                <Typography
+                                  sx={{
+                                    fontSize: "12px",
+                                    fontWeight: 600,
+                                    color: dueDateInfo.color,
+                                  }}
+                                >
+                                  {dueDateInfo.text}
+                                </Typography>
+                              </Box>
+                            );
+                          })()}
+                        </TableCell>
+
+                        <TableCell
+                          sx={{
+                            borderRight: 1,
+                            borderColor: "#E601542A",
+                            textAlign: "center",
+                            color: "#6A1B9A",
+                            fontWeight: 500,
+                            textDecoration: "underline",
+                            "&:hover": { color: "#4A148C" },
+                            cursor: "pointer",
+                          }}
+                        >
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenPopup(row);
+                            }}
+                            sx={{
+                              backgroundColor: "#E60154",
+                              color: "#fff",
+                              fontWeight: "600",
+                              textTransform: "none",
+                              borderRadius: "999px",
+                              height: "25px",
+                              width: "80px",
+                              fontSize: 13,
+                              boxShadow: "none",
+                              borderColor: "#E601542A"
+                            }}
+                          >
+                            Print
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
@@ -1836,306 +1989,332 @@ export default function BillingScreen() {
 
           <>
             <Dialog open={openPreview} onClose={handleClose} maxWidth="md" fullWidth keepMounted>
-            <Box sx={{ p: 2 }}>
-              <Box
-                ref={componentRef}
-                sx={{
-                  backgroundColor: "#fff",
-                  borderRadius: "6px",
-                  px: 3,
-                  "@media print": {
-                    boxShadow: "none",
-                  },
-                }}
-              >
+              <Box sx={{ p: 2 }}>
                 <Box
+                  ref={componentRef}
                   sx={{
-                    display: "flex",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    mb: 1,
-                    gap: 2,
+                    backgroundColor: "#fff",
+                    borderRadius: "6px",
+                    px: 3,
+                    "@media print": {
+                      boxShadow: "none",
+                    },
                   }}
                 >
-                  <img src={websiteSettings?.logo} width="70px" alt="school logo" />
-                  <Typography sx={{ fontWeight: 700, fontSize: "20px", color: "#000" }}>
-                    {websiteSettings?.title || ""}
-                  </Typography>
-                </Box>
-
-                <Box
-                  sx={{
-                    height: "1px",
-                    width: "100%",
-                    backgroundColor: "#ccc",
-                    mb: 1,
-                  }}
-                ></Box>
-
-                <Typography
-                  sx={{
-                    textAlign: "center",
-                    fontWeight: 600,
-                    fontSize: "20px",
-                    mb: 1,
-                    color: "#000",
-                  }}
-                >
-                   {Array.isArray(selectedFee) ? `Complete ${feeTabs[value]} Bill` : feeTabs[value]}
-                </Typography>
-
-                <Box
-                  sx={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(5, 1fr)",
-                    border: "1px solid #e0e0e0",
-                  }}
-                >
-                  {[
-                    { label: "SI No", value: selectedFee?.id || "-" },
-                    { label: "Student Name", value: getCurrentDetails()?.name || "-" },
-                    { label: "Roll No", value: getCurrentDetails()?.rollnumber || rollNumber || "-" },
-                    { label: "Class & Section", value: `${getCurrentDetails()?.grade || '-'} ${getCurrentDetails()?.section || ''}`.trim() },
-                    { label: "Bill Date", value: dayjs().format("DD/MM/YYYY") },
-                  ].map((item, i) => (
-                    <Box
-                      key={i}
-                      sx={{
-                        borderRight: i !== 4 ? "1px solid #e0e0e0" : "none",
-                        p: 0.7,
-                      }}
-                    >
-                      <Typography sx={{ color: "#888", fontSize: "12px" }}>{item.label}</Typography>
-                      <Typography
-                        sx={{
-                          color: "#000",
-                          fontSize: "15px",
-                          fontWeight: 500,
-                          mt: 0.5,
-                        }}
-                      >
-                        {item.value}
-                      </Typography>
-                    </Box>
-                  ))}
-                </Box>
-
-                <TableContainer
-                  sx={{
-                    border: "1px solid #E601542A",
-                    mt: 1.5
-                  }}
-                >
-                  <Table>
-                    <TableHead>
-                      <TableRow>
-                        {["S.No", "Fee Details", "Fee Description", "Fee Amount"].map((header, index) => (
-                          <TableCell
-                            key={index}
-                            sx={{
-                              backgroundColor: "#ff00001A",
-                              fontWeight: 600,
-                              textAlign: "center",
-                              border: "1px solid #E601542A",
-                              color: "#000",
-                              fontSize: "14px",
-                            }}
-                          >
-                            {header}
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    </TableHead>
-
-                    <TableBody>
-                      {selectedFee ? (
-                        Array.isArray(selectedFee) ? (
-                          // Multiple fees - Entire Bill
-                          selectedFee.map((fee, index) => (
-                            <TableRow key={index}>
-                              <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px" }}>
-                                {index + 1}
-                              </TableCell>
-                              <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px" }}>
-                                {value === 2
-                                  ? `${fee.activityName || "-"} - ${fee.activityCategory || "-"}`
-                                  : value === 3
-                                  ? (fee.feeName || "-")
-                                  : (fee.feeDetails || "-")
-                                }
-                              </TableCell>
-                              <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px" }}>
-                                {value === 2
-                                  ? (fee.activityCategory || "-")
-                                  : value === 3
-                                  ? (fee.remarks || "-")
-                                  : (fee.feeDescription || "-")
-                                }
-                              </TableCell>
-                              <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px" }}>
-                                ₹{(fee.feeAmount || fee.amount || 0).toLocaleString()}
-                              </TableCell>
-                            </TableRow>
-                          ))
-                        ) : (
-                          // Single fee
-                          <TableRow>
-                            <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px" }}>
-                              1
-                            </TableCell>
-                            <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px" }}>
-                              {value === 2
-                                ? `${selectedFee.activityName || "-"} - ${selectedFee.activityCategory || "-"}`
-                                : value === 3
-                                ? (selectedFee.feeName || "-")
-                                : (selectedFee.feeDetails || "-")
-                              }
-                            </TableCell>
-                            <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px" }}>
-                              {value === 2
-                                ? (selectedFee.activityCategory || "-")
-                                : value === 3
-                                ? (selectedFee.remarks || "-")
-                                : (selectedFee.feeDescription || "-")
-                              }
-                            </TableCell>
-                            <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px" }}>
-                              ₹{(selectedFee.feeAmount || selectedFee.amount || 0).toLocaleString()}
-                            </TableCell>
-                          </TableRow>
-                        )
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={4} sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#999", fontSize: "14px", py: 3 }}>
-                            No fee selected
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-
-                <Box sx={{ display: "flex", justifyContent: "end", }}>
                   <Box
                     sx={{
-                      border: "1px solid #ccc",
-                      py: 1,
-                      px: 3,
-                      color: "#00963C",
-                      fontWeight: "600",
-                      backgroundColor: "#fff",
-                      borderTop: "none",
-                      borderBottomLeftRadius: "5px",
-                      mr: "-2px",
-                      borderBottomRightRadius: "5px",
+                      display: "flex",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      mb: 1,
+                      gap: 2,
                     }}
                   >
-                    Total Amount: <span style={{ marginLeft: "20px" }}>₹{
-                      Array.isArray(selectedFee)
-                        ? getTotalAmountForAllFees(selectedFee).toLocaleString()
-                        : ((selectedFee?.feeAmount || selectedFee?.amount || 0)).toLocaleString()
-                    }</span>
+                    <img src={websiteSettings?.logo} width="70px" alt="school logo" />
+                    <Typography sx={{ fontWeight: 700, fontSize: "20px", color: "#000" }}>
+                      {websiteSettings?.title || ""}
+                    </Typography>
                   </Box>
-                </Box>
 
-                <Box
-                  sx={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    mt: 1,
-                  }}
-                >
-                  <Typography sx={{ fontSize: "15px", color: "#000" }}>
-                    <b>Total amount in words :</b> {
-                      Array.isArray(selectedFee)
-                        ? `Rupees ${getTotalAmountForAllFees(selectedFee).toLocaleString()} only`
-                        : (selectedFee?.feeAmount || selectedFee?.amount)
-                          ? `Rupees ${(selectedFee?.feeAmount || selectedFee?.amount).toLocaleString()} only`
-                          : "No amount"
-                    }
+                  <Box
+                    sx={{
+                      height: "1px",
+                      width: "100%",
+                      backgroundColor: "#ccc",
+                      mb: 1,
+                    }}
+                  ></Box>
+
+                  <Typography
+                    sx={{
+                      textAlign: "center",
+                      fontWeight: 600,
+                      fontSize: "20px",
+                      mb: 1,
+                      color: "#000",
+                    }}
+                  >
+                    {Array.isArray(selectedFee) ? `Complete ${feeTabs[value]} Bill` : feeTabs[value]}
                   </Typography>
 
-                  <Box sx={{ textAlign: "center" }}>
+                  <Box
+                    sx={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(5, 1fr)",
+                      border: "1px solid #e0e0e0",
+                    }}
+                  >
+                    {[
+                      { label: "SI No", value: selectedFee?.id || "-" },
+                      { label: "Student Name", value: getCurrentDetails()?.name || "-" },
+                      { label: "Roll No", value: getCurrentDetails()?.rollnumber || rollNumber || "-" },
+                      { label: "Class & Section", value: `${getCurrentDetails()?.grade || '-'} ${getCurrentDetails()?.section || ''}`.trim() },
+                      { label: "Receipt Date", value: dayjs().format("DD/MM/YYYY") },
+                    ].map((item, i) => (
+                      <Box
+                        key={i}
+                        sx={{
+                          borderRight: i !== 4 ? "1px solid #e0e0e0" : "none",
+                          p: 0.7,
+                        }}
+                      >
+                        <Typography sx={{ color: "#888", fontSize: "12px" }}>{item.label}</Typography>
+                        <Typography
+                          sx={{
+                            color: "#000",
+                            fontSize: "15px",
+                            fontWeight: 500,
+                            mt: 0.5,
+                          }}
+                        >
+                          {item.value}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Box>
+
+                  <TableContainer
+                    sx={{
+                      border: "1px solid #E601542A",
+                      mt: 1.5
+                    }}
+                  >
+                    <Table>
+                      <TableHead>
+                        <TableRow>
+                          {["S.No", "Fee Details", "Fee Amount", "Paid Amount", "Pending Amount"].map((header, index) => (
+                            <TableCell
+                              key={index}
+                              sx={{
+                                backgroundColor: "#ff00001A",
+                                fontWeight: header === "Paid Amount" ? 700 : 600,
+                                textAlign: "center",
+                                border: "1px solid #E601542A",
+                                color: header === "Paid Amount" ? "#00963C" : "#000",
+                                fontSize: "14px",
+                              }}
+                            >
+                              {header}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      </TableHead>
+
+                      <TableBody>
+                        {selectedFee ? (
+                          Array.isArray(selectedFee) ? (
+                            // Multiple fees - Entire Bill
+                            selectedFee.map((fee, index) => (
+                              <TableRow key={index}>
+                                <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px" }}>
+                                  {index + 1}
+                                </TableCell>
+                                <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px" }}>
+                                  {value === 1
+                                    ? (fee.place || "-")
+                                    : value === 2
+                                      ? `${fee.activityName || "-"} - ${fee.activityCategory || "-"}`
+                                      : value === 3
+                                        ? (fee.feeName || "-")
+                                        : (fee.feeDetails || "-")
+                                  }
+                                </TableCell>
+                                <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px" }}>
+                                  ₹{(fee.feeAmount || fee.amount || 0).toLocaleString()}
+                                </TableCell>
+                                <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", bgcolor: "#00963C0A", color: "#00963C", fontSize: "14px", fontWeight: 700 }}>
+                                  ₹{(fee.paidAmount || 0).toLocaleString()}
+                                </TableCell>
+                                <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px" }}>
+                                  ₹{(fee.pendingAmount || 0).toLocaleString()}
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          ) : (
+                            // Single fee
+                            <TableRow>
+                              <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px" }}>
+                                1
+                              </TableCell>
+                              <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px" }}>
+                                {value === 1
+                                  ? (selectedFee.place || "-")
+                                  : value === 2
+                                    ? `${selectedFee.activityName || "-"} - ${selectedFee.activityCategory || "-"}`
+                                    : value === 3
+                                      ? (selectedFee.feeName || "-")
+                                      : (selectedFee.feeDetails || "-")
+                                }
+                              </TableCell>
+                              <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px" }}>
+                                ₹{(selectedFee.feeAmount || selectedFee.amount || 0).toLocaleString()}
+                              </TableCell>
+                              <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", bgcolor: "#00963C0A", color: "#00963C", fontSize: "14px", fontWeight: 700 }}>
+                                ₹{(selectedFee.paidAmount || 0).toLocaleString()}
+                              </TableCell>
+                              <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px" }}>
+                                ₹{(selectedFee.pendingAmount || 0).toLocaleString()}
+                              </TableCell>
+                            </TableRow>
+                          )
+                        ) : (
+                          <TableRow>
+                            <TableCell colSpan={5} sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#999", fontSize: "14px", py: 3 }}>
+                              No fee selected
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+
+                  <Box sx={{ display: "flex", justifyContent: "end", }}>
                     <Box
                       sx={{
-                        border: "1px solid #000",
-                        width: "180px",
-                        height: "35px",
-                        borderRadius: "5px",
-                        mx: "auto",
+                        border: "1px solid #00963C",
+                        py: 1.5,
+                        px: 4,
+                        color: "#00963C",
+                        fontWeight: "700",
+                        backgroundColor: "#00963C0A",
+                        borderTop: "none",
+                        borderBottomLeftRadius: "5px",
+                        mr: "-2px",
+                        borderBottomRightRadius: "5px",
+                        fontSize: "16px",
                       }}
-                    />
-                    <Typography sx={{ fontSize: "13px", mt: 1 }}>School staff signature</Typography>
+                    >
+                      Paid Amount: <span style={{ marginLeft: "20px", fontSize: "18px" }}>₹{
+                        Array.isArray(selectedFee)
+                          ? selectedFee.reduce((total, fee) => total + (fee.paidAmount || 0), 0).toLocaleString()
+                          : ((selectedFee?.paidAmount || 0)).toLocaleString()
+                      }</span>
+                    </Box>
+                  </Box>
+
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      mt: 1,
+                    }}
+                  >
+                    <Typography sx={{ fontSize: "15px", color: "#000" }}>
+                      <b>Paid amount in words :</b> {
+                        Array.isArray(selectedFee)
+                          ? `${convertNumberToWords(selectedFee.reduce((total, fee) => total + (fee.paidAmount || 0), 0))} rupees only`
+                          : (selectedFee?.paidAmount)
+                            ? `${convertNumberToWords(selectedFee?.paidAmount)} rupees only`
+                            : "No amount"
+                      }
+                    </Typography>
+
+                    <Box sx={{ textAlign: "center" }}>
+                      <Box
+                        sx={{
+                          border: "1px solid #000",
+                          width: "180px",
+                          height: "35px",
+                          borderRadius: "5px",
+                          mx: "auto",
+                        }}
+                      />
+                      <Typography sx={{ fontSize: "13px", mt: 1 }}>School staff signature</Typography>
+                    </Box>
                   </Box>
                 </Box>
+
+                <DialogActions sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
+                  <Button
+                    onClick={handleClose}
+                    variant="outlined"
+                    sx={{
+                      borderColor: "#000",
+                      color: "#000",
+                      textTransform: "none",
+                      borderRadius: "30px",
+                      width: "100px",
+                      height: "33px",
+                    }}
+                  >
+                    Close
+                  </Button>
+                  <Button
+                    onClick={handlePrint}
+
+                    variant="contained"
+                    sx={{
+                      backgroundColor: websiteSettings.mainColor,
+                      textTransform: "none",
+                      color: websiteSettings.textColor,
+                      width: "100px",
+                      height: "33px",
+                      borderRadius: "30px",
+                    }}
+                  >
+                    Print
+                  </Button>
+                  <Button
+                    onClick={handleDownload}
+                    variant="contained"
+                    sx={{
+                      backgroundColor: websiteSettings.mainColor,
+                      textTransform: "none",
+                      color: websiteSettings.textColor,
+                      width: "110px",
+                      height: "33px",
+                      borderRadius: "30px",
+                    }}
+                  >
+                    Download
+                  </Button>
+                </DialogActions>
               </Box>
+            </Dialog>
 
-              <DialogActions sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
-                <Button
-                  onClick={handleClose}
-                  variant="outlined"
-                  sx={{
-                    borderColor: "#000",
-                    color: "#000",
-                    textTransform: "none",
-                    borderRadius: "30px",
-                    width: "100px",
-                    height: "33px",
-                  }}
-                >
-                  Close
-                </Button>
-                <Button
-                  onClick={handlePrint}
-
-                  variant="contained"
-                  sx={{
-                    backgroundColor: websiteSettings.mainColor,
-                    textTransform: "none",
-                    color: websiteSettings.textColor,
-                    width: "100px",
-                    height: "33px",
-                    borderRadius: "30px",
-                  }}
-                >
-                  Print
-                </Button>
-                <Button
-                  onClick={handleDownload}
-                  variant="contained"
-                  sx={{
-                    backgroundColor: websiteSettings.mainColor,
-                    textTransform: "none",
-                    color: websiteSettings.textColor,
-                    width: "110px",
-                    height: "33px",
-                    borderRadius: "30px",
-                  }}
-                >
-                  Download
-                </Button>
-              </DialogActions>
-            </Box>
-          </Dialog>
-
-          {getCurrentFeeData().length > 0 && (
-            <>
-              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                <Box sx={{ display: "flex", ml: 12 }}>
-                  <Box sx={{ border: "1px solid #ccc", py: 1, px: 3, color: "#00963C", fontWeight: "600", borderTop: "none", borderBottomLeftRadius: "5px", backgroundColor: "#fff", }}>
-                    Total Fees Amount
+            {getCurrentFeeData().length > 0 && (
+              <>
+                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                  <Box sx={{ display: "flex", ml: 12 }}>
+                    <Box sx={{ border: "1px solid #ccc", py: 1, px: 3, color: "#00963C", fontWeight: "600", borderTop: "none", borderBottomLeftRadius: "5px", backgroundColor: "#fff", }}>
+                      Total Fees Amount
+                    </Box>
+                    <Box sx={{ border: "1px solid #ccc", borderLeft: "none", fontWeight: "600", py: 1, px: 2, color: "#00963C", borderTop: "none", borderBottomRightRadius: "5px", backgroundColor: "#fff", }}>
+                      ₹{getTotalFeeAmount().toLocaleString()}
+                    </Box>
                   </Box>
-                  <Box sx={{ border: "1px solid #ccc", borderLeft: "none", fontWeight: "600", py: 1, px: 2, color: "#00963C", borderTop: "none", borderBottomRightRadius: "5px", backgroundColor: "#fff", }}>
-                    ₹{getTotalFeeAmount().toLocaleString()}
-                  </Box>
+                  {areAllFeesPaid() && (
+                    <Box
+                      sx={{
+                        textTransform: "none",
+                        textDecoration: "underline",
+                        color: "#1F73C2",
+                        mt: 1,
+                        cursor: "pointer",
+                        display: "inline-block",
+                        transition: "color 0.2s ease",
+                        userSelect: "none",
+                        "&:hover": {
+                          color: "#145A9E",
+                        },
+                        "&:active": {
+                          transform: "scale(0.98)",
+                        },
+                      }}
+                      onClick={handlePrintEntireBill}
+                    >
+                      Print as Entire Bill
+                    </Box>
+                  )}
                 </Box>
-                {areAllFeesPaid() && (
+
+                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
                   <Box
                     sx={{
                       textTransform: "none",
                       textDecoration: "underline",
                       color: "#1F73C2",
-                      mt: 1,
+                      mt: 2,
                       cursor: "pointer",
                       display: "inline-block",
                       transition: "color 0.2s ease",
@@ -2147,76 +2326,51 @@ export default function BillingScreen() {
                         transform: "scale(0.98)",
                       },
                     }}
-                    onClick={handlePrintEntireBill}
+                    onClick={() => {
+                      // Map tab value to feeType
+                      const feeTypeMap = {
+                        0: 'schoolfee',
+                        1: 'transport',
+                        2: 'eca',
+                        3: 'additional'
+                      };
+                      navigate('/dashboardmenu/fee/transaction-history', {
+                        state: {
+                          rollNumber,
+                          year: selectedYear,
+                          feeType: feeTypeMap[value],
+                          activeTab: value
+                        }
+                      });
+                    }}
                   >
-                    Print as Entire Bill
+                    View Previous bill Transaction History
                   </Box>
-                )}
-              </Box>
-
-              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                <Box
-                  sx={{
-                    textTransform: "none",
-                    textDecoration: "underline",
-                    color: "#1F73C2",
-                    mt: 2,
-                    cursor: "pointer",
-                    display: "inline-block",
-                    transition: "color 0.2s ease",
-                    userSelect: "none",
-                    "&:hover": {
-                      color: "#145A9E",
-                    },
-                    "&:active": {
-                      transform: "scale(0.98)",
-                    },
-                  }}
-                  onClick={() => {
-                    // Map tab value to feeType
-                    const feeTypeMap = {
-                      0: 'schoolfee',
-                      1: 'transport',
-                      2: 'eca',
-                      3: 'additional'
-                    };
-                    navigate('/dashboardmenu/fee/transaction-history', {
-                      state: {
-                        rollNumber,
-                        year: selectedYear,
-                        feeType: feeTypeMap[value],
-                        activeTab: value
-                      }
-                    });
-                  }}
-                >
-                  View Previous bill Transaction History
+                  <Button
+                    variant="contained"
+                    size="small"
+                    disabled={selectedRows.length === 0}
+                    onClick={handleOpenPaymentPopup}
+                    sx={{
+                      backgroundColor: "#2e7d32",
+                      textTransform: "none",
+                      borderRadius: "8px",
+                      mt: 1,
+                      px: 3,
+                      "&:hover": {
+                        backgroundColor: "#1b5e20",
+                      },
+                      fontSize: 13,
+                      boxShadow: "none",
+                    }}
+                  >
+                    Pay ₹{getTotalPending().toLocaleString()}
+                  </Button>
                 </Box>
-                <Button
-                  variant="contained"
-                  size="small"
-                  disabled={selectedRows.length === 0}
-                  onClick={handleOpenPaymentPopup}
-                  sx={{
-                    backgroundColor: "#2e7d32",
-                    textTransform: "none",
-                    borderRadius: "8px",
-                    mt: 1,
-                    px: 3,
-                    "&:hover": {
-                      backgroundColor: "#1b5e20",
-                    },
-                    fontSize: 13,
-                    boxShadow: "none",
-                  }}
-                >
-                  Pay ₹{getTotalPending().toLocaleString()}
-                </Button>
-              </Box>
-            </>
-          )}
+              </>
+            )}
 
-          <Dialog
+            <Dialog
               open={openPaymentPopup}
               onClose={!paymentProcessing ? handleCloseAttempt : undefined}
               maxWidth="sm"
@@ -2997,7 +3151,7 @@ export default function BillingScreen() {
                                   Fee Type
                                 </Typography>
                                 <Typography sx={{ fontWeight: 700, fontSize: "0.95rem", color: "#1e293b" }}>
-                                {feeTabs[value]}
+                                  {feeTabs[value]}
                                 </Typography>
                               </Box>
                             </Grid>
@@ -3627,6 +3781,7 @@ export default function BillingScreen() {
                     <Button
                       variant="outlined"
                       startIcon={<PrintIcon />}
+                      onClick={handleOpenPrintReceipt}
                       sx={{
                         borderRadius: "12px",
                         textTransform: "none",
@@ -3748,6 +3903,305 @@ export default function BillingScreen() {
               </DialogActions>
             </Dialog>
 
+            {/* Print Receipt Dialog */}
+            <Dialog
+              open={openPrintReceiptDialog}
+              onClose={handleClosePrintReceipt}
+              maxWidth="md"
+              fullWidth
+              keepMounted
+              sx={{
+                zIndex: 1400, // Higher than payment popup to appear on top
+              }}
+              PaperProps={{
+                sx: {
+                  borderRadius: "16px",
+                  overflow: "hidden",
+                }
+              }}
+            >
+              <Box sx={{ p: 2 }}>
+                <Box
+                  ref={printReceiptRef}
+                  sx={{
+                    backgroundColor: "#fff",
+                    borderRadius: "6px",
+                    px: 3,
+                    "@media print": {
+                      boxShadow: "none",
+                    },
+                  }}
+                >
+                  {/* Header with Logo */}
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      mb: 1,
+                      gap: 2,
+                    }}
+                  >
+                    <img src={websiteSettings?.logo} width="70px" alt="school logo" />
+                    <Typography sx={{ fontWeight: 700, fontSize: "20px", color: "#000" }}>
+                      {websiteSettings?.title || ""}
+                    </Typography>
+                  </Box>
+
+                  <Box
+                    sx={{
+                      height: "1px",
+                      width: "100%",
+                      backgroundColor: "#ccc",
+                      mb: 1,
+                    }}
+                  />
+
+                  <Typography
+                    sx={{
+                      textAlign: "center",
+                      fontWeight: 600,
+                      fontSize: "20px",
+                      mb: 1,
+                      color: "#000",
+                    }}
+                  >
+                    Payment Receipt - {feeTabs[value]}
+                  </Typography>
+
+                  {/* Student & Receipt Info Grid */}
+                  <Box
+                    sx={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(5, 1fr)",
+                      border: "1px solid #e0e0e0",
+                    }}
+                  >
+                    {[
+                      { label: "Transaction ID", value: `TXN${Date.now().toString().slice(-10)}` },
+                      { label: "Student Name", value: details?.name || "-" },
+                      { label: "Roll No", value: details?.rollNumber || rollNumber || "-" },
+                      { label: "Class & Section", value: `${details?.grade || '-'} ${details?.section || ''}`.trim() },
+                      { label: "Receipt Date", value: dayjs().format("DD/MM/YYYY") },
+                    ].map((item, i) => (
+                      <Box
+                        key={i}
+                        sx={{
+                          borderRight: i !== 4 ? "1px solid #e0e0e0" : "none",
+                          p: 0.7,
+                        }}
+                      >
+                        <Typography sx={{ color: "#888", fontSize: "12px" }}>{item.label}</Typography>
+                        <Typography
+                          sx={{
+                            color: "#000",
+                            fontSize: "15px",
+                            fontWeight: 500,
+                            mt: 0.5,
+                          }}
+                        >
+                          {item.value}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Box>
+
+                  {/* Fee Details Table */}
+                  <TableContainer
+                    sx={{
+                      border: "1px solid #E601542A",
+                      mt: 1.5
+                    }}
+                  >
+                    <Table>
+                      <TableHead>
+                        <TableRow>
+                          {["S.No", "Fee Type", "Fee Details", "Fee Amount", "Paid Amount"].map((header, index) => (
+                            <TableCell
+                              key={index}
+                              sx={{
+                                backgroundColor: header === "Paid Amount" ? "#00963C1A" : "#ff00001A",
+                                fontWeight: header === "Paid Amount" ? 700 : 600,
+                                textAlign: "center",
+                                border: "1px solid #E601542A",
+                                color: header === "Paid Amount" ? "#00963C" : "#000",
+                                fontSize: "14px",
+                              }}
+                            >
+                              {header}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      </TableHead>
+
+                      <TableBody>
+                        {completedPaymentFees && completedPaymentFees.length > 0 ? (
+                          completedPaymentFees.map((fee, index) => (
+                            <TableRow key={index}>
+                              <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px" }}>
+                                {index + 1}
+                              </TableCell>
+                              <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px", fontWeight: 600 }}>
+                                {feeTabs[value]}
+                              </TableCell>
+                              <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px" }}>
+                                {value === 1
+                                  ? (fee.place || "-")
+                                  : value === 2
+                                    ? `${fee.activityName || "-"} - ${fee.activityCategory || "-"}`
+                                    : value === 3
+                                      ? (fee.feeName || "-")
+                                      : (fee.feeDetails || "-")
+                                }
+                              </TableCell>
+                              <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px" }}>
+                                ₹{(fee.feeAmount || fee.amount || 0).toLocaleString()}
+                              </TableCell>
+                              <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", bgcolor: "#00963C0A", color: "#00963C", fontSize: "14px", fontWeight: 700 }}>
+                                ₹{(fee.paidAmount || fee.actualPaidAmount || (completedPaymentAmount / completedPaymentFees.length) || 0).toLocaleString()}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        ) : (
+                          <TableRow>
+                            <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px" }}>
+                              1
+                            </TableCell>
+                            <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px", fontWeight: 600 }}>
+                              {feeTabs[value]}
+                            </TableCell>
+                            <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px" }}>
+                              Payment
+                            </TableCell>
+                            <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px" }}>
+                              ₹{completedPaymentAmount.toLocaleString()}
+                            </TableCell>
+                            <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", bgcolor: "#00963C0A", color: "#00963C", fontSize: "14px", fontWeight: 700 }}>
+                              ₹{completedPaymentAmount.toLocaleString()}
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+
+                  {/* Total Paid Amount */}
+                  <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 0 }}>
+                    <Box sx={{
+                      border: "1px solid #00963C",
+                      py: 1.5,
+                      px: 4,
+                      color: "#00963C",
+                      fontWeight: "700",
+                      backgroundColor: "#00963C0A",
+                      borderTop: "none",
+                      borderBottomLeftRadius: "5px",
+                      mr: "-2px",
+                      borderBottomRightRadius: "5px",
+                      fontSize: "16px",
+                    }}>
+                      Paid Amount: <span style={{ marginLeft: "20px", fontSize: "18px" }}>₹{completedPaymentAmount.toLocaleString()}</span>
+                    </Box>
+                  </Box>
+
+                  {/* Payment Details */}
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      mt: 1,
+                      alignItems: "center",
+                    }}
+                  >
+                    <Box>
+                      <Typography sx={{ fontSize: "15px", color: "#000", mb: 0.5 }}>
+                        <b>Paid amount in words:</b> {convertNumberToWords(completedPaymentAmount)} rupees only
+                      </Typography>
+                      <Typography sx={{ fontSize: "14px", color: "#666" }}>
+                        <b>Payment Method:</b> {paymentMethodOptions.find(m => m.id === selectedPaymentMethod)?.name || '-'}
+                      </Typography>
+                      <Typography sx={{ fontSize: "14px", color: "#666" }}>
+                        <b>Payment Date:</b> {dayjs().format("DD MMMM YYYY, hh:mm A")}
+                      </Typography>
+                    </Box>
+
+                    <Box sx={{ textAlign: "center" }}>
+                      <Box
+                        sx={{
+                          border: "1px solid #000",
+                          width: "180px",
+                          height: "35px",
+                          borderRadius: "5px",
+                          mx: "auto",
+                        }}
+                      />
+                      <Typography sx={{ fontSize: "13px", mt: 1 }}>School staff signature</Typography>
+                    </Box>
+                  </Box>
+                </Box>
+
+                {/* Dialog Actions */}
+                <DialogActions sx={{ display: "flex", justifyContent: "center", mt: 2, gap: 1.5 }}>
+                  <Button
+                    onClick={handleClosePrintReceipt}
+                    variant="outlined"
+                    sx={{
+                      borderColor: "#000",
+                      color: "#000",
+                      textTransform: "none",
+                      borderRadius: "30px",
+                      width: "100px",
+                      height: "33px",
+                      fontWeight: 600,
+                      "&:hover": {
+                        borderColor: "#333",
+                        bgcolor: "#f5f5f5",
+                      }
+                    }}
+                  >
+                    Close
+                  </Button>
+                  <Button
+                    onClick={handlePrintReceipt}
+                    variant="contained"
+                    startIcon={<PrintIcon />}
+                    sx={{
+                      backgroundColor: websiteSettings.mainColor,
+                      textTransform: "none",
+                      color: websiteSettings.textColor,
+                      width: "120px",
+                      height: "33px",
+                      borderRadius: "30px",
+                      fontWeight: 600,
+                      "&:hover": {
+                        backgroundColor: websiteSettings.darkColor,
+                      }
+                    }}
+                  >
+                    Print
+                  </Button>
+                  <Button
+                    onClick={handleDownloadReceipt}
+                    variant="contained"
+                    sx={{
+                      backgroundColor: websiteSettings.mainColor,
+                      textTransform: "none",
+                      color: websiteSettings.textColor,
+                      width: "130px",
+                      height: "33px",
+                      borderRadius: "30px",
+                      fontWeight: 600,
+                      "&:hover": {
+                        backgroundColor: websiteSettings.darkColor,
+                      }
+                    }}
+                  >
+                    Download
+                  </Button>
+                </DialogActions>
+              </Box>
+            </Dialog>
+
             <Dialog
               open={openHistoryPopup}
               onClose={() => setOpenHistoryPopup(false)}
@@ -3799,7 +4253,7 @@ export default function BillingScreen() {
                     </Box>
                   ))}
                 </Box>
-                
+
               </DialogContent>
             </Dialog>
           </>

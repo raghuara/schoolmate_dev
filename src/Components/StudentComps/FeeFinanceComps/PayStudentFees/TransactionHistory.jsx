@@ -34,7 +34,7 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
-import { schoolFeesRecordGet, ecaFeesRecordGet, additionalFeesRecordGet } from '../../../../Api/Api';
+import { schoolFeesRecordGet, ecaFeesRecordGet, additionalFeesRecordGet, transportFeesRecordGet } from '../../../../Api/Api';
 import toast from 'react-hot-toast';
 
 const TransactionHistory = () => {
@@ -71,6 +71,10 @@ const TransactionHistory = () => {
           endpoint = additionalFeesRecordGet;
           params = { RollNumber: rollNumber, Year: year };
           break;
+        case 'transport':
+          endpoint = transportFeesRecordGet;
+          params = { RollNumber: rollNumber, Year: year };
+          break;
         default:
           endpoint = schoolFeesRecordGet;
           params = { RollNumber: rollNumber, Year: year, FeesType: "schoolfee" };
@@ -85,7 +89,55 @@ const TransactionHistory = () => {
       });
 
       if (response.data.error === false) {
-        setTransactionData(response.data.data);
+        let processedData = response.data.data;
+
+        // Transform transport fee data to match expected structure
+        if (feeType === 'transport' && processedData.payments) {
+          // Group payments by studentFeesElementID to create fee elements
+          const feeElementsMap = {};
+
+          processedData.payments.forEach((payment, index) => {
+            const elementId = payment.studentFeesElementID || '1';
+
+            if (!feeElementsMap[elementId]) {
+              feeElementsMap[elementId] = {
+                id: elementId,
+                place: 'Transport Service', // Default, can be enhanced based on your data
+                dueDate: '-',
+                feeAmount: 0,
+                paidAmount: 0,
+                pendingAmount: 0,
+                status: 'paid',
+                attemptCount: 0,
+                attempts: []
+              };
+            }
+
+            // Add payment as an attempt
+            feeElementsMap[elementId].attempts.push({
+              attemptNo: feeElementsMap[elementId].attempts.length + 1,
+              paidDate: payment.paidDate,
+              paymentOption: payment.paymentOption,
+              totalPaidAmount: payment.totalPaidAmount,
+              upiid: payment.upiid,
+              transactionID: payment.transactionID,
+              bankName: payment.bankName,
+              chequeNo: payment.chequeNo,
+              cardType: payment.cardType,
+              cardLastFourDigits: payment.cardLastFourDigits,
+              remark: payment.remark,
+              cashDenominations: processedData.cashDenominations?.filter(cd => cd.id === parseInt(payment.cashDenominationID))
+            });
+
+            feeElementsMap[elementId].paidAmount += payment.totalPaidAmount || 0;
+            feeElementsMap[elementId].feeAmount += payment.totalPaidAmount || 0;
+            feeElementsMap[elementId].attemptCount = feeElementsMap[elementId].attempts.length;
+          });
+
+          processedData.feesElements = Object.values(feeElementsMap);
+        }
+
+        setTransactionData(processedData);
       } else {
         toast.error(response.data.message || 'Failed to fetch transaction history');
       }
@@ -148,7 +200,11 @@ const TransactionHistory = () => {
   };
 
   const renderDenominationTable = (denomination, type) => {
-    const denomData = type === 'inwards' ? denomination.inwardsDenomination : denomination.outwardsDenomination;
+    // Handle both nested structure (school/ECA/additional) and flat structure (transport)
+    const denomData = denomination.inwardsDenomination
+      ? (type === 'inwards' ? denomination.inwardsDenomination : denomination.outwardsDenomination)
+      : denomination; // For transport fees, the denomination object is already flat
+
     const notes = [2000, 500, 200, 100, 50, 20, 10, 5, 2, 1];
 
     return (
@@ -181,7 +237,9 @@ const TransactionHistory = () => {
             <TableRow sx={{ bgcolor: '#fafafa' }}>
               <TableCell colSpan={2} sx={{ fontWeight: 600, fontSize: '13px', py: 1 }}>Total</TableCell>
               <TableCell align="right" sx={{ fontWeight: 600, fontSize: '13px', py: 1 }}>
-                ₹{type === 'inwards' ? denomination.inWardsTotal?.toLocaleString() : denomination.outWardsTotal?.toLocaleString()}
+                ₹{type === 'inwards'
+                  ? (denomination.inWardsTotal || denomination.totalInwards || 0).toLocaleString()
+                  : (denomination.outWardsTotal || 0).toLocaleString()}
               </TableCell>
             </TableRow>
           </TableBody>
@@ -313,7 +371,9 @@ const TransactionHistory = () => {
                   ? transactionData.ecaFeesID || '-'
                   : feeType === 'additional'
                     ? transactionData.additionalFeesID || '-'
-                    : transactionData.primeSchoolFeeID || '-'}
+                    : feeType === 'transport'
+                      ? '-'
+                      : transactionData.primeSchoolFeeID || '-'}
               </TableCell>
               <TableCell sx={{ fontSize: '14px', fontWeight: 600, py: 1.5, border: '1px solid #e8e8e8' }}>{transactionData.name}</TableCell>
               <TableCell sx={{ fontSize: '14px', py: 1.5, border: '1px solid #e8e8e8' }}>{transactionData.rollnumber}</TableCell>
@@ -346,10 +406,10 @@ const TransactionHistory = () => {
                     <TableRow sx={{ bgcolor: '#ffe6e6' }}>
                       <TableCell sx={{ fontWeight: 700, fontSize: '14px', color: '#000', py: 1.5, border: '1px solid #e8e8e8' }}>S.No</TableCell>
                       <TableCell sx={{ fontWeight: 700, fontSize: '14px', color: '#000', py: 1.5, border: '1px solid #e8e8e8' }}>
-                        {feeType === 'eca' ? 'Activity Category' : feeType === 'additional' ? 'Fee Name' : 'Fee Details'}
+                        {feeType === 'eca' ? 'Activity Category' : feeType === 'additional' ? 'Fee Name' : feeType === 'transport' ? 'Location/Place' : 'Fee Details'}
                       </TableCell>
                       <TableCell sx={{ fontWeight: 700, fontSize: '14px', color: '#000', py: 1.5, border: '1px solid #e8e8e8' }}>
-                        {feeType === 'eca' ? 'Activity Name' : feeType === 'additional' ? 'Due Date' : 'Fee Description'}
+                        {feeType === 'eca' ? 'Activity Name' : feeType === 'additional' ? 'Due Date' : feeType === 'transport' ? 'Due Date' : 'Fee Description'}
                       </TableCell>
                       <TableCell sx={{ fontWeight: 700, fontSize: '14px', color: '#000', py: 1.5, border: '1px solid #e8e8e8' }}>Fee Amount</TableCell>
                     </TableRow>
@@ -358,10 +418,22 @@ const TransactionHistory = () => {
                     <TableRow sx={{ bgcolor: '#fff' }}>
                       <TableCell sx={{ fontSize: '14px', py: 1.5, border: '1px solid #e8e8e8' }}>{index + 1}</TableCell>
                       <TableCell sx={{ fontSize: '14px', fontWeight: 600, py: 1.5, border: '1px solid #e8e8e8' }}>
-                        {feeType === 'eca' ? feeElement.activityCategory : feeType === 'additional' ? feeElement.feeName : feeElement.feeDetails}
+                        {feeType === 'eca'
+                          ? feeElement.activityCategory
+                          : feeType === 'additional'
+                            ? feeElement.feeName
+                            : feeType === 'transport'
+                              ? feeElement.place
+                              : feeElement.feeDetails}
                       </TableCell>
                       <TableCell sx={{ fontSize: '14px', py: 1.5, border: '1px solid #e8e8e8' }}>
-                        {feeType === 'eca' ? feeElement.activityName : feeType === 'additional' ? feeElement.dueDate : feeElement.feeDescription}
+                        {feeType === 'eca'
+                          ? feeElement.activityName
+                          : feeType === 'additional'
+                            ? feeElement.dueDate
+                            : feeType === 'transport'
+                              ? feeElement.dueDate
+                              : feeElement.feeDescription}
                       </TableCell>
                       <TableCell sx={{ fontSize: '14px', fontWeight: 700, py: 1.5, border: '1px solid #e8e8e8' }}>₹{feeElement.feeAmount?.toLocaleString()}</TableCell>
                     </TableRow>
@@ -602,7 +674,7 @@ const TransactionHistory = () => {
                     Cash Received (Inwards)
                   </Typography>
                   <Typography sx={{ fontSize: '22px', fontWeight: '700', color: '#2E7D32' }}>
-                    ₹{selectedDenomination.inWardsTotal?.toLocaleString()}
+                    ₹{(selectedDenomination.inWardsTotal || selectedDenomination.totalInwards || 0).toLocaleString()}
                   </Typography>
                 </Box>
                 {renderDenominationTable(selectedDenomination, 'inwards')}
@@ -615,7 +687,7 @@ const TransactionHistory = () => {
                     Change Returned (Outwards)
                   </Typography>
                   <Typography sx={{ fontSize: '22px', fontWeight: '700', color: '#d32f2f' }}>
-                    ₹{selectedDenomination.outWardsTotal?.toLocaleString()}
+                    ₹{(selectedDenomination.outWardsTotal || selectedDenomination.outWardsdenomination || 0).toLocaleString()}
                   </Typography>
                 </Box>
                 {renderDenominationTable(selectedDenomination, 'outwards')}
@@ -628,10 +700,10 @@ const TransactionHistory = () => {
                     Net Amount Collected
                   </Typography>
                   <Typography sx={{ fontSize: '28px', fontWeight: '700', color: '#333' }}>
-                    ₹{selectedDenomination.totalInwards?.toLocaleString()}
+                    ₹{(selectedDenomination.totalInwards || selectedDenomination.inWardsTotal || 0).toLocaleString()}
                   </Typography>
                   <Typography sx={{ fontSize: '12px', color: '#999', mt: 1 }}>
-                    Created on: {selectedDenomination.createdOn}
+                    Created on: {selectedDenomination.createdOn || '-'}
                   </Typography>
                 </Box>
               </Grid>

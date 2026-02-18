@@ -195,7 +195,7 @@ export default function LoginPage() {
                     
                     <Box sx={{ width: "100%", maxWidth: "460px", position: "relative", zIndex: 1 }}>
                         {/* Title */}
-                        <Box sx={{ display: "flex", justifyContent: "center", mb: 2 }}>
+                        {/* <Box sx={{ display: "flex", justifyContent: "center", mb: 2 }}>
                             <motion.img
                                 initial={{ opacity: 0, scale: 0.5 }}
                                 animate={{
@@ -217,7 +217,7 @@ export default function LoginPage() {
                                 alt="logo"
                                 width={"100px"}
                             />
-                        </Box>
+                        </Box> */}
                         <Box sx={{ mb: 3, display: "flex", justifyContent: "center" }}>
                             <motion.div
                                 initial={{ opacity: 0, y: 20 }}

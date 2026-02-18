@@ -143,6 +143,12 @@ import FinanceDashboard from "./Components/StudentComps/FeeFinanceComps/FinanceD
 import ExpensePage from "./Components/StudentComps/FeeFinanceComps/ExpenseComps/ExpensePage";
 import TransportFeeApprovalPage from "./Components/Approvals/ApprovalPages/FeeApprovalComps/TransportFeeApprovalPage";
 import AddEditPayroll from "./Components/LeaveAttendanceComps/PayrollComps/AddEditPayroll";
+import PayrollOverview from "./Components/LeaveAttendanceComps/PayrollComps/PayrollOverview";
+import SalaryStructures from "./Components/LeaveAttendanceComps/PayrollComps/SalaryStructures";
+import ComplianceSettings from "./Components/LeaveAttendanceComps/PayrollComps/ComplianceSettings";
+import ApprovePayroll from "./Components/LeaveAttendanceComps/PayrollComps/ApprovePayroll";
+import BankReports from "./Components/LeaveAttendanceComps/PayrollComps/BankReports";
+import SalaryRegister from "./Components/LeaveAttendanceComps/PayrollComps/SalaryRegister";
 
 
 export default function RouterPage() {
@@ -284,7 +290,13 @@ export default function RouterPage() {
 
                 {/*Leave & payroll - Single Page with Tabs*/}
                 <Route path="Leave" element={<LeaveAttendanceMainPage />} />
-                <Route path="Leave/payroll-form" element={<AddEditPayroll />} />
+                <Route path="Leave/payroll" element={<PayrollOverview />} />
+                <Route path="Leave/payroll/payroll-form" element={<AddEditPayroll />} />
+                <Route path="Leave/payroll/salary-structures" element={<SalaryStructures />} />
+                <Route path="Leave/payroll/compliance" element={<ComplianceSettings />} />
+                <Route path="Leave/payroll/approve-payroll" element={<ApprovePayroll />} />
+                <Route path="Leave/payroll/bank-reports" element={<BankReports />} />
+                <Route path="Leave/payroll/salary-register" element={<SalaryRegister />} />
 
                 {/* --------------------------------------------------------------------------------------------------- */}
 

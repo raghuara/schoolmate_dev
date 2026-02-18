@@ -44,7 +44,7 @@ import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import CloseIcon from '@mui/icons-material/Close';
-import { transpoartFeeFetch, transpoartFeeFetchID, updateTranspoartSchoolFee, deleteTranspoartFeesStructure } from '../../../../Api/Api';
+import { transpoartFeeFetch, transpoartFeeFetchID, updateTranspoartSchoolFee, deleteTranspoartFeesStructure, approvalStatusCheckTranspoart } from '../../../../Api/Api';
 import axios from 'axios';
 import dayjs from 'dayjs';
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
@@ -86,6 +86,7 @@ export default function CreatedTransportFees() {
     `${currentYear - 1}-${currentYear}`,
     `${currentYear}-${currentYear + 1}`,
   ];
+
   const labelSx = {
     color: "#333",
     fontWeight: 600,
@@ -113,27 +114,29 @@ export default function CreatedTransportFees() {
 
   useEffect(() => {
     fetchCreatedFees();
-  }, []);
+  }, [selectedYear]);
 
   useEffect(() => {
     filterFees();
-  }, [searchQuery, selectedYear, createdFees]);
+  }, [searchQuery, createdFees]);
 
   const fetchCreatedFees = async () => {
     setIsLoading(true);
     try {
-      const response = await axios.get(transpoartFeeFetch, {
-        params:{
-          Year:selectedYear
+      const response = await axios.get(approvalStatusCheckTranspoart, {
+        params: {
+          RollNumber: rollNumber,
+          Year: selectedYear,
+          Status: "Approved"
         },
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
 
-      if (response.data && Array.isArray(response.data)) {
+      if (response.data && response.data.fees && Array.isArray(response.data.fees)) {
         // Group fees by routeInformationId
-        const groupedFees = response.data.reduce((acc, fee) => {
+        const groupedFees = response.data.fees.reduce((acc, fee) => {
           const routeId = fee.routeInformationId;
           if (!acc[routeId]) {
             acc[routeId] = {
@@ -167,12 +170,7 @@ export default function CreatedTransportFees() {
   const filterFees = () => {
     let filtered = [...createdFees];
 
-    // Filter by year
-    if (selectedYear && selectedYear !== academicYears[academicYears.length - 1]) {
-      filtered = filtered.filter(fee => fee.year === selectedYear);
-    }
-
-    // Filter by search query
+    // Filter by search query only (year filtering is done by API)
     if (searchQuery) {
       filtered = filtered.filter(fee =>
         fee.tripName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -432,7 +430,7 @@ export default function CreatedTransportFees() {
 
   return (
     <Box>
-      <Box sx={{ width: "100%", bgcolor: "#fafafa", minHeight: "100vh" }}>
+      <Box sx={{ width: "100%", minHeight: "100vh" }}>
         <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
         {isLoading && <Loader />}
 

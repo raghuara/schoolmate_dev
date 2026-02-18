@@ -460,7 +460,7 @@ export default function EditStaffDetails() {
                         <IconButton onClick={() => navigate(-1)} sx={{ width: "27px", height: "27px", marginTop: "3px", mr: 1 }}>
                             <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
                         </IconButton>
-                        <Typography sx={{ fontWeight: 600, fontSize: "20px" }}>View Staff Details</Typography>
+                        <Typography sx={{ fontWeight: 600, fontSize: "20px" }}>Edit Staff Details</Typography>
                     </Grid>
                     <Grid size={{ xs: 12, md: 6, lg: 3 }} sx={{ display: "flex", justifyContent: "end", alignItems: "center" }}>
                         <Typography sx={{ color: "#7F7F7F", fontSize: "16px" }}>

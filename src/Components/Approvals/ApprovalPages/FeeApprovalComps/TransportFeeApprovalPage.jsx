@@ -118,7 +118,6 @@ export default function TransportFeeApprovalPage() {
     const handleApproval = async (feeIds, action) => {
         setIsLoading(true);
         try {
-          
             const promises = feeIds.map(id =>
                 axios.put(
                     updateTranspoartFeesApprovalAction,
@@ -128,7 +127,7 @@ export default function TransportFeeApprovalPage() {
                             transpoartFeesID: id,
                             RollNumber: rollNumber,
                             Action: action,
-                            Reason: rejectReason || ""
+                            Reason: action === "accept" ? "" : (rejectReason || "")
                         },
                         headers: {
                             Authorization: `Bearer ${token}`,
@@ -297,34 +296,37 @@ export default function TransportFeeApprovalPage() {
                         {pendingFees.map((fee) => (
                             <Grid key={fee.routeInformationId} size={{ xs: 12 }}>
                                 <Card sx={{
-                                    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-                                    borderRadius: "12px",
+                                    boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+                                    borderRadius: "16px",
                                     overflow: "hidden",
-                                    border: "1px solid #e0e0e0"
+                                    border: "1px solid #E8E8E8",
+                                    bgcolor: "#FFFFFF"
                                 }}>
                                     {/* Card Header */}
                                     <Box sx={{
-                                        background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                                        px: 3,
-                                        py: 2,
+                                        bgcolor: "#FAFAFA",
+                                        px: 2.5,
+                                        py: 1.5,
                                         display: "flex",
                                         justifyContent: "space-between",
-                                        alignItems: "center"
+                                        alignItems: "center",
+                                        borderBottom: "1px solid #E8E8E8"
                                     }}>
-                                        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
                                             <Box sx={{
-                                                width: 48,
-                                                height: 48,
+                                                width: 40,
+                                                height: 40,
                                                 borderRadius: "12px",
-                                                bgcolor: "rgba(255,255,255,0.2)",
+                                                bgcolor: "#F0F9FF",
+                                                border: "1px solid #E0F2FE",
                                                 display: "flex",
                                                 alignItems: "center",
                                                 justifyContent: "center"
                                             }}>
-                                                <DirectionsBusIcon sx={{ fontSize: 28, color: "#fff" }} />
+                                                <DirectionsBusIcon sx={{ fontSize: 22, color: "#2563EB" }} />
                                             </Box>
                                             <Box>
-                                                <Typography sx={{ fontSize: "18px", fontWeight: 700, color: "#fff", mb: 0.5 }}>
+                                                <Typography sx={{ fontSize: "16px", fontWeight: 700, color: "#1a1a1a", mb: 0.3 }}>
                                                     {fee.tripName}
                                                 </Typography>
                                                 <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
@@ -341,81 +343,83 @@ export default function TransportFeeApprovalPage() {
                                                             )
                                                         }
                                                         sx={{
-                                                            bgcolor: "rgba(255,255,255,0.9)",
-                                                            color: "#667eea",
+                                                            bgcolor: "#F0F9FF",
+                                                            color: "#2563EB",
                                                             fontWeight: 600,
                                                             fontSize: "11px",
-                                                            height: "22px"
+                                                            height: "20px",
+                                                            border: "1px solid #BFDBFE"
                                                         }}
                                                     />
                                                     <Chip
                                                         label={fee.tripSlot?.charAt(0).toUpperCase() + fee.tripSlot?.slice(1)}
                                                         size="small"
                                                         sx={{
-                                                            bgcolor: "rgba(255,255,255,0.9)",
-                                                            color: "#764ba2",
+                                                            bgcolor: "#F8FAFC",
+                                                            color: "#334155",
                                                             fontWeight: 600,
                                                             fontSize: "11px",
-                                                            height: "22px"
+                                                            height: "20px",
+                                                            border: "1px solid #E2E8F0"
                                                         }}
                                                     />
                                                 </Box>
                                             </Box>
                                         </Box>
                                         <Box sx={{ textAlign: "right" }}>
-                                            <Typography sx={{ fontSize: "11px", color: "rgba(255,255,255,0.8)", mb: 0.5 }}>
+                                            <Typography sx={{ fontSize: "11px", color: "#64748B", mb: 0.3 }}>
                                                 Created By
                                             </Typography>
-                                            <Typography sx={{ fontSize: "13px", color: "#fff", fontWeight: 600 }}>
+                                            <Typography sx={{ fontSize: "13px", color: "#1a1a1a", fontWeight: 600 }}>
                                                 {fee.createdBy}
                                             </Typography>
-                                            <Typography sx={{ fontSize: "11px", color: "rgba(255,255,255,0.8)", mt: 0.5 }}>
+                                            <Typography sx={{ fontSize: "11px", color: "#64748B", mt: 0.3 }}>
                                                 {formatDateTime(fee.createdOn)}
                                             </Typography>
                                         </Box>
                                     </Box>
 
-                                    <CardContent sx={{ p: 3 }}>
+                                    <CardContent sx={{ p: 2.5 }}>
                                         {/* Summary Info */}
-                                        <Grid container spacing={2} sx={{ mb: 2.5 }}>
+                                        <Grid container spacing={1.5} sx={{ mb: 2 }}>
                                             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
                                                 <Box sx={{
-                                                    bgcolor: "#f0f4ff",
-                                                    borderRadius: "8px",
+                                                    bgcolor: "#F8FAFC",
+                                                    borderRadius: "12px",
                                                     p: 1.5,
-                                                    border: "1px solid #d6e4ff"
+                                                    border: "1px solid #E2E8F0"
                                                 }}>
-                                                    <Typography sx={{ fontSize: "11px", color: "#6c757d", mb: 0.5, fontWeight: 600 }}>
+                                                    <Typography sx={{ fontSize: "11px", color: "#64748B", mb: 0.5, fontWeight: 600 }}>
                                                         ACADEMIC YEAR
                                                     </Typography>
-                                                    <Typography sx={{ fontSize: "15px", fontWeight: 700, color: "#333" }}>
+                                                    <Typography sx={{ fontSize: "14px", fontWeight: 700, color: "#1a1a1a" }}>
                                                         {fee.year}
                                                     </Typography>
                                                 </Box>
                                             </Grid>
                                             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
                                                 <Box sx={{
-                                                    bgcolor: "#fff8e1",
-                                                    borderRadius: "8px",
+                                                    bgcolor: "#F0F9FF",
+                                                    borderRadius: "12px",
                                                     p: 1.5,
-                                                    border: "1px solid #ffecb3"
+                                                    border: "1px solid #E0F2FE"
                                                 }}>
-                                                    <Typography sx={{ fontSize: "11px", color: "#6c757d", mb: 0.5, fontWeight: 600 }}>
+                                                    <Typography sx={{ fontSize: "11px", color: "#64748B", mb: 0.5, fontWeight: 600 }}>
                                                         TOTAL STOPS
                                                     </Typography>
-                                                    <Typography sx={{ fontSize: "15px", fontWeight: 700, color: "#333" }}>
+                                                    <Typography sx={{ fontSize: "14px", fontWeight: 700, color: "#1a1a1a" }}>
                                                         {fee.stops?.length || 0} Stops
                                                     </Typography>
                                                 </Box>
                                             </Grid>
                                             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
                                                 <Box sx={{
-                                                    bgcolor: "#fef3f3",
-                                                    borderRadius: "8px",
+                                                    bgcolor: "#FEF3F3",
+                                                    borderRadius: "12px",
                                                     p: 1.5,
-                                                    border: "1px solid #ffd6d6"
+                                                    border: "1px solid #FEE2E2"
                                                 }}>
-                                                    <Typography sx={{ fontSize: "11px", color: "#6c757d", mb: 0.5, fontWeight: 600 }}>
+                                                    <Typography sx={{ fontSize: "11px", color: "#64748B", mb: 0.5, fontWeight: 600 }}>
                                                         STATUS
                                                     </Typography>
                                                     <Chip
@@ -425,8 +429,9 @@ export default function TransportFeeApprovalPage() {
                                                             bgcolor: "#FFF3E0",
                                                             color: "#FF9800",
                                                             fontWeight: 600,
-                                                            fontSize: "12px",
-                                                            height: "24px"
+                                                            fontSize: "11px",
+                                                            height: "22px",
+                                                            border: "1px solid #FFE0B2"
                                                         }}
                                                     />
                                                 </Box>
@@ -473,8 +478,8 @@ export default function TransportFeeApprovalPage() {
                                             display: "flex",
                                             justifyContent: "flex-end",
                                             gap: 1.5,
-                                            pt: 2,
-                                            borderTop: "1px solid #e0e0e0"
+                                            pt: 1.5,
+                                            borderTop: "1px solid #E8E8E8"
                                         }}>
                                             <Button
                                                 variant="outlined"
@@ -549,35 +554,36 @@ export default function TransportFeeApprovalPage() {
                 fullWidth
                 PaperProps={{
                     sx: {
-                        borderRadius: "16px",
-                        boxShadow: "0 8px 32px rgba(0,0,0,0.08)"
+                        borderRadius: "20px",
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.08)"
                     }
                 }}
             >
                 <DialogTitle sx={{
-                    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                    color: "#fff",
-                    py: 3,
+                    bgcolor: "#FAFAFA",
+                    borderBottom: "1px solid #E8E8E8",
+                    py: 2,
                     px: 3
                 }}>
                     <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
                             <Box sx={{
-                                width: 48,
-                                height: 48,
-                                borderRadius: "12px",
-                                bgcolor: "rgba(255,255,255,0.2)",
+                                width: 44,
+                                height: 44,
+                                borderRadius: "14px",
+                                bgcolor: "#F0F9FF",
+                                border: "1px solid #E0F2FE",
                                 display: "flex",
                                 alignItems: "center",
                                 justifyContent: "center"
                             }}>
-                                <DirectionsBusIcon sx={{ fontSize: 28 }} />
+                                <DirectionsBusIcon sx={{ fontSize: 24, color: "#2563EB" }} />
                             </Box>
                             <Box>
-                                <Typography sx={{ fontSize: "20px", fontWeight: 700, mb: 0.5 }}>
+                                <Typography sx={{ fontSize: "18px", fontWeight: 700, color: "#1a1a1a", mb: 0.3 }}>
                                     Transport Fee Details
                                 </Typography>
-                                <Typography sx={{ fontSize: "13px", opacity: 0.9 }}>
+                                <Typography sx={{ fontSize: "13px", color: "#64748B" }}>
                                     {selectedFee?.tripName} • {selectedFee?.year}
                                 </Typography>
                             </Box>
@@ -585,78 +591,80 @@ export default function TransportFeeApprovalPage() {
                         <IconButton
                             onClick={() => setOpenViewDialog(false)}
                             sx={{
-                                color: "#fff",
-                                bgcolor: "rgba(255,255,255,0.1)",
-                                "&:hover": { bgcolor: "rgba(255,255,255,0.2)" }
+                                color: "#64748B",
+                                bgcolor: "#F8FAFC",
+                                border: "1px solid #E2E8F0",
+                                borderRadius: "10px",
+                                "&:hover": { bgcolor: "#E2E8F0" }
                             }}
                         >
-                            <CloseIcon />
+                            <CloseIcon sx={{ fontSize: 20 }} />
                         </IconButton>
                     </Box>
                 </DialogTitle>
 
-                <DialogContent sx={{ p: 0, bgcolor: "#f8f9fa" }}>
+                <DialogContent sx={{ p: 0, bgcolor: "#F8FAFC" }}>
                     {selectedFee && (
                         <Box>
                             {/* Summary Cards */}
-                            <Box sx={{ bgcolor: "#fff", px: 3, py: 2.5, borderBottom: "1px solid #e9ecef" }}>
-                                <Grid container spacing={2}>
+                            <Box sx={{ bgcolor: "#FFFFFF", px: 3, py: 2, borderBottom: "1px solid #E8E8E8" }}>
+                                <Grid container spacing={1.5}>
                                     <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                                         <Box sx={{
-                                            bgcolor: "#f0f4ff",
+                                            bgcolor: "#F0F9FF",
                                             borderRadius: "12px",
-                                            p: 2,
-                                            border: "1px solid #d6e4ff"
+                                            p: 1.5,
+                                            border: "1px solid #E0F2FE"
                                         }}>
-                                            <Typography sx={{ fontSize: "11px", color: "#6c757d", mb: 0.5, fontWeight: 600, textTransform: "uppercase" }}>
+                                            <Typography sx={{ fontSize: "11px", color: "#64748B", mb: 0.5, fontWeight: 600, textTransform: "uppercase" }}>
                                                 Trip Type
                                             </Typography>
-                                            <Typography sx={{ fontSize: "15px", fontWeight: 700, color: "#333" }}>
+                                            <Typography sx={{ fontSize: "14px", fontWeight: 700, color: "#1a1a1a" }}>
                                                 {selectedFee.tripType?.charAt(0).toUpperCase() + selectedFee.tripType?.slice(1)}
                                             </Typography>
                                         </Box>
                                     </Grid>
                                     <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                                         <Box sx={{
-                                            bgcolor: "#fff8e1",
+                                            bgcolor: "#F8FAFC",
                                             borderRadius: "12px",
-                                            p: 2,
-                                            border: "1px solid #ffecb3"
+                                            p: 1.5,
+                                            border: "1px solid #E2E8F0"
                                         }}>
-                                            <Typography sx={{ fontSize: "11px", color: "#6c757d", mb: 0.5, fontWeight: 600, textTransform: "uppercase" }}>
+                                            <Typography sx={{ fontSize: "11px", color: "#64748B", mb: 0.5, fontWeight: 600, textTransform: "uppercase" }}>
                                                 Trip Slot
                                             </Typography>
-                                            <Typography sx={{ fontSize: "15px", fontWeight: 700, color: "#333" }}>
+                                            <Typography sx={{ fontSize: "14px", fontWeight: 700, color: "#1a1a1a" }}>
                                                 {selectedFee.tripSlot?.charAt(0).toUpperCase() + selectedFee.tripSlot?.slice(1)}
                                             </Typography>
                                         </Box>
                                     </Grid>
                                     <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                                         <Box sx={{
-                                            bgcolor: "#f1f8f4",
+                                            bgcolor: "#F0FDF4",
                                             borderRadius: "12px",
-                                            p: 2,
-                                            border: "1px solid #c8e6d0"
+                                            p: 1.5,
+                                            border: "1px solid #DCFCE7"
                                         }}>
-                                            <Typography sx={{ fontSize: "11px", color: "#6c757d", mb: 0.5, fontWeight: 600, textTransform: "uppercase" }}>
+                                            <Typography sx={{ fontSize: "11px", color: "#64748B", mb: 0.5, fontWeight: 600, textTransform: "uppercase" }}>
                                                 Academic Year
                                             </Typography>
-                                            <Typography sx={{ fontSize: "15px", fontWeight: 700, color: "#333" }}>
+                                            <Typography sx={{ fontSize: "14px", fontWeight: 700, color: "#1a1a1a" }}>
                                                 {selectedFee.year}
                                             </Typography>
                                         </Box>
                                     </Grid>
                                     <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                                         <Box sx={{
-                                            bgcolor: "#fef3f3",
+                                            bgcolor: "#FEF3F3",
                                             borderRadius: "12px",
-                                            p: 2,
-                                            border: "1px solid #ffd6d6"
+                                            p: 1.5,
+                                            border: "1px solid #FEE2E2"
                                         }}>
-                                            <Typography sx={{ fontSize: "11px", color: "#6c757d", mb: 0.5, fontWeight: 600, textTransform: "uppercase" }}>
+                                            <Typography sx={{ fontSize: "11px", color: "#64748B", mb: 0.5, fontWeight: 600, textTransform: "uppercase" }}>
                                                 Total Stops
                                             </Typography>
-                                            <Typography sx={{ fontSize: "15px", fontWeight: 700, color: "#333" }}>
+                                            <Typography sx={{ fontSize: "14px", fontWeight: 700, color: "#1a1a1a" }}>
                                                 {selectedFee.stops?.length || 0} Stops
                                             </Typography>
                                         </Box>
@@ -665,65 +673,65 @@ export default function TransportFeeApprovalPage() {
                             </Box>
 
                             {/* Stops Detail */}
-                            <Box sx={{ p: 3 }}>
-                                <Typography sx={{ fontSize: "15px", fontWeight: 700, color: "#333", mb: 2.5 }}>
+                            <Box sx={{ p: 2.5 }}>
+                                <Typography sx={{ fontSize: "15px", fontWeight: 700, color: "#1a1a1a", mb: 2 }}>
                                     Stop-wise Grade Fees
                                 </Typography>
 
                                 {selectedFee.stops && selectedFee.stops.map((stop, index) => (
                                     <Card key={index} sx={{
-                                        mb: 2.5,
-                                        boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-                                        borderRadius: "12px",
-                                        border: "1px solid #e9ecef",
+                                        mb: 2,
+                                        boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+                                        borderRadius: "14px",
+                                        border: "1px solid #E8E8E8",
                                         overflow: "hidden"
                                     }}>
                                         {/* Stop Header */}
                                         <Box sx={{
-                                            background: "linear-gradient(135deg, #667eea15 0%, #764ba215 100%)",
-                                            px: 2.5,
-                                            py: 2,
+                                            bgcolor: "#F8FAFC",
+                                            px: 2,
+                                            py: 1.5,
                                             display: "flex",
                                             justifyContent: "space-between",
                                             alignItems: "center",
-                                            borderBottom: "1px solid #e9ecef"
+                                            borderBottom: "1px solid #E8E8E8"
                                         }}>
                                             <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
                                                 <Box sx={{
-                                                    width: 32,
-                                                    height: 32,
-                                                    borderRadius: "8px",
-                                                    bgcolor: "#667eea",
-                                                    color: "#fff",
+                                                    width: 30,
+                                                    height: 30,
+                                                    borderRadius: "10px",
+                                                    bgcolor: "#2563EB",
+                                                    color: "#FFFFFF",
                                                     display: "flex",
                                                     alignItems: "center",
                                                     justifyContent: "center",
-                                                    fontSize: "14px",
+                                                    fontSize: "13px",
                                                     fontWeight: 700
                                                 }}>
                                                     {index + 1}
                                                 </Box>
                                                 <Box>
-                                                    <Typography sx={{ fontSize: "14px", fontWeight: 700, color: "#333" }}>
+                                                    <Typography sx={{ fontSize: "14px", fontWeight: 700, color: "#1a1a1a" }}>
                                                         {stop.stopPlace}
                                                     </Typography>
-                                                    <Typography sx={{ fontSize: "11px", color: "#6c757d" }}>
+                                                    <Typography sx={{ fontSize: "11px", color: "#64748B" }}>
                                                         Stop {index + 1} of {selectedFee.stops.length}
                                                     </Typography>
                                                 </Box>
                                             </Box>
                                             <Box sx={{ textAlign: "right" }}>
-                                                <Typography sx={{ fontSize: "11px", color: "#6c757d", mb: 0.25 }}>
+                                                <Typography sx={{ fontSize: "11px", color: "#64748B", mb: 0.25 }}>
                                                     <CalendarMonthIcon sx={{ fontSize: 12, mr: 0.5, verticalAlign: "middle" }} />
                                                     Due Date
                                                 </Typography>
-                                                <Typography sx={{ fontSize: "13px", fontWeight: 600, color: "#333" }}>
+                                                <Typography sx={{ fontSize: "13px", fontWeight: 600, color: "#1a1a1a" }}>
                                                     {formatDate(stop.dueDate)}
                                                 </Typography>
                                             </Box>
                                         </Box>
 
-                                        <CardContent sx={{ p: 2.5 }}>
+                                        <CardContent sx={{ p: 2 }}>
                                             {/* Grade Fees Grid */}
                                             <Grid container spacing={1.5}>
                                                 {Object.entries(stop.grades).map(([gradeKey, amount]) => (
@@ -738,16 +746,17 @@ export default function TransportFeeApprovalPage() {
                                                     >
                                                         <Box
                                                             sx={{
-                                                                bgcolor: "#fafafa",
-                                                                border: "1px solid #e0e0e0",
-                                                                borderRadius: "8px",
+                                                                bgcolor: "#FAFAFA",
+                                                                border: "1px solid #E2E8F0",
+                                                                borderRadius: "12px",
                                                                 p: 1.5,
                                                                 textAlign: "center",
                                                                 transition: "all 0.2s",
                                                                 "&:hover": {
                                                                     transform: "translateY(-2px)",
-                                                                    boxShadow: "0 4px 12px rgba(102, 126, 234, 0.1)",
-                                                                    borderColor: "#667eea"
+                                                                    boxShadow: "0 2px 8px rgba(37, 99, 235, 0.1)",
+                                                                    borderColor: "#2563EB",
+                                                                    bgcolor: "#F0F9FF"
                                                                 }
                                                             }}
                                                         >
@@ -755,7 +764,7 @@ export default function TransportFeeApprovalPage() {
                                                                 sx={{
                                                                     fontSize: "11px",
                                                                     fontWeight: 600,
-                                                                    color: "#6c757d",
+                                                                    color: "#64748B",
                                                                     mb: 0.5,
                                                                     textTransform: "uppercase"
                                                                 }}
@@ -764,9 +773,9 @@ export default function TransportFeeApprovalPage() {
                                                             </Typography>
                                                             <Typography
                                                                 sx={{
-                                                                    fontSize: "16px",
+                                                                    fontSize: "15px",
                                                                     fontWeight: 700,
-                                                                    color: "#667eea"
+                                                                    color: "#2563EB"
                                                                 }}
                                                             >
                                                                 ₹{amount}
@@ -782,23 +791,23 @@ export default function TransportFeeApprovalPage() {
 
                             {/* Footer Info */}
                             <Box sx={{
-                                bgcolor: "#fff",
+                                bgcolor: "#FAFAFA",
                                 px: 3,
-                                py: 2,
-                                borderTop: "1px solid #e9ecef",
+                                py: 1.5,
+                                borderTop: "1px solid #E8E8E8",
                                 display: "flex",
                                 justifyContent: "space-between",
                                 alignItems: "center"
                             }}>
                                 <Box>
-                                    <Typography sx={{ fontSize: "11px", color: "#6c757d", mb: 0.25 }}>
+                                    <Typography sx={{ fontSize: "11px", color: "#64748B", mb: 0.25 }}>
                                         Created By
                                     </Typography>
-                                    <Typography sx={{ fontSize: "13px", fontWeight: 600, color: "#333" }}>
-                                        <Box component="span" sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: "#4CAF50", display: "inline-block", mr: 1 }} />
+                                    <Typography sx={{ fontSize: "13px", fontWeight: 600, color: "#1a1a1a" }}>
+                                        <Box component="span" sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: "#16A34A", display: "inline-block", mr: 1 }} />
                                         {selectedFee.createdBy}
                                     </Typography>
-                                    <Typography sx={{ fontSize: "11px", color: "#6c757d" }}>
+                                    <Typography sx={{ fontSize: "11px", color: "#64748B" }}>
                                         {formatDateTime(selectedFee.createdOn)}
                                     </Typography>
                                 </Box>
@@ -807,18 +816,18 @@ export default function TransportFeeApprovalPage() {
                     )}
                 </DialogContent>
 
-                <DialogActions sx={{ px: 3, py: 2, bgcolor: "#fff", borderTop: "1px solid #e9ecef" }}>
+                <DialogActions sx={{ px: 3, py: 1.5, bgcolor: "#FFFFFF", borderTop: "1px solid #E8E8E8" }}>
                     <Button
                         onClick={() => setOpenViewDialog(false)}
                         sx={{
                             textTransform: "none",
                             fontSize: "14px",
                             fontWeight: 600,
-                            color: "#666",
-                            borderRadius: "8px",
+                            color: "#64748B",
+                            borderRadius: "10px",
                             px: 3,
                             py: 1,
-                            "&:hover": { bgcolor: "#f5f5f5" }
+                            "&:hover": { bgcolor: "#F8FAFC" }
                         }}
                     >
                         Close
@@ -834,7 +843,7 @@ export default function TransportFeeApprovalPage() {
                 fullWidth
                 PaperProps={{
                     sx: {
-                        borderRadius: "12px",
+                        borderRadius: "18px",
                         boxShadow: "0 8px 32px rgba(0,0,0,0.12)"
                     }
                 }}
@@ -849,15 +858,15 @@ export default function TransportFeeApprovalPage() {
                     gap: 2
                 }}>
                     <Box sx={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: "50%",
+                        width: 44,
+                        height: 44,
+                        borderRadius: "12px",
                         bgcolor: "rgba(198, 40, 40, 0.1)",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center"
                     }}>
-                        <CancelIcon sx={{ fontSize: 22, color: "#c62828" }} />
+                        <CancelIcon sx={{ fontSize: 24, color: "#c62828" }} />
                     </Box>
                     <Typography sx={{ fontSize: "18px", fontWeight: 700 }}>
                         Reject Transport Fee Approval
@@ -872,7 +881,7 @@ export default function TransportFeeApprovalPage() {
                     <Box sx={{
                         bgcolor: "#FFF3E0",
                         border: "1px solid #FFE0B2",
-                        borderRadius: "8px",
+                        borderRadius: "12px",
                         p: 2,
                         mb: 2
                     }}>
@@ -905,7 +914,7 @@ export default function TransportFeeApprovalPage() {
                     />
                 </DialogContent>
 
-                <DialogActions sx={{ px: 3, py: 2, bgcolor: "#fafafa", borderTop: "1px solid #e0e0e0" }}>
+                <DialogActions sx={{ px: 3, py: 1.5, bgcolor: "#FAFAFA", borderTop: "1px solid #E8E8E8" }}>
                     <Button
                         onClick={() => {
                             setOpenRejectDialog(false);
@@ -916,11 +925,11 @@ export default function TransportFeeApprovalPage() {
                             textTransform: "none",
                             fontSize: "14px",
                             fontWeight: 600,
-                            color: "#666",
-                            borderRadius: "8px",
+                            color: "#64748B",
+                            borderRadius: "10px",
                             px: 3,
                             py: 1,
-                            "&:hover": { bgcolor: "#f5f5f5" }
+                            "&:hover": { bgcolor: "#F8FAFC" }
                         }}
                     >
                         Cancel
@@ -933,11 +942,11 @@ export default function TransportFeeApprovalPage() {
                             textTransform: "none",
                             fontSize: "14px",
                             fontWeight: 600,
-                            bgcolor: "#d32f2f",
-                            borderRadius: "8px",
+                            bgcolor: "#DC2626",
+                            borderRadius: "10px",
                             px: 3,
                             py: 1,
-                            "&:hover": { bgcolor: "#c62828" }
+                            "&:hover": { bgcolor: "#B91C1C" }
                         }}
                     >
                         Reject Fee Structure

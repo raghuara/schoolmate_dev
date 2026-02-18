@@ -134,6 +134,7 @@ export default function AddStaffDetails() {
     const [admissionClass, setAdmissionClass] = useState("");
     const [section, setSection] = useState("");
     const [staffCategory, setStaffCategory] = useState("");
+    const [selectedUserType, setSelectedUserType] = useState("");
     const [staffDesignation, setStaffDesignation] = useState("");
     const [profileImage, setProfileImage] = useState(null);
     const [profileImagePreview, setProfileImagePreview] = useState("");
@@ -712,6 +713,33 @@ export default function AddStaffDetails() {
                                     </Grid>
                                     <Grid size={{ xs: 12, sm: 6, md: 3, lg: 2.4 }} sx={{ display: "flex", justifyContent: "center", pt: 1 }} >
                                         <Box sx={{ width: "100%" }}>
+                                            <Typography sx={{ fontSize: "12px", color: "#000" }} component="span">User Type<span style={{ color: "#ff0000", fontSize: "16px" }}>*</span></Typography>
+                                            <Autocomplete
+                                                disabled={isDisabledStaffInfo}
+                                                disablePortal
+                                                options={["Admin", "Staff", "Teacher"]}
+                                                value={selectedUserType}
+                                                onChange={(event, newValue) => {
+                                                    setSelectedUserType(newValue || "");
+                                                }}
+                                                sx={{ width: "100%", mt: 0.5 }}
+                                                renderInput={(params) => (
+                                                    <TextField
+                                                        {...params}
+                                                        size="small"
+                                                        sx={{
+                                                            "& .MuiInputBase-root": {
+                                                                height: 41,
+                                                                fontSize: 14,
+                                                            },
+                                                        }}
+                                                    />
+                                                )}
+                                            />
+                                        </Box>
+                                    </Grid>
+                                    <Grid size={{ xs: 12, sm: 6, md: 3, lg: 2.4 }} sx={{ display: "flex", justifyContent: "center", pt: 1 }} >
+                                        <Box sx={{ width: "100%" }}>
                                             <Typography sx={{ fontSize: "12px", color: "#000" }} component="span">Staff Category<span style={{ color: "#ff0000", fontSize: "16px" }}>*</span></Typography>
                                             <Autocomplete
                                                 disabled={isDisabledStaffInfo}
@@ -738,6 +766,7 @@ export default function AddStaffDetails() {
                                             />
                                         </Box>
                                     </Grid>
+
                                     <Grid size={{ xs: 12, sm: 6, md: 3, lg: 2.4 }} sx={{ display: "flex", justifyContent: "center", pt: 1 }} >
                                         <Box sx={{ width: "100%" }}>
                                             <Typography sx={{ fontSize: "12px", color: "#000" }} component="span">Staff Designation<span style={{ color: "#ff0000", fontSize: "16px" }}>*</span></Typography>

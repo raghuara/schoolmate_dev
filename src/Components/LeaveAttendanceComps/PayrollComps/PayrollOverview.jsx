@@ -1,476 +1,298 @@
-import React, { useState } from 'react';
-import {
-    Box, Typography, TextField, Button, Table, TableBody, TableCell,
-    TableContainer, TableHead, TableRow, Chip, IconButton, InputAdornment,
-    MenuItem, Select, FormControl, Grid, TablePagination
-} from '@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
-import AddIcon from '@mui/icons-material/Add';
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import PeopleOutlineIcon from '@mui/icons-material/PeopleOutline';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
-import PendingActionsIcon from '@mui/icons-material/PendingActions';
-import AccountBalanceWalletOutlinedIcon from '@mui/icons-material/AccountBalanceWalletOutlined';
+import React from 'react';
+import { Box, Typography, Grid, Card, CardContent, Divider, IconButton, Chip } from '@mui/material';
+import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
+import AssignmentIcon from '@mui/icons-material/Assignment';
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
+import DescriptionIcon from '@mui/icons-material/Description';
+import TaskAltIcon from '@mui/icons-material/TaskAlt';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import PeopleIcon from '@mui/icons-material/People';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import TrendingDownIcon from '@mui/icons-material/TrendingDown';
+import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { useNavigate } from 'react-router-dom';
 
-// Mock payroll data for staff
-const initialStaffPayroll = [
+// Payroll module cards configuration
+const payrollModules = [
     {
-        id: 'EMP001',
-        name: 'Rajesh Kumar',
-        designation: 'Senior Teacher',
-        department: 'Mathematics',
-        salaryType: 'Monthly',
-        basicSalary: 35000,
-        grossSalary: 52500,
-        totalDeductions: 8750,
-        netSalary: 43750,
-        status: 'Processed'
+        color: "#8600BB",
+        icon: AssignmentIcon,
+        text: "Create Salary Structures",
+        description: "Configure salary components, create grades, and define earnings and deduction rules for different employee categories.",
+        bgColor: "#f9f4fc",
+        iconBgColor: "#8600BB1A",
+        path: "salary-structures",
+        disabled: false,
     },
     {
-        id: 'EMP002',
-        name: 'Priya Sharma',
-        designation: 'Teacher',
-        department: 'Science',
-        salaryType: 'Monthly',
-        basicSalary: 30000,
-        grossSalary: 45000,
-        totalDeductions: 7200,
-        netSalary: 37800,
-        status: 'Processed'
+        color: "#2563EB",
+        icon: AccountBalanceIcon,
+        text: "Auto-Deductions & Compliance",
+        description: "Manage statutory compliance settings for PF, ESI, Professional Tax (PT), and TDS auto-deductions.",
+        bgColor: "#EFF6FF",
+        iconBgColor: "#2563EB1A",
+        path: "compliance",
+        disabled: false,
     },
     {
-        id: 'EMP003',
-        name: 'Amit Patel',
-        designation: 'Lab Assistant',
-        department: 'Science',
-        salaryType: 'Monthly',
-        basicSalary: 18000,
-        grossSalary: 27000,
-        totalDeductions: 4350,
-        netSalary: 22650,
-        status: 'Pending'
+        color: "#00ACC1",
+        icon: ReceiptLongIcon,
+        text: "Bank Transfer & Reports",
+        description: "Generate bank transfer advice files and download mandatory government reports (EPF, ESI Challans).",
+        bgColor: "#E0F7FA",
+        iconBgColor: "#00ACC11A",
+        path: "bank-reports",
+        disabled: false,
     },
     {
-        id: 'EMP004',
-        name: 'Sunita Verma',
-        designation: 'Admin Officer',
-        department: 'Administration',
-        salaryType: 'Monthly',
-        basicSalary: 28000,
-        grossSalary: 42000,
-        totalDeductions: 6800,
-        netSalary: 35200,
-        status: 'Processed'
+        color: "#E30053",
+        icon: DescriptionIcon,
+        text: "Audit-ready Salary Register",
+        description: "Access historical salary records, track changes, and generate comprehensive audit-ready salary registers.",
+        bgColor: "#FCF8F9",
+        iconBgColor: "#fbebf1",
+        path: "salary-register",
+        disabled: false,
     },
     {
-        id: 'EMP005',
-        name: 'Mohammed Ali',
-        designation: 'Physical Education Teacher',
-        department: 'Sports',
-        salaryType: 'Monthly',
-        basicSalary: 25000,
-        grossSalary: 37500,
-        totalDeductions: 5900,
-        netSalary: 31600,
-        status: 'Pending'
-    },
-    {
-        id: 'EMP006',
-        name: 'Kavitha Nair',
-        designation: 'Librarian',
-        department: 'Library',
-        salaryType: 'Monthly',
-        basicSalary: 22000,
-        grossSalary: 33000,
-        totalDeductions: 5100,
-        netSalary: 27900,
-        status: 'Processed'
+        color: "#FF9800",
+        icon: TaskAltIcon,
+        text: "Approve Payroll & Payslips",
+        description: "Review final payroll data, approve salaries for disbursement, and generate monthly payslips for all employees.",
+        bgColor: "#FFF4E6",
+        iconBgColor: "#FF98001A",
+        path: "approve-payroll",
+        disabled: false,
     },
 ];
 
-const departments = ['All', 'Mathematics', 'Science', 'English', 'Administration', 'Sports', 'Library', 'Computer Science'];
-
-export default function PayrollOverview() {
+export default function PayrollOverview({ isEmbedded = false, onBack }) {
     const navigate = useNavigate();
-    const [staffPayroll] = useState(initialStaffPayroll);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [departmentFilter, setDepartmentFilter] = useState('All');
-    const [statusFilter, setStatusFilter] = useState('All');
-    const [page, setPage] = useState(0);
-    const [rowsPerPage, setRowsPerPage] = useState(10);
 
-    // Filter staff based on search and filters
-    const filteredStaff = staffPayroll.filter(staff => {
-        const matchesSearch = staff.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            staff.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            staff.designation.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesDepartment = departmentFilter === 'All' || staff.department === departmentFilter;
-        const matchesStatus = statusFilter === 'All' || staff.status === statusFilter;
-        return matchesSearch && matchesDepartment && matchesStatus;
-    });
-
-    // Calculate summary stats
-    const totalStaff = staffPayroll.length;
-    const processedCount = staffPayroll.filter(s => s.status === 'Processed').length;
-    const pendingCount = staffPayroll.filter(s => s.status === 'Pending').length;
-    const totalPayout = staffPayroll.reduce((sum, s) => sum + s.netSalary, 0);
-
-    const stats = [
-        { label: 'Total Staff', value: totalStaff, color: '#60A5FA', bgColor: '#F0F9FF', icon: PeopleOutlineIcon },
-        { label: 'Processed', value: processedCount, color: '#34D399', bgColor: '#F0FDF4', icon: CheckCircleOutlineIcon },
-        { label: 'Pending', value: pendingCount, color: '#FBBF24', bgColor: '#FFFBEB', icon: PendingActionsIcon },
-        { label: 'Total Payout', value: `₹${totalPayout.toLocaleString('en-IN')}`, color: '#A78BFA', bgColor: '#FAF5FF', icon: AccountBalanceWalletOutlinedIcon },
+    // Mock data for dashboard statistics
+    const dashboardStats = [
+        {
+            title: "Total Employees",
+            value: "156",
+            change: "+12",
+            trend: "up",
+            icon: PeopleIcon,
+            color: "#8600BB",
+            bgColor: "#f9f4fc",
+        },
+        {
+            title: "This Month Payroll",
+            value: "₹45,23,000",
+            change: "+8.2%",
+            trend: "up",
+            icon: AccountBalanceWalletIcon,
+            color: "#2563EB",
+            bgColor: "#EFF6FF",
+        },
+        {
+            title: "Pending Approvals",
+            value: "12",
+            change: "-5",
+            trend: "down",
+            icon: TaskAltIcon,
+            color: "#FF9800",
+            bgColor: "#FFF4E6",
+        },
+        {
+            title: "Compliance Status",
+            value: "100%",
+            change: "All Clear",
+            trend: "neutral",
+            icon: CheckCircleIcon,
+            color: "#10B981",
+            bgColor: "#ECFDF5",
+        },
     ];
 
-    // Existing employee IDs to prevent duplicate additions
-    const existingEmployeeIds = staffPayroll.map(s => s.id);
+    const handleBackClick = () => {
+        if (isEmbedded && onBack) {
+            onBack();
+        } else {
+            navigate(-1);
+        }
+    };
+
+    const containerSx = isEmbedded ? {
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%'
+    } : {
+        border: '1px solid #ccc',
+        borderRadius: '20px',
+        p: 2,
+        height: '86vh',
+        display: 'flex',
+        flexDirection: 'column'
+    };
 
     return (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, height: '100%' }}>
-            {/* Stats Cards */}
-            <Grid container spacing={2}>
-                {stats.map((stat, index) => (
-                    <Grid key={index} size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
-                        <Box sx={{
-                            bgcolor: '#fff',
-                            border: '1px solid #E8E8E8',
-                            borderRadius: '12px',
-                            p: 2.5,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 2,
-                            transition: 'all 0.3s ease',
-                            boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-                            '&:hover': {
-                                transform: 'translateY(-2px)',
-                                boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-                                borderColor: stat.color,
-                            }
-                        }}>
-                            <Box sx={{
-                                width: '48px',
-                                height: '48px',
-                                borderRadius: '12px',
-                                bgcolor: stat.bgColor,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                border: `1px solid ${stat.color}20`,
-                            }}>
-                                <stat.icon sx={{ color: stat.color, fontSize: '24px' }} />
-                            </Box>
-                            <Box>
-                                <Typography sx={{ fontSize: '11px', color: '#94A3B8', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                    {stat.label}
-                                </Typography>
-                                <Typography sx={{ fontSize: '22px', fontWeight: '700', color: '#1a1a1a', mt: 0.3 }}>
-                                    {stat.value}
-                                </Typography>
-                            </Box>
-                        </Box>
-                    </Grid>
-                ))}
-            </Grid>
-
-            {/* Search, Filters & Add Button */}
-            <Box sx={{
-                bgcolor: '#fff',
-                border: '1px solid #E8E8E8',
-                borderRadius: '12px',
-                p: 2.5,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: 2,
-                flexWrap: 'wrap',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-            }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1, flexWrap: 'wrap' }}>
-                    <TextField
-                        size="small"
-                        placeholder="Search by name, ID, or designation..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        slotProps={{
-                            input: {
-                                startAdornment: (
-                                    <InputAdornment position="start">
-                                        <SearchIcon sx={{ fontSize: '20px', color: '#94A3B8' }} />
-                                    </InputAdornment>
-                                ),
-                            }
-                        }}
-                        sx={{
-                            minWidth: '280px',
-                            '& .MuiOutlinedInput-root': {
-                                borderRadius: '10px',
-                                fontSize: '13px',
-                                bgcolor: '#FAFAFA',
-                                '&:hover': {
-                                    bgcolor: '#fff',
-                                },
-                                '&.Mui-focused': {
-                                    bgcolor: '#fff',
-                                    '& .MuiOutlinedInput-notchedOutline': {
-                                        borderColor: '#60A5FA',
-                                        borderWidth: '2px',
-                                    }
-                                }
-                            }
-                        }}
-                    />
-                    <FormControl size="small" sx={{ minWidth: 160 }}>
-                        <Select
-                            value={departmentFilter}
-                            onChange={(e) => setDepartmentFilter(e.target.value)}
-                            sx={{
-                                borderRadius: '10px',
-                                fontSize: '13px',
-                                bgcolor: '#FAFAFA',
-                                '&:hover': {
-                                    bgcolor: '#fff',
-                                },
-                                '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                                    borderColor: '#60A5FA',
-                                    borderWidth: '2px',
-                                }
-                            }}
-                        >
-                            {departments.map(dept => (
-                                <MenuItem key={dept} value={dept} sx={{ fontSize: '13px' }}>
-                                    {dept === 'All' ? 'All Departments' : dept}
-                                </MenuItem>
-                            ))}
-                        </Select>
-                    </FormControl>
-                    <FormControl size="small" sx={{ minWidth: 130 }}>
-                        <Select
-                            value={statusFilter}
-                            onChange={(e) => setStatusFilter(e.target.value)}
-                            sx={{
-                                borderRadius: '10px',
-                                fontSize: '13px',
-                                bgcolor: '#FAFAFA',
-                                '&:hover': {
-                                    bgcolor: '#fff',
-                                },
-                                '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                                    borderColor: '#60A5FA',
-                                    borderWidth: '2px',
-                                }
-                            }}
-                        >
-                            <MenuItem value="All" sx={{ fontSize: '13px' }}>All Status</MenuItem>
-                            <MenuItem value="Processed" sx={{ fontSize: '13px' }}>Processed</MenuItem>
-                            <MenuItem value="Pending" sx={{ fontSize: '13px' }}>Pending</MenuItem>
-                        </Select>
-                    </FormControl>
+        <Box sx={containerSx}>
+            {/* Header */}
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <IconButton onClick={handleBackClick} size="small">
+                        <ArrowBackIcon />
+                    </IconButton>
+                    <Typography sx={{ fontSize: '20px', fontWeight: '700' }}>
+                        Payroll Management
+                    </Typography>
                 </Box>
-                <Button
-                    variant="contained"
-                    startIcon={<AddIcon />}
-                    onClick={() => navigate('/dashboardmenu/Leave/payroll-form', {
-                        state: { mode: 'add', existingEmployeeIds, moduleTab: 1 }
-                    })}
-                    sx={{
-                        textTransform: 'none',
-                        bgcolor: '#60A5FA',
-                        borderRadius: '10px',
-                        fontSize: '13px',
-                        fontWeight: '600',
-                        px: 3,
-                        py: 1,
-                        boxShadow: '0 2px 8px rgba(96,165,250,0.2)',
-                        '&:hover': {
-                            bgcolor: '#3B82F6',
-                            boxShadow: '0 4px 12px rgba(96,165,250,0.3)',
-                            transform: 'translateY(-1px)',
-                        },
-                        transition: 'all 0.2s ease',
-                    }}
-                >
-                    Add Staff Payroll
-                </Button>
+                <Chip
+                    icon={<CalendarTodayIcon />}
+                    label={`${new Date().toLocaleString('default', { month: 'long' })} ${new Date().getFullYear()}`}
+                    sx={{ fontWeight: 600 }}
+                />
             </Box>
 
-            {/* Staff Payroll Table */}
-            <Box sx={{
-                bgcolor: '#fff',
-                border: '1px solid #E8E8E8',
-                borderRadius: '12px',
-                flex: 1,
-                display: 'flex',
-                flexDirection: 'column',
-                overflow: 'hidden',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-            }}>
-                <TableContainer sx={{ flex: 1 }}>
-                    <Table stickyHeader size="small">
-                        <TableHead>
-                            <TableRow>
-                                {['Employee ID', 'Name & Designation', 'Department', 'Salary Type', 'Basic Salary', 'Gross Salary', 'Deductions', 'Net Salary', 'Status', 'Actions'].map(header => (
-                                    <TableCell
-                                        key={header}
+            <Divider sx={{ mb: 2 }} />
+            <Box sx={{overflowY:"auto"}}>
+                {/* Dashboard Statistics Cards */}
+                <Grid container spacing={2} sx={{ mb: 3 }}>
+                    {dashboardStats.map((stat, index) => {
+                        const IconComponent = stat.icon;
+                        return (
+                            <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }} key={index}>
+                                <Card sx={{
+                                    border: `1px solid ${stat.color}30`,
+                                    borderRadius: '12px',
+                                    boxShadow: 'none',
+                                    bgcolor: stat.bgColor,
+                                    transition: 'all 0.3s',
+                                    '&:hover': {
+                                        transform: 'translateY(-4px)',
+                                        boxShadow: `0 8px 20px ${stat.color}20`
+                                    }
+                                }}>
+                                    <CardContent sx={{ p: 2.5 }}>
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                            <Box sx={{ flex: 1 }}>
+                                                <Typography sx={{ fontSize: '12px', color: stat.color, fontWeight: 600, mb: 1, opacity: 0.8 }}>
+                                                    {stat.title}
+                                                </Typography>
+                                                <Typography sx={{ fontSize: '24px', fontWeight: 700, color: '#1a1a1a', mb: 0.5 }}>
+                                                    {stat.value}
+                                                </Typography>
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                    {stat.trend === 'up' && <TrendingUpIcon sx={{ fontSize: 14, color: '#10B981' }} />}
+                                                    {stat.trend === 'down' && <TrendingDownIcon sx={{ fontSize: 14, color: '#EF4444' }} />}
+                                                    <Typography sx={{
+                                                        fontSize: '11px',
+                                                        fontWeight: 600,
+                                                        color: stat.trend === 'up' ? '#10B981' : stat.trend === 'down' ? '#EF4444' : '#6B7280'
+                                                    }}>
+                                                        {stat.change}
+                                                    </Typography>
+                                                </Box>
+                                            </Box>
+                                            <Box sx={{
+                                                width: 48,
+                                                height: 48,
+                                                borderRadius: '12px',
+                                                bgcolor: `${stat.color}20`,
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                border: `2px solid ${stat.color}40`
+                                            }}>
+                                                <IconComponent sx={{ color: stat.color, fontSize: 24 }} />
+                                            </Box>
+                                        </Box>
+                                    </CardContent>
+                                </Card>
+                            </Grid>
+                        );
+                    })}
+                </Grid>
+
+                <Typography sx={{ fontSize: '20px', fontWeight: '700', pb: 2 }}>
+                    Payroll Management Modules
+                </Typography>
+
+                {/* Payroll Module Cards */}
+                <Box sx={{ flex: 1 }}>
+                    <Grid container spacing={2.5}>
+                        {payrollModules.map((module, index) => {
+                            const ModuleIcon = module.icon;
+                            return (
+                                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }} key={index}>
+                                    <Card
+                                        onClick={() => !module.disabled && navigate(module.path)}
                                         sx={{
-                                            fontWeight: '700',
-                                            fontSize: '11px',
-                                            color: '#64748B',
-                                            bgcolor: '#FAFAFA',
-                                            borderBottom: '2px solid #E8E8E8',
-                                            whiteSpace: 'nowrap',
-                                            py: 2,
-                                            textTransform: 'uppercase',
-                                            letterSpacing: '0.5px',
+                                            border: `1px solid ${module.color}20`,
+                                            borderRadius: '12px',
+                                            boxShadow: 'none',
+                                            bgcolor: module.bgColor,
+                                            cursor: module.disabled ? 'not-allowed' : 'pointer',
+                                            opacity: module.disabled ? 0.6 : 1,
+                                            transition: 'all 0.3s',
+                                            height: '100%',
+                                            '&:hover': {
+                                                transform: module.disabled ? 'none' : 'translateY(-6px)',
+                                                boxShadow: module.disabled ? 'none' : `0 8px 24px ${module.color}30`,
+                                                borderColor: module.disabled ? `${module.color}20` : module.color,
+                                                '& .module-arrow': {
+                                                    opacity: module.disabled ? 0 : 1,
+                                                    transform: module.disabled ? 'translateX(0)' : 'translateX(4px)'
+                                                }
+                                            }
                                         }}
                                     >
-                                        {header}
-                                    </TableCell>
-                                ))}
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {filteredStaff.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={10} sx={{ textAlign: 'center', py: 8, borderBottom: 'none' }}>
-                                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-                                            <PeopleOutlineIcon sx={{ fontSize: '48px', color: '#CBD5E1' }} />
-                                            <Typography sx={{ fontSize: '14px', color: '#94A3B8', fontWeight: '500' }}>
-                                                No staff payroll records found
-                                            </Typography>
-                                            <Typography sx={{ fontSize: '12px', color: '#CBD5E1' }}>
-                                                Try adjusting your search or filters
-                                            </Typography>
-                                        </Box>
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                filteredStaff
-                                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                                    .map((staff, index) => (
-                                        <TableRow
-                                            key={staff.id}
-                                            sx={{
-                                                borderBottom: '1px solid #F1F5F9',
-                                                transition: 'all 0.2s ease',
-                                                '&:hover': {
-                                                    bgcolor: '#F8FAFC',
-                                                    transform: 'scale(1.001)',
-                                                    boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-                                                },
-                                                '&:last-child': {
-                                                    borderBottom: 'none',
-                                                }
-                                            }}
-                                        >
-                                            <TableCell sx={{ fontSize: '13px', fontWeight: '600', color: '#60A5FA', py: 2 }}>
-                                                {staff.id}
-                                            </TableCell>
-                                            <TableCell sx={{ py: 2 }}>
-                                                <Typography sx={{ fontSize: '13px', fontWeight: '600', color: '#1a1a1a' }}>
-                                                    {staff.name}
-                                                </Typography>
-                                                <Typography sx={{ fontSize: '11px', color: '#94A3B8', mt: 0.3 }}>
-                                                    {staff.designation}
-                                                </Typography>
-                                            </TableCell>
-                                            <TableCell sx={{ fontSize: '13px', color: '#475569', fontWeight: '500', py: 2 }}>
-                                                {staff.department}
-                                            </TableCell>
-                                            <TableCell sx={{ py: 2 }}>
-                                                <Chip
-                                                    label={staff.salaryType}
-                                                    size="small"
+                                        <CardContent sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
+                                            <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 2 }}>
+                                                <Box sx={{
+                                                    width: 52,
+                                                    height: 52,
+                                                    borderRadius: '12px',
+                                                    bgcolor: module.iconBgColor,
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    border: `2px solid ${module.color}`
+                                                }}>
+                                                    <ModuleIcon sx={{ fontSize: 28, color: module.color }} />
+                                                </Box>
+                                                <ArrowForwardIcon
+                                                    className="module-arrow"
                                                     sx={{
-                                                        bgcolor: '#F0F9FF',
-                                                        color: '#60A5FA',
-                                                        fontSize: '11px',
-                                                        fontWeight: '600',
-                                                        borderRadius: '6px',
-                                                        height: '24px',
+                                                        fontSize: 22,
+                                                        color: module.color,
+                                                        opacity: 0,
+                                                        transition: 'all 0.3s'
                                                     }}
                                                 />
-                                            </TableCell>
-                                            <TableCell sx={{ fontSize: '13px', fontWeight: '600', color: '#334155', py: 2 }}>
-                                                ₹{staff.basicSalary.toLocaleString('en-IN')}
-                                            </TableCell>
-                                            <TableCell sx={{ fontSize: '13px', fontWeight: '600', color: '#334155', py: 2 }}>
-                                                ₹{staff.grossSalary.toLocaleString('en-IN')}
-                                            </TableCell>
-                                            <TableCell sx={{ fontSize: '13px', fontWeight: '600', color: '#DC2626', py: 2 }}>
-                                                -₹{staff.totalDeductions.toLocaleString('en-IN')}
-                                            </TableCell>
-                                            <TableCell sx={{ fontSize: '14px', fontWeight: '700', color: '#16A34A', py: 2 }}>
-                                                ₹{staff.netSalary.toLocaleString('en-IN')}
-                                            </TableCell>
-                                            <TableCell sx={{ py: 2 }}>
-                                                <Chip
-                                                    label={staff.status}
-                                                    size="small"
-                                                    sx={{
-                                                        bgcolor: staff.status === 'Processed' ? '#DCFCE7' : '#FEF3C7',
-                                                        color: staff.status === 'Processed' ? '#16A34A' : '#D97706',
-                                                        fontSize: '11px',
-                                                        fontWeight: '600',
-                                                        borderRadius: '6px',
-                                                        height: '24px',
-                                                        border: staff.status === 'Processed' ? '1px solid #BBF7D0' : '1px solid #FEF08A',
-                                                    }}
-                                                />
-                                            </TableCell>
-                                            <TableCell sx={{ py: 2 }}>
-                                                <IconButton
-                                                    size="small"
-                                                    onClick={() => navigate('/dashboardmenu/Leave/payroll-form', {
-                                                        state: { mode: 'edit', staffData: staff, existingEmployeeIds, moduleTab: 1 }
-                                                    })}
-                                                    sx={{
-                                                        color: '#60A5FA',
-                                                        bgcolor: '#F0F9FF',
-                                                        width: '32px',
-                                                        height: '32px',
-                                                        borderRadius: '8px',
-                                                        transition: 'all 0.2s ease',
-                                                        '&:hover': {
-                                                            bgcolor: '#E0F2FE',
-                                                            transform: 'scale(1.1)',
-                                                        },
-                                                    }}
-                                                >
-                                                    <EditOutlinedIcon sx={{ fontSize: '16px' }} />
-                                                </IconButton>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))
-                            )}
-                        </TableBody>
-                    </Table>
-                </TableContainer>
-                <TablePagination
-                    component="div"
-                    count={filteredStaff.length}
-                    page={page}
-                    onPageChange={(e, newPage) => setPage(newPage)}
-                    rowsPerPage={rowsPerPage}
-                    onRowsPerPageChange={(e) => {
-                        setRowsPerPage(parseInt(e.target.value, 10));
-                        setPage(0);
-                    }}
-                    rowsPerPageOptions={[5, 10, 25]}
-                    sx={{
-                        borderTop: '2px solid #F1F5F9',
-                        bgcolor: '#FAFAFA',
-                        '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': {
-                            fontSize: '12px',
-                            color: '#64748B',
-                            fontWeight: '500',
-                        },
-                        '& .MuiSelect-select': {
-                            fontSize: '12px',
-                            fontWeight: '500',
-                        }
-                    }}
-                />
+                                            </Box>
+                                            <Typography sx={{
+                                                fontSize: '16px',
+                                                fontWeight: 700,
+                                                color: '#111827',
+                                                mb: 1.5,
+                                                lineHeight: 1.3
+                                            }}>
+                                                {module.text}
+                                            </Typography>
+                                            <Typography sx={{
+                                                fontSize: '13px',
+                                                color: '#6B7280',
+                                                lineHeight: 1.6,
+                                                flex: 1
+                                            }}>
+                                                {module.description}
+                                            </Typography>
+                                        </CardContent>
+                                    </Card>
+                                </Grid>
+                            );
+                        })}
+                    </Grid>
+                </Box>
             </Box>
         </Box>
     );
