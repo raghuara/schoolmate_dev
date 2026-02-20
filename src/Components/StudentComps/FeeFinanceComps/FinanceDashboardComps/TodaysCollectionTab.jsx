@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     Box,
     Card,
@@ -14,11 +14,13 @@ import {
     TableHead,
     TableRow,
     Chip,
+    CircularProgress,
 } from '@mui/material';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import ReceiptIcon from '@mui/icons-material/Receipt';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import SearchIcon from '@mui/icons-material/Search';
+import BarChartIcon from '@mui/icons-material/BarChart';
 import {
     PieChart,
     Pie,
@@ -31,8 +33,74 @@ import {
     YAxis,
     CartesianGrid,
 } from 'recharts';
+import axios from 'axios';
+import { todaysCollection } from '../../../../Api/Api';
 
-export default function TodaysCollectionTab({ recentTransactions }) {
+const token = "123";
+
+const PIE_COLORS = ['#0891B2', '#22C55E', '#F97316', '#7C3AED', '#E91E63'];
+
+const NoDataPlaceholder = ({ height = 200 }) => (
+    <Box
+        sx={{
+            height,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 1,
+            bgcolor: '#FAFAFA',
+            borderRadius: '8px',
+            border: '1px dashed #E0E0E0',
+        }}
+    >
+        <BarChartIcon sx={{ fontSize: 36, color: '#D0D0D0' }} />
+        <Typography sx={{ fontSize: '13px', color: '#BDBDBD', fontWeight: '500' }}>
+            No data available
+        </Typography>
+    </Box>
+);
+
+export default function TodaysCollectionTab() {
+    const [data, setData] = useState(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [search, setSearch] = useState('');
+
+    useEffect(() => {
+        fetchTodaysCollection();
+    }, []);
+
+    const fetchTodaysCollection = async () => {
+        setIsLoading(true);
+        try {
+            const res = await axios.get(todaysCollection, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            setData(res.data.data);
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const todaysTransactions = data?.todaysTransactions ?? [];
+    const paymentMethods = data?.todaysPaymentMethods ?? [];
+    const feeCategoryBreakdown = (data?.feeCategoryBreakdown ?? []).map((item) => ({
+        category: item.category,
+        Collected: item.amount?.amount ?? 0,
+    }));
+
+    const filteredTransactions = todaysTransactions.filter((t) =>
+        t.name?.toLowerCase().includes(search.toLowerCase())
+    );
+
+    const formatTime = (isoString) => {
+        if (!isoString) return '-';
+        const date = new Date(isoString);
+        return date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+    };
+
     return (
         <Box>
             {/* Today's Stats */}
@@ -45,12 +113,13 @@ export default function TodaysCollectionTab({ recentTransactions }) {
                                     <Typography sx={{ fontSize: '12px', color: '#666', mb: 0.5 }}>
                                         Total Collections
                                     </Typography>
-                                    <Typography sx={{ fontSize: '28px', fontWeight: '700', color: '#1a1a1a' }}>
-                                        ₹45,200
-                                    </Typography>
-                                    <Typography sx={{ fontSize: '11px', color: '#22C55E', fontWeight: '600' }}>
-                                        ↑ +12.3% from yesterday
-                                    </Typography>
+                                    {isLoading ? (
+                                        <CircularProgress size={20} sx={{ my: 1 }} />
+                                    ) : (
+                                        <Typography sx={{ fontSize: '28px', fontWeight: '700', color: '#1a1a1a' }}>
+                                            {data?.totalCollections?.display ?? '₹0'}
+                                        </Typography>
+                                    )}
                                 </Box>
                                 <AccountBalanceWalletIcon sx={{ fontSize: 40, color: '#0891B2' }} />
                             </Box>
@@ -66,12 +135,13 @@ export default function TodaysCollectionTab({ recentTransactions }) {
                                     <Typography sx={{ fontSize: '12px', color: '#666', mb: 0.5 }}>
                                         Transactions
                                     </Typography>
-                                    <Typography sx={{ fontSize: '28px', fontWeight: '700', color: '#1a1a1a' }}>
-                                        23
-                                    </Typography>
-                                    <Typography sx={{ fontSize: '11px', color: '#666' }}>
-                                        8 pending verification
-                                    </Typography>
+                                    {isLoading ? (
+                                        <CircularProgress size={20} sx={{ my: 1 }} />
+                                    ) : (
+                                        <Typography sx={{ fontSize: '28px', fontWeight: '700', color: '#1a1a1a' }}>
+                                            {data?.transactions ?? 0}
+                                        </Typography>
+                                    )}
                                 </Box>
                                 <ReceiptIcon sx={{ fontSize: 40, color: '#22C55E' }} />
                             </Box>
@@ -85,14 +155,15 @@ export default function TodaysCollectionTab({ recentTransactions }) {
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <Box>
                                     <Typography sx={{ fontSize: '12px', color: '#666', mb: 0.5 }}>
-                                        Online Transaction
+                                        Online Transactions
                                     </Typography>
-                                    <Typography sx={{ fontSize: '28px', fontWeight: '700', color: '#1a1a1a' }}>
-                                        21
-                                    </Typography>
-                                    <Typography sx={{ fontSize: '11px', color: '#666' }}>
-                                        UPI, Card, Net Banking, Cheque
-                                    </Typography>
+                                    {isLoading ? (
+                                        <CircularProgress size={20} sx={{ my: 1 }} />
+                                    ) : (
+                                        <Typography sx={{ fontSize: '28px', fontWeight: '700', color: '#1a1a1a' }}>
+                                            {data?.onlineTransactions ?? 0}
+                                        </Typography>
+                                    )}
                                 </Box>
                                 <TrendingUpIcon sx={{ fontSize: 40, color: '#F97316' }} />
                             </Box>
@@ -108,9 +179,13 @@ export default function TodaysCollectionTab({ recentTransactions }) {
                                     <Typography sx={{ fontSize: '12px', color: '#666', mb: 0.5 }}>
                                         Cash in Hand
                                     </Typography>
-                                    <Typography sx={{ fontSize: '28px', fontWeight: '700', color: '#1a1a1a' }}>
-                                        ₹18,500
-                                    </Typography>
+                                    {isLoading ? (
+                                        <CircularProgress size={20} sx={{ my: 1 }} />
+                                    ) : (
+                                        <Typography sx={{ fontSize: '28px', fontWeight: '700', color: '#1a1a1a' }}>
+                                            {data?.cashInHand?.display ?? '₹0'}
+                                        </Typography>
+                                    )}
                                     <Typography sx={{ fontSize: '11px', color: '#666' }}>
                                         To be deposited
                                     </Typography>
@@ -132,105 +207,106 @@ export default function TodaysCollectionTab({ recentTransactions }) {
                                 <Typography sx={{ fontSize: '18px', fontWeight: '600' }}>
                                     Today's Transactions
                                 </Typography>
-                                <Box sx={{ display: 'flex', gap: 1 }}>
-                                    <TextField
-                                        size="small"
-                                        placeholder="Search student..."
-                                        InputProps={{
+                                <TextField
+                                    size="small"
+                                    placeholder="Search student..."
+                                    value={search}
+                                    onChange={(e) => setSearch(e.target.value)}
+                                    slotProps={{
+                                        input: {
                                             startAdornment: (
                                                 <InputAdornment position="start">
                                                     <SearchIcon sx={{ fontSize: 18 }} />
                                                 </InputAdornment>
                                             ),
-                                        }}
-                                        sx={{ width: '200px' }}
-                                    />
-                                </Box>
+                                        }
+                                    }}
+                                    sx={{ width: '200px' }}
+                                />
                             </Box>
-                            <TableContainer sx={{ maxHeight: 500 }}>
-                                <Table size="small" stickyHeader>
-                                    <TableHead>
-                                        <TableRow>
-                                            <TableCell sx={{ fontWeight: '600', fontSize: '12px', bgcolor: '#f5f5f5' }}>Time</TableCell>
-                                            <TableCell sx={{ fontWeight: '600', fontSize: '12px', bgcolor: '#f5f5f5' }}>Student</TableCell>
-                                            <TableCell sx={{ fontWeight: '600', fontSize: '12px', bgcolor: '#f5f5f5' }}>Fee Type</TableCell>
-                                            <TableCell sx={{ fontWeight: '600', fontSize: '12px', bgcolor: '#f5f5f5' }}>Amount</TableCell>
-                                            <TableCell sx={{ fontWeight: '600', fontSize: '12px', bgcolor: '#f5f5f5' }}>Method</TableCell>
-                                            <TableCell sx={{ fontWeight: '600', fontSize: '12px', bgcolor: '#f5f5f5' }}>Receipt</TableCell>
-                                            <TableCell sx={{ fontWeight: '600', fontSize: '12px', bgcolor: '#f5f5f5' }}>Status</TableCell>
-                                        </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {recentTransactions.filter(t => t.date === '2026-01-23').map((transaction) => (
-                                            <TableRow key={transaction.id} sx={{ '&:hover': { bgcolor: '#f9f9f9' } }}>
-                                                <TableCell>
-                                                    <Typography sx={{ fontSize: '12px', fontWeight: '600' }}>
-                                                        {transaction.time}
-                                                    </Typography>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Typography sx={{ fontSize: '12px', fontWeight: '600' }}>
-                                                        {transaction.student}
-                                                    </Typography>
-                                                    <Typography sx={{ fontSize: '10px', color: '#666' }}>
-                                                        {transaction.grade}
-                                                    </Typography>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Typography sx={{ fontSize: '11px' }}>
-                                                        {transaction.type}
-                                                    </Typography>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Typography sx={{ fontSize: '12px', fontWeight: '600', color: '#22C55E' }}>
-                                                        ₹{transaction.amount.toLocaleString()}
-                                                    </Typography>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Chip
-                                                        label={transaction.method}
-                                                        size="small"
-                                                        sx={{
-                                                            fontSize: '10px',
-                                                            height: '20px',
-                                                            bgcolor: '#EDE9FE',
-                                                            color: '#5B21B6'
-                                                        }}
-                                                    />
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Typography sx={{ fontSize: '11px', color: '#0891B2', fontWeight: '600' }}>
-                                                        {transaction.id}
-                                                    </Typography>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Chip
-                                                        label={transaction.status}
-                                                        size="small"
-                                                        sx={{
-                                                            bgcolor:
-                                                                transaction.status === 'Completed'
-                                                                    ? '#DCFCE7'
-                                                                    : transaction.status === 'Pending'
-                                                                        ? '#FFF7ED'
-                                                                        : '#FEE2E2',
-                                                            color:
-                                                                transaction.status === 'Completed'
-                                                                    ? '#22C55E'
-                                                                    : transaction.status === 'Pending'
-                                                                        ? '#F97316'
-                                                                        : '#DC2626',
-                                                            fontWeight: '600',
-                                                            fontSize: '10px',
-                                                            height: '20px'
-                                                        }}
-                                                    />
-                                                </TableCell>
+                            {isLoading ? (
+                                <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                                    <CircularProgress size={28} />
+                                </Box>
+                            ) : (
+                                <TableContainer sx={{ maxHeight: 500 }}>
+                                    <Table size="small" stickyHeader>
+                                        <TableHead>
+                                            <TableRow>
+                                                <TableCell sx={{ fontWeight: '600', fontSize: '12px', bgcolor: '#f5f5f5' }}>Time</TableCell>
+                                                <TableCell sx={{ fontWeight: '600', fontSize: '12px', bgcolor: '#f5f5f5' }}>Student</TableCell>
+                                                <TableCell sx={{ fontWeight: '600', fontSize: '12px', bgcolor: '#f5f5f5' }}>Fee Type</TableCell>
+                                                <TableCell sx={{ fontWeight: '600', fontSize: '12px', bgcolor: '#f5f5f5' }}>Amount</TableCell>
+                                                <TableCell sx={{ fontWeight: '600', fontSize: '12px', bgcolor: '#f5f5f5' }}>Method</TableCell>
+                                                <TableCell sx={{ fontWeight: '600', fontSize: '12px', bgcolor: '#f5f5f5' }}>Status</TableCell>
                                             </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </TableContainer>
+                                        </TableHead>
+                                        <TableBody>
+                                            {filteredTransactions.length === 0 ? (
+                                                <TableRow>
+                                                    <TableCell colSpan={6} align="center">
+                                                        <Typography sx={{ fontSize: '13px', color: '#999', py: 2 }}>
+                                                            No transactions found
+                                                        </Typography>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ) : (
+                                                filteredTransactions.map((txn, idx) => (
+                                                    <TableRow key={idx} sx={{ '&:hover': { bgcolor: '#f9f9f9' } }}>
+                                                        <TableCell>
+                                                            <Typography sx={{ fontSize: '12px', fontWeight: '600' }}>
+                                                                {formatTime(txn.paidOn)}
+                                                            </Typography>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Typography sx={{ fontSize: '12px', fontWeight: '600' }}>
+                                                                {txn.name}
+                                                            </Typography>
+                                                            <Typography sx={{ fontSize: '10px', color: '#666' }}>
+                                                                {txn.grade} {txn.section}
+                                                            </Typography>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Typography sx={{ fontSize: '11px' }}>
+                                                                {txn.feeType}
+                                                            </Typography>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Typography sx={{ fontSize: '12px', fontWeight: '600', color: '#22C55E' }}>
+                                                                {txn.amount?.display ?? '₹0'}
+                                                            </Typography>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Chip
+                                                                label={txn.method}
+                                                                size="small"
+                                                                sx={{ fontSize: '10px', height: '20px', bgcolor: '#EDE9FE', color: '#5B21B6' }}
+                                                            />
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Chip
+                                                                label={txn.status}
+                                                                size="small"
+                                                                sx={{
+                                                                    bgcolor:
+                                                                        txn.status === 'Completed' ? '#DCFCE7' :
+                                                                        txn.status === 'Pending' ? '#FFF7ED' : '#FEE2E2',
+                                                                    color:
+                                                                        txn.status === 'Completed' ? '#22C55E' :
+                                                                        txn.status === 'Pending' ? '#F97316' : '#DC2626',
+                                                                    fontWeight: '600',
+                                                                    fontSize: '10px',
+                                                                    height: '20px',
+                                                                }}
+                                                            />
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
+                            )}
                         </CardContent>
                     </Card>
                 </Grid>
@@ -244,65 +320,61 @@ export default function TodaysCollectionTab({ recentTransactions }) {
                                     <Typography sx={{ fontSize: '18px', fontWeight: '600', mb: 2 }}>
                                         Today's Payment Methods
                                     </Typography>
-                                    <ResponsiveContainer width="100%" height={200}>
-                                        <PieChart>
-                                            <Pie
-                                                data={[
-                                                    { name: 'Online', value: 18500, color: '#0891B2' },
-                                                    { name: 'Cash', value: 15200, color: '#22C55E' },
-                                                    { name: 'Cheque', value: 8500, color: '#F97316' },
-                                                    { name: 'Bank Transfer', value: 3000, color: '#7C3AED' },
-                                                ]}
-                                                cx="50%"
-                                                cy="50%"
-                                                innerRadius={60}
-                                                outerRadius={80}
-                                                paddingAngle={2}
-                                                dataKey="value"
-                                            >
-                                                {[
-                                                    { name: 'Online', value: 18500, color: '#0891B2' },
-                                                    { name: 'Cash', value: 15200, color: '#22C55E' },
-                                                    { name: 'Cheque', value: 8500, color: '#F97316' },
-                                                    { name: 'Bank Transfer', value: 3000, color: '#7C3AED' },
-                                                ].map((entry, index) => (
-                                                    <Cell key={`cell-${index}`} fill={entry.color} />
+                                    {isLoading ? (
+                                        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                                            <CircularProgress size={24} />
+                                        </Box>
+                                    ) : paymentMethods.length === 0 ? (
+                                        <NoDataPlaceholder height={200} />
+                                    ) : (
+                                        <>
+                                            <ResponsiveContainer width="100%" height={200}>
+                                                <PieChart>
+                                                    <Pie
+                                                        data={paymentMethods}
+                                                        cx="50%"
+                                                        cy="50%"
+                                                        innerRadius={60}
+                                                        outerRadius={80}
+                                                        paddingAngle={2}
+                                                        dataKey="amount.amount"
+                                                        nameKey="method"
+                                                    >
+                                                        {paymentMethods.map((_, index) => (
+                                                            <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                                                        ))}
+                                                    </Pie>
+                                                    <Tooltip
+                                                        formatter={(value) => `₹${value.toLocaleString()}`}
+                                                        contentStyle={{
+                                                            backgroundColor: '#fff',
+                                                            border: '1px solid #e0e0e0',
+                                                            borderRadius: '4px',
+                                                            fontSize: '11px',
+                                                        }}
+                                                    />
+                                                </PieChart>
+                                            </ResponsiveContainer>
+                                            <Box sx={{ mt: 2 }}>
+                                                {paymentMethods.map((method, index) => (
+                                                    <Box key={index} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                            <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: PIE_COLORS[index % PIE_COLORS.length] }} />
+                                                            <Typography sx={{ fontSize: '12px' }}>{method.method}</Typography>
+                                                        </Box>
+                                                        <Box sx={{ textAlign: 'right' }}>
+                                                            <Typography sx={{ fontSize: '12px', fontWeight: '600' }}>
+                                                                {method.amount?.display ?? '₹0'}
+                                                            </Typography>
+                                                            <Typography sx={{ fontSize: '10px', color: '#666' }}>
+                                                                {method.percentage}%
+                                                            </Typography>
+                                                        </Box>
+                                                    </Box>
                                                 ))}
-                                            </Pie>
-                                            <Tooltip
-                                                formatter={(value) => `₹${value.toLocaleString()}`}
-                                                contentStyle={{
-                                                    backgroundColor: '#fff',
-                                                    border: '1px solid #e0e0e0',
-                                                    borderRadius: '4px',
-                                                    fontSize: '11px',
-                                                }}
-                                            />
-                                        </PieChart>
-                                    </ResponsiveContainer>
-                                    <Box sx={{ mt: 2 }}>
-                                        {[
-                                            { name: 'Online Payment', value: 18500, color: '#0891B2', percent: 41 },
-                                            { name: 'Cash', value: 15200, color: '#22C55E', percent: 34 },
-                                            { name: 'Cheque', value: 8500, color: '#F97316', percent: 19 },
-                                            { name: 'Bank Transfer', value: 3000, color: '#7C3AED', percent: 6 },
-                                        ].map((method, index) => (
-                                            <Box key={index} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                    <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: method.color }} />
-                                                    <Typography sx={{ fontSize: '12px' }}>{method.name}</Typography>
-                                                </Box>
-                                                <Box sx={{ textAlign: 'right' }}>
-                                                    <Typography sx={{ fontSize: '12px', fontWeight: '600' }}>
-                                                        ₹{method.value.toLocaleString()}
-                                                    </Typography>
-                                                    <Typography sx={{ fontSize: '10px', color: '#666' }}>
-                                                        {method.percent}%
-                                                    </Typography>
-                                                </Box>
                                             </Box>
-                                        ))}
-                                    </Box>
+                                        </>
+                                    )}
                                 </CardContent>
                             </Card>
                         </Grid>
@@ -318,27 +390,30 @@ export default function TodaysCollectionTab({ recentTransactions }) {
                                             Today
                                         </Typography>
                                     </Box>
-                                    <ResponsiveContainer width="100%" height={180}>
-                                        <BarChart
-                                            data={[
-                                                { category: 'School Fee', Collected: 22000 },
-                                                { category: 'Transport', Collected: 12500 },
-                                                { category: 'ECA', Collected: 6200 },
-                                                { category: 'Additional', Collected: 4500 },
-                                            ]}
-                                            margin={{ top: 5, right: 5, left: -10, bottom: 5 }}
-                                        >
-                                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-                                            <XAxis dataKey="category" stroke="#999" style={{ fontSize: '10px' }} tickLine={false} />
-                                            <YAxis stroke="#999" style={{ fontSize: '10px' }} tickLine={false} axisLine={false} tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`} />
-                                            <Tooltip
-                                                formatter={(value) => [`₹${value.toLocaleString()}`, 'Collected']}
-                                                contentStyle={{ backgroundColor: '#fff', border: '1px solid #e0e0e0', borderRadius: '6px', fontSize: '11px' }}
-                                                cursor={{ fill: 'rgba(0,0,0,0.04)' }}
-                                            />
-                                            <Bar dataKey="Collected" fill="#0891B2" radius={[4, 4, 0, 0]} barSize={28} />
-                                        </BarChart>
-                                    </ResponsiveContainer>
+                                    {isLoading ? (
+                                        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                                            <CircularProgress size={24} />
+                                        </Box>
+                                    ) : feeCategoryBreakdown.length === 0 ? (
+                                        <NoDataPlaceholder height={180} />
+                                    ) : (
+                                        <ResponsiveContainer width="100%" height={180}>
+                                            <BarChart
+                                                data={feeCategoryBreakdown}
+                                                margin={{ top: 5, right: 5, left: -10, bottom: 5 }}
+                                            >
+                                                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                                                <XAxis dataKey="category" stroke="#999" style={{ fontSize: '10px' }} tickLine={false} />
+                                                <YAxis stroke="#999" style={{ fontSize: '10px' }} tickLine={false} axisLine={false} tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`} />
+                                                <Tooltip
+                                                    formatter={(value) => [`₹${value.toLocaleString()}`, 'Collected']}
+                                                    contentStyle={{ backgroundColor: '#fff', border: '1px solid #e0e0e0', borderRadius: '6px', fontSize: '11px' }}
+                                                    cursor={{ fill: 'rgba(0,0,0,0.04)' }}
+                                                />
+                                                <Bar dataKey="Collected" fill="#0891B2" radius={[4, 4, 0, 0]} barSize={28} />
+                                            </BarChart>
+                                        </ResponsiveContainer>
+                                    )}
                                 </CardContent>
                             </Card>
                         </Grid>

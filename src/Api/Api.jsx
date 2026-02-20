@@ -267,6 +267,14 @@ const approvalStatusCheck = `${schoolFee}approvalStatusCheck`;
 const updateSchoolFeesApprovalAction = `${schoolFee}updateSchoolFeesApprovalAction`;
 const getFeesById = `${schoolFee}getFeesById`;
 
+// Finance Dashboard 
+const finance = `${baseApiurl}finance/`;
+const overView = `${finance}overView`;
+const todaysCollection = `${finance}todaysCollection`;
+const cashCollection = `${finance}cashCollection`;
+const classWiseCollection = `${finance}classWiseCollection`;
+const defaulters = `${finance}defaulters`;
+const feeReport = `${finance}feeReport`;
 
 // Expense 
 const postFund = `${baseApiurl}postFund`;
@@ -637,5 +645,12 @@ export {
     getAddedExpence,
     getAddedExpenceById,
     updateExpenceById,
-    expenceDashboard
+    expenceDashboard,
+    overView,
+    todaysCollection,
+    cashCollection,
+    classWiseCollection,
+    defaulters,
+    feeReport
+
 }

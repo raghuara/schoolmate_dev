@@ -106,7 +106,7 @@ const leaveApplications = [
     }
 ];
 
-export default function LeaveManagementPage({ isEmbedded = false }) {
+export default function LeaveManagementPage({ isEmbedded = false, onGoToApprovalWorkflow }) {
     const navigate = useNavigate();
     const [tabValue, setTabValue] = useState(2); // Leave Management tab (updated to tab 2)
     const [leaveTab, setLeaveTab] = useState(0); // All Leaves tab
@@ -507,65 +507,6 @@ export default function LeaveManagementPage({ isEmbedded = false }) {
                                 <Tab label="Rejected" />
                             </Tabs>
 
-                            {/* Filters */}
-                            <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
-                                <Select
-                                    value={filterStatus}
-                                    onChange={(e) => setFilterStatus(e.target.value)}
-                                    size="small"
-                                    sx={{
-                                        minWidth: 120,
-                                        bgcolor: '#fff',
-                                        borderRadius: '4px',
-                                        fontSize: '13px',
-                                        fontWeight: '500',
-                                        border: '1px solid #E8E8E8'
-                                    }}
-                                >
-                                    <MenuItem value="All Status">All Status</MenuItem>
-                                    <MenuItem value="Approved">Approved</MenuItem>
-                                    <MenuItem value="Pending">Pending</MenuItem>
-                                    <MenuItem value="Rejected">Rejected</MenuItem>
-                                </Select>
-                                <Select
-                                    value={filterType}
-                                    onChange={(e) => setFilterType(e.target.value)}
-                                    size="small"
-                                    sx={{
-                                        minWidth: 120,
-                                        bgcolor: '#fff',
-                                        borderRadius: '4px',
-                                        fontSize: '13px',
-                                        fontWeight: '500',
-                                        border: '1px solid #E8E8E8'
-                                    }}
-                                >
-                                    <MenuItem value="All Types">All Types</MenuItem>
-                                    <MenuItem value="Sick Leave">Sick Leave</MenuItem>
-                                    <MenuItem value="Casual Leave">Casual Leave</MenuItem>
-                                    <MenuItem value="Planned Leave">Planned Leave</MenuItem>
-                                    <MenuItem value="Emergency Leave">Emergency Leave</MenuItem>
-                                </Select>
-                                <Select
-                                    value={filterDept}
-                                    onChange={(e) => setFilterDept(e.target.value)}
-                                    size="small"
-                                    sx={{
-                                        minWidth: 120,
-                                        bgcolor: '#fff',
-                                        borderRadius: '4px',
-                                        fontSize: '13px',
-                                        fontWeight: '500',
-                                        border: '1px solid #E8E8E8'
-                                    }}
-                                >
-                                    <MenuItem value="All Dept">All Dept</MenuItem>
-                                    <MenuItem value="Mathematics">Mathematics</MenuItem>
-                                    <MenuItem value="Science">Science</MenuItem>
-                                    <MenuItem value="English">English</MenuItem>
-                                    <MenuItem value="Marketing">Marketing</MenuItem>
-                                </Select>
-                            </Box>
 
                             <TableContainer>
                                 <Table>
@@ -588,9 +529,6 @@ export default function LeaveManagementPage({ isEmbedded = false }) {
                                             </TableCell>
                                             <TableCell sx={{ fontWeight: '600', fontSize: '11px', color: '#666', textTransform: 'uppercase' }}>
                                                 Status
-                                            </TableCell>
-                                            <TableCell sx={{ fontWeight: '600', fontSize: '11px', color: '#666', textTransform: 'uppercase' }}>
-                                                Action
                                             </TableCell>
                                         </TableRow>
                                     </TableHead>
@@ -641,21 +579,6 @@ export default function LeaveManagementPage({ isEmbedded = false }) {
                                                 </TableCell>
                                                 <TableCell>
                                                     {getStatusChip(leave.status, leave.statusColor)}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Button
-                                                        size="small"
-                                                        variant="outlined"
-                                                        sx={{
-                                                            textTransform: 'none',
-                                                            fontSize: '11px',
-                                                            fontWeight: '600',
-                                                            borderRadius: '4px',
-                                                            px: 2
-                                                        }}
-                                                    >
-                                                        View
-                                                    </Button>
                                                 </TableCell>
                                             </TableRow>
                                         ))}
@@ -735,7 +658,7 @@ export default function LeaveManagementPage({ isEmbedded = false }) {
                             <Button
                                 fullWidth
                                 variant="outlined"
-                                onClick={() => navigate('/dashboardmenu/Leave/approval-workflow')}
+                                onClick={onGoToApprovalWorkflow || (() => navigate('/dashboardmenu/Leave/approval-workflow'))}
                                 sx={{
                                     textTransform: 'none',
                                     fontSize: '13px',
@@ -942,24 +865,6 @@ export default function LeaveManagementPage({ isEmbedded = false }) {
                             />
                         </Grid>
 
-                        {/* Info Box */}
-                        <Grid size={{ xs: 12 }}>
-                            <Box sx={{
-                                bgcolor: '#EFF6FF',
-                                border: '1px solid #DBEAFE',
-                                borderRadius: '8px',
-                                p: 2
-                            }}>
-                                <Typography sx={{ fontSize: '13px', color: '#1E40AF', mb: 0.5, fontWeight: '600' }}>
-                                    📋 Important Information
-                                </Typography>
-                                <Typography sx={{ fontSize: '12px', color: '#1E40AF', lineHeight: 1.6 }}>
-                                    • Your leave application will be sent to your reporting manager for approval<br />
-                                    • You will receive a notification once your leave is approved or rejected<br />
-                                    • For emergency leave, please also inform your manager directly
-                                </Typography>
-                            </Box>
-                        </Grid>
                     </Grid>
                 </DialogContent>
 

@@ -21,6 +21,7 @@ import StudentSelectionPopup from "../../../Tools/StudentSelectionPopup";
 import SnackBar from "../../../SnackBar";
 import Loader from "../../../Loader";
 import { useSelector } from "react-redux";
+import EcaStudentSelectionPopup from "../../../Tools/EcaStudentSelectionPopup";
 
 
 export default function AdditionalFeeManage() {
@@ -448,7 +449,7 @@ export default function AdditionalFeeManage() {
                     ))}
                 </Grid>
 
-                <StudentSelectionPopup
+                <EcaStudentSelectionPopup
                     open={openStudentPopup}
                     onClose={handleCloseStudentPopup}
                     users={users}

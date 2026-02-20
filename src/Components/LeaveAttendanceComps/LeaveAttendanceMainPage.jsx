@@ -22,6 +22,7 @@ import AttendanceReportsPage from './AttendanceReportsPage';
 
 // Import the attendance dashboard content from LeaveAttendancePage
 import LeaveAttendancePage from './LeaveAttendancePage';
+import AddAttendancePage from './AddAttendancePage';
 
 // Module cards configuration
 const moduleCards = [
@@ -48,22 +49,30 @@ const moduleCards = [
 export default function LeaveAttendanceMainPage() {
     const navigate = useNavigate();
     const location = useLocation();
-    const [moduleTab, setModuleTab] = useState(location.state?.moduleTab ?? null); // null: show cards, 0: Leave, 1: Payroll
+    const isLeaveAttendancePath = location.pathname.endsWith('/leave-attendance');
+    const [moduleTab, setModuleTab] = useState(isLeaveAttendancePath ? 0 : (location.state?.moduleTab ?? null)); // null: show cards, 0: Leave, 1: Payroll
     const [tabValue, setTabValue] = useState(0);
 
     const handleModuleCardClick = (moduleIndex) => {
         if (moduleIndex === 1) {
             // Navigate to separate Payroll route
             navigate('payroll');
+        } else if (moduleIndex === 0) {
+            // Navigate to dedicated Leave & Attendance route so refresh persists
+            navigate('leave-attendance');
         } else {
             setModuleTab(moduleIndex);
-            setTabValue(0); // Reset sub-tab when switching modules
+            setTabValue(0);
         }
     };
 
     const handleBackToCards = () => {
-        setModuleTab(null);
-        setTabValue(0);
+        if (isLeaveAttendancePath) {
+            navigate(-1);
+        } else {
+            setModuleTab(null);
+            setTabValue(0);
+        }
     };
 
     const handleTabChange = (event, newValue) => {
@@ -75,14 +84,16 @@ export default function LeaveAttendanceMainPage() {
         // Leave & Attendance Module tabs
         switch (tabValue) {
             case 0:
-                return <LeaveAttendancePage isEmbedded={true} />;
+                return <LeaveAttendancePage isEmbedded={true} onGoToAddAttendance={() => setTabValue(1)} onGoToApprovalWorkflow={() => setTabValue(4)} />;
             case 1:
-                return <StaffAttendanceOverviewPage isEmbedded={true} />;
+                return <AddAttendancePage />;
             case 2:
-                return <LeaveManagementPage isEmbedded={true} />;
+                return <StaffAttendanceOverviewPage isEmbedded={true} />;
             case 3:
-                return <ApprovalWorkflowPage isEmbedded={true} />;
+                return <LeaveManagementPage isEmbedded={true} onGoToApprovalWorkflow={() => setTabValue(4)} />;
             case 4:
+                return <ApprovalWorkflowPage isEmbedded={true} />;
+            case 5:
                 return <AttendanceReportsPage isEmbedded={true} />;
             default:
                 return <LeaveAttendancePage isEmbedded={true} />;
@@ -102,16 +113,8 @@ export default function LeaveAttendanceMainPage() {
             {/* Header */}
             <Box sx={{ flexShrink: 0 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
-                    <IconButton
-                        onClick={moduleTab !== null ? handleBackToCards : () => navigate(-1)}
-                        sx={{ width: "27px", height: "27px", marginTop: '2px' }}
-                    >
-                        <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
-                    </IconButton>
                     <Typography sx={{ fontSize: "20px", fontWeight: "600" }}>
-                        {moduleTab === null ? 'Leave & Attendance Management' :
-                         moduleTab === 0 ? 'Leave & Attendance' :
-                         'Leave & Attendance Management'}
+                        Leave & Payroll Management
                     </Typography>
                 </Box>
 
@@ -147,9 +150,10 @@ export default function LeaveAttendanceMainPage() {
                                 }}
                             >
                                 <Tab label="Attendance Dashboard" />
+                                <Tab label="Add Attendance" />
                                 <Tab label="Staff Attendance Overview" />
                                 <Tab label="Leave Management" />
-                                <Tab label="Approval Workflow" />
+                                <Tab label="Leave Approval" />
                                 <Tab label="Reports" />
                             </Tabs>
                         </Box>

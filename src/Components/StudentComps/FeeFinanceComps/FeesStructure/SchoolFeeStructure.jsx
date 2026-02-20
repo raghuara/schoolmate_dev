@@ -269,6 +269,14 @@ export default function SchoolFeeStructure() {
         },
       });
 
+      if (res.data?.success === false) {
+        setOpen(true);
+        setColor(false);
+        setStatus(false);
+        setMessage(res.data?.message || "Failed to save fee structure.");
+        return;
+      }
+
       setOpen(true);
       setColor(true);
       setStatus(true);
@@ -331,6 +339,14 @@ export default function SchoolFeeStructure() {
           Authorization: `Bearer ${token}`,
         },
       });
+
+      if (res.data?.success === false) {
+        setOpen(true);
+        setColor(false);
+        setStatus(false);
+        setMessage(res.data?.message || "Failed to update fee structure.");
+        return;
+      }
 
       setOpen(true);
       setColor(true);

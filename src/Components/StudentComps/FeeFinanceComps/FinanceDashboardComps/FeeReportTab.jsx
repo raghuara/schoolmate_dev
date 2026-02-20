@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Box,
     Card,
@@ -19,34 +19,120 @@ import {
     TableContainer,
     TableHead,
     TableRow,
+    CircularProgress,
 } from '@mui/material';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import PendingActionsIcon from '@mui/icons-material/PendingActions';
-import ReceiptIcon from '@mui/icons-material/Receipt';
+import PeopleIcon from '@mui/icons-material/People';
 import DownloadIcon from '@mui/icons-material/Download';
 import AssessmentIcon from '@mui/icons-material/Assessment';
+import axios from 'axios';
 import { useSelector } from 'react-redux';
 import { selectGrades } from '../../../../Redux/Slices/DropdownController';
+import { feeReport } from '../../../../Api/Api';
 
-export default function FeeReportTab({
-    reportFeeType,
-    setReportFeeType,
-    reportFromDate,
-    setReportFromDate,
-    reportToDate,
-    setReportToDate,
-    reportGrade,
-    setReportGrade,
-    reportSection,
-    setReportSection,
-    selectedGradeId,
-    handleGradeChange,
-    selectedSection,
-    handleSectionChange,
-    sections,
-}) {
+const token = "123";
+
+export default function FeeReportTab({ selectedYear }) {
     const grades = useSelector(selectGrades);
+
+    const [selectedFeeType, setSelectedFeeType] = useState('School Fee');
+    const [fromDate, setFromDate] = useState('');
+    const [toDate, setToDate] = useState('');
+    const [selectedGradeId, setSelectedGradeId] = useState(null);
+    const [selectedSection, setSelectedSection] = useState(null);
+
+    const [reportData, setReportData] = useState(null);
+    const [isLoading, setIsLoading] = useState(false);
+
+    const selectedGrade = grades.find((g) => g.id === selectedGradeId) || null;
+    const selectedGradeSign = selectedGrade?.sign || null;
+    const sections = selectedGrade?.sections.map((s) => ({ sectionName: s })) || [];
+
+    const handleGradeChange = (newValue) => {
+        setSelectedGradeId(newValue ? newValue.id : null);
+        setSelectedSection(null);
+    };
+
+    const handleSectionChange = (event, newValue) => {
+        setSelectedSection(newValue?.sectionName || null);
+    };
+
+    const fetchReportData = async () => {
+        setIsLoading(true);
+        try {
+            const params = { FeeType: selectedFeeType };
+            if (fromDate) params.FromDate = fromDate;
+            if (toDate) params.ToDate = toDate;
+            if (selectedGradeSign) params.Grade = selectedGradeSign;
+            if (selectedSection) params.Section = selectedSection;
+
+            const res = await axios.get(feeReport, {
+                params,
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            setReportData(res.data.data);
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchReportData();
+    }, [selectedYear]);
+
+    const rows = reportData?.rows || [];
+
+    const summaryStats = [
+        {
+            title: 'Total Students',
+            value: reportData ? String(reportData.totalStudents) : '—',
+            subtitle: 'In selected filter',
+            icon: PeopleIcon,
+            color: '#0891B2',
+            bgColor: '#F0F9FA',
+        },
+        {
+            title: 'Total Fee Amount',
+            value: reportData ? `₹${reportData.totalFeeAmount.toLocaleString()}` : '—',
+            subtitle: 'Gross fee',
+            icon: AccountBalanceWalletIcon,
+            color: '#7C3AED',
+            bgColor: '#F9F0FB',
+        },
+        {
+            title: 'Total Paid',
+            value: reportData ? `₹${reportData.totalPaidAmount.toLocaleString()}` : '—',
+            subtitle: 'Amount collected',
+            icon: TrendingUpIcon,
+            color: '#22C55E',
+            bgColor: '#F1F8F4',
+        },
+        {
+            title: 'Total Pending',
+            value: reportData ? `₹${reportData.totalPendingAmount.toLocaleString()}` : '—',
+            subtitle: 'Outstanding amount',
+            icon: PendingActionsIcon,
+            color: '#F97316',
+            bgColor: '#FFF8F0',
+        },
+    ];
+
+    const statusConfig = {
+        Paid:    { bg: '#ECFDF5', color: '#047857', border: '#A7F3D0' },
+        Partial: { bg: '#EFF6FF', color: '#1D4ED8', border: '#BFDBFE' },
+        Pending: { bg: '#FFFBEB', color: '#B45309', border: '#FCD34D' },
+        Overdue: { bg: '#FEF2F2', color: '#991B1B', border: '#FCA5A5' },
+    };
+
+    const tableTitle = `${selectedFeeType} Report — ${
+        selectedGradeSign
+            ? `Grade ${selectedGradeSign}${selectedSection ? ` · Section ${selectedSection}` : ''}`
+            : 'All Grades'
+    }`;
 
     return (
         <Box>
@@ -89,8 +175,8 @@ export default function FeeReportTab({
                                     </Typography>
                                     <FormControl fullWidth size="small">
                                         <Select
-                                            value={reportFeeType}
-                                            onChange={(e) => setReportFeeType(e.target.value)}
+                                            value={selectedFeeType}
+                                            onChange={(e) => setSelectedFeeType(e.target.value)}
                                             sx={{
                                                 bgcolor: '#fff', borderRadius: '8px',
                                                 '& .MuiOutlinedInput-notchedOutline': { borderColor: '#E0E0E0' },
@@ -114,8 +200,8 @@ export default function FeeReportTab({
                                         fullWidth
                                         size="small"
                                         type="date"
-                                        value={reportFromDate}
-                                        onChange={(e) => setReportFromDate(e.target.value)}
+                                        value={fromDate}
+                                        onChange={(e) => setFromDate(e.target.value)}
                                         slotProps={{ inputLabel: { shrink: true } }}
                                         sx={{
                                             bgcolor: '#fff',
@@ -138,8 +224,8 @@ export default function FeeReportTab({
                                         fullWidth
                                         size="small"
                                         type="date"
-                                        value={reportToDate}
-                                        onChange={(e) => setReportToDate(e.target.value)}
+                                        value={toDate}
+                                        onChange={(e) => setToDate(e.target.value)}
                                         slotProps={{ inputLabel: { shrink: true } }}
                                         sx={{
                                             bgcolor: '#fff',
@@ -158,25 +244,22 @@ export default function FeeReportTab({
                                     <Typography sx={{ fontSize: '11px', fontWeight: '700', color: '#555', mb: 0.8, letterSpacing: '0.4px' }}>
                                         GRADE
                                     </Typography>
-
                                     <Autocomplete
                                         disablePortal
                                         options={grades}
                                         getOptionLabel={(option) => option.sign}
-                                        value={grades.find((item) => item.id === selectedGradeId) || null}
-                                        onChange={(event, newValue) => {
-                                            handleGradeChange(newValue);
-                                        }}
+                                        value={selectedGrade}
+                                        onChange={(event, newValue) => handleGradeChange(newValue)}
                                         isOptionEqualToValue={(option, value) => option.id === value.id}
-                                        sx={{ width: "150px" }}
+                                        sx={{ width: '100%' }}
                                         PaperComponent={(props) => (
                                             <Paper
                                                 {...props}
                                                 style={{
                                                     ...props.style,
-                                                    maxHeight: "150px",
-                                                    backgroundColor: "#000",
-                                                    color: "#fff",
+                                                    maxHeight: '150px',
+                                                    backgroundColor: '#000',
+                                                    color: '#fff',
                                                 }}
                                             />
                                         )}
@@ -190,14 +273,19 @@ export default function FeeReportTab({
                                                 placeholder="Select Class"
                                                 {...params}
                                                 fullWidth
-                                                InputProps={{
-                                                    ...params.InputProps,
-                                                    sx: {
-                                                        paddingRight: 0,
-                                                        height: "33px",
-                                                        fontSize: "13px",
-                                                        fontWeight: "600",
-                                                    },
+                                                size="small"
+                                                slotProps={{
+                                                    input: {
+                                                        ...params.InputProps,
+                                                        sx: {
+                                                            paddingRight: 0,
+                                                            height: '40px',
+                                                            fontSize: '13px',
+                                                            fontWeight: '600',
+                                                            bgcolor: '#fff',
+                                                            borderRadius: '8px',
+                                                        },
+                                                    }
                                                 }}
                                             />
                                         )}
@@ -213,23 +301,18 @@ export default function FeeReportTab({
                                         disablePortal
                                         options={sections}
                                         getOptionLabel={(option) => option.sectionName}
-                                        value={
-                                            sections.find((option) => option.sectionName === selectedSection) ||
-                                            null
-                                        }
+                                        value={sections.find((s) => s.sectionName === selectedSection) || null}
                                         onChange={handleSectionChange}
-                                        isOptionEqualToValue={(option, value) =>
-                                            option.sectionName === value.sectionName
-                                        }
-                                        sx={{ width: "150px" }}
+                                        isOptionEqualToValue={(option, value) => option.sectionName === value.sectionName}
+                                        sx={{ width: '100%' }}
                                         PaperComponent={(props) => (
                                             <Paper
                                                 {...props}
                                                 style={{
                                                     ...props.style,
-                                                    maxHeight: "150px",
-                                                    backgroundColor: "#000",
-                                                    color: "#fff",
+                                                    maxHeight: '150px',
+                                                    backgroundColor: '#000',
+                                                    color: '#fff',
                                                 }}
                                             />
                                         )}
@@ -242,14 +325,19 @@ export default function FeeReportTab({
                                             <TextField
                                                 {...params}
                                                 fullWidth
-                                                InputProps={{
-                                                    ...params.InputProps,
-                                                    sx: {
-                                                        paddingRight: 0,
-                                                        height: "33px",
-                                                        fontSize: "13px",
-                                                        fontWeight: "600",
-                                                    },
+                                                size="small"
+                                                slotProps={{
+                                                    input: {
+                                                        ...params.InputProps,
+                                                        sx: {
+                                                            paddingRight: 0,
+                                                            height: '40px',
+                                                            fontSize: '13px',
+                                                            fontWeight: '600',
+                                                            bgcolor: '#fff',
+                                                            borderRadius: '8px',
+                                                        },
+                                                    }
                                                 }}
                                             />
                                         )}
@@ -261,7 +349,9 @@ export default function FeeReportTab({
                                     <Button
                                         fullWidth
                                         variant="contained"
-                                        startIcon={<DownloadIcon />}
+                                        startIcon={isLoading ? <CircularProgress size={16} color="inherit" /> : <DownloadIcon />}
+                                        onClick={fetchReportData}
+                                        disabled={isLoading}
                                         sx={{
                                             textTransform: 'none',
                                             bgcolor: '#0891B2',
@@ -271,7 +361,7 @@ export default function FeeReportTab({
                                             '&:hover': { bgcolor: '#0E7490' }
                                         }}
                                     >
-                                        Generate
+                                        {isLoading ? 'Loading...' : 'Generate'}
                                     </Button>
                                 </Grid>
                             </Grid>
@@ -280,38 +370,40 @@ export default function FeeReportTab({
                             <Box sx={{ display: 'flex', gap: 1, mt: 2, flexWrap: 'wrap', alignItems: 'center' }}>
                                 <Typography sx={{ fontSize: '11px', color: '#999', mr: 0.5 }}>Active:</Typography>
                                 <Chip
-                                    label={reportFeeType}
+                                    label={selectedFeeType}
                                     size="small"
-                                    onDelete={() => setReportFeeType('School Fee')}
+                                    onDelete={() => setSelectedFeeType('School Fee')}
                                     sx={{ bgcolor: '#0891B215', color: '#0891B2', fontWeight: '600', fontSize: '11px', border: '1px solid #0891B230' }}
                                 />
-                                {reportFromDate && (
+                                {fromDate && (
                                     <Chip
-                                        label={`From: ${reportFromDate}`}
+                                        label={`From: ${fromDate}`}
                                         size="small"
-                                        onDelete={() => setReportFromDate('')}
+                                        onDelete={() => setFromDate('')}
                                         sx={{ bgcolor: '#6366F115', color: '#6366F1', fontWeight: '600', fontSize: '11px', border: '1px solid #6366F130' }}
                                     />
                                 )}
-                                {reportToDate && (
+                                {toDate && (
                                     <Chip
-                                        label={`To: ${reportToDate}`}
+                                        label={`To: ${toDate}`}
                                         size="small"
-                                        onDelete={() => setReportToDate('')}
+                                        onDelete={() => setToDate('')}
                                         sx={{ bgcolor: '#6366F115', color: '#6366F1', fontWeight: '600', fontSize: '11px', border: '1px solid #6366F130' }}
                                     />
                                 )}
-                                <Chip
-                                    label={reportGrade === 'all' ? 'All Grades' : `Grade ${reportGrade}`}
-                                    size="small"
-                                    onDelete={() => { setReportGrade('all'); setReportSection('all'); }}
-                                    sx={{ bgcolor: '#10B98115', color: '#10B981', fontWeight: '600', fontSize: '11px', border: '1px solid #10B98130' }}
-                                />
-                                {reportSection !== 'all' && (
+                                {selectedGradeSign && (
                                     <Chip
-                                        label={`Section ${reportSection}`}
+                                        label={`Grade ${selectedGradeSign}`}
                                         size="small"
-                                        onDelete={() => setReportSection('all')}
+                                        onDelete={() => { handleGradeChange(null); }}
+                                        sx={{ bgcolor: '#10B98115', color: '#10B981', fontWeight: '600', fontSize: '11px', border: '1px solid #10B98130' }}
+                                    />
+                                )}
+                                {selectedSection && (
+                                    <Chip
+                                        label={`Section ${selectedSection}`}
+                                        size="small"
+                                        onDelete={() => setSelectedSection(null)}
                                         sx={{ bgcolor: '#F59E0B15', color: '#F59E0B', fontWeight: '600', fontSize: '11px', border: '1px solid #F59E0B30' }}
                                     />
                                 )}
@@ -320,15 +412,10 @@ export default function FeeReportTab({
                     </Card>
                 </Grid>
 
-                {/* Quick Report Stats */}
+                {/* Summary Stats */}
                 <Grid size={{ xs: 12, sm: 12, md: 12, lg: 12 }}>
                     <Grid container spacing={2}>
-                        {[
-                            { title: 'Total Revenue', value: '₹67.85L', subtitle: 'This Month', icon: AccountBalanceWalletIcon, color: '#0891B2', bgColor: '#F0F9FA' },
-                            { title: 'Collection Rate', value: '88.5%', subtitle: 'Overall', icon: TrendingUpIcon, color: '#22C55E', bgColor: '#F1F8F4' },
-                            { title: 'Pending Fees', value: '₹12.48L', subtitle: '119 Students', icon: PendingActionsIcon, color: '#F97316', bgColor: '#FFF8F0' },
-                            { title: 'Concessions', value: '₹13.70L', subtitle: '173 Students', icon: ReceiptIcon, color: '#7C3AED', bgColor: '#F9F0FB' },
-                        ].map((stat, index) => {
+                        {summaryStats.map((stat, index) => {
                             const IconComponent = stat.icon;
                             return (
                                 <Grid key={index} size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
@@ -367,7 +454,7 @@ export default function FeeReportTab({
                         }}>
                             <Box>
                                 <Typography sx={{ fontSize: '15px', fontWeight: '700', color: '#1a1a1a' }}>
-                                    {reportFeeType} Report — {reportGrade === 'all' ? 'All Grades' : `Grade ${reportGrade}${reportSection !== 'all' ? ` · Section ${reportSection}` : ''}`}
+                                    {tableTitle}
                                 </Typography>
                                 <Typography sx={{ fontSize: '11px', color: '#888', mt: 0.2 }}>
                                     Student-wise fee details
@@ -404,41 +491,33 @@ export default function FeeReportTab({
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
-                                    {[
-                                        { sno: 1, roll: 'GR1-001', name: 'Aarav Sharma', grade: 'Grade 1-A', feeType: 'School Fee', feeAmt: 45000, paidAmt: 45000, dueDate: '2026-01-15', status: 'Paid' },
-                                        { sno: 2, roll: 'GR1-002', name: 'Priya Mehta', grade: 'Grade 1-A', feeType: 'School Fee', feeAmt: 45000, paidAmt: 22500, dueDate: '2026-01-15', status: 'Partial' },
-                                        { sno: 3, roll: 'GR1-003', name: 'Rohan Gupta', grade: 'Grade 1-B', feeType: 'School Fee', feeAmt: 45000, paidAmt: 0, dueDate: '2026-01-15', status: 'Pending' },
-                                        { sno: 4, roll: 'GR2-001', name: 'Sneha Reddy', grade: 'Grade 2-A', feeType: 'School Fee', feeAmt: 48000, paidAmt: 48000, dueDate: '2026-01-20', status: 'Paid' },
-                                        { sno: 5, roll: 'GR2-002', name: 'Arjun Singh', grade: 'Grade 2-B', feeType: 'School Fee', feeAmt: 48000, paidAmt: 0, dueDate: '2025-12-20', status: 'Overdue' },
-                                        { sno: 6, roll: 'GR3-001', name: 'Kavya Nair', grade: 'Grade 3-A', feeType: 'School Fee', feeAmt: 50000, paidAmt: 50000, dueDate: '2026-01-10', status: 'Paid' },
-                                        { sno: 7, roll: 'GR3-002', name: 'Ananya Das', grade: 'Grade 3-A', feeType: 'School Fee', feeAmt: 50000, paidAmt: 25000, dueDate: '2026-01-10', status: 'Partial' },
-                                        { sno: 8, roll: 'GR4-001', name: 'Rahul Kumar', grade: 'Grade 4-B', feeType: 'School Fee', feeAmt: 52000, paidAmt: 52000, dueDate: '2026-02-01', status: 'Paid' },
-                                        { sno: 9, roll: 'GR4-002', name: 'Divya Patel', grade: 'Grade 4-C', feeType: 'School Fee', feeAmt: 52000, paidAmt: 0, dueDate: '2026-01-05', status: 'Overdue' },
-                                        { sno: 10, roll: 'GR5-001', name: 'Vikram Joshi', grade: 'Grade 5-A', feeType: 'School Fee', feeAmt: 55000, paidAmt: 55000, dueDate: '2026-02-05', status: 'Paid' },
-                                        { sno: 11, roll: 'GR5-002', name: 'Neha Iyer', grade: 'Grade 5-B', feeType: 'School Fee', feeAmt: 55000, paidAmt: 27500, dueDate: '2026-02-05', status: 'Partial' },
-                                        { sno: 12, roll: 'GR6-001', name: 'Karan Verma', grade: 'Grade 6-A', feeType: 'School Fee', feeAmt: 58000, paidAmt: 0, dueDate: '2026-01-25', status: 'Pending' },
-                                        { sno: 13, roll: 'GR7-001', name: 'Pooja Sharma', grade: 'Grade 7-A', feeType: 'School Fee', feeAmt: 60000, paidAmt: 60000, dueDate: '2026-02-10', status: 'Paid' },
-                                        { sno: 14, roll: 'GR8-001', name: 'Aditya Rao', grade: 'Grade 8-B', feeType: 'School Fee', feeAmt: 62000, paidAmt: 0, dueDate: '2025-12-31', status: 'Overdue' },
-                                        { sno: 15, roll: 'GR9-001', name: 'Meera Krishnan', grade: 'Grade 9-A', feeType: 'School Fee', feeAmt: 65000, paidAmt: 65000, dueDate: '2026-02-15', status: 'Paid' },
-                                    ].map((row) => {
-                                        const pending = row.feeAmt - row.paidAmt;
-                                        const statusConfig = {
-                                            Paid: { bg: '#ECFDF5', color: '#047857', border: '#A7F3D0' },
-                                            Partial: { bg: '#EFF6FF', color: '#1D4ED8', border: '#BFDBFE' },
-                                            Pending: { bg: '#FFFBEB', color: '#B45309', border: '#FCD34D' },
-                                            Overdue: { bg: '#FEF2F2', color: '#991B1B', border: '#FCA5A5' },
-                                        }[row.status];
+                                    {isLoading ? (
+                                        <TableRow>
+                                            <TableCell colSpan={10} align="center" sx={{ py: 6 }}>
+                                                <CircularProgress size={32} sx={{ color: '#0891B2' }} />
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : rows.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={10} align="center" sx={{ py: 6 }}>
+                                                <Typography sx={{ fontSize: '13px', color: '#999' }}>
+                                                    No data found. Click Generate to load the report.
+                                                </Typography>
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : rows.map((row) => {
+                                        const cfg = statusConfig[row.status] || statusConfig.Pending;
                                         return (
-                                            <TableRow key={row.sno} sx={{ '&:hover': { bgcolor: '#F9FAFB' } }}>
-                                                <TableCell sx={{ fontSize: '12px', color: '#6B7280' }}>{row.sno}</TableCell>
+                                            <TableRow key={row.sNo} sx={{ '&:hover': { bgcolor: '#F9FAFB' } }}>
+                                                <TableCell sx={{ fontSize: '12px', color: '#6B7280' }}>{row.sNo}</TableCell>
                                                 <TableCell>
-                                                    <Typography sx={{ fontSize: '12px', fontWeight: '700', color: '#1F2937' }}>{row.roll}</Typography>
+                                                    <Typography sx={{ fontSize: '12px', fontWeight: '700', color: '#1F2937' }}>{row.rollNumber}</Typography>
                                                 </TableCell>
                                                 <TableCell>
-                                                    <Typography sx={{ fontSize: '12px', fontWeight: '600', color: '#111827' }}>{row.name}</Typography>
+                                                    <Typography sx={{ fontSize: '12px', fontWeight: '600', color: '#111827' }}>{row.studentName}</Typography>
                                                 </TableCell>
                                                 <TableCell>
-                                                    <Typography sx={{ fontSize: '11px', color: '#6B7280' }}>{row.grade}</Typography>
+                                                    <Typography sx={{ fontSize: '11px', color: '#6B7280' }}>{row.grade}{row.section ? ` · ${row.section}` : ''}</Typography>
                                                 </TableCell>
                                                 <TableCell>
                                                     <Chip label={row.feeType} size="small" sx={{
@@ -448,22 +527,22 @@ export default function FeeReportTab({
                                                     }} />
                                                 </TableCell>
                                                 <TableCell sx={{ fontSize: '12px', fontWeight: '600', color: '#111827' }}>
-                                                    ₹{row.feeAmt.toLocaleString()}
+                                                    ₹{row.feeAmount.toLocaleString()}
                                                 </TableCell>
                                                 <TableCell sx={{ fontSize: '12px', fontWeight: '600', color: '#22C55E' }}>
-                                                    ₹{row.paidAmt.toLocaleString()}
+                                                    ₹{row.paidAmount.toLocaleString()}
                                                 </TableCell>
-                                                <TableCell sx={{ fontSize: '12px', fontWeight: '600', color: pending > 0 ? '#F97316' : '#22C55E' }}>
-                                                    ₹{pending.toLocaleString()}
+                                                <TableCell sx={{ fontSize: '12px', fontWeight: '600', color: row.pendingAmount > 0 ? '#F97316' : '#22C55E' }}>
+                                                    ₹{row.pendingAmount.toLocaleString()}
                                                 </TableCell>
                                                 <TableCell sx={{ fontSize: '11px', color: '#6B7280', whiteSpace: 'nowrap' }}>
-                                                    {row.dueDate}
+                                                    {row.dueDate || '—'}
                                                 </TableCell>
                                                 <TableCell>
                                                     <Chip label={row.status} size="small" sx={{
-                                                        bgcolor: statusConfig.bg,
-                                                        color: statusConfig.color,
-                                                        border: `1px solid ${statusConfig.border}`,
+                                                        bgcolor: cfg.bg,
+                                                        color: cfg.color,
+                                                        border: `1px solid ${cfg.border}`,
                                                         fontSize: '10px', fontWeight: '700', height: '22px'
                                                     }} />
                                                 </TableCell>
@@ -475,24 +554,26 @@ export default function FeeReportTab({
                         </TableContainer>
 
                         {/* Table Footer Summary */}
-                        <Box sx={{
-                            px: 3, py: 1.5,
-                            bgcolor: '#F5F7FA',
-                            borderTop: '2px solid #E5E7EB',
-                            display: 'flex', gap: 4, flexWrap: 'wrap'
-                        }}>
-                            {[
-                                { label: 'Total Students', value: '15', color: '#374151' },
-                                { label: 'Total Fee Amount', value: '₹8,15,000', color: '#111827' },
-                                { label: 'Total Paid', value: '₹5,50,000', color: '#22C55E' },
-                                { label: 'Total Pending', value: '₹2,65,000', color: '#F97316' },
-                            ].map((s, i) => (
-                                <Box key={i}>
-                                    <Typography sx={{ fontSize: '10px', color: '#888', letterSpacing: '0.3px' }}>{s.label}</Typography>
-                                    <Typography sx={{ fontSize: '14px', fontWeight: '700', color: s.color }}>{s.value}</Typography>
-                                </Box>
-                            ))}
-                        </Box>
+                        {reportData && (
+                            <Box sx={{
+                                px: 3, py: 1.5,
+                                bgcolor: '#F5F7FA',
+                                borderTop: '2px solid #E5E7EB',
+                                display: 'flex', gap: 4, flexWrap: 'wrap'
+                            }}>
+                                {[
+                                    { label: 'Total Students', value: String(reportData.totalStudents), color: '#374151' },
+                                    { label: 'Total Fee Amount', value: `₹${reportData.totalFeeAmount.toLocaleString()}`, color: '#111827' },
+                                    { label: 'Total Paid', value: `₹${reportData.totalPaidAmount.toLocaleString()}`, color: '#22C55E' },
+                                    { label: 'Total Pending', value: `₹${reportData.totalPendingAmount.toLocaleString()}`, color: '#F97316' },
+                                ].map((s, i) => (
+                                    <Box key={i}>
+                                        <Typography sx={{ fontSize: '10px', color: '#888', letterSpacing: '0.3px' }}>{s.label}</Typography>
+                                        <Typography sx={{ fontSize: '14px', fontWeight: '700', color: s.color }}>{s.value}</Typography>
+                                    </Box>
+                                ))}
+                            </Box>
+                        )}
                     </Card>
                 </Grid>
             </Grid>

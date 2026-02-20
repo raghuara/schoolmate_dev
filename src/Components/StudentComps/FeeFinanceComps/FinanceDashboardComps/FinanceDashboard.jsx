@@ -12,12 +12,7 @@ import {
     Autocomplete,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import TrendingUpIcon from '@mui/icons-material/TrendingUp';
-import TrendingDownIcon from '@mui/icons-material/TrendingDown';
-import PeopleIcon from '@mui/icons-material/People';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
-import PendingActionsIcon from '@mui/icons-material/PendingActions';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import MonetizationOnIcon from '@mui/icons-material/MonetizationOn';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import TodayIcon from '@mui/icons-material/Today';
@@ -41,54 +36,8 @@ export default function FinanceDashboard() {
     const navigate = useNavigate();
     const [timeRange, setTimeRange] = useState('month');
     const [tabValue, setTabValue] = useState(0);
-    // const [selectedGrade, setSelectedGrade] = useState('all');
-    const [selectedFeeType, setSelectedFeeType] = useState('School Fee');
     const [value, setValue] = useState(0);
-    const [classwiseModal, setClasswiseModal] = useState({ open: false, grade: '', color: '', defaulters: [] });
-    const [defaulterSearch, setDefaulterSearch] = useState('');
-    const [reminderModal, setReminderModal] = useState(false);
-    const [reminderMsg, setReminderMsg] = useState('');
-    const [reminderType, setReminderType] = useState('SMS');
-    const [reminderStudent, setReminderStudent] = useState(null); // null = all, object = single student
-    const [reportFeeType, setReportFeeType] = useState('School Fee');
-    const [reportFromDate, setReportFromDate] = useState('');
-    const [reportToDate, setReportToDate] = useState('');
-    const [reportGrade, setReportGrade] = useState('all');
-    const [reportSection, setReportSection] = useState('all');
-
     const grades = useSelector(selectGrades);
-
-    // --- Classwise Collection Tab state (isolated) ---
-    const [classwiseGradeId, setClasswiseGradeId] = useState(null);
-    const selectedClasswiseGrade = grades.find((g) => g.id === classwiseGradeId);
-    const handleClasswiseGradeChange = (newValue) => {
-        setClasswiseGradeId(newValue ? newValue.id : null);
-    };
-
-    // --- Defaulters Tab state (isolated) ---
-    const [defaultersGradeId, setDefaultersGradeId] = useState(null);
-    const selectedDefaultersGrade = grades.find((g) => g.id === defaultersGradeId);
-    const handleDefaultersGradeChange = (newValue) => {
-        setDefaultersGradeId(newValue ? newValue.id : null);
-    };
-
-    // --- Fee Report Tab state (isolated) ---
-    const [reportSelectedGradeId, setReportSelectedGradeId] = useState(null);
-    const [reportSelectedSection, setReportSelectedSection] = useState(null);
-    const selectedReportGrade = grades.find((g) => g.id === reportSelectedGradeId);
-    const reportSections = selectedReportGrade?.sections.map((s) => ({ sectionName: s })) || [];
-    const handleReportGradeChange = (newValue) => {
-        if (newValue) {
-            setReportSelectedGradeId(newValue.id);
-            setReportSelectedSection(newValue.sections[0]);
-        } else {
-            setReportSelectedGradeId(null);
-            setReportSelectedSection(null);
-        }
-    };
-    const handleReportSectionChange = (event, newValue) => {
-        setReportSelectedSection(newValue?.sectionName || null);
-    };
 
     const today = new Date().toISOString().split('T')[0];
     const [cashDate, setCashDate] = useState(today);
@@ -118,18 +67,6 @@ export default function FinanceDashboard() {
     ];
 
     // Mock data for defaulters by grade
-    const defaultersData = [
-        { grade: 'Grade 1', count: 15, amount: 150000 },
-        { grade: 'Grade 2', count: 22, amount: 220000 },
-        { grade: 'Grade 3', count: 8, amount: 80000 },
-        { grade: 'Grade 4', count: 12, amount: 120000 },
-        { grade: 'Grade 5', count: 5, amount: 50000 },
-        { grade: 'Grade 6', count: 18, amount: 175000 },
-        { grade: 'Grade 7', count: 11, amount: 107000 },
-        { grade: 'Grade 8', count: 9, amount: 90000 },
-        { grade: 'Grade 9', count: 13, amount: 132000 },
-        { grade: 'Grade 10', count: 6, amount: 55000 },
-    ];
 
     // Mock recent transactions (expanded)
     const recentTransactions = [
@@ -161,59 +98,7 @@ export default function FinanceDashboard() {
         { class: 'Grade 9-A', collectionRate: 92, amount: 442000, students: 46 },
     ];
 
-    // Mock data for concession summary
-    const concessionData = [
-        { type: 'Merit Scholarship', students: 45, amount: 450000 },
-        { type: 'Sibling Discount', students: 78, amount: 390000 },
-        { type: 'Staff Ward', students: 23, amount: 230000 },
-        { type: 'Financial Aid', students: 15, amount: 180000 },
-        { type: 'Sports Quota', students: 12, amount: 120000 },
-    ];
 
-    // Summary statistics (enhanced)
-    const stats = [
-        {
-            title: 'Total Revenue',
-            value: '₹67,85,000',
-            change: '+12.5%',
-            trend: 'up',
-            icon: AccountBalanceWalletIcon,
-            color: '#0891B2',
-            bgColor: '#F0F9FA',
-            subtitle: 'This Month'
-        },
-        {
-            title: 'Collected Today',
-            value: '₹45,200',
-            change: '+8.2%',
-            trend: 'up',
-            icon: CheckCircleIcon,
-            color: '#22C55E',
-            bgColor: '#F1F8F4',
-            subtitle: '23 Transactions'
-        },
-        {
-            title: 'Pending Fees',
-            value: '₹12,48,000',
-            change: '-5.3%',
-            trend: 'down',
-            icon: PendingActionsIcon,
-            color: '#F97316',
-            bgColor: '#FFF8F0',
-            subtitle: '119 Students'
-        },
-        {
-            title: 'Total Students',
-            value: '1,245',
-            change: '+2.1%',
-            trend: 'up',
-            icon: PeopleIcon,
-            color: '#E91E63',
-            bgColor: '#FFF0F5',
-            subtitle: 'Active Students'
-        },
-
-    ];
 
     // Calculate collection percentage for grades
     const getCollectionPercentage = (collected, total) => {
@@ -352,17 +237,12 @@ export default function FinanceDashboard() {
 
                 {/* Tab Panel 0: Overview */}
                 {value === 0 && (
-                    <OverviewTab
-                        stats={stats}
-                        defaultersData={defaultersData}
-                    />
+                    <OverviewTab selectedYear={selectedYear} />
                 )}
 
                 {/* Tab Panel 1: Today's Collection */}
                 {value === 1 && (
-                    <TodaysCollectionTab
-                        recentTransactions={recentTransactions}
-                    />
+                    <TodaysCollectionTab />
                 )}
 
                 {/* Tab Panel 2: Cash Collection */}
@@ -370,40 +250,18 @@ export default function FinanceDashboard() {
                     <CashCollectionTab
                         cashDate={cashDate}
                         setCashDate={setCashDate}
-                        denominations={denominations}
-                        recentTransactions={recentTransactions}
-                        today={today}
+                        selectedYear={selectedYear}
                     />
                 )}
 
                 {/* Tab Panel 3: Classwise Collection */}
                 {value === 3 && (
-                    <ClasswiseCollectionTab
-                        selectedFeeType={selectedFeeType}
-                        setSelectedFeeType={setSelectedFeeType}
-                        selectedGradeId={classwiseGradeId}
-                        handleGradeChange={handleClasswiseGradeChange}
-                        classwiseModal={classwiseModal}
-                        setClasswiseModal={setClasswiseModal}
-                        defaulterSearch={defaulterSearch}
-                        setDefaulterSearch={setDefaulterSearch}
-                    />
+                    <ClasswiseCollectionTab selectedYear={selectedYear} />
                 )}
 
                 {/* Tab Panel 4: Defaulters */}
                 {value === 4 && (
-                    <DefaultersTab
-                        selectedGradeId={defaultersGradeId}
-                        handleGradeChange={handleDefaultersGradeChange}
-                        reminderModal={reminderModal}
-                        setReminderModal={setReminderModal}
-                        reminderMsg={reminderMsg}
-                        setReminderMsg={setReminderMsg}
-                        reminderType={reminderType}
-                        setReminderType={setReminderType}
-                        reminderStudent={reminderStudent}
-                        setReminderStudent={setReminderStudent}
-                    />
+                    <DefaultersTab selectedYear={selectedYear} />
                 )}
 
                 {/* Tab Panel 5: Expenses */}
@@ -413,23 +271,7 @@ export default function FinanceDashboard() {
 
                 {/* Tab Panel 6: Fee Report */}
                 {value === 6 && (
-                    <FeeReportTab
-                        reportFeeType={reportFeeType}
-                        setReportFeeType={setReportFeeType}
-                        reportFromDate={reportFromDate}
-                        setReportFromDate={setReportFromDate}
-                        reportToDate={reportToDate}
-                        setReportToDate={setReportToDate}
-                        reportGrade={reportGrade}
-                        setReportGrade={setReportGrade}
-                        reportSection={reportSection}
-                        setReportSection={setReportSection}
-                        selectedGradeId={reportSelectedGradeId}
-                        handleGradeChange={handleReportGradeChange}
-                        selectedSection={reportSelectedSection}
-                        handleSectionChange={handleReportSectionChange}
-                        sections={reportSections}
-                    />
+                    <FeeReportTab selectedYear={selectedYear} />
                 )}
 
             </Box>

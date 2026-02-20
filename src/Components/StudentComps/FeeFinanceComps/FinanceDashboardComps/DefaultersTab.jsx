@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Box,
     Card,
@@ -16,6 +16,9 @@ import {
     Chip,
     Button,
     FormControl,
+    InputLabel,
+    Select,
+    MenuItem,
     Autocomplete,
     Paper,
     IconButton,
@@ -23,6 +26,7 @@ import {
     DialogTitle,
     DialogContent,
     DialogActions,
+    CircularProgress,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import DownloadIcon from '@mui/icons-material/Download';
@@ -31,20 +35,71 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import SendIcon from '@mui/icons-material/Send';
 import { useSelector } from 'react-redux';
 import { selectGrades } from '../../../../Redux/Slices/DropdownController';
+import { defaulters } from '../../../../Api/Api';
+import axios from 'axios';
 
-export default function DefaultersTab({
-    selectedGradeId,
-    handleGradeChange,
-    reminderModal,
-    setReminderModal,
-    reminderMsg,
-    setReminderMsg,
-    reminderType,
-    setReminderType,
-    reminderStudent,
-    setReminderStudent,
-}) {
+const token = "123";
+
+const formatAmount = (amount) => {
+    if (!amount && amount !== 0) return '₹0';
+    if (amount >= 100000) return `₹${(amount / 100000).toFixed(1)}L`;
+    if (amount >= 1000) return `₹${(amount / 1000).toFixed(1)}K`;
+    return `₹${amount.toLocaleString()}`;
+};
+
+const formatDate = (dateStr) => {
+    if (!dateStr) return '—';
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+};
+
+export default function DefaultersTab({ selectedYear }) {
     const grades = useSelector(selectGrades);
+
+    const [isLoading, setIsLoading] = useState(false);
+    const [defaultersData, setDefaultersData] = useState(null);
+    const [selectedFeeType, setSelectedFeeType] = useState('School Fee');
+    const [selectedGradeId, setSelectedGradeId] = useState(null);
+    const [searchText, setSearchText] = useState('');
+
+    // Reminder modal state
+    const [reminderModal, setReminderModal] = useState(false);
+    const [reminderMsg, setReminderMsg] = useState('');
+    const [reminderType, setReminderType] = useState('SMS');
+    const [reminderStudent, setReminderStudent] = useState(null);
+
+    const selectedGrade = grades.find((g) => g.id === selectedGradeId);
+    const selectedGradeSign = selectedGrade?.sign || null;
+
+    useEffect(() => {
+        fetchDefaultersData();
+    }, [selectedYear, selectedFeeType, selectedGradeId]);
+
+    const fetchDefaultersData = async () => {
+        setIsLoading(true);
+        try {
+            const params = { year: selectedYear, FeeType: selectedFeeType };
+            if (selectedGradeSign) params.Grade = selectedGradeSign;
+            const res = await axios.get(defaulters, {
+                params,
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            setDefaultersData(res.data.data);
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleGradeChange = (newValue) => {
+        setSelectedGradeId(newValue ? newValue.id : null);
+    };
+
+    const filteredDefaulters = (defaultersData?.defaulters || []).filter((d) =>
+        d.name.toLowerCase().includes(searchText.toLowerCase()) ||
+        d.rollNumber.toLowerCase().includes(searchText.toLowerCase())
+    );
 
     return (
         <Box>
@@ -52,69 +107,84 @@ export default function DefaultersTab({
                 <Grid size={{ xs: 12, sm: 12, md: 12, lg: 12 }}>
                     <Card sx={{ boxShadow: 'none', border: '1px solid #E8E8E8', borderRadius: '4px', bgcolor: '#FFFFFF' }}>
                         <CardContent>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                            {/* Header */}
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1.5 }}>
                                 <Typography sx={{ fontSize: '18px', fontWeight: '600' }}>
                                     Fee Defaulters List
                                 </Typography>
-                                <Box sx={{ display: 'flex', gap: 2 }}>
+                                <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
                                     <TextField
                                         size="small"
                                         placeholder="Search student..."
-                                        InputProps={{
-                                            startAdornment: (
-                                                <InputAdornment position="start">
-                                                    <SearchIcon sx={{ fontSize: 18 }} />
-                                                </InputAdornment>
-                                            ),
+                                        value={searchText}
+                                        onChange={(e) => setSearchText(e.target.value)}
+                                        slotProps={{
+                                            input: {
+                                                startAdornment: (
+                                                    <InputAdornment position="start">
+                                                        <SearchIcon sx={{ fontSize: 18 }} />
+                                                    </InputAdornment>
+                                                ),
+                                            },
                                         }}
-                                        sx={{ width: '250px' }}
+                                        sx={{ width: '220px' }}
                                     />
-                                    <FormControl size="small" sx={{ minWidth: 150 }}>
-
-                                        <Autocomplete
-                                            disablePortal
-                                            options={grades}
-                                            getOptionLabel={(option) => option.sign}
-                                            value={grades.find((item) => item.id === selectedGradeId) || null}
-                                            onChange={(event, newValue) => {
-                                                handleGradeChange(newValue);
-                                            }}
-                                            isOptionEqualToValue={(option, value) => option.id === value.id}
-                                            sx={{ width: "150px" }}
-                                            PaperComponent={(props) => (
-                                                <Paper
-                                                    {...props}
-                                                    style={{
-                                                        ...props.style,
-                                                        maxHeight: "150px",
-                                                        backgroundColor: "#000",
-                                                        color: "#fff",
-                                                    }}
-                                                />
-                                            )}
-                                            renderOption={(props, option) => (
-                                                <li {...props} className="classdropdownOptions">
-                                                    {option.sign}
-                                                </li>
-                                            )}
-                                            renderInput={(params) => (
-                                                <TextField
-                                                    placeholder="Select Class"
-                                                    {...params}
-                                                    fullWidth
-                                                    InputProps={{
+                                    <FormControl size="small" sx={{ minWidth: 160 }}>
+                                        <InputLabel>Fee Type</InputLabel>
+                                        <Select
+                                            value={selectedFeeType}
+                                            onChange={(e) => setSelectedFeeType(e.target.value)}
+                                            label="Fee Type"
+                                        >
+                                            <MenuItem value="School Fee">School Fee</MenuItem>
+                                            <MenuItem value="Transport Fee">Transport Fee</MenuItem>
+                                            <MenuItem value="ECA Fee">ECA Fee</MenuItem>
+                                            <MenuItem value="Additional Fee">Additional Fee</MenuItem>
+                                        </Select>
+                                    </FormControl>
+                                    <Autocomplete
+                                        disablePortal
+                                        options={grades}
+                                        getOptionLabel={(option) => option.sign}
+                                        value={grades.find((item) => item.id === selectedGradeId) || null}
+                                        onChange={(event, newValue) => handleGradeChange(newValue)}
+                                        isOptionEqualToValue={(option, value) => option.id === value.id}
+                                        sx={{ width: '150px' }}
+                                        PaperComponent={(props) => (
+                                            <Paper
+                                                {...props}
+                                                style={{
+                                                    ...props.style,
+                                                    maxHeight: '150px',
+                                                    backgroundColor: '#000',
+                                                    color: '#fff',
+                                                }}
+                                            />
+                                        )}
+                                        renderOption={(props, option) => (
+                                            <li {...props} className="classdropdownOptions">
+                                                {option.sign}
+                                            </li>
+                                        )}
+                                        renderInput={(params) => (
+                                            <TextField
+                                                placeholder="Select Class"
+                                                {...params}
+                                                fullWidth
+                                                slotProps={{
+                                                    input: {
                                                         ...params.InputProps,
                                                         sx: {
                                                             paddingRight: 0,
-                                                            height: "37px",
-                                                            fontSize: "13px",
-                                                            fontWeight: "600",
+                                                            height: '37px',
+                                                            fontSize: '13px',
+                                                            fontWeight: '600',
                                                         },
-                                                    }}
-                                                />
-                                            )}
-                                        />
-                                    </FormControl>
+                                                    },
+                                                }}
+                                            />
+                                        )}
+                                    />
                                     <Button
                                         variant="contained"
                                         size="small"
@@ -122,7 +192,7 @@ export default function DefaultersTab({
                                         sx={{
                                             textTransform: 'none',
                                             bgcolor: '#DC2626',
-                                            '&:hover': { bgcolor: '#B91C1C' }
+                                            '&:hover': { bgcolor: '#B91C1C' },
                                         }}
                                     >
                                         Export
@@ -131,49 +201,50 @@ export default function DefaultersTab({
                             </Box>
 
                             {/* Summary Cards */}
-                            <Grid container spacing={2} sx={{ mb: 3 }}>
-                                <Grid size={{ xs: 12, sm: 4, md: 3, lg: 4 }}>
+                            <Grid container spacing={2} sx={{ mb: 2 }}>
+                                <Grid size={{ xs: 12, sm: 4, lg: 4 }}>
                                     <Box sx={{ p: 2, bgcolor: '#FEE2E2', borderRadius: '8px', border: '1px solid #DC2626' }}>
-                                        <Typography sx={{ fontSize: '12px', color: '#666', mb: 0.5 }}>
-                                            Total Defaulters
-                                        </Typography>
+                                        <Typography sx={{ fontSize: '12px', color: '#666', mb: 0.5 }}>Total Defaulters</Typography>
                                         <Typography sx={{ fontSize: '28px', fontWeight: '700', color: '#DC2626' }}>
-                                            119
+                                            {defaultersData?.totalDefaulters ?? '—'}
                                         </Typography>
                                         <Typography sx={{ fontSize: '11px', color: '#666' }}>
-                                            9.6% of total students
+                                            {defaultersData?.defaultersPercentage != null
+                                                ? `${defaultersData.defaultersPercentage}% of ${defaultersData.totalStudents} students`
+                                                : '—'}
                                         </Typography>
                                     </Box>
                                 </Grid>
-                                <Grid size={{ xs: 12, sm: 4, md: 3, lg: 4 }}>
+                                <Grid size={{ xs: 12, sm: 4, lg: 4 }}>
                                     <Box sx={{ p: 2, bgcolor: '#FFF7ED', borderRadius: '8px', border: '1px solid #F97316' }}>
-                                        <Typography sx={{ fontSize: '12px', color: '#666', mb: 0.5 }}>
-                                            Total Pending
-                                        </Typography>
+                                        <Typography sx={{ fontSize: '12px', color: '#666', mb: 0.5 }}>Total Pending</Typography>
                                         <Typography sx={{ fontSize: '28px', fontWeight: '700', color: '#F97316' }}>
-                                            ₹12.5L
+                                            {defaultersData?.totalPending != null ? formatAmount(defaultersData.totalPending) : '—'}
                                         </Typography>
                                         <Typography sx={{ fontSize: '11px', color: '#666' }}>
-                                            Avg ₹10,504 per student
+                                            {defaultersData?.avgPendingPerStudent != null
+                                                ? `Avg ${formatAmount(defaultersData.avgPendingPerStudent)} per student`
+                                                : '—'}
                                         </Typography>
                                     </Box>
                                 </Grid>
-                                <Grid size={{ xs: 12, sm: 4, md: 3, lg: 4 }}>
+                                <Grid size={{ xs: 12, sm: 4, lg: 4 }}>
                                     <Box sx={{ p: 2, bgcolor: '#FFEDD5', borderRadius: '8px', border: '1px solid #EA580C' }}>
-                                        <Typography sx={{ fontSize: '12px', color: '#666', mb: 0.5 }}>
-                                            Overdue
-                                        </Typography>
+                                        <Typography sx={{ fontSize: '12px', color: '#666', mb: 0.5 }}>Overdue</Typography>
                                         <Typography sx={{ fontSize: '28px', fontWeight: '700', color: '#EA580C' }}>
-                                            38
+                                            {defaultersData?.overdueCount ?? '—'}
                                         </Typography>
                                         <Typography sx={{ fontSize: '11px', color: '#666' }}>
-                                            Amount: ₹3.25L
+                                            {defaultersData?.overdueAmount != null
+                                                ? `Amount: ${formatAmount(defaultersData.overdueAmount)}`
+                                                : '—'}
                                         </Typography>
                                     </Box>
                                 </Grid>
-
                             </Grid>
-                            <Box sx={{ display: 'flex', justifyContent: "end", pb: 1 }}>
+
+                            {/* Send to All button */}
+                            <Box sx={{ display: 'flex', justifyContent: 'flex-end', pb: 1 }}>
                                 <Button
                                     variant="contained"
                                     size="small"
@@ -185,123 +256,136 @@ export default function DefaultersTab({
                                         bgcolor: '#fff',
                                         border: '1px solid #6366F1',
                                         color: '#6366F1',
-                                        boxShadow: "none",
-                                        '&:hover': {
-                                            bgcolor: '#F0F0FF',
-                                            borderColor: '#6366F1',
-                                        }
+                                        boxShadow: 'none',
+                                        '&:hover': { bgcolor: '#F0F0FF', borderColor: '#6366F1' },
                                     }}
                                 >
                                     Send Reminder to All
                                 </Button>
                             </Box>
-                            <TableContainer sx={{ maxHeight: 500 }}>
-                                <Table size="small" stickyHeader>
-                                    <TableHead>
-                                        <TableRow>
-                                            <TableCell sx={{ fontWeight: '600', fontSize: '12px', bgcolor: '#f5f5f5' }}>Student Details</TableCell>
-                                            <TableCell sx={{ fontWeight: '600', fontSize: '12px', bgcolor: '#f5f5f5' }}>Grade</TableCell>
-                                            <TableCell sx={{ fontWeight: '600', fontSize: '12px', bgcolor: '#f5f5f5' }}>Pending Amount</TableCell>
-                                            <TableCell sx={{ fontWeight: '600', fontSize: '12px', bgcolor: '#f5f5f5' }}>Fee Type</TableCell>
-                                            <TableCell sx={{ fontWeight: '600', fontSize: '12px', bgcolor: '#f5f5f5' }}>Due Date</TableCell>
-                                            <TableCell sx={{ fontWeight: '600', fontSize: '12px', bgcolor: '#f5f5f5' }}>Days Overdue</TableCell>
-                                            <TableCell sx={{ fontWeight: '600', fontSize: '12px', bgcolor: '#f5f5f5' }}>Contact</TableCell>
-                                            <TableCell sx={{ fontWeight: '600', fontSize: '12px', bgcolor: '#f5f5f5' }}>Action</TableCell>
-                                        </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {[
-                                            { id: 'ST001', name: 'Rahul Sharma', grade: 'Grade 5-A', amount: 15000, type: 'School Fee', dueDate: '2025-12-15', daysOverdue: 46, contact: '+91 98765 43210', priority: 'High' },
-                                            { id: 'ST002', name: 'Priya Patel', grade: 'Grade 3-B', amount: 8500, type: 'Transport Fee', dueDate: '2026-01-05', daysOverdue: 25, contact: '+91 98765 43211', priority: 'Medium' },
-                                            { id: 'ST003', name: 'Amit Kumar', grade: 'Grade 8-C', amount: 12000, type: 'School Fee', dueDate: '2025-11-30', daysOverdue: 61, contact: '+91 98765 43212', priority: 'High' },
-                                            { id: 'ST004', name: 'Sneha Reddy', grade: 'Grade 2-A', amount: 6500, type: 'ECA Fee', dueDate: '2026-01-10', daysOverdue: 20, contact: '+91 98765 43213', priority: 'Low' },
-                                            { id: 'ST005', name: 'Arjun Singh', grade: 'Grade 10-B', amount: 18000, type: 'School Fee', dueDate: '2025-12-20', daysOverdue: 41, contact: '+91 98765 43214', priority: 'High' },
-                                            { id: 'ST006', name: 'Kavya Nair', grade: 'Grade 6-A', amount: 9500, type: 'Transport Fee', dueDate: '2026-01-01', daysOverdue: 29, contact: '+91 98765 43215', priority: 'Medium' },
-                                            { id: 'ST007', name: 'Rohan Gupta', grade: 'Grade 4-C', amount: 11000, type: 'School Fee', dueDate: '2025-12-10', daysOverdue: 51, contact: '+91 98765 43216', priority: 'High' },
-                                            { id: 'ST008', name: 'Ananya Das', grade: 'Grade 7-B', amount: 7200, type: 'Additional Fee', dueDate: '2026-01-15', daysOverdue: 15, contact: '+91 98765 43217', priority: 'Low' },
-                                        ].map((student, index) => (
-                                            <TableRow key={index} sx={{ '&:hover': { bgcolor: '#f9f9f9' } }}>
-                                                <TableCell>
-                                                    <Typography sx={{ fontSize: '12px', fontWeight: '600' }}>
-                                                        {student.name}
-                                                    </Typography>
-                                                    <Typography sx={{ fontSize: '10px', color: '#666' }}>
-                                                        ID: {student.id}
-                                                    </Typography>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Typography sx={{ fontSize: '12px' }}>
-                                                        {student.grade}
-                                                    </Typography>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Typography sx={{ fontSize: '13px', fontWeight: '700', color: '#DC2626' }}>
-                                                        ₹{student.amount.toLocaleString()}
-                                                    </Typography>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Typography sx={{ fontSize: '11px' }}>
-                                                        {student.type}
-                                                    </Typography>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Typography sx={{ fontSize: '11px' }}>
-                                                        {student.dueDate}
-                                                    </Typography>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Chip
-                                                        label={`${student.daysOverdue} days`}
-                                                        size="small"
-                                                        sx={{
-                                                            bgcolor:
-                                                                student.daysOverdue > 45 ? '#FEE2E2' :
-                                                                    student.daysOverdue > 30 ? '#FED7AA' :
-                                                                        '#FEF3C7',
-                                                            color:
-                                                                student.daysOverdue > 45 ? '#DC2626' :
-                                                                    student.daysOverdue > 30 ? '#EA580C' :
-                                                                        '#F59E0B',
-                                                            fontWeight: '600',
-                                                            fontSize: '10px',
-                                                            height: '20px'
-                                                        }}
-                                                    />
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Typography sx={{ fontSize: '11px', color: '#0891B2' }}>
-                                                        {student.contact}
-                                                    </Typography>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Button
-                                                        size="small"
-                                                        variant="outlined"
-                                                        startIcon={<NotificationsActiveIcon sx={{ fontSize: '12px !important' }} />}
-                                                        onClick={() => {
-                                                            setReminderMsg('');
-                                                            setReminderStudent({ name: student.name, grade: student.grade });
-                                                            setReminderModal(true);
-                                                        }}
-                                                        sx={{
-                                                            textTransform: 'none',
-                                                            fontSize: '10px',
-                                                            borderColor: '#6366F1',
-                                                            color: '#6366F1',
-                                                            '&:hover': {
-                                                                bgcolor: '#F0F0FF',
-                                                                borderColor: '#6366F1',
-                                                            }
-                                                        }}
-                                                    >
-                                                        Remind
-                                                    </Button>
-                                                </TableCell>
+
+                            {/* Table */}
+                            {isLoading ? (
+                                <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+                                    <CircularProgress size={36} />
+                                </Box>
+                            ) : (
+                                <TableContainer sx={{ maxHeight: 500 }}>
+                                    <Table size="small" stickyHeader>
+                                        <TableHead>
+                                            <TableRow>
+                                                {['Student Details', 'Grade & Section', 'Pending Amount', 'Fee Type', 'Due Date', 'Days Overdue', 'Action'].map((h) => (
+                                                    <TableCell key={h} sx={{ fontWeight: '600', fontSize: '12px', bgcolor: '#f5f5f5' }}>
+                                                        {h}
+                                                    </TableCell>
+                                                ))}
                                             </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </TableContainer>
+                                        </TableHead>
+                                        <TableBody>
+                                            {filteredDefaulters.length === 0 ? (
+                                                <TableRow>
+                                                    <TableCell colSpan={7} align="center">
+                                                        <Typography sx={{ fontSize: '13px', color: '#999', py: 4 }}>
+                                                            {isLoading ? '' : 'No defaulters found'}
+                                                        </Typography>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ) : (
+                                                filteredDefaulters.map((student, index) => (
+                                                    <TableRow key={index} sx={{ '&:hover': { bgcolor: '#f9f9f9' } }}>
+                                                        {/* Student Details */}
+                                                        <TableCell>
+                                                            <Typography sx={{ fontSize: '12px', fontWeight: '600' }}>
+                                                                {student.name || '—'}
+                                                            </Typography>
+                                                            <Typography sx={{ fontSize: '10px', color: '#666' }}>
+                                                                {student.rollNumber}
+                                                            </Typography>
+                                                        </TableCell>
+                                                        {/* Grade & Section */}
+                                                        <TableCell>
+                                                            <Typography sx={{ fontSize: '12px' }}>
+                                                                {student.grade}
+                                                                {student.section ? ` — ${student.section}` : ''}
+                                                            </Typography>
+                                                        </TableCell>
+                                                        {/* Pending Amount */}
+                                                        <TableCell>
+                                                            <Typography sx={{ fontSize: '13px', fontWeight: '700', color: '#DC2626' }}>
+                                                                ₹{student.pendingAmount.toLocaleString()}
+                                                            </Typography>
+                                                        </TableCell>
+                                                        {/* Fee Type */}
+                                                        <TableCell>
+                                                            <Chip
+                                                                label={student.feeType}
+                                                                size="small"
+                                                                sx={{ fontSize: '10px', height: '20px', bgcolor: '#F0F4FF', color: '#3457D5', fontWeight: '600' }}
+                                                            />
+                                                        </TableCell>
+                                                        {/* Due Date */}
+                                                        <TableCell>
+                                                            <Typography sx={{ fontSize: '11px' }}>
+                                                                {formatDate(student.dueDate)}
+                                                            </Typography>
+                                                        </TableCell>
+                                                        {/* Days Overdue */}
+                                                        <TableCell>
+                                                            {student.daysOverdue > 0 ? (
+                                                                <Chip
+                                                                    label={`${student.daysOverdue} days`}
+                                                                    size="small"
+                                                                    sx={{
+                                                                        bgcolor:
+                                                                            student.daysOverdue > 45 ? '#FEE2E2' :
+                                                                            student.daysOverdue > 30 ? '#FED7AA' :
+                                                                            '#FEF3C7',
+                                                                        color:
+                                                                            student.daysOverdue > 45 ? '#DC2626' :
+                                                                            student.daysOverdue > 30 ? '#EA580C' :
+                                                                            '#F59E0B',
+                                                                        fontWeight: '600',
+                                                                        fontSize: '10px',
+                                                                        height: '20px',
+                                                                    }}
+                                                                />
+                                                            ) : (
+                                                                <Chip
+                                                                    label="Not overdue"
+                                                                    size="small"
+                                                                    sx={{ bgcolor: '#F0FDF4', color: '#22C55E', fontWeight: '600', fontSize: '10px', height: '20px' }}
+                                                                />
+                                                            )}
+                                                        </TableCell>
+                                                        {/* Action */}
+                                                        <TableCell>
+                                                            <Button
+                                                                size="small"
+                                                                variant="outlined"
+                                                                startIcon={<NotificationsActiveIcon sx={{ fontSize: '12px !important' }} />}
+                                                                onClick={() => {
+                                                                    setReminderMsg('');
+                                                                    setReminderStudent({ name: student.name, grade: student.grade, section: student.section });
+                                                                    setReminderModal(true);
+                                                                }}
+                                                                sx={{
+                                                                    textTransform: 'none',
+                                                                    fontSize: '10px',
+                                                                    borderColor: '#6366F1',
+                                                                    color: '#6366F1',
+                                                                    '&:hover': { bgcolor: '#F0F0FF', borderColor: '#6366F1' },
+                                                                }}
+                                                            >
+                                                                Remind
+                                                            </Button>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
+                            )}
                         </CardContent>
                     </Card>
                 </Grid>
@@ -315,28 +399,31 @@ export default function DefaultersTab({
                 fullWidth
                 PaperProps={{ sx: { borderRadius: '16px', overflow: 'hidden' } }}
             >
-                {/* Header */}
                 <DialogTitle sx={{ p: 0 }}>
                     <Box sx={{
                         background: 'linear-gradient(135deg, #6366F115, #6366F105)',
                         borderBottom: '3px solid #6366F1',
                         px: 3, py: 2.5,
-                        display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
                     }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                             <Box sx={{
                                 width: 40, height: 40, borderRadius: '10px',
                                 bgcolor: '#6366F115', border: '1px solid #6366F130',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
                             }}>
                                 <NotificationsActiveIcon sx={{ color: '#6366F1', fontSize: 22 }} />
                             </Box>
                             <Box>
                                 <Typography sx={{ fontSize: '17px', fontWeight: '800', color: '#1a1a1a' }}>
-                                    {reminderStudent ? `Send Reminder to ${reminderStudent.name}` : 'Send Reminder to All Defaulters'}
+                                    {reminderStudent
+                                        ? `Send Reminder to ${reminderStudent.name || 'Student'}`
+                                        : 'Send Reminder to All Defaulters'}
                                 </Typography>
                                 <Typography sx={{ fontSize: '11px', color: '#888', mt: 0.2 }}>
-                                    {reminderStudent ? `${reminderStudent.grade} · Individual reminder` : '119 students will receive this reminder'}
+                                    {reminderStudent
+                                        ? `${reminderStudent.grade}${reminderStudent.section ? ` — ${reminderStudent.section}` : ''} · Individual reminder`
+                                        : `${defaultersData?.totalDefaulters ?? 0} students will receive this reminder`}
                                 </Typography>
                             </Box>
                         </Box>
@@ -351,8 +438,6 @@ export default function DefaultersTab({
                 </DialogTitle>
 
                 <DialogContent sx={{ p: 0 }}>
-
-
                     {/* Quick Templates */}
                     <Box sx={{ px: 3, pt: 2, pb: 1 }}>
                         <Typography sx={{ fontSize: '12px', fontWeight: '700', color: '#555', mb: 1.2, letterSpacing: '0.4px' }}>
@@ -360,7 +445,7 @@ export default function DefaultersTab({
                         </Typography>
                         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                             {[
-                                'Dear Parent, your child\'s fee is pending. Please pay at the earliest.',
+                                "Dear Parent, your child's fee is pending. Please pay at the earliest.",
                                 'Reminder: Fee due date has passed. Kindly clear dues to avoid late charges.',
                                 'This is a gentle reminder to pay the pending school fee immediately.',
                             ].map((tpl, i) => (
@@ -374,7 +459,7 @@ export default function DefaultersTab({
                                         bgcolor: reminderMsg === tpl ? '#6366F115' : '#F5F5F5',
                                         color: reminderMsg === tpl ? '#6366F1' : '#666',
                                         border: reminderMsg === tpl ? '1px solid #6366F140' : '1px solid #E8E8E8',
-                                        '&:hover': { bgcolor: '#6366F115', color: '#6366F1' }
+                                        '&:hover': { bgcolor: '#6366F115', color: '#6366F1' },
                                     }}
                                 />
                             ))}
@@ -396,8 +481,8 @@ export default function DefaultersTab({
                             sx={{
                                 '& .MuiOutlinedInput-root': {
                                     borderRadius: '10px', fontSize: '13px',
-                                    '&.Mui-focused fieldset': { borderColor: '#6366F1' }
-                                }
+                                    '&.Mui-focused fieldset': { borderColor: '#6366F1' },
+                                },
                             }}
                         />
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.8 }}>
@@ -422,7 +507,7 @@ export default function DefaultersTab({
                         sx={{
                             textTransform: 'none', borderRadius: '8px',
                             color: '#666', border: '1px solid #E0E0E0',
-                            '&:hover': { bgcolor: '#F5F5F5' }
+                            '&:hover': { bgcolor: '#F5F5F5' },
                         }}
                     >
                         Cancel
@@ -435,7 +520,7 @@ export default function DefaultersTab({
                             textTransform: 'none', borderRadius: '8px',
                             bgcolor: '#6366F1', fontWeight: '600', px: 3,
                             '&:hover': { bgcolor: '#4F46E5' },
-                            '&.Mui-disabled': { bgcolor: '#E0E0E0', color: '#aaa' }
+                            '&.Mui-disabled': { bgcolor: '#E0E0E0', color: '#aaa' },
                         }}
                     >
                         {reminderStudent ? `Send via ${reminderType}` : `Send to All via ${reminderType}`}
