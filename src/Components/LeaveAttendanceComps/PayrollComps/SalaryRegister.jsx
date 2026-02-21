@@ -17,8 +17,8 @@ import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import { useNavigate } from 'react-router-dom';
-import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
+import SnackBar from '../../SnackBar';
 
 // Color theme
 const PRIMARY = '#E30053';
@@ -34,6 +34,7 @@ const mockSalaryRegister = [
         name: 'Rajesh Kumar',
         designation: 'Senior Teacher',
         department: 'Mathematics',
+        category: 'Teaching Staff',
         // Attendance Details
         workingDays: 28,
         presentDays: 28,
@@ -66,6 +67,7 @@ const mockSalaryRegister = [
         name: 'Priya Sharma',
         designation: 'Teacher',
         department: 'Science',
+        category: 'Teaching Staff',
         // Attendance Details
         workingDays: 28,
         presentDays: 26,
@@ -98,6 +100,7 @@ const mockSalaryRegister = [
         name: 'Amit Patel',
         designation: 'Lab Assistant',
         department: 'Laboratory',
+        category: 'Supporting Staff',
         // Attendance Details
         workingDays: 28,
         presentDays: 27,
@@ -130,6 +133,7 @@ const mockSalaryRegister = [
         name: 'Sneha Gupta',
         designation: 'Teacher',
         department: 'English',
+        category: 'Teaching Staff',
         // Attendance Details
         workingDays: 28,
         presentDays: 28,
@@ -160,6 +164,15 @@ const mockSalaryRegister = [
 
 export default function SalaryRegister() {
     const navigate = useNavigate();
+
+    const [snackOpen, setSnackOpen] = useState(false);
+    const [snackStatus, setSnackStatus] = useState(false);
+    const [snackColor, setSnackColor] = useState(false);
+    const [snackMessage, setSnackMessage] = useState('');
+    const showSnack = (msg, success) => {
+        setSnackMessage(msg); setSnackOpen(true); setSnackColor(success); setSnackStatus(success);
+    };
+
     const [selectedMonth, setSelectedMonth] = useState('February 2026');
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedDepartment, setSelectedDepartment] = useState('All');
@@ -177,7 +190,7 @@ export default function SalaryRegister() {
     const filteredData = mockSalaryRegister.filter(emp => {
         const matchesSearch = emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                             emp.employeeId.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesDept = selectedDepartment === 'All' || emp.department === selectedDepartment;
+        const matchesDept = selectedDepartment === 'All' || emp.category === selectedDepartment;
         return matchesSearch && matchesDept;
     });
 
@@ -226,11 +239,11 @@ export default function SalaryRegister() {
         // Save the file
         XLSX.writeFile(wb, fileName);
 
-        toast.success('Salary register exported successfully!');
+        showSnack('Salary register exported successfully!', true);
     };
 
     const handlePrintRegister = () => {
-        toast.success('Preparing register for printing...');
+        showSnack('Preparing register for printing...', true);
     };
 
     const handleViewDetails = (employee) => {
@@ -240,6 +253,7 @@ export default function SalaryRegister() {
 
     return (
         <>
+        <SnackBar open={snackOpen} color={snackColor} setOpen={setSnackOpen} status={snackStatus} message={snackMessage} />
             {/* Print-specific styles */}
             <style>
                 {`
@@ -489,16 +503,15 @@ export default function SalaryRegister() {
                                 <TextField
                                     fullWidth
                                     select
-                                    label="Department"
+                                    label="Staff Category"
                                     value={selectedDepartment}
                                     onChange={(e) => setSelectedDepartment(e.target.value)}
                                     size="small"
                                 >
-                                    <MenuItem value="All">All Departments</MenuItem>
-                                    <MenuItem value="Mathematics">Mathematics</MenuItem>
-                                    <MenuItem value="Science">Science</MenuItem>
-                                    <MenuItem value="English">English</MenuItem>
-                                    <MenuItem value="Laboratory">Laboratory</MenuItem>
+                                    <MenuItem value="All">All Category</MenuItem>
+                                    <MenuItem value="Teaching Staff">Teaching Staff</MenuItem>
+                                    <MenuItem value="Non-Teaching Staff">Non-Teaching Staff</MenuItem>
+                                    <MenuItem value="Supporting Staff">Supporting Staff</MenuItem>
                                 </TextField>
                             </Grid>
                             <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }}>
@@ -563,7 +576,6 @@ export default function SalaryRegister() {
                                     <TableCell sx={{ fontWeight: 700, fontSize: '12px', color: '#64748B' }}>Deductions</TableCell>
                                     <TableCell sx={{ fontWeight: 700, fontSize: '12px', color: '#64748B' }}>Net Salary</TableCell>
                                     <TableCell sx={{ fontWeight: 700, fontSize: '12px', color: '#64748B' }}>Payment Date</TableCell>
-                                    <TableCell sx={{ fontWeight: 700, fontSize: '12px', color: '#64748B' }}>Status</TableCell>
                                     <TableCell sx={{ fontWeight: 700, fontSize: '12px', color: '#64748B' }}>Actions</TableCell>
                                 </TableRow>
                             </TableHead>
@@ -600,18 +612,6 @@ export default function SalaryRegister() {
                                         </TableCell>
                                         <TableCell sx={{ fontSize: '12px', color: '#64748B' }}>
                                             {row.paymentDate}
-                                        </TableCell>
-                                        <TableCell>
-                                            <Chip
-                                                label={row.status}
-                                                size="small"
-                                                sx={{
-                                                    bgcolor: '#ECFDF5',
-                                                    color: '#10B981',
-                                                    fontWeight: 600,
-                                                    fontSize: '11px'
-                                                }}
-                                            />
                                         </TableCell>
                                         <TableCell>
                                             <IconButton

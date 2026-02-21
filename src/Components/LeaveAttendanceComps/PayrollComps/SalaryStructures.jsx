@@ -11,11 +11,9 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SaveOutlinedIcon from '@mui/icons-material/SaveOutlined';
 import AssignmentIcon from '@mui/icons-material/Assignment';
-import TrendingUpIcon from '@mui/icons-material/TrendingUp';
-import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import { useNavigate } from 'react-router-dom';
-import toast from 'react-hot-toast';
+import SnackBar from '../../SnackBar';
 
 // Color theme
 const PRIMARY = '#8600BB';
@@ -72,6 +70,14 @@ export default function SalaryStructures() {
     const navigate = useNavigate();
     const [structures, setStructures] = useState(mockSalaryStructures);
     const [openDialog, setOpenDialog] = useState(false);
+
+    const [snackOpen, setSnackOpen] = useState(false);
+    const [snackStatus, setSnackStatus] = useState(false);
+    const [snackColor, setSnackColor] = useState(false);
+    const [snackMessage, setSnackMessage] = useState('');
+    const showSnack = (msg, success) => {
+        setSnackMessage(msg); setSnackOpen(true); setSnackColor(success); setSnackStatus(success);
+    };
     const [editMode, setEditMode] = useState(false);
     const [selectedStructure, setSelectedStructure] = useState(null);
 
@@ -131,7 +137,7 @@ export default function SalaryStructures() {
 
     const handleSave = () => {
         if (!formData.name || !formData.grade || !formData.basicSalary) {
-            toast.error('Please fill all required fields');
+            showSnack('Please fill all required fields', false);
             return;
         }
 
@@ -150,10 +156,10 @@ export default function SalaryStructures() {
 
         if (editMode) {
             setStructures(structures.map(s => s.id === selectedStructure.id ? newStructure : s));
-            toast.success('Salary structure updated successfully!');
+            showSnack('Salary structure updated successfully!', true);
         } else {
             setStructures([...structures, newStructure]);
-            toast.success('Salary structure created successfully!');
+            showSnack('Salary structure created successfully!', true);
         }
 
         handleCloseDialog();
@@ -161,7 +167,7 @@ export default function SalaryStructures() {
 
     const handleDelete = (id) => {
         setStructures(structures.filter(s => s.id !== id));
-        toast.success('Salary structure deleted successfully!');
+        showSnack('Salary structure deleted successfully!', true);
     };
 
     const fieldSx = {
@@ -177,6 +183,8 @@ export default function SalaryStructures() {
     };
 
     return (
+        <>
+        <SnackBar open={snackOpen} color={snackColor} setOpen={setSnackOpen} status={snackStatus} message={snackMessage} />
         <Box sx={{
             height: '86vh',
             display: 'flex',
@@ -242,7 +250,7 @@ export default function SalaryStructures() {
             {/* Statistics Cards */}
             <Box sx={{ p: 2.5 }}>
                 <Grid container spacing={2} sx={{ mb: 3 }}>
-                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                    <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
                         <Card sx={{
                             border: '1px solid #8600BB30',
                             borderRadius: CARD_RADIUS,
@@ -264,29 +272,7 @@ export default function SalaryStructures() {
                             </CardContent>
                         </Card>
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
-                        <Card sx={{
-                            border: '1px solid #34D39930',
-                            borderRadius: CARD_RADIUS,
-                            bgcolor: '#ECFDF5',
-                            boxShadow: 'none'
-                        }}>
-                            <CardContent sx={{ p: 2.5 }}>
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                    <Box>
-                                        <Typography sx={{ fontSize: '12px', color: '#10B981', fontWeight: 600, mb: 1 }}>
-                                            Active Structures
-                                        </Typography>
-                                        <Typography sx={{ fontSize: '24px', fontWeight: 700, color: '#1a1a1a' }}>
-                                            {structures.filter(s => s.status === 'Active').length}
-                                        </Typography>
-                                    </Box>
-                                    <TrendingUpIcon sx={{ fontSize: 32, color: '#10B981', opacity: 0.6 }} />
-                                </Box>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                    <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
                         <Card sx={{
                             border: '1px solid #3B82F630',
                             borderRadius: CARD_RADIUS,
@@ -339,7 +325,6 @@ export default function SalaryStructures() {
                                 <TableCell sx={{ fontWeight: 700, fontSize: '12px', color: '#64748B' }}>DA</TableCell>
                                 <TableCell sx={{ fontWeight: 700, fontSize: '12px', color: '#64748B' }}>Total Earnings</TableCell>
                                 <TableCell sx={{ fontWeight: 700, fontSize: '12px', color: '#64748B' }}>Employees</TableCell>
-                                <TableCell sx={{ fontWeight: 700, fontSize: '12px', color: '#64748B' }}>Status</TableCell>
                                 <TableCell sx={{ fontWeight: 700, fontSize: '12px', color: '#64748B' }}>Actions</TableCell>
                             </TableRow>
                         </TableHead>
@@ -378,14 +363,6 @@ export default function SalaryStructures() {
                                     </TableCell>
                                     <TableCell sx={{ fontSize: '13px', fontWeight: 600 }}>
                                         {structure.employeeCount}
-                                    </TableCell>
-                                    <TableCell>
-                                        <Chip label={structure.status} size="small" sx={{
-                                            bgcolor: '#ECFDF5',
-                                            color: '#10B981',
-                                            fontWeight: 600,
-                                            fontSize: '11px'
-                                        }} />
                                     </TableCell>
                                     <TableCell>
                                         <Box sx={{ display: 'flex', gap: 1 }}>
@@ -564,5 +541,6 @@ export default function SalaryStructures() {
                 </DialogActions>
             </Dialog>
         </Box>
+        </>
     );
 }

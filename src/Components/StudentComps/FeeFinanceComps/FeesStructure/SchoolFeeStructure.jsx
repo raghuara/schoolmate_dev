@@ -285,17 +285,10 @@ export default function SchoolFeeStructure() {
 
     } catch (error) {
       const apiMsg = error?.response?.data?.message;
-      if (apiMsg && typeof apiMsg === "string" && apiMsg.toLowerCase().includes("already fees structure created")) {
-        setOpen(true);
-        setColor(false);
-        setStatus(false);
-        setMessage(apiMsg);
-      } else {
-        setOpen(true);
-        setColor(false);
-        setStatus(false);
-        setMessage(apiMsg || error.message || "Failed to save fee structure.");
-      }
+      setOpen(true);
+      setColor(false);
+      setStatus(false);
+      setMessage(apiMsg || "Failed to save fee structure.");
     } finally {
       setIsLoading(false);
     }
@@ -356,17 +349,10 @@ export default function SchoolFeeStructure() {
 
     } catch (error) {
       const apiMsg = error?.response?.data?.message;
-      if (apiMsg && typeof apiMsg === "string" && apiMsg.toLowerCase().includes("already fees structure created")) {
-        setOpen(true);
-        setColor(false);
-        setStatus(false);
-        setMessage(apiMsg);
-      } else {
-        setOpen(true);
-        setColor(false);
-        setStatus(false);
-        setMessage(error.message || "Failed to save fee structure.");
-      }
+      setOpen(true);
+      setColor(false);
+      setStatus(false);
+      setMessage(apiMsg || "Failed to update fee structure.");
     } finally {
       setIsLoading(false);
     }

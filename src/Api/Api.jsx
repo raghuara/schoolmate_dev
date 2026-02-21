@@ -295,6 +295,23 @@ const updateExpenceById = `${baseApiurl}updateExpenceById`;
 const expenceDashboard = `${baseApiurl}expenceDashboard`;
 
 
+// Leave & Attendance 
+const attendance = `${baseApiurl}attendance/`;
+const postAttendanceTeachers = `${attendance}postAttendanceTeachers`;
+const getAttendanceTeacherBefor = `${attendance}getAttendanceTeacherBefor`;
+const updateTeachersAttendance = `${attendance}updateTeachersAttendance`;
+const getAttendanceDashboard = `${attendance}getAttendanceDashboard`;
+const getStaffAttendanceOverview = `${attendance}getStaffAttendanceOverview`;
+const reportsLeaveManagement = `${baseApiurl}reports/reportsLeaveManagement`;
+const reportsLeaveManagementFullReport = `${baseApiurl}reports/reportsLeaveManagementFullReport`;
+
+
+const leave = `${baseApiurl}leave/`;
+const postLeaveRequest = `${leave}postLeaveRequest`;
+const leaveApprovalStatusCheck = `${baseApiurl}leaveApprovalStatusCheck`;
+const updateLeaveApprovalAction = `${baseApiurl}updateLeaveApprovalAction`;
+const getLeaveDashboard = `${leave}getLeaveDashboard`;
+
 
 // Assets 
 const vehicle = `${baseApiurl}vehicle/`;
@@ -651,6 +668,17 @@ export {
     cashCollection,
     classWiseCollection,
     defaulters,
-    feeReport
+    feeReport,
+    postAttendanceTeachers,
+    getAttendanceTeacherBefor,
+    updateTeachersAttendance,
+    postLeaveRequest,
+    leaveApprovalStatusCheck,
+    updateLeaveApprovalAction,
+    getLeaveDashboard,
+    getAttendanceDashboard,
+    getStaffAttendanceOverview,
+    reportsLeaveManagement,
+    reportsLeaveManagementFullReport
 
 }

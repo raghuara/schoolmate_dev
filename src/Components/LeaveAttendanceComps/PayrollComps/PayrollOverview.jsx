@@ -5,6 +5,7 @@ import AssignmentIcon from '@mui/icons-material/Assignment';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import DescriptionIcon from '@mui/icons-material/Description';
 import TaskAltIcon from '@mui/icons-material/TaskAlt';
+import BeachAccessIcon from '@mui/icons-material/BeachAccess';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import PeopleIcon from '@mui/icons-material/People';
@@ -15,7 +16,6 @@ import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { useNavigate } from 'react-router-dom';
 
-// Payroll module cards configuration
 const payrollModules = [
     {
         color: "#8600BB",
@@ -67,6 +67,16 @@ const payrollModules = [
         path: "approve-payroll",
         disabled: false,
     },
+    // {
+    //     color: "#059669",
+    //     icon: BeachAccessIcon,
+    //     text: "Leave Policy",
+    //     description: "Configure leave types (Sick Leave, Casual Leave, Privilege Leave, etc.), annual entitlements, carry-forward rules, and salary impact for all staff categories.",
+    //     bgColor: "#ECFDF5",
+    //     iconBgColor: "#0596691A",
+    //     path: "leave-policy",
+    //     disabled: false,
+    // },
 ];
 
 export default function PayrollOverview({ isEmbedded = false, onBack }) {

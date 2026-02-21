@@ -15,12 +15,20 @@ import {
     Select,
     MenuItem,
     FormControl,
-    InputLabel
+    InputLabel,
+    Divider,
 } from '@mui/material';
 import { selectWebsiteSettings } from '../../Redux/Slices/websiteSettingsSlice';
 import { useSelector } from 'react-redux';
 import { Stack } from '@mui/system';
 import CloseIcon from '@mui/icons-material/Close';
+import DirectionsBusIcon from '@mui/icons-material/DirectionsBus';
+import SearchIcon from '@mui/icons-material/Search';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import PeopleAltIcon from '@mui/icons-material/PeopleAlt';
+
+const MAIN_COLOR = '#3457D5';
+const MAIN_LIGHT = '#EEF1FD';
 
 export default function StudentSelectionPopup({ open, onClose, users = [], onSave, value = '', activity = null }) {
     useEffect(() => {
@@ -32,10 +40,9 @@ export default function StudentSelectionPopup({ open, onClose, users = [], onSav
     const [inputText, setInputText] = useState('');
     const [suggestions, setSuggestions] = useState([]);
     const [anchorEl, setAnchorEl] = useState(null);
-    const [selectedBusStop, setSelectedBusStop] = useState(null); // Store full stop object
+    const [selectedBusStop, setSelectedBusStop] = useState(null);
     const textareaRef = useRef();
     const websiteSettings = useSelector(selectWebsiteSettings);
-
 
     const getChipValues = (text) =>
         text
@@ -47,10 +54,8 @@ export default function StudentSelectionPopup({ open, onClose, users = [], onSav
         const updated = getChipValues(inputText)
             .filter(v => v !== chipValue)
             .join(', ');
-
         setInputText(updated ? updated + ', ' : '');
     };
-
 
     const getLastQuery = (value) => {
         const tokens = value.split(',').map(token => token.trim());
@@ -66,47 +71,28 @@ export default function StudentSelectionPopup({ open, onClose, users = [], onSav
 
     useEffect(() => {
         if (!open) return;
-
         const last = getLastQuery(inputText).toLowerCase();
         if (!last) {
             setSuggestions([]);
             return;
         }
-
         const matched = users
             .filter(u => u.rollNumber?.toLowerCase().includes(last))
             .slice(0, 8);
-
         setSuggestions(matched);
     }, [inputText, users, open]);
 
-    // const handleSuggestionClick = (rollNumber) => {
-    //   const parts = inputText.split(',').map(p => p.trim());
-    //   parts[parts.length - 1] = rollNumber;
-    //   const newText = parts.join(',') + ',';
-    //   setInputText(newText);
-    //   setSuggestions([]);
-
-    //   setTimeout(() => {
-    //     textareaRef.current?.focus();
-    //   }, 100);
-    // };
-
     const handleSuggestionClick = (rollNumber) => {
-        // Check if roll number already exists
         const existingRollNumbers = getChipValues(inputText);
         if (existingRollNumbers.includes(rollNumber)) {
-            // Roll number already exists, don't add it again
             setSuggestions([]);
             return;
         }
-
         const parts = inputText.split(',').map(p => p.trim());
         parts[parts.length - 1] = rollNumber;
         const newText = parts.join(', ') + ', ';
         setInputText(newText);
         setSuggestions([]);
-
         setTimeout(() => {
             if (textareaRef.current) {
                 textareaRef.current.focus();
@@ -115,6 +101,7 @@ export default function StudentSelectionPopup({ open, onClose, users = [], onSav
         }, 0);
     };
 
+    const selectedCount = getChipValues(inputText).length;
 
     return (
         <Dialog
@@ -130,249 +117,194 @@ export default function StudentSelectionPopup({ open, onClose, users = [], onSav
             PaperProps={{
                 sx: {
                     borderRadius: '12px',
-                    boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
+                    overflow: 'hidden',
                 }
             }}
         >
-            <IconButton
-                onClick={() => {
-                    setAnchorEl(null);
-                    setSuggestions([]);
-                    setSelectedBusStop(null);
-                    onClose();
-                }}
-                sx={{
-                    position: 'absolute',
-                    top: 16,
-                    right: 16,
-                    color: '#666',
-                    zIndex: 1,
-                    '&:hover': {
-                        color: '#d32f2f',
-                        backgroundColor: 'rgba(211, 47, 47, 0.08)',
-                    },
-                }}
-            >
-                <CloseIcon fontSize="small" />
-            </IconButton>
-
             {/* Header */}
             <Box sx={{
                 px: 3,
-                pt: 3,
-                pb: 2,
-                borderBottom: '1px solid #E5E7EB',
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                py: 2,
+                backgroundColor: MAIN_COLOR,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
             }}>
-                <Typography sx={{
-                    fontSize: 20,
-                    fontWeight: 700,
-                    color: '#fff',
-                    mb: 0.5
-                }}>
-                    Map Students to Route
-                </Typography>
-                <Typography sx={{
-                    fontSize: 13,
-                    color: 'rgba(255,255,255,0.9)',
-                }}>
-                    Select a bus stop and add students to the route
-                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <Box sx={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: '8px',
+                        backgroundColor: 'rgba(255,255,255,0.15)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                    }}>
+                        <DirectionsBusIcon sx={{ color: '#fff', fontSize: 20 }} />
+                    </Box>
+                    <Box>
+                        <Typography sx={{ fontSize: 17, fontWeight: 700, color: '#fff', lineHeight: 1.2 }}>
+                            Map Students to Route
+                        </Typography>
+                        <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', mt: 0.3 }}>
+                            Select a bus stop and add students to the route
+                        </Typography>
+                    </Box>
+                </Box>
+                <IconButton
+                    onClick={() => {
+                        setAnchorEl(null);
+                        setSuggestions([]);
+                        setSelectedBusStop(null);
+                        onClose();
+                    }}
+                    sx={{
+                        color: 'rgba(255,255,255,0.8)',
+                        '&:hover': {
+                            color: '#fff',
+                            backgroundColor: 'rgba(255,255,255,0.15)',
+                        },
+                    }}
+                >
+                    <CloseIcon fontSize="small" />
+                </IconButton>
             </Box>
 
             <Box sx={{ p: 3 }}>
-                {/* Bus Stop Selection Section */}
+                {/* Bus Stop Selection */}
                 {activity && activity.routeStops && activity.routeStops.length > 0 && (
                     <Box sx={{
-                        mb: 3,
-                        p: 2.5,
-                        borderRadius: '8px',
-                        border: '2px solid',
-                        borderColor: selectedBusStop ? '#667eea' : '#E5E7EB',
-                        backgroundColor: selectedBusStop ? '#F5F7FF' : '#FAFAFA',
-                        transition: 'all 0.3s ease',
+                        border: '1px solid #E5E7EB',
+                        borderRadius: '10px',
+                        overflow: 'hidden',
+                        mb: 2,
                     }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-                            <Box sx={{
-                                width: 32,
-                                height: 32,
-                                borderRadius: '8px',
-                                backgroundColor: selectedBusStop ? '#667eea' : '#9CA3AF',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                transition: 'all 0.3s ease',
-                            }}>
-                                <Typography sx={{ color: '#fff', fontWeight: 700, fontSize: 16 }}>1</Typography>
+                        <Box sx={{
+                            px: 2,
+                            py: 1.2,
+                            backgroundColor: selectedBusStop ? MAIN_LIGHT : '#F9FAFB',
+                            borderBottom: '1px solid #E5E7EB',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                        }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <SearchIcon sx={{ fontSize: 16, color: selectedBusStop ? MAIN_COLOR : '#9CA3AF' }} />
+                                <Typography sx={{ fontSize: 13, fontWeight: 600, color: selectedBusStop ? MAIN_COLOR : '#6B7280' }}>
+                                    Select Bus Stop
+                                </Typography>
                             </Box>
-                            <Typography sx={{
-                                fontSize: 15,
-                                fontWeight: 700,
-                                color: '#1F2937'
-                            }}>
-                                Select Bus Stop
-                            </Typography>
                             {selectedBusStop && (
                                 <Chip
                                     label="Selected"
                                     size="small"
                                     sx={{
-                                        ml: 'auto',
-                                        backgroundColor: '#10B981',
+                                        backgroundColor: '#16a34a',
                                         color: '#fff',
                                         fontWeight: 600,
                                         fontSize: 11,
-                                        height: 24,
+                                        height: 22,
                                     }}
                                 />
                             )}
                         </Box>
-
-                        <FormControl fullWidth size="small">
-                            <InputLabel
-                                id="bus-stop-label"
-                                sx={{
-                                    color: selectedBusStop ? '#667eea' : undefined,
-                                    '&.Mui-focused': {
-                                        color: '#667eea',
-                                    }
-                                }}
-                            >
-                                Choose a bus stop from the route *
-                            </InputLabel>
-                            <Select
-                                labelId="bus-stop-label"
-                                value={selectedBusStop?.point || ''}
-                                onChange={(e) => {
-                                    const stop = activity.routeStops.find(s => s.point === e.target.value);
-                                    setSelectedBusStop(stop);
-                                }}
-                                label="Choose a bus stop from the route *"
-                                sx={{
-                                    fontSize: '14px',
-                                    backgroundColor: '#fff',
-                                    '& .MuiOutlinedInput-notchedOutline': {
-                                        borderColor: selectedBusStop ? '#667eea' : '#D1D5DB',
-                                        borderWidth: selectedBusStop ? '2px' : '1px',
-                                    },
-                                    '&:hover .MuiOutlinedInput-notchedOutline': {
-                                        borderColor: '#667eea',
-                                    },
-                                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                                        borderColor: '#667eea',
-                                        borderWidth: '2px',
-                                    },
-                                }}
-                                renderValue={(value) => {
-                                    if (!selectedBusStop) return '';
-                                    return `${selectedBusStop.point} - ${selectedBusStop.place}`;
-                                }}
-                            >
-                                {activity.routeStops.map((stop, index) => (
-                                    <MenuItem
-                                        key={index}
-                                        value={stop.point}
-                                        sx={{
-                                            fontSize: '14px',
-                                            py: 1.5,
-                                            '&:hover': {
-                                                backgroundColor: '#F5F7FF',
-                                            },
-                                            '&.Mui-selected': {
-                                                backgroundColor: '#EEF2FF',
-                                                '&:hover': {
-                                                    backgroundColor: '#E0E7FF',
+                        <Box sx={{ p: 2, backgroundColor: '#fff' }}>
+                            <FormControl fullWidth size="small">
+                                <InputLabel
+                                    id="bus-stop-label"
+                                    sx={{
+                                        fontSize: 13,
+                                        color: selectedBusStop ? MAIN_COLOR : undefined,
+                                        '&.Mui-focused': { color: MAIN_COLOR },
+                                    }}
+                                >
+                                    Choose a bus stop from the route *
+                                </InputLabel>
+                                <Select
+                                    labelId="bus-stop-label"
+                                    value={selectedBusStop?.point || ''}
+                                    onChange={(e) => {
+                                        const stop = activity.routeStops.find(s => s.point === e.target.value);
+                                        setSelectedBusStop(stop);
+                                        const rolls = (stop?.students || []).map(s => s.rollNumber);
+                                        setInputText(rolls.length > 0 ? rolls.join(', ') + ', ' : '');
+                                    }}
+                                    label="Choose a bus stop from the route *"
+                                    sx={{
+                                        fontSize: '14px',
+                                        backgroundColor: '#FAFAFA',
+                                        '& .MuiOutlinedInput-notchedOutline': {
+                                            borderColor: selectedBusStop ? MAIN_COLOR : '#D1D5DB',
+                                        },
+                                        '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: MAIN_COLOR },
+                                        '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: MAIN_COLOR },
+                                    }}
+                                    renderValue={() => {
+                                        if (!selectedBusStop) return '';
+                                        return `${selectedBusStop.point} - ${selectedBusStop.place}`;
+                                    }}
+                                >
+                                    {activity.routeStops.map((stop, index) => (
+                                        <MenuItem
+                                            key={index}
+                                            value={stop.point}
+                                            sx={{
+                                                fontSize: '14px',
+                                                py: 1.2,
+                                                '&:hover': { backgroundColor: MAIN_LIGHT },
+                                                '&.Mui-selected': {
+                                                    backgroundColor: MAIN_LIGHT,
+                                                    '&:hover': { backgroundColor: `${MAIN_COLOR}20` },
                                                 },
-                                            },
-                                        }}
-                                    >
-                                        <Box>
-                                            <Typography sx={{ fontSize: 14, fontWeight: 600, color: '#1F2937' }}>
-                                                {stop.point}
-                                            </Typography>
-                                            <Typography sx={{ fontSize: 12, color: '#6B7280' }}>
-                                                {stop.place} {stop.arrivalTime ? `• ${stop.arrivalTime}` : ''}
-                                            </Typography>
-                                        </Box>
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
+                                            }}
+                                        >
+                                            <Box>
+                                                <Typography sx={{ fontSize: 14, fontWeight: 600, color: '#1F2937' }}>
+                                                    {stop.point}
+                                                </Typography>
+                                                <Typography sx={{ fontSize: 12, color: '#6B7280' }}>
+                                                    {stop.place} {stop.arrivalTime ? `• ${stop.arrivalTime}` : ''}
+                                                </Typography>
+                                            </Box>
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                        </Box>
                     </Box>
                 )}
 
-                {/* Student Selection Section */}
+                {/* Student Selection */}
                 <Box sx={{
-                    p: 2.5,
-                    borderRadius: '8px',
-                    border: '2px solid',
-                    borderColor: selectedBusStop ? '#E5E7EB' : '#E5E7EB',
-                    backgroundColor: selectedBusStop ? '#fff' : '#F9FAFB',
-                    opacity: selectedBusStop ? 1 : 0.6,
-                    transition: 'all 0.3s ease',
+                    opacity: selectedBusStop ? 1 : 0.55,
+                    transition: 'opacity 0.3s ease',
                     pointerEvents: selectedBusStop ? 'auto' : 'none',
                 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                        <Box sx={{
-                            width: 32,
-                            height: 32,
-                            borderRadius: '8px',
-                            backgroundColor: selectedBusStop ? '#667eea' : '#9CA3AF',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            transition: 'all 0.3s ease',
-                        }}>
-                            <Typography sx={{ color: '#fff', fontWeight: 700, fontSize: 16 }}>2</Typography>
-                        </Box>
-                        <Typography sx={{
-                            fontSize: 15,
-                            fontWeight: 700,
-                            color: '#1F2937'
-                        }}>
-                            Add Students
-                        </Typography>
-                        {!selectedBusStop && (
-                            <Typography sx={{
-                                ml: 'auto',
-                                fontSize: 12,
-                                color: '#9CA3AF',
-                                fontStyle: 'italic'
+                    <Grid container spacing={2}>
+                        {/* Left: Search */}
+                        <Grid size={{ xs: 12, lg: 6 }}>
+                            <Box sx={{
+                                border: '1px solid #E5E7EB',
+                                borderRadius: '10px',
+                                overflow: 'hidden',
+                                height: '100%',
                             }}>
-                                Select a bus stop first
-                            </Typography>
-                        )}
-                    </Box>
-
-                    <Box sx={{
-                        borderTop: "1px solid #E5E7EB",
-                        borderRadius: '8px',
-                        overflow: 'hidden',
-                        mt: 2
-                    }}>
-                        <Grid container>
-                            <Grid size={{ xs: 12, lg: 6 }} sx={{
-                                borderRight: { lg: '1px solid #E5E7EB' },
-                                borderBottom: { xs: '1px solid #E5E7EB', lg: 'none' }
-                            }}>
-                                <Box sx={{ p: 2.5, backgroundColor: '#FAFAFA' }}>
-                                    <Typography sx={{
-                                        fontSize: 13,
-                                        fontWeight: 600,
-                                        color: '#6B7280',
-                                        mb: 1.5,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: 0.5
-                                    }}>
-                                        <Box component="span" sx={{
-                                            width: 6,
-                                            height: 6,
-                                            borderRadius: '50%',
-                                            backgroundColor: '#667eea'
-                                        }} />
-                                        Search Student Roll Numbers
+                                <Box sx={{
+                                    px: 2,
+                                    py: 1.2,
+                                    backgroundColor: MAIN_LIGHT,
+                                    borderBottom: '1px solid #E5E7EB',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 1,
+                                }}>
+                                    <SearchIcon sx={{ fontSize: 16, color: MAIN_COLOR }} />
+                                    <Typography sx={{ fontSize: 13, fontWeight: 600, color: MAIN_COLOR }}>
+                                        Search Roll Numbers
                                     </Typography>
+                                </Box>
+                                <Box sx={{ p: 2, backgroundColor: '#fff' }}>
                                     <TextareaAutosize
                                         ref={textareaRef}
                                         value={inputText}
@@ -388,219 +320,255 @@ export default function StudentSelectionPopup({ open, onClose, users = [], onSav
                                             width: '100%',
                                             fontSize: '14px',
                                             borderRadius: '8px',
-                                            border: '2px solid #E5E7EB',
+                                            border: '1px solid #E5E7EB',
                                             resize: 'none',
                                             outline: 'none',
                                             fontFamily: 'inherit',
-                                            padding: '12px',
+                                            padding: '10px 12px',
                                             boxSizing: 'border-box',
-                                            backgroundColor: '#fff',
-                                            transition: 'border-color 0.2s ease',
+                                            backgroundColor: '#FAFAFA',
+                                            color: '#1F2937',
+                                            lineHeight: '1.6',
                                         }}
                                         onFocus={(e) => {
-                                            e.target.style.borderColor = '#667eea';
+                                            e.target.style.borderColor = MAIN_COLOR;
+                                            e.target.style.backgroundColor = '#fff';
                                         }}
                                         onBlur={(e) => {
                                             e.target.style.borderColor = '#E5E7EB';
+                                            e.target.style.backgroundColor = '#FAFAFA';
                                         }}
                                     />
                                 </Box>
-                            </Grid>
-
-                            <Grid size={{ xs: 12, lg: 6 }}>
-                                <Box sx={{ p: 2.5, backgroundColor: '#F9FAFB', minHeight: '300px' }}>
-                                    <Typography sx={{
-                                        fontSize: 13,
-                                        fontWeight: 600,
-                                        color: '#6B7280',
-                                        mb: 1.5,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: 0.5
-                                    }}>
-                                        <Box component="span" sx={{
-                                            width: 6,
-                                            height: 6,
-                                            borderRadius: '50%',
-                                            backgroundColor: '#10B981'
-                                        }} />
-                                        Selected Students ({getChipValues(inputText).length})
-                                    </Typography>
-                                    <Box sx={{
-                                        maxHeight: "245px",
-                                        overflowY: "auto",
-                                        pr: 0.5,
-                                        '&::-webkit-scrollbar': {
-                                            width: '6px',
-                                        },
-                                        '&::-webkit-scrollbar-track': {
-                                            backgroundColor: '#F3F4F6',
-                                            borderRadius: '10px',
-                                        },
-                                        '&::-webkit-scrollbar-thumb': {
-                                            backgroundColor: '#D1D5DB',
-                                            borderRadius: '10px',
-                                            '&:hover': {
-                                                backgroundColor: '#9CA3AF',
-                                            },
-                                        },
-                                    }}>
-                                        {getChipValues(inputText).length === 0 ? (
-                                            <Box sx={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                height: '240px',
-                                                color: '#9CA3AF',
-                                                fontSize: 13,
-                                                fontStyle: 'italic'
-                                            }}>
-                                                No students selected yet
-                                            </Box>
-                                        ) : (
-                                            <Stack
-                                                direction="row"
-                                                spacing={1}
-                                                flexWrap="wrap"
-                                                sx={{
-                                                    columnGap: 1,
-                                                    rowGap: 1.2,
-                                                }}
-                                            >
-                                                {getChipValues(inputText).map((val, index) => (
-                                                    <Chip
-                                                        key={index}
-                                                        label={val}
-                                                        size="small"
-                                                        onDelete={() => removeChip(val)}
-                                                        sx={{
-                                                            fontSize: '12px',
-                                                            fontWeight: 600,
-                                                            backgroundColor: '#EEF2FF',
-                                                            color: '#4338CA',
-                                                            border: '1px solid #C7D2FE',
-                                                            '& .MuiChip-deleteIcon': {
-                                                                color: '#818CF8',
-                                                                fontSize: '16px',
-                                                                transition: 'all 0.2s ease',
-                                                            },
-                                                            '&:hover': {
-                                                                backgroundColor: '#E0E7FF',
-                                                            },
-                                                            '&:hover .MuiChip-deleteIcon': {
-                                                                color: '#dc2626',
-                                                            },
-                                                        }}
-                                                    />
-                                                ))}
-                                            </Stack>
-                                        )}
-                                    </Box>
-                                </Box>
-                            </Grid>
+                            </Box>
                         </Grid>
 
-                        {/* Suggestions */}
-                        <Popper
-                            open={suggestions.length > 0 && anchorEl !== null}
-                            anchorEl={anchorEl}
-                            placement="bottom-start"
-                            style={{ zIndex: 2000 }}
-                        >
-                            <Paper sx={{ width: textareaRef.current?.offsetWidth || 300 }}>
-                                <List dense>
-                                    {suggestions.map((user, i) => (
-                                        <ListItemButton
-                                            key={i}
-                                            onClick={() => handleSuggestionClick(user.rollNumber)}
+                        {/* Right: Selected Students */}
+                        <Grid size={{ xs: 12, lg: 6 }}>
+                            <Box sx={{
+                                border: '1px solid #E5E7EB',
+                                borderRadius: '10px',
+                                overflow: 'hidden',
+                                height: '100%',
+                            }}>
+                                <Box sx={{
+                                    px: 2,
+                                    py: 1.2,
+                                    backgroundColor: '#F0FDF4',
+                                    borderBottom: '1px solid #E5E7EB',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                        <CheckCircleOutlineIcon sx={{ fontSize: 16, color: '#16a34a' }} />
+                                        <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#16a34a' }}>
+                                            Selected Students
+                                        </Typography>
+                                    </Box>
+                                    <Box sx={{
+                                        backgroundColor: selectedCount > 0 ? '#16a34a' : '#D1D5DB',
+                                        borderRadius: '20px',
+                                        px: 1.2,
+                                        py: 0.1,
+                                        minWidth: 24,
+                                        textAlign: 'center',
+                                    }}>
+                                        <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#fff' }}>
+                                            {selectedCount}
+                                        </Typography>
+                                    </Box>
+                                </Box>
+                                <Box sx={{
+                                    p: 2,
+                                    backgroundColor: '#fff',
+                                    minHeight: '260px',
+                                    maxHeight: '260px',
+                                    overflowY: 'auto',
+                                    '&::-webkit-scrollbar': { width: '5px' },
+                                    '&::-webkit-scrollbar-track': { backgroundColor: '#F3F4F6', borderRadius: '10px' },
+                                    '&::-webkit-scrollbar-thumb': { backgroundColor: '#D1D5DB', borderRadius: '10px' },
+                                }}>
+                                    {selectedCount === 0 ? (
+                                        <Box sx={{
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            height: '220px',
+                                            gap: 1,
+                                        }}>
+                                            <PeopleAltIcon sx={{ fontSize: 36, color: '#D1D5DB' }} />
+                                            <Typography sx={{ fontSize: 13, color: '#9CA3AF' }}>
+                                                No students selected yet
+                                            </Typography>
+                                        </Box>
+                                    ) : (
+                                        <Stack
+                                            direction="row"
+                                            flexWrap="wrap"
+                                            sx={{ columnGap: 1, rowGap: 1 }}
                                         >
-                                            {user.rollNumber} - {user.name}
-                                        </ListItemButton>
-                                    ))}
-                                </List>
-                            </Paper>
-                        </Popper>
+                                            {getChipValues(inputText).map((val, index) => (
+                                                <Chip
+                                                    key={index}
+                                                    label={val}
+                                                    size="small"
+                                                    onDelete={() => removeChip(val)}
+                                                    sx={{
+                                                        fontSize: '12px',
+                                                        fontWeight: 600,
+                                                        backgroundColor: MAIN_LIGHT,
+                                                        color: MAIN_COLOR,
+                                                        border: `1px solid ${MAIN_COLOR}30`,
+                                                        '& .MuiChip-deleteIcon': {
+                                                            color: `${MAIN_COLOR}80`,
+                                                            fontSize: '15px',
+                                                        },
+                                                        '&:hover': { backgroundColor: '#dce3fa' },
+                                                        '&:hover .MuiChip-deleteIcon': { color: '#dc2626' },
+                                                    }}
+                                                />
+                                            ))}
+                                        </Stack>
+                                    )}
+                                </Box>
+                            </Box>
+                        </Grid>
+                    </Grid>
+                </Box>
 
-                    </Box>
-
-
-                    <Box sx={{
-                        display: 'flex',
-                        justifyContent: 'center',
-                        gap: 2,
-                        pt: 3,
-                        pb: 2,
-                        borderTop: '1px solid #E5E7EB',
-                        mt: 2
+                {/* Suggestions Popper */}
+                <Popper
+                    open={suggestions.length > 0 && anchorEl !== null}
+                    anchorEl={anchorEl}
+                    placement="bottom-start"
+                    style={{ zIndex: 2000 }}
+                >
+                    <Paper sx={{
+                        width: textareaRef.current?.offsetWidth || 300,
+                        border: '1px solid #E5E7EB',
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                        overflow: 'hidden',
                     }}>
-                        <Button
-                            variant="outlined"
-                            onClick={() => {
-                                setInputText('');
-                                setSuggestions([]);
-                                setAnchorEl(null);
-                                setSelectedBusStop(null);
-                            }}
-                            sx={{
-                                textTransform: 'none',
-                                borderRadius: '8px',
-                                px: 3,
-                                py: 1,
-                                fontSize: 14,
-                                fontWeight: 600,
-                                color: '#6B7280',
-                                borderColor: '#D1D5DB',
-                                borderWidth: '2px',
-                                '&:hover': {
-                                    backgroundColor: '#F9FAFB',
-                                    borderColor: '#9CA3AF',
-                                    borderWidth: '2px',
-                                },
-                            }}
-                        >
-                            Clear All
-                        </Button>
+                        <List dense disablePadding>
+                            {suggestions.map((user, i) => (
+                                <ListItemButton
+                                    key={i}
+                                    onClick={() => handleSuggestionClick(user.rollNumber)}
+                                    sx={{
+                                        fontSize: '13px',
+                                        py: 0.8,
+                                        '&:hover': {
+                                            backgroundColor: MAIN_LIGHT,
+                                            color: MAIN_COLOR,
+                                        },
+                                    }}
+                                >
+                                    <Typography sx={{ fontSize: 13 }}>
+                                        <Box component="span" sx={{ fontWeight: 600, color: MAIN_COLOR }}>
+                                            {user.rollNumber}
+                                        </Box>
+                                        {' '}— {user.name}
+                                    </Typography>
+                                </ListItemButton>
+                            ))}
+                        </List>
+                    </Paper>
+                </Popper>
 
-                        <Button
-                            variant="contained"
-                            disabled={!selectedBusStop || getChipValues(inputText).length === 0}
-                            onClick={() => {
-                                setAnchorEl(null);
-                                setSuggestions([]);
-                                const payload = {
-                                    selectedStudents: getChipValues(inputText),
-                                    busStop: selectedBusStop.place, // Send the place name instead of point
-                                    busStopPoint: selectedBusStop.point, // Also include point identifier
-                                    busStopDetails: selectedBusStop // Include full stop object
-                                };
-                                onSave?.(payload);
-                                setSelectedBusStop(null);
-                                onClose();
-                            }}
-                            sx={{
-                                textTransform: 'none',
-                                borderRadius: '8px',
-                                px: 4,
-                                py: 1,
-                                fontSize: 14,
-                                fontWeight: 600,
-                                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                                color: '#fff',
-                                boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
-                                '&:hover': {
-                                    background: 'linear-gradient(135deg, #5568d3 0%, #6a3f91 100%)',
-                                    boxShadow: '0 6px 16px rgba(102, 126, 234, 0.5)',
-                                },
-                                '&:disabled': {
-                                    background: '#E5E7EB',
-                                    color: '#9CA3AF',
-                                    boxShadow: 'none',
-                                }
-                            }}
-                        >
-                            Save Mapping
-                        </Button>
-                    </Box>
+                {/* Footer Buttons */}
+                <Divider sx={{ mt: 2.5, mb: 2, borderColor: '#E5E7EB' }} />
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1.5 }}>
+                    <Button
+                        variant="outlined"
+                        onClick={() => {
+                            setAnchorEl(null);
+                            setSuggestions([]);
+                            setSelectedBusStop(null);
+                            onClose();
+                        }}
+                        sx={{
+                            textTransform: 'none',
+                            borderRadius: '8px',
+                            px: 3,
+                            fontSize: 13,
+                            fontWeight: 600,
+                            color: '#6B7280',
+                            borderColor: '#D1D5DB',
+                            backgroundColor: '#fff',
+                            '&:hover': {
+                                backgroundColor: '#F3F4F6',
+                                borderColor: '#9CA3AF',
+                            },
+                        }}
+                    >
+                        Close
+                    </Button>
+
+                    <Button
+                        variant="outlined"
+                        onClick={() => {
+                            setInputText('');
+                            setSuggestions([]);
+                            setAnchorEl(null);
+                            setSelectedBusStop(null);
+                        }}
+                        sx={{
+                            textTransform: 'none',
+                            borderRadius: '8px',
+                            px: 3,
+                            fontSize: 13,
+                            fontWeight: 600,
+                            color: '#6B7280',
+                            borderColor: '#D1D5DB',
+                            '&:hover': {
+                                backgroundColor: '#F9FAFB',
+                                borderColor: '#9CA3AF',
+                            },
+                        }}
+                    >
+                        Clear All
+                    </Button>
+
+                    <Button
+                        variant="contained"
+                        disabled={!selectedBusStop || selectedCount === 0}
+                        onClick={() => {
+                            setAnchorEl(null);
+                            setSuggestions([]);
+                            const payload = {
+                                selectedStudents: getChipValues(inputText),
+                                busStop: selectedBusStop.place,
+                                busStopPoint: selectedBusStop.point,
+                                busStopDetails: selectedBusStop
+                            };
+                            onSave?.(payload);
+                            setSelectedBusStop(null);
+                            onClose();
+                        }}
+                        sx={{
+                            textTransform: 'none',
+                            borderRadius: '8px',
+                            px: 3,
+                            fontSize: 13,
+                            fontWeight: 600,
+                            backgroundColor: MAIN_COLOR,
+                            color: '#fff',
+                            boxShadow: 'none',
+                            '&:hover': {
+                                backgroundColor: '#2a46b8',
+                                boxShadow: 'none',
+                            },
+                            '&:disabled': {
+                                backgroundColor: '#E5E7EB',
+                                color: '#9CA3AF',
+                            },
+                        }}
+                    >
+                        Save Mapping ({selectedCount})
+                    </Button>
                 </Box>
             </Box>
         </Dialog>

@@ -149,6 +149,7 @@ import ComplianceSettings from "./Components/LeaveAttendanceComps/PayrollComps/C
 import ApprovePayroll from "./Components/LeaveAttendanceComps/PayrollComps/ApprovePayroll";
 import BankReports from "./Components/LeaveAttendanceComps/PayrollComps/BankReports";
 import SalaryRegister from "./Components/LeaveAttendanceComps/PayrollComps/SalaryRegister";
+import LeavePolicy from "./Components/LeaveAttendanceComps/PayrollComps/LeavePolicy";
 import LeaveAttendancePage from "./Components/LeaveAttendanceComps/LeaveAttendancePage";
 
 
@@ -299,6 +300,7 @@ export default function RouterPage() {
                 <Route path="Leave/payroll/approve-payroll" element={<ApprovePayroll />} />
                 <Route path="Leave/payroll/bank-reports" element={<BankReports />} />
                 <Route path="Leave/payroll/salary-register" element={<SalaryRegister />} />
+                <Route path="Leave/payroll/leave-policy" element={<LeavePolicy />} />
 
                 {/* --------------------------------------------------------------------------------------------------- */}
 

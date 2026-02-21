@@ -271,7 +271,7 @@ export default function FinanceDashboard() {
 
                 {/* Tab Panel 6: Fee Report */}
                 {value === 6 && (
-                    <FeeReportTab selectedYear={selectedYear} />
+                    <FeeReportTab />
                 )}
 
             </Box>

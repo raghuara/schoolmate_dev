@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Box,
     Card,
@@ -20,6 +20,11 @@ import {
     TextField,
     InputAdornment,
     Divider,
+    CircularProgress,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
 } from '@mui/material';
 import Tooltip from '@mui/material/Tooltip';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -29,6 +34,10 @@ import PendingIcon from '@mui/icons-material/Pending';
 import SearchIcon from '@mui/icons-material/Search';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import { useNavigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
+import axios from 'axios';
+import { leaveApprovalStatusCheck, updateLeaveApprovalAction } from '../../Api/Api';
+import SnackBar from '../SnackBar';
 
 // Leave type chip config
 const LEAVE_TYPE_CONFIG = {
@@ -40,110 +49,137 @@ const LEAVE_TYPE_CONFIG = {
     'Annual Leave':    { bg: '#E0F7FA', color: '#0891B2' },
 };
 
-// Mock leave applications
-const pendingLeaves = [
-    {
-        id: 1,
-        name: 'David Ross',
-        staffId: 'ST002',
-        department: 'Marketing',
-        avatar: 'DR',
-        avatarColor: '#1976D2',
-        leaveType: 'Casual Leave',
-        startDate: 'Feb 15, 2026',
-        endDate: 'Feb 16, 2026',
-        days: 2,
-        reason: 'Personal work — need to handle family matter out of town.',
-        appliedOn: 'Feb 6, 2026',
-        priority: 'Normal',
-    },
-    {
-        id: 2,
-        name: 'Emma Wilson',
-        staffId: 'ST006',
-        department: 'English',
-        avatar: 'EW',
-        avatarColor: '#7C3AED',
-        leaveType: 'Sick Leave',
-        startDate: 'Feb 18, 2026',
-        endDate: 'Feb 19, 2026',
-        days: 2,
-        reason: 'Fever and doctor advised bed rest for two days.',
-        appliedOn: 'Feb 7, 2026',
-        priority: 'High',
-    },
-    {
-        id: 3,
-        name: 'Priya Sharma',
-        staffId: 'ST005',
-        department: 'Hindi',
-        avatar: 'PS',
-        avatarColor: '#0891B2',
-        leaveType: 'Planned Leave',
-        startDate: 'Feb 20, 2026',
-        endDate: 'Feb 22, 2026',
-        days: 3,
-        reason: "Sister's wedding ceremony — prior approval requested.",
-        appliedOn: 'Feb 8, 2026',
-        priority: 'Normal',
-    },
-    {
-        id: 4,
-        name: 'Arjun Mehta',
-        staffId: 'ST009',
-        department: 'Mathematics',
-        avatar: 'AM',
-        avatarColor: '#EA580C',
-        leaveType: 'Emergency Leave',
-        startDate: 'Feb 21, 2026',
-        endDate: 'Feb 21, 2026',
-        days: 1,
-        reason: 'Medical emergency at home, immediate attention required.',
-        appliedOn: 'Feb 10, 2026',
-        priority: 'High',
-    },
-    {
-        id: 5,
-        name: 'Nivetha Arjun',
-        staffId: 'ST003',
-        department: 'Science',
-        avatar: 'NA',
-        avatarColor: '#16A34A',
-        leaveType: 'Annual Leave',
-        startDate: 'Mar 1, 2026',
-        endDate: 'Mar 5, 2026',
-        days: 5,
-        reason: 'Annual vacation planned well in advance, all work delegated.',
-        appliedOn: 'Feb 9, 2026',
-        priority: 'Normal',
-    },
-];
+const token = "123";
+
+const AVATAR_COLORS = ['#1976D2', '#7C3AED', '#0891B2', '#EA580C', '#16A34A', '#DC2626', '#F97316', '#059669'];
+const getAvatarColor = (id) => AVATAR_COLORS[id % AVATAR_COLORS.length];
+const getInitials = (name = '') => name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+
+// Format ISO date string → "Feb 17, 2026"
+const formatDate = (isoStr) => {
+    if (!isoStr) return '-';
+    return new Date(isoStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+};
 
 export default function ApprovalWorkflowPage({ isEmbedded = false }) {
     const navigate = useNavigate();
+    const user = useSelector((state) => state.auth);
+    const rollNumber = user.rollNumber;
     const [approvalTab, setApprovalTab] = useState(0);
-    const [decisions, setDecisions] = useState({});
+    const [decisions, setDecisions] = useState({});   // local approve/reject before API call
     const [search, setSearch] = useState('');
+    const [leaves, setLeaves] = useState([]);
+    const [isFetching, setIsFetching] = useState(false);
 
-    const handleDecision = (id, decision) => {
-        setDecisions(prev => ({ ...prev, [id]: decision }));
+    // SnackBar
+    const [open, setOpen] = useState(false);
+    const [status, setStatus] = useState(false);
+    const [color, setColor] = useState(false);
+    const [message, setMessage] = useState('');
+    const showSnack = (msg, success) => {
+        setMessage(msg); setOpen(true); setColor(success); setStatus(success);
     };
 
-    const pendingCount  = pendingLeaves.filter(l => !decisions[l.id]).length;
-    const approvedCount = pendingLeaves.filter(l => decisions[l.id] === 'approved').length;
-    const rejectedCount = pendingLeaves.filter(l => decisions[l.id] === 'rejected').length;
+    const fetchLeaves = async () => {
+        setIsFetching(true);
+        try {
+            const res = await axios.get(leaveApprovalStatusCheck, {
+                params: { RollNumber: rollNumber },
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (res.data && res.data.success) {
+                setLeaves(res.data.leaves || []);
+            }
+        } catch (error) {
+            console.error('Error fetching leave approval status:', error);
+            showSnack('Failed to load leave applications', false);
+        } finally {
+            setIsFetching(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchLeaves();
+    }, []);
+
+    const [actionLoading, setActionLoading] = useState({});  // { [leaveApplicationId]: true/false }
+
+    // View rejection reason dialog
+    const [viewReasonDialog, setViewReasonDialog] = useState({ open: false, reason: '' });
+
+    // Reject reason dialog
+    const [rejectDialog, setRejectDialog] = useState({ open: false, leaveApplicationId: null });
+    const [rejectReason, setRejectReason] = useState('');
+    const [rejectLoading, setRejectLoading] = useState(false);
+
+    const openRejectDialog = (leaveApplicationId) => {
+        setRejectReason('');
+        setRejectDialog({ open: true, leaveApplicationId });
+    };
+
+    const closeRejectDialog = () => {
+        setRejectDialog({ open: false, leaveApplicationId: null });
+        setRejectReason('');
+    };
+
+    const handleDecision = async (leaveApplicationId, decision, reason = '') => {
+        // decision: 'approved' | 'rejected'
+        const action = decision === 'approved' ? 'accept' : 'decline';
+        setActionLoading(prev => ({ ...prev, [leaveApplicationId]: true }));
+        try {
+            const params = {
+                leaveApplicationId,
+                RollNumber: rollNumber,
+                Action: action,
+            };
+            if (decision === 'rejected' && reason) {
+                params.Reason = reason;
+            }
+            await axios.put(updateLeaveApprovalAction, null, {
+                params,
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            setDecisions(prev => ({ ...prev, [leaveApplicationId]: decision }));
+            showSnack(decision === 'approved' ? 'Leave approved successfully' : 'Leave rejected successfully', true);
+        } catch (error) {
+            console.error('Error updating leave action:', error);
+            showSnack('Failed to update leave status', false);
+        } finally {
+            setActionLoading(prev => ({ ...prev, [leaveApplicationId]: false }));
+        }
+    };
+
+    const handleRejectSubmit = async () => {
+        setRejectLoading(true);
+        await handleDecision(rejectDialog.leaveApplicationId, 'rejected', rejectReason);
+        setRejectLoading(false);
+        closeRejectDialog();
+    };
+
+    // Merge API status with local decisions
+    // API statuses: "Requested" | "Approved" | "Declined"
+    const getEffectiveStatus = (leave) => {
+        const local = decisions[leave.leaveApplicationId];
+        if (local === 'approved') return 'Approved';
+        if (local === 'rejected') return 'Declined';
+        return leave.status;
+    };
+
+    const pendingCount  = leaves.filter(l => getEffectiveStatus(l) === 'Requested').length;
+    const approvedCount = leaves.filter(l => getEffectiveStatus(l) === 'Approved').length;
+    const rejectedCount = leaves.filter(l => getEffectiveStatus(l) === 'Declined').length;
 
     const baseFiltered = {
-        0: pendingLeaves.filter(l => !decisions[l.id]),
-        1: pendingLeaves.filter(l => decisions[l.id] === 'approved'),
-        2: pendingLeaves.filter(l => decisions[l.id] === 'rejected'),
+        0: leaves.filter(l => getEffectiveStatus(l) === 'Requested'),
+        1: leaves.filter(l => getEffectiveStatus(l) === 'Approved'),
+        2: leaves.filter(l => getEffectiveStatus(l) === 'Declined'),
     }[approvalTab] || [];
 
     const filtered = search.trim()
         ? baseFiltered.filter(l =>
             l.name.toLowerCase().includes(search.toLowerCase()) ||
-            l.department.toLowerCase().includes(search.toLowerCase()) ||
-            l.leaveType.toLowerCase().includes(search.toLowerCase())
+            l.leaveType.toLowerCase().includes(search.toLowerCase()) ||
+            l.reason.toLowerCase().includes(search.toLowerCase())
           )
         : baseFiltered;
 
@@ -176,6 +212,8 @@ export default function ApprovalWorkflowPage({ isEmbedded = false }) {
     const emptyLabel = ['pending', 'approved', 'rejected'][approvalTab];
 
     return (
+        <>
+        <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
         <Box sx={{
             border: isEmbedded ? 'none' : '1px solid #ccc',
             borderRadius: isEmbedded ? '0' : '20px',
@@ -361,7 +399,13 @@ export default function ApprovalWorkflowPage({ isEmbedded = false }) {
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {filtered.length === 0 ? (
+                            {isFetching ? (
+                                <TableRow>
+                                    <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
+                                        <CircularProgress size={28} sx={{ color: '#F97316' }} />
+                                    </TableCell>
+                                </TableRow>
+                            ) : filtered.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
                                         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
@@ -384,7 +428,7 @@ export default function ApprovalWorkflowPage({ isEmbedded = false }) {
                                 </TableRow>
                             ) : (
                                 filtered.map((req, idx) => (
-                                    <TableRow key={req.id} sx={{
+                                    <TableRow key={req.leaveApplicationId} sx={{
                                         borderBottom: idx !== filtered.length - 1 ? '1px solid #F0F3F6' : 'none',
                                         '&:hover': { bgcolor: '#FAFBFC' },
                                         transition: '0.15s',
@@ -394,18 +438,18 @@ export default function ApprovalWorkflowPage({ isEmbedded = false }) {
                                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                                                 <Avatar sx={{
                                                     width: 38, height: 38,
-                                                    bgcolor: req.avatarColor,
+                                                    bgcolor: getAvatarColor(req.leaveApplicationId),
                                                     fontSize: '13px', fontWeight: '700',
                                                     boxShadow: '0 2px 6px rgba(0,0,0,0.12)',
                                                 }}>
-                                                    {req.avatar}
+                                                    {getInitials(req.name)}
                                                 </Avatar>
                                                 <Box>
                                                     <Typography sx={{ fontSize: '13px', fontWeight: '600', color: '#1a1a1a' }}>
                                                         {req.name}
                                                     </Typography>
                                                     <Typography sx={{ fontSize: '11px', color: '#aaa', mt: 0.2 }}>
-                                                        {req.staffId} · {req.department}
+                                                        {req.forRollNumber}
                                                     </Typography>
                                                 </Box>
                                             </Box>
@@ -420,10 +464,10 @@ export default function ApprovalWorkflowPage({ isEmbedded = false }) {
                                                 <CalendarTodayIcon sx={{ fontSize: 13, color: '#aaa' }} />
                                                 <Box>
                                                     <Typography sx={{ fontSize: '12px', fontWeight: '600', color: '#1a1a1a', whiteSpace: 'nowrap' }}>
-                                                        {req.startDate}
+                                                        {formatDate(req.fromDate)}
                                                     </Typography>
                                                     <Typography sx={{ fontSize: '11px', color: '#aaa', whiteSpace: 'nowrap' }}>
-                                                        to {req.endDate}
+                                                        to {formatDate(req.toDate)}
                                                     </Typography>
                                                 </Box>
                                             </Box>
@@ -436,10 +480,10 @@ export default function ApprovalWorkflowPage({ isEmbedded = false }) {
                                                 bgcolor: '#F3F4F6', borderRadius: '6px', px: 1, py: 0.4,
                                             }}>
                                                 <Typography sx={{ fontSize: '14px', fontWeight: '800', color: '#1a1a1a' }}>
-                                                    {req.days}
+                                                    {req.duration}
                                                 </Typography>
                                                 <Typography sx={{ fontSize: '10px', color: '#888', fontWeight: '500' }}>
-                                                    day{req.days > 1 ? 's' : ''}
+                                                    day{req.duration > 1 ? 's' : ''}
                                                 </Typography>
                                             </Box>
                                         </TableCell>
@@ -481,19 +525,22 @@ export default function ApprovalWorkflowPage({ isEmbedded = false }) {
                                         {/* Applied On */}
                                         <TableCell>
                                             <Typography sx={{ fontSize: '12px', color: '#666', whiteSpace: 'nowrap' }}>
-                                                {req.appliedOn}
+                                                {formatDate(req.createdOn)}
                                             </Typography>
                                         </TableCell>
 
                                         {/* Action */}
                                         <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                                            {approvalTab === 0 ? (
+                                            {getEffectiveStatus(req) === 'Requested' ? (
                                                 <Box sx={{ display: 'flex', gap: 1 }}>
                                                     <Button
                                                         size="small"
                                                         variant="contained"
-                                                        startIcon={<CheckCircleIcon sx={{ fontSize: '14px !important' }} />}
-                                                        onClick={() => handleDecision(req.id, 'approved')}
+                                                        disabled={!!actionLoading[req.leaveApplicationId]}
+                                                        startIcon={actionLoading[req.leaveApplicationId]
+                                                            ? <CircularProgress size={12} color="inherit" />
+                                                            : <CheckCircleIcon sx={{ fontSize: '14px !important' }} />}
+                                                        onClick={() => handleDecision(req.leaveApplicationId, 'approved')}
                                                         sx={{
                                                             textTransform: 'none',
                                                             fontSize: '12px',
@@ -510,8 +557,11 @@ export default function ApprovalWorkflowPage({ isEmbedded = false }) {
                                                     <Button
                                                         size="small"
                                                         variant="outlined"
-                                                        startIcon={<CancelIcon sx={{ fontSize: '14px !important' }} />}
-                                                        onClick={() => handleDecision(req.id, 'rejected')}
+                                                        disabled={!!actionLoading[req.leaveApplicationId]}
+                                                        startIcon={actionLoading[req.leaveApplicationId]
+                                                            ? <CircularProgress size={12} sx={{ color: '#DC2626' }} />
+                                                            : <CancelIcon sx={{ fontSize: '14px !important' }} />}
+                                                        onClick={() => openRejectDialog(req.leaveApplicationId)}
                                                         sx={{
                                                             textTransform: 'none',
                                                             fontSize: '12px',
@@ -528,22 +578,41 @@ export default function ApprovalWorkflowPage({ isEmbedded = false }) {
                                                     </Button>
                                                 </Box>
                                             ) : (
-                                                <Chip
-                                                    label={approvalTab === 1 ? 'Approved' : 'Rejected'}
-                                                    size="small"
-                                                    icon={approvalTab === 1
-                                                        ? <CheckCircleIcon sx={{ fontSize: '14px !important' }} />
-                                                        : <CancelIcon sx={{ fontSize: '14px !important' }} />
-                                                    }
-                                                    sx={{
-                                                        bgcolor: approvalTab === 1 ? '#DCFCE7' : '#FEE2E2',
-                                                        color:   approvalTab === 1 ? '#16A34A' : '#DC2626',
-                                                        fontWeight: '700',
-                                                        fontSize: '11px',
-                                                        borderRadius: '6px',
-                                                        '& .MuiChip-icon': { fontSize: 13, color: 'inherit' },
-                                                    }}
-                                                />
+                                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.8, alignItems: 'flex-start' }}>
+                                                    <Chip
+                                                        label={getEffectiveStatus(req) === 'Approved' ? 'Approved' : 'Rejected'}
+                                                        size="small"
+                                                        icon={getEffectiveStatus(req) === 'Approved'
+                                                            ? <CheckCircleIcon sx={{ fontSize: '14px !important' }} />
+                                                            : <CancelIcon sx={{ fontSize: '14px !important' }} />
+                                                        }
+                                                        sx={{
+                                                            bgcolor: getEffectiveStatus(req) === 'Approved' ? '#DCFCE7' : '#FEE2E2',
+                                                            color:   getEffectiveStatus(req) === 'Approved' ? '#16A34A' : '#DC2626',
+                                                            fontWeight: '700',
+                                                            fontSize: '11px',
+                                                            borderRadius: '6px',
+                                                            '& .MuiChip-icon': { fontSize: 13, color: 'inherit' },
+                                                        }}
+                                                    />
+                                                    {getEffectiveStatus(req) === 'Declined' && req.rejectionReason && (
+                                                        <Button
+                                                            size="small"
+                                                            onClick={() => setViewReasonDialog({ open: true, reason: req.rejectionReason })}
+                                                            sx={{
+                                                                textTransform: 'none',
+                                                                fontSize: '11px',
+                                                                fontWeight: '600',
+                                                                color: '#DC2626',
+                                                                p: 0,
+                                                                minWidth: 0,
+                                                                '&:hover': { bgcolor: 'transparent', textDecoration: 'underline' },
+                                                            }}
+                                                        >
+                                                            View Reason
+                                                        </Button>
+                                                    )}
+                                                </Box>
                                             )}
                                         </TableCell>
                                     </TableRow>
@@ -570,5 +639,137 @@ export default function ApprovalWorkflowPage({ isEmbedded = false }) {
                 )}
             </Card>
         </Box>
+
+        {/* View Rejection Reason Dialog */}
+        <Dialog
+            open={viewReasonDialog.open}
+            onClose={() => setViewReasonDialog({ open: false, reason: '' })}
+            maxWidth="xs"
+            fullWidth
+            PaperProps={{ sx: { borderRadius: '12px' } }}
+        >
+            <DialogTitle sx={{ pb: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box sx={{
+                        width: 36, height: 36, borderRadius: '8px',
+                        bgcolor: '#FEE2E2', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                        <CancelIcon sx={{ color: '#DC2626', fontSize: 20 }} />
+                    </Box>
+                    <Box>
+                        <Typography sx={{ fontSize: '15px', fontWeight: '700', color: '#1a1a1a' }}>
+                            Rejection Reason
+                        </Typography>
+                        <Typography sx={{ fontSize: '12px', color: '#888', fontWeight: '400' }}>
+                            Reason provided for declining this leave
+                        </Typography>
+                    </Box>
+                </Box>
+            </DialogTitle>
+            <DialogContent sx={{ pt: '12px !important' }}>
+                <Box sx={{
+                    bgcolor: '#FEF2F2', border: '1px solid #FECACA',
+                    borderRadius: '8px', p: 2,
+                }}>
+                    <Typography sx={{ fontSize: '13px', color: '#333', lineHeight: 1.7 }}>
+                        {viewReasonDialog.reason}
+                    </Typography>
+                </Box>
+            </DialogContent>
+            <DialogActions sx={{ px: 3, pb: 2.5 }}>
+                <Button
+                    onClick={() => setViewReasonDialog({ open: false, reason: '' })}
+                    variant="contained"
+                    sx={{
+                        textTransform: 'none', borderRadius: '8px',
+                        bgcolor: '#DC2626', fontWeight: '600', fontSize: '13px',
+                        px: 3, boxShadow: 'none',
+                        '&:hover': { bgcolor: '#B91C1C', boxShadow: 'none' },
+                    }}
+                >
+                    Close
+                </Button>
+            </DialogActions>
+        </Dialog>
+
+        {/* Reject Reason Dialog */}
+        <Dialog
+            open={rejectDialog.open}
+            onClose={closeRejectDialog}
+            maxWidth="xs"
+            fullWidth
+            PaperProps={{ sx: { borderRadius: '12px' } }}
+        >
+            <DialogTitle sx={{ pb: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box sx={{
+                        width: 36, height: 36, borderRadius: '8px',
+                        bgcolor: '#FEE2E2', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                        <CancelIcon sx={{ color: '#DC2626', fontSize: 20 }} />
+                    </Box>
+                    <Box>
+                        <Typography sx={{ fontSize: '15px', fontWeight: '700', color: '#1a1a1a' }}>
+                            Reject Leave
+                        </Typography>
+                        <Typography sx={{ fontSize: '12px', color: '#888', fontWeight: '400' }}>
+                            Please provide a reason for rejection
+                        </Typography>
+                    </Box>
+                </Box>
+            </DialogTitle>
+
+            <DialogContent sx={{ pt: '12px !important' }}>
+                <TextField
+                    autoFocus
+                    fullWidth
+                    multiline
+                    rows={3}
+                    placeholder="Enter reason for rejection..."
+                    value={rejectReason}
+                    onChange={(e) => setRejectReason(e.target.value)}
+                    sx={{
+                        '& .MuiOutlinedInput-root': {
+                            borderRadius: '8px',
+                            fontSize: '13px',
+                            '&.Mui-focused fieldset': { borderColor: '#DC2626' },
+                        },
+                    }}
+                />
+            </DialogContent>
+
+            <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
+                <Button
+                    onClick={closeRejectDialog}
+                    disabled={rejectLoading}
+                    sx={{
+                        textTransform: 'none', borderRadius: '8px',
+                        color: '#555', fontWeight: '600', fontSize: '13px',
+                        border: '1px solid #E0E0E0', px: 2.5,
+                        '&:hover': { bgcolor: '#F5F5F5' },
+                    }}
+                >
+                    Cancel
+                </Button>
+                <Button
+                    onClick={handleRejectSubmit}
+                    disabled={!rejectReason.trim() || rejectLoading}
+                    variant="contained"
+                    startIcon={rejectLoading
+                        ? <CircularProgress size={14} color="inherit" />
+                        : <CancelIcon sx={{ fontSize: '16px !important' }} />}
+                    sx={{
+                        textTransform: 'none', borderRadius: '8px',
+                        bgcolor: '#DC2626', fontWeight: '600', fontSize: '13px',
+                        px: 2.5, boxShadow: 'none',
+                        '&:hover': { bgcolor: '#B91C1C', boxShadow: 'none' },
+                        '&:disabled': { bgcolor: '#FECACA', color: '#fff' },
+                    }}
+                >
+                    {rejectLoading ? 'Rejecting...' : 'Reject Leave'}
+                </Button>
+            </DialogActions>
+        </Dialog>
+        </>
     );
 }

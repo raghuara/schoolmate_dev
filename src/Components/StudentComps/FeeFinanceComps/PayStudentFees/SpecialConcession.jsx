@@ -8,7 +8,16 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { selectWebsiteSettings } from '../../../../Redux/Slices/websiteSettingsSlice';
 import axios from 'axios';
-import { postSchoolFeeConcession, postEcaFeeConcession, postAdditionalFeeConcession, postTransportFeeConcession } from '../../../../Api/Api';
+import {
+    postSchoolFeeConcession,
+    postEcaFeeConcession,
+    postAdditionalFeeConcession,
+    postTransportFeeConcession,
+    findStudentSchoolFeesBilling,
+    findStudentEcaFeesBilling,
+    findStudentAdditionalFeesBilling,
+    findStudentTransportFeesBilling,
+} from '../../../../Api/Api';
 
 const feeTabs = [
     "School Fee",
@@ -28,17 +37,20 @@ export default function SpecialConcession() {
     const [color, setColor] = useState(false);
     const [message, setMessage] = useState('');
 
-    const { selectedTab, allFeeData, rollNumber, selectedYear } = location.state || {};
+    const { selectedTab, rollNumber, selectedYear } = location.state || {};
 
     const [tabValue, setTabValue] = useState(selectedTab || 0);
     const [rows, setRows] = useState([]);
+    const [allFeeData, setAllFeeData] = useState({ 0: [], 1: [], 2: [], 3: [] });
 
     const [concessionCategory, setConcessionCategory] = useState('');
     const [recommendedBy, setRecommendedBy] = useState('');
     const [recommendationReason, setRecommendationReason] = useState('');
 
     const getFeeName = (row, tab) => {
-        if (tab === 2) {
+        if (tab === 1) {
+            return row.place || "-";
+        } else if (tab === 2) {
             return `${row.activityName || "-"} - ${row.activityCategory || "-"}`;
         } else if (tab === 3) {
             return row.feeName || "-";
@@ -50,10 +62,10 @@ export default function SpecialConcession() {
         return row.feeAmount || row.amount || 0;
     };
 
-    const buildRows = (tab) => {
-        const feeData = allFeeData?.[tab] || [];
-        if (feeData.length > 0) {
-            return feeData.map((item) => ({
+    const buildRows = (tab, feeData) => {
+        const data = feeData?.[tab] || [];
+        if (data.length > 0) {
+            return data.map((item) => ({
                 ...item,
                 displayName: getFeeName(item, tab),
                 displayAmount: getFeeAmount(item),
@@ -65,9 +77,53 @@ export default function SpecialConcession() {
         return [];
     };
 
+    // Fetch all 4 fee types fresh on mount
     useEffect(() => {
-        setRows(buildRows(tabValue));
-    }, [allFeeData, tabValue]);
+        if (!rollNumber || !selectedYear) return;
+        fetchAllFeeData();
+    }, [rollNumber, selectedYear]);
+
+    const fetchAllFeeData = async () => {
+        setIsLoading(true);
+        try {
+            const headers = { Authorization: `Bearer ${token}` };
+            const params = { RollNumber: rollNumber, Year: selectedYear };
+
+            const [schoolRes, transportRes, ecaRes, additionalRes] = await Promise.allSettled([
+                axios.get(findStudentSchoolFeesBilling, { params, headers }),
+                axios.get(findStudentTransportFeesBilling, { params, headers }),
+                axios.get(findStudentEcaFeesBilling, { params, headers }),
+                axios.get(findStudentAdditionalFeesBilling, { params, headers }),
+            ]);
+
+            const fetchedData = {
+                0: schoolRes.status === 'fulfilled'
+                    ? (schoolRes.value.data?.data?.feesElements || [])
+                    : [],
+                1: transportRes.status === 'fulfilled'
+                    ? (transportRes.value.data?.data?.feesElements || [])
+                    : [],
+                2: ecaRes.status === 'fulfilled'
+                    ? (ecaRes.value.data?.data?.feesElements || [])
+                    : [],
+                3: additionalRes.status === 'fulfilled'
+                    ? (additionalRes.value.data?.data?.feesElements || [])
+                    : [],
+            };
+
+            setAllFeeData(fetchedData);
+            setRows(buildRows(tabValue, fetchedData));
+        } catch (error) {
+            console.error("Error fetching fee data for special concession:", error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Rebuild rows when tab changes (allFeeData already populated)
+    useEffect(() => {
+        setRows(buildRows(tabValue, allFeeData));
+    }, [tabValue, allFeeData]);
 
     const handleTabChange = (event, newValue) => {
         setTabValue(newValue);
@@ -80,16 +136,16 @@ export default function SpecialConcession() {
 
         if (field === "percent") {
             const percent = parseFloat(value) || 0;
-            const concessionAmount = (amount * percent) / 100;
+            const concessionAmount = Math.round((amount * percent) / 100);
             row.concessionPercent = value;
-            row.concessionAmount = concessionAmount.toFixed(2);
-            row.finalFee = (amount - concessionAmount).toFixed(2);
+            row.concessionAmount = concessionAmount;
+            row.finalFee = Math.round(amount - concessionAmount);
         } else if (field === "amount") {
             const concessionAmount = parseFloat(value) || 0;
             const percent = ((concessionAmount / amount) * 100).toFixed(2);
             row.concessionAmount = value;
             row.concessionPercent = percent;
-            row.finalFee = (amount - concessionAmount).toFixed(2);
+            row.finalFee = Math.round(amount - concessionAmount);
         }
 
         updatedRows[index] = row;
@@ -97,7 +153,7 @@ export default function SpecialConcession() {
     };
 
     const handleResetAll = () => {
-        setRows(buildRows(tabValue));
+        setRows(buildRows(tabValue, allFeeData));
     };
 
     const totalAmount = rows.reduce((sum, r) => sum + parseFloat(r.finalFee || r.displayAmount || 0), 0);
@@ -175,7 +231,8 @@ export default function SpecialConcession() {
                 setStatus(true);
                 setColor(true);
                 setOpen(true);
-                handleResetAll();
+                // Refresh data after applying concession
+                fetchAllFeeData();
                 setConcessionCategory('');
                 setRecommendedBy('');
                 setRecommendationReason('');

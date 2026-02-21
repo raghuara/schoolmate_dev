@@ -1,10 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     Box, Card, CardContent, Grid, Typography, IconButton, Button,
     Chip, Divider, Select, MenuItem, TextField, Table, TableBody,
-    TableCell, TableContainer, TableHead, TableRow, Avatar,
+    TableCell, TableContainer, TableHead, TableRow,
     Dialog, DialogTitle, DialogContent, DialogActions,
-    FormControl, InputLabel, LinearProgress,
+    FormControl, InputLabel, LinearProgress, CircularProgress,
 } from '@mui/material';
 import Tooltip from '@mui/material/Tooltip';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -21,6 +21,11 @@ import FilterListIcon from '@mui/icons-material/FilterList';
 import SearchIcon from '@mui/icons-material/Search';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
+import axios from 'axios';
+import { reportsLeaveManagement, reportsLeaveManagementFullReport } from '../../Api/Api';
+import SnackBar from '../SnackBar';
+
+const token = "123";
 
 const STATUS_CONFIG = {
     Present: { bg: '#DCFCE7', color: '#16A34A', dot: '#16A34A', Icon: CheckCircleIcon },
@@ -31,253 +36,203 @@ const STATUS_CONFIG = {
 
 const CATEGORY_CONFIG = {
     'Teaching Staff':     { bg: '#DCFCE7', color: '#16A34A' },
-    'Non-Teaching Staff': { bg: '#DBEAFE', color: '#2563EB' },
+    'Non Teaching Staff': { bg: '#DBEAFE', color: '#2563EB' },
     'Supporting Staff':   { bg: '#FFF7ED', color: '#EA580C' },
 };
 
-const STAFF_LIST = [
-    { id: 'ST001', name: 'Sarah Jenkins', department: 'Mathematics',  category: 'Teaching Staff',     avatar: 'SJ', avatarColor: '#1976D2' },
-    { id: 'ST002', name: 'David Ross',    department: 'Marketing',    category: 'Non-Teaching Staff', avatar: 'DR', avatarColor: '#7C3AED' },
-    { id: 'ST003', name: 'Nivetha Arjun', department: 'Science',      category: 'Teaching Staff',     avatar: 'NA', avatarColor: '#0891B2' },
-    { id: 'ST004', name: 'John Doe',      department: 'English',      category: 'Teaching Staff',     avatar: 'JD', avatarColor: '#DC2626' },
-    { id: 'ST005', name: 'Priya Sharma',  department: 'Hindi',        category: 'Teaching Staff',     avatar: 'PS', avatarColor: '#EA580C' },
-    { id: 'ST006', name: 'Emma Wilson',   department: 'English',      category: 'Teaching Staff',     avatar: 'EW', avatarColor: '#16A34A' },
-    { id: 'ST007', name: 'Ravi Kumar',    department: 'Admin Office', category: 'Supporting Staff',   avatar: 'RK', avatarColor: '#D97706' },
-    { id: 'ST008', name: 'Meena Patel',   department: 'HR',           category: 'Admin',              avatar: 'MP', avatarColor: '#E91E63' },
-];
-
-const ATTENDANCE_RECORDS = [
-    { id: 1,  staffId: 'ST001', date: '2026-02-10', status: 'Present', loginTime: '08:50 AM', logoutTime: '05:10 PM' },
-    { id: 2,  staffId: 'ST001', date: '2026-02-11', status: 'Late',    loginTime: '09:25 AM', logoutTime: '05:00 PM' },
-    { id: 3,  staffId: 'ST001', date: '2026-02-12', status: 'Present', loginTime: '08:45 AM', logoutTime: '05:05 PM' },
-    { id: 4,  staffId: 'ST001', date: '2026-02-13', status: 'Present', loginTime: '08:55 AM', logoutTime: '04:58 PM' },
-    { id: 5,  staffId: 'ST001', date: '2026-02-16', status: 'Leave',   loginTime: '—', logoutTime: '—', leaveType: 'Casual Leave' },
-    { id: 6,  staffId: 'ST001', date: '2026-02-17', status: 'Present', loginTime: '08:50 AM', logoutTime: '05:00 PM' },
-    { id: 7,  staffId: 'ST001', date: '2026-02-18', status: 'Present', loginTime: '08:48 AM', logoutTime: '04:55 PM' },
-    { id: 8,  staffId: 'ST001', date: '2026-02-19', status: 'Present', loginTime: '08:52 AM', logoutTime: '05:02 PM' },
-    { id: 9,  staffId: 'ST002', date: '2026-02-10', status: 'Present', loginTime: '09:00 AM', logoutTime: '05:30 PM' },
-    { id: 10, staffId: 'ST002', date: '2026-02-11', status: 'Present', loginTime: '09:05 AM', logoutTime: '05:25 PM' },
-    { id: 11, staffId: 'ST002', date: '2026-02-12', status: 'Absent',  loginTime: '—', logoutTime: '—' },
-    { id: 12, staffId: 'ST002', date: '2026-02-13', status: 'Late',    loginTime: '09:45 AM', logoutTime: '05:30 PM' },
-    { id: 13, staffId: 'ST002', date: '2026-02-16', status: 'Present', loginTime: '09:00 AM', logoutTime: '05:28 PM' },
-    { id: 14, staffId: 'ST002', date: '2026-02-17', status: 'Absent',  loginTime: '—', logoutTime: '—' },
-    { id: 15, staffId: 'ST002', date: '2026-02-18', status: 'Present', loginTime: '09:02 AM', logoutTime: '05:30 PM' },
-    { id: 16, staffId: 'ST002', date: '2026-02-19', status: 'Present', loginTime: '09:00 AM', logoutTime: '05:20 PM' },
-    { id: 17, staffId: 'ST003', date: '2026-02-10', status: 'Present', loginTime: '08:40 AM', logoutTime: '04:50 PM' },
-    { id: 18, staffId: 'ST003', date: '2026-02-11', status: 'Present', loginTime: '08:45 AM', logoutTime: '05:00 PM' },
-    { id: 19, staffId: 'ST003', date: '2026-02-12', status: 'Leave',   loginTime: '—', logoutTime: '—', leaveType: 'Planned Leave' },
-    { id: 20, staffId: 'ST003', date: '2026-02-13', status: 'Leave',   loginTime: '—', logoutTime: '—', leaveType: 'Planned Leave' },
-    { id: 21, staffId: 'ST003', date: '2026-02-16', status: 'Present', loginTime: '08:42 AM', logoutTime: '05:05 PM' },
-    { id: 22, staffId: 'ST003', date: '2026-02-17', status: 'Present', loginTime: '08:50 AM', logoutTime: '05:10 PM' },
-    { id: 23, staffId: 'ST003', date: '2026-02-18', status: 'Present', loginTime: '08:38 AM', logoutTime: '05:00 PM' },
-    { id: 24, staffId: 'ST003', date: '2026-02-19', status: 'Present', loginTime: '08:44 AM', logoutTime: '04:55 PM' },
-    { id: 25, staffId: 'ST004', date: '2026-02-10', status: 'Absent',  loginTime: '—', logoutTime: '—' },
-    { id: 26, staffId: 'ST004', date: '2026-02-11', status: 'Present', loginTime: '08:55 AM', logoutTime: '05:05 PM' },
-    { id: 27, staffId: 'ST004', date: '2026-02-12', status: 'Present', loginTime: '08:50 AM', logoutTime: '05:00 PM' },
-    { id: 28, staffId: 'ST004', date: '2026-02-13', status: 'Present', loginTime: '08:52 AM', logoutTime: '04:58 PM' },
-    { id: 29, staffId: 'ST004', date: '2026-02-16', status: 'Late',    loginTime: '09:30 AM', logoutTime: '05:15 PM' },
-    { id: 30, staffId: 'ST004', date: '2026-02-17', status: 'Absent',  loginTime: '—', logoutTime: '—' },
-    { id: 31, staffId: 'ST004', date: '2026-02-18', status: 'Present', loginTime: '08:58 AM', logoutTime: '05:05 PM' },
-    { id: 32, staffId: 'ST004', date: '2026-02-19', status: 'Present', loginTime: '08:53 AM', logoutTime: '05:00 PM' },
-    { id: 33, staffId: 'ST005', date: '2026-02-10', status: 'Leave',   loginTime: '—', logoutTime: '—', leaveType: 'Sick Leave' },
-    { id: 34, staffId: 'ST005', date: '2026-02-11', status: 'Leave',   loginTime: '—', logoutTime: '—', leaveType: 'Sick Leave' },
-    { id: 35, staffId: 'ST005', date: '2026-02-12', status: 'Present', loginTime: '08:50 AM', logoutTime: '05:00 PM' },
-    { id: 36, staffId: 'ST005', date: '2026-02-13', status: 'Present', loginTime: '08:48 AM', logoutTime: '04:55 PM' },
-    { id: 37, staffId: 'ST005', date: '2026-02-16', status: 'Present', loginTime: '08:52 AM', logoutTime: '05:02 PM' },
-    { id: 38, staffId: 'ST005', date: '2026-02-17', status: 'Late',    loginTime: '09:20 AM', logoutTime: '05:00 PM' },
-    { id: 39, staffId: 'ST005', date: '2026-02-18', status: 'Present', loginTime: '08:50 AM', logoutTime: '05:05 PM' },
-    { id: 40, staffId: 'ST005', date: '2026-02-19', status: 'Present', loginTime: '08:45 AM', logoutTime: '05:00 PM' },
-    { id: 41, staffId: 'ST006', date: '2026-02-10', status: 'Present', loginTime: '08:35 AM', logoutTime: '04:45 PM' },
-    { id: 42, staffId: 'ST006', date: '2026-02-11', status: 'Present', loginTime: '08:40 AM', logoutTime: '05:00 PM' },
-    { id: 43, staffId: 'ST006', date: '2026-02-12', status: 'Late',    loginTime: '09:15 AM', logoutTime: '05:05 PM' },
-    { id: 44, staffId: 'ST006', date: '2026-02-13', status: 'Present', loginTime: '08:38 AM', logoutTime: '05:00 PM' },
-    { id: 45, staffId: 'ST006', date: '2026-02-16', status: 'Present', loginTime: '08:42 AM', logoutTime: '05:00 PM' },
-    { id: 46, staffId: 'ST006', date: '2026-02-17', status: 'Leave',   loginTime: '—', logoutTime: '—', leaveType: 'Sick Leave' },
-    { id: 47, staffId: 'ST006', date: '2026-02-18', status: 'Leave',   loginTime: '—', logoutTime: '—', leaveType: 'Sick Leave' },
-    { id: 48, staffId: 'ST006', date: '2026-02-19', status: 'Present', loginTime: '08:40 AM', logoutTime: '04:55 PM' },
-    { id: 49, staffId: 'ST007', date: '2026-02-10', status: 'Present', loginTime: '08:30 AM', logoutTime: '05:00 PM' },
-    { id: 50, staffId: 'ST007', date: '2026-02-11', status: 'Present', loginTime: '08:35 AM', logoutTime: '05:05 PM' },
-    { id: 51, staffId: 'ST007', date: '2026-02-12', status: 'Present', loginTime: '08:28 AM', logoutTime: '05:00 PM' },
-    { id: 52, staffId: 'ST007', date: '2026-02-13', status: 'Present', loginTime: '08:32 AM', logoutTime: '04:58 PM' },
-    { id: 53, staffId: 'ST007', date: '2026-02-16', status: 'Present', loginTime: '08:30 AM', logoutTime: '05:00 PM' },
-    { id: 54, staffId: 'ST007', date: '2026-02-17', status: 'Present', loginTime: '08:35 AM', logoutTime: '05:05 PM' },
-    { id: 55, staffId: 'ST007', date: '2026-02-18', status: 'Present', loginTime: '08:30 AM', logoutTime: '05:00 PM' },
-    { id: 56, staffId: 'ST007', date: '2026-02-19', status: 'Present', loginTime: '08:32 AM', logoutTime: '05:00 PM' },
-    { id: 57, staffId: 'ST008', date: '2026-02-10', status: 'Present', loginTime: '09:00 AM', logoutTime: '06:00 PM' },
-    { id: 58, staffId: 'ST008', date: '2026-02-11', status: 'Late',    loginTime: '09:35 AM', logoutTime: '06:10 PM' },
-    { id: 59, staffId: 'ST008', date: '2026-02-12', status: 'Present', loginTime: '09:00 AM', logoutTime: '06:00 PM' },
-    { id: 60, staffId: 'ST008', date: '2026-02-13', status: 'Present', loginTime: '09:05 AM', logoutTime: '06:05 PM' },
-    { id: 61, staffId: 'ST008', date: '2026-02-16', status: 'Present', loginTime: '09:00 AM', logoutTime: '06:00 PM' },
-    { id: 62, staffId: 'ST008', date: '2026-02-17', status: 'Present', loginTime: '09:02 AM', logoutTime: '06:00 PM' },
-    { id: 63, staffId: 'ST008', date: '2026-02-18', status: 'Absent',  loginTime: '—', logoutTime: '—' },
-    { id: 64, staffId: 'ST008', date: '2026-02-19', status: 'Present', loginTime: '09:00 AM', logoutTime: '06:00 PM' },
-];
-
-const TODAY = '2026-02-19';
-
-const fmtDate = (d) => {
-    if (!d) return '—';
-    return new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+// "YYYY-MM-DD" (input value) → "DD-MM-YYYY" (API)
+const inputToApi = (str) => {
+    if (!str) return '';
+    const [y, m, d] = str.split('-');
+    return `${d}-${m}-${y}`;
 };
-const fmtDay = (d) =>
-    new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short' });
 
-const BORDER = '1px solid #F0D0D8';
+// Today as "YYYY-MM-DD" for input
+const getTodayInput = () => new Date().toISOString().split('T')[0];
+
+// Map API category value → display label
+const mapCategory = (cat = '') => {
+    const c = cat.toLowerCase();
+    if (c === 'teaching')    return 'Teaching Staff';
+    if (c === 'nonteaching') return 'Non Teaching Staff';
+    if (c === 'supporting')  return 'Supporting Staff';
+    return cat;
+};
+
+// Map display label → API category value
+const mapCategoryToApi = (display) => {
+    if (display === 'Teaching Staff')     return 'teaching';
+    if (display === 'Non Teaching Staff') return 'nonteaching';
+    if (display === 'Supporting Staff')   return 'supporting';
+    return '';
+};
+
+// Normalize any status value (case-insensitive) → STATUS_CONFIG key, or '' for not marked
+const normalizeStatus = (status = '') => {
+    const s = status.toLowerCase().trim();
+    if (s === 'present') return 'Present';
+    if (s === 'late') return 'Late';
+    if (s === 'absent') return 'Absent';
+    if (s === 'leave' || s === 'on leave' || s === 'onleave') return 'Leave';
+    return ''; // empty / unrecognized → not marked yet
+};
+
+const BORDER  = '1px solid #F0D0D8';
 const HEAD_BG = '#FDE8EC';
+
 const headCell = {
-    border: BORDER,
-    fontWeight: '700',
-    fontSize: '12px',
-    color: '#9B2335',
-    textAlign: 'center',
-    py: 1.5,
-    px: 1.5,
-    whiteSpace: 'nowrap',
-    bgcolor: HEAD_BG,
+    border: BORDER, fontWeight: '700', fontSize: '12px', color: '#9B2335',
+    textAlign: 'center', py: 1.5, px: 1.5, whiteSpace: 'nowrap', bgcolor: HEAD_BG,
 };
 const bodyCell = {
-    border: BORDER,
-    fontSize: '13px',
-    color: '#1a1a1a',
-    textAlign: 'center',
-    py: 1.4,
-    px: 1.5,
+    border: BORDER, fontSize: '13px', color: '#1a1a1a',
+    textAlign: 'center', py: 1.4, px: 1.5,
 };
 
 export default function AttendanceReportsPage({ isEmbedded = false }) {
     const navigate = useNavigate();
 
+    // Filters
     const [todayActive,    setTodayActive]    = useState(false);
-    const [fromDate,       setFromDate]       = useState('2026-02-10');
-    const [toDate,         setToDate]         = useState('2026-02-19');
+    const [fromDate,       setFromDate]       = useState(getTodayInput());
+    const [toDate,         setToDate]         = useState(getTodayInput());
     const [categoryFilter, setCategoryFilter] = useState('All');
     const [statusFilter,   setStatusFilter]   = useState('All');
     const [staffSearch,    setStaffSearch]    = useState('');
-    const [reportStaff,    setReportStaff]    = useState(null);
 
+    // API data
+    const [cards,     setCards]     = useState({ totalStaff: 0, presentDays: 0, lateArrivals: 0, absentDays: 0, leaveDays: 0 });
+    const [summary,   setSummary]   = useState([]);
+    const [isLoading, setIsLoading] = useState(false);
+
+    // Full report dialog: { open, data, isLoading }
+    const [reportDialog, setReportDialog] = useState({ open: false, data: null, isLoading: false });
+
+    // SnackBar
+    const [snackOpen,    setSnackOpen]    = useState(false);
+    const [snackStatus,  setSnackStatus]  = useState(false);
+    const [snackColor,   setSnackColor]   = useState(false);
+    const [snackMessage, setSnackMessage] = useState('');
+    const showSnack = (msg, success) => {
+        setSnackMessage(msg); setSnackOpen(true); setSnackColor(success); setSnackStatus(success);
+    };
+
+    // ── Fetch summary ──────────────────────────────────────────────────────────
+    const fetchReports = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const res = await axios.get(reportsLeaveManagement, {
+                params: {
+                    FromDate:         inputToApi(fromDate),
+                    ToDate:           inputToApi(toDate),
+                    Category:         mapCategoryToApi(categoryFilter),
+                    AttendanceStatus: statusFilter !== 'All' ? statusFilter : '',
+                },
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (res.data && !res.data.error) {
+                setCards(res.data.cards   || {});
+                setSummary(res.data.summary || []);
+            } else {
+                showSnack(res.data?.message || 'Failed to load reports', false);
+            }
+        } catch (err) {
+            console.error('Report fetch error:', err);
+            showSnack('Failed to load attendance reports', false);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [fromDate, toDate, categoryFilter, statusFilter]);
+
+    useEffect(() => { fetchReports(); }, [fetchReports]);
+
+    // ── Fetch full report (on View button click) ───────────────────────────────
+    const fetchFullReport = async (staffId) => {
+        setReportDialog({ open: true, data: null, isLoading: true });
+        try {
+            const res = await axios.get(reportsLeaveManagementFullReport, {
+                params: {
+                    RollNumber: staffId,
+                    FromDate:   inputToApi(fromDate),
+                    ToDate:     inputToApi(toDate),
+                },
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (res.data && !res.data.error) {
+                setReportDialog({ open: true, data: res.data, isLoading: false });
+            } else {
+                showSnack('Failed to load full report', false);
+                setReportDialog({ open: false, data: null, isLoading: false });
+            }
+        } catch (err) {
+            console.error('Full report fetch error:', err);
+            showSnack('Failed to load full report', false);
+            setReportDialog({ open: false, data: null, isLoading: false });
+        }
+    };
+
+    const closeDialog = () => setReportDialog({ open: false, data: null, isLoading: false });
+
+    // ── Date helpers ───────────────────────────────────────────────────────────
     const activateToday = () => {
+        const today = getTodayInput();
         setTodayActive(true);
-        setFromDate(TODAY);
-        setToDate(TODAY);
+        setFromDate(today);
+        setToDate(today);
     };
     const handleFromChange = (val) => { setFromDate(val); setTodayActive(false); };
     const handleToChange   = (val) => { setToDate(val);   setTodayActive(false); };
 
-    const staffSummary = useMemo(() => {
-        const grouped = {};
-        ATTENDANCE_RECORDS.forEach((rec) => {
-            if (fromDate && rec.date < fromDate) return;
-            if (toDate   && rec.date > toDate)   return;
-            const staff = STAFF_LIST.find(s => s.id === rec.staffId);
-            if (!staff) return;
-            if (categoryFilter !== 'All' && staff.category !== categoryFilter) return;
-            if (staffSearch.trim()) {
-                const q = staffSearch.trim().toLowerCase();
-                if (!staff.name.toLowerCase().includes(q) && !staff.id.toLowerCase().includes(q)) return;
-            }
-            if (!grouped[rec.staffId]) grouped[rec.staffId] = { staff, recs: [] };
-            grouped[rec.staffId].recs.push(rec);
-        });
-
-        return Object.values(grouped)
-            .map(({ staff, recs }) => {
-                const total   = recs.length;
-                const present = recs.filter(r => r.status === 'Present').length;
-                const late    = recs.filter(r => r.status === 'Late').length;
-                const absent  = recs.filter(r => r.status === 'Absent').length;
-                const leave   = recs.filter(r => r.status === 'Leave').length;
-                const rate    = total ? Math.round(((present + late) / total) * 100) : 0;
-                return { staff, recs, total, present, late, absent, leave, rate };
-            })
-            .filter(row =>
-                statusFilter === 'All'     ? true :
-                statusFilter === 'Present' ? row.present > 0 :
-                statusFilter === 'Late'    ? row.late    > 0 :
-                statusFilter === 'Absent'  ? row.absent  > 0 :
-                                             row.leave   > 0
-            );
-    }, [fromDate, toDate, categoryFilter, staffSearch, statusFilter]);
-
-    const kpis = useMemo(() => ({
-        staff:   staffSummary.length,
-        present: staffSummary.reduce((s, r) => s + r.present, 0),
-        late:    staffSummary.reduce((s, r) => s + r.late,    0),
-        absent:  staffSummary.reduce((s, r) => s + r.absent,  0),
-        leave:   staffSummary.reduce((s, r) => s + r.leave,   0),
-    }), [staffSummary]);
-
-    const dialogRecords = useMemo(() => {
-        if (!reportStaff) return [];
-        return ATTENDANCE_RECORDS
-            .filter(r => {
-                if (r.staffId !== reportStaff.id) return false;
-                if (fromDate && r.date < fromDate) return false;
-                if (toDate   && r.date > toDate)   return false;
-                return true;
-            })
-            .sort((a, b) => a.date.localeCompare(b.date));
-    }, [reportStaff, fromDate, toDate]);
-
-    const dialogStats = useMemo(() => {
-        const p  = dialogRecords.filter(r => r.status === 'Present').length;
-        const l  = dialogRecords.filter(r => r.status === 'Late').length;
-        const a  = dialogRecords.filter(r => r.status === 'Absent').length;
-        const lv = dialogRecords.filter(r => r.status === 'Leave').length;
-        const total = dialogRecords.length;
-        return { present: p, late: l, absent: a, leave: lv, rate: total ? Math.round(((p + l) / total) * 100) : 0 };
-    }, [dialogRecords]);
-
     const handleClearFilters = () => {
+        const today = getTodayInput();
         setTodayActive(false);
-        setFromDate('2026-02-10');
-        setToDate('2026-02-19');
-        setCategoryFilter('All'); setStatusFilter('All'); setStaffSearch('');
+        setFromDate(today);
+        setToDate(today);
+        setCategoryFilter('All');
+        setStatusFilter('All');
+        setStaffSearch('');
     };
 
+    // Client-side search on fetched summary
+    const filteredSummary = staffSearch.trim()
+        ? summary.filter(row =>
+            row.staffMember.toLowerCase().includes(staffSearch.toLowerCase()) ||
+            row.staffId.toLowerCase().includes(staffSearch.toLowerCase())
+          )
+        : summary;
+
+    // ── Export helpers ─────────────────────────────────────────────────────────
     const handleExportSummary = () => {
         const headers = ['S.No', 'Staff Name', 'Staff ID', 'Category', 'Working Days', 'Present', 'Late', 'Absent', 'Leave', 'Attendance %'];
-        const rows = staffSummary.map((row, idx) => [
-            idx + 1,
-            row.staff.name,
-            row.staff.id,
-            row.staff.category,
-            row.total,
-            row.present,
-            row.late,
-            row.absent,
-            row.leave,
-            `${row.rate}%`,
+        const rows = filteredSummary.map((row, idx) => [
+            idx + 1, row.staffMember, row.staffId, mapCategory(row.category),
+            row.workingDays, row.present, row.late, row.absent, row.leave, `${row.attendancePercent}%`,
         ]);
         const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
         ws['!cols'] = [{ wch: 6 }, { wch: 22 }, { wch: 10 }, { wch: 20 }, { wch: 14 }, { wch: 10 }, { wch: 8 }, { wch: 10 }, { wch: 8 }, { wch: 14 }];
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'Attendance Summary');
-        const range = `${fmtDate(fromDate)} to ${fmtDate(toDate)}`.replace(/,/g, '');
-        XLSX.writeFile(wb, `Staff_Attendance_Summary_${range}.xlsx`);
+        XLSX.writeFile(wb, `Staff_Attendance_Summary_${inputToApi(fromDate)}_to_${inputToApi(toDate)}.xlsx`);
     };
 
-    const handleExportIndividual = () => {
-        if (!reportStaff || dialogRecords.length === 0) return;
-        const headers = ['Date', 'Day', 'Status', 'Leave Type', 'Login Time'];
-        const rows = dialogRecords.map(rec => [
-            fmtDate(rec.date),
-            fmtDay(rec.date),
-            rec.status,
-            rec.leaveType || '—',
-            rec.loginTime,
-        ]);
+    const handleExportFullReport = () => {
+        const { data } = reportDialog;
+        if (!data?.dailyLog?.length) return;
+        const headers = ['Date', 'Day', 'Status', 'Login Time'];
+        const rows = data.dailyLog.map(rec => [rec.date, rec.day, rec.status, rec.loginTime]);
         const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-        ws['!cols'] = [{ wch: 18 }, { wch: 8 }, { wch: 10 }, { wch: 18 }, { wch: 14 }];
+        ws['!cols'] = [{ wch: 18 }, { wch: 8 }, { wch: 10 }, { wch: 14 }];
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'Daily Log');
-        const safeName = reportStaff.name.replace(/\s+/g, '_');
-        XLSX.writeFile(wb, `${safeName}_Attendance_Log.xlsx`);
+        XLSX.writeFile(wb, `${data.name?.replace(/\s+/g, '_')}_Attendance_Log.xlsx`);
     };
 
+    // ── Sub-components ─────────────────────────────────────────────────────────
     const categoryChip = (cat) => {
-        const cfg = CATEGORY_CONFIG[cat] || { bg: '#F3F4F6', color: '#666' };
+        const label = mapCategory(cat);
+        const cfg = CATEGORY_CONFIG[label] || { bg: '#F3F4F6', color: '#666' };
         return (
-            <Chip label={cat} size="small" sx={{
+            <Chip label={label} size="small" sx={{
                 bgcolor: cfg.bg, color: cfg.color, fontWeight: '600',
                 fontSize: '10px', borderRadius: '5px', height: 20,
             }} />
@@ -289,22 +244,22 @@ export default function AttendanceReportsPage({ isEmbedded = false }) {
             <Typography sx={{ fontSize: '13px', fontWeight: '700', color: rate >= 90 ? '#16A34A' : rate >= 70 ? '#D97706' : '#DC2626', mb: 0.5 }}>
                 {rate}%
             </Typography>
-            <LinearProgress
-                variant="determinate"
-                value={rate}
-                sx={{
-                    height: 5, borderRadius: 3,
-                    bgcolor: '#F0F0F0',
-                    '& .MuiLinearProgress-bar': {
-                        bgcolor: rate >= 90 ? '#16A34A' : rate >= 70 ? '#D97706' : '#DC2626',
-                        borderRadius: 3,
-                    },
-                }}
-            />
+            <LinearProgress variant="determinate" value={rate} sx={{
+                height: 5, borderRadius: 3, bgcolor: '#F0F0F0',
+                '& .MuiLinearProgress-bar': {
+                    bgcolor: rate >= 90 ? '#16A34A' : rate >= 70 ? '#D97706' : '#DC2626',
+                    borderRadius: 3,
+                },
+            }} />
         </Box>
     );
 
+    const { data: fullData } = reportDialog;
+
+    // ── Render ─────────────────────────────────────────────────────────────────
     return (
+        <>
+        <SnackBar open={snackOpen} color={snackColor} setOpen={setSnackOpen} status={snackStatus} message={snackMessage} />
         <Box sx={{
             border: isEmbedded ? 'none' : '1px solid #ccc',
             borderRadius: isEmbedded ? '0' : '20px',
@@ -325,14 +280,15 @@ export default function AttendanceReportsPage({ isEmbedded = false }) {
                 </Box>
             )}
 
+            {/* ── Filters Card ─────────────────────────────────────────────── */}
             <Card sx={{ border: '1px solid #E0E4EA', borderRadius: '6px', boxShadow: 'none', mb: 2.5, bgcolor: '#fff' }}>
                 <CardContent sx={{ pb: '16px !important' }}>
+                    {/* Date Range */}
                     <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1.5, mb: 2 }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
                             <CalendarTodayIcon sx={{ fontSize: 15, color: '#888' }} />
                             <Typography sx={{ fontSize: '12px', fontWeight: '700', color: '#555', whiteSpace: 'nowrap' }}>Date Range:</Typography>
                         </Box>
-
                         <Chip
                             label="Today"
                             onClick={activateToday}
@@ -345,7 +301,6 @@ export default function AttendanceReportsPage({ isEmbedded = false }) {
                                 transition: '0.15s',
                             }}
                         />
-
                         <TextField
                             type="date" size="small" label="From"
                             value={fromDate}
@@ -353,7 +308,6 @@ export default function AttendanceReportsPage({ isEmbedded = false }) {
                             slotProps={{ inputLabel: { shrink: true } }}
                             sx={{ width: 155, '& .MuiOutlinedInput-root': { borderRadius: '8px', fontSize: '12px' } }}
                         />
-
                         <TextField
                             type="date" size="small" label="To"
                             value={toDate}
@@ -365,12 +319,12 @@ export default function AttendanceReportsPage({ isEmbedded = false }) {
 
                     <Divider sx={{ mb: 2 }} />
 
+                    {/* Filter Dropdowns */}
                     <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, mr: 0.5 }}>
                             <FilterListIcon sx={{ fontSize: 15, color: '#888' }} />
                             <Typography sx={{ fontSize: '12px', fontWeight: '700', color: '#555' }}>Filters:</Typography>
                         </Box>
-
                         <TextField
                             size="small"
                             placeholder="Search by name or ID..."
@@ -398,7 +352,6 @@ export default function AttendanceReportsPage({ isEmbedded = false }) {
                                 },
                             }}
                         />
-
                         <FormControl size="small" sx={{ minWidth: 175 }}>
                             <InputLabel sx={{ fontSize: '13px' }}>Staff Category</InputLabel>
                             <Select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} label="Staff Category" sx={{ borderRadius: '8px', fontSize: '13px' }}>
@@ -430,22 +383,17 @@ export default function AttendanceReportsPage({ isEmbedded = false }) {
                 </CardContent>
             </Card>
 
+            {/* ── KPI Cards ────────────────────────────────────────────────── */}
             <Grid container spacing={2} sx={{ mb: 2.5 }}>
                 {[
-                    { label: 'Total Staff',   value: kpis.staff,   color: '#1976D2', bg: '#EFF6FF', iconBg: '#DBEAFE', Icon: PersonIcon      },
-                    { label: 'Present Days',  value: kpis.present, color: '#16A34A', bg: '#F0FDF4', iconBg: '#DCFCE7', Icon: CheckCircleIcon  },
-                    { label: 'Late Arrivals', value: kpis.late,    color: '#D97706', bg: '#FFFBEB', iconBg: '#FEF3C7', Icon: AccessTimeIcon   },
-                    { label: 'Absent Days',   value: kpis.absent,  color: '#DC2626', bg: '#FEF2F2', iconBg: '#FEE2E2', Icon: CancelIcon       },
-                    { label: 'Leave Days',    value: kpis.leave,   color: '#7C3AED', bg: '#FAF5FF', iconBg: '#EDE9FE', Icon: EventBusyIcon    },
+                    { label: 'Total Staff',   value: cards.totalStaff   ?? 0, color: '#1976D2', bg: '#EFF6FF', iconBg: '#DBEAFE', Icon: PersonIcon      },
+                    { label: 'Present Days',  value: cards.presentDays  ?? 0, color: '#16A34A', bg: '#F0FDF4', iconBg: '#DCFCE7', Icon: CheckCircleIcon  },
+                    { label: 'Late Arrivals', value: cards.lateArrivals ?? 0, color: '#D97706', bg: '#FFFBEB', iconBg: '#FEF3C7', Icon: AccessTimeIcon   },
+                    { label: 'Absent Days',   value: cards.absentDays   ?? 0, color: '#DC2626', bg: '#FEF2F2', iconBg: '#FEE2E2', Icon: CancelIcon       },
+                    { label: 'Leave Days',    value: cards.leaveDays    ?? 0, color: '#7C3AED', bg: '#FAF5FF', iconBg: '#EDE9FE', Icon: EventBusyIcon    },
                 ].map(c => (
                     <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2.4 }} key={c.label}>
-                        <Card sx={{
-                            borderLeft: `4px solid ${c.color}`,
-                            border: `1px solid ${c.color}35`,
-                            borderRadius: '6px',
-                            boxShadow: 'none',
-                            bgcolor: c.bg,
-                        }}>
+                        <Card sx={{ borderLeft: `4px solid ${c.color}`, border: `1px solid ${c.color}35`, borderRadius: '6px', boxShadow: 'none', bgcolor: c.bg }}>
                             <CardContent sx={{ py: '14px !important', px: '16px !important' }}>
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <Box>
@@ -462,23 +410,21 @@ export default function AttendanceReportsPage({ isEmbedded = false }) {
                 ))}
             </Grid>
 
+            {/* ── Summary Table ─────────────────────────────────────────────── */}
             <Card sx={{ border: '1px solid #E0E4EA', borderRadius: '6px', boxShadow: 'none', bgcolor: '#fff' }}>
                 <Box sx={{ px: 2.5, py: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
                     <Box>
                         <Typography sx={{ fontSize: '16px', fontWeight: '700', color: '#1a1a1a' }}>Staff Attendance Summary</Typography>
                         <Typography sx={{ fontSize: '12px', color: '#888', mt: 0.3 }}>
-                            {staffSummary.length} staff &nbsp;·&nbsp;
-                            {fromDate ? fmtDate(fromDate) : '—'} — {toDate ? fmtDate(toDate) : '—'}
+                            {filteredSummary.length} staff &nbsp;·&nbsp; {inputToApi(fromDate)} — {inputToApi(toDate)}
                         </Typography>
                     </Box>
-                    <Box sx={{ display: 'flex', gap: 1 }}>
-                       
-                        <Button size="small" variant="outlined" startIcon={<FileDownloadIcon />}
-                            onClick={handleExportSummary}
-                            sx={{ textTransform: 'none', fontSize: '12px', fontWeight: '600', borderRadius: '8px', color: '#16A34A', borderColor: '#16A34A40', bgcolor: '#F0FDF4', '&:hover': { borderColor: '#16A34A' } }}>
-                            Excel
-                        </Button>
-                    </Box>
+                    <Button size="small" variant="outlined" startIcon={<FileDownloadIcon />}
+                        onClick={handleExportSummary}
+                        disabled={filteredSummary.length === 0 || isLoading}
+                        sx={{ textTransform: 'none', fontSize: '12px', fontWeight: '600', borderRadius: '8px', color: '#16A34A', borderColor: '#16A34A40', bgcolor: '#F0FDF4', '&:hover': { borderColor: '#16A34A' } }}>
+                        Excel
+                    </Button>
                 </Box>
 
                 <Divider />
@@ -501,7 +447,13 @@ export default function AttendanceReportsPage({ isEmbedded = false }) {
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {staffSummary.length === 0 ? (
+                            {isLoading ? (
+                                <TableRow>
+                                    <TableCell colSpan={11} align="center" sx={{ py: 6, border: BORDER }}>
+                                        <CircularProgress size={30} sx={{ color: '#9B2335' }} />
+                                    </TableCell>
+                                </TableRow>
+                            ) : filteredSummary.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={11} align="center" sx={{ py: 7, border: BORDER }}>
                                         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
@@ -514,78 +466,51 @@ export default function AttendanceReportsPage({ isEmbedded = false }) {
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                staffSummary.map((row, idx) => (
-                                    <TableRow key={row.staff.id} sx={{
+                                filteredSummary.map((row, idx) => (
+                                    <TableRow key={row.staffId} sx={{
                                         bgcolor: idx % 2 === 0 ? '#fff' : '#FDF5F7',
                                         '&:hover': { bgcolor: '#FDE8EC55' },
                                         transition: '0.12s',
                                     }}>
-                                        <TableCell sx={{ ...bodyCell, color: '#aaa', fontWeight: '600' }}>
-                                            {idx + 1}
-                                        </TableCell>
+                                        <TableCell sx={{ ...bodyCell, color: '#aaa', fontWeight: '600' }}>{row.sNo ?? idx + 1}</TableCell>
 
                                         <TableCell sx={{ ...bodyCell, textAlign: 'left' }}>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
-                                               
-                                                <Typography sx={{ fontSize: '13px', fontWeight: '600', color: '#1a1a1a', whiteSpace: 'nowrap' }}>
-                                                    {row.staff.name}
-                                                </Typography>
-                                            </Box>
-                                        </TableCell>
-
-                                        <TableCell sx={{ ...bodyCell, color: '#666', fontSize: '12px' }}>
-                                            {row.staff.id}
-                                        </TableCell>
-
-                                        <TableCell sx={bodyCell}>
-                                            {categoryChip(row.staff.category)}
-                                        </TableCell>
-
-                                        <TableCell sx={bodyCell}>
-                                            <Typography sx={{ fontSize: '15px', fontWeight: '800', color: '#1a1a1a' }}>
-                                                {row.total}
+                                            <Typography sx={{ fontSize: '13px', fontWeight: '600', color: '#1a1a1a', whiteSpace: 'nowrap' }}>
+                                                {row.staffMember}
                                             </Typography>
+                                        </TableCell>
+
+                                        <TableCell sx={{ ...bodyCell, color: '#666', fontSize: '12px' }}>{row.staffId}</TableCell>
+
+                                        <TableCell sx={bodyCell}>{categoryChip(row.category)}</TableCell>
+
+                                        <TableCell sx={bodyCell}>
+                                            <Typography sx={{ fontSize: '15px', fontWeight: '800', color: '#1a1a1a' }}>{row.workingDays}</Typography>
                                             <Typography sx={{ fontSize: '10px', color: '#aaa' }}>days</Typography>
                                         </TableCell>
 
                                         <TableCell sx={bodyCell}>
-                                            <Box sx={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center' }}>
-                                                <Typography sx={{ fontSize: '16px', fontWeight: '800', color: '#16A34A', lineHeight: 1.1 }}>
-                                                    {row.present}
-                                                </Typography>
-                                                <Typography sx={{ fontSize: '9px', color: '#aaa', mt: 0.2 }}>days</Typography>
-                                            </Box>
+                                            <Typography sx={{ fontSize: '16px', fontWeight: '800', color: '#16A34A', lineHeight: 1.1 }}>{row.present}</Typography>
+                                            <Typography sx={{ fontSize: '9px', color: '#aaa', mt: 0.2 }}>days</Typography>
                                         </TableCell>
 
                                         <TableCell sx={bodyCell}>
-                                            <Box sx={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center' }}>
-                                                <Typography sx={{ fontSize: '16px', fontWeight: '800', color: row.late > 0 ? '#D97706' : '#ccc', lineHeight: 1.1 }}>
-                                                    {row.late}
-                                                </Typography>
-                                                <Typography sx={{ fontSize: '9px', color: '#aaa', mt: 0.2 }}>days</Typography>
-                                            </Box>
+                                            <Typography sx={{ fontSize: '16px', fontWeight: '800', color: row.late > 0 ? '#D97706' : '#ccc', lineHeight: 1.1 }}>{row.late}</Typography>
+                                            <Typography sx={{ fontSize: '9px', color: '#aaa', mt: 0.2 }}>days</Typography>
                                         </TableCell>
 
                                         <TableCell sx={bodyCell}>
-                                            <Box sx={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center' }}>
-                                                <Typography sx={{ fontSize: '16px', fontWeight: '800', color: row.absent > 0 ? '#DC2626' : '#ccc', lineHeight: 1.1 }}>
-                                                    {row.absent}
-                                                </Typography>
-                                                <Typography sx={{ fontSize: '9px', color: '#aaa', mt: 0.2 }}>days</Typography>
-                                            </Box>
+                                            <Typography sx={{ fontSize: '16px', fontWeight: '800', color: row.absent > 0 ? '#DC2626' : '#ccc', lineHeight: 1.1 }}>{row.absent}</Typography>
+                                            <Typography sx={{ fontSize: '9px', color: '#aaa', mt: 0.2 }}>days</Typography>
                                         </TableCell>
 
                                         <TableCell sx={bodyCell}>
-                                            <Box sx={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center' }}>
-                                                <Typography sx={{ fontSize: '16px', fontWeight: '800', color: row.leave > 0 ? '#7C3AED' : '#ccc', lineHeight: 1.1 }}>
-                                                    {row.leave}
-                                                </Typography>
-                                                <Typography sx={{ fontSize: '9px', color: '#aaa', mt: 0.2 }}>days</Typography>
-                                            </Box>
+                                            <Typography sx={{ fontSize: '16px', fontWeight: '800', color: row.leave > 0 ? '#7C3AED' : '#ccc', lineHeight: 1.1 }}>{row.leave}</Typography>
+                                            <Typography sx={{ fontSize: '9px', color: '#aaa', mt: 0.2 }}>days</Typography>
                                         </TableCell>
 
                                         <TableCell sx={bodyCell}>
-                                            <RateCell rate={row.rate} />
+                                            <RateCell rate={row.attendancePercent ?? 0} />
                                         </TableCell>
 
                                         <TableCell sx={bodyCell}>
@@ -593,7 +518,7 @@ export default function AttendanceReportsPage({ isEmbedded = false }) {
                                                 size="small"
                                                 variant="outlined"
                                                 startIcon={<PersonIcon sx={{ fontSize: '13px !important' }} />}
-                                                onClick={() => setReportStaff(row.staff)}
+                                                onClick={() => fetchFullReport(row.staffId)}
                                                 sx={{
                                                     textTransform: 'none', fontSize: '11px', fontWeight: '600',
                                                     borderRadius: '6px', color: '#9B2335', borderColor: '#F0D0D8',
@@ -611,17 +536,17 @@ export default function AttendanceReportsPage({ isEmbedded = false }) {
                     </Table>
                 </TableContainer>
 
-                {staffSummary.length > 0 && (
+                {filteredSummary.length > 0 && !isLoading && (
                     <Box sx={{ px: 2.5, py: 1.5, borderTop: `1px solid ${BORDER}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, bgcolor: HEAD_BG }}>
                         <Typography sx={{ fontSize: '12px', color: '#9B2335', fontWeight: '600' }}>
-                            {staffSummary.length} staff member{staffSummary.length !== 1 ? 's' : ''}
+                            {filteredSummary.length} staff member{filteredSummary.length !== 1 ? 's' : ''}
                         </Typography>
                         <Box sx={{ display: 'flex', gap: 2.5 }}>
                             {[
-                                { label: 'Present', val: kpis.present, color: '#16A34A' },
-                                { label: 'Late',    val: kpis.late,    color: '#D97706' },
-                                { label: 'Absent',  val: kpis.absent,  color: '#DC2626' },
-                                { label: 'Leave',   val: kpis.leave,   color: '#7C3AED' },
+                                { label: 'Present', val: cards.presentDays  ?? 0, color: '#16A34A' },
+                                { label: 'Late',    val: cards.lateArrivals ?? 0, color: '#D97706' },
+                                { label: 'Absent',  val: cards.absentDays   ?? 0, color: '#DC2626' },
+                                { label: 'Leave',   val: cards.leaveDays    ?? 0, color: '#7C3AED' },
                             ].map(s => (
                                 <Box key={s.label} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                     <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: s.color }} />
@@ -635,109 +560,96 @@ export default function AttendanceReportsPage({ isEmbedded = false }) {
                 )}
             </Card>
 
-            <Dialog open={!!reportStaff} onClose={() => setReportStaff(null)} maxWidth="md" fullWidth
+            {/* ── Full Report Dialog ────────────────────────────────────────── */}
+            <Dialog open={reportDialog.open} onClose={closeDialog} maxWidth="md" fullWidth
                 PaperProps={{ sx: { borderRadius: '8px', overflow: 'hidden', boxShadow: '0 8px 32px rgba(155,35,53,0.12)' } }}>
-                {reportStaff && (
+
+                {reportDialog.isLoading ? (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 10 }}>
+                        <CircularProgress size={36} sx={{ color: '#9B2335' }} />
+                    </Box>
+                ) : fullData && (
                     <>
+                        {/* Dialog Header */}
                         <DialogTitle sx={{ p: 0 }}>
                             <Box sx={{ bgcolor: '#fff', borderBottom: BORDER }}>
                                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 3, pt: 2.5, pb: 2 }}>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                        <Avatar sx={{
-                                            width: 52, height: 52, bgcolor: reportStaff.avatarColor,
-                                            fontSize: '16px', fontWeight: '700',
-                                            border: `3px solid ${HEAD_BG}`,
-                                            outline: `2px solid #F0D0D8`,
-                                        }}>
-                                            {reportStaff.avatar}
-                                        </Avatar>
-                                        <Box>
-                                            <Typography sx={{ fontSize: '17px', fontWeight: '700', color: '#1a1a1a', lineHeight: 1.2 }}>
-                                                {reportStaff.name}
-                                            </Typography>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, mt: 0.5, flexWrap: 'wrap' }}>
-                                                <Typography sx={{ fontSize: '11px', color: '#888', fontWeight: '500' }}>{reportStaff.id}</Typography>
-                                                <Box sx={{ width: 3, height: 3, borderRadius: '50%', bgcolor: '#ddd' }} />
-                                                <Typography sx={{ fontSize: '11px', color: '#888' }}>{reportStaff.department}</Typography>
-                                                <Box sx={{ width: 3, height: 3, borderRadius: '50%', bgcolor: '#ddd' }} />
-                                                <Chip
-                                                    label={reportStaff.category}
-                                                    size="small"
-                                                    sx={{
-                                                        height: 18, fontSize: '10px', fontWeight: '700',
-                                                        bgcolor: `${CATEGORY_CONFIG[reportStaff.category]?.color}15`,
-                                                        color: CATEGORY_CONFIG[reportStaff.category]?.color,
-                                                        border: `1px solid ${CATEGORY_CONFIG[reportStaff.category]?.color}35`,
-                                                        borderRadius: '4px',
-                                                    }}
-                                                />
-                                            </Box>
+                                    <Box>
+                                        <Typography sx={{ fontSize: '17px', fontWeight: '700', color: '#1a1a1a', lineHeight: 1.2 }}>
+                                            {fullData.name}
+                                        </Typography>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, mt: 0.5, flexWrap: 'wrap' }}>
+                                            <Typography sx={{ fontSize: '11px', color: '#888' }}>{fullData.staffId}</Typography>
+                                            {fullData.department && (
+                                                <>
+                                                    <Box sx={{ width: 3, height: 3, borderRadius: '50%', bgcolor: '#ddd' }} />
+                                                    <Typography sx={{ fontSize: '11px', color: '#888' }}>{fullData.department}</Typography>
+                                                </>
+                                            )}
+                                            <Box sx={{ width: 3, height: 3, borderRadius: '50%', bgcolor: '#ddd' }} />
+                                            {categoryChip(fullData.category)}
                                         </Box>
                                     </Box>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                         <Box sx={{ textAlign: 'right', mr: 0.5 }}>
                                             <Typography sx={{ fontSize: '9px', fontWeight: '700', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Report Period</Typography>
                                             <Typography sx={{ fontSize: '11px', fontWeight: '600', color: '#555', whiteSpace: 'nowrap' }}>
-                                                {fmtDate(fromDate)} — {fmtDate(toDate)}
+                                                {fullData.reportFromDate} — {fullData.reportToDate}
                                             </Typography>
                                         </Box>
-                                        <IconButton onClick={() => setReportStaff(null)} size="small"
+                                        <IconButton onClick={closeDialog} size="small"
                                             sx={{ color: '#999', border: '1px solid #E8E8E8', borderRadius: '6px', '&:hover': { bgcolor: HEAD_BG, color: '#9B2335', borderColor: BORDER } }}>
                                             <CloseIcon sx={{ fontSize: 18 }} />
                                         </IconButton>
                                     </Box>
                                 </Box>
 
+                                {/* Attendance Rate Bar */}
                                 <Box sx={{ px: 3, pb: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
                                     <Typography sx={{ fontSize: '11px', fontWeight: '700', color: '#888', whiteSpace: 'nowrap' }}>Attendance Rate</Typography>
                                     <Box sx={{ flex: 1 }}>
-                                        <LinearProgress
-                                            variant="determinate"
-                                            value={dialogStats.rate}
-                                            sx={{
-                                                height: 8, borderRadius: 4,
-                                                bgcolor: '#F0F0F0',
-                                                '& .MuiLinearProgress-bar': {
-                                                    bgcolor: dialogStats.rate >= 90 ? '#16A34A' : dialogStats.rate >= 70 ? '#D97706' : '#DC2626',
-                                                    borderRadius: 4,
-                                                },
-                                            }}
-                                        />
+                                        <LinearProgress variant="determinate" value={fullData.attendancePercent ?? 0} sx={{
+                                            height: 8, borderRadius: 4, bgcolor: '#F0F0F0',
+                                            '& .MuiLinearProgress-bar': {
+                                                bgcolor: (fullData.attendancePercent ?? 0) >= 90 ? '#16A34A' : (fullData.attendancePercent ?? 0) >= 70 ? '#D97706' : '#DC2626',
+                                                borderRadius: 4,
+                                            },
+                                        }} />
                                     </Box>
                                     <Typography sx={{
                                         fontSize: '13px', fontWeight: '800', minWidth: 38, textAlign: 'right',
-                                        color: dialogStats.rate >= 90 ? '#16A34A' : dialogStats.rate >= 70 ? '#D97706' : '#DC2626',
+                                        color: (fullData.attendancePercent ?? 0) >= 90 ? '#16A34A' : (fullData.attendancePercent ?? 0) >= 70 ? '#D97706' : '#DC2626',
                                     }}>
-                                        {dialogStats.rate}%
+                                        {fullData.attendancePercent ?? 0}%
                                     </Typography>
                                 </Box>
                             </Box>
                         </DialogTitle>
 
                         <DialogContent sx={{ p: 0, bgcolor: '#F8F9FB' }}>
-                            <Box sx={{
-                                display: 'flex', borderBottom: BORDER, bgcolor: '#fff',
-                            }}>
+                            {/* Stats Strip */}
+                            <Box sx={{ display: 'flex', borderBottom: BORDER, bgcolor: '#fff' }}>
                                 {[
-                                    { label: 'Working Days', value: dialogRecords.length, color: '#1976D2' },
-                                    { label: 'Present',      value: dialogStats.present,  color: '#16A34A' },
-                                    { label: 'Late',         value: dialogStats.late,     color: '#D97706' },
-                                    { label: 'Absent',       value: dialogStats.absent,   color: '#DC2626' },
-                                    { label: 'Leave',        value: dialogStats.leave,    color: '#7C3AED' },
+                                    { label: 'Working Days', value: fullData.workingDays, color: '#1976D2' },
+                                    { label: 'Present',      value: fullData.present,     color: '#16A34A' },
+                                    { label: 'Late',         value: fullData.late,        color: '#D97706' },
+                                    { label: 'Absent',       value: fullData.absent,      color: '#DC2626' },
+                                    { label: 'Leave',        value: fullData.leave,       color: '#7C3AED' },
                                 ].map((s, i, arr) => (
                                     <Box key={s.label} sx={{
                                         flex: 1, textAlign: 'center', py: 1.8,
                                         borderRight: i < arr.length - 1 ? BORDER : 'none',
                                         borderTop: `3px solid ${s.color}`,
                                     }}>
-                                        <Typography sx={{ fontSize: '22px', fontWeight: '800', color: s.color, lineHeight: 1 }}>{s.value}</Typography>
+                                        <Typography sx={{ fontSize: '22px', fontWeight: '800', color: s.color, lineHeight: 1 }}>{s.value ?? 0}</Typography>
                                         <Typography sx={{ fontSize: '10px', fontWeight: '600', color: '#aaa', mt: 0.4, textTransform: 'uppercase', letterSpacing: '0.4px' }}>{s.label}</Typography>
                                     </Box>
                                 ))}
                             </Box>
 
                             <Box sx={{ p: 2.5 }}>
-                                {dialogRecords.length > 0 && (
+                                {/* Attendance Calendar */}
+                                {fullData.calendar?.length > 0 && (
                                     <Box sx={{ mb: 2.5, bgcolor: '#fff', border: BORDER, borderRadius: '6px', overflow: 'hidden' }}>
                                         <Box sx={{ px: 2, py: 1.2, bgcolor: HEAD_BG, borderBottom: BORDER, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                             <Typography sx={{ fontSize: '12px', fontWeight: '700', color: '#9B2335' }}>Attendance Calendar</Typography>
@@ -751,11 +663,12 @@ export default function AttendanceReportsPage({ isEmbedded = false }) {
                                             </Box>
                                         </Box>
                                         <Box sx={{ p: 2, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                                            {dialogRecords.map(rec => {
-                                                const cfg = STATUS_CONFIG[rec.status] || { bg: '#F3F4F6', color: '#888' };
+                                            {fullData.calendar.map((cal, i) => {
+                                                const statusKey = normalizeStatus(cal.status);
+                                                const cfg = STATUS_CONFIG[statusKey] || { bg: '#F3F4F6', color: '#bbb' };
                                                 return (
-                                                    <Tooltip key={rec.date}
-                                                        title={`${fmtDate(rec.date)} · ${rec.status}${rec.leaveType ? ` (${rec.leaveType})` : ''}`}
+                                                    <Tooltip key={i}
+                                                        title={`${cal.dayName} ${cal.dayNumber} · ${statusKey || 'Not Marked'}`}
                                                         placement="top" arrow
                                                         slotProps={{ tooltip: { sx: { fontSize: '11px', bgcolor: '#333', borderRadius: '4px' } } }}>
                                                         <Box sx={{
@@ -765,10 +678,10 @@ export default function AttendanceReportsPage({ isEmbedded = false }) {
                                                             alignItems: 'center', justifyContent: 'center', cursor: 'default',
                                                         }}>
                                                             <Typography sx={{ fontSize: '15px', fontWeight: '800', color: cfg.color, lineHeight: 1 }}>
-                                                                {parseInt(rec.date.split('-')[2])}
+                                                                {cal.dayNumber}
                                                             </Typography>
                                                             <Typography sx={{ fontSize: '9px', fontWeight: '600', color: cfg.color, opacity: 0.7, mt: 0.3 }}>
-                                                                {fmtDay(rec.date)}
+                                                                {cal.dayName}
                                                             </Typography>
                                                         </Box>
                                                     </Tooltip>
@@ -778,6 +691,7 @@ export default function AttendanceReportsPage({ isEmbedded = false }) {
                                     </Box>
                                 )}
 
+                                {/* Daily Log Table */}
                                 <Box sx={{ bgcolor: '#fff', border: BORDER, borderRadius: '6px', overflow: 'hidden' }}>
                                     <Box sx={{ px: 2, py: 1.2, bgcolor: HEAD_BG, borderBottom: BORDER }}>
                                         <Typography sx={{ fontSize: '12px', fontWeight: '700', color: '#9B2335' }}>Daily Log</Typography>
@@ -792,35 +706,35 @@ export default function AttendanceReportsPage({ isEmbedded = false }) {
                                                 </TableRow>
                                             </TableHead>
                                             <TableBody>
-                                                {dialogRecords.length === 0 ? (
+                                                {(!fullData.dailyLog || fullData.dailyLog.length === 0) ? (
                                                     <TableRow>
                                                         <TableCell colSpan={4} align="center" sx={{ py: 4, border: BORDER }}>
                                                             <Typography sx={{ fontSize: '13px', color: '#aaa' }}>No records for this period</Typography>
                                                         </TableCell>
                                                     </TableRow>
-                                                ) : dialogRecords.map((rec, idx) => {
-                                                    const cfg = STATUS_CONFIG[rec.status] || { dot: '#ccc', color: '#666' };
+                                                ) : fullData.dailyLog.map((rec, idx) => {
+                                                    const normStatus = normalizeStatus(rec.status);
+                                                    const cfg = STATUS_CONFIG[normStatus] || { dot: '#ddd', color: '#bbb' };
                                                     return (
-                                                        <TableRow key={rec.id} sx={{
-                                                            bgcolor: rec.status === 'Absent' ? '#FFF5F5' : rec.status === 'Leave' ? '#FAF7FF' : idx % 2 === 0 ? '#fff' : '#FDFBFB',
+                                                        <TableRow key={idx} sx={{
+                                                            bgcolor: normStatus === 'Absent' ? '#FFF5F5' : normStatus === 'Leave' ? '#FAF7FF' : idx % 2 === 0 ? '#fff' : '#FDFBFB',
                                                             '&:hover': { bgcolor: '#FDE8EC44' },
                                                         }}>
-                                                            <TableCell sx={{ ...bodyCell, fontWeight: '600', whiteSpace: 'nowrap', color: '#333' }}>{fmtDate(rec.date)}</TableCell>
-                                                            <TableCell sx={{ ...bodyCell, color: '#888', fontWeight: '500' }}>{fmtDay(rec.date)}</TableCell>
+                                                            <TableCell sx={{ ...bodyCell, fontWeight: '600', whiteSpace: 'nowrap', color: '#333' }}>{rec.date}</TableCell>
+                                                            <TableCell sx={{ ...bodyCell, color: '#888', fontWeight: '500' }}>{rec.day}</TableCell>
                                                             <TableCell sx={bodyCell}>
-                                                                <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.7, bgcolor: `${cfg.dot}15`, border: `1px solid ${cfg.dot}30`, borderRadius: '4px', px: 1, py: 0.3 }}>
-                                                                    <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: cfg.dot, flexShrink: 0 }} />
-                                                                    <Typography sx={{ fontSize: '11px', fontWeight: '700', color: cfg.color }}>
-                                                                        {rec.status}
-                                                                    </Typography>
-                                                                </Box>
-                                                                {rec.leaveType && (
-                                                                    <Typography sx={{ fontSize: '9px', color: '#aaa', mt: 0.2, display: 'block' }}>
-                                                                        {rec.leaveType}
-                                                                    </Typography>
+                                                                {normStatus ? (
+                                                                    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.7, bgcolor: `${cfg.dot}15`, border: `1px solid ${cfg.dot}30`, borderRadius: '4px', px: 1, py: 0.3 }}>
+                                                                        <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: cfg.dot, flexShrink: 0 }} />
+                                                                        <Typography sx={{ fontSize: '11px', fontWeight: '700', color: cfg.color }}>{normStatus}</Typography>
+                                                                    </Box>
+                                                                ) : (
+                                                                    <Typography sx={{ fontSize: '13px', color: '#bbb', fontWeight: '500' }}>—</Typography>
                                                                 )}
                                                             </TableCell>
-                                                            <TableCell sx={{ ...bodyCell, color: rec.status === 'Late' ? '#D97706' : '#555', fontWeight: rec.status === 'Late' ? '700' : '400', whiteSpace: 'nowrap' }}>{rec.loginTime}</TableCell>
+                                                            <TableCell sx={{ ...bodyCell, color: normStatus === 'Late' ? '#D97706' : '#555', fontWeight: normStatus === 'Late' ? '700' : '400', whiteSpace: 'nowrap' }}>
+                                                                {rec.loginTime || '—'}
+                                                            </TableCell>
                                                         </TableRow>
                                                     );
                                                 })}
@@ -833,21 +747,19 @@ export default function AttendanceReportsPage({ isEmbedded = false }) {
 
                         <DialogActions sx={{ px: 2.5, py: 1.8, borderTop: BORDER, bgcolor: '#fff', display: 'flex', justifyContent: 'space-between' }}>
                             <Button variant="outlined" startIcon={<FileDownloadIcon />}
-                                onClick={handleExportIndividual}
+                                onClick={handleExportFullReport}
                                 sx={{
                                     textTransform: 'none', fontSize: '12px', fontWeight: '600',
                                     borderRadius: '6px', color: '#16A34A', borderColor: '#BBF7D0',
-                                    bgcolor: '#F0FDF4',
-                                    '&:hover': { borderColor: '#16A34A', bgcolor: '#DCFCE7' },
+                                    bgcolor: '#F0FDF4', '&:hover': { borderColor: '#16A34A', bgcolor: '#DCFCE7' },
                                 }}>
                                 Export Excel
                             </Button>
-                            <Button onClick={() => setReportStaff(null)} variant="outlined"
+                            <Button onClick={closeDialog} variant="outlined"
                                 sx={{
                                     textTransform: 'none', fontSize: '12px', fontWeight: '600',
                                     borderRadius: '6px', color: '#9B2335', borderColor: '#F0D0D8',
-                                    bgcolor: HEAD_BG,
-                                    '&:hover': { borderColor: '#9B2335', bgcolor: '#F9C8D2' },
+                                    bgcolor: HEAD_BG, '&:hover': { borderColor: '#9B2335', bgcolor: '#F9C8D2' },
                                 }}>
                                 Close
                             </Button>
@@ -856,5 +768,6 @@ export default function AttendanceReportsPage({ isEmbedded = false }) {
                 )}
             </Dialog>
         </Box>
+        </>
     );
 }

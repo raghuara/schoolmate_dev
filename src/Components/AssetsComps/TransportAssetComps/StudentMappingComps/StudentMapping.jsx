@@ -568,37 +568,33 @@ export default function StudentMapping() {
     const fetchExistingStudents = async (routeInformationId) => {
         setIsLoading(true);
         try {
-            // Fetch route details to get student mappings
             const response = await axios.get(getRouteFullDetailsById, {
                 params: { routeInformationId },
                 headers: { Authorization: `Bearer ${token}` }
             });
 
-            if (response.data.error === false && response.data.studentRouteMappings) {
-                const mappedStudents = response.data.studentRouteMappings;
+            if (response.data.error === false && response.data.routeStops) {
+                // Students are nested inside each routeStop — extract and flatten them
+                const studentsWithDetails = [];
 
-                // Match roll numbers with user details
-                const studentsWithDetails = mappedStudents.map(mapping => {
-                    // Find user by roll number
-                    const user = users.find(u => u.rollNumber === mapping.rollNumber);
-
-                    if (user) {
-                        return {
-                            id: user._id || user.id,
-                            name: user.name || 'N/A',
-                            rollNumber: mapping.rollNumber,
-                            grade: user.grade || 'N/A',
-                            section: user.section || 'N/A',
-                            phone: user.phone || user.phoneNumber || 'N/A',
-                            email: user.email || 'N/A',
-                            stopName: mapping.busStop || 'N/A',
-                            stopPoint: mapping.busStopPoint || '',
-                            mappedDate: mapping.mappedDate || mapping.createdAt || new Date().toISOString().split('T')[0],
-                            status: mapping.status || 'Active'
-                        };
-                    }
-                    return null;
-                }).filter(Boolean); // Remove null values
+                response.data.routeStops.forEach(stop => {
+                    (stop.students || []).forEach(student => {
+                        const rollNumber = student.rollNumber || student.roll || student.roll_number;
+                        const user = users.find(u => u.rollNumber === rollNumber);
+                        studentsWithDetails.push({
+                            id: user?._id || user?.id || rollNumber,
+                            name: user?.name || student.name || 'N/A',
+                            rollNumber: rollNumber || 'N/A',
+                            grade: user?.grade || student.grade || 'N/A',
+                            section: user?.section || student.section || 'N/A',
+                            phone: user?.phone || user?.phoneNumber || student.phone || 'N/A',
+                            email: user?.email || student.email || '',
+                            stopName: stop.place || 'N/A',
+                            stopPoint: stop.point || '',
+                            status: student.status || 'Active'
+                        });
+                    });
+                });
 
                 setExistingStudents(studentsWithDetails);
 
@@ -711,7 +707,7 @@ export default function StudentMapping() {
         const transformedPayload = {
             routeInfo: {
                 routeInformationId: routeDetails.routeInformationId,
-                busStop: payload.busStop, // This is now the place name (e.g., "City Center")
+                busStop: payload.busStop, 
                 year:selectedYear,
                 rollNumbers: payload.selectedStudents.map(student => student.rollNumber || student)
             }
@@ -1209,19 +1205,19 @@ export default function StudentMapping() {
 
                                                 {/* Bus Stop */}
                                                 <TableCell sx={{ borderBottom: "1px solid #E5E7EB", py: 2 }}>
-                                                    <Chip
-                                                        icon={<LocationOnIcon sx={{ fontSize: 14 }} />}
-                                                        label={student.stopName}
-                                                        size="small"
-                                                        sx={{
-                                                            backgroundColor: "#F9FAFB",
-                                                            color: "#374151",
-                                                            fontSize: "12px",
-                                                            borderRadius: "6px",
-                                                            fontWeight: 500,
-                                                            border: '1px solid #D1D5DB'
-                                                        }}
-                                                    />
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                        <LocationOnIcon sx={{ fontSize: 15, color: '#3457D5' }} />
+                                                        <Box>
+                                                            <Typography sx={{ fontSize: "13px", fontWeight: 600, color: '#111827' }}>
+                                                               {student.stopPoint}
+                                                            </Typography>
+                                                            {student.stopPoint && (
+                                                                <Typography sx={{ fontSize: "11px", color: "#6B7280" }}>
+                                                                    Stop Name:{student.stopName}
+                                                                </Typography>
+                                                            )}
+                                                        </Box>
+                                                    </Box>
                                                 </TableCell>
 
                                                 {/* Contact */}

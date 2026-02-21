@@ -22,7 +22,7 @@ import AttendanceReportsPage from './AttendanceReportsPage';
 
 // Import the attendance dashboard content from LeaveAttendancePage
 import LeaveAttendancePage from './LeaveAttendancePage';
-import AddAttendancePage from './AddAttendancePage';
+import AddStaffAttendancePage from './AddStaffAttendancePage';
 
 // Module cards configuration
 const moduleCards = [
@@ -86,7 +86,7 @@ export default function LeaveAttendanceMainPage() {
             case 0:
                 return <LeaveAttendancePage isEmbedded={true} onGoToAddAttendance={() => setTabValue(1)} onGoToApprovalWorkflow={() => setTabValue(4)} />;
             case 1:
-                return <AddAttendancePage />;
+                return <AddStaffAttendancePage />;
             case 2:
                 return <StaffAttendanceOverviewPage isEmbedded={true} />;
             case 3:

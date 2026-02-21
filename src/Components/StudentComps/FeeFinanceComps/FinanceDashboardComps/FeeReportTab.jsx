@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
     Box,
     Card,
@@ -31,10 +31,18 @@ import axios from 'axios';
 import { useSelector } from 'react-redux';
 import { selectGrades } from '../../../../Redux/Slices/DropdownController';
 import { feeReport } from '../../../../Api/Api';
+import SnackBar from '../../../SnackBar';
 
 const token = "123";
 
-export default function FeeReportTab({ selectedYear }) {
+// Convert yyyy-MM-dd → dd-MM-yyyy
+const formatDateForApi = (dateStr) => {
+    if (!dateStr) return '';
+    const [y, m, d] = dateStr.split('-');
+    return `${d}-${m}-${y}`;
+};
+
+export default function FeeReportTab() {
     const grades = useSelector(selectGrades);
 
     const [selectedFeeType, setSelectedFeeType] = useState('School Fee');
@@ -45,6 +53,11 @@ export default function FeeReportTab({ selectedYear }) {
 
     const [reportData, setReportData] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
+
+    const [open, setOpen] = useState(false);
+    const [status, setStatus] = useState(false);
+    const [color, setColor] = useState(false);
+    const [message, setMessage] = useState('');
 
     const selectedGrade = grades.find((g) => g.id === selectedGradeId) || null;
     const selectedGradeSign = selectedGrade?.sign || null;
@@ -60,12 +73,28 @@ export default function FeeReportTab({ selectedYear }) {
     };
 
     const fetchReportData = async () => {
+        // Mandatory field validation
+        if (!fromDate) {
+            setMessage('From Date is required'); setOpen(true); setColor(false); setStatus(false);
+            return;
+        }
+        if (!toDate) {
+            setMessage('To Date is required'); setOpen(true); setColor(false); setStatus(false);
+            return;
+        }
+        if (!selectedGradeSign) {
+            setMessage('Grade is required'); setOpen(true); setColor(false); setStatus(false);
+            return;
+        }
+
         setIsLoading(true);
         try {
-            const params = { FeeType: selectedFeeType };
-            if (fromDate) params.FromDate = fromDate;
-            if (toDate) params.ToDate = toDate;
-            if (selectedGradeSign) params.Grade = selectedGradeSign;
+            const params = {
+                FeeType: selectedFeeType,
+                FromDate: formatDateForApi(fromDate),
+                ToDate: formatDateForApi(toDate),
+                Grade: selectedGradeSign,
+            };
             if (selectedSection) params.Section = selectedSection;
 
             const res = await axios.get(feeReport, {
@@ -74,15 +103,12 @@ export default function FeeReportTab({ selectedYear }) {
             });
             setReportData(res.data.data);
         } catch (error) {
-            console.error(error);
+            const apiMsg = error?.response?.data?.message;
+            setMessage(apiMsg || 'Failed to fetch report'); setOpen(true); setColor(false); setStatus(false);
         } finally {
             setIsLoading(false);
         }
     };
-
-    useEffect(() => {
-        fetchReportData();
-    }, [selectedYear]);
 
     const rows = reportData?.rows || [];
 
@@ -136,6 +162,7 @@ export default function FeeReportTab({ selectedYear }) {
 
     return (
         <Box>
+            <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
             <Grid container spacing={3} sx={{ mb: 3 }}>
                 {/* Report Filters */}
                 <Grid size={{ xs: 12, sm: 12, md: 12, lg: 12 }}>

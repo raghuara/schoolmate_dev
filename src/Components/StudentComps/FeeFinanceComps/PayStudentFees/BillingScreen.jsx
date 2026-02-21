@@ -1606,17 +1606,17 @@ export default function BillingScreen() {
                   justifyContent: "center",
                   alignItems: "center",
                   gap: 0.5,
-                  backgroundColor: "#e8f5e9",
+                  backgroundColor: "#4caf50",
                   border: "1px solid #4caf50",
-                  py: 0.5,
+                  height:"20px",
                   width: "fit-content",
                   px: 2,
-                  borderTopLeftRadius: "5px",
-                  borderTopRightRadius: "5px",
+                  borderRadius:"999px",
+                  mt:1
                 }}
               >
-                <CheckCircleIcon sx={{ fontSize: 15, color: "#2e7d32" }} />
-                <Typography sx={{ color: "#2e7d32", fontSize: "12px", fontWeight: 600 }}>
+                <CheckCircleIcon sx={{ fontSize: 15, color: "#fff" }} />
+                <Typography sx={{ color: "#fff", fontSize: "12px", fontWeight: 600 }}>
                   Concession Applied
                 </Typography>
               </Box>

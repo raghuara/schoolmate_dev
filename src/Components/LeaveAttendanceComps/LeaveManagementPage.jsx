@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Box,
     Card,
@@ -8,6 +8,7 @@ import {
     IconButton,
     Button,
     Chip,
+    CircularProgress,
     Table,
     TableBody,
     TableCell,
@@ -37,74 +38,20 @@ import EventIcon from '@mui/icons-material/Event';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { postLeaveRequest, getLeaveDashboard } from '../../Api/Api';
+import SnackBar from '../SnackBar';
+import { useSelector } from 'react-redux';
 
-// Mock data for leave applications
-const leaveApplications = [
-    {
-        id: 1,
-        name: "Sarah Jenkins",
-        staffId: "ST001",
-        department: "Mathematics",
-        avatar: "SJ",
-        leaveType: "Sick Leave",
-        startDate: "Feb 10, 2026",
-        endDate: "Feb 12, 2026",
-        days: 3,
-        reason: "Medical treatment required",
-        appliedOn: "Feb 5, 2026",
-        status: "Approved",
-        statusColor: "success",
-        approvedBy: "Admin"
-    },
-    {
-        id: 2,
-        name: "David Ross",
-        staffId: "ST002",
-        department: "Marketing",
-        avatar: "DR",
-        leaveType: "Casual Leave",
-        startDate: "Feb 15, 2026",
-        endDate: "Feb 16, 2026",
-        days: 2,
-        reason: "Personal work",
-        appliedOn: "Feb 6, 2026",
-        status: "Pending",
-        statusColor: "warning",
-        approvedBy: "----"
-    },
-    {
-        id: 3,
-        name: "Nivetha Arjun",
-        staffId: "ST003",
-        department: "Science",
-        avatar: "NA",
-        leaveType: "Planned Leave",
-        startDate: "Feb 20, 2026",
-        endDate: "Feb 25, 2026",
-        days: 6,
-        reason: "Family function",
-        appliedOn: "Feb 1, 2026",
-        status: "Approved",
-        statusColor: "success",
-        approvedBy: "HR Manager"
-    },
-    {
-        id: 4,
-        name: "John Doe",
-        staffId: "ST004",
-        department: "English",
-        avatar: "JD",
-        leaveType: "Emergency Leave",
-        startDate: "Feb 7, 2026",
-        endDate: "Feb 7, 2026",
-        days: 1,
-        reason: "Family emergency",
-        appliedOn: "Feb 7, 2026",
-        status: "Rejected",
-        statusColor: "error",
-        approvedBy: "Admin"
-    }
-];
+
+const token = "123";
+
+// Format "YYYY-MM-DD" → "DD-MM-YYYY" for API
+const formatDateForApi = (dateStr) => {
+    if (!dateStr) return '';
+    const [y, m, d] = dateStr.split('-');
+    return `${d}-${m}-${y}`;
+};
 
 export default function LeaveManagementPage({ isEmbedded = false, onGoToApprovalWorkflow }) {
     const navigate = useNavigate();
@@ -113,6 +60,52 @@ export default function LeaveManagementPage({ isEmbedded = false, onGoToApproval
     const [filterStatus, setFilterStatus] = useState("All Status");
     const [filterType, setFilterType] = useState("All Types");
     const [filterDept, setFilterDept] = useState("All Dept");
+    const [isLoading, setIsLoading] = useState(false);
+
+    const user = useSelector((state) => state.auth);
+    const rollNumber = user.rollNumber
+    const userType = user.userType
+    const userName = user.name
+    const [open, setOpen] = useState(false);
+    const [status, setStatus] = useState(false);
+    const [color, setColor] = useState(false);
+    const [message, setMessage] = useState('');
+
+    const showSnack = (msg, success) => {
+        setMessage(msg); setOpen(true); setColor(success); setStatus(success);
+    };
+
+    // Dashboard data from API
+    const [dashboardData, setDashboardData] = useState({
+        cards: { totalLeavesThisMonth: 0, approved: 0, pending: 0, rejected: 0, approvedPercentOfTotal: 0 },
+        leaveBalance: [],
+        applications: { allLeaves: [], pendingApproval: [], approved: [], rejected: [] },
+    });
+    const [isFetching, setIsFetching] = useState(false);
+
+    const fetchDashboard = async () => {
+        setIsFetching(true);
+        try {
+            const res = await axios.get(getLeaveDashboard, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (res.data && !res.data.error) {
+                setDashboardData({
+                    cards: res.data.cards,
+                    leaveBalance: res.data.leaveBalance,
+                    applications: res.data.applications,
+                });
+            }
+        } catch (error) {
+            console.error('Error fetching leave dashboard:', error);
+        } finally {
+            setIsFetching(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchDashboard();
+    }, []);
 
     // Leave Application Dialog State
     const [openLeaveDialog, setOpenLeaveDialog] = useState(false);
@@ -176,27 +169,55 @@ export default function LeaveManagementPage({ isEmbedded = false, onGoToApproval
         }));
     };
 
-    const handleSubmitLeave = () => {
-        // Validate form
+    const handleSubmitLeave = async () => {
         if (!leaveFormData.leaveType || !leaveFormData.startDate || !leaveFormData.endDate || !leaveFormData.reason) {
-            alert('Please fill all required fields');
+            showSnack('Please fill all required fields', false);
             return;
         }
 
-        // In production, this would make an API call to submit the leave application
-        console.log('Leave Application Submitted:', leaveFormData);
-        alert('Leave application submitted successfully! It will appear in the Approval Workflow for review.');
-        handleCloseLeaveDialog();
-    };
+        const fromDate = formatDateForApi(leaveFormData.startDate);
+        const toDate = formatDateForApi(leaveFormData.endDate);
+        const duration = Math.max(
+            1,
+            Math.ceil((new Date(leaveFormData.endDate) - new Date(leaveFormData.startDate)) / (1000 * 60 * 60 * 24)) + 1
+        );
 
-    const getStatusChip = (status, statusColor) => {
-        const config = {
-            success: { bg: '#DCFCE7', color: '#22C55E', icon: CheckCircleIcon },
-            warning: { bg: '#FEF3C7', color: '#F59E0B', icon: PendingIcon },
-            error: { bg: '#FFEBEE', color: '#DC2626', icon: CancelIcon }
+        const sendData = {
+            forRollNumber: rollNumber,
+            fromDate,
+            toDate,
+            duration,
+            leaveType: leaveFormData.leaveType,
+            reason: leaveFormData.reason,
+            contact: leaveFormData.contactNumber,
+            emergencyContact: leaveFormData.emergencyContact,
+            remarks: leaveFormData.reason,
         };
 
-        const { bg, color, icon: Icon } = config[statusColor] || config.warning;
+        setIsLoading(true);
+        try {
+            await axios.post(postLeaveRequest, sendData, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            showSnack('Leave applied successfully!', true);
+            handleCloseLeaveDialog();
+            fetchDashboard();
+        } catch (error) {
+            console.error('Error while submitting leave:', error);
+            showSnack('Failed to submit leave application', false);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const getStatusChip = (status) => {
+        const config = {
+            Approved: { bg: '#DCFCE7', color: '#22C55E', icon: CheckCircleIcon },
+            Pending:  { bg: '#FEF3C7', color: '#F59E0B', icon: PendingIcon },
+            Rejected: { bg: '#FFEBEE', color: '#DC2626', icon: CancelIcon },
+        };
+
+        const { bg, color, icon: Icon } = config[status] || config.Pending;
 
         return (
             <Chip
@@ -241,15 +262,19 @@ export default function LeaveManagementPage({ isEmbedded = false, onGoToApproval
         );
     };
 
-    // Calculate statistics
-    const stats = {
-        totalLeaves: leaveApplications.length,
-        approved: leaveApplications.filter(l => l.status === 'Approved').length,
-        pending: leaveApplications.filter(l => l.status === 'Pending').length,
-        rejected: leaveApplications.filter(l => l.status === 'Rejected').length
-    };
+    // Derive active table data from leaveTab selection
+    const TAB_KEYS = ['allLeaves', 'pendingApproval', 'approved', 'rejected'];
+    const activeLeaves = dashboardData.applications[TAB_KEYS[leaveTab]] || [];
+    const stats = dashboardData.cards;
+
+    // Initials helper for avatar
+    const getInitials = (name = '') =>
+        name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+
 
     return (
+        <>
+        <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
         <Box sx={{
             border: isEmbedded ? 'none' : '1px solid #ccc',
             borderRadius: isEmbedded ? '0' : '20px',
@@ -369,7 +394,7 @@ export default function LeaveManagementPage({ isEmbedded = false, onGoToApproval
                                                 Total Leaves
                                             </Typography>
                                             <Typography sx={{ fontSize: '28px', fontWeight: '700', color: '#1a1a1a' }}>
-                                                {stats.totalLeaves}
+                                                {stats.totalLeavesThisMonth}
                                             </Typography>
                                             <Typography sx={{ fontSize: '10px', color: '#999', mt: 0.5 }}>
                                                 This Month
@@ -400,7 +425,7 @@ export default function LeaveManagementPage({ isEmbedded = false, onGoToApproval
                                                 {stats.approved}
                                             </Typography>
                                             <Typography sx={{ fontSize: '10px', color: '#22C55E', fontWeight: '600', mt: 0.5 }}>
-                                                {((stats.approved / stats.totalLeaves) * 100).toFixed(0)}% of total
+                                                {stats.approvedPercentOfTotal ?? 0}% of total
                                             </Typography>
                                         </Box>
                                         <Avatar sx={{ bgcolor: '#DCFCE7', width: 40, height: 40 }}>
@@ -533,9 +558,21 @@ export default function LeaveManagementPage({ isEmbedded = false, onGoToApproval
                                         </TableRow>
                                     </TableHead>
                                     <TableBody>
-                                        {leaveApplications.map((leave) => (
+                                        {isFetching ? (
+                                            <TableRow>
+                                                <TableCell colSpan={6} sx={{ textAlign: 'center', py: 4 }}>
+                                                    <CircularProgress size={28} sx={{ color: '#F97316' }} />
+                                                </TableCell>
+                                            </TableRow>
+                                        ) : activeLeaves.length === 0 ? (
+                                            <TableRow>
+                                                <TableCell colSpan={6} sx={{ textAlign: 'center', py: 4, color: '#999', fontSize: '13px' }}>
+                                                    No leave applications found
+                                                </TableCell>
+                                            </TableRow>
+                                        ) : activeLeaves.map((leave) => (
                                             <TableRow
-                                                key={leave.id}
+                                                key={leave.leaveApplicationId}
                                                 sx={{
                                                     '&:hover': { bgcolor: '#F9FAFB' },
                                                     borderBottom: '1px solid #E8E8E8'
@@ -544,14 +581,14 @@ export default function LeaveManagementPage({ isEmbedded = false, onGoToApproval
                                                 <TableCell>
                                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                                                         <Avatar sx={{ width: 36, height: 36, bgcolor: '#1976d2', fontSize: '13px' }}>
-                                                            {leave.avatar}
+                                                            {getInitials(leave.name)}
                                                         </Avatar>
                                                         <Box>
                                                             <Typography sx={{ fontSize: '13px', fontWeight: '600', color: '#1a1a1a' }}>
                                                                 {leave.name}
                                                             </Typography>
                                                             <Typography sx={{ fontSize: '11px', color: '#999' }}>
-                                                                {leave.staffId} • {leave.department}
+                                                                {leave.forRollNumber}
                                                             </Typography>
                                                         </Box>
                                                     </Box>
@@ -561,10 +598,10 @@ export default function LeaveManagementPage({ isEmbedded = false, onGoToApproval
                                                 </TableCell>
                                                 <TableCell>
                                                     <Typography sx={{ fontSize: '12px', color: '#666' }}>
-                                                        {leave.startDate}
+                                                        {leave.fromDate}
                                                     </Typography>
                                                     <Typography sx={{ fontSize: '11px', color: '#999' }}>
-                                                        to {leave.endDate}
+                                                        to {leave.toDate}
                                                     </Typography>
                                                 </TableCell>
                                                 <TableCell>
@@ -578,7 +615,7 @@ export default function LeaveManagementPage({ isEmbedded = false, onGoToApproval
                                                     </Typography>
                                                 </TableCell>
                                                 <TableCell>
-                                                    {getStatusChip(leave.status, leave.statusColor)}
+                                                    {getStatusChip(leave.status)}
                                                 </TableCell>
                                             </TableRow>
                                         ))}
@@ -598,32 +635,42 @@ export default function LeaveManagementPage({ isEmbedded = false, onGoToApproval
                                 Leave Balance
                             </Typography>
 
-                            <Box sx={{ mb: 2, p: 1.5, borderRadius: '8px', bgcolor: '#F0FDF4', border: '1px solid #DCFCE7' }}>
-                                <Typography sx={{ fontSize: '11px', color: '#666', mb: 0.5 }}>
-                                    Casual Leave
+                            {dashboardData.leaveBalance.length === 0 ? (
+                                <Typography sx={{ fontSize: '12px', color: '#999', textAlign: 'center', py: 2 }}>
+                                    No balance data
                                 </Typography>
-                                <Typography sx={{ fontSize: '20px', fontWeight: '700', color: '#22C55E' }}>
-                                    8 <Typography component="span" sx={{ fontSize: '13px', color: '#999' }}>/ 12 days</Typography>
-                                </Typography>
-                            </Box>
-
-                            <Box sx={{ mb: 2, p: 1.5, borderRadius: '8px', bgcolor: '#EFF6FF', border: '1px solid #DBEAFE' }}>
-                                <Typography sx={{ fontSize: '11px', color: '#666', mb: 0.5 }}>
-                                    Sick Leave
-                                </Typography>
-                                <Typography sx={{ fontSize: '20px', fontWeight: '700', color: '#3B82F6' }}>
-                                    6 <Typography component="span" sx={{ fontSize: '13px', color: '#999' }}>/ 10 days</Typography>
-                                </Typography>
-                            </Box>
-
-                            <Box sx={{ p: 1.5, borderRadius: '8px', bgcolor: '#FFF7ED', border: '1px solid #FED7AA' }}>
-                                <Typography sx={{ fontSize: '11px', color: '#666', mb: 0.5 }}>
-                                    Planned Leave
-                                </Typography>
-                                <Typography sx={{ fontSize: '20px', fontWeight: '700', color: '#F97316' }}>
-                                    15 <Typography component="span" sx={{ fontSize: '13px', color: '#999' }}>/ 15 days</Typography>
-                                </Typography>
-                            </Box>
+                            ) : dashboardData.leaveBalance.map((lb, i) => {
+                                const usedPct = lb.totalDays > 0 ? (lb.usedDays / lb.totalDays) * 100 : 0;
+                                const isLow = usedPct >= 80;
+                                const bgColor = isLow ? '#FFF7ED' : '#F0FDF4';
+                                const borderColor = isLow ? '#FED7AA' : '#DCFCE7';
+                                const textColor = isLow ? '#F97316' : '#22C55E';
+                                return (
+                                    <Box
+                                        key={i}
+                                        sx={{ mb: i < dashboardData.leaveBalance.length - 1 ? 2 : 0, p: 1.5, borderRadius: '8px', bgcolor: bgColor, border: `1px solid ${borderColor}` }}
+                                    >
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                                            <Typography sx={{ fontSize: '11px', color: '#666' }}>
+                                                {lb.leaveType}
+                                            </Typography>
+                                            <Typography sx={{ fontSize: '10px', color: '#999' }}>
+                                                Used: {lb.usedDays}d
+                                            </Typography>
+                                        </Box>
+                                        <Typography sx={{ fontSize: '20px', fontWeight: '700', color: textColor }}>
+                                            {lb.remainingDays}
+                                            <Typography component="span" sx={{ fontSize: '13px', color: '#999' }}>
+                                                {' '}/ {lb.totalDays} days
+                                            </Typography>
+                                        </Typography>
+                                        {/* Progress bar */}
+                                        <Box sx={{ mt: 1, height: 4, borderRadius: 2, bgcolor: '#E5E7EB', overflow: 'hidden' }}>
+                                            <Box sx={{ height: '100%', width: `${usedPct}%`, bgcolor: textColor, borderRadius: 2, transition: '0.4s' }} />
+                                        </Box>
+                                    </Box>
+                                );
+                            })}
                         </CardContent>
                     </Card>
 
@@ -658,7 +705,7 @@ export default function LeaveManagementPage({ isEmbedded = false, onGoToApproval
                             <Button
                                 fullWidth
                                 variant="outlined"
-                                onClick={onGoToApprovalWorkflow || (() => navigate('/dashboardmenu/Leave/approval-workflow'))}
+                                onClick={onGoToApprovalWorkflow || (() => handleTabChange(null, 3))}
                                 sx={{
                                     textTransform: 'none',
                                     fontSize: '13px',
@@ -887,6 +934,8 @@ export default function LeaveManagementPage({ isEmbedded = false, onGoToApproval
                     <Button
                         onClick={handleSubmitLeave}
                         variant="contained"
+                        disabled={isLoading}
+                        startIcon={isLoading ? <CircularProgress size={16} color="inherit" /> : null}
                         sx={{
                             textTransform: 'none',
                             fontSize: '14px',
@@ -899,10 +948,11 @@ export default function LeaveManagementPage({ isEmbedded = false, onGoToApproval
                             }
                         }}
                     >
-                        Submit Application
+                        {isLoading ? 'Submitting...' : 'Submit Application'}
                     </Button>
                 </DialogActions>
             </Dialog>
         </Box>
+        </>
     );
 }
