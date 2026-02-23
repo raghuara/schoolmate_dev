@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Typography, Grid, Card, CardContent, Divider, IconButton, Chip } from '@mui/material';
+import { Box, Typography, Grid, Card, CardContent, Divider, IconButton, Chip, Button } from '@mui/material';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
@@ -21,7 +21,7 @@ const payrollModules = [
         color: "#8600BB",
         icon: AssignmentIcon,
         text: "Create Salary Structures",
-        description: "Configure salary components, create grades, and define earnings and deduction rules for different employee categories.",
+        description: "Configure salary components and define earnings and deduction rules for different employee categories and salary grades.",
         bgColor: "#f9f4fc",
         iconBgColor: "#8600BB1A",
         path: "salary-structures",
@@ -31,7 +31,7 @@ const payrollModules = [
         color: "#2563EB",
         icon: AccountBalanceIcon,
         text: "Auto-Deductions & Compliance",
-        description: "Manage statutory compliance settings for PF, ESI, Professional Tax (PT), and TDS auto-deductions.",
+        description: "Manage statutory deductions including Provident Fund (PF), ESI, Professional Tax (PT), and TDS settings for payroll compliance.",
         bgColor: "#EFF6FF",
         iconBgColor: "#2563EB1A",
         path: "compliance",
@@ -40,8 +40,8 @@ const payrollModules = [
     {
         color: "#00ACC1",
         icon: ReceiptLongIcon,
-        text: "Bank Transfer & Reports",
-        description: "Generate bank transfer advice files and download mandatory government reports (EPF, ESI Challans).",
+        text: "Bank Details",
+        description: "Manage employee bank account details used for salary disbursement and maintain records for payroll processing.",
         bgColor: "#E0F7FA",
         iconBgColor: "#00ACC11A",
         path: "bank-reports",
@@ -51,7 +51,7 @@ const payrollModules = [
         color: "#E30053",
         icon: DescriptionIcon,
         text: "Audit-ready Salary Register",
-        description: "Access historical salary records, track changes, and generate comprehensive audit-ready salary registers.",
+        description: "View and export detailed salary breakdowns per employee including earnings, deductions, and net pay for each month.",
         bgColor: "#FCF8F9",
         iconBgColor: "#fbebf1",
         path: "salary-register",
@@ -60,23 +60,23 @@ const payrollModules = [
     {
         color: "#FF9800",
         icon: TaskAltIcon,
-        text: "Approve Payroll & Payslips",
-        description: "Review final payroll data, approve salaries for disbursement, and generate monthly payslips for all employees.",
+        text: "Download Payslips",
+        description: "View monthly payroll summaries and download professional payslips for individual employees across custom date ranges.",
         bgColor: "#FFF4E6",
         iconBgColor: "#FF98001A",
         path: "approve-payroll",
         disabled: false,
     },
-    // {
-    //     color: "#059669",
-    //     icon: BeachAccessIcon,
-    //     text: "Leave Policy",
-    //     description: "Configure leave types (Sick Leave, Casual Leave, Privilege Leave, etc.), annual entitlements, carry-forward rules, and salary impact for all staff categories.",
-    //     bgColor: "#ECFDF5",
-    //     iconBgColor: "#0596691A",
-    //     path: "leave-policy",
-    //     disabled: false,
-    // },
+    {
+        color: "#059669",
+        icon: BeachAccessIcon,
+        text: "Leave Policy",
+        description: "Create and manage leave types with monthly accrual rates, color tags, and encashment rules for untaken leave days.",
+        bgColor: "#ECFDF5",
+        iconBgColor: "#0596691A",
+        path: "leave-policy",
+        disabled: false,
+    },
 ];
 
 export default function PayrollOverview({ isEmbedded = false, onBack }) {
@@ -155,11 +155,22 @@ export default function PayrollOverview({ isEmbedded = false, onBack }) {
                         Payroll Management
                     </Typography>
                 </Box>
-                <Chip
-                    icon={<CalendarTodayIcon />}
-                    label={`${new Date().toLocaleString('default', { month: 'long' })} ${new Date().getFullYear()}`}
-                    sx={{ fontWeight: 600 }}
-                />
+               {/* <Button
+                    variant="contained"
+                    startIcon={<TaskAltIcon />}
+                    onClick={() => navigate('approve-payroll')}
+                    sx={{
+                        textTransform: 'none',
+                        bgcolor: '#FF9800',
+                        fontWeight: 700,
+                        fontSize: '13px',
+                        borderRadius: '10px',
+                        px: 2.5,
+                        '&:hover': { bgcolor: '#F57C00' },
+                    }}
+                >
+                    Approve Payroll
+                </Button> */}
             </Box>
 
             <Divider sx={{ mb: 2 }} />

@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import {
     Box, Typography, Button, Grid, IconButton, Divider,
-    Card, CardContent, Chip, Dialog, DialogTitle, DialogContent, DialogActions,
-    TextField, MenuItem, Switch, FormControlLabel, FormControl,
-    InputLabel, Select, Checkbox, ListItemText, OutlinedInput,
+    Card, CardContent, Dialog, DialogTitle, DialogContent, DialogActions,
+    TextField, Switch,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AddIcon from '@mui/icons-material/Add';
@@ -11,16 +10,14 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import BeachAccessIcon from '@mui/icons-material/BeachAccess';
+import MonetizationOnIcon from '@mui/icons-material/MonetizationOn';
 import { useNavigate } from 'react-router-dom';
 import SnackBar from '../../SnackBar';
 
-const PRIMARY = '#059669';
+const PRIMARY      = '#059669';
 const PRIMARY_LIGHT = '#ECFDF5';
-const PRIMARY_DARK = '#047857';
-const CARD_RADIUS = '12px';
-
-const STAFF_CATEGORIES = ['All Staff', 'Teaching Staff', 'Non-Teaching Staff', 'Supporting Staff', 'Admin Staff'];
-const RESET_PERIODS = ['Monthly', 'Quarterly', 'Yearly'];
+const PRIMARY_DARK  = '#047857';
+const CARD_RADIUS   = '12px';
 
 const LEAVE_COLORS = [
     '#3B82F6', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4',
@@ -28,18 +25,14 @@ const LEAVE_COLORS = [
 ];
 
 // Default leave policies — replace with API data in production
+// encashUnused: if leave is NOT taken in the month, those days are added to salary
 const defaultPolicies = [
     {
         id: 1,
         name: 'Casual Leave',
         shortCode: 'CL',
-        daysPerYear: 12,
-        isPaid: true,
-        carryForward: false,
-        carryForwardLimit: 0,
-        applicableTo: ['All Staff'],
-        affectsLOP: true,
-        resetPeriod: 'Yearly',
+        daysPerMonth: 1,
+        encashUnused: false,
         color: '#3B82F6',
         description: 'For personal work and casual / urgent purposes',
     },
@@ -47,13 +40,8 @@ const defaultPolicies = [
         id: 2,
         name: 'Sick Leave',
         shortCode: 'SL',
-        daysPerYear: 12,
-        isPaid: true,
-        carryForward: false,
-        carryForwardLimit: 0,
-        applicableTo: ['All Staff'],
-        affectsLOP: false,
-        resetPeriod: 'Yearly',
+        daysPerMonth: 1,
+        encashUnused: false,
         color: '#EF4444',
         description: 'For medical reasons and health-related absences',
     },
@@ -61,13 +49,8 @@ const defaultPolicies = [
         id: 3,
         name: 'Privilege Leave',
         shortCode: 'PL',
-        daysPerYear: 15,
-        isPaid: true,
-        carryForward: true,
-        carryForwardLimit: 30,
-        applicableTo: ['Teaching Staff', 'Admin Staff'],
-        affectsLOP: true,
-        resetPeriod: 'Yearly',
+        daysPerMonth: 1.25,
+        encashUnused: true,
         color: '#8B5CF6',
         description: 'Earned leave accrued based on length of service',
     },
@@ -75,13 +58,8 @@ const defaultPolicies = [
         id: 4,
         name: 'Maternity Leave',
         shortCode: 'ML',
-        daysPerYear: 182,
-        isPaid: true,
-        carryForward: false,
-        carryForwardLimit: 0,
-        applicableTo: ['Teaching Staff', 'Non-Teaching Staff', 'Supporting Staff', 'Admin Staff'],
-        affectsLOP: false,
-        resetPeriod: 'Yearly',
+        daysPerMonth: 0,
+        encashUnused: false,
         color: '#EC4899',
         description: 'For female employees during the period of maternity',
     },
@@ -89,13 +67,8 @@ const defaultPolicies = [
         id: 5,
         name: 'Paternity Leave',
         shortCode: 'PtL',
-        daysPerYear: 15,
-        isPaid: true,
-        carryForward: false,
-        carryForwardLimit: 0,
-        applicableTo: ['All Staff'],
-        affectsLOP: false,
-        resetPeriod: 'Yearly',
+        daysPerMonth: 0,
+        encashUnused: false,
         color: '#06B6D4',
         description: 'For male employees on the birth / adoption of a child',
     },
@@ -103,13 +76,8 @@ const defaultPolicies = [
         id: 6,
         name: 'Leave Without Pay',
         shortCode: 'LWP',
-        daysPerYear: 0,
-        isPaid: false,
-        carryForward: false,
-        carryForwardLimit: 0,
-        applicableTo: ['All Staff'],
-        affectsLOP: true,
-        resetPeriod: 'Yearly',
+        daysPerMonth: 0,
+        encashUnused: false,
         color: '#6B7280',
         description: 'Unpaid leave sanctioned when all paid leaves are exhausted',
     },
@@ -118,43 +86,34 @@ const defaultPolicies = [
 const emptyForm = {
     name: '',
     shortCode: '',
-    daysPerYear: 12,
-    isPaid: true,
-    carryForward: false,
-    carryForwardLimit: 0,
-    applicableTo: ['All Staff'],
-    affectsLOP: true,
-    resetPeriod: 'Yearly',
+    daysPerMonth: 1,
+    encashUnused: false,
     color: '#3B82F6',
     description: '',
 };
 
 export default function LeavePolicy() {
     const navigate = useNavigate();
-    const [policies, setPolicies] = useState(defaultPolicies);
-    const [dialogOpen, setDialogOpen] = useState(false);
+    const [policies, setPolicies]               = useState(defaultPolicies);
+    const [dialogOpen, setDialogOpen]           = useState(false);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-    const [editingPolicy, setEditingPolicy] = useState(null);
-    const [form, setForm] = useState(emptyForm);
-    const [deleteTarget, setDeleteTarget] = useState(null);
+    const [editingPolicy, setEditingPolicy]     = useState(null);
+    const [form, setForm]                       = useState(emptyForm);
+    const [deleteTarget, setDeleteTarget]       = useState(null);
 
     // SnackBar state
-    const [open, setOpen] = useState(false);
-    const [status, setStatus] = useState(false);
-    const [color, setColor] = useState(false);
+    const [open, setOpen]       = useState(false);
+    const [status, setStatus]   = useState(false);
+    const [color, setColor]     = useState(false);
     const [message, setMessage] = useState('');
-
     const showSnack = (msg, success) => {
         setMessage(msg); setOpen(true); setColor(success); setStatus(success);
     };
 
     // KPI derivations
-    const paidCount = policies.filter(p => p.isPaid).length;
-    const unpaidCount = policies.filter(p => !p.isPaid).length;
-    const carryForwardCount = policies.filter(p => p.carryForward).length;
-    const totalPaidDays = policies
-        .filter(p => p.isPaid && p.daysPerYear > 0)
-        .reduce((s, p) => s + p.daysPerYear, 0);
+    const totalDays      = policies.reduce((s, p) => s + (p.daysPerMonth || 0), 0);
+    const unlimitedCount = policies.filter(p => p.daysPerMonth === 0).length;
+    const encashCount    = policies.filter(p => p.encashUnused).length;
 
     const handleAdd = () => {
         setEditingPolicy(null);
@@ -183,10 +142,6 @@ export default function LeavePolicy() {
     const handleSave = () => {
         if (!form.name.trim() || !form.shortCode.trim()) {
             showSnack('Leave type name and short code are required.', false);
-            return;
-        }
-        if (form.applicableTo.length === 0) {
-            showSnack('Please select at least one applicable staff category.', false);
             return;
         }
         if (editingPolicy) {
@@ -227,7 +182,7 @@ export default function LeavePolicy() {
                                 Leave Policy Management
                             </Typography>
                             <Typography sx={{ fontSize: '12px', color: '#94A3B8', mt: 0.3 }}>
-                                Configure leave types, entitlements and salary-impact rules for all staff
+                                Configure leave types and entitlements for all staff
                             </Typography>
                         </Box>
                     </Box>
@@ -251,10 +206,10 @@ export default function LeavePolicy() {
                     {/* ── KPI Cards ── */}
                     <Grid container spacing={2} sx={{ mb: 2.5 }}>
                         {[
-                            { label: 'Total Leave Types', value: policies.length, color: PRIMARY, bg: PRIMARY_LIGHT },
-                            { label: 'Total Paid Leave Days', value: `${totalPaidDays}d`, color: '#2563EB', bg: '#EFF6FF' },
-                            { label: 'Carry-forward Types', value: carryForwardCount, color: '#F59E0B', bg: '#FFFBEB' },
-                            { label: 'Unpaid Leave Types', value: unpaidCount, color: '#6B7280', bg: '#F9FAFB' },
+                            { label: 'Total Leave Types',     value: policies.length, color: PRIMARY,   bg: PRIMARY_LIGHT },
+                            { label: 'Total Days / Month',    value: `${totalDays}d`, color: '#2563EB', bg: '#EFF6FF'     },
+                            { label: 'On-demand / Unlimited', value: unlimitedCount,  color: '#F59E0B', bg: '#FFFBEB'     },
+                            { label: 'Encashable Leave Types',value: encashCount,     color: '#7C3AED', bg: '#F5F3FF'     },
                         ].map((card, i) => (
                             <Grid key={i} size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
                                 <Card sx={{
@@ -274,24 +229,18 @@ export default function LeavePolicy() {
                         ))}
                     </Grid>
 
-                    {/* ── Salary Impact Info Banner ── */}
+                    {/* ── Info Banner ── */}
                     <Box sx={{
                         mb: 2.5, p: 2, borderRadius: '10px',
                         bgcolor: '#FFFBEB', border: '1px solid #FDE68A',
                         display: 'flex', alignItems: 'flex-start', gap: 1.5,
                     }}>
                         <InfoOutlinedIcon sx={{ fontSize: 18, color: '#F59E0B', mt: 0.2, flexShrink: 0 }} />
-                        <Box>
-                            <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#92400E', mb: 0.4 }}>
-                                How leave types affect salary calculation
-                            </Typography>
-                            <Typography sx={{ fontSize: 11.5, color: '#78350F', lineHeight: 1.6 }}>
-                                <strong>Paid leave (within quota)</strong> — No salary deduction.&nbsp;
-                                <strong>Excess paid leave with "Excess = LOP"</strong> — Deducted as Loss of Pay.&nbsp;
-                                <strong>Unpaid leave (LWP)</strong> — Always deducted as LOP.&nbsp;
-                                LOP deduction formula: <em>(LOP days ÷ Working days) × Gross Salary</em>.
-                            </Typography>
-                        </Box>
+                        <Typography sx={{ fontSize: 11.5, color: '#78350F', lineHeight: 1.7 }}>
+                            <strong>Days Per Month</strong> — defines the monthly accrual rate. Set to <strong>0</strong> for on-demand leaves (e.g. Maternity, LWP).&nbsp;
+                            <strong>Encash Untaken Days</strong> — if enabled and a staff member does not take their allocated leave in a month, those unused days are credited to their salary.
+                            Formula: <em>(Untaken days ÷ Working days) × Gross Monthly Salary</em>. This value appears as a separate line in the Salary Register.
+                        </Typography>
                     </Box>
 
                     {/* ── Leave Policy Cards ── */}
@@ -320,20 +269,9 @@ export default function LeavePolicy() {
                                                         {policy.shortCode}
                                                     </Typography>
                                                 </Box>
-                                                <Box>
-                                                    <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#1a1a1a', lineHeight: 1.3 }}>
-                                                        {policy.name}
-                                                    </Typography>
-                                                    <Chip
-                                                        label={policy.isPaid ? 'Paid' : 'Unpaid'}
-                                                        size="small"
-                                                        sx={{
-                                                            fontSize: 10, fontWeight: 700, height: 18, mt: 0.4,
-                                                            bgcolor: policy.isPaid ? '#ECFDF5' : '#F9FAFB',
-                                                            color: policy.isPaid ? '#059669' : '#6B7280',
-                                                        }}
-                                                    />
-                                                </Box>
+                                                <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#1a1a1a', lineHeight: 1.3 }}>
+                                                    {policy.name}
+                                                </Typography>
                                             </Box>
                                             <Box sx={{ display: 'flex', gap: 0.3, flexShrink: 0 }}>
                                                 <IconButton
@@ -361,54 +299,41 @@ export default function LeavePolicy() {
 
                                         <Divider sx={{ my: 1.5 }} />
 
-                                        {/* Stats Grid */}
-                                        <Grid container spacing={1}>
-                                            <Grid size={{ xs: 6 }}>
-                                                <Typography sx={{ fontSize: 10, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.4px', mb: 0.3 }}>
-                                                    Days / Year
+                                        {/* Days Per Month + Encash row */}
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                                            <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
+                                                <Typography sx={{ fontSize: 26, fontWeight: 800, color: policy.color, lineHeight: 1 }}>
+                                                    {policy.daysPerMonth === 0 ? '∞' : policy.daysPerMonth}
                                                 </Typography>
-                                                <Typography sx={{ fontSize: 18, fontWeight: 800, color: policy.color }}>
-                                                    {policy.daysPerYear === 0 ? '∞' : policy.daysPerYear}
+                                                <Typography sx={{ fontSize: 11, color: '#94A3B8', fontWeight: 600 }}>
+                                                    {policy.daysPerMonth === 0 ? 'on-demand' : 'days / month'}
                                                 </Typography>
-                                            </Grid>
-                                            <Grid size={{ xs: 6 }}>
-                                                <Typography sx={{ fontSize: 10, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.4px', mb: 0.3 }}>
-                                                    Reset Period
-                                                </Typography>
-                                                <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>
-                                                    {policy.resetPeriod}
-                                                </Typography>
-                                            </Grid>
-                                            <Grid size={{ xs: 6 }}>
-                                                <Typography sx={{ fontSize: 10, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.4px', mb: 0.3 }}>
-                                                    Carry Forward
-                                                </Typography>
-                                                <Typography sx={{ fontSize: 13, fontWeight: 600, color: policy.carryForward ? '#059669' : '#DC2626' }}>
-                                                    {policy.carryForward ? `Yes (max ${policy.carryForwardLimit}d)` : 'No'}
-                                                </Typography>
-                                            </Grid>
-                                            <Grid size={{ xs: 6 }}>
-                                                <Typography sx={{ fontSize: 10, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.4px', mb: 0.3 }}>
-                                                    Excess = LOP
-                                                </Typography>
-                                                <Typography sx={{ fontSize: 13, fontWeight: 600, color: policy.affectsLOP ? '#F59E0B' : '#94A3B8' }}>
-                                                    {policy.affectsLOP ? 'Yes' : 'No'}
-                                                </Typography>
-                                            </Grid>
-                                        </Grid>
+                                            </Box>
 
-                                        <Divider sx={{ my: 1.5 }} />
+                                            {/* Encash Untaken badge */}
+                                            <Box sx={{
+                                                display: 'flex', alignItems: 'center', gap: 0.5,
+                                                px: 1, py: 0.4, borderRadius: '6px',
+                                                bgcolor: policy.encashUnused ? '#F5F3FF' : '#F9FAFB',
+                                                border: `1px solid ${policy.encashUnused ? '#DDD6FE' : '#E5E7EB'}`,
+                                            }}>
+                                                <MonetizationOnIcon sx={{
+                                                    fontSize: 13,
+                                                    color: policy.encashUnused ? '#7C3AED' : '#D1D5DB',
+                                                }} />
+                                                <Typography sx={{
+                                                    fontSize: 10, fontWeight: 700,
+                                                    color: policy.encashUnused ? '#7C3AED' : '#9CA3AF',
+                                                }}>
+                                                    {policy.encashUnused ? 'Encashable' : 'No Encash'}
+                                                </Typography>
+                                            </Box>
+                                        </Box>
 
-                                        {/* Applicable to chips */}
-                                        <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                                            {policy.applicableTo.map(cat => (
-                                                <Chip
-                                                    key={cat}
-                                                    label={cat}
-                                                    size="small"
-                                                    sx={{ fontSize: 10, height: 20, bgcolor: '#F1F5F9', color: '#64748B', fontWeight: 600 }}
-                                                />
-                                            ))}
+                                        {/* Color dot */}
+                                        <Box sx={{ mt: 1.5, display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                                            <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: policy.color, flexShrink: 0 }} />
+                                            <Typography sx={{ fontSize: 11, color: '#94A3B8' }}>Color tag</Typography>
                                         </Box>
                                     </CardContent>
                                 </Card>
@@ -466,51 +391,55 @@ export default function LeavePolicy() {
                             />
                         </Grid>
 
-                        {/* Days + Reset */}
+                        {/* Days Per Month */}
                         <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
                             <TextField
                                 fullWidth
-                                label="Days Per Year *"
+                                label="Days Per Month *"
                                 type="number"
-                                value={form.daysPerYear}
-                                onChange={e => ff('daysPerYear', Math.max(0, parseInt(e.target.value) || 0))}
+                                value={form.daysPerMonth}
+                                onChange={e => ff('daysPerMonth', Math.max(0, parseFloat(e.target.value) || 0))}
                                 size="small"
                                 helperText="Set 0 for unlimited / on-demand"
-                                inputProps={{ min: 0 }}
+                                inputProps={{ min: 0, step: 0.25 }}
                             />
                         </Grid>
-                        <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
-                            <TextField
-                                fullWidth
-                                select
-                                label="Reset Period"
-                                value={form.resetPeriod}
-                                onChange={e => ff('resetPeriod', e.target.value)}
-                                size="small"
-                            >
-                                {RESET_PERIODS.map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
-                            </TextField>
-                        </Grid>
 
-                        {/* Applicable to — multi-select */}
+                        {/* Encash Untaken Days toggle */}
                         <Grid size={{ xs: 12, sm: 12, md: 12, lg: 12 }}>
-                            <FormControl fullWidth size="small">
-                                <InputLabel>Applicable To</InputLabel>
-                                <Select
-                                    multiple
-                                    value={form.applicableTo}
-                                    onChange={e => ff('applicableTo', typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value)}
-                                    input={<OutlinedInput label="Applicable To" />}
-                                    renderValue={selected => selected.join(', ')}
-                                >
-                                    {STAFF_CATEGORIES.map(cat => (
-                                        <MenuItem key={cat} value={cat}>
-                                            <Checkbox checked={form.applicableTo.includes(cat)} size="small" />
-                                            <ListItemText primary={cat} primaryTypographyProps={{ fontSize: 13 }} />
-                                        </MenuItem>
-                                    ))}
-                                </Select>
-                            </FormControl>
+                            <Box sx={{
+                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                p: 1.5, border: `1.5px solid ${form.encashUnused ? '#DDD6FE' : '#E2E8F0'}`,
+                                borderRadius: '10px',
+                                bgcolor: form.encashUnused ? '#F5F3FF' : '#F8FAFC',
+                                transition: '0.2s',
+                            }}>
+                                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.2 }}>
+                                    <MonetizationOnIcon sx={{
+                                        fontSize: 20, mt: 0.2, flexShrink: 0,
+                                        color: form.encashUnused ? '#7C3AED' : '#94A3B8',
+                                    }} />
+                                    <Box>
+                                        <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#1a1a1a' }}>
+                                            Encash Untaken Days
+                                        </Typography>
+                                        <Typography sx={{ fontSize: 11, color: '#64748B', mt: 0.2, lineHeight: 1.5 }}>
+                                            {form.encashUnused
+                                                ? 'Untaken days will be added to salary — formula: (Untaken days ÷ Working days) × Gross Salary'
+                                                : 'Untaken days will lapse at the end of the month — not added to salary'}
+                                        </Typography>
+                                    </Box>
+                                </Box>
+                                <Switch
+                                    checked={form.encashUnused}
+                                    onChange={e => ff('encashUnused', e.target.checked)}
+                                    sx={{
+                                        flexShrink: 0,
+                                        '& .MuiSwitch-switchBase.Mui-checked': { color: '#7C3AED' },
+                                        '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#7C3AED' },
+                                    }}
+                                />
+                            </Box>
                         </Grid>
 
                         {/* Color picker */}
@@ -547,75 +476,6 @@ export default function LeavePolicy() {
                                 placeholder="Brief description of when this leave applies"
                             />
                         </Grid>
-
-                        {/* Toggle row */}
-                        <Grid size={{ xs: 12, sm: 12, md: 12, lg: 12 }}>
-                            <Box sx={{
-                                display: 'flex', gap: 2, flexWrap: 'wrap',
-                                p: 1.5, borderRadius: '10px', bgcolor: '#F8FAFC', border: '1px solid #E2E8F0',
-                            }}>
-                                <FormControlLabel
-                                    control={
-                                        <Switch
-                                            checked={form.isPaid}
-                                            onChange={e => ff('isPaid', e.target.checked)}
-                                            color="success"
-                                            size="small"
-                                        />
-                                    }
-                                    label={
-                                        <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>
-                                            Paid Leave
-                                        </Typography>
-                                    }
-                                />
-                                <FormControlLabel
-                                    control={
-                                        <Switch
-                                            checked={form.carryForward}
-                                            onChange={e => ff('carryForward', e.target.checked)}
-                                            size="small"
-                                        />
-                                    }
-                                    label={
-                                        <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>
-                                            Carry Forward
-                                        </Typography>
-                                    }
-                                />
-                                <FormControlLabel
-                                    control={
-                                        <Switch
-                                            checked={form.affectsLOP}
-                                            onChange={e => ff('affectsLOP', e.target.checked)}
-                                            color="warning"
-                                            size="small"
-                                        />
-                                    }
-                                    label={
-                                        <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>
-                                            Excess = LOP
-                                        </Typography>
-                                    }
-                                />
-                            </Box>
-                        </Grid>
-
-                        {/* Carry-forward limit — only shown when carryForward is on */}
-                        {form.carryForward && (
-                            <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
-                                <TextField
-                                    fullWidth
-                                    label="Max Carry-forward Days"
-                                    type="number"
-                                    value={form.carryForwardLimit}
-                                    onChange={e => ff('carryForwardLimit', Math.max(0, parseInt(e.target.value) || 0))}
-                                    size="small"
-                                    inputProps={{ min: 0 }}
-                                    helperText="Maximum days that can be carried to next period"
-                                />
-                            </Grid>
-                        )}
                     </Grid>
                 </DialogContent>
 

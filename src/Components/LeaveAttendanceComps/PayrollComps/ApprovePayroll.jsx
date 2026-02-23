@@ -490,82 +490,87 @@ export default function ApprovePayroll() {
                 onClose={handleCloseDialog}
                 maxWidth="md"
                 fullWidth
-                PaperProps={{ sx: { borderRadius: '16px', maxHeight: '95vh' } }}
+                PaperProps={{ sx: { borderRadius: '4px', maxHeight: '95vh', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' } }}
             >
-                <DialogTitle sx={{ bgcolor: '#F8FAFC', borderBottom: '2px solid #E2E8F0', py: 1.5, px: 2.5 }} className="print-hide">
+                {/* ── Dialog toolbar ── */}
+                <DialogTitle sx={{ bgcolor: '#fff', borderBottom: '1px solid #E5E7EB', py: 1.5, px: 2.5 }} className="print-hide">
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <Box>
-                            <Typography sx={{ fontSize: 15, fontWeight: 700, color: '#1a1a1a' }}>
+                            <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>
                                 {selectedEmployee?.name} — Payslip
                             </Typography>
-                            <Typography sx={{ fontSize: 11, color: '#94A3B8' }}>Period: {periodLabel}</Typography>
+                            <Typography sx={{ fontSize: 11, color: '#6B7280' }}>Period: {periodLabel}</Typography>
                         </Box>
-                        <IconButton onClick={handleCloseDialog} size="small"><CloseIcon /></IconButton>
+                        <IconButton onClick={handleCloseDialog} size="small" sx={{ color: '#6B7280' }}>
+                            <CloseIcon sx={{ fontSize: 18 }} />
+                        </IconButton>
                     </Box>
                 </DialogTitle>
 
                 <DialogContent sx={{ p: 0, overflow: 'auto', bgcolor: '#fff' }}>
                     {selectedEmployee && monthlyData.length > 0 && (
-                        <Box id="payslip-print-content" sx={{ p: 3, bgcolor: '#fff' }}>
+                        <Box id="payslip-print-content" sx={{ p: 3.5, bgcolor: '#fff' }}>
 
                             {/* ── Company Header ── */}
                             <Box sx={{
                                 display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
-                                pb: 2.5, mb: 2.5, borderBottom: `3px solid ${PRIMARY}`,
+                                pb: 2.5, mb: 2.5, borderBottom: '2px solid #111827',
                             }}>
                                 <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
                                     <Box sx={{
-                                        width: 64, height: 64, borderRadius: '12px', flexShrink: 0,
-                                        bgcolor: PRIMARY_LIGHT, border: `2px solid ${PRIMARY}`,
+                                        width: 56, height: 56, borderRadius: '4px', flexShrink: 0,
+                                        bgcolor: '#F3F4F6', border: '1.5px solid #D1D5DB',
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                                     }}>
-                                        <BusinessIcon sx={{ fontSize: 32, color: PRIMARY }} />
+                                        <BusinessIcon sx={{ fontSize: 28, color: '#374151' }} />
                                     </Box>
                                     <Box>
-                                        <Typography sx={{ fontSize: 19, fontWeight: 800, color: '#1a1a1a', lineHeight: 1.2 }}>
+                                        <Typography sx={{ fontSize: 18, fontWeight: 800, color: '#111827', lineHeight: 1.2 }}>
                                             {companyInfo.name}
                                         </Typography>
-                                        <Typography sx={{ fontSize: 11, color: '#64748B', mt: 0.5 }}>
+                                        <Typography sx={{ fontSize: 10.5, color: '#6B7280', mt: 0.4 }}>
                                             {companyInfo.address}
                                         </Typography>
-                                        <Typography sx={{ fontSize: 11, color: '#64748B', mt: 0.3 }}>
+                                        <Typography sx={{ fontSize: 10.5, color: '#6B7280', mt: 0.2 }}>
                                             Ph: {companyInfo.contact} &nbsp;|&nbsp; Email: {companyInfo.email}
                                         </Typography>
-                                        <Box sx={{ display: 'flex', gap: 2.5, mt: 0.5 }}>
-                                            <Typography sx={{ fontSize: 10.5, color: '#94A3B8' }}>
-                                                PF Reg No:&nbsp;<Box component="span" sx={{ fontWeight: 700, color: '#64748B' }}>{companyInfo.pfRegNo}</Box>
+                                        <Box sx={{ display: 'flex', gap: 2.5, mt: 0.3 }}>
+                                            <Typography sx={{ fontSize: 10, color: '#9CA3AF' }}>
+                                                PF Reg No:&nbsp;<Box component="span" sx={{ fontWeight: 700, color: '#6B7280' }}>{companyInfo.pfRegNo}</Box>
                                             </Typography>
-                                            <Typography sx={{ fontSize: 10.5, color: '#94A3B8' }}>
-                                                ESI Reg No:&nbsp;<Box component="span" sx={{ fontWeight: 700, color: '#64748B' }}>{companyInfo.esiRegNo}</Box>
+                                            <Typography sx={{ fontSize: 10, color: '#9CA3AF' }}>
+                                                ESI Reg No:&nbsp;<Box component="span" sx={{ fontWeight: 700, color: '#6B7280' }}>{companyInfo.esiRegNo}</Box>
                                             </Typography>
                                         </Box>
                                     </Box>
                                 </Box>
 
-                                {/* Payslip title badge */}
+                                {/* SALARY SLIP badge */}
                                 <Box sx={{
                                     flexShrink: 0, textAlign: 'center',
-                                    border: `2px solid ${PRIMARY}`, borderRadius: '10px',
-                                    px: 2.5, py: 1.5, bgcolor: PRIMARY_LIGHT,
+                                    border: '1.5px solid #374151', borderRadius: '4px',
+                                    px: 2.5, py: 1.5, bgcolor: '#fff',
                                 }}>
-                                    <Typography sx={{ fontSize: 13, fontWeight: 900, color: PRIMARY_DARK, letterSpacing: '1px' }}>
+                                    <Typography sx={{ fontSize: 12, fontWeight: 900, color: '#111827', letterSpacing: '1.5px' }}>
                                         SALARY SLIP
                                     </Typography>
-                                    <Divider sx={{ my: 0.8, borderColor: `${PRIMARY}50` }} />
+                                    <Divider sx={{ my: 0.8, borderColor: '#D1D5DB' }} />
                                     <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#1a1a1a' }}>
                                         {periodLabel}
                                     </Typography>
-                                    <Typography sx={{ fontSize: 9.5, color: '#94A3B8', mt: 0.4 }}>
+                                    <Typography sx={{ fontSize: 9.5, color: '#9CA3AF', mt: 0.4 }}>
                                         Generated: {new Date().toLocaleDateString('en-IN')}
                                     </Typography>
                                 </Box>
                             </Box>
 
                             {/* ── Employee Information ── */}
-                            <Box sx={{ mb: 2.5, border: '1px solid #E2E8F0', borderRadius: '10px', overflow: 'hidden' }}>
-                                <Box sx={{ px: 2, py: 1, bgcolor: '#F8FAFC', borderBottom: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    <BadgeIcon sx={{ fontSize: 15, color: PRIMARY }} />
-                                    <Typography sx={{ fontSize: 12, fontWeight: 700, color: PRIMARY }}>Employee Information</Typography>
+                            <Box sx={{ mb: 2.5, border: '1px solid #D1D5DB', borderRadius: '4px', overflow: 'hidden' }}>
+                                <Box sx={{ px: 2, py: 1, bgcolor: '#F3F4F6', borderBottom: '1px solid #D1D5DB', display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <BadgeIcon sx={{ fontSize: 14, color: '#374151' }} />
+                                    <Typography sx={{ fontSize: 10, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.7px' }}>
+                                        Employee Information
+                                    </Typography>
                                 </Box>
                                 <Box sx={{ p: 2 }}>
                                     <Grid container spacing={1.5}>
@@ -582,8 +587,10 @@ export default function ApprovePayroll() {
                                             ['ESI IP Number', selectedEmployee.esiNumber],
                                         ].map(([label, value], i) => (
                                             <Grid key={i} size={{ xs: 6, sm: 4, md: 4, lg: 4 }}>
-                                                <Typography sx={{ fontSize: 9.5, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{label}</Typography>
-                                                <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#1a1a1a', mt: 0.2 }}>{value}</Typography>
+                                                <Typography sx={{ fontSize: 9, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 }}>
+                                                    {label}
+                                                </Typography>
+                                                <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#111827', mt: 0.2 }}>{value}</Typography>
                                             </Grid>
                                         ))}
                                     </Grid>
@@ -594,26 +601,26 @@ export default function ApprovePayroll() {
                             {duration === 1 && monthlyData.length === 1 ? (
                                 <>
                                     {/* Attendance strip */}
-                                    <Box sx={{ mb: 2.5, border: '1px solid #E2E8F0', borderRadius: '10px', overflow: 'hidden' }}>
-                                        <Box sx={{ px: 2, py: 1, bgcolor: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
-                                            <Typography sx={{ fontSize: 12, fontWeight: 700, color: PRIMARY }}>
+                                    <Box sx={{ mb: 2.5, border: '1px solid #D1D5DB', borderRadius: '4px', overflow: 'hidden' }}>
+                                        <Box sx={{ px: 2, py: 1, bgcolor: '#F3F4F6', borderBottom: '1px solid #D1D5DB' }}>
+                                            <Typography sx={{ fontSize: 10, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.7px' }}>
                                                 Attendance — {monthlyData[0].fullLabel}
                                             </Typography>
                                         </Box>
                                         <Box sx={{ display: 'flex' }}>
                                             {[
-                                                { label: 'Working Days', value: monthlyData[0].workingDays, color: '#64748B' },
-                                                { label: 'Present Days', value: monthlyData[0].paidDays, color: '#10B981' },
-                                                { label: 'Absent Days', value: monthlyData[0].absent, color: '#F59E0B' },
-                                                { label: 'LOP Days', value: monthlyData[0].lop, color: '#EF4444' },
-                                                { label: 'Paid Holidays', value: monthlyData[0].holidays, color: '#3B82F6' },
+                                                { label: 'Working Days',  value: monthlyData[0].workingDays },
+                                                { label: 'Present Days',  value: monthlyData[0].paidDays    },
+                                                { label: 'Absent Days',   value: monthlyData[0].absent      },
+                                                { label: 'LOP Days',      value: monthlyData[0].lop         },
+                                                { label: 'Paid Holidays', value: monthlyData[0].holidays    },
                                             ].map((att, i, arr) => (
                                                 <Box key={i} sx={{
-                                                    flex: 1, py: 1.5, textAlign: 'center',
-                                                    borderRight: i < arr.length - 1 ? '1px solid #E2E8F0' : 'none',
+                                                    flex: 1, py: 2, textAlign: 'center',
+                                                    borderRight: i < arr.length - 1 ? '1px solid #E5E7EB' : 'none',
                                                 }}>
-                                                    <Typography sx={{ fontSize: 20, fontWeight: 800, color: att.color }}>{att.value}</Typography>
-                                                    <Typography sx={{ fontSize: 10, color: '#94A3B8', mt: 0.3 }}>{att.label}</Typography>
+                                                    <Typography sx={{ fontSize: 22, fontWeight: 800, color: '#111827' }}>{att.value}</Typography>
+                                                    <Typography sx={{ fontSize: 10, color: '#6B7280', mt: 0.3, fontWeight: 500 }}>{att.label}</Typography>
                                                 </Box>
                                             ))}
                                         </Box>
@@ -623,10 +630,10 @@ export default function ApprovePayroll() {
                                     <Grid container spacing={2} sx={{ mb: 2.5 }}>
                                         {/* Earnings */}
                                         <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
-                                            <Box sx={{ border: '1px solid #E2E8F0', borderRadius: '10px', overflow: 'hidden' }}>
-                                                <Box sx={{ px: 2, py: 1, bgcolor: '#ECFDF5', borderBottom: '1px solid #D1FAE5', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#059669' }}>Earnings</Typography>
-                                                    <Typography sx={{ fontSize: 10, fontWeight: 600, color: '#94A3B8' }}>Amount (₹)</Typography>
+                                            <Box sx={{ border: '1px solid #D1D5DB', borderRadius: '4px', overflow: 'hidden', height: '100%' }}>
+                                                <Box sx={{ px: 2, py: 1.2, bgcolor: '#F3F4F6', borderBottom: '2px solid #374151', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <Typography sx={{ fontSize: 10, fontWeight: 700, color: '#111827', textTransform: 'uppercase', letterSpacing: '0.7px' }}>Earnings</Typography>
+                                                    <Typography sx={{ fontSize: 10, fontWeight: 600, color: '#9CA3AF' }}>Amount (₹)</Typography>
                                                 </Box>
                                                 {[
                                                     ['Basic Salary', monthlyData[0].earnings.basic],
@@ -638,19 +645,19 @@ export default function ApprovePayroll() {
                                                 ].filter(([, v]) => v > 0).map(([label, value], i) => (
                                                     <EarningRow key={i} label={label} value={value} />
                                                 ))}
-                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 2, py: 1, bgcolor: '#ECFDF5', borderTop: '2px solid #10B981' }}>
-                                                    <Typography sx={{ fontSize: 12, fontWeight: 800, color: '#059669' }}>Gross Earnings</Typography>
-                                                    <Typography sx={{ fontSize: 13, fontWeight: 800, color: '#059669' }}>₹{monthlyData[0].grossSalary.toLocaleString()}</Typography>
+                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 2, py: 1.2, bgcolor: '#F3F4F6', borderTop: '2px solid #374151' }}>
+                                                    <Typography sx={{ fontSize: 12, fontWeight: 800, color: '#111827' }}>Gross Earnings</Typography>
+                                                    <Typography sx={{ fontSize: 13, fontWeight: 800, color: '#111827' }}>₹{monthlyData[0].grossSalary.toLocaleString()}</Typography>
                                                 </Box>
                                             </Box>
                                         </Grid>
 
                                         {/* Deductions */}
                                         <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
-                                            <Box sx={{ border: '1px solid #E2E8F0', borderRadius: '10px', overflow: 'hidden' }}>
-                                                <Box sx={{ px: 2, py: 1, bgcolor: '#FEF2F2', borderBottom: '1px solid #FECACA', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#DC2626' }}>Deductions</Typography>
-                                                    <Typography sx={{ fontSize: 10, fontWeight: 600, color: '#94A3B8' }}>Amount (₹)</Typography>
+                                            <Box sx={{ border: '1px solid #D1D5DB', borderRadius: '4px', overflow: 'hidden', height: '100%' }}>
+                                                <Box sx={{ px: 2, py: 1.2, bgcolor: '#F3F4F6', borderBottom: '2px solid #374151', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <Typography sx={{ fontSize: 10, fontWeight: 700, color: '#111827', textTransform: 'uppercase', letterSpacing: '0.7px' }}>Deductions</Typography>
+                                                    <Typography sx={{ fontSize: 10, fontWeight: 600, color: '#9CA3AF' }}>Amount (₹)</Typography>
                                                 </Box>
                                                 {[
                                                     ['Provident Fund (PF @ 12%)', monthlyData[0].deductionDetails.pf],
@@ -661,9 +668,9 @@ export default function ApprovePayroll() {
                                                 ].filter(([, v]) => v > 0).map(([label, value], i) => (
                                                     <EarningRow key={i} label={label} value={value} />
                                                 ))}
-                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 2, py: 1, bgcolor: '#FEF2F2', borderTop: '2px solid #EF4444' }}>
-                                                    <Typography sx={{ fontSize: 12, fontWeight: 800, color: '#DC2626' }}>Total Deductions</Typography>
-                                                    <Typography sx={{ fontSize: 13, fontWeight: 800, color: '#DC2626' }}>₹{monthlyData[0].totalDeductions.toLocaleString()}</Typography>
+                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 2, py: 1.2, bgcolor: '#F3F4F6', borderTop: '2px solid #374151' }}>
+                                                    <Typography sx={{ fontSize: 12, fontWeight: 800, color: '#111827' }}>Total Deductions</Typography>
+                                                    <Typography sx={{ fontSize: 13, fontWeight: 800, color: '#111827' }}>₹{monthlyData[0].totalDeductions.toLocaleString()}</Typography>
                                                 </Box>
                                             </Box>
                                         </Grid>
@@ -673,40 +680,42 @@ export default function ApprovePayroll() {
                                 /* ══ MULTI-MONTH ══ */
                                 <>
                                     {/* Monthly summary table */}
-                                    <Box sx={{ mb: 2.5, border: '1px solid #E2E8F0', borderRadius: '10px', overflow: 'hidden' }}>
-                                        <Box sx={{ px: 2, py: 1, bgcolor: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
-                                            <Typography sx={{ fontSize: 12, fontWeight: 700, color: PRIMARY }}>Monthly Attendance & Salary Summary</Typography>
+                                    <Box sx={{ mb: 2.5, border: '1px solid #D1D5DB', borderRadius: '4px', overflow: 'hidden' }}>
+                                        <Box sx={{ px: 2, py: 1, bgcolor: '#F3F4F6', borderBottom: '2px solid #374151' }}>
+                                            <Typography sx={{ fontSize: 10, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.7px' }}>
+                                                Monthly Attendance & Salary Summary
+                                            </Typography>
                                         </Box>
                                         <Box sx={{ overflowX: 'auto' }}>
                                             <Table size="small">
                                                 <TableHead>
-                                                    <TableRow sx={{ bgcolor: '#FFF4E6' }}>
+                                                    <TableRow sx={{ bgcolor: '#F9FAFB' }}>
                                                         {['Month', 'Working Days', 'Paid Days', 'LOP', 'Absent', 'Holidays', 'Gross (₹)', 'Deductions (₹)', 'Net Pay (₹)'].map(h => (
-                                                            <TableCell key={h} sx={{ fontSize: 11, fontWeight: 700, color: PRIMARY_DARK, py: 1, whiteSpace: 'nowrap' }}>{h}</TableCell>
+                                                            <TableCell key={h} sx={{ fontSize: 10, fontWeight: 700, color: '#374151', py: 1, whiteSpace: 'nowrap', textTransform: 'uppercase', letterSpacing: '0.4px', borderBottom: '1px solid #D1D5DB' }}>{h}</TableCell>
                                                         ))}
                                                     </TableRow>
                                                 </TableHead>
                                                 <TableBody>
                                                     {monthlyData.map((mo, i) => (
-                                                        <TableRow key={i} sx={{ bgcolor: i % 2 === 0 ? '#fff' : '#FAFAFA' }}>
-                                                            <TableCell sx={{ fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}>{mo.fullLabel}</TableCell>
-                                                            <TableCell sx={{ fontSize: 12, textAlign: 'center' }}>{mo.workingDays}</TableCell>
-                                                            <TableCell sx={{ fontSize: 12, textAlign: 'center', color: '#16A34A', fontWeight: 600 }}>{mo.paidDays}</TableCell>
-                                                            <TableCell sx={{ fontSize: 12, textAlign: 'center', color: mo.lop > 0 ? '#DC2626' : '#64748B', fontWeight: mo.lop > 0 ? 700 : 400 }}>{mo.lop}</TableCell>
-                                                            <TableCell sx={{ fontSize: 12, textAlign: 'center', color: mo.absent > 0 ? '#F59E0B' : '#64748B' }}>{mo.absent}</TableCell>
-                                                            <TableCell sx={{ fontSize: 12, textAlign: 'center' }}>{mo.holidays}</TableCell>
-                                                            <TableCell sx={{ fontSize: 12, fontWeight: 600, color: '#16A34A' }}>{mo.grossSalary.toLocaleString()}</TableCell>
-                                                            <TableCell sx={{ fontSize: 12, fontWeight: 600, color: '#DC2626' }}>{mo.totalDeductions.toLocaleString()}</TableCell>
-                                                            <TableCell sx={{ fontSize: 12, fontWeight: 700, color: '#2563EB' }}>{mo.netSalary.toLocaleString()}</TableCell>
+                                                        <TableRow key={i} sx={{ bgcolor: i % 2 === 0 ? '#fff' : '#F9FAFB' }}>
+                                                            <TableCell sx={{ fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', color: '#111827' }}>{mo.fullLabel}</TableCell>
+                                                            <TableCell sx={{ fontSize: 12, textAlign: 'center', color: '#374151' }}>{mo.workingDays}</TableCell>
+                                                            <TableCell sx={{ fontSize: 12, textAlign: 'center', fontWeight: 600, color: '#111827' }}>{mo.paidDays}</TableCell>
+                                                            <TableCell sx={{ fontSize: 12, textAlign: 'center', fontWeight: mo.lop > 0 ? 700 : 400, color: '#374151' }}>{mo.lop}</TableCell>
+                                                            <TableCell sx={{ fontSize: 12, textAlign: 'center', color: '#374151' }}>{mo.absent}</TableCell>
+                                                            <TableCell sx={{ fontSize: 12, textAlign: 'center', color: '#374151' }}>{mo.holidays}</TableCell>
+                                                            <TableCell sx={{ fontSize: 12, fontWeight: 600, color: '#111827' }}>{mo.grossSalary.toLocaleString()}</TableCell>
+                                                            <TableCell sx={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>{mo.totalDeductions.toLocaleString()}</TableCell>
+                                                            <TableCell sx={{ fontSize: 12, fontWeight: 700, color: '#111827' }}>{mo.netSalary.toLocaleString()}</TableCell>
                                                         </TableRow>
                                                     ))}
                                                     {/* Totals row */}
-                                                    <TableRow sx={{ bgcolor: '#FFF4E6', borderTop: `2px solid ${PRIMARY}` }}>
-                                                        <TableCell sx={{ fontSize: 12, fontWeight: 800, color: PRIMARY_DARK }}>TOTAL</TableCell>
+                                                    <TableRow sx={{ bgcolor: '#F3F4F6', borderTop: '2px solid #374151' }}>
+                                                        <TableCell sx={{ fontSize: 12, fontWeight: 800, color: '#111827' }}>TOTAL</TableCell>
                                                         <TableCell /><TableCell /><TableCell /><TableCell /><TableCell />
-                                                        <TableCell sx={{ fontSize: 13, fontWeight: 800, color: '#16A34A' }}>₹{totalGross.toLocaleString()}</TableCell>
-                                                        <TableCell sx={{ fontSize: 13, fontWeight: 800, color: '#DC2626' }}>₹{totalDed.toLocaleString()}</TableCell>
-                                                        <TableCell sx={{ fontSize: 13, fontWeight: 800, color: '#2563EB' }}>₹{totalNet.toLocaleString()}</TableCell>
+                                                        <TableCell sx={{ fontSize: 13, fontWeight: 800, color: '#111827' }}>₹{totalGross.toLocaleString()}</TableCell>
+                                                        <TableCell sx={{ fontSize: 13, fontWeight: 800, color: '#374151' }}>₹{totalDed.toLocaleString()}</TableCell>
+                                                        <TableCell sx={{ fontSize: 13, fontWeight: 800, color: '#111827' }}>₹{totalNet.toLocaleString()}</TableCell>
                                                     </TableRow>
                                                 </TableBody>
                                             </Table>
@@ -716,10 +725,10 @@ export default function ApprovePayroll() {
                                     {/* Aggregated Earnings & Deductions */}
                                     <Grid container spacing={2} sx={{ mb: 2.5 }}>
                                         <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
-                                            <Box sx={{ border: '1px solid #E2E8F0', borderRadius: '10px', overflow: 'hidden' }}>
-                                                <Box sx={{ px: 2, py: 1, bgcolor: '#ECFDF5', borderBottom: '1px solid #D1FAE5', display: 'flex', justifyContent: 'space-between' }}>
-                                                    <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#059669' }}>Earnings (Total)</Typography>
-                                                    <Typography sx={{ fontSize: 10, fontWeight: 600, color: '#94A3B8' }}>Amount (₹)</Typography>
+                                            <Box sx={{ border: '1px solid #D1D5DB', borderRadius: '4px', overflow: 'hidden' }}>
+                                                <Box sx={{ px: 2, py: 1.2, bgcolor: '#F3F4F6', borderBottom: '2px solid #374151', display: 'flex', justifyContent: 'space-between' }}>
+                                                    <Typography sx={{ fontSize: 10, fontWeight: 700, color: '#111827', textTransform: 'uppercase', letterSpacing: '0.7px' }}>Earnings (Total)</Typography>
+                                                    <Typography sx={{ fontSize: 10, fontWeight: 600, color: '#9CA3AF' }}>Amount (₹)</Typography>
                                                 </Box>
                                                 {[
                                                     ['Basic Salary', monthlyData.reduce((s, m) => s + m.earnings.basic, 0)],
@@ -731,18 +740,18 @@ export default function ApprovePayroll() {
                                                 ].filter(([, v]) => v > 0).map(([label, value], i) => (
                                                     <EarningRow key={i} label={label} value={value} />
                                                 ))}
-                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', px: 2, py: 1, bgcolor: '#ECFDF5', borderTop: '2px solid #10B981' }}>
-                                                    <Typography sx={{ fontSize: 12, fontWeight: 800, color: '#059669' }}>Gross Earnings</Typography>
-                                                    <Typography sx={{ fontSize: 13, fontWeight: 800, color: '#059669' }}>₹{totalGross.toLocaleString()}</Typography>
+                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', px: 2, py: 1.2, bgcolor: '#F3F4F6', borderTop: '2px solid #374151' }}>
+                                                    <Typography sx={{ fontSize: 12, fontWeight: 800, color: '#111827' }}>Gross Earnings</Typography>
+                                                    <Typography sx={{ fontSize: 13, fontWeight: 800, color: '#111827' }}>₹{totalGross.toLocaleString()}</Typography>
                                                 </Box>
                                             </Box>
                                         </Grid>
 
                                         <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
-                                            <Box sx={{ border: '1px solid #E2E8F0', borderRadius: '10px', overflow: 'hidden' }}>
-                                                <Box sx={{ px: 2, py: 1, bgcolor: '#FEF2F2', borderBottom: '1px solid #FECACA', display: 'flex', justifyContent: 'space-between' }}>
-                                                    <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#DC2626' }}>Deductions (Total)</Typography>
-                                                    <Typography sx={{ fontSize: 10, fontWeight: 600, color: '#94A3B8' }}>Amount (₹)</Typography>
+                                            <Box sx={{ border: '1px solid #D1D5DB', borderRadius: '4px', overflow: 'hidden' }}>
+                                                <Box sx={{ px: 2, py: 1.2, bgcolor: '#F3F4F6', borderBottom: '2px solid #374151', display: 'flex', justifyContent: 'space-between' }}>
+                                                    <Typography sx={{ fontSize: 10, fontWeight: 700, color: '#111827', textTransform: 'uppercase', letterSpacing: '0.7px' }}>Deductions (Total)</Typography>
+                                                    <Typography sx={{ fontSize: 10, fontWeight: 600, color: '#9CA3AF' }}>Amount (₹)</Typography>
                                                 </Box>
                                                 {[
                                                     ['Provident Fund (PF @ 12%)', monthlyData.reduce((s, m) => s + m.deductionDetails.pf, 0)],
@@ -753,9 +762,9 @@ export default function ApprovePayroll() {
                                                 ].filter(([, v]) => v > 0).map(([label, value], i) => (
                                                     <EarningRow key={i} label={label} value={value} />
                                                 ))}
-                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', px: 2, py: 1, bgcolor: '#FEF2F2', borderTop: '2px solid #EF4444' }}>
-                                                    <Typography sx={{ fontSize: 12, fontWeight: 800, color: '#DC2626' }}>Total Deductions</Typography>
-                                                    <Typography sx={{ fontSize: 13, fontWeight: 800, color: '#DC2626' }}>₹{totalDed.toLocaleString()}</Typography>
+                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', px: 2, py: 1.2, bgcolor: '#F3F4F6', borderTop: '2px solid #374151' }}>
+                                                    <Typography sx={{ fontSize: 12, fontWeight: 800, color: '#111827' }}>Total Deductions</Typography>
+                                                    <Typography sx={{ fontSize: 13, fontWeight: 800, color: '#111827' }}>₹{totalDed.toLocaleString()}</Typography>
                                                 </Box>
                                             </Box>
                                         </Grid>
@@ -766,36 +775,35 @@ export default function ApprovePayroll() {
                             {/* ── Net Salary Box ── */}
                             <Box sx={{
                                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                p: 2, bgcolor: '#EFF6FF', borderRadius: '12px',
-                                border: '2px solid #3B82F6', mb: 3,
+                                px: 3, py: 2.5, bgcolor: '#111827', borderRadius: '4px', mb: 3,
                             }}>
                                 <Box>
-                                    <Typography sx={{ fontSize: 10, color: '#64748B', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.6px' }}>
+                                    <Typography sx={{ fontSize: 9.5, color: '#9CA3AF', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '1px' }}>
                                         Net Salary — Take Home Pay
                                     </Typography>
-                                    <Typography sx={{ fontSize: 11, color: '#94A3B8', mt: 0.4 }}>
+                                    <Typography sx={{ fontSize: 11, color: '#D1D5DB', mt: 0.5 }}>
                                         {periodLabel} &nbsp;·&nbsp; {selectedEmployee.name} ({selectedEmployee.employeeId})
                                     </Typography>
                                 </Box>
-                                <Typography sx={{ fontSize: 30, fontWeight: 900, color: '#2563EB' }}>
+                                <Typography sx={{ fontSize: 32, fontWeight: 900, color: '#fff', letterSpacing: '-0.5px' }}>
                                     ₹{totalNet.toLocaleString()}
                                 </Typography>
                             </Box>
 
                             {/* ── Signature Area ── */}
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', pt: 2, borderTop: '1px dashed #CBD5E1' }}>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', pt: 2.5, borderTop: '1px dashed #D1D5DB' }}>
                                 {['Employee Signature', 'Accounts Manager', 'Authorized Signatory'].map((label, i) => (
                                     <Box key={i} sx={{ textAlign: 'center' }}>
                                         <Box sx={{ height: 36 }} />
-                                        <Box sx={{ width: 130, borderBottom: '1.5px solid #94A3B8', mx: 'auto', mb: 0.6 }} />
-                                        <Typography sx={{ fontSize: 10, color: '#94A3B8' }}>{label}</Typography>
+                                        <Box sx={{ width: 130, borderBottom: '1.5px solid #9CA3AF', mx: 'auto', mb: 0.6 }} />
+                                        <Typography sx={{ fontSize: 10, color: '#6B7280' }}>{label}</Typography>
                                     </Box>
                                 ))}
                             </Box>
 
                             {/* Footer note */}
                             <Box sx={{ mt: 2.5, textAlign: 'center' }}>
-                                <Typography sx={{ fontSize: 9.5, color: '#CBD5E1' }}>
+                                <Typography sx={{ fontSize: 9, color: '#D1D5DB', letterSpacing: '0.3px' }}>
                                     This is a system-generated payslip and does not require a physical signature.&nbsp;
                                     Generated on {new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })} &nbsp;|&nbsp; {companyInfo.name}
                                 </Typography>
@@ -805,10 +813,10 @@ export default function ApprovePayroll() {
                     )}
                 </DialogContent>
 
-                <DialogActions sx={{ p: 2, borderTop: '2px solid #E2E8F0', bgcolor: '#F8FAFC', gap: 1 }} className="print-hide">
+                <DialogActions sx={{ p: 2, borderTop: '1px solid #E5E7EB', bgcolor: '#F9FAFB', gap: 1 }} className="print-hide">
                     <Button
                         onClick={handleCloseDialog}
-                        sx={{ textTransform: 'none', color: '#64748B', fontWeight: 600, borderRadius: '8px' }}
+                        sx={{ textTransform: 'none', color: '#6B7280', fontWeight: 600, borderRadius: '4px' }}
                     >
                         Close
                     </Button>
@@ -816,7 +824,7 @@ export default function ApprovePayroll() {
                         variant="contained"
                         startIcon={<PrintIcon />}
                         onClick={() => window.print()}
-                        sx={{ textTransform: 'none', bgcolor: PRIMARY, fontWeight: 700, borderRadius: '8px', '&:hover': { bgcolor: PRIMARY_DARK } }}
+                        sx={{ textTransform: 'none', bgcolor: '#111827', fontWeight: 700, borderRadius: '4px', '&:hover': { bgcolor: '#374151' } }}
                     >
                         Print / Download PDF
                     </Button>

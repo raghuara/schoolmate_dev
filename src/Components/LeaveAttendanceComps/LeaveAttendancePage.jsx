@@ -404,18 +404,7 @@ export default function LeaveAttendancePage() {
                         >
                             Mark Attendance
                         </Button>
-                        <Button
-                            startIcon={<FileDownloadIcon />}
-                            variant="contained"
-                            sx={{
-                                textTransform: 'none', borderRadius: '50px',
-                                bgcolor: '#F97316', color: '#fff',
-                                fontSize: '13px', fontWeight: '600', px: 2.5,
-                                '&:hover': { bgcolor: '#EA580C' }
-                            }}
-                        >
-                            Export Report
-                        </Button>
+                      
                     </Box>
                 </Box>
 

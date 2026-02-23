@@ -1,101 +1,53 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Box, Typography, Button, Grid, IconButton, Divider,
     Card, CardContent, Chip, Table, TableBody, TableCell, TableHead, TableRow,
-    TextField, MenuItem, InputAdornment, Dialog, DialogTitle, DialogContent, DialogActions,
-    Avatar
+    TextField, InputAdornment, Dialog, DialogTitle, DialogContent, DialogActions,
+    Avatar, CircularProgress
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DownloadIcon from '@mui/icons-material/Download';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import EditIcon from '@mui/icons-material/Edit';
+import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import SearchIcon from '@mui/icons-material/Search';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
+import axios from 'axios';
 import SnackBar from '../../SnackBar';
+import { employeeBankDetailsDashboard, updateEmployeeBankDetailsByRollnumber } from '../../../Api/Api';
 
-// Color theme
 const PRIMARY = '#00ACC1';
 const PRIMARY_LIGHT = '#E0F7FA';
 const PRIMARY_DARK = '#0097A7';
 const CARD_RADIUS = '12px';
 
-// Mock employee salary & bank data
-const mockEmployeeBankData = [
-    {
-        id: 1,
-        employeeId: 'EMP001',
-        name: 'Rajesh Kumar',
-        designation: 'Senior Teacher',
-        department: 'Mathematics',
-        netSalary: 63700,
-        bankName: 'State Bank of India',
-        accountNumber: '1234567890',
-        ifscCode: 'SBIN0001234',
-        branchName: 'MG Road Branch',
-        accountType: 'Savings',
-        status: 'Verified'
-    },
-    {
-        id: 2,
-        employeeId: 'EMP002',
-        name: 'Priya Sharma',
-        designation: 'Teacher',
-        department: 'Science',
-        netSalary: 44400,
-        bankName: 'HDFC Bank',
-        accountNumber: '9876543210',
-        ifscCode: 'HDFC0001234',
-        branchName: 'Sector 17 Branch',
-        accountType: 'Savings',
-        status: 'Verified'
-    },
-    {
-        id: 3,
-        employeeId: 'EMP003',
-        name: 'Amit Patel',
-        designation: 'Lab Assistant',
-        department: 'Laboratory',
-        netSalary: 35100,
-        bankName: 'ICICI Bank',
-        accountNumber: '5544332211',
-        ifscCode: 'ICIC0001234',
-        branchName: 'Main Market Branch',
-        accountType: 'Savings',
-        status: 'Pending'
-    },
-    {
-        id: 4,
-        employeeId: 'EMP004',
-        name: 'Sneha Gupta',
-        designation: 'Teacher',
-        department: 'English',
-        netSalary: 41900,
-        bankName: 'Axis Bank',
-        accountNumber: '1122334455',
-        ifscCode: 'UTIB0001234',
-        branchName: 'City Center Branch',
-        accountType: 'Savings',
-        status: 'Verified'
-    },
-];
-
 export default function BankReports() {
     const navigate = useNavigate();
-    const [selectedMonth] = useState('February 2026');
+    const token = "123";
+
+    const [isLoading, setIsLoading] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [openDialog, setOpenDialog] = useState(false);
     const [selectedEmployee, setSelectedEmployee] = useState(null);
+    const [isAddMode, setIsAddMode] = useState(false);
     const [bankDetails, setBankDetails] = useState({
         bankName: '',
         accountNumber: '',
         ifscCode: '',
         branchName: '',
-        accountType: 'Savings'
     });
 
-    // SnackBar
+    const [stats, setStats] = useState({
+        totalEmployees: 0,
+        verifiedAccounts: 0,
+        totalAccounts: 0,
+        totalNetSalary: 0,
+    });
+    const [employeeData, setEmployeeData] = useState([]);
+
     const [snackOpen, setSnackOpen] = useState(false);
     const [snackStatus, setSnackStatus] = useState(false);
     const [snackColor, setSnackColor] = useState(false);
@@ -104,57 +56,111 @@ export default function BankReports() {
         setSnackMessage(msg); setSnackOpen(true); setSnackColor(success); setSnackStatus(success);
     };
 
-    const totalSalary = mockEmployeeBankData.reduce((sum, emp) => sum + emp.netSalary, 0);
-    const verifiedAccounts = mockEmployeeBankData.filter(emp => emp.status === 'Verified').length;
+    const fetchBankDashboard = async () => {
+        setIsLoading(true);
+        try {
+            const res = await axios.get(employeeBankDetailsDashboard, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!res.data.error) {
+                const d = res.data.data;
+                setStats({
+                    totalEmployees: d.totalEmployees,
+                    verifiedAccounts: d.verifiedAccounts,
+                    totalAccounts: d.totalAccounts,
+                    totalNetSalary: d.totalNetSalary,
+                });
+                setEmployeeData(d.employees);
+            }
+        } catch {
+            showSnack('Failed to load bank details', false);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
-    const filteredData = mockEmployeeBankData.filter(emp =>
+    useEffect(() => {
+        fetchBankDashboard();
+    }, []);
+
+    const filteredData = employeeData.filter(emp =>
         emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        emp.employeeId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        emp.bankName.toLowerCase().includes(searchTerm.toLowerCase())
+        emp.rollNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (emp.bankName && emp.bankName.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
-    const handleEditBankDetails = (employee) => {
+    const hasBankDetails = (emp) =>
+        emp.bankName && emp.accountNumber && emp.ifsc && emp.branch;
+
+    const handleOpenBankDialog = (employee) => {
+        const addMode = !hasBankDetails(employee);
+        setIsAddMode(addMode);
         setSelectedEmployee(employee);
         setBankDetails({
-            bankName: employee.bankName,
-            accountNumber: employee.accountNumber,
-            ifscCode: employee.ifscCode,
-            branchName: employee.branchName,
-            accountType: employee.accountType
+            bankName: employee.bankName || '',
+            accountNumber: employee.accountNumber || '',
+            ifscCode: employee.ifsc || '',
+            branchName: employee.branch || '',
         });
         setOpenDialog(true);
     };
 
-    const handleSaveBankDetails = () => {
-        showSnack('Bank details updated successfully!', true);
-        setOpenDialog(false);
+    const handleSaveBankDetails = async () => {
+        if (!bankDetails.bankName || !bankDetails.accountNumber || !bankDetails.ifscCode || !bankDetails.branchName) {
+            showSnack('Please fill all bank details', false);
+            return;
+        }
+        setIsSaving(true);
+        try {
+            const body = {
+                rollNumber: selectedEmployee.rollNumber,
+                bankName: bankDetails.bankName,
+                accountNumber: bankDetails.accountNumber,
+                ifsc: bankDetails.ifscCode,
+                branch: bankDetails.branchName,
+            };
+            const res = await axios.put(updateEmployeeBankDetailsByRollnumber, body, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!res.data.error) {
+                showSnack(isAddMode ? 'Bank details added successfully!' : 'Bank details updated successfully!', true);
+                setOpenDialog(false);
+                setEmployeeData(employeeData.map(emp =>
+                    emp.id === selectedEmployee.id
+                        ? { ...emp, bankName: body.bankName, accountNumber: body.accountNumber, ifsc: body.ifsc, branch: body.branch }
+                        : emp
+                ));
+            } else {
+                showSnack(res.data.message || 'Failed to save bank details', false);
+            }
+        } catch {
+            showSnack('Failed to save bank details', false);
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     const handleExportBankData = () => {
         const excelData = filteredData.map((emp, index) => ({
             'S.No': index + 1,
-            'Employee ID': emp.employeeId,
+            'Roll Number': emp.rollNumber,
             'Employee Name': emp.name,
             'Designation': emp.designation,
-            'Department': emp.department,
             'Net Salary': emp.netSalary,
-            'Bank Name': emp.bankName,
-            'Account Number': emp.accountNumber,
-            'IFSC Code': emp.ifscCode,
-            'Branch Name': emp.branchName,
-            'Account Type': emp.accountType,
-            'Status': emp.status
+            'Bank Name': emp.bankName || 'N/A',
+            'Account Number': emp.accountNumber || 'N/A',
+            'IFSC Code': emp.ifsc || 'N/A',
+            'Branch Name': emp.branch || 'N/A',
         }));
 
         const wb = XLSX.utils.book_new();
         const ws = XLSX.utils.json_to_sheet(excelData);
         ws['!cols'] = [
-            { wch: 6 }, { wch: 12 }, { wch: 20 }, { wch: 18 }, { wch: 15 },
-            { wch: 12 }, { wch: 20 }, { wch: 15 }, { wch: 12 }, { wch: 20 },
-            { wch: 12 }, { wch: 10 }
+            { wch: 6 }, { wch: 12 }, { wch: 20 }, { wch: 18 },
+            { wch: 12 }, { wch: 20 }, { wch: 15 }, { wch: 12 }, { wch: 20 }
         ];
         XLSX.utils.book_append_sheet(wb, ws, 'Employee Bank Details');
-        const fileName = `Employee_Bank_Details_${selectedMonth.replace(' ', '_')}_${new Date().toISOString().split('T')[0]}.xlsx`;
+        const fileName = `Employee_Bank_Details_${new Date().toISOString().split('T')[0]}.xlsx`;
         XLSX.writeFile(wb, fileName);
         showSnack('Bank details exported successfully!', true);
     };
@@ -225,173 +231,185 @@ export default function BankReports() {
             <Divider />
 
             <Box sx={{ flex: 1, overflow: 'auto', p: 2.5 }}>
-                {/* Statistics Cards */}
-                <Grid container spacing={2} sx={{ mb: 3 }}>
-                    <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
-                        <Card sx={{
-                            border: '1px solid #00ACC130',
-                            borderRadius: CARD_RADIUS,
-                            bgcolor: PRIMARY_LIGHT,
-                            boxShadow: 'none'
-                        }}>
-                            <CardContent sx={{ p: 2.5 }}>
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                    <Box>
-                                        <Typography sx={{ fontSize: '12px', color: PRIMARY, fontWeight: 600, mb: 1 }}>
-                                            Total Net Salary
-                                        </Typography>
-                                        <Typography sx={{ fontSize: '20px', fontWeight: 700, color: '#1a1a1a' }}>
-                                            ₹{(totalSalary / 100000).toFixed(2)}L
-                                        </Typography>
-                                    </Box>
-                                    <AccountBalanceIcon sx={{ fontSize: 32, color: PRIMARY, opacity: 0.6 }} />
-                                </Box>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
-                        <Card sx={{
-                            border: '1px solid #10B98130',
-                            borderRadius: CARD_RADIUS,
-                            bgcolor: '#ECFDF5',
-                            boxShadow: 'none'
-                        }}>
-                            <CardContent sx={{ p: 2.5 }}>
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                    <Box>
-                                        <Typography sx={{ fontSize: '12px', color: '#10B981', fontWeight: 600, mb: 1 }}>
-                                            Verified Accounts
-                                        </Typography>
-                                        <Typography sx={{ fontSize: '20px', fontWeight: 700, color: '#1a1a1a' }}>
-                                            {verifiedAccounts}/{mockEmployeeBankData.length}
-                                        </Typography>
-                                    </Box>
-                                    <CheckCircleIcon sx={{ fontSize: 32, color: '#10B981', opacity: 0.6 }} />
-                                </Box>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-                </Grid>
-
-                {/* Search Bar */}
-                <Box sx={{ mb: 2.5 }}>
-                    <TextField
-                        fullWidth
-                        placeholder="Search by name, employee ID, or bank name..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        size="small"
-                        slotProps={{
-                            input: {
-                                startAdornment: (
-                                    <InputAdornment position="start">
-                                        <SearchIcon sx={{ fontSize: 20, color: '#94A3B8' }} />
-                                    </InputAdornment>
-                                ),
-                            }
-                        }}
-                    />
-                </Box>
-
-                {/* Employee Bank Details Table */}
-                <Card sx={{
-                    border: '1px solid #E8E8E8',
-                    borderRadius: CARD_RADIUS,
-                    boxShadow: 'none'
-                }}>
-                    <Box sx={{
-                        p: 2.5,
-                        borderBottom: '2px solid #F1F5F9',
-                        bgcolor: '#FAFAFA',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 1.5
-                    }}>
-                        <AccountBalanceIcon sx={{ fontSize: 20, color: PRIMARY }} />
-                        <Typography sx={{ fontSize: '15px', fontWeight: '700', color: '#1a1a1a' }}>
-                            Employee Bank Account Details - {selectedMonth}
-                        </Typography>
-                        <Chip
-                            label={`${filteredData.length} Employees`}
-                            size="small"
-                            sx={{
-                                bgcolor: PRIMARY,
-                                color: '#fff',
-                                fontWeight: 600,
-                                ml: 'auto'
-                            }}
-                        />
+                {isLoading ? (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60%' }}>
+                        <CircularProgress sx={{ color: PRIMARY }} />
                     </Box>
-                    <Box sx={{ overflowX: 'auto' }}>
-                        <Table>
-                            <TableHead>
-                                <TableRow sx={{ bgcolor: '#F8FAFC' }}>
-                                    <TableCell sx={{ fontWeight: 700, fontSize: '12px', color: '#64748B' }}>Employee</TableCell>
-                                    <TableCell sx={{ fontWeight: 700, fontSize: '12px', color: '#64748B' }}>Net Salary</TableCell>
-                                    <TableCell sx={{ fontWeight: 700, fontSize: '12px', color: '#64748B' }}>Bank Name</TableCell>
-                                    <TableCell sx={{ fontWeight: 700, fontSize: '12px', color: '#64748B' }}>Account Number</TableCell>
-                                    <TableCell sx={{ fontWeight: 700, fontSize: '12px', color: '#64748B' }}>IFSC Code</TableCell>
-                                    <TableCell sx={{ fontWeight: 700, fontSize: '12px', color: '#64748B' }}>Branch</TableCell>
-                                    <TableCell sx={{ fontWeight: 700, fontSize: '12px', color: '#64748B' }}>Actions</TableCell>
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {filteredData.map((emp) => (
-                                    <TableRow
-                                        key={emp.id}
-                                        sx={{ '&:hover': { bgcolor: '#F8FAFC' } }}
-                                    >
-                                        <TableCell>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                                <Avatar sx={{
-                                                    width: 36,
-                                                    height: 36,
-                                                    bgcolor: PRIMARY_LIGHT,
-                                                    color: PRIMARY,
-                                                    fontSize: '14px'
-                                                }}>
-                                                    {emp.name.charAt(0)}
-                                                </Avatar>
-                                                <Box>
-                                                    <Typography sx={{ fontSize: '13px', fontWeight: 600 }}>
-                                                        {emp.name}
-                                                    </Typography>
-                                                    <Typography sx={{ fontSize: '11px', color: '#94A3B8' }}>
-                                                        {emp.employeeId} • {emp.designation}
-                                                    </Typography>
-                                                </Box>
+                ) : (
+                    <>
+                        {/* Statistics Cards */}
+                        <Grid container spacing={2} sx={{ mb: 3 }}>
+                            <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
+                                <Card sx={{
+                                    border: '1px solid #00ACC130',
+                                    borderRadius: CARD_RADIUS,
+                                    bgcolor: PRIMARY_LIGHT,
+                                    boxShadow: 'none'
+                                }}>
+                                    <CardContent sx={{ p: 2.5 }}>
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                            <Box>
+                                                <Typography sx={{ fontSize: '12px', color: PRIMARY, fontWeight: 600, mb: 1 }}>
+                                                    Total Net Salary
+                                                </Typography>
+                                                <Typography sx={{ fontSize: '20px', fontWeight: 700, color: '#1a1a1a' }}>
+                                                    ₹{(stats.totalNetSalary / 100000).toFixed(2)}L
+                                                </Typography>
                                             </Box>
-                                        </TableCell>
-                                        <TableCell sx={{ fontSize: '14px', fontWeight: 700, color: '#2563EB' }}>
-                                            ₹{emp.netSalary.toLocaleString()}
-                                        </TableCell>
-                                        <TableCell sx={{ fontSize: '13px', fontWeight: 600 }}>
-                                            {emp.bankName}
-                                        </TableCell>
-                                        <TableCell sx={{ fontSize: '13px', fontFamily: 'monospace' }}>
-                                            {emp.accountNumber}
-                                        </TableCell>
-                                        <TableCell sx={{ fontSize: '13px', fontFamily: 'monospace', fontWeight: 600 }}>
-                                            {emp.ifscCode}
-                                        </TableCell>
-                                        <TableCell sx={{ fontSize: '12px', color: '#64748B' }}>
-                                            {emp.branchName}
-                                        </TableCell>
-                                        <TableCell>
-                                            <IconButton
-                                                size="small"
-                                                onClick={() => handleEditBankDetails(emp)}
-                                                sx={{ color: PRIMARY }}
+                                            <AccountBalanceIcon sx={{ fontSize: 32, color: PRIMARY, opacity: 0.6 }} />
+                                        </Box>
+                                    </CardContent>
+                                </Card>
+                            </Grid>
+                            <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
+                                <Card sx={{
+                                    border: '1px solid #10B98130',
+                                    borderRadius: CARD_RADIUS,
+                                    bgcolor: '#ECFDF5',
+                                    boxShadow: 'none'
+                                }}>
+                                    <CardContent sx={{ p: 2.5 }}>
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                            <Box>
+                                                <Typography sx={{ fontSize: '12px', color: '#10B981', fontWeight: 600, mb: 1 }}>
+                                                    Verified Accounts
+                                                </Typography>
+                                                <Typography sx={{ fontSize: '20px', fontWeight: 700, color: '#1a1a1a' }}>
+                                                    {stats.verifiedAccounts}/{stats.totalAccounts}
+                                                </Typography>
+                                            </Box>
+                                            <CheckCircleIcon sx={{ fontSize: 32, color: '#10B981', opacity: 0.6 }} />
+                                        </Box>
+                                    </CardContent>
+                                </Card>
+                            </Grid>
+                        </Grid>
+
+                        {/* Search Bar */}
+                        <Box sx={{ mb: 2.5 }}>
+                            <TextField
+                                fullWidth
+                                placeholder="Search by name, roll number, or bank name..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                size="small"
+                                slotProps={{
+                                    input: {
+                                        startAdornment: (
+                                            <InputAdornment position="start">
+                                                <SearchIcon sx={{ fontSize: 20, color: '#94A3B8' }} />
+                                            </InputAdornment>
+                                        ),
+                                    }
+                                }}
+                            />
+                        </Box>
+
+                        {/* Employee Bank Details Table */}
+                        <Card sx={{
+                            border: '1px solid #E8E8E8',
+                            borderRadius: CARD_RADIUS,
+                            boxShadow: 'none'
+                        }}>
+                            <Box sx={{
+                                p: 2.5,
+                                borderBottom: '2px solid #F1F5F9',
+                                bgcolor: '#FAFAFA',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 1.5
+                            }}>
+                                <AccountBalanceIcon sx={{ fontSize: 20, color: PRIMARY }} />
+                                <Typography sx={{ fontSize: '15px', fontWeight: '700', color: '#1a1a1a' }}>
+                                    Employee Bank Account Details
+                                </Typography>
+                                <Chip
+                                    label={`${filteredData.length} Employees`}
+                                    size="small"
+                                    sx={{
+                                        bgcolor: PRIMARY,
+                                        color: '#fff',
+                                        fontWeight: 600,
+                                        ml: 'auto'
+                                    }}
+                                />
+                            </Box>
+                            <Box sx={{ overflowX: 'auto', maxHeight: '42vh', overflowY: 'auto' }}>
+                                <Table stickyHeader>
+                                    <TableHead>
+                                        <TableRow sx={{ bgcolor: '#F8FAFC' }}>
+                                            <TableCell sx={{ fontWeight: 700, fontSize: '12px', color: '#64748B' }}>Employee</TableCell>
+                                            <TableCell sx={{ fontWeight: 700, fontSize: '12px', color: '#64748B' }}>Net Salary</TableCell>
+                                            <TableCell sx={{ fontWeight: 700, fontSize: '12px', color: '#64748B' }}>Bank Name</TableCell>
+                                            <TableCell sx={{ fontWeight: 700, fontSize: '12px', color: '#64748B' }}>Account Number</TableCell>
+                                            <TableCell sx={{ fontWeight: 700, fontSize: '12px', color: '#64748B' }}>IFSC Code</TableCell>
+                                            <TableCell sx={{ fontWeight: 700, fontSize: '12px', color: '#64748B' }}>Branch</TableCell>
+                                            <TableCell sx={{ fontWeight: 700, fontSize: '12px', color: '#64748B' }}>Actions</TableCell>
+                                        </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                        {filteredData.map((emp) => (
+                                            <TableRow
+                                                key={emp.id}
+                                                sx={{ '&:hover': { bgcolor: '#F8FAFC' } }}
                                             >
-                                                <EditIcon sx={{ fontSize: 18 }} />
-                                            </IconButton>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </Box>
-                </Card>
+                                                <TableCell>
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                                        <Avatar sx={{
+                                                            width: 36,
+                                                            height: 36,
+                                                            bgcolor: PRIMARY_LIGHT,
+                                                            color: PRIMARY,
+                                                            fontSize: '14px'
+                                                        }}>
+                                                            {emp.name.charAt(0)}
+                                                        </Avatar>
+                                                        <Box>
+                                                            <Typography sx={{ fontSize: '13px', fontWeight: 600 }}>
+                                                                {emp.name}
+                                                            </Typography>
+                                                            <Typography sx={{ fontSize: '11px', color: '#94A3B8' }}>
+                                                                {emp.rollNumber} • {emp.designation}
+                                                            </Typography>
+                                                        </Box>
+                                                    </Box>
+                                                </TableCell>
+                                                <TableCell sx={{ fontSize: '14px', fontWeight: 700, color: '#2563EB' }}>
+                                                    ₹{emp.netSalary.toLocaleString()}
+                                                </TableCell>
+                                                <TableCell sx={{ fontSize: '13px', fontWeight: 600 }}>
+                                                    {emp.bankName || <Typography sx={{ fontSize: '12px', color: '#CBD5E1' }}>Not added</Typography>}
+                                                </TableCell>
+                                                <TableCell sx={{ fontSize: '13px', fontFamily: 'monospace' }}>
+                                                    {emp.accountNumber || <Typography sx={{ fontSize: '12px', color: '#CBD5E1' }}>—</Typography>}
+                                                </TableCell>
+                                                <TableCell sx={{ fontSize: '13px', fontFamily: 'monospace', fontWeight: 600 }}>
+                                                    {emp.ifsc || <Typography sx={{ fontSize: '12px', color: '#CBD5E1' }}>—</Typography>}
+                                                </TableCell>
+                                                <TableCell sx={{ fontSize: '12px', color: '#64748B' }}>
+                                                    {emp.branch || <Typography sx={{ fontSize: '12px', color: '#CBD5E1' }}>—</Typography>}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <IconButton
+                                                        size="small"
+                                                        onClick={() => handleOpenBankDialog(emp)}
+                                                        sx={{ color: hasBankDetails(emp) ? PRIMARY : '#10B981' }}
+                                                        title={hasBankDetails(emp) ? 'Edit bank details' : 'Add bank details'}
+                                                    >
+                                                        {hasBankDetails(emp)
+                                                            ? <EditIcon sx={{ fontSize: 18 }} />
+                                                            : <AddCircleOutlineIcon sx={{ fontSize: 18 }} />
+                                                        }
+                                                    </IconButton>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </Box>
+                        </Card>
+                    </>
+                )}
             </Box>
 
             {/* Edit Bank Details Dialog */}
@@ -403,11 +421,11 @@ export default function BankReports() {
             >
                 <DialogTitle>
                     <Typography sx={{ fontSize: '18px', fontWeight: 700 }}>
-                        Edit Bank Account Details
+                        {isAddMode ? 'Add Bank Account Details' : 'Edit Bank Account Details'}
                     </Typography>
                     {selectedEmployee && (
                         <Typography sx={{ fontSize: '13px', color: '#64748B', mt: 0.5 }}>
-                            {selectedEmployee.name} ({selectedEmployee.employeeId})
+                            {selectedEmployee.name} ({selectedEmployee.rollNumber})
                         </Typography>
                     )}
                 </DialogTitle>
@@ -439,24 +457,13 @@ export default function BankReports() {
                             label="Branch Name"
                             value={bankDetails.branchName}
                             onChange={(e) => setBankDetails({ ...bankDetails, branchName: e.target.value })}
-                            sx={{ mb: 2.5 }}
                         />
-                        <TextField
-                            fullWidth
-                            select
-                            label="Account Type"
-                            value={bankDetails.accountType}
-                            onChange={(e) => setBankDetails({ ...bankDetails, accountType: e.target.value })}
-                        >
-                            <MenuItem value="Savings">Savings Account</MenuItem>
-                            <MenuItem value="Current">Current Account</MenuItem>
-                            <MenuItem value="Salary">Salary Account</MenuItem>
-                        </TextField>
                     </Box>
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 3 }}>
                     <Button
                         onClick={() => setOpenDialog(false)}
+                        disabled={isSaving}
                         sx={{
                             textTransform: 'none',
                             color: '#64748B',
@@ -468,14 +475,16 @@ export default function BankReports() {
                     <Button
                         variant="contained"
                         onClick={handleSaveBankDetails}
+                        disabled={isSaving}
                         sx={{
                             textTransform: 'none',
                             bgcolor: PRIMARY,
                             fontWeight: 700,
-                            '&:hover': { bgcolor: PRIMARY_DARK }
+                            '&:hover': { bgcolor: PRIMARY_DARK },
+                            minWidth: '120px'
                         }}
                     >
-                        Save Changes
+                        {isSaving ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : isAddMode ? 'Add Details' : 'Save Changes'}
                     </Button>
                 </DialogActions>
             </Dialog>

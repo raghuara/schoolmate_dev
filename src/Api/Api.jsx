@@ -312,6 +312,24 @@ const leaveApprovalStatusCheck = `${baseApiurl}leaveApprovalStatusCheck`;
 const updateLeaveApprovalAction = `${baseApiurl}updateLeaveApprovalAction`;
 const getLeaveDashboard = `${leave}getLeaveDashboard`;
 
+const payRoll = `${baseApiurl}payRoll/`;
+const postSalaryStructure = `${payRoll}postSalaryStructure`;
+const getEmployees = `${payRoll}getEmployees`;
+const updateSalaryStructureByRollnumber = `${payRoll}updateSalaryStructureByRollnumber`;
+const deleteSalaryStructureByRollnumber = `${payRoll}deleteSalaryStructureByRollnumber`;
+const salaryStructureDashboard = `${payRoll}salaryStructureDashboard`;
+
+const postPFConfiguration = `${payRoll}postPFConfiguration`;
+const postESIConfiguration = `${payRoll}postESIConfiguration`;
+const postProfessionalTaxConfiguration = `${payRoll}postProfessionalTaxConfiguration`;
+const postTDSConfiguration = `${payRoll}postTDSConfiguration`;
+const getDeductionsAndCompliance = `${payRoll}getDeductionsAndCompliance`;
+const employeeComplianceDashboard = `${payRoll}employeeComplianceDashboard`;
+const updateEmployeeComplianceByRollnumber = `${payRoll}updateEmployeeComplianceByRollnumber`;
+
+const employeeBankDetailsDashboard = `${payRoll}employeeBankDetailsDashboard`;
+const updateEmployeeBankDetailsByRollnumber = `${payRoll}updateEmployeeBankDetailsByRollnumber`;
+const salaryRegisterDashboard = `${payRoll}salaryRegisterDashboard`;
 
 // Assets 
 const vehicle = `${baseApiurl}vehicle/`;
@@ -679,6 +697,21 @@ export {
     getAttendanceDashboard,
     getStaffAttendanceOverview,
     reportsLeaveManagement,
-    reportsLeaveManagementFullReport
+    reportsLeaveManagementFullReport,
+    postSalaryStructure,
+    getEmployees,
+    updateSalaryStructureByRollnumber,
+    deleteSalaryStructureByRollnumber,
+    salaryStructureDashboard,
+    postPFConfiguration,
+    postESIConfiguration,
+    postProfessionalTaxConfiguration,
+    postTDSConfiguration,
+    getDeductionsAndCompliance,
+    employeeComplianceDashboard,
+    updateEmployeeComplianceByRollnumber,
+    employeeBankDetailsDashboard,
+    updateEmployeeBankDetailsByRollnumber,
+    salaryRegisterDashboard,
 
 }

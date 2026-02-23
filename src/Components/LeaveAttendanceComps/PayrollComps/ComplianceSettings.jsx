@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Box, Typography, TextField, Button, Grid, IconButton, Divider,
     Card, CardContent, Switch, InputAdornment, Chip, Tab, Tabs,
     Table, TableBody, TableCell, TableHead, TableRow, Avatar,
     Dialog, DialogTitle, DialogContent, DialogActions
 } from '@mui/material';
+import axios from 'axios';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SaveOutlinedIcon from '@mui/icons-material/SaveOutlined';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
@@ -17,10 +18,15 @@ import SearchIcon from '@mui/icons-material/Search';
 import PeopleIcon from '@mui/icons-material/People';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 import { useNavigate } from 'react-router-dom';
-import toast from 'react-hot-toast';
+import { useSelector } from 'react-redux';
+import SnackBar from '../../SnackBar';
+import {
+    employeeComplianceDashboard, postPFConfiguration, postESIConfiguration,
+    postProfessionalTaxConfiguration, postTDSConfiguration, getDeductionsAndCompliance,
+    updateEmployeeComplianceByRollnumber,
+} from '../../../Api/Api';
 import * as XLSX from 'xlsx';
 
-// Color theme
 const PRIMARY = '#2563EB';
 const PRIMARY_LIGHT = '#EFF6FF';
 const PRIMARY_DARK = '#1D4ED8';
@@ -28,9 +34,19 @@ const CARD_RADIUS = '12px';
 
 export default function ComplianceSettings() {
     const navigate = useNavigate();
+    const token = "123";
+    const user = useSelector((state) => state.auth);
+    const rollNumber = user.rollNumber;
     const [activeTab, setActiveTab] = useState(0);
 
-    // PF Settings
+    const [snackOpen, setSnackOpen] = useState(false);
+    const [snackStatus, setSnackStatus] = useState(false);
+    const [snackColor, setSnackColor] = useState(false);
+    const [snackMessage, setSnackMessage] = useState('');
+    const showSnack = (msg, success) => {
+        setSnackMessage(msg); setSnackOpen(true); setSnackColor(success); setSnackStatus(success);
+    };
+
     const [pfSettings, setPfSettings] = useState({
         enabled: true,
         employeeContribution: 12,
@@ -40,7 +56,6 @@ export default function ComplianceSettings() {
         edliCharges: 0.5,
     });
 
-    // ESI Settings
     const [esiSettings, setEsiSettings] = useState({
         enabled: true,
         employeeContribution: 0.75,
@@ -48,7 +63,6 @@ export default function ComplianceSettings() {
         wageLimit: 21000,
     });
 
-    // PT Settings
     const [ptSettings, setPtSettings] = useState({
         enabled: true,
         monthlyDeduction: 200,
@@ -56,7 +70,6 @@ export default function ComplianceSettings() {
         applicableFrom: 15000,
     });
 
-    // TDS Settings
     const [tdsSettings, setTdsSettings] = useState({
         enabled: true,
         standardDeduction: 50000,
@@ -65,158 +78,125 @@ export default function ComplianceSettings() {
         hraExemption: true,
     });
 
-    // Mock employee compliance data with incentives and additional salary
-    const [employeeData, setEmployeeData] = useState([
-        {
-            id: 1,
-            employeeId: 'EMP001',
-            name: 'Rajesh Kumar',
-            designation: 'Senior Teacher',
-            department: 'Mathematics',
-            basicSalary: 45000,
-            grossSalary: 70500,
-            incentive: 5000,
-            additionalSalary: 0,
-            compliance: {
-                pfApplicable: true,
-                pfPercentage: 12,
-                esiApplicable: false,
-                esiPercentage: 0.75,
-                ptApplicable: true,
-                ptAmount: 200,
-                tdsApplicable: true,
-                tdsPercentage: 10
-            }
-        },
-        {
-            id: 2,
-            employeeId: 'EMP002',
-            name: 'Priya Sharma',
-            designation: 'Teacher',
-            department: 'Science',
-            basicSalary: 30000,
-            grossSalary: 48600,
-            incentive: 3000,
-            additionalSalary: 2000,
-            compliance: {
-                pfApplicable: true,
-                pfPercentage: 12,
-                esiApplicable: true,
-                esiPercentage: 0.75,
-                ptApplicable: true,
-                ptAmount: 200,
-                tdsApplicable: false,
-                tdsPercentage: 10
-            }
-        },
-        {
-            id: 3,
-            employeeId: 'EMP003',
-            name: 'Amit Patel',
-            designation: 'Lab Assistant',
-            department: 'Chemistry',
-            basicSalary: 18000,
-            grossSalary: 25600,
-            incentive: 0,
-            additionalSalary: 0,
-            compliance: {
-                pfApplicable: true,
-                pfPercentage: 12,
-                esiApplicable: true,
-                esiPercentage: 0.75,
-                ptApplicable: false,
-                ptAmount: 0,
-                tdsApplicable: false,
-                tdsPercentage: 10
-            }
-        },
-        {
-            id: 4,
-            employeeId: 'EMP004',
-            name: 'Sunita Verma',
-            designation: 'Principal',
-            department: 'Administration',
-            basicSalary: 65000,
-            grossSalary: 95000,
-            incentive: 10000,
-            additionalSalary: 5000,
-            compliance: {
-                pfApplicable: true,
-                pfPercentage: 12,
-                esiApplicable: false,
-                esiPercentage: 0.75,
-                ptApplicable: true,
-                ptAmount: 200,
-                tdsApplicable: true,
-                tdsPercentage: 15
-            }
-        },
-        {
-            id: 5,
-            employeeId: 'EMP005',
-            name: 'Mohammed Ali',
-            designation: 'Sports Teacher',
-            department: 'Physical Education',
-            basicSalary: 28000,
-            grossSalary: 42000,
-            incentive: 2000,
-            additionalSalary: 0,
-            compliance: {
-                pfApplicable: true,
-                pfPercentage: 12,
-                esiApplicable: true,
-                esiPercentage: 0.75,
-                ptApplicable: true,
-                ptAmount: 200,
-                tdsApplicable: false,
-                tdsPercentage: 10
-            }
-        },
-        {
-            id: 6,
-            employeeId: 'EMP006',
-            name: 'Kavita Desai',
-            designation: 'Librarian',
-            department: 'Library',
-            basicSalary: 22000,
-            grossSalary: 32000,
-            incentive: 0,
-            additionalSalary: 1000,
-            compliance: {
-                pfApplicable: true,
-                pfPercentage: 12,
-                esiApplicable: true,
-                esiPercentage: 0.75,
-                ptApplicable: false,
-                ptAmount: 0,
-                tdsApplicable: false,
-                tdsPercentage: 10
-            }
-        },
-    ]);
+    const [stats, setStats] = useState({
+        totalEmployees: 0,
+        pfApplicableCount: 0,
+        esiApplicableCount: 0,
+        ptApplicableCount: 0,
+        totalIncentives: 0,
+        incentiveEmployeesCount: 0,
+        totalAdditionalSalary: 0,
+        additionalSalaryEmployeesCount: 0,
+    });
 
+    const [employeeData, setEmployeeData] = useState([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [isPFSaving, setIsPFSaving] = useState(false);
+    const [isESISaving, setIsESISaving] = useState(false);
+    const [isPTSaving, setIsPTSaving] = useState(false);
+    const [isTDSSaving, setIsTDSSaving] = useState(false);
+    const [isSavingCompliance, setIsSavingCompliance] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [editDialogOpen, setEditDialogOpen] = useState(false);
     const [selectedEmployee, setSelectedEmployee] = useState(null);
     const [editedCompliance, setEditedCompliance] = useState(null);
 
-    // Filter employees based on search
+    useEffect(() => {
+        fetchComplianceDashboard();
+        fetchDeductionsConfig();
+    }, []);
+
+    const fetchDeductionsConfig = async () => {
+        try {
+            const res = await axios.get(getDeductionsAndCompliance, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (res.data && !res.data.error) {
+                const d = res.data.data;
+                setPfSettings(prev => ({
+                    ...prev,
+                    employeeContribution: Number(d.pfEmployeeContribution) || prev.employeeContribution,
+                    employerContribution: Number(d.pfEmployerContribution) || prev.employerContribution,
+                    wageLimit:            Number(d.pfWageCellingLimite)    || prev.wageLimit,
+                    adminCharges:         Number(d.pfAdminCharges)         || prev.adminCharges,
+                }));
+                setEsiSettings(prev => ({
+                    ...prev,
+                    employeeContribution: Number(d.esiEmployeeContribution) || prev.employeeContribution,
+                    employerContribution: Number(d.esiEmployerContribution) || prev.employerContribution,
+                    wageLimit:            Number(d.esiWageCellingLimite)    || prev.wageLimit,
+                }));
+                setPtSettings(prev => ({
+                    ...prev,
+                    monthlyDeduction: Number(d.monthlyPTDeduction)    || prev.monthlyDeduction,
+                    annualDeduction:  Number(d.annualPTDeduction)     || prev.annualDeduction,
+                    applicableFrom:   Number(d.applicationFromSalary) || prev.applicableFrom,
+                }));
+                setTdsSettings(prev => ({
+                    ...prev,
+                    standardDeduction: Number(d.standardDeduction) || prev.standardDeduction,
+                    section80C:        Number(d.section80cLimit)   || prev.section80C,
+                    section80D:        Number(d.section80DLimit)   || prev.section80D,
+                    hraExemption:      d.hraExemption === 'Y',
+                }));
+            }
+        } catch {
+        }
+    };
+
+    const fetchComplianceDashboard = async () => {
+        setIsLoading(true);
+        try {
+            const res = await axios.get(employeeComplianceDashboard, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (res.data && !res.data.error) {
+                const d = res.data.data;
+                setStats({
+                    totalEmployees: d.totalEmployees,
+                    pfApplicableCount: d.pfApplicable,
+                    esiApplicableCount: d.esiApplicable,
+                    ptApplicableCount: d.ptApplicable,
+                    totalIncentives: d.totalIncentives,
+                    incentiveEmployeesCount: d.incentiveEmployeesCount,
+                    totalAdditionalSalary: d.totalAdditionalSalary,
+                    additionalSalaryEmployeesCount: d.additionalSalaryEmployeesCount,
+                });
+                setEmployeeData((d.employees || []).map(emp => ({
+                    id: emp.id,
+                    employeeId: emp.rollNumber,
+                    rollNumber: emp.rollNumber,
+                    name: emp.name,
+                    designation: emp.designation,
+                    basicSalary: emp.basicSalary,
+                    incentive: emp.incentive ?? 0,
+                    additionalSalary: emp.addSalary ?? 0,
+                    compliance: {
+                        pfApplicable: emp.pf !== null && emp.pf !== '',
+                        pfPercentage: Number(emp.pf) || 0,
+                        esiApplicable: emp.esi !== null && emp.esi !== '',
+                        esiPercentage: Number(emp.esi) || 0,
+                        ptApplicable: emp.pt !== null && emp.pt !== '',
+                        ptAmount: Number(emp.pt) || 0,
+                        tdsApplicable: emp.tds !== null && emp.tds !== '',
+                        tdsPercentage: Number(emp.tds) || 0,
+                    },
+                })));
+            } else {
+                showSnack('Failed to load compliance data', false);
+            }
+        } catch {
+            showSnack('Failed to load compliance data', false);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     const filteredEmployees = employeeData.filter(emp =>
         emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         emp.employeeId.toLowerCase().includes(searchQuery.toLowerCase()) ||
         emp.designation.toLowerCase().includes(searchQuery.toLowerCase())
     );
-
-    // Statistics
-    const totalEmployees = employeeData.length;
-    const pfApplicableCount = employeeData.filter(e => e.compliance.pfApplicable).length;
-    const esiApplicableCount = employeeData.filter(e => e.compliance.esiApplicable).length;
-    const ptApplicableCount = employeeData.filter(e => e.compliance.ptApplicable).length;
-    const tdsApplicableCount = employeeData.filter(e => e.compliance.tdsApplicable).length;
-    const totalIncentives = employeeData.reduce((sum, e) => sum + e.incentive, 0);
-    const totalAdditionalSalary = employeeData.reduce((sum, e) => sum + e.additionalSalary, 0);
-    const employeesWithIncentive = employeeData.filter(e => e.incentive > 0).length;
-    const employeesWithAdditionalSalary = employeeData.filter(e => e.additionalSalary > 0).length;
 
     const handleEditEmployee = (employee) => {
         setSelectedEmployee(employee);
@@ -224,17 +204,42 @@ export default function ComplianceSettings() {
         setEditDialogOpen(true);
     };
 
-    const handleSaveEmployeeCompliance = () => {
-        if (selectedEmployee && editedCompliance) {
-            setEmployeeData(employeeData.map(emp =>
-                emp.id === selectedEmployee.id
-                    ? { ...emp, compliance: editedCompliance }
-                    : emp
-            ));
-            toast.success(`Compliance settings updated for ${selectedEmployee.name}!`);
-            setEditDialogOpen(false);
-            setSelectedEmployee(null);
-            setEditedCompliance(null);
+    const handleSaveEmployeeCompliance = async () => {
+        if (!selectedEmployee || !editedCompliance) return;
+
+        const body = {
+            rollNumber:  selectedEmployee.rollNumber,
+            incentive:   selectedEmployee.incentive,
+            addSalary:   selectedEmployee.additionalSalary,
+            pf:  editedCompliance.pfApplicable  ? String(editedCompliance.pfPercentage)  : '',
+            esi: editedCompliance.esiApplicable ? String(editedCompliance.esiPercentage) : '',
+            pt:  editedCompliance.ptApplicable  ? String(editedCompliance.ptAmount)      : '',
+            tds: editedCompliance.tdsApplicable ? String(editedCompliance.tdsPercentage) : '',
+        };
+
+        setIsSavingCompliance(true);
+        try {
+            const res = await axios.put(updateEmployeeComplianceByRollnumber, body, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            if (res.data && !res.data.error) {
+                setEmployeeData(employeeData.map(emp =>
+                    emp.id === selectedEmployee.id
+                        ? { ...emp, compliance: editedCompliance }
+                        : emp
+                ));
+                showSnack(`Compliance settings updated for ${selectedEmployee.name}!`, true);
+                setEditDialogOpen(false);
+                setSelectedEmployee(null);
+                setEditedCompliance(null);
+            } else {
+                showSnack(res.data?.message || 'Failed to update compliance settings', false);
+            }
+        } catch {
+            showSnack('Failed to update compliance settings. Please try again.', false);
+        } finally {
+            setIsSavingCompliance(false);
         }
     };
 
@@ -244,9 +249,7 @@ export default function ComplianceSettings() {
             'Employee ID': emp.employeeId,
             'Employee Name': emp.name,
             'Designation': emp.designation,
-            'Department': emp.department,
             'Basic Salary': emp.basicSalary,
-            'Gross Salary': emp.grossSalary,
             'Incentive': emp.incentive,
             'Additional Salary': emp.additionalSalary,
             'PF Applicable': emp.compliance.pfApplicable ? 'Yes' : 'No',
@@ -261,19 +264,17 @@ export default function ComplianceSettings() {
 
         const wb = XLSX.utils.book_new();
         const ws = XLSX.utils.json_to_sheet(excelData);
-
         const colWidths = [
-            { wch: 6 }, { wch: 12 }, { wch: 20 }, { wch: 18 }, { wch: 15 },
-            { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 15 }, { wch: 14 },
-            { wch: 8 }, { wch: 14 }, { wch: 8 }, { wch: 14 }, { wch: 10 },
-            { wch: 14 }, { wch: 8 }
+            { wch: 6 }, { wch: 12 }, { wch: 20 }, { wch: 18 },
+            { wch: 12 }, { wch: 12 }, { wch: 15 }, { wch: 14 },
+            { wch: 8 }, { wch: 14 }, { wch: 8 }, { wch: 14 },
+            { wch: 10 }, { wch: 14 }, { wch: 8 }
         ];
         ws['!cols'] = colWidths;
-
         XLSX.utils.book_append_sheet(wb, ws, 'Employee Compliance');
         const fileName = `Employee_Compliance_Settings_${new Date().toISOString().split('T')[0]}.xlsx`;
         XLSX.writeFile(wb, fileName);
-        toast.success('Employee compliance data exported successfully!');
+        showSnack('Employee compliance data exported successfully!', true);
     };
 
     const fieldSx = {
@@ -288,8 +289,132 @@ export default function ComplianceSettings() {
         '& .MuiInputLabel-root.Mui-focused': { color: PRIMARY },
     };
 
-    const handleSave = () => {
-        toast.success('Global compliance settings saved successfully!');
+    const handleSave = async () => {
+        const now = new Date().toISOString();
+
+        if (activeTab === 1) {
+            if (!pfSettings.employeeContribution || !pfSettings.employerContribution) {
+                showSnack('Please fill all required PF fields', false);
+                return;
+            }
+            const body = {
+                rollNumber: rollNumber,
+                createdOn: now,
+                updatedOn: now,
+                pfEmployeeContribution: String(pfSettings.employeeContribution),
+                pfEmployerContribution: String(pfSettings.employerContribution),
+                pfWageCellingLimite: String(pfSettings.wageLimit),
+                pfAdminCharges: String(pfSettings.adminCharges),
+            };
+            setIsPFSaving(true);
+            try {
+                const res = await axios.post(postPFConfiguration, body, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                if (res.data && !res.data.error) {
+                    showSnack('PF configuration saved successfully!', true);
+                } else {
+                    showSnack(res.data?.message || 'Failed to save PF configuration', false);
+                }
+            } catch {
+                showSnack('Failed to save PF configuration. Please try again.', false);
+            } finally {
+                setIsPFSaving(false);
+            }
+            return;
+        }
+
+        if (activeTab === 2) {
+            if (!esiSettings.employeeContribution || !esiSettings.employerContribution) {
+                showSnack('Please fill all required ESI fields', false);
+                return;
+            }
+            const body = {
+                rollNumber: rollNumber,
+                createdOn: now,
+                updatedOn: now,
+                esiEmployeeContribution: String(esiSettings.employeeContribution),
+                esiEmployerContribution: String(esiSettings.employerContribution),
+                esiWageCellingLimite: String(esiSettings.wageLimit),
+            };
+            setIsESISaving(true);
+            try {
+                const res = await axios.post(postESIConfiguration, body, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                if (res.data && !res.data.error) {
+                    showSnack('ESI configuration saved successfully!', true);
+                } else {
+                    showSnack(res.data?.message || 'Failed to save ESI configuration', false);
+                }
+            } catch {
+                showSnack('Failed to save ESI configuration. Please try again.', false);
+            } finally {
+                setIsESISaving(false);
+            }
+            return;
+        }
+
+        if (activeTab === 3) {
+            if (!ptSettings.monthlyDeduction || !ptSettings.annualDeduction) {
+                showSnack('Please fill all required PT fields', false);
+                return;
+            }
+            const body = {
+                rollNumber: rollNumber,
+                createdOn: now,
+                updatedOn: now,
+                monthlyPTDeduction: String(ptSettings.monthlyDeduction),
+                annualPTDeduction: String(ptSettings.annualDeduction),
+                applicationFromSalary: String(ptSettings.applicableFrom),
+            };
+            setIsPTSaving(true);
+            try {
+                const res = await axios.post(postProfessionalTaxConfiguration, body, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                if (res.data && !res.data.error) {
+                    showSnack('PT configuration saved successfully!', true);
+                } else {
+                    showSnack(res.data?.message || 'Failed to save PT configuration', false);
+                }
+            } catch {
+                showSnack('Failed to save PT configuration. Please try again.', false);
+            } finally {
+                setIsPTSaving(false);
+            }
+            return;
+        }
+
+        if (activeTab === 4) {
+            const body = {
+                rollNumber: rollNumber,
+                createdOn: now,
+                updatedOn: now,
+                standardDeduction: String(tdsSettings.standardDeduction),
+                section80cLimit: String(tdsSettings.section80C),
+                section80DLimit: String(tdsSettings.section80D),
+                hraExemption: tdsSettings.hraExemption ? 'Y' : 'N',
+            };
+            setIsTDSSaving(true);
+            try {
+                const res = await axios.post(postTDSConfiguration, body, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                if (res.data && !res.data.error) {
+                    showSnack('TDS configuration saved successfully!', true);
+                } else {
+                    showSnack(res.data?.message || 'Failed to save TDS configuration', false);
+                }
+            } catch {
+                showSnack('Failed to save TDS configuration. Please try again.', false);
+            } finally {
+                setIsTDSSaving(false);
+            }
+            return;
+        }
+
+        showSnack('Settings saved successfully!', true);
     };
 
     const SectionCard = ({ icon: Icon, title, subtitle, children }) => (
@@ -697,15 +822,9 @@ export default function ComplianceSettings() {
 
     const renderEmployeeComplianceTab = () => (
         <Box>
-            {/* Statistics Cards - Row 1 */}
             <Grid container spacing={2} sx={{ mb: 2 }}>
                 <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
-                    <Card sx={{
-                        border: '1px solid #2563EB30',
-                        borderRadius: CARD_RADIUS,
-                        bgcolor: PRIMARY_LIGHT,
-                        boxShadow: 'none'
-                    }}>
+                    <Card sx={{ border: '1px solid #2563EB30', borderRadius: CARD_RADIUS, bgcolor: PRIMARY_LIGHT, boxShadow: 'none' }}>
                         <CardContent sx={{ p: 2.5 }}>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                 <Box>
@@ -713,7 +832,7 @@ export default function ComplianceSettings() {
                                         Total Employees
                                     </Typography>
                                     <Typography sx={{ fontSize: '24px', fontWeight: 700, color: '#1a1a1a' }}>
-                                        {totalEmployees}
+                                        {stats.totalEmployees}
                                     </Typography>
                                 </Box>
                                 <PeopleIcon sx={{ fontSize: 32, color: PRIMARY, opacity: 0.6 }} />
@@ -722,12 +841,7 @@ export default function ComplianceSettings() {
                     </Card>
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
-                    <Card sx={{
-                        border: '1px solid #8600BB30',
-                        borderRadius: CARD_RADIUS,
-                        bgcolor: '#f9f4fc',
-                        boxShadow: 'none'
-                    }}>
+                    <Card sx={{ border: '1px solid #8600BB30', borderRadius: CARD_RADIUS, bgcolor: '#f9f4fc', boxShadow: 'none' }}>
                         <CardContent sx={{ p: 2.5 }}>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                 <Box>
@@ -735,7 +849,7 @@ export default function ComplianceSettings() {
                                         PF Applicable
                                     </Typography>
                                     <Typography sx={{ fontSize: '24px', fontWeight: 700, color: '#1a1a1a' }}>
-                                        {pfApplicableCount}
+                                        {stats.pfApplicableCount}
                                     </Typography>
                                 </Box>
                                 <AccountBalanceIcon sx={{ fontSize: 32, color: '#8600BB', opacity: 0.6 }} />
@@ -744,12 +858,7 @@ export default function ComplianceSettings() {
                     </Card>
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
-                    <Card sx={{
-                        border: '1px solid #10B98130',
-                        borderRadius: CARD_RADIUS,
-                        bgcolor: '#ECFDF5',
-                        boxShadow: 'none'
-                    }}>
+                    <Card sx={{ border: '1px solid #10B98130', borderRadius: CARD_RADIUS, bgcolor: '#ECFDF5', boxShadow: 'none' }}>
                         <CardContent sx={{ p: 2.5 }}>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                 <Box>
@@ -757,7 +866,7 @@ export default function ComplianceSettings() {
                                         ESI Applicable
                                     </Typography>
                                     <Typography sx={{ fontSize: '24px', fontWeight: 700, color: '#1a1a1a' }}>
-                                        {esiApplicableCount}
+                                        {stats.esiApplicableCount}
                                     </Typography>
                                 </Box>
                                 <SecurityIcon sx={{ fontSize: 32, color: '#10B981', opacity: 0.6 }} />
@@ -766,12 +875,7 @@ export default function ComplianceSettings() {
                     </Card>
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
-                    <Card sx={{
-                        border: '1px solid #FF980030',
-                        borderRadius: CARD_RADIUS,
-                        bgcolor: '#FFF4E6',
-                        boxShadow: 'none'
-                    }}>
+                    <Card sx={{ border: '1px solid #FF980030', borderRadius: CARD_RADIUS, bgcolor: '#FFF4E6', boxShadow: 'none' }}>
                         <CardContent sx={{ p: 2.5 }}>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                 <Box>
@@ -779,7 +883,7 @@ export default function ComplianceSettings() {
                                         PT Applicable
                                     </Typography>
                                     <Typography sx={{ fontSize: '24px', fontWeight: 700, color: '#1a1a1a' }}>
-                                        {ptApplicableCount}
+                                        {stats.ptApplicableCount}
                                     </Typography>
                                 </Box>
                                 <ReceiptIcon sx={{ fontSize: 32, color: '#FF9800', opacity: 0.6 }} />
@@ -789,15 +893,9 @@ export default function ComplianceSettings() {
                 </Grid>
             </Grid>
 
-            {/* Statistics Cards - Row 2: Incentives & Additional Salary */}
             <Grid container spacing={2} sx={{ mb: 3 }}>
                 <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
-                    <Card sx={{
-                        border: '1px solid #7DC35330',
-                        borderRadius: CARD_RADIUS,
-                        bgcolor: '#F0FDF4',
-                        boxShadow: 'none'
-                    }}>
+                    <Card sx={{ border: '1px solid #7DC35330', borderRadius: CARD_RADIUS, bgcolor: '#F0FDF4', boxShadow: 'none' }}>
                         <CardContent sx={{ p: 2.5 }}>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <Box sx={{ flex: 1 }}>
@@ -805,10 +903,10 @@ export default function ComplianceSettings() {
                                         Total Incentives
                                     </Typography>
                                     <Typography sx={{ fontSize: '22px', fontWeight: 700, color: '#1a1a1a' }}>
-                                        ₹{totalIncentives.toLocaleString()}
+                                        ₹{Number(stats.totalIncentives).toLocaleString()}
                                     </Typography>
                                     <Typography sx={{ fontSize: '11px', color: '#64748B', mt: 0.5 }}>
-                                        {employeesWithIncentive} employees receiving incentives
+                                        {stats.incentiveEmployeesCount} employees receiving incentives
                                     </Typography>
                                 </Box>
                                 <CheckCircleIcon sx={{ fontSize: 38, color: '#7DC353', opacity: 0.6 }} />
@@ -817,12 +915,7 @@ export default function ComplianceSettings() {
                     </Card>
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
-                    <Card sx={{
-                        border: '1px solid #E3005330',
-                        borderRadius: CARD_RADIUS,
-                        bgcolor: '#FCF8F9',
-                        boxShadow: 'none'
-                    }}>
+                    <Card sx={{ border: '1px solid #E3005330', borderRadius: CARD_RADIUS, bgcolor: '#FCF8F9', boxShadow: 'none' }}>
                         <CardContent sx={{ p: 2.5 }}>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <Box sx={{ flex: 1 }}>
@@ -830,10 +923,10 @@ export default function ComplianceSettings() {
                                         Total Additional Salary
                                     </Typography>
                                     <Typography sx={{ fontSize: '22px', fontWeight: 700, color: '#1a1a1a' }}>
-                                        ₹{totalAdditionalSalary.toLocaleString()}
+                                        ₹{Number(stats.totalAdditionalSalary).toLocaleString()}
                                     </Typography>
                                     <Typography sx={{ fontSize: '11px', color: '#64748B', mt: 0.5 }}>
-                                        {employeesWithAdditionalSalary} employees with additional salary
+                                        {stats.additionalSalaryEmployeesCount} employees with additional salary
                                     </Typography>
                                 </Box>
                                 <AccountBalanceWalletIcon sx={{ fontSize: 38, color: '#E30053', opacity: 0.6 }} />
@@ -843,7 +936,6 @@ export default function ComplianceSettings() {
                 </Grid>
             </Grid>
 
-            {/* Search and Actions */}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2.5, gap: 2 }}>
                 <TextField
                     placeholder="Search by name, ID, or designation..."
@@ -859,11 +951,7 @@ export default function ComplianceSettings() {
                             )
                         }
                     }}
-                    sx={{
-                        flex: 1,
-                        maxWidth: '400px',
-                        ...fieldSx
-                    }}
+                    sx={{ flex: 1, maxWidth: '400px', ...fieldSx }}
                 />
                 <Button
                     variant="outlined"
@@ -882,12 +970,7 @@ export default function ComplianceSettings() {
                 </Button>
             </Box>
 
-            {/* Employee Compliance Table */}
-            <Card sx={{
-                border: '1px solid #E8E8E8',
-                borderRadius: CARD_RADIUS,
-                boxShadow: 'none'
-            }}>
+            <Card sx={{ border: '1px solid #E8E8E8', borderRadius: CARD_RADIUS, boxShadow: 'none' }}>
                 <Box sx={{
                     p: 2.5,
                     borderBottom: '2px solid #F1F5F9',
@@ -900,6 +983,11 @@ export default function ComplianceSettings() {
                     <Typography sx={{ fontSize: '15px', fontWeight: '700', color: '#1a1a1a' }}>
                         Employee Compliance Settings
                     </Typography>
+                    <Chip
+                        label={employeeData.length}
+                        size="small"
+                        sx={{ bgcolor: `${PRIMARY}18`, color: PRIMARY, fontWeight: 700, fontSize: '11px', height: '22px' }}
+                    />
                 </Box>
                 <Box sx={{ overflowX: 'auto' }}>
                     <Table>
@@ -917,19 +1005,23 @@ export default function ComplianceSettings() {
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {filteredEmployees.map((emp) => (
-                                <TableRow
-                                    key={emp.id}
-                                    sx={{ '&:hover': { bgcolor: '#F8FAFC' } }}
-                                >
+                            {isLoading ? (
+                                <TableRow>
+                                    <TableCell colSpan={9} align="center" sx={{ py: 5, color: '#94A3B8', fontSize: '13px' }}>
+                                        Loading compliance data...
+                                    </TableCell>
+                                </TableRow>
+                            ) : filteredEmployees.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={9} align="center" sx={{ py: 5, color: '#94A3B8', fontSize: '13px' }}>
+                                        {searchQuery ? `No results for "${searchQuery}"` : 'No employee data found'}
+                                    </TableCell>
+                                </TableRow>
+                            ) : filteredEmployees.map((emp) => (
+                                <TableRow key={emp.id} sx={{ '&:hover': { bgcolor: '#F8FAFC' } }}>
                                     <TableCell>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                            <Avatar sx={{
-                                                width: 36,
-                                                height: 36,
-                                                bgcolor: PRIMARY_LIGHT,
-                                                color: PRIMARY
-                                            }}>
+                                            <Avatar sx={{ width: 36, height: 36, bgcolor: PRIMARY_LIGHT, color: PRIMARY }}>
                                                 {emp.name.charAt(0)}
                                             </Avatar>
                                             <Box>
@@ -952,8 +1044,7 @@ export default function ComplianceSettings() {
                                             sx={{
                                                 bgcolor: emp.incentive > 0 ? '#F0FDF4' : '#F1F5F9',
                                                 color: emp.incentive > 0 ? '#7DC353' : '#94A3B8',
-                                                fontWeight: 600,
-                                                fontSize: '11px'
+                                                fontWeight: 600, fontSize: '11px'
                                             }}
                                         />
                                     </TableCell>
@@ -964,8 +1055,7 @@ export default function ComplianceSettings() {
                                             sx={{
                                                 bgcolor: emp.additionalSalary > 0 ? '#FCF8F9' : '#F1F5F9',
                                                 color: emp.additionalSalary > 0 ? '#E30053' : '#94A3B8',
-                                                fontWeight: 600,
-                                                fontSize: '11px'
+                                                fontWeight: 600, fontSize: '11px'
                                             }}
                                         />
                                     </TableCell>
@@ -976,8 +1066,7 @@ export default function ComplianceSettings() {
                                             sx={{
                                                 bgcolor: emp.compliance.pfApplicable ? '#f9f4fc' : '#F1F5F9',
                                                 color: emp.compliance.pfApplicable ? '#8600BB' : '#94A3B8',
-                                                fontWeight: 600,
-                                                fontSize: '11px'
+                                                fontWeight: 600, fontSize: '11px'
                                             }}
                                         />
                                     </TableCell>
@@ -988,8 +1077,7 @@ export default function ComplianceSettings() {
                                             sx={{
                                                 bgcolor: emp.compliance.esiApplicable ? '#ECFDF5' : '#F1F5F9',
                                                 color: emp.compliance.esiApplicable ? '#10B981' : '#94A3B8',
-                                                fontWeight: 600,
-                                                fontSize: '11px'
+                                                fontWeight: 600, fontSize: '11px'
                                             }}
                                         />
                                     </TableCell>
@@ -1000,8 +1088,7 @@ export default function ComplianceSettings() {
                                             sx={{
                                                 bgcolor: emp.compliance.ptApplicable ? '#FFF4E6' : '#F1F5F9',
                                                 color: emp.compliance.ptApplicable ? '#FF9800' : '#94A3B8',
-                                                fontWeight: 600,
-                                                fontSize: '11px'
+                                                fontWeight: 600, fontSize: '11px'
                                             }}
                                         />
                                     </TableCell>
@@ -1012,8 +1099,7 @@ export default function ComplianceSettings() {
                                             sx={{
                                                 bgcolor: emp.compliance.tdsApplicable ? '#EFF6FF' : '#F1F5F9',
                                                 color: emp.compliance.tdsApplicable ? '#2563EB' : '#94A3B8',
-                                                fontWeight: 600,
-                                                fontSize: '11px'
+                                                fontWeight: 600, fontSize: '11px'
                                             }}
                                         />
                                     </TableCell>
@@ -1039,6 +1125,8 @@ export default function ComplianceSettings() {
     );
 
     return (
+        <>
+        <SnackBar open={snackOpen} color={snackColor} setOpen={setSnackOpen} status={snackStatus} message={snackMessage} />
         <Box sx={{
             height: '86vh',
             display: 'flex',
@@ -1048,7 +1136,6 @@ export default function ComplianceSettings() {
             border: '1px solid #E8E8E8',
             overflow: 'hidden'
         }}>
-            {/* Header */}
             <Box sx={{
                 bgcolor: '#fff',
                 borderBottom: '2px solid #F1F5F9',
@@ -1085,6 +1172,7 @@ export default function ComplianceSettings() {
                     variant="contained"
                     startIcon={<SaveOutlinedIcon />}
                     onClick={handleSave}
+                    disabled={isPFSaving || isESISaving || isPTSaving || isTDSSaving}
                     sx={{
                         textTransform: 'none',
                         bgcolor: PRIMARY,
@@ -1095,30 +1183,20 @@ export default function ComplianceSettings() {
                         '&:hover': { bgcolor: PRIMARY_DARK }
                     }}
                 >
-                    Save Settings
+                    {isPFSaving || isESISaving || isPTSaving || isTDSSaving ? 'Saving...' : 'Save Settings'}
                 </Button>
             </Box>
 
             <Divider />
 
-            {/* Tabs */}
             <Box sx={{ borderBottom: 1, borderColor: 'divider', bgcolor: '#fff', px: 3 }}>
                 <Tabs
                     value={activeTab}
                     onChange={(e, newValue) => setActiveTab(newValue)}
                     sx={{
-                        '& .MuiTab-root': {
-                            textTransform: 'none',
-                            fontSize: '13px',
-                            fontWeight: 600,
-                            minHeight: '48px'
-                        },
-                        '& .Mui-selected': {
-                            color: `${PRIMARY} !important`
-                        },
-                        '& .MuiTabs-indicator': {
-                            bgcolor: PRIMARY
-                        }
+                        '& .MuiTab-root': { textTransform: 'none', fontSize: '13px', fontWeight: 600, minHeight: '48px' },
+                        '& .Mui-selected': { color: `${PRIMARY} !important` },
+                        '& .MuiTabs-indicator': { bgcolor: PRIMARY }
                     }}
                 >
                     <Tab label="Employee Compliance" />
@@ -1129,7 +1207,6 @@ export default function ComplianceSettings() {
                 </Tabs>
             </Box>
 
-            {/* Tab Content */}
             <Box sx={{ flex: 1, overflow: 'auto', p: 2.5 }}>
                 {activeTab === 0 && renderEmployeeComplianceTab()}
                 {activeTab === 1 && renderPFTab()}
@@ -1138,33 +1215,19 @@ export default function ComplianceSettings() {
                 {activeTab === 4 && renderTDSTab()}
             </Box>
 
-            {/* Edit Employee Compliance Dialog */}
             <Dialog
                 open={editDialogOpen}
                 onClose={() => setEditDialogOpen(false)}
                 maxWidth="md"
                 fullWidth
-                PaperProps={{
-                    sx: {
-                        borderRadius: '16px',
-                        boxShadow: '0 8px 32px rgba(0,0,0,0.12)'
-                    }
-                }}
+                PaperProps={{ sx: { borderRadius: '16px', boxShadow: '0 8px 32px rgba(0,0,0,0.12)' } }}
             >
-                <DialogTitle sx={{
-                    bgcolor: '#FAFAFA',
-                    borderBottom: '2px solid #F1F5F9',
-                    pb: 2
-                }}>
+                <DialogTitle sx={{ bgcolor: '#FAFAFA', borderBottom: '2px solid #F1F5F9', pb: 2 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                         <Box sx={{
-                            width: 40,
-                            height: 40,
-                            borderRadius: '10px',
-                            bgcolor: PRIMARY_LIGHT,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
+                            width: 40, height: 40, borderRadius: '10px',
+                            bgcolor: PRIMARY_LIGHT, display: 'flex',
+                            alignItems: 'center', justifyContent: 'center',
                             border: `1px solid ${PRIMARY}30`
                         }}>
                             <EditIcon sx={{ fontSize: 20, color: PRIMARY }} />
@@ -1184,8 +1247,7 @@ export default function ComplianceSettings() {
                 <DialogContent sx={{ p: 3, mt: 2 }}>
                     {editedCompliance && selectedEmployee && (
                         <Grid container spacing={3}>
-                            {/* Incentive & Additional Salary Section */}
-                            <Grid size={{ xs: 12, sm: 12, md: 12, lg: 12 }}>
+                            <Grid size={{ xs: 12 }}>
                                 <Card sx={{ border: '1px solid #E8E8E8', borderRadius: '12px', bgcolor: '#FAFAFA' }}>
                                     <CardContent sx={{ p: 2.5 }}>
                                         <Typography sx={{ fontSize: '14px', fontWeight: 700, color: '#1a1a1a', mb: 2 }}>
@@ -1197,13 +1259,11 @@ export default function ComplianceSettings() {
                                                     label="Performance Incentive"
                                                     value={selectedEmployee.incentive}
                                                     onChange={(e) => {
-                                                        const newData = employeeData.map(emp =>
-                                                            emp.id === selectedEmployee.id
-                                                                ? { ...emp, incentive: parseFloat(e.target.value) || 0 }
-                                                                : emp
-                                                        );
-                                                        setEmployeeData(newData);
-                                                        setSelectedEmployee({ ...selectedEmployee, incentive: parseFloat(e.target.value) || 0 });
+                                                        const val = parseFloat(e.target.value) || 0;
+                                                        setEmployeeData(employeeData.map(emp =>
+                                                            emp.id === selectedEmployee.id ? { ...emp, incentive: val } : emp
+                                                        ));
+                                                        setSelectedEmployee({ ...selectedEmployee, incentive: val });
                                                     }}
                                                     size="small"
                                                     fullWidth
@@ -1221,13 +1281,11 @@ export default function ComplianceSettings() {
                                                     label="Additional Salary"
                                                     value={selectedEmployee.additionalSalary}
                                                     onChange={(e) => {
-                                                        const newData = employeeData.map(emp =>
-                                                            emp.id === selectedEmployee.id
-                                                                ? { ...emp, additionalSalary: parseFloat(e.target.value) || 0 }
-                                                                : emp
-                                                        );
-                                                        setEmployeeData(newData);
-                                                        setSelectedEmployee({ ...selectedEmployee, additionalSalary: parseFloat(e.target.value) || 0 });
+                                                        const val = parseFloat(e.target.value) || 0;
+                                                        setEmployeeData(employeeData.map(emp =>
+                                                            emp.id === selectedEmployee.id ? { ...emp, additionalSalary: val } : emp
+                                                        ));
+                                                        setSelectedEmployee({ ...selectedEmployee, additionalSalary: val });
                                                     }}
                                                     size="small"
                                                     fullWidth
@@ -1245,8 +1303,7 @@ export default function ComplianceSettings() {
                                 </Card>
                             </Grid>
 
-                            {/* PF Section */}
-                            <Grid size={{ xs: 12, sm: 12, md: 12, lg: 12 }}>
+                            <Grid size={{ xs: 12 }}>
                                 <Card sx={{ border: '1px solid #8600BB30', borderRadius: '12px', bgcolor: '#f9f4fc' }}>
                                     <CardContent sx={{ p: 2.5 }}>
                                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -1258,10 +1315,7 @@ export default function ComplianceSettings() {
                                             </Box>
                                             <Switch
                                                 checked={editedCompliance.pfApplicable}
-                                                onChange={(e) => setEditedCompliance({
-                                                    ...editedCompliance,
-                                                    pfApplicable: e.target.checked
-                                                })}
+                                                onChange={(e) => setEditedCompliance({ ...editedCompliance, pfApplicable: e.target.checked })}
                                                 sx={{
                                                     '& .MuiSwitch-switchBase.Mui-checked': { color: '#8600BB' },
                                                     '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#8600BB' }
@@ -1271,10 +1325,7 @@ export default function ComplianceSettings() {
                                         <TextField
                                             label="PF Percentage"
                                             value={editedCompliance.pfPercentage}
-                                            onChange={(e) => setEditedCompliance({
-                                                ...editedCompliance,
-                                                pfPercentage: parseFloat(e.target.value) || 0
-                                            })}
+                                            onChange={(e) => setEditedCompliance({ ...editedCompliance, pfPercentage: parseFloat(e.target.value) || 0 })}
                                             size="small"
                                             fullWidth
                                             type="number"
@@ -1289,8 +1340,7 @@ export default function ComplianceSettings() {
                                 </Card>
                             </Grid>
 
-                            {/* ESI Section */}
-                            <Grid size={{ xs: 12, sm: 12, md: 12, lg: 12 }}>
+                            <Grid size={{ xs: 12 }}>
                                 <Card sx={{ border: '1px solid #10B98130', borderRadius: '12px', bgcolor: '#ECFDF5' }}>
                                     <CardContent sx={{ p: 2.5 }}>
                                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -1302,10 +1352,7 @@ export default function ComplianceSettings() {
                                             </Box>
                                             <Switch
                                                 checked={editedCompliance.esiApplicable}
-                                                onChange={(e) => setEditedCompliance({
-                                                    ...editedCompliance,
-                                                    esiApplicable: e.target.checked
-                                                })}
+                                                onChange={(e) => setEditedCompliance({ ...editedCompliance, esiApplicable: e.target.checked })}
                                                 sx={{
                                                     '& .MuiSwitch-switchBase.Mui-checked': { color: '#10B981' },
                                                     '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#10B981' }
@@ -1315,10 +1362,7 @@ export default function ComplianceSettings() {
                                         <TextField
                                             label="ESI Percentage"
                                             value={editedCompliance.esiPercentage}
-                                            onChange={(e) => setEditedCompliance({
-                                                ...editedCompliance,
-                                                esiPercentage: parseFloat(e.target.value) || 0
-                                            })}
+                                            onChange={(e) => setEditedCompliance({ ...editedCompliance, esiPercentage: parseFloat(e.target.value) || 0 })}
                                             size="small"
                                             fullWidth
                                             type="number"
@@ -1333,8 +1377,7 @@ export default function ComplianceSettings() {
                                 </Card>
                             </Grid>
 
-                            {/* PT Section */}
-                            <Grid size={{ xs: 12, sm: 12, md: 12, lg: 12 }}>
+                            <Grid size={{ xs: 12 }}>
                                 <Card sx={{ border: '1px solid #FF980030', borderRadius: '12px', bgcolor: '#FFF4E6' }}>
                                     <CardContent sx={{ p: 2.5 }}>
                                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -1346,10 +1389,7 @@ export default function ComplianceSettings() {
                                             </Box>
                                             <Switch
                                                 checked={editedCompliance.ptApplicable}
-                                                onChange={(e) => setEditedCompliance({
-                                                    ...editedCompliance,
-                                                    ptApplicable: e.target.checked
-                                                })}
+                                                onChange={(e) => setEditedCompliance({ ...editedCompliance, ptApplicable: e.target.checked })}
                                                 sx={{
                                                     '& .MuiSwitch-switchBase.Mui-checked': { color: '#FF9800' },
                                                     '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#FF9800' }
@@ -1359,10 +1399,7 @@ export default function ComplianceSettings() {
                                         <TextField
                                             label="PT Amount"
                                             value={editedCompliance.ptAmount}
-                                            onChange={(e) => setEditedCompliance({
-                                                ...editedCompliance,
-                                                ptAmount: parseFloat(e.target.value) || 0
-                                            })}
+                                            onChange={(e) => setEditedCompliance({ ...editedCompliance, ptAmount: parseFloat(e.target.value) || 0 })}
                                             size="small"
                                             fullWidth
                                             type="number"
@@ -1377,8 +1414,7 @@ export default function ComplianceSettings() {
                                 </Card>
                             </Grid>
 
-                            {/* TDS Section */}
-                            <Grid size={{ xs: 12, sm: 12, md: 12, lg: 12 }}>
+                            <Grid size={{ xs: 12 }}>
                                 <Card sx={{ border: '1px solid #2563EB30', borderRadius: '12px', bgcolor: PRIMARY_LIGHT }}>
                                     <CardContent sx={{ p: 2.5 }}>
                                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -1390,10 +1426,7 @@ export default function ComplianceSettings() {
                                             </Box>
                                             <Switch
                                                 checked={editedCompliance.tdsApplicable}
-                                                onChange={(e) => setEditedCompliance({
-                                                    ...editedCompliance,
-                                                    tdsApplicable: e.target.checked
-                                                })}
+                                                onChange={(e) => setEditedCompliance({ ...editedCompliance, tdsApplicable: e.target.checked })}
                                                 sx={{
                                                     '& .MuiSwitch-switchBase.Mui-checked': { color: PRIMARY },
                                                     '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: PRIMARY }
@@ -1403,10 +1436,7 @@ export default function ComplianceSettings() {
                                         <TextField
                                             label="TDS Percentage"
                                             value={editedCompliance.tdsPercentage}
-                                            onChange={(e) => setEditedCompliance({
-                                                ...editedCompliance,
-                                                tdsPercentage: parseFloat(e.target.value) || 0
-                                            })}
+                                            onChange={(e) => setEditedCompliance({ ...editedCompliance, tdsPercentage: parseFloat(e.target.value) || 0 })}
                                             size="small"
                                             fullWidth
                                             type="number"
@@ -1426,19 +1456,14 @@ export default function ComplianceSettings() {
                 <DialogActions sx={{ p: 3, bgcolor: '#FAFAFA', borderTop: '2px solid #F1F5F9' }}>
                     <Button
                         onClick={() => setEditDialogOpen(false)}
-                        sx={{
-                            textTransform: 'none',
-                            color: '#64748B',
-                            borderRadius: '10px',
-                            fontSize: '13px',
-                            fontWeight: '700'
-                        }}
+                        sx={{ textTransform: 'none', color: '#64748B', borderRadius: '10px', fontSize: '13px', fontWeight: '700' }}
                     >
                         Cancel
                     </Button>
                     <Button
                         onClick={handleSaveEmployeeCompliance}
                         variant="contained"
+                        disabled={isSavingCompliance}
                         sx={{
                             textTransform: 'none',
                             bgcolor: PRIMARY,
@@ -1449,10 +1474,11 @@ export default function ComplianceSettings() {
                             '&:hover': { bgcolor: PRIMARY_DARK }
                         }}
                     >
-                        Save Changes
+                        {isSavingCompliance ? 'Saving...' : 'Save Changes'}
                     </Button>
                 </DialogActions>
             </Dialog>
         </Box>
+        </>
     );
 }
