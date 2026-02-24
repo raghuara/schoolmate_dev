@@ -1932,68 +1932,78 @@ export default function ExpensePage() {
                     <Typography sx={{ fontSize: "20px", fontWeight: "600" }}>Expense Management</Typography>
                 </Box>
 
-                <Button
-                    variant="contained"
-                    startIcon={<AddIcon />}
-                    onClick={() => setActiveTab(1)}
-                    sx={{
-                        backgroundColor: "#667eea",
-                        color: "#fff",
-                        textTransform: "none",
-                        borderRadius: "50px",
-                        px: 3,
-                        "&:hover": {
-                            backgroundColor: "#5568d3"
-                        }
-                    }}
-                >
-                    New Request
-                </Button>
+                {userType !== "teacher" && (
+                    <Button
+                        variant="contained"
+                        startIcon={<AddIcon />}
+                        onClick={() => setActiveTab(1)}
+                        sx={{
+                            backgroundColor: "#667eea",
+                            color: "#fff",
+                            textTransform: "none",
+                            borderRadius: "50px",
+                            px: 3,
+                            "&:hover": {
+                                backgroundColor: "#5568d3"
+                            }
+                        }}
+                    >
+                        New Request
+                    </Button>
+                )}
             </Box>
 
             <Divider sx={{ mb: 2 }} />
 
             {/* Tabs */}
-            <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2, flexShrink: 0 }}>
-                <Tabs
-                    value={activeTab}
-                    onChange={(e, newValue) => setActiveTab(newValue)}
-                    variant="scrollable"
-                    scrollButtons="auto"
-                    sx={{
-                        minHeight: '44px',
-                        '& .MuiTab-root': {
-                            textTransform: 'none',
-                            fontSize: '14px',
-                            fontWeight: '600',
-                            color: '#666',
+            {userType !== "teacher" && (
+                <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2, flexShrink: 0 }}>
+                    <Tabs
+                        value={activeTab}
+                        onChange={(e, newValue) => setActiveTab(newValue)}
+                        variant="scrollable"
+                        scrollButtons="auto"
+                        sx={{
                             minHeight: '44px',
-                            px: 3,
-                            py: 1.5
-                        },
-                        '& .Mui-selected': {
-                            color: '#667eea !important'
-                        },
-                        '& .MuiTabs-indicator': {
-                            backgroundColor: '#667eea',
-                            height: '3px',
-                            borderRadius: '3px 3px 0 0'
-                        }
-                    }}
-                >
-                    <Tab icon={<DashboardIcon />} iconPosition="start" label="Dashboard" />
-                    <Tab icon={<AddIcon />} iconPosition="start" label="Request Expense" />
-                    <Tab icon={<PendingActionsIcon />} iconPosition="start" label="Pending Approvals" />
-                    <Tab icon={<HistoryIcon />} iconPosition="start" label="History" />
-                </Tabs>
-            </Box>
+                            '& .MuiTab-root': {
+                                textTransform: 'none',
+                                fontSize: '14px',
+                                fontWeight: '600',
+                                color: '#666',
+                                minHeight: '44px',
+                                px: 3,
+                                py: 1.5
+                            },
+                            '& .Mui-selected': {
+                                color: '#667eea !important'
+                            },
+                            '& .MuiTabs-indicator': {
+                                backgroundColor: '#667eea',
+                                height: '3px',
+                                borderRadius: '3px 3px 0 0'
+                            }
+                        }}
+                    >
+                        <Tab icon={<DashboardIcon />} iconPosition="start" label="Dashboard" />
+                        <Tab icon={<AddIcon />} iconPosition="start" label="Request Expense" />
+                        <Tab icon={<PendingActionsIcon />} iconPosition="start" label="Pending Approvals" />
+                        <Tab icon={<HistoryIcon />} iconPosition="start" label="History" />
+                    </Tabs>
+                </Box>
+            )}
 
             {/* Tab Content */}
             <Box sx={{ flex: 1, overflow: 'auto', pr: 1 }}>
-                {activeTab === 0 && renderDashboard()}
-                {activeTab === 1 && renderRequest()}
-                {activeTab === 2 && renderApprovals()}
-                {activeTab === 3 && renderHistory()}
+                {userType === "teacher" ? (
+                    renderRequest()
+                ) : (
+                    <>
+                        {activeTab === 0 && renderDashboard()}
+                        {activeTab === 1 && renderRequest()}
+                        {activeTab === 2 && renderApprovals()}
+                        {activeTab === 3 && renderHistory()}
+                    </>
+                )}
             </Box>
 
             {/* Set Allocation Dialog */}

@@ -95,6 +95,7 @@ export default function LeaveAttendancePage() {
     const navigate = useNavigate();
     const user = useSelector((state) => state.auth);
     const rollNumber = user.rollNumber;
+    const userType = user.userType;
 
     const [tabValue, setTabValue] = useState(0);
 
@@ -333,28 +334,47 @@ export default function LeaveAttendancePage() {
                     </Card>
 
                     {/* Leave Requests (static placeholder) */}
-                    <Card sx={{ border: '1px solid #E8E8E8', borderRadius: '4px', boxShadow: 'none', mb: 2 }}>
-                        <CardContent sx={{ pb: '12px !important' }}>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-                                <Typography sx={{ fontSize: '14px', fontWeight: '600', color: '#1a1a1a' }}>Leave Requests</Typography>
-                            </Box>
-                            <Typography sx={{ fontSize: '12px', color: '#999', textAlign: 'center', py: 2 }}>
-                                View pending leave requests in the Leave Approval tab.
-                            </Typography>
-                            <Button fullWidth variant="text"
-                                onClick={() => setTabValue(4)}
-                                endIcon={<ArrowBackIcon sx={{ transform: 'rotate(180deg)', fontSize: '14px !important' }} />}
-                                sx={{ textTransform: 'none', fontSize: '12px', fontWeight: '600', color: '#F97316', mt: 0.5, '&:hover': { bgcolor: '#FFF7ED' } }}>
-                                View Leave Approval
-                            </Button>
-                        </CardContent>
-                    </Card>
+                    {(userType === "superadmin" || userType === "admin") && (
+                        <Card sx={{ border: '1px solid #E8E8E8', borderRadius: '4px', boxShadow: 'none', mb: 2 }}>
+                            <CardContent sx={{ pb: '12px !important' }}>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+                                    <Typography sx={{ fontSize: '14px', fontWeight: '600', color: '#1a1a1a' }}>Leave Requests</Typography>
+                                </Box>
+                                <Typography sx={{ fontSize: '12px', color: '#999', textAlign: 'center', py: 2 }}>
+                                    View pending leave requests in the Leave Approval tab.
+                                </Typography>
+                                <Button fullWidth variant="text"
+                                    onClick={() => setTabValue(4)}
+                                    endIcon={<ArrowBackIcon sx={{ transform: 'rotate(180deg)', fontSize: '14px !important' }} />}
+                                    sx={{ textTransform: 'none', fontSize: '12px', fontWeight: '600', color: '#F97316', mt: 0.5, '&:hover': { bgcolor: '#FFF7ED' } }}>
+                                    View Leave Approval
+                                </Button>
+                            </CardContent>
+                        </Card>
+                    )}
                 </Grid>
             </Grid>
         );
     };
 
     const renderTabContent = () => {
+        if (userType === "teacher") {
+            return <LeaveManagementPage isEmbedded={true} />;
+        }
+
+        if (userType === "staff") {
+            // staff tabs: 0=Dashboard, 1=Add Attendance, 2=Overview, 3=Leave Management, 4=Reports (no Leave Approval)
+            switch (tabValue) {
+                case 0: return renderDashboard();
+                case 1: return <AddStaffAttendancePage />;
+                case 2: return <StaffAttendanceOverviewPage isEmbedded={true} />;
+                case 3: return <LeaveManagementPage isEmbedded={true} />;
+                case 4: return <AttendanceReportsPage isEmbedded={true} />;
+                default: return renderDashboard();
+            }
+        }
+
+        // superadmin, admin — all tabs
         switch (tabValue) {
             case 0: return renderDashboard();
             case 1: return <AddStaffAttendancePage />;
@@ -390,56 +410,59 @@ export default function LeaveAttendancePage() {
                             Leave & Attendance
                         </Typography>
                     </Box>
-                    <Box sx={{ display: 'flex', gap: 2 }}>
-                        <Button
-                            startIcon={<AddIcon />}
-                            variant="outlined"
-                            onClick={() => setTabValue(1)}
-                            sx={{
-                                textTransform: 'none', borderRadius: '50px',
-                                border: '1px solid #333', color: '#333',
-                                fontSize: '13px', fontWeight: '600', px: 2.5,
-                                '&:hover': { border: '1px solid #000', bgcolor: '#F5F5F5' }
-                            }}
-                        >
-                            Mark Attendance
-                        </Button>
-                      
-                    </Box>
+                    {userType !== "teacher" && (
+                        <Box sx={{ display: 'flex', gap: 2 }}>
+                            <Button
+                                startIcon={<AddIcon />}
+                                variant="outlined"
+                                onClick={() => setTabValue(1)}
+                                sx={{
+                                    textTransform: 'none', borderRadius: '50px',
+                                    border: '1px solid #333', color: '#333',
+                                    fontSize: '13px', fontWeight: '600', px: 2.5,
+                                    '&:hover': { border: '1px solid #000', bgcolor: '#F5F5F5' }
+                                }}
+                            >
+                                Mark Attendance
+                            </Button>
+                        </Box>
+                    )}
                 </Box>
 
                 <Divider sx={{ mb: 1.5 }} />
 
                 {/* Tabs */}
-                <Box sx={{ borderBottom: '1px solid #E8E8E8', mb: 1.5 }}>
-                    <Tabs
-                        value={tabValue}
-                        onChange={handleTabChange}
-                        variant="scrollable"
-                        scrollButtons="auto"
-                        sx={{
-                            minHeight: '40px',
-                            '& .MuiTab-root': {
-                                textTransform: 'none', fontSize: '13px',
-                                fontWeight: '600', color: '#666',
-                                minHeight: '40px', px: 2.5, py: 1,
-                            },
-                            '& .Mui-selected': { color: '#F97316 !important' },
-                            '& .MuiTabs-indicator': {
-                                backgroundColor: '#F97316',
-                                height: '2px',
-                                borderRadius: '2px 2px 0 0',
-                            },
-                        }}
-                    >
-                        <Tab label="Attendance Dashboard" />
-                        <Tab label="Add Attendance" />
-                        <Tab label="Staff Attendance Overview" />
-                        <Tab label="Leave Management" />
-                        <Tab label="Leave Approval" />
-                        <Tab label="Reports" />
-                    </Tabs>
-                </Box>
+                {userType !== "teacher" && (
+                    <Box sx={{ borderBottom: '1px solid #E8E8E8', mb: 1.5 }}>
+                        <Tabs
+                            value={tabValue}
+                            onChange={handleTabChange}
+                            variant="scrollable"
+                            scrollButtons="auto"
+                            sx={{
+                                minHeight: '40px',
+                                '& .MuiTab-root': {
+                                    textTransform: 'none', fontSize: '13px',
+                                    fontWeight: '600', color: '#666',
+                                    minHeight: '40px', px: 2.5, py: 1,
+                                },
+                                '& .Mui-selected': { color: '#F97316 !important' },
+                                '& .MuiTabs-indicator': {
+                                    backgroundColor: '#F97316',
+                                    height: '2px',
+                                    borderRadius: '2px 2px 0 0',
+                                },
+                            }}
+                        >
+                            <Tab label="Attendance Dashboard" />
+                            <Tab label="Add Attendance" />
+                            <Tab label="Staff Attendance Overview" />
+                            <Tab label="Leave Management" />
+                            {userType !== "staff" && <Tab label="Leave Approval" />}
+                            <Tab label="Reports" />
+                        </Tabs>
+                    </Box>
+                )}
             </Box>
 
             {/* Scrollable Content */}

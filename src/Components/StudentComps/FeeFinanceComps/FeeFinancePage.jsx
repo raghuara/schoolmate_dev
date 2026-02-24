@@ -37,24 +37,7 @@ const items = [
         path: "pay-fees",
         disabled: false,
     },
-    // {
-    //     color: "#FF6B35",
-    //     icon: DashboardIcon,
-    //     text: "Finance Dashboard",
-    //     bgColor: "#FFF5F2",
-    //     iconBgColor: "#FF6B351A",
-    //     path: "dashboard",
-    //     disabled: false,
-    // },
-    // {
-    //     color: "#8600BB",
-    //     icon: ReceiptLongIcon,
-    //     text: "Report",
-    //     bgColor: "#f9f4fc",
-    //     iconBgColor: "#8600BB1A",
-    //     path: "report",
-    //     disabled: false,
-    // },
+ 
     {
         color: "#3457D5",
         icon: SportsSoccerIcon,
@@ -94,7 +77,10 @@ export default function FeeFinancePage() {
     const [anchorEl, setAnchorEl] = useState(null);
     const selectedGrade = grades.find((grade) => grade.id === selectedGradeId);
     const sections = selectedGrade?.sections.map((section) => ({ sectionName: section })) || [];
+    const user = useSelector((state) => state.auth);
+    const userType = user.userType;
 
+    
     useEffect(() => {
         if (grades && grades.length > 0) {
             setSelectedGradeId(grades[0].id);
@@ -240,7 +226,7 @@ export default function FeeFinancePage() {
             <Divider sx={{ pt: 2 }} />
 
             <Grid container spacing={2} >
-                {items.map((item, index) => {
+                {items.filter(item => userType !== "teacher" || item.text === "Expense").map((item, index) => {
                     const IconComponent = item.icon;
                     return (
                         <Grid

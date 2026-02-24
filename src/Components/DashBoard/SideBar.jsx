@@ -64,9 +64,9 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [selectedActive, setSelectedActive] = useState('');
   const [imageError, setImageError] = useState(false);
-  
+
   const isExpanded = useSelector((state) => state.sidebar.isExpanded);
-  
+
   useEffect(() => {
     if (!isMobile) {
       if (communicationActivePaths.includes(location.pathname)) {
@@ -424,55 +424,57 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
           </ListItem>
 
           {/* Profile Tab */}
-          <ListItem onClick={() => handleMenuClickOne('profile')} sx={{ borderRadius: 2, px: 3, paddingTop: '3px', paddingBottom: '3px' }}>
-            <CustomTooltip title={isExpanded ? "" : "Profile Management"} arrow placement="right-start">
-              <Box
-                sx={{
-                  display: 'flex',
-                  justifyContent: "center",
-                  alignItems: 'center',
-                  paddingTop: '2px',
-                  paddingBottom: '2px',
-                  borderRadius: '5px',
-                  boxShadow: isActive('/dashboardmenu/profile') ? '1px 1px 2px 0.5px rgba(0, 0, 0, 0.4)' : 'inherit',
-                  width: '100%',
-                  backgroundColor: isActive('/dashboardmenu/profile') ? websiteSettings.mainColor : 'inherit',
-                  color: isActive('/dashboardmenu/profile') ? websiteSettings.textColor : '#000',
-                  position: 'relative',
-                  '&:hover': { backgroundColor: 'none' },
-                  cursor: "pointer",
-                  '&:hover': {
-                    backgroundColor: !isActive('/dashboardmenu/profile') ? websiteSettings.lightColor : 'none',
-                  }
-                }}
-              >
-                {isExpanded && (
-                  <Box
-                    sx={{
-                      width: '5px',
-                      backgroundColor: isActive('/dashboardmenu/profile') ? websiteSettings.darkColor : 'inherit',
-                      height: '100%',
-                      position: 'absolute',
-                      left: 0,
-                      top: 0,
-                      borderTopLeftRadius: '5px',
-                      borderBottomLeftRadius: '5px',
-                    }}
-                  />
-                )}
-                <ListItemIcon sx={{ display: "flex", justifyContent: "center", alignItems: "center", }}>
-                  <ManageAccountsIcon style={{ color: isActive('/dashboardmenu/profile') ? websiteSettings.textColor : 'rgba(0, 0, 0, 0.7)', }} />
-                </ListItemIcon>
-                {isExpanded && (
-                  <ListItemText>
-                    <Typography className="activeSidebarText" sx={{ color: isActive('/dashboardmenu/profile') ? websiteSettings.textColor : '#000' }}>
-                      Profile Management
-                    </Typography>
-                  </ListItemText>
-                )}
-              </Box>
-            </CustomTooltip>
-          </ListItem>
+          {(userType === "superadmin" || userType === "admin" || userType === "staff") && (
+            <ListItem onClick={() => handleMenuClickOne('profile')} sx={{ borderRadius: 2, px: 3, paddingTop: '3px', paddingBottom: '3px' }}>
+              <CustomTooltip title={isExpanded ? "" : "Profile Management"} arrow placement="right-start">
+                <Box
+                  sx={{
+                    display: 'flex',
+                    justifyContent: "center",
+                    alignItems: 'center',
+                    paddingTop: '2px',
+                    paddingBottom: '2px',
+                    borderRadius: '5px',
+                    boxShadow: isActive('/dashboardmenu/profile') ? '1px 1px 2px 0.5px rgba(0, 0, 0, 0.4)' : 'inherit',
+                    width: '100%',
+                    backgroundColor: isActive('/dashboardmenu/profile') ? websiteSettings.mainColor : 'inherit',
+                    color: isActive('/dashboardmenu/profile') ? websiteSettings.textColor : '#000',
+                    position: 'relative',
+                    '&:hover': { backgroundColor: 'none' },
+                    cursor: "pointer",
+                    '&:hover': {
+                      backgroundColor: !isActive('/dashboardmenu/profile') ? websiteSettings.lightColor : 'none',
+                    }
+                  }}
+                >
+                  {isExpanded && (
+                    <Box
+                      sx={{
+                        width: '5px',
+                        backgroundColor: isActive('/dashboardmenu/profile') ? websiteSettings.darkColor : 'inherit',
+                        height: '100%',
+                        position: 'absolute',
+                        left: 0,
+                        top: 0,
+                        borderTopLeftRadius: '5px',
+                        borderBottomLeftRadius: '5px',
+                      }}
+                    />
+                  )}
+                  <ListItemIcon sx={{ display: "flex", justifyContent: "center", alignItems: "center", }}>
+                    <ManageAccountsIcon style={{ color: isActive('/dashboardmenu/profile') ? websiteSettings.textColor : 'rgba(0, 0, 0, 0.7)', }} />
+                  </ListItemIcon>
+                  {isExpanded && (
+                    <ListItemText>
+                      <Typography className="activeSidebarText" sx={{ color: isActive('/dashboardmenu/profile') ? websiteSettings.textColor : '#000' }}>
+                        Profile Management
+                      </Typography>
+                    </ListItemText>
+                  )}
+                </Box>
+              </CustomTooltip>
+            </ListItem>
+          )}
 
           {/* Communication Tab */}
           <ListItem onClick={() => handleMenuClick('communication', 'news', 'news')} sx={{ borderRadius: 2, px: 3, paddingTop: '3px', paddingBottom: '3px' }}>
@@ -657,7 +659,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
                 {isExpanded && (
                   <ListItemText>
                     <Typography className="activeSidebarText" sx={{ color: isActive('/dashboardmenu/leave') ? websiteSettings.textColor : '#000' }}>
-                    Leave & Payroll
+                      Leave & Payroll
                     </Typography>
                   </ListItemText>
                 )}
@@ -812,8 +814,104 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
               )}
             </Box>
           </ListItem>
+          {/* ERP Tab */}
+          <ListItem
+            onClick={() => !isDisabled && handleMenuClickOne('erp')}
+            sx={{
+              borderRadius: 2,
+              px: 3,
+              paddingTop: '3px',
+              paddingBottom: '3px',
+              cursor: isDisabled ? 'not-allowed' : 'pointer',
+              opacity: isDisabled ? 0.5 : 1,
+              pointerEvents: isDisabled ? 'none' : 'auto',
+            }}
+          >
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                paddingTop: '2px',
+                paddingBottom: '2px',
+                borderRadius: '5px',
+                boxShadow: isActive('/dashboardmenu/erp') && !isDisabled ? '1px 1px 2px 0.5px rgba(0, 0, 0, 0.4)' : 'inherit',
+                width: '100%',
+                backgroundColor: isDisabled
+                  ? ''
+                  : isActive('/dashboardmenu/erp')
+                    ? websiteSettings.mainColor
+                    : 'inherit',
+                color: isDisabled
+                  ? '#A0A0A0'
+                  : isActive('/dashboardmenu/erp')
+                    ? websiteSettings.textColor
+                    : '#000',
+                position: 'relative',
+                '&:hover': {
+                  backgroundColor: isDisabled
+                    ? 'none' // Prevent hover styles when disabled
+                    : !isActive('/dashboardmenu/erp')
+                      ? websiteSettings.lightColor
+                      : 'none',
+                },
+              }}
+            >
+              {isExpanded && (
+                <Box
+                  sx={{
+                    width: '5px',
+                    backgroundColor: isDisabled
+                      ? 'transparent' // No indicator when disabled
+                      : isActive('/dashboardmenu/erp')
+                        ? websiteSettings.darkColor
+                        : 'inherit',
+                    height: '100%',
+                    position: 'absolute',
+                    left: 0,
+                    top: 0,
+                    borderTopLeftRadius: '5px',
+                    borderBottomLeftRadius: '5px',
+                  }}
+                />
+              )}
+              <ListItemIcon
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}
+              >
+                <RealEstateAgentIcon
+                  style={{
+                    color: isDisabled
+                      ? '#000' // Disabled icon color
+                      : isActive('/dashboardmenu/erp')
+                        ? websiteSettings.textColor
+                        : '#000',
+                  }}
+                />
+              </ListItemIcon>
+              {isExpanded && (
+                <ListItemText>
+                  <Typography
+                    className="activeSidebarText"
+                    sx={{
+                      color: isDisabled
+                        ? '#000' // Disabled text color
+                        : isActive('/dashboardmenu/erp')
+                          ? websiteSettings.textColor
+                          : '#000',
+                    }}
+                  >
+                    Assets
+                  </Typography>
+                </ListItemText>
+              )}
+            </Box>
+          </ListItem>
 
-          {/* Assets Tab */}
+          {/* Assets Tab
           <ListItem onClick={() => handleMenuClickOne('asset')} sx={{ borderRadius: 2, px: 3, paddingTop: '3px', paddingBottom: '3px' }}>
             <CustomTooltip title={isExpanded ? "" : "Assets"} arrow placement="right-start">
               <Box
@@ -862,7 +960,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
                 )}
               </Box>
             </CustomTooltip>
-          </ListItem>
+          </ListItem> */}
 
 
           <Box sx={{ backgroundColor: websiteSettings.backgroundColor }}>

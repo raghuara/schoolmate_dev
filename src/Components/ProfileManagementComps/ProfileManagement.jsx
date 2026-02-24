@@ -1,15 +1,8 @@
-import { Autocomplete, Box, Button, Divider, Grid, IconButton, InputAdornment, List, ListItemButton, ListItemText, Paper, Popover, TextField, Typography } from '@mui/material'
-import React, { useEffect, useState } from 'react'
-import SearchIcon from '@mui/icons-material/Search';
-import { selectWebsiteSettings } from '../../Redux/Slices/websiteSettingsSlice';
+import { Box, Divider, Grid, IconButton, Typography } from '@mui/material'
+import React from 'react'
 import { useSelector } from 'react-redux';
-import { selectGrades } from '../../Redux/Slices/DropdownController';
-import AddIcon from '@mui/icons-material/Add';
 import { Link, useNavigate } from 'react-router-dom';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import PersonAddAlt1Icon from '@mui/icons-material/PersonAddAlt1';
-import PaymentIcon from '@mui/icons-material/Payment';
-import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import BoyIcon from '@mui/icons-material/Boy';
 import Person4Icon from '@mui/icons-material/Person4';
@@ -36,62 +29,11 @@ const items = [
         size: "30"
     },
 ];
+
 export default function ProfileManagement() {
     const navigate = useNavigate()
-    const [searchQuery, setSearchQuery] = useState("");
-    const websiteSettings = useSelector(selectWebsiteSettings);
-    const grades = useSelector(selectGrades);
-    const [selectedGradeId, setSelectedGradeId] = useState(null);
-    const [selectedSection, setSelectedSection] = useState(null);
-    const [anchorEl, setAnchorEl] = useState(null);
-    const selectedGrade = grades.find((grade) => grade.id === selectedGradeId);
-    const sections = selectedGrade?.sections.map((section) => ({ sectionName: section })) || [];
-
-    useEffect(() => {
-        if (grades && grades.length > 0) {
-            setSelectedGradeId(grades[0].id);
-            setSelectedSection(grades[0].sections[0]);
-        }
-    }, [grades]);
-
-    const handleClick = (event) => {
-        setAnchorEl(event.currentTarget);
-    };
-
-    const open = Boolean(anchorEl);
-    const id = open ? "fee-structure-popover" : undefined;
-
-    const feeTypes = [
-        "School Fee",
-        "Transport Fee",
-        "Extra curricular Activities Fees",
-        "Extra Fee",
-    ];
-
-    const handleFeeSelect = (fee) => {
-        handleClose();
-
-        switch (fee) {
-            case "School Fee":
-                navigate("school");
-                break;
-            case "Transport Fee":
-                navigate("transport");
-                break;
-            case "Extra curricular Activities Fees":
-                navigate("extra-curricular");
-                break;
-            case "Extra Fee":
-                navigate("extra");
-                break;
-            default:
-                break;
-        }
-    };
-
-    const handleClose = () => {
-        setAnchorEl(null);
-    };
+    const user = useSelector((state) => state.auth);
+    const userType = user.userType;
 
     return (
         <Box sx={{ border: "1px solid #ccc", borderRadius: "20px", p: 2, height: "86vh" }}>
@@ -109,14 +51,14 @@ export default function ProfileManagement() {
                             <Typography sx={{ fontSize: "20px", fontWeight: "600" }}> Profile Management </Typography>
                         </Box>
                     </Grid>
-              
+
                 </Grid>
 
             </Box>
             <Divider sx={{ pt: 2 }} />
 
             <Grid container spacing={2} >
-                {items.map((item, index) => {
+                {items.filter(item => item.text !== "Staff" || userType === "superadmin" || userType === "admin").map((item, index) => {
                     const IconComponent = item.icon;
                     return (
                         <Grid

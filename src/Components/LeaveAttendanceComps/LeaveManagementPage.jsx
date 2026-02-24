@@ -379,6 +379,7 @@ export default function LeaveManagementPage({ isEmbedded = false, onGoToApproval
                 {/* Main Content */}
                 <Grid size={{ xs: 12, lg: 9 }}>
                     {/* Statistics Cards */}
+                    {userType !== "teacher" && (
                     <Grid container spacing={2} sx={{ mb: 3 }}>
                         <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
                             <Card sx={{
@@ -492,6 +493,7 @@ export default function LeaveManagementPage({ isEmbedded = false, onGoToApproval
                             </Card>
                         </Grid>
                     </Grid>
+                    )}
 
                     {/* Leave Applications Table */}
                     <Card sx={{ border: '1px solid #E8E8E8', borderRadius: '4px', boxShadow: 'none' }}>
@@ -629,6 +631,7 @@ export default function LeaveManagementPage({ isEmbedded = false, onGoToApproval
                 {/* Right Side Panel */}
                 <Grid size={{ xs: 12, lg: 3 }}>
                     {/* Leave Balance */}
+                    {userType !== "teacher" && (
                     <Card sx={{ border: '1px solid #E8E8E8', borderRadius: '4px', boxShadow: 'none', mb: 2 }}>
                         <CardContent>
                             <Typography sx={{ fontSize: '14px', fontWeight: '600', color: '#1a1a1a', mb: 2 }}>
@@ -673,6 +676,7 @@ export default function LeaveManagementPage({ isEmbedded = false, onGoToApproval
                             })}
                         </CardContent>
                     </Card>
+                    )}
 
                     {/* Quick Actions */}
                     <Card sx={{ border: '1px solid #E8E8E8', borderRadius: '4px', boxShadow: 'none' }}>
@@ -702,25 +706,27 @@ export default function LeaveManagementPage({ isEmbedded = false, onGoToApproval
                                 Apply Leave
                             </Button>
 
-                            <Button
-                                fullWidth
-                                variant="outlined"
-                                onClick={onGoToApprovalWorkflow || (() => handleTabChange(null, 3))}
-                                sx={{
-                                    textTransform: 'none',
-                                    fontSize: '13px',
-                                    fontWeight: '600',
-                                    color: '#F97316',
-                                    borderColor: '#F97316',
-                                    borderRadius: '4px',
-                                    '&:hover': {
-                                        borderColor: '#EA580C',
-                                        bgcolor: '#FFF7ED'
-                                    }
-                                }}
-                            >
-                                Approve Leaves
-                            </Button>
+                            {(userType === "superadmin" || userType === "admin") && (
+                                <Button
+                                    fullWidth
+                                    variant="outlined"
+                                    onClick={onGoToApprovalWorkflow || (() => handleTabChange(null, 3))}
+                                    sx={{
+                                        textTransform: 'none',
+                                        fontSize: '13px',
+                                        fontWeight: '600',
+                                        color: '#F97316',
+                                        borderColor: '#F97316',
+                                        borderRadius: '4px',
+                                        '&:hover': {
+                                            borderColor: '#EA580C',
+                                            bgcolor: '#FFF7ED'
+                                        }
+                                    }}
+                                >
+                                    Approve Leaves
+                                </Button>
+                            )}
                         </CardContent>
                     </Card>
                 </Grid>
