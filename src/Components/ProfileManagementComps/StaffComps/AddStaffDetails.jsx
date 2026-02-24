@@ -258,6 +258,7 @@ export default function AddStaffDetails() {
             formData.append("AdmissionClass", selectedGradeId);
             formData.append("Section", selectedSection);
             formData.append("StaffCategory", staffCategory);
+            formData.append("UserType", selectedUserType);
             formData.append("StaffDesignation", staffDesignation);
             formData.append("StaffPassportSizePhotofiletype", "image");
             if (profileImage) {
@@ -717,8 +718,9 @@ export default function AddStaffDetails() {
                                             <Autocomplete
                                                 disabled={isDisabledStaffInfo}
                                                 disablePortal
+                                                size="small"
                                                 options={["Admin", "Staff", "Teacher"]}
-                                                value={selectedUserType}
+                                                value={selectedUserType || null}
                                                 onChange={(event, newValue) => {
                                                     setSelectedUserType(newValue || "");
                                                 }}

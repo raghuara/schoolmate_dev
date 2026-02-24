@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Box, Typography, Button, Grid, IconButton, Divider,
     Card, CardContent, Dialog, DialogTitle, DialogContent, DialogActions,
-    TextField, Switch,
+    TextField, Switch, CircularProgress,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AddIcon from '@mui/icons-material/Add';
@@ -12,7 +12,9 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import BeachAccessIcon from '@mui/icons-material/BeachAccess';
 import MonetizationOnIcon from '@mui/icons-material/MonetizationOn';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import SnackBar from '../../SnackBar';
+import { leavePolicyDashboard, postLeaveType, updateLeaveTypeById } from '../../../Api/Api';
 
 const PRIMARY      = '#059669';
 const PRIMARY_LIGHT = '#ECFDF5';
@@ -22,65 +24,6 @@ const CARD_RADIUS   = '12px';
 const LEAVE_COLORS = [
     '#3B82F6', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4',
     '#10B981', '#F59E0B', '#6B7280', '#FF6B35', '#059669',
-];
-
-// Default leave policies — replace with API data in production
-// encashUnused: if leave is NOT taken in the month, those days are added to salary
-const defaultPolicies = [
-    {
-        id: 1,
-        name: 'Casual Leave',
-        shortCode: 'CL',
-        daysPerMonth: 1,
-        encashUnused: false,
-        color: '#3B82F6',
-        description: 'For personal work and casual / urgent purposes',
-    },
-    {
-        id: 2,
-        name: 'Sick Leave',
-        shortCode: 'SL',
-        daysPerMonth: 1,
-        encashUnused: false,
-        color: '#EF4444',
-        description: 'For medical reasons and health-related absences',
-    },
-    {
-        id: 3,
-        name: 'Privilege Leave',
-        shortCode: 'PL',
-        daysPerMonth: 1.25,
-        encashUnused: true,
-        color: '#8B5CF6',
-        description: 'Earned leave accrued based on length of service',
-    },
-    {
-        id: 4,
-        name: 'Maternity Leave',
-        shortCode: 'ML',
-        daysPerMonth: 0,
-        encashUnused: false,
-        color: '#EC4899',
-        description: 'For female employees during the period of maternity',
-    },
-    {
-        id: 5,
-        name: 'Paternity Leave',
-        shortCode: 'PtL',
-        daysPerMonth: 0,
-        encashUnused: false,
-        color: '#06B6D4',
-        description: 'For male employees on the birth / adoption of a child',
-    },
-    {
-        id: 6,
-        name: 'Leave Without Pay',
-        shortCode: 'LWP',
-        daysPerMonth: 0,
-        encashUnused: false,
-        color: '#6B7280',
-        description: 'Unpaid leave sanctioned when all paid leaves are exhausted',
-    },
 ];
 
 const emptyForm = {
@@ -94,14 +37,24 @@ const emptyForm = {
 
 export default function LeavePolicy() {
     const navigate = useNavigate();
-    const [policies, setPolicies]               = useState(defaultPolicies);
+    const token = "123";
+
+    const [policies, setPolicies]               = useState([]);
     const [dialogOpen, setDialogOpen]           = useState(false);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [editingPolicy, setEditingPolicy]     = useState(null);
     const [form, setForm]                       = useState(emptyForm);
     const [deleteTarget, setDeleteTarget]       = useState(null);
+    const [isLoading, setIsLoading]             = useState(false);
+    const [isSaving, setIsSaving]               = useState(false);
 
-    // SnackBar state
+    const [apiStats, setApiStats] = useState({
+        totalLeaveTypes: 0,
+        totalDaysPerMonth: 0,
+        onDemandUnlimited: 0,
+        encashableLeaveTypes: 0,
+    });
+
     const [open, setOpen]       = useState(false);
     const [status, setStatus]   = useState(false);
     const [color, setColor]     = useState(false);
@@ -110,10 +63,42 @@ export default function LeavePolicy() {
         setMessage(msg); setOpen(true); setColor(success); setStatus(success);
     };
 
-    // KPI derivations
-    const totalDays      = policies.reduce((s, p) => s + (p.daysPerMonth || 0), 0);
-    const unlimitedCount = policies.filter(p => p.daysPerMonth === 0).length;
-    const encashCount    = policies.filter(p => p.encashUnused).length;
+    const fetchLeavePolicies = async () => {
+        setIsLoading(true);
+        try {
+            const res = await axios.get(leavePolicyDashboard, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (res.data && !res.data.error) {
+                const d = res.data.data;
+                setApiStats({
+                    totalLeaveTypes: d.totalLeaveTypes,
+                    totalDaysPerMonth: d.totalDaysPerMonth,
+                    onDemandUnlimited: d.onDemandUnlimited,
+                    encashableLeaveTypes: d.encashableLeaveTypes,
+                });
+                setPolicies((d.leaveTypes || []).map(lt => ({
+                    id: lt.id,
+                    name: lt.leaveTypeName,
+                    shortCode: lt.shortCode,
+                    daysPerMonth: lt.daysPerMonth,
+                    encashUnused: lt.encash === 'Y',
+                    color: lt.colorTag || '#3B82F6',
+                    description: lt.description || '',
+                })));
+            } else {
+                showSnack('Failed to load leave policies', false);
+            }
+        } catch {
+            showSnack('Failed to load leave policies', false);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchLeavePolicies();
+    }, []);
 
     const handleAdd = () => {
         setEditingPolicy(null);
@@ -139,20 +124,56 @@ export default function LeavePolicy() {
         setDeleteTarget(null);
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
         if (!form.name.trim() || !form.shortCode.trim()) {
             showSnack('Leave type name and short code are required.', false);
             return;
         }
-        if (editingPolicy) {
-            setPolicies(prev => prev.map(p => p.id === editingPolicy.id ? { ...form, id: p.id } : p));
-            showSnack('Leave type updated successfully!', true);
-        } else {
-            const newId = Math.max(...policies.map(p => p.id), 0) + 1;
-            setPolicies(prev => [...prev, { ...form, id: newId }]);
-            showSnack('Leave type added successfully!', true);
+
+        const body = {
+            leaveTypeName: form.name,
+            shortCode:     form.shortCode,
+            daysPerMonth:  form.daysPerMonth,
+            encash:        form.encashUnused ? 'Y' : 'N',
+            colorTag:      form.color,
+            description:   form.description,
+        };
+
+        setIsSaving(true);
+        try {
+            if (editingPolicy) {
+                const res = await axios.put(updateLeaveTypeById, { ...body, id: editingPolicy.id }, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                if (res.data && !res.data.error) {
+                    showSnack('Leave type updated successfully!', true);
+                    setDialogOpen(false);
+                    fetchLeavePolicies();
+                } else {
+                    showSnack(res.data?.message || 'Failed to update leave type', false);
+                }
+            } else {
+                const res = await axios.post(postLeaveType, body, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                if (res.data && !res.data.error) {
+                    showSnack('Leave type added successfully!', true);
+                    setDialogOpen(false);
+                    fetchLeavePolicies();
+                } else {
+                    showSnack(res.data?.message || 'Failed to add leave type', false);
+                }
+            }
+        } catch {
+            showSnack(
+                editingPolicy
+                    ? 'Failed to update leave type. Please try again.'
+                    : 'Failed to add leave type. Please try again.',
+                false
+            );
+        } finally {
+            setIsSaving(false);
         }
-        setDialogOpen(false);
     };
 
     const ff = (key, value) => setForm(prev => ({ ...prev, [key]: value }));
@@ -165,7 +186,6 @@ export default function LeavePolicy() {
                 height: '86vh', display: 'flex', flexDirection: 'column',
                 bgcolor: '#FAFAFA', borderRadius: '20px', border: '1px solid #E8E8E8', overflow: 'hidden',
             }}>
-                {/* ── Header ── */}
                 <Box sx={{
                     bgcolor: '#fff', borderBottom: '2px solid #F1F5F9',
                     px: 3, py: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -202,150 +222,147 @@ export default function LeavePolicy() {
                 <Divider />
 
                 <Box sx={{ flex: 1, overflow: 'auto', p: 2.5 }}>
-
-                    {/* ── KPI Cards ── */}
-                    <Grid container spacing={2} sx={{ mb: 2.5 }}>
-                        {[
-                            { label: 'Total Leave Types',     value: policies.length, color: PRIMARY,   bg: PRIMARY_LIGHT },
-                            { label: 'Total Days / Month',    value: `${totalDays}d`, color: '#2563EB', bg: '#EFF6FF'     },
-                            { label: 'On-demand / Unlimited', value: unlimitedCount,  color: '#F59E0B', bg: '#FFFBEB'     },
-                            { label: 'Encashable Leave Types',value: encashCount,     color: '#7C3AED', bg: '#F5F3FF'     },
-                        ].map((card, i) => (
-                            <Grid key={i} size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
-                                <Card sx={{
-                                    border: `1px solid ${card.color}30`,
-                                    borderRadius: CARD_RADIUS, bgcolor: card.bg, boxShadow: 'none',
-                                }}>
-                                    <CardContent sx={{ p: 2.5 }}>
-                                        <Typography sx={{ fontSize: 12, color: card.color, fontWeight: 600, mb: 0.8 }}>
-                                            {card.label}
-                                        </Typography>
-                                        <Typography sx={{ fontSize: 28, fontWeight: 800, color: '#1a1a1a' }}>
-                                            {card.value}
-                                        </Typography>
-                                    </CardContent>
-                                </Card>
+                    {isLoading ? (
+                        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60%' }}>
+                            <CircularProgress sx={{ color: PRIMARY }} />
+                        </Box>
+                    ) : (
+                        <>
+                            <Grid container spacing={2} sx={{ mb: 2.5 }}>
+                                {[
+                                    { label: 'Total Leave Types',     value: apiStats.totalLeaveTypes,       color: PRIMARY,   bg: PRIMARY_LIGHT },
+                                    { label: 'Total Days / Month',    value: `${apiStats.totalDaysPerMonth}d`, color: '#2563EB', bg: '#EFF6FF'     },
+                                    { label: 'On-demand / Unlimited', value: apiStats.onDemandUnlimited,     color: '#F59E0B', bg: '#FFFBEB'     },
+                                    { label: 'Encashable Leave Types',value: apiStats.encashableLeaveTypes,  color: '#7C3AED', bg: '#F5F3FF'     },
+                                ].map((card, i) => (
+                                    <Grid key={i} size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
+                                        <Card sx={{
+                                            border: `1px solid ${card.color}30`,
+                                            borderRadius: CARD_RADIUS, bgcolor: card.bg, boxShadow: 'none',
+                                        }}>
+                                            <CardContent sx={{ p: 2.5 }}>
+                                                <Typography sx={{ fontSize: 12, color: card.color, fontWeight: 600, mb: 0.8 }}>
+                                                    {card.label}
+                                                </Typography>
+                                                <Typography sx={{ fontSize: 28, fontWeight: 800, color: '#1a1a1a' }}>
+                                                    {card.value}
+                                                </Typography>
+                                            </CardContent>
+                                        </Card>
+                                    </Grid>
+                                ))}
                             </Grid>
-                        ))}
-                    </Grid>
 
-                    {/* ── Info Banner ── */}
-                    <Box sx={{
-                        mb: 2.5, p: 2, borderRadius: '10px',
-                        bgcolor: '#FFFBEB', border: '1px solid #FDE68A',
-                        display: 'flex', alignItems: 'flex-start', gap: 1.5,
-                    }}>
-                        <InfoOutlinedIcon sx={{ fontSize: 18, color: '#F59E0B', mt: 0.2, flexShrink: 0 }} />
-                        <Typography sx={{ fontSize: 11.5, color: '#78350F', lineHeight: 1.7 }}>
-                            <strong>Days Per Month</strong> — defines the monthly accrual rate. Set to <strong>0</strong> for on-demand leaves (e.g. Maternity, LWP).&nbsp;
-                            <strong>Encash Untaken Days</strong> — if enabled and a staff member does not take their allocated leave in a month, those unused days are credited to their salary.
-                            Formula: <em>(Untaken days ÷ Working days) × Gross Monthly Salary</em>. This value appears as a separate line in the Salary Register.
-                        </Typography>
-                    </Box>
+                            <Box sx={{
+                                mb: 2.5, p: 2, borderRadius: '10px',
+                                bgcolor: '#FFFBEB', border: '1px solid #FDE68A',
+                                display: 'flex', alignItems: 'flex-start', gap: 1.5,
+                            }}>
+                                <InfoOutlinedIcon sx={{ fontSize: 18, color: '#F59E0B', mt: 0.2, flexShrink: 0 }} />
+                                <Typography sx={{ fontSize: 11.5, color: '#78350F', lineHeight: 1.7 }}>
+                                    <strong>Days Per Month</strong> — defines the monthly accrual rate. Set to <strong>0</strong> for on-demand leaves (e.g. Maternity, LWP).&nbsp;
+                                    <strong>Encash Untaken Days</strong> — if enabled and a staff member does not take their allocated leave in a month, those unused days are credited to their salary.
+                                    Formula: <em>(Untaken days ÷ Working days) × Gross Monthly Salary</em>. This value appears as a separate line in the Salary Register.
+                                </Typography>
+                            </Box>
 
-                    {/* ── Leave Policy Cards ── */}
-                    <Grid container spacing={2}>
-                        {policies.map(policy => (
-                            <Grid key={policy.id} size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
-                                <Card sx={{
-                                    border: `1.5px solid ${policy.color}30`,
-                                    borderRadius: CARD_RADIUS, boxShadow: 'none',
-                                    transition: '0.25s',
-                                    '&:hover': {
-                                        transform: 'translateY(-3px)',
-                                        boxShadow: `0 6px 20px ${policy.color}20`,
-                                    },
-                                }}>
-                                    <CardContent sx={{ p: 2.5 }}>
-                                        {/* Card Header */}
-                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                                <Box sx={{
-                                                    width: 46, height: 46, borderRadius: '10px',
-                                                    bgcolor: policy.color + '1A',
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                                                }}>
-                                                    <Typography sx={{ fontSize: 12, fontWeight: 900, color: policy.color }}>
-                                                        {policy.shortCode}
-                                                    </Typography>
+                            <Grid container spacing={2}>
+                                {policies.map(policy => (
+                                    <Grid key={policy.id} size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                                        <Card sx={{
+                                            border: `1.5px solid ${policy.color}30`,
+                                            borderRadius: CARD_RADIUS, boxShadow: 'none',
+                                            transition: '0.25s',
+                                            '&:hover': {
+                                                transform: 'translateY(-3px)',
+                                                boxShadow: `0 6px 20px ${policy.color}20`,
+                                            },
+                                        }}>
+                                            <CardContent sx={{ p: 2.5 }}>
+                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                                        <Box sx={{
+                                                            width: 46, height: 46, borderRadius: '10px',
+                                                            bgcolor: policy.color + '1A',
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                                                        }}>
+                                                            <Typography sx={{ fontSize: 12, fontWeight: 900, color: policy.color }}>
+                                                                {policy.shortCode}
+                                                            </Typography>
+                                                        </Box>
+                                                        <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#1a1a1a', lineHeight: 1.3 }}>
+                                                            {policy.name}
+                                                        </Typography>
+                                                    </Box>
+                                                    <Box sx={{ display: 'flex', gap: 0.3, flexShrink: 0 }}>
+                                                        <IconButton
+                                                            size="small"
+                                                            onClick={() => handleEdit(policy)}
+                                                            sx={{ '&:hover': { color: '#2563EB', bgcolor: '#EFF6FF' } }}
+                                                        >
+                                                            <EditIcon sx={{ fontSize: 16 }} />
+                                                        </IconButton>
+                                                        <IconButton
+                                                            size="small"
+                                                            onClick={() => handleDeleteClick(policy)}
+                                                            sx={{ '&:hover': { color: '#DC2626', bgcolor: '#FEF2F2' } }}
+                                                        >
+                                                            <DeleteIcon sx={{ fontSize: 16 }} />
+                                                        </IconButton>
+                                                    </Box>
                                                 </Box>
-                                                <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#1a1a1a', lineHeight: 1.3 }}>
-                                                    {policy.name}
-                                                </Typography>
-                                            </Box>
-                                            <Box sx={{ display: 'flex', gap: 0.3, flexShrink: 0 }}>
-                                                <IconButton
-                                                    size="small"
-                                                    onClick={() => handleEdit(policy)}
-                                                    sx={{ '&:hover': { color: '#2563EB', bgcolor: '#EFF6FF' } }}
-                                                >
-                                                    <EditIcon sx={{ fontSize: 16 }} />
-                                                </IconButton>
-                                                <IconButton
-                                                    size="small"
-                                                    onClick={() => handleDeleteClick(policy)}
-                                                    sx={{ '&:hover': { color: '#DC2626', bgcolor: '#FEF2F2' } }}
-                                                >
-                                                    <DeleteIcon sx={{ fontSize: 16 }} />
-                                                </IconButton>
-                                            </Box>
-                                        </Box>
 
-                                        {policy.description && (
-                                            <Typography sx={{ fontSize: 11, color: '#64748B', mb: 1.5, lineHeight: 1.5 }}>
-                                                {policy.description}
-                                            </Typography>
-                                        )}
+                                                {policy.description && (
+                                                    <Typography sx={{ fontSize: 11, color: '#64748B', mb: 1.5, lineHeight: 1.5 }}>
+                                                        {policy.description}
+                                                    </Typography>
+                                                )}
 
-                                        <Divider sx={{ my: 1.5 }} />
+                                                <Divider sx={{ my: 1.5 }} />
 
-                                        {/* Days Per Month + Encash row */}
-                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-                                            <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
-                                                <Typography sx={{ fontSize: 26, fontWeight: 800, color: policy.color, lineHeight: 1 }}>
-                                                    {policy.daysPerMonth === 0 ? '∞' : policy.daysPerMonth}
-                                                </Typography>
-                                                <Typography sx={{ fontSize: 11, color: '#94A3B8', fontWeight: 600 }}>
-                                                    {policy.daysPerMonth === 0 ? 'on-demand' : 'days / month'}
-                                                </Typography>
-                                            </Box>
+                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                                                    <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
+                                                        <Typography sx={{ fontSize: 26, fontWeight: 800, color: policy.color, lineHeight: 1 }}>
+                                                            {policy.daysPerMonth === 0 ? '∞' : policy.daysPerMonth}
+                                                        </Typography>
+                                                        <Typography sx={{ fontSize: 11, color: '#94A3B8', fontWeight: 600 }}>
+                                                            {policy.daysPerMonth === 0 ? 'on-demand' : 'days / month'}
+                                                        </Typography>
+                                                    </Box>
 
-                                            {/* Encash Untaken badge */}
-                                            <Box sx={{
-                                                display: 'flex', alignItems: 'center', gap: 0.5,
-                                                px: 1, py: 0.4, borderRadius: '6px',
-                                                bgcolor: policy.encashUnused ? '#F5F3FF' : '#F9FAFB',
-                                                border: `1px solid ${policy.encashUnused ? '#DDD6FE' : '#E5E7EB'}`,
-                                            }}>
-                                                <MonetizationOnIcon sx={{
-                                                    fontSize: 13,
-                                                    color: policy.encashUnused ? '#7C3AED' : '#D1D5DB',
-                                                }} />
-                                                <Typography sx={{
-                                                    fontSize: 10, fontWeight: 700,
-                                                    color: policy.encashUnused ? '#7C3AED' : '#9CA3AF',
-                                                }}>
-                                                    {policy.encashUnused ? 'Encashable' : 'No Encash'}
-                                                </Typography>
-                                            </Box>
-                                        </Box>
+                                                    <Box sx={{
+                                                        display: 'flex', alignItems: 'center', gap: 0.5,
+                                                        px: 1, py: 0.4, borderRadius: '6px',
+                                                        bgcolor: policy.encashUnused ? '#F5F3FF' : '#F9FAFB',
+                                                        border: `1px solid ${policy.encashUnused ? '#DDD6FE' : '#E5E7EB'}`,
+                                                    }}>
+                                                        <MonetizationOnIcon sx={{
+                                                            fontSize: 13,
+                                                            color: policy.encashUnused ? '#7C3AED' : '#D1D5DB',
+                                                        }} />
+                                                        <Typography sx={{
+                                                            fontSize: 10, fontWeight: 700,
+                                                            color: policy.encashUnused ? '#7C3AED' : '#9CA3AF',
+                                                        }}>
+                                                            {policy.encashUnused ? 'Encashable' : 'No Encash'}
+                                                        </Typography>
+                                                    </Box>
+                                                </Box>
 
-                                        {/* Color dot */}
-                                        <Box sx={{ mt: 1.5, display: 'flex', alignItems: 'center', gap: 0.8 }}>
-                                            <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: policy.color, flexShrink: 0 }} />
-                                            <Typography sx={{ fontSize: 11, color: '#94A3B8' }}>Color tag</Typography>
-                                        </Box>
-                                    </CardContent>
-                                </Card>
+                                                <Box sx={{ mt: 1.5, display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                                                    <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: policy.color, flexShrink: 0 }} />
+                                                    <Typography sx={{ fontSize: 11, color: '#94A3B8' }}>Color tag</Typography>
+                                                </Box>
+                                            </CardContent>
+                                        </Card>
+                                    </Grid>
+                                ))}
                             </Grid>
-                        ))}
-                    </Grid>
+                        </>
+                    )}
                 </Box>
             </Box>
 
-            {/* ══════════════════════════════════════
-                ADD / EDIT DIALOG
-            ══════════════════════════════════════ */}
             <Dialog
                 open={dialogOpen}
                 onClose={() => setDialogOpen(false)}
@@ -369,7 +386,6 @@ export default function LeavePolicy() {
 
                 <DialogContent sx={{ px: 2.5, pt: '20px !important', pb: 1 }}>
                     <Grid container spacing={2}>
-                        {/* Name + Short Code */}
                         <Grid size={{ xs: 12, sm: 8, md: 8, lg: 8 }}>
                             <TextField
                                 fullWidth
@@ -391,21 +407,19 @@ export default function LeavePolicy() {
                             />
                         </Grid>
 
-                        {/* Days Per Month */}
                         <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
                             <TextField
                                 fullWidth
                                 label="Days Per Month *"
                                 type="number"
                                 value={form.daysPerMonth}
-                                onChange={e => ff('daysPerMonth', Math.max(0, parseFloat(e.target.value) || 0))}
+                                onChange={e => ff('daysPerMonth', Math.max(0, parseInt(e.target.value) || 0))}
                                 size="small"
                                 helperText="Set 0 for unlimited / on-demand"
-                                inputProps={{ min: 0, step: 0.25 }}
+                                inputProps={{ min: 0, step: 1 }}
                             />
                         </Grid>
 
-                        {/* Encash Untaken Days toggle */}
                         <Grid size={{ xs: 12, sm: 12, md: 12, lg: 12 }}>
                             <Box sx={{
                                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -442,7 +456,6 @@ export default function LeavePolicy() {
                             </Box>
                         </Grid>
 
-                        {/* Color picker */}
                         <Grid size={{ xs: 12, sm: 12, md: 12, lg: 12 }}>
                             <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#374151', mb: 1 }}>
                                 Color Tag
@@ -463,7 +476,6 @@ export default function LeavePolicy() {
                             </Box>
                         </Grid>
 
-                        {/* Description */}
                         <Grid size={{ xs: 12, sm: 12, md: 12, lg: 12 }}>
                             <TextField
                                 fullWidth
@@ -489,19 +501,17 @@ export default function LeavePolicy() {
                     <Button
                         variant="contained"
                         onClick={handleSave}
+                        disabled={isSaving}
                         sx={{
                             textTransform: 'none', bgcolor: PRIMARY, fontWeight: 700,
-                            borderRadius: '8px', '&:hover': { bgcolor: PRIMARY_DARK },
+                            borderRadius: '8px', '&:hover': { bgcolor: PRIMARY_DARK }, minWidth: '130px',
                         }}
                     >
-                        {editingPolicy ? 'Update Leave Type' : 'Add Leave Type'}
+                        {isSaving ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : editingPolicy ? 'Update Leave Type' : 'Add Leave Type'}
                     </Button>
                 </DialogActions>
             </Dialog>
 
-            {/* ══════════════════════════════════════
-                DELETE CONFIRM DIALOG
-            ══════════════════════════════════════ */}
             <Dialog
                 open={deleteDialogOpen}
                 onClose={() => setDeleteDialogOpen(false)}

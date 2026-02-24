@@ -331,6 +331,12 @@ const employeeBankDetailsDashboard = `${payRoll}employeeBankDetailsDashboard`;
 const updateEmployeeBankDetailsByRollnumber = `${payRoll}updateEmployeeBankDetailsByRollnumber`;
 const salaryRegisterDashboard = `${payRoll}salaryRegisterDashboard`;
 
+const leavePolicyDashboard = `${payRoll}leavePolicyDashboard`;
+const getPayrollPayslipByRollNumber = `${payRoll}getPayrollPayslipByRollNumber`;
+const postLeaveType = `${payRoll}postLeaveType`;
+const updateLeaveTypeById = `${payRoll}updateLeaveTypeById`;
+const approvePayrollPayslipsDashboard = `${payRoll}approvePayrollPayslipsDashboard`;
+
 // Assets 
 const vehicle = `${baseApiurl}vehicle/`;
 
@@ -713,5 +719,9 @@ export {
     employeeBankDetailsDashboard,
     updateEmployeeBankDetailsByRollnumber,
     salaryRegisterDashboard,
-
+    leavePolicyDashboard,
+    postLeaveType,
+    updateLeaveTypeById,
+    getPayrollPayslipByRollNumber,
+    approvePayrollPayslipsDashboard
 }
