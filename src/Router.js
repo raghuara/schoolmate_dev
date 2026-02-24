@@ -123,22 +123,11 @@ import TransportFeeApprovalStatus from "./Components/MyProjects/ApprovalStatusCo
 import ExtraCurricularFeeApprovalStatus from "./Components/MyProjects/ApprovalStatusComps/FeeStatusComps/ExtraCurricularFeeApprovalStatus";
 import SchoolFeeApprovalPage from "./Components/Approvals/ApprovalPages/FeeApprovalComps/SchoolFeeApprovalPage";
 import AssetsPage from "./Components/AssetsComps/AssetsPage";
-import TrasnportAssetPage from "./Components/AssetsComps/TransportAssetComps/TrasnportAssetPage";
 import ExtraCurricularManage from "./Components/StudentComps/FeeFinanceComps/EcaCreationComps/ExtraCurricularManage";
-import VehicleDetailsPage from "./Components/AssetsComps/TransportAssetComps/VehicleDetailsComps/VehicleDetailsPage";
-import AddVehiclePage from "./Components/AssetsComps/TransportAssetComps/VehicleDetailsComps/AddVehiclePage";
-import EditVehicleDetails from "./Components/AssetsComps/TransportAssetComps/VehicleDetailsComps/EditVehicleDetails";
-import ViewVehicleDetails from "./Components/AssetsComps/TransportAssetComps/VehicleDetailsComps/ViewVehicleDetails";
-import RouteManagement from "./Components/AssetsComps/TransportAssetComps/RouteManagementComps/RouteManagement";
 import AdditionalFeeApprovalPage from "./Components/Approvals/ApprovalPages/FeeApprovalComps/AdditionalFeeApprovalPage";
 import AdditionalFeeApprovalStatus from "./Components/MyProjects/ApprovalStatusComps/FeeStatusComps/AdditionalFeeApprovalStatus";
 import EcaFeeApprovalPage from "./Components/Approvals/ApprovalPages/FeeApprovalComps/EcaFeeApprovalPage";
 import AdditionalFeeManage from "./Components/StudentComps/FeeFinanceComps/AdditionalFeeComps/AdditionalFeeManage";
-import VehicleCreationPage from "./Components/AssetsComps/TransportAssetComps/VehicleDetailsComps/VehicleCreationPage";
-import VehicleSafetyCompliancePage from "./Components/AssetsComps/TransportAssetComps/VehicleDetailsComps/VehicleSafetyCompliancePage";
-import QuestionPaperGeneratorPage from "./Components/QuestionPaperGenerator/QuestionPaperGeneratorPage";
-import VehicleManagementPage from "./Components/AssetsComps/TransportAssetComps/VehicleDetailsComps/VehicleManagePage";
-import StudentMapping from "./Components/AssetsComps/TransportAssetComps/StudentMappingComps/StudentMapping";
 import FinanceDashboard from "./Components/StudentComps/FeeFinanceComps/FinanceDashboardComps/FinanceDashboard";
 import ExpensePage from "./Components/StudentComps/FeeFinanceComps/ExpenseComps/ExpensePage";
 import TransportFeeApprovalPage from "./Components/Approvals/ApprovalPages/FeeApprovalComps/TransportFeeApprovalPage";
@@ -151,6 +140,13 @@ import BankReports from "./Components/LeaveAttendanceComps/PayrollComps/BankRepo
 import SalaryRegister from "./Components/LeaveAttendanceComps/PayrollComps/SalaryRegister";
 import LeavePolicy from "./Components/LeaveAttendanceComps/PayrollComps/LeavePolicy";
 import LeaveAttendancePage from "./Components/LeaveAttendanceComps/LeaveAttendancePage";
+import VehicleDetailsPage from "./Components/TransportComps/TransportAssetComps/VehicleDetailsComps/VehicleDetailsPage";
+import EditVehicleDetails from "./Components/TransportComps/TransportAssetComps/VehicleDetailsComps/EditVehicleDetails";
+import VehicleManagementPage from "./Components/TransportComps/TransportAssetComps/VehicleDetailsComps/VehicleManagePage";
+import ViewVehicleDetails from "./Components/TransportComps/TransportAssetComps/VehicleDetailsComps/ViewVehicleDetails";
+import RouteManagement from "./Components/TransportComps/TransportAssetComps/RouteManagementComps/RouteManagement";
+import StudentMapping from "./Components/TransportComps/TransportAssetComps/StudentMappingComps/StudentMapping";
+import QuestionPaperGeneratorPage from "./Components/QuestionPaperGenerator/QuestionPaperGeneratorPage";
 
 
 export default function RouterPage() {
@@ -316,14 +312,13 @@ export default function RouterPage() {
 
                 {/* Assets */}
                 <Route path="asset" element={<AssetsPage />} />
-                <Route path="asset/transport" element={<TrasnportAssetPage />} />
 
-                <Route path="asset/transport/details" element={<VehicleDetailsPage />} />
-                <Route path="asset/transport/details/add" element={<VehicleManagementPage />} />
-                <Route path="asset/transport/details/edit" element={<EditVehicleDetails />} />
-                <Route path="asset/transport/details/view" element={<ViewVehicleDetails />} />
-                <Route path="asset/transport/route" element={<RouteManagement />} />
-                <Route path="asset/transport/student-map" element={<StudentMapping />} />
+                <Route path="transport/details" element={<VehicleDetailsPage />} />
+                <Route path="transport/details/add" element={<VehicleManagementPage />} />
+                <Route path="transport/details/edit" element={<EditVehicleDetails />} />
+                <Route path="transport/details/view" element={<ViewVehicleDetails />} />
+                <Route path="transport/route" element={<RouteManagement />} />
+                <Route path="transport/student-map" element={<StudentMapping />} />
                 {/* <Route path="asset/transport/safety-compliance" element={<VehicleSafetyCompliancePage />} /> */}
 
 
