@@ -277,8 +277,8 @@ export default function ViewVehicleDetails() {
     const [status, setStatus] = useState(false)
     const [color, setColor] = useState(false)
     const [message, setMessage] = useState('')
-
     const { vehicleId } = location.state || {}
+
     const [vehicleData, setVehicleData] = useState({
         acquisitionDetail: {},
         specification: {},
@@ -287,6 +287,7 @@ export default function ViewVehicleDetails() {
         warrantyServiceClaim: {},
         documents: {}
     });
+
     const [safetyData, setSafetyData] = useState({
         fcDetail: {},
         permitDetail: {},
@@ -295,6 +296,7 @@ export default function ViewVehicleDetails() {
         cctvComplianceDetail: {},
         brandingVisualIdentity: {}
     });
+
     const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [tabValue, setTabValue] = useState(0);
@@ -304,7 +306,7 @@ export default function ViewVehicleDetails() {
     };
 
     const handleEditClick = (id) => {
-        navigate("/dashboardmenu/asset/transport/details/edit", { state: { vehicleId: id } })
+        navigate("/dashboardmenu/transport/details/edit", { state: { vehicleId: id } })
     }
 
     useEffect(() => {

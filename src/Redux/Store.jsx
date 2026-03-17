@@ -7,8 +7,9 @@ import pathsReducer from './Slices/PathSlice';
 import dialogsReducer from './Slices/AttendanceDialogueReducers';  
 import websiteSettingsReducer from './Slices/websiteSettingsSlice';  
 import gradesReducer from './Slices/DropdownController'; 
-import authReducer from './Slices/AuthSlice'; 
+import authReducer from './Slices/AuthSlice';
 import sidebarReducer from './Slices/sidebarSlice'
+import versionReducer from './Slices/versionSlice'
 
 const authPersistConfig = {
   key: 'auth',
@@ -30,7 +31,14 @@ const sidebarPersistConfig = {
 
 const persistedAuthReducer = persistReducer(authPersistConfig, authReducer);
 const persistedGradesReducer = persistReducer(gradesPersistConfig, gradesReducer);
+const versionPersistConfig = {
+  key: 'version',
+  storage,
+  whitelist: ['LITE', 'PRO', 'PLUS', 'FULL_360'],
+};
+
 const persistedSidebarReducer = persistReducer( sidebarPersistConfig, sidebarReducer);
+const persistedVersionReducer = persistReducer(versionPersistConfig, versionReducer);
 
 const store = configureStore({
   reducer: {
@@ -41,7 +49,8 @@ const store = configureStore({
     dialogs: dialogsReducer,
     websiteSettings: websiteSettingsReducer,
     grades: persistedGradesReducer, 
-    sidebar: persistedSidebarReducer, 
+    sidebar: persistedSidebarReducer,
+    version: persistedVersionReducer,
   },
 });
 

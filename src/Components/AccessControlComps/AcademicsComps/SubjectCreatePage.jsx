@@ -1,33 +1,30 @@
-import { Box, Grid, IconButton, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Dialog, DialogActions, TextField, Autocomplete, Button, DialogTitle, DialogContent, DialogContentText } from '@mui/material';
+import { Box, Grid, IconButton, Typography, Chip, Divider, Button, TextField, Autocomplete, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { selectWebsiteSettings } from '../../../Redux/Slices/websiteSettingsSlice';
 import { useSelector } from 'react-redux';
 import Loader from '../../Loader';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import CloseIcon from '@mui/icons-material/Close';
+import ReportProblemOutlinedIcon from '@mui/icons-material/ReportProblemOutlined';
 import axios from 'axios';
-import { fetchAllSubjects, fetchSubjectsByID, getAllExams, getExamsByGradeId, updateExamsByGradeId, updatePrimaryAndSecondarySubjects } from '../../../Api/Api';
+import { fetchAllSubjects, fetchSubjectsByID, getExamsByGradeId, updatePrimaryAndSecondarySubjects } from '../../../Api/Api';
 import { selectGrades } from '../../../Redux/Slices/DropdownController';
 import SnackBar from '../../SnackBar';
-import ReportProblemOutlinedIcon from "@mui/icons-material/ReportProblemOutlined";
 
 export default function SubjectCreatePage() {
     const navigate = useNavigate();
     const [isLoading, setIsLoading] = useState(false);
     const user = useSelector((state) => state.auth);
     const websiteSettings = useSelector(selectWebsiteSettings);
-    const rollNumber = user.rollNumber
-    const userType = user.userType
-    const userName = user.name
-    const token = "123"
-    const [allExamsData, setAllExamsData] = useState([])
-    const [allSubjectData, setAllSubjectData] = useState([])
-    const [openExamPopup, setOpenExamPopup] = useState(false)
+    const rollNumber = user.rollNumber;
+    const userType = user.userType;
+    const token = "123";
     const grades = useSelector(selectGrades);
+
+    const [allSubjectData, setAllSubjectData] = useState([]);
     const [selectedGradeId, setSelectedGradeId] = useState(null);
-    const [selectedSubject, setSelectedSubject] = useState([]);
     const [selectedExam, setSelectedExam] = useState([]);
-    const [selectedSubjectValue, setSelectedSubjectValue] = useState("");
     const [selectedExamValue, setSelectedExamValue] = useState("");
     const [primarySubjects, setPrimarySubjects] = useState("");
     const [secondarySubjects, setSecondarySubjects] = useState("");
@@ -59,37 +56,25 @@ export default function SubjectCreatePage() {
         setSecondarySubjects([]);
     };
 
-    const handleOpenConfirm = () => {
-        setOpenConfirm(true);
-    };
-
-    const handleCloseConfirm = () => {
-        setOpenConfirm(false);
-    };
+    const handleOpenConfirm = () => setOpenConfirm(true);
+    const handleCloseConfirm = () => setOpenConfirm(false);
 
     const handleConfirmSave = async () => {
         setOpenConfirm(false);
         await handleSave();
     };
 
-
     useEffect(() => {
-        fetchAllExam()
-    }, [])
+        fetchAllExam();
+    }, []);
 
     const fetchAllExam = async () => {
         setIsLoading(true);
         try {
-            const res = await axios.get(fetchAllSubjects, {
-                params: {
-                    RollNumber: rollNumber,
-                    UserType: userType,
-                },
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
+            await axios.get(fetchAllSubjects, {
+                params: { RollNumber: rollNumber, UserType: userType },
+                headers: { Authorization: `Bearer ${token}` },
             });
-            setAllExamsData(res.data)
         } catch (error) {
             console.error(error);
         } finally {
@@ -104,8 +89,8 @@ export default function SubjectCreatePage() {
     }, [grades]);
 
     useEffect(() => {
-        fetchSelectedExam()
-    }, [selectedGradeId])
+        fetchSelectedExam();
+    }, [selectedGradeId]);
 
     const fetchSelectedExam = async () => {
         setIsLoading(true);
@@ -138,7 +123,6 @@ export default function SubjectCreatePage() {
                 headers: { Authorization: `Bearer ${token}` },
             });
             setAllSubjectData(res.data);
-
             if (res.data?.exams?.length > 0) {
                 setSelectedExamValue(res.data.exams[0].exam);
             }
@@ -164,7 +148,7 @@ export default function SubjectCreatePage() {
         ],
     };
 
-    const handleSave = async (status) => {
+    const handleSave = async () => {
         setIsLoading(true);
         try {
             const sendData = {
@@ -172,434 +156,373 @@ export default function SubjectCreatePage() {
                 exam: selectedExamValue || "",
                 ...mergedExamData,
             };
-
-            const res = await axios.post(updatePrimaryAndSecondarySubjects, sendData, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
+            await axios.post(updatePrimaryAndSecondarySubjects, sendData, {
+                headers: { Authorization: `Bearer ${token}` },
             });
-
-            setOpen(true);
-            setColor(true);
-            setStatus(true);
+            setOpen(true); setColor(true); setStatus(true);
             setMessage("Updated successfully");
-            setOpenExamPopup(false)
             await fetchSelectedSubjects();
             setPrimarySubjects([]);
             setSecondarySubjects([]);
         } catch (error) {
             const apiMessage = error.response?.data?.message || "An unexpected error occurred.";
             setMessage(apiMessage);
-            setOpen(true);
-            setColor(false);
-            setStatus(false);
+            setOpen(true); setColor(false); setStatus(false);
         } finally {
             setIsLoading(false);
         }
     };
 
     return (
-        <Box sx={{ width: "100%" }}>
+        <Box sx={{ width: '100%' }}>
             {isLoading && <Loader />}
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
 
-            <Box sx={{ backgroundColor: "#f2f2f2", p: 1.5, borderRadius: "10px 10px 10px 0px", borderBottom: "1px solid #ddd", }}>
-                <Grid container>
-                    <Grid
-                        sx={{ display: "flex", alignItems: "center", }}
-                        size={{
-                            xs: 12,
-                            sm: 12,
-                            md: 6,
-                            lg: 6
-                        }}>
-
-                        <IconButton onClick={() => navigate(-1)} sx={{ width: "27px", height: "27px", marginTop: '2px' }}>
-                            <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
+            {/* Header */}
+            <Box sx={{ backgroundColor: '#f2f2f2', p: 1.5, borderRadius: '10px 10px 10px 0px', borderBottom: '1px solid #ddd' }}>
+                <Grid container alignItems="center">
+                    <Grid size={{ xs: 12 }} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <IconButton sx={{ width: 27, height: 27 }} onClick={() => navigate(-1)}>
+                            <ArrowBackIcon sx={{ fontSize: 20, color: '#000' }} />
                         </IconButton>
-                        <Typography sx={{ fontWeight: "600", fontSize: "20px" }} >Create Subject</Typography>
+                        <Typography sx={{ fontWeight: 600, fontSize: '20px' }}>Create Subject</Typography>
                     </Grid>
                 </Grid>
             </Box>
 
             <Box sx={{ p: 2 }}>
                 <Grid container spacing={2}>
-                    <Grid
-                        size={{
-                            xs: 12,
-                            sm: 12,
-                            md: 6,
-                            lg: 6
+                    {/* Left panel — Form */}
+                    <Grid size={{ xs: 12, md: 6 }}>
+                        <Box sx={{
+                            border: '1px solid #e0e0e0',
+                            borderRadius: '10px',
+                            overflow: 'hidden',
+                            bgcolor: '#fff',
+                            boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+                            height: '75vh',
+                            display: 'flex',
+                            flexDirection: 'column',
                         }}>
-                        <Box sx={{ border: "1px solid #E0E0E0", backgroundColor: "#fbfbfb", p: 2, borderRadius: "7px", height: "75vh", overflowY: "auto", position: "relative", }}>
-                            <Grid container spacing={2} >
-                                <Grid
-                                    size={{
-                                        xs: 12,
-                                        sm: 6,
-                                        md: 6,
-                                        lg: 6
-                                    }}>
-                                    <Typography sx={{ mb: 0.5 }}>Select Class</Typography>
-                                    <Autocomplete
-                                        disablePortal
-                                        size='small'
-                                        options={grades}
-                                        getOptionLabel={(option) => option.sign}
-                                        value={grades.find((g) => g.id === selectedGradeId) || null}
-                                        onChange={(event, newValue) => {
-                                            setSelectedGradeId(newValue?.id || null);
-                                            setPrimarySubjects([]);
-                                            setSecondarySubjects([]);
-                                        }}
-                                        isOptionEqualToValue={(option, value) => option.id === value.id}
-                                        PaperComponent={(props) => (
-                                            <Paper
-                                                {...props}
-                                                sx={{
-                                                    bgcolor: 'black',
-                                                    color: 'white',
-                                                }}
-                                            />
-                                        )}
-                                        renderOption={(props, option) => (
-                                            <li {...props} style={{ backgroundColor: 'black', color: 'white', fontSize: "14px" }}>
-                                                {option.sign}
-                                            </li>
-                                        )}
-                                        renderInput={(params) =>
+                            {/* Panel header */}
+                            <Box sx={{ bgcolor: '#f8f8f8', px: 2, py: 1.5, borderBottom: '1px solid #e8e8e8' }}>
+                                <Typography sx={{ fontWeight: 600, fontSize: '14px', color: '#333' }}>Subject Details</Typography>
+                                <Typography sx={{ fontSize: '12px', color: '#888' }}>Select class & exam, then add subjects</Typography>
+                            </Box>
+
+                            <Box sx={{ p: 2, flex: 1, overflowY: 'auto' }}>
+                                <Grid container spacing={2}>
+                                    {/* Select Class */}
+                                    <Grid size={{ xs: 12, sm: 6 }}>
+                                        <Typography sx={{ fontSize: '12px', fontWeight: 600, color: '#555', mb: 0.5, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                                            Select Class
+                                        </Typography>
+                                        <Autocomplete
+                                            size="small"
+                                            options={grades}
+                                            getOptionLabel={(option) => option.sign}
+                                            value={grades.find((g) => g.id === selectedGradeId) || null}
+                                            onChange={(event, newValue) => {
+                                                setSelectedGradeId(newValue?.id || null);
+                                                setPrimarySubjects([]);
+                                                setSecondarySubjects([]);
+                                            }}
+                                            isOptionEqualToValue={(option, value) => option.id === value.id}
+                                            renderInput={(params) => (
+                                                <TextField {...params} variant="outlined" size="small" />
+                                            )}
+                                        />
+                                    </Grid>
+
+                                    {/* Select Exam */}
+                                    <Grid size={{ xs: 12, sm: 6 }}>
+                                        <Typography sx={{ fontSize: '12px', fontWeight: 600, color: '#555', mb: 0.5, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                                            Select Exam
+                                        </Typography>
+                                        <Autocomplete
+                                            size="small"
+                                            options={selectedExam}
+                                            value={selectedExamValue || ""}
+                                            onChange={(event, newValue) => {
+                                                setSelectedExamValue(newValue);
+                                                setPrimarySubjects([]);
+                                                setSecondarySubjects([]);
+                                            }}
+                                            renderInput={(params) => (
+                                                <TextField {...params} variant="outlined" size="small" />
+                                            )}
+                                        />
+                                    </Grid>
+
+                                    <Grid size={{ xs: 12 }}>
+                                        <Divider />
+                                    </Grid>
+
+                                    {/* Primary Subjects */}
+                                    <Grid size={{ xs: 12 }}>
+                                        <Typography sx={{ fontSize: '12px', fontWeight: 600, color: '#555', mb: 0.5, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                                            Primary Subjects
+                                        </Typography>
+                                        <Box sx={{ display: 'flex', gap: 1 }}>
                                             <TextField
-                                                {...params}
-                                                variant="outlined"
-                                                sx={{
-                                                    '& .MuiInputBase-input': {
-                                                        fontSize: '14px',
-                                                    },
-                                                }}
-                                            />}
-                                    />
-
-                                </Grid>
-                                <Grid
-                                    size={{
-                                        xs: 12,
-                                        sm: 6,
-                                        md: 6,
-                                        lg: 6
-                                    }}>
-                                    <Typography sx={{ mb: 0.5 }}>Select Exam</Typography>
-                                    <Autocomplete
-                                        size='small'
-                                        disablePortal
-                                        options={selectedExam}
-                                        value={selectedExamValue || ""}
-                                        onChange={(event, newValue) => {
-                                            setSelectedExamValue(newValue);
-                                            setPrimarySubjects([]);
-                                            setSecondarySubjects([]);
-                                        }}
-                                        PaperComponent={(props) => (
-                                            <Paper
-                                                {...props}
-                                                sx={{
-                                                    bgcolor: 'black',
-                                                    color: 'white',
-                                                }}
-                                            />
-                                        )}
-                                        renderOption={(props, option) => (
-                                            <li {...props} style={{ backgroundColor: 'black', color: 'white', fontSize: "14px" }}>
-                                                {option}
-                                            </li>
-                                        )}
-                                        renderInput={(params) =>
-                                            <TextField
-                                                {...params}
-                                                variant="outlined"
-                                                sx={{
-                                                    '& .MuiInputBase-input': {
-                                                        fontSize: '14px',
-                                                    },
-                                                }}
-                                            />}
-                                    />
-
-
-                                </Grid>
-
-                                <Grid
-                                    size={{
-                                        xs: 12,
-                                        sm: 12,
-                                        md: 12,
-                                        lg: 12
-                                    }}>
-                                    <Typography sx={{ mb: 0.5 }}>Add Primary Subject</Typography>
-                                    <Grid container spacing={2} >
-                                        <Grid
-                                            size={{
-                                                xs: 12,
-                                                sm: 10,
-                                                md: 10,
-                                                lg: 10
-                                            }}>
-
-                                            <TextField
-                                                id="outlined-size-small"
                                                 size="small"
                                                 fullWidth
+                                                placeholder="e.g. Mathematics, Science"
                                                 value={primaryInput}
-                                                sx={{ backgroundColor: "#fff" }}
-                                                slotProps={{
-                                                    input: {
-                                                        inputProps: { maxLength: 50 },
-                                                    },
-                                                }}
+                                                slotProps={{ input: { inputProps: { maxLength: 50 } } }}
                                                 onChange={(e) => {
                                                     const value = e.target.value;
-                                                    const regex = /^[A-Za-z0-9 ]*$/;
-                                                    if (regex.test(value)) {
-                                                        setPrimaryInput(value);
-                                                    }
+                                                    if (/^[A-Za-z0-9 ]*$/.test(value)) setPrimaryInput(value);
+                                                }}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter' && primaryInput.trim()) handleAddPrimary();
                                                 }}
                                             />
-
-                                        </Grid>
-                                        <Grid
-                                            size={{
-                                                xs: 2,
-                                                sm: 2,
-                                                md: 2,
-                                                lg: 2
-                                            }}>
                                             <Button
-                                                disabled={!primaryInput}
+                                                variant="contained"
+                                                disabled={!primaryInput.trim()}
                                                 onClick={handleAddPrimary}
                                                 sx={{
-                                                    backgroundColor: "#fff",
-                                                    border: `1px solid ${primaryInput ? "#000" : "#d3d3d3"}`,
-                                                    textTransform: "none",
-                                                    color: "#000",
-                                                    width: "100%"
-                                                }}>
+                                                    textTransform: 'none',
+                                                    borderRadius: '8px',
+                                                    bgcolor: '#1976D2',
+                                                    '&:hover': { bgcolor: '#1565C0' },
+                                                    whiteSpace: 'nowrap',
+                                                    minWidth: '70px',
+                                                }}
+                                            >
                                                 Add
                                             </Button>
-                                        </Grid>
+                                        </Box>
+
+                                        {/* Added primary subject chips */}
+                                        {Array.isArray(primarySubjects) && primarySubjects.length > 0 && (
+                                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.7, mt: 1, p: 1.5, border: '1px solid #e8e8e8', borderRadius: '8px', bgcolor: '#fafafa' }}>
+                                                {primarySubjects.map((sub, idx) => (
+                                                    <Chip
+                                                        key={idx}
+                                                        label={sub}
+                                                        size="small"
+                                                        onDelete={() => setPrimarySubjects(primarySubjects.filter((_, i) => i !== idx))}
+                                                        deleteIcon={<CloseIcon sx={{ fontSize: '12px !important' }} />}
+                                                        sx={{
+                                                            bgcolor: '#DBEFFE',
+                                                            color: '#1565C0',
+                                                            fontWeight: 600,
+                                                            fontSize: '12px',
+                                                            height: '26px',
+                                                            border: '1px solid #1976D233',
+                                                            '& .MuiChip-deleteIcon': { color: '#999', '&:hover': { color: '#e53935' } },
+                                                        }}
+                                                    />
+                                                ))}
+                                            </Box>
+                                        )}
                                     </Grid>
-                                </Grid>
 
-                                <Grid
-                                    size={{
-                                        xs: 12,
-                                        sm: 12,
-                                        md: 12,
-                                        lg: 12
-                                    }}>
-                                    <Typography sx={{ mb: 0.5 }}>Add Secondary Subject</Typography>
-                                    <Grid container spacing={2} >
-                                        <Grid
-                                            size={{
-                                                xs: 12,
-                                                sm: 10,
-                                                md: 10,
-                                                lg: 10
-                                            }}>
-
+                                    {/* Secondary Subjects */}
+                                    <Grid size={{ xs: 12 }}>
+                                        <Typography sx={{ fontSize: '12px', fontWeight: 600, color: '#555', mb: 0.5, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                                            Secondary Subjects
+                                        </Typography>
+                                        <Box sx={{ display: 'flex', gap: 1 }}>
                                             <TextField
-                                                id="outlined-size-small"
                                                 size="small"
                                                 fullWidth
+                                                placeholder="e.g. Drawing, Music"
                                                 value={secondaryInput}
-                                                sx={{ backgroundColor: "#fff" }}
-                                                slotProps={{
-                                                    input: {
-                                                        inputProps: { maxLength: 50 },
-                                                    },
-                                                }}
+                                                slotProps={{ input: { inputProps: { maxLength: 50 } } }}
                                                 onChange={(e) => {
                                                     const value = e.target.value;
-                                                    const regex = /^[A-Za-z0-9 ]*$/;
-                                                    if (regex.test(value)) {
-                                                        setSecondaryInput(value);
-                                                    }
+                                                    if (/^[A-Za-z0-9 ]*$/.test(value)) setSecondaryInput(value);
+                                                }}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter' && secondaryInput.trim()) handleAddSecondary();
                                                 }}
                                             />
-
-                                        </Grid>
-                                        <Grid
-                                            size={{
-                                                xs: 2,
-                                                sm: 2,
-                                                md: 2,
-                                                lg: 2
-                                            }}>
                                             <Button
-                                                disabled={!secondaryInput}
+                                                variant="contained"
+                                                disabled={!secondaryInput.trim()}
                                                 onClick={handleAddSecondary}
                                                 sx={{
-                                                    backgroundColor: "#fff",
-                                                    border: `1px solid ${secondaryInput ? "#000" : "#d3d3d3"}`,
-                                                    textTransform: "none",
-                                                    color: "#000",
-                                                    width: "100%"
-                                                }}>
+                                                    textTransform: 'none',
+                                                    borderRadius: '8px',
+                                                    bgcolor: '#388E3C',
+                                                    '&:hover': { bgcolor: '#2E7D32' },
+                                                    whiteSpace: 'nowrap',
+                                                    minWidth: '70px',
+                                                }}
+                                            >
                                                 Add
                                             </Button>
-                                        </Grid>
+                                        </Box>
+
+                                        {/* Added secondary subject chips */}
+                                        {Array.isArray(secondarySubjects) && secondarySubjects.length > 0 && (
+                                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.7, mt: 1, p: 1.5, border: '1px solid #e8e8e8', borderRadius: '8px', bgcolor: '#fafafa' }}>
+                                                {secondarySubjects.map((sub, idx) => (
+                                                    <Chip
+                                                        key={idx}
+                                                        label={sub}
+                                                        size="small"
+                                                        onDelete={() => setSecondarySubjects(secondarySubjects.filter((_, i) => i !== idx))}
+                                                        deleteIcon={<CloseIcon sx={{ fontSize: '12px !important' }} />}
+                                                        sx={{
+                                                            bgcolor: '#D9F0DB',
+                                                            color: '#2E7D32',
+                                                            fontWeight: 600,
+                                                            fontSize: '12px',
+                                                            height: '26px',
+                                                            border: '1px solid #388E3C33',
+                                                            '& .MuiChip-deleteIcon': { color: '#999', '&:hover': { color: '#e53935' } },
+                                                        }}
+                                                    />
+                                                ))}
+                                            </Box>
+                                        )}
                                     </Grid>
                                 </Grid>
-                            </Grid>
-                            <Box sx={{ display: "flex", justifyContent: "end", position: "absolute", bottom: "10px", right: "10px" }}>
+                            </Box>
+
+                            {/* Panel footer — actions */}
+                            <Box sx={{ px: 2, py: 1.5, borderTop: '1px solid #e8e8e8', display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
                                 <Button
                                     onClick={handleReset}
-                                    sx={{
-                                        border: "1px solid #000",
-                                        color: websiteSettings.textColor,
-                                        borderRadius: "50px",
-                                        height: "30px",
-                                        width: "80px",
-                                        mr: 2,
-                                        textTransform: "none"
-                                    }}>
+                                    sx={{ textTransform: 'none', color: '#555', borderRadius: '20px', border: '1px solid #ddd' }}
+                                >
                                     Reset
                                 </Button>
                                 <Button
+                                    variant="contained"
                                     onClick={handleOpenConfirm}
                                     sx={{
-                                        backgroundColor: websiteSettings.mainColor,
-                                        color: websiteSettings.textColor,
-                                        borderRadius: "50px",
-                                        height: "30px",
-                                        width: "80px",
-                                        textTransform: "none"
-                                    }}>
+                                        textTransform: 'none',
+                                        borderRadius: '20px',
+                                        bgcolor: websiteSettings.mainColor,
+                                        '&:hover': { bgcolor: websiteSettings.mainColor, opacity: 0.9 },
+                                        px: 3,
+                                    }}
+                                >
                                     Save
                                 </Button>
-                                <Dialog open={openConfirm} onClose={handleCloseConfirm}>
-                                    <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                                        <ReportProblemOutlinedIcon color="warning" />
-                                        Confirm Save
-                                    </DialogTitle>
-                                    <DialogContent>
-                                        <DialogContentText>
-                                            Please review before saving. Once you save, you will not be able to
-                                            edit or delete these subjects.
-                                        </DialogContentText>
-                                    </DialogContent>
-                                    <DialogActions>
-                                        <Button onClick={handleCloseConfirm} sx={{ textTransform: "none" }}>
-                                            Cancel
-                                        </Button>
-                                        <Button
-                                            onClick={handleConfirmSave}
-                                            sx={{
-                                                textTransform: "none",
-                                                height: "30px",
-                                                width: "80px",
-                                                backgroundColor: websiteSettings.mainColor,
-                                                color: websiteSettings.textColor,
-                                                "&:hover": { opacity: 0.9 },
-                                                borderRadius: "50px"
-                                            }}
-                                        >
-                                            Confirm
-                                        </Button>
-                                    </DialogActions>
-                                </Dialog>
                             </Box>
                         </Box>
                     </Grid>
-                    <Grid
-                        size={{
-                            xs: 12,
-                            sm: 12,
-                            md: 6,
-                            lg: 6
-                        }}>
-                        <Box sx={{ border: "1px solid #E0E0E0", backgroundColor: "#fbfbfb", p: 2, borderRadius: "6px", height: "75vh", overflowY: "auto" }}>
-                            <Typography sx={{ fontSize: "14px", color: "rgba(0,0,0,0.7)" }}>Live Preview</Typography>
-                            <hr style={{ border: "0.5px solid #CFCFCF" }} />
-                            <TableContainer sx={{ border: "1px solid #ccc", maxHeight: "68vh", mt: 2 }}>
-                                <Table stickyHeader aria-label="subjects-table" sx={{ minWidth: "100%" }}>
-                                    <TableHead>
-                                        <TableRow>
-                                            <TableCell
-                                                sx={{
-                                                    borderRight: "1px solid #ccc",
-                                                    backgroundColor: "#faf6fc",
-                                                    fontWeight: 600,
-                                                    textAlign: "center",
-                                                }}
-                                            >
-                                                S.no
-                                            </TableCell>
-                                            <TableCell
-                                                sx={{
-                                                    borderRight: "1px solid #ccc",
-                                                    backgroundColor: "#faf6fc",
-                                                    fontWeight: 600,
-                                                    textAlign: "center",
-                                                }}
-                                            >
-                                                Primary Subject
-                                            </TableCell>
-                                            <TableCell
-                                                sx={{
-                                                    backgroundColor: "#faf6fc",
-                                                    fontWeight: 600,
-                                                    textAlign: "center",
-                                                }}
-                                            >
-                                                Secondary Subject
-                                            </TableCell>
-                                        </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {(() => {
-                                            const maxLength = Math.max(
-                                                mergedExamData.primarySubjects.length,
-                                                mergedExamData.secondarySubjects.length
-                                            );
 
-                                            if (maxLength === 0) {
-                                                return (
-                                                    <TableRow>
-                                                        <TableCell colSpan={3} sx={{ textAlign: "center", color: "gray" }}>
-                                                            No subjects available
+                    {/* Right panel — Live Preview */}
+                    <Grid size={{ xs: 12, md: 6 }}>
+                        <Box sx={{
+                            border: '1px solid #e0e0e0',
+                            borderRadius: '10px',
+                            overflow: 'hidden',
+                            bgcolor: '#fff',
+                            boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+                            height: '75vh',
+                            display: 'flex',
+                            flexDirection: 'column',
+                        }}>
+                            {/* Panel header */}
+                            <Box sx={{ bgcolor: '#f8f8f8', px: 2, py: 1.5, borderBottom: '1px solid #e8e8e8' }}>
+                                <Typography sx={{ fontWeight: 600, fontSize: '14px', color: '#333' }}>Live Preview</Typography>
+                                <Typography sx={{ fontSize: '12px', color: '#888' }}>Subjects update as you add them</Typography>
+                            </Box>
+
+                            <Box sx={{ flex: 1, overflowY: 'auto' }}>
+                                <TableContainer>
+                                    <Table stickyHeader size="small">
+                                        <TableHead>
+                                            <TableRow>
+                                                <TableCell sx={{ bgcolor: '#faf6fc', fontWeight: 700, fontSize: '12px', textAlign: 'center', borderRight: '1px solid #e0e0e0', width: '50px' }}>
+                                                    S.No
+                                                </TableCell>
+                                                <TableCell sx={{ bgcolor: '#faf6fc', fontWeight: 700, fontSize: '12px', textAlign: 'center', borderRight: '1px solid #e0e0e0' }}>
+                                                    Primary Subject
+                                                </TableCell>
+                                                <TableCell sx={{ bgcolor: '#faf6fc', fontWeight: 700, fontSize: '12px', textAlign: 'center' }}>
+                                                    Secondary Subject
+                                                </TableCell>
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {(() => {
+                                                const maxLength = Math.max(
+                                                    mergedExamData.primarySubjects.length,
+                                                    mergedExamData.secondarySubjects.length
+                                                );
+
+                                                if (maxLength === 0) {
+                                                    return (
+                                                        <TableRow>
+                                                            <TableCell colSpan={3} sx={{ textAlign: 'center', color: '#bbb', fontSize: '13px', fontStyle: 'italic', py: 4 }}>
+                                                                No subjects added yet
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    );
+                                                }
+
+                                                return Array.from({ length: maxLength }).map((_, idx) => (
+                                                    <TableRow key={idx} sx={{ '&:hover': { bgcolor: '#fafafa' } }}>
+                                                        <TableCell sx={{ textAlign: 'center', fontWeight: 600, fontSize: '13px', borderRight: '1px solid #e0e0e0' }}>
+                                                            {idx + 1}
+                                                        </TableCell>
+                                                        <TableCell sx={{ textAlign: 'center', fontSize: '13px', borderRight: '1px solid #e0e0e0' }}>
+                                                            {mergedExamData.primarySubjects[idx] ? (
+                                                                <Chip label={mergedExamData.primarySubjects[idx]} size="small"
+                                                                    sx={{ bgcolor: '#E3F2FD', color: '#1565C0', fontWeight: 600, fontSize: '12px', height: '24px' }}
+                                                                />
+                                                            ) : '-'}
+                                                        </TableCell>
+                                                        <TableCell sx={{ textAlign: 'center', fontSize: '13px' }}>
+                                                            {mergedExamData.secondarySubjects[idx] ? (
+                                                                <Chip label={mergedExamData.secondarySubjects[idx]} size="small"
+                                                                    sx={{ bgcolor: '#E8F5E9', color: '#2E7D32', fontWeight: 600, fontSize: '12px', height: '24px' }}
+                                                                />
+                                                            ) : '-'}
                                                         </TableCell>
                                                     </TableRow>
-                                                );
-                                            }
-
-                                            return Array.from({ length: maxLength }).map((_, idx) => (
-                                                <TableRow key={idx}>
-                                                    <TableCell
-                                                        sx={{
-                                                            borderRight: "1px solid #ccc",
-                                                            textAlign: "center",
-                                                            fontWeight: 600,
-                                                        }}
-                                                    >
-                                                        {idx + 1}
-                                                    </TableCell>
-                                                    <TableCell sx={{ borderRight: "1px solid #ccc", textAlign: "center" }}>
-                                                        {mergedExamData.primarySubjects[idx] || "-"}
-                                                    </TableCell>
-                                                    <TableCell sx={{ textAlign: "center" }}>
-                                                        {mergedExamData.secondarySubjects[idx] || "-"}
-                                                    </TableCell>
-                                                </TableRow>
-                                            ));
-                                        })()}
-                                    </TableBody>
-                                </Table>
-                            </TableContainer>
+                                                ));
+                                            })()}
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
+                            </Box>
                         </Box>
                     </Grid>
                 </Grid>
-
-
             </Box>
+
+            {/* Confirm Save Dialog */}
+            <Dialog open={openConfirm} onClose={handleCloseConfirm} maxWidth="xs" fullWidth>
+                <Box sx={{ bgcolor: '#f2f2f2', px: 2.5, py: 1.5, borderBottom: '1px solid #ddd', display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <ReportProblemOutlinedIcon sx={{ color: '#FF9800', fontSize: 20 }} />
+                    <Typography sx={{ fontWeight: 600, fontSize: '16px' }}>Confirm Save</Typography>
+                </Box>
+                <DialogContent sx={{ pt: 2, pb: 1 }}>
+                    <DialogContentText sx={{ fontSize: '14px', color: '#555' }}>
+                        Please review before saving. Once you save, you will not be able to edit or delete these subjects.
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions sx={{ px: 2.5, pb: 2, pt: 1 }}>
+                    <Button onClick={handleCloseConfirm}
+                        sx={{ textTransform: 'none', color: '#555', borderRadius: '20px', border: '1px solid #ddd' }}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        variant="contained"
+                        onClick={handleConfirmSave}
+                        sx={{
+                            textTransform: 'none',
+                            borderRadius: '20px',
+                            bgcolor: websiteSettings.mainColor,
+                            '&:hover': { bgcolor: websiteSettings.mainColor, opacity: 0.9 },
+                            px: 3,
+                        }}
+                    >
+                        Confirm
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     );
 }

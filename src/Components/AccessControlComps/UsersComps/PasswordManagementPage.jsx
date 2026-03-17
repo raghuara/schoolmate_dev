@@ -1,378 +1,519 @@
-import React, { useEffect, useRef, useState } from "react";
-import { Dialog, IconButton, Box, Typography, ThemeProvider, createTheme, Button, Grid, Tabs, Tab, DialogContent, DialogActions, TextField, InputAdornment, FormControl, FormLabel, RadioGroup, FormControlLabel, Radio, Autocomplete, Snackbar } from "@mui/material";
+import React, { useCallback, useEffect, useState } from "react";
+import {
+    Box, Grid, IconButton, Typography, Button, TextField, InputAdornment,
+    Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+    TablePagination, Dialog, DialogContent, DialogActions, Chip, Avatar,
+    MenuItem, Select,
+} from "@mui/material";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import SearchIcon from "@mui/icons-material/Search";
+import LockResetIcon from "@mui/icons-material/LockReset";
+import VisibilityIcon from "@mui/icons-material/Visibility";
+import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
+import ImageIcon from "@mui/icons-material/Image";
 import CloseIcon from "@mui/icons-material/Close";
-import { useMediaQuery, useTheme } from "@mui/system";
-import dayjs from "dayjs";
-import Loader from "../../Loader";
-import axios from "axios";
-import {  UsersPassword } from "../../../Api/Api";
-import Table from '@mui/material/Table';
-import TableBody from '@mui/material/TableBody';
-import TableCell from '@mui/material/TableCell';
-import TableContainer from '@mui/material/TableContainer';
-import TableHead from '@mui/material/TableHead';
-import TableRow from '@mui/material/TableRow';
-import Paper from '@mui/material/Paper';
-import SearchIcon from '@mui/icons-material/Search';
-import { Link, useNavigate } from "react-router-dom";
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import { useDispatch, useSelector } from "react-redux";
+import FileDownloadIcon from "@mui/icons-material/FileDownload";
+import { useNavigate } from "react-router-dom";
+import { useSelector } from "react-redux";
 import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlice";
-import AddIcon from '@mui/icons-material/Add';
-import ImageIcon from '@mui/icons-material/Image';
+import Loader from "../../Loader";
 import SnackBar from "../../SnackBar";
-import { selectGrades } from "../../../Redux/Slices/DropdownController";
-import avatarImage from '../../../Images/PagesImage/avatar.png'
+import axios from "axios";
+import { UsersPassword, updateUserPassword } from "../../../Api/Api";
+import avatarImage from "../../../Images/PagesImage/avatar.png";
 import * as XLSX from "xlsx";
+import dayjs from "dayjs";
 
+const USER_TYPE_COLORS = {
+    Student: { color: "#1976D2", bg: "#E3F2FD" },
+    Teacher: { color: "#388E3C", bg: "#E8F5E9" },
+    Staff:   { color: "#F57C00", bg: "#FFF3E0" },
+    Parent:  { color: "#8E24AA", bg: "#F3E5F5" },
+};
+
+const ROWS_OPTIONS = [10, 25, 50, 100];
+
+// ─── Memoised table — skips re-render when dialog state changes ───────────────
+const PasswordTable = React.memo(({ pageData, allData, page, rowsPerPage, onPageChange, onRowsPerPageChange, onChangePassword, onViewImage }) => (
+    <Box sx={{ border: "1px solid #e0e0e0", borderRadius: "10px", overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}>
+        <TableContainer sx={{ maxHeight: "74vh", overflowY: "auto" }}>
+            <Table stickyHeader size="small">
+                <TableHead>
+                    <TableRow>
+                        {["S.No", "Roll Number", "Name", "User Type", "Class", "Section", "Picture", "Password", "Action"].map((col) => (
+                            <TableCell
+                                key={col}
+                                sx={{
+                                    bgcolor: "#faf6fc",
+                                    fontWeight: 700,
+                                    fontSize: "12px",
+                                    textAlign: "center",
+                                    borderRight: "1px solid #e0e0e0",
+                                    whiteSpace: "nowrap",
+                                    color: "#444",
+                                }}
+                            >
+                                {col}
+                            </TableCell>
+                        ))}
+                    </TableRow>
+                </TableHead>
+                <TableBody>
+                    {pageData.length === 0 ? (
+                        <TableRow>
+                            <TableCell colSpan={9} sx={{ textAlign: "center", py: 5, color: "#bbb", fontSize: "13px", fontStyle: "italic" }}>
+                                No records found
+                            </TableCell>
+                        </TableRow>
+                    ) : (
+                        pageData.map((row, index) => {
+                            const utStyle = USER_TYPE_COLORS[row.userType] || { color: "#555", bg: "#f5f5f5" };
+                            const globalIndex = page * rowsPerPage + index;
+                            return (
+                                <TableRow key={row.rollNumber || index} sx={{ "&:hover": { bgcolor: "#fafafa" } }}>
+                                    <TableCell sx={{ borderRight: "1px solid #e0e0e0", textAlign: "center", fontSize: "13px", color: "#666" }}>
+                                        {globalIndex + 1}
+                                    </TableCell>
+                                    <TableCell sx={{ borderRight: "1px solid #e0e0e0", textAlign: "center", fontSize: "13px", fontWeight: 600 }}>
+                                        {row.rollNumber}
+                                    </TableCell>
+                                    <TableCell sx={{ borderRight: "1px solid #e0e0e0", fontSize: "13px", color: row.name ? "#222" : "#e53935", fontWeight: row.name ? 400 : 600, minWidth: 140 }}>
+                                        {row.name || "Name not provided"}
+                                    </TableCell>
+                                    <TableCell sx={{ borderRight: "1px solid #e0e0e0", textAlign: "center" }}>
+                                        <Chip
+                                            label={row.userType || "—"}
+                                            size="small"
+                                            sx={{
+                                                bgcolor: utStyle.bg,
+                                                color: utStyle.color,
+                                                fontWeight: 600,
+                                                fontSize: "11px",
+                                                height: "22px",
+                                                border: `1px solid ${utStyle.color}33`,
+                                            }}
+                                        />
+                                    </TableCell>
+                                    <TableCell sx={{ borderRight: "1px solid #e0e0e0", textAlign: "center", fontSize: "13px" }}>
+                                        {row.grade || "—"}
+                                    </TableCell>
+                                    <TableCell sx={{ borderRight: "1px solid #e0e0e0", textAlign: "center", fontSize: "13px" }}>
+                                        {row.section || "—"}
+                                    </TableCell>
+                                    <TableCell sx={{ borderRight: "1px solid #e0e0e0", textAlign: "center" }}>
+                                        {row.filepath ? (
+                                            <Button
+                                                size="small"
+                                                onClick={() => onViewImage(row.filepath)}
+                                                sx={{ textTransform: "none", fontSize: "12px", color: "#1976D2" }}
+                                                startIcon={<ImageIcon sx={{ fontSize: 14 }} />}
+                                            >
+                                                View
+                                            </Button>
+                                        ) : (
+                                            <Typography sx={{ fontSize: "12px", color: "#bbb", fontStyle: "italic" }}>No image</Typography>
+                                        )}
+                                    </TableCell>
+                                    <TableCell sx={{ borderRight: "1px solid #e0e0e0", textAlign: "center", fontSize: "13px", fontFamily: "monospace", letterSpacing: "0.5px" }}>
+                                        {row.password || "—"}
+                                    </TableCell>
+                                    <TableCell sx={{ textAlign: "center" }}>
+                                        <Button
+                                            size="small"
+                                            onClick={() => onChangePassword(row)}
+                                            startIcon={<LockResetIcon sx={{ fontSize: 14 }} />}
+                                            sx={{
+                                                textTransform: "none",
+                                                fontSize: "11px",
+                                                color: "#F57C00",
+                                                fontWeight: 600,
+                                                borderRadius: "20px",
+                                                px: 1.5,
+                                                "&:hover": { bgcolor: "#FFF3E0" },
+                                                whiteSpace: "nowrap",
+                                            }}
+                                        >
+                                            Change
+                                        </Button>
+                                    </TableCell>
+                                </TableRow>
+                            );
+                        })
+                    )}
+                </TableBody>
+            </Table>
+        </TableContainer>
+
+        {/* Pagination bar */}
+        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", px: 2, py: 0.5, borderTop: "1px solid #e0e0e0", bgcolor: "#fafafa" }}>
+            <Typography sx={{ fontSize: "12px", color: "#888" }}>
+                Showing{" "}
+                <strong>{allData.length === 0 ? 0 : page * rowsPerPage + 1}</strong>
+                {" – "}
+                <strong>{Math.min((page + 1) * rowsPerPage, allData.length)}</strong>
+                {" of "}
+                <strong>{allData.length}</strong> records
+            </Typography>
+            <TablePagination
+                component="div"
+                count={allData.length}
+                page={page}
+                onPageChange={onPageChange}
+                rowsPerPage={rowsPerPage}
+                onRowsPerPageChange={onRowsPerPageChange}
+                rowsPerPageOptions={ROWS_OPTIONS}
+                sx={{
+                    "& .MuiTablePagination-toolbar": { minHeight: "40px", p: 0 },
+                    "& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows": { fontSize: "12px", color: "#888", mb: 0 },
+                    "& .MuiTablePagination-select": { fontSize: "12px" },
+                    "& .MuiIconButton-root": { p: 0.5 },
+                    border: "none",
+                }}
+            />
+        </Box>
+    </Box>
+));
+
+// ─── Main component ───────────────────────────────────────────────────────────
 export default function PasswordManagementPage() {
-    const today = dayjs().format("DD-MM-YYYY");
-    const [formattedDate, setFormattedDate] = useState(today);
-    const navigate = useNavigate()
-    const token = '123';
+    const navigate = useNavigate();
+    const token = "123";
     const user = useSelector((state) => state.auth);
-    const rollNumber = user.rollNumber
-    const userType = user.userType
-    const userName = user.name
-    const [isLoading, setIsLoading] = useState(false);
-    const [openImage, setOpenImage] = useState(false);
-    const [imageUrl, setImageUrl] = useState('');
-    const theme = useTheme();
-    const dispatch = useDispatch();
-    const grades = useSelector(selectGrades);
-    const [selectedGradeId, setSelectedGradeId] = useState(0);
-    const [selectedSection, setSelectedSection] = useState(null);
-    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-    const isMediumScreen = useMediaQuery(theme.breakpoints.between('sm', 'md'));
     const websiteSettings = useSelector(selectWebsiteSettings);
-    const [selectedClass, setSelectedClass] = useState("PreKG");
-    const [selectedClassSection, setSelectedClassSection] = useState("A1");
-    const [selectedFilter, setSelectedFilter] = useState("OverAll");
-    const [attendanceData, setAttendanceData] = useState([]);
-    const [filteredData, setFilteredData] = useState([]);
-    const [studentDetails, setStudentDetails] = useState([]);
-    const [classDetails, setClassDetails] = useState([]);
-    const [searchQuery, setSearchQuery] = useState("");
+
+    const [isLoading, setIsLoading] = useState(false);
     const [passwords, setPasswords] = useState([]);
-    const [open, setOpen] = useState(false);
-    const [status, setStatus] = useState(false);
-    const [color, setColor] = useState(false);
-    const [message, setMessage] = useState('');
-    const selectedGrade = grades.find(grade => grade.id === selectedGradeId);
-    const sections = selectedGrade?.sections.map(section => ({ sectionName: section })) || [];
+    const [filteredData, setFilteredData] = useState([]);
+    const [searchQuery, setSearchQuery] = useState("");
 
+    // Pagination
+    const [page, setPage] = useState(0);
+    const [rowsPerPage, setRowsPerPage] = useState(25);
 
-    useEffect(() => {
-        if (grades && grades.length > 0) {
-            setSelectedGradeId(grades[0].id);
-            setSelectedSection(grades[0].sections[0]);
-        }
-    }, [grades]);
+    // Image dialog
+    const [imageUrl, setImageUrl] = useState("");
+    const [openImage, setOpenImage] = useState(false);
 
-    const handleViewClick = (url) => {
-        setImageUrl(url);
-        setOpenImage(true);
-    };
+    // Single state object for change-password dialog — 1 setState = 1 re-render
+    const [dialog, setDialog] = useState({
+        open: false,
+        user: null,
+        newPassword: "",
+        confirmPassword: "",
+        showNew: false,
+        showConfirm: false,
+    });
 
-    const handleImageClose = () => {
-        setOpenImage(false);
-    };
+    // SnackBar — single object to avoid multiple setStates
+    const [snack, setSnack] = useState({ open: false, status: false, color: false, message: "" });
 
-    const handleExport = () => {
-        if (!filteredData.length) {
-            setOpen(true);
-            setColor(false);
-            setStatus(false);
-            setMessage("No data to export");
-            return;
-        }
-
-        const header = [
-            "S.No",
-            "Roll Number",
-            "Student Name",
-            "User Type",
-            "Class",
-            "Section",
-            "Password"
-        ];
-
-        const data = filteredData.map((row, index) => [
-            index + 1,
-            row.rollNumber || "",
-            row.name || "Name not provided",
-            row.userType || "",
-            row.grade || "",
-            row.section || "",
-            row.password || ""
-        ]);
-
-        const worksheet = XLSX.utils.aoa_to_sheet([header, ...data]);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "User Passwords");
-
-        const fileName = `User_Passwords_${dayjs().format("YYYY-MM-DD_HH-mm")}.xlsx`;
-        XLSX.writeFile(workbook, fileName);
-    };
-
-
-    useEffect(() => {
-        fetchAllData()
-    }, []);
+    useEffect(() => { fetchAllData(); }, []);
 
     const fetchAllData = async () => {
         setIsLoading(true);
         try {
             const res = await axios.get(UsersPassword, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
+                headers: { Authorization: `Bearer ${token}` },
             });
             setPasswords(res.data);
             setFilteredData(res.data);
-
-
+            setPage(0);
         } catch (error) {
-            console.error("Error fetching student data:", error);
-            setOpen(true);
-            setColor(false);
-            setStatus(false);
-            setMessage("No Data");
+            console.error(error);
+            setSnack({ open: true, status: false, color: false, message: "Failed to load data" });
         } finally {
             setIsLoading(false);
         }
     };
 
-
-    const handleSearchChange = (event) => {
-        const query = event.target.value.toLowerCase();
+    const handleSearchChange = (e) => {
+        const query = e.target.value.toLowerCase();
         setSearchQuery(query);
+        setPage(0); // reset to first page on search
+        setFilteredData(
+            query
+                ? passwords.filter(
+                    (item) =>
+                        item.rollNumber?.toString().toLowerCase().includes(query) ||
+                        item.name?.toLowerCase().includes(query)
+                )
+                : passwords
+        );
+    };
 
-        if (query) {
-            const filtered = passwords.filter(
-                (item) =>
-                    item.rollNumber.toString().toLowerCase().includes(query) ||
-                    (item.name && item.name.toLowerCase().includes(query))
+    const handleExport = () => {
+        if (!filteredData.length) {
+            setSnack({ open: true, status: false, color: false, message: "No data to export" });
+            return;
+        }
+        const header = ["S.No", "Roll Number", "Name", "User Type", "Class", "Section", "Password"];
+        const data = filteredData.map((row, i) => [
+            i + 1, row.rollNumber || "", row.name || "Name not provided",
+            row.userType || "", row.grade || "", row.section || "", row.password || "",
+        ]);
+        const ws = XLSX.utils.aoa_to_sheet([header, ...data]);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "User Passwords");
+        XLSX.writeFile(wb, `User_Passwords_${dayjs().format("YYYY-MM-DD_HH-mm")}.xlsx`);
+    };
+
+    // Slice for current page — only these rows get rendered in the DOM
+    const pageData = filteredData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+
+    const handlePageChange = useCallback((_, newPage) => setPage(newPage), []);
+    const handleRowsPerPageChange = useCallback((e) => {
+        setRowsPerPage(parseInt(e.target.value, 10));
+        setPage(0);
+    }, []);
+
+    // useCallback keeps references stable so React.memo works correctly
+    const handleOpenChange = useCallback((row) => {
+        setDialog({ open: true, user: row, newPassword: "", confirmPassword: "", showNew: false, showConfirm: false });
+    }, []);
+
+    const handleViewImage = useCallback((url) => {
+        setImageUrl(url);
+        setOpenImage(true);
+    }, []);
+
+    const closeDialog = () => setDialog((prev) => ({ ...prev, open: false }));
+
+    const passwordsMatch = dialog.newPassword && dialog.confirmPassword && dialog.newPassword === dialog.confirmPassword;
+    const passwordMismatch = dialog.newPassword && dialog.confirmPassword && dialog.newPassword !== dialog.confirmPassword;
+
+    const handleChangePassword = async () => {
+        if (!passwordsMatch) return;
+        setIsLoading(true);
+        try {
+            await axios.post(
+                updateUserPassword,
+                { rollNumber: dialog.user.rollNumber, newPassword: dialog.newPassword },
+                { headers: { Authorization: `Bearer ${token}` } }
             );
-            setFilteredData(filtered);
-        } else {
-            setFilteredData(passwords);
+            setSnack({ open: true, status: true, color: true, message: "Password updated successfully" });
+            closeDialog();
+            fetchAllData();
+        } catch (error) {
+            setSnack({ open: true, status: false, color: false, message: error.response?.data?.message || "Failed to update password" });
+        } finally {
+            setIsLoading(false);
         }
     };
 
-
     return (
-        <Box sx={{ backgroundColor: "#F6F6F8", height: "91.7vh" }}>
+        <Box sx={{ width: "100%" }}>
             {isLoading && <Loader />}
-            <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
-            <Box>
-                <Grid container sx={{ backgroundColor: "#F2F2F2", pt: 1, px: 2 }} >
-                    <Grid
-                        size={{
-                            xs: 12,
-                            sm: 12,
-                            md: 12,
-                            lg: 12
-                        }}>
-                        <Grid container >
-                            <Grid
-                                size={{
-                                    xs: 12,
-                                    sm: 12,
-                                    md: 6,
-                                    lg: 6
-                                }}>
-                                <Box sx={{ display: "flex" }}>
-                                    <Link style={{ textDecoration: "none" }} to="/dashboardmenu/access/users">
-                                        <IconButton sx={{ width: "27px", height: "27px", marginTop: '3px', }}>
-                                            <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
-                                        </IconButton>
-                                    </Link>
-                                    <Typography sx={{ fontWeight: "600", ml: 1, marginTop: "3px", fontSize: "19px" }}>
-                                        Password Management
-                                    </Typography>
-                                </Box>
-                            </Grid>
-                            <Grid
-                                sx={{ mt: .8 }}
-                                size={{
-                                    xs: 12,
-                                    sm: 12,
-                                    md: 6,
-                                    lg: 3
-                                }}>
-                                <TextField
-                                    fullWidth
-                                    variant="outlined"
-                                    placeholder="Search Student by Name or Roll Number"
-                                    value={searchQuery}
-                                    onChange={handleSearchChange}
-                                    InputProps={{
-                                        startAdornment: (
-                                            <InputAdornment position="start">
-                                                <SearchIcon />
-                                            </InputAdornment>
-                                        ),
-                                        sx: {
-                                            padding: "0 10px",
-                                            borderRadius: "50px",
-                                            height: "28px",
-                                            fontSize: "12px",
-                                        },
-                                    }}
-                                    sx={{
-                                        marginBottom: "16px",
-                                        "& .MuiOutlinedInput-root": {
-                                            minHeight: "28px",
-                                            paddingRight: "3px",
-                                        },
-                                        "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                                            borderColor: "primary.main",
-                                        },
-                                    }}
-                                />
-                            </Grid>
-                        </Grid>
+            <SnackBar
+                open={snack.open}
+                color={snack.color}
+                setOpen={(val) => setSnack((prev) => ({ ...prev, open: val }))}
+                status={snack.status}
+                message={snack.message}
+            />
+
+            {/* Header */}
+            <Box sx={{ backgroundColor: "#f2f2f2", p: 1.5, borderRadius: "10px 10px 10px 0px", borderBottom: "1px solid #ddd" }}>
+                <Grid container alignItems="center" spacing={1}>
+                    <Grid size={{ xs: 12, sm: 5 }} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                        <IconButton sx={{ width: 27, height: 27 }} onClick={() => navigate(-1)}>
+                            <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
+                        </IconButton>
+                        <Typography sx={{ fontWeight: 600, fontSize: "20px" }}>Password Management</Typography>
                     </Grid>
 
-                </Grid>
-                <Box sx={{ px: 2, pt: 1 }}>
-                    <Box sx={{ display: "flex", justifyContent: "end", pb: 1 }}>
+                    <Grid size={{ xs: 12, sm: 5 }}>
+                        <TextField
+                            fullWidth
+                            size="small"
+                            placeholder="Search by name or roll number..."
+                            value={searchQuery}
+                            onChange={handleSearchChange}
+                            slotProps={{
+                                input: {
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <SearchIcon sx={{ fontSize: 18, color: "#aaa" }} />
+                                        </InputAdornment>
+                                    ),
+                                    sx: { borderRadius: "50px", fontSize: "13px", height: "32px" },
+                                },
+                            }}
+                            sx={{ "& .MuiOutlinedInput-root": { borderRadius: "50px" } }}
+                        />
+                    </Grid>
+
+                    <Grid size={{ xs: 12, sm: 2 }} sx={{ display: "flex", justifyContent: { xs: "flex-start", sm: "flex-end" } }}>
                         <Button
-                            onClick={handleExport}
                             variant="contained"
+                            onClick={handleExport}
+                            startIcon={<FileDownloadIcon sx={{ fontSize: 18 }} />}
                             sx={{
-                                backgroundColor: websiteSettings.mainColor,
-                                color: websiteSettings.textColor,
                                 textTransform: "none",
+                                bgcolor: websiteSettings.mainColor,
+                                "&:hover": { bgcolor: websiteSettings.mainColor, opacity: 0.9 },
+                                borderRadius: "6px",
+                                fontSize: "13px",
                                 fontWeight: 600,
-                                width: "100px",
-                                height: "30px",
-                                borderRadius: "5px",
-                                boxShadow: "0px 2px 4px rgba(0,0,0,0.1)",
-                                '&:hover': {
-                                    backgroundColor: websiteSettings.mainColor,
-                                    opacity: 0.9
-                                }
+                                height: "32px",
                             }}
                         >
                             Export
                         </Button>
+                    </Grid>
+                </Grid>
+            </Box>
+
+            {/* Table */}
+            <Box sx={{ p: 2 }}>
+                <PasswordTable
+                    pageData={pageData}
+                    allData={filteredData}
+                    page={page}
+                    rowsPerPage={rowsPerPage}
+                    onPageChange={handlePageChange}
+                    onRowsPerPageChange={handleRowsPerPageChange}
+                    onChangePassword={handleOpenChange}
+                    onViewImage={handleViewImage}
+                />
+            </Box>
+
+            {/* ── Change Password Dialog ── */}
+            <Dialog open={dialog.open} onClose={closeDialog} fullWidth maxWidth="xs">
+                <Box sx={{ bgcolor: "#f2f2f2", px: 2.5, py: 1.5, display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #ddd" }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                        <LockResetIcon sx={{ fontSize: 18, color: "#F57C00" }} />
+                        <Typography sx={{ fontWeight: 600, fontSize: "16px" }}>Change Password</Typography>
                     </Box>
-                    <TableContainer
-                        sx={{
-                            border: "1px solid #E8DDEA",
-                            maxHeight: "77vh",
-                            overflowY: "auto",
-
-                        }}
-                    >
-                        <Table stickyHeader aria-label="attendance table" sx={{ minWidth: '100%' }}>
-                            <TableHead>
-                                <TableRow>
-                                    <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#faf6fc" }}>
-                                        S.No
-                                    </TableCell>
-                                    <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#faf6fc" }}>
-                                        Roll Number
-                                    </TableCell>
-                                    <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#faf6fc" }}>
-                                        Student Name
-                                    </TableCell>
-                                    <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#faf6fc" }}>
-                                        Class
-                                    </TableCell>
-                                    <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#faf6fc" }}>
-                                        User Type
-                                    </TableCell>
-                                    <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#faf6fc" }}>
-                                        Section
-                                    </TableCell>
-                                    <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#faf6fc" }}>
-                                        Student Picture
-                                    </TableCell>
-                                    <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#faf6fc" }}>
-                                        Password
-                                    </TableCell>
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {filteredData.map((row, index) => (
-                                    <TableRow key={row.rollNumber || index}>
-                                        <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center" }}>
-                                            {index + 1}
-                                        </TableCell>
-                                        <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center" }}>
-                                            {row.rollNumber}
-                                        </TableCell>
-                                        <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", color: row.name ? "inherit" : "red" }}>
-                                            {row.name || "Name not provided"}
-                                        </TableCell>
-                                        <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center" }}>
-                                            {row.userType}
-                                        </TableCell>
-                                        <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center" }}>
-                                            {row.grade}
-                                        </TableCell>
-                                        <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center" }}>
-                                            {row.section}
-                                        </TableCell>
-                                        <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center" }}>
-                                            {row.filepath ? (
-                                                <Button sx={{ color: "#000", textTransform: "none" }} onClick={() => handleViewClick(row.filepath)}>
-                                                    <ImageIcon sx={{ color: "#000", marginRight: 1 }} />
-                                                    View
-                                                </Button>
-                                            ) : (
-                                                <Typography sx={{ fontSize: "12px", color: "gray" }}>No Image</Typography>
-                                            )}
-                                        </TableCell>
-                                        <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center" }}>
-                                            {row.password}
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-
-                        </Table>
-                        <Box sx={{ height: '50px' }}></Box>
-                    </TableContainer>
+                    <IconButton size="small" onClick={closeDialog}>
+                        <CloseIcon sx={{ fontSize: 18 }} />
+                    </IconButton>
                 </Box>
-                <Dialog
-                    open={openImage}
-                    onClose={handleImageClose}
-                    sx={{
-                        '& .MuiPaper-root': {
-                            backgroundColor: 'transparent',
-                            boxShadow: 'none',
-                            borderRadius: 0,
-                            padding: 0,
-                            overflow: 'visible',
-                        },
-                    }}
-                    BackdropProps={{
-                        style: { backgroundColor: 'rgba(0, 0, 0, 0.8)' },
-                    }}
-                >
-                    <img
-                        src={imageUrl || avatarImage}
-                        alt="Popup"
-                        style={{
-                            width: 'auto',
-                            height: 'auto',
-                            maxWidth: '80vw',
-                            maxHeight: '80vh',
-                            display: 'block',
-                            margin: 'auto',
+
+                <DialogContent sx={{ pt: 2.5, pb: 1 }}>
+                    {/* User info card */}
+                    {dialog.user && (
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, p: 1.5, bgcolor: "#fafafa", border: "1px solid #e8e8e8", borderRadius: "8px", mb: 2.5 }}>
+                            <Avatar
+                                src={dialog.user.filepath || avatarImage}
+                                sx={{ width: 40, height: 40, border: "2px solid #e0e0e0" }}
+                            />
+                            <Box>
+                                <Typography sx={{ fontWeight: 700, fontSize: "14px", color: "#222" }}>
+                                    {dialog.user.name || "Name not provided"}
+                                </Typography>
+                                <Typography sx={{ fontSize: "12px", color: "#888" }}>
+                                    {dialog.user.rollNumber}
+                                    {dialog.user.userType ? ` · ${dialog.user.userType}` : ""}
+                                    {dialog.user.grade ? ` · ${dialog.user.grade}` : ""}
+                                    {dialog.user.section ? ` / ${dialog.user.section}` : ""}
+                                </Typography>
+                            </Box>
+                        </Box>
+                    )}
+
+                    {/* New password */}
+                    <Typography sx={{ fontSize: "12px", fontWeight: 600, color: "#555", mb: 0.5, textTransform: "uppercase", letterSpacing: "0.4px" }}>
+                        New Password
+                    </Typography>
+                    <TextField
+                        fullWidth
+                        size="small"
+                        type={dialog.showNew ? "text" : "password"}
+                        placeholder="Enter new password"
+                        value={dialog.newPassword}
+                        onChange={(e) => setDialog((prev) => ({ ...prev, newPassword: e.target.value }))}
+                        sx={{ mb: 2 }}
+                        slotProps={{
+                            input: {
+                                endAdornment: (
+                                    <InputAdornment position="end">
+                                        <IconButton size="small" onClick={() => setDialog((prev) => ({ ...prev, showNew: !prev.showNew }))}>
+                                            {dialog.showNew ? <VisibilityOffIcon sx={{ fontSize: 18 }} /> : <VisibilityIcon sx={{ fontSize: 18 }} />}
+                                        </IconButton>
+                                    </InputAdornment>
+                                ),
+                            },
                         }}
                     />
-                    <DialogActions sx={{ padding: 0 }}>
-                        <IconButton onClick={handleImageClose} sx={{ position: 'absolute', top: -10, right: -40 }}>
-                            <CloseIcon style={{ color: "#fff" }} />
-                        </IconButton>
-                    </DialogActions>
-                </Dialog>
-            </Box>
+
+                    {/* Confirm password */}
+                    <Typography sx={{ fontSize: "12px", fontWeight: 600, color: "#555", mb: 0.5, textTransform: "uppercase", letterSpacing: "0.4px" }}>
+                        Confirm Password
+                    </Typography>
+                    <TextField
+                        fullWidth
+                        size="small"
+                        type={dialog.showConfirm ? "text" : "password"}
+                        placeholder="Confirm new password"
+                        value={dialog.confirmPassword}
+                        onChange={(e) => setDialog((prev) => ({ ...prev, confirmPassword: e.target.value }))}
+                        error={!!passwordMismatch}
+                        helperText={passwordMismatch ? "Passwords do not match" : passwordsMatch ? "✓ Passwords match" : ""}
+                        sx={{
+                            "& .MuiFormHelperText-root": {
+                                color: passwordMismatch ? "#e53935" : "#388E3C",
+                                fontWeight: 600,
+                                fontSize: "12px",
+                            },
+                        }}
+                        slotProps={{
+                            input: {
+                                endAdornment: (
+                                    <InputAdornment position="end">
+                                        <IconButton size="small" onClick={() => setDialog((prev) => ({ ...prev, showConfirm: !prev.showConfirm }))}>
+                                            {dialog.showConfirm ? <VisibilityOffIcon sx={{ fontSize: 18 }} /> : <VisibilityIcon sx={{ fontSize: 18 }} />}
+                                        </IconButton>
+                                    </InputAdornment>
+                                ),
+                            },
+                        }}
+                    />
+                </DialogContent>
+
+                <DialogActions sx={{ px: 2.5, pb: 2, pt: 1 }}>
+                    <Button
+                        onClick={closeDialog}
+                        sx={{ textTransform: "none", color: "#555", borderRadius: "20px", border: "1px solid #ddd" }}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        variant="contained"
+                        disabled={!passwordsMatch}
+                        onClick={handleChangePassword}
+                        sx={{
+                            textTransform: "none",
+                            borderRadius: "20px",
+                            bgcolor: websiteSettings.mainColor,
+                            "&:hover": { bgcolor: websiteSettings.mainColor, opacity: 0.9 },
+                            "&:disabled": { bgcolor: "#e0e0e0", color: "#bbb" },
+                            px: 3,
+                        }}
+                    >
+                        Update Password
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Image Preview Dialog */}
+            <Dialog
+                open={openImage}
+                onClose={() => setOpenImage(false)}
+                sx={{ "& .MuiPaper-root": { backgroundColor: "transparent", boxShadow: "none", overflow: "visible" } }}
+                BackdropProps={{ style: { backgroundColor: "rgba(0,0,0,0.85)" } }}
+            >
+                <img
+                    src={imageUrl || avatarImage}
+                    alt="User"
+                    style={{ width: "auto", height: "auto", maxWidth: "80vw", maxHeight: "80vh", display: "block", margin: "auto" }}
+                />
+                <IconButton
+                    onClick={() => setOpenImage(false)}
+                    sx={{ position: "absolute", top: -10, right: -40, bgcolor: "rgba(255,255,255,0.2)", "&:hover": { bgcolor: "rgba(255,255,255,0.4)" } }}
+                >
+                    <CloseIcon sx={{ color: "#fff" }} />
+                </IconButton>
+            </Dialog>
         </Box>
     );
 }

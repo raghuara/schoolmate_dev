@@ -7,6 +7,8 @@ const Login = `${baseApiurl}Login`;
 const sectionsDropdown = `${baseApiurl}attendance/sectionsDropdown`;
 const GettingGradesData = `${baseApiurl}GradeValueFetch/GettingGrades`;
 const GettingGrades02 = `${baseApiurl}GradeValueFetch/GettingGrades02`;
+const VersionFetch = `${baseApiurl}version/fetch`;
+const VersionUpdate = `${baseApiurl}version/update`;
 
 // Dashboard 
 const Dashboard = `${baseApiurl}Dashboard/`;
@@ -21,6 +23,7 @@ const postDashboardSliders = `${baseApiurl}dashboardSliders/postDashboardSliders
 const getDashboardSliders = `${baseApiurl}dashboardSliders/getDashboardSliders`;
 const deleteDashboardSlider = `${baseApiurl}dashboardSliders/deleteDashboardSlider`;
 const UsersPassword = `${baseApiurl}Dashboard/UsersPassword`;
+const updateUserPassword = `${baseApiurl}Dashboard/UpdateUserPassword`;
 
 // Communication 
 
@@ -412,6 +415,11 @@ const findVehicleSafetyComplianceDetails = `${transportManagement}findVehicleSaf
 const GetUsersBaseDetails = `${baseApiurl}Dashboard/GetUsersBaseDetails`;
 const LoginList = `${baseApiurl}Dashboard/LoginList`;
 const getAllExams = `${baseApiurl}GradeValueFetch/getAllExams`;
+
+// Class & Section Management
+const postGrade = `${baseApiurl}GradeValueFetch/postGrade`;
+const postSection = `${baseApiurl}GradeValueFetch/postSection`;
+const deleteSection = `${baseApiurl}GradeValueFetch/deleteSection`;
 const getExamsByGradeId = `${baseApiurl}GradeValueFetch/getExamsByGradeId`;
 const updateExamsByGradeId = `${baseApiurl}GradeValueFetch/updateExamsByGradeId`;
 const fetchAllSubjects = `${baseApiurl}GradeValueFetch/fetchAllSubjects`;
@@ -432,6 +440,8 @@ export {
     postHomeworkStatus,
     fetchHomeworkStatus,
     GettingGrades02,
+    VersionFetch,
+    VersionUpdate,
     updateHomeworkStatus,
     fetchDairyStatus,
     updateDairyStatus,
@@ -723,5 +733,9 @@ export {
     postLeaveType,
     updateLeaveTypeById,
     getPayrollPayslipByRollNumber,
-    approvePayrollPayslipsDashboard
+    approvePayrollPayslipsDashboard,
+    postGrade,
+    postSection,
+    deleteSection,
+    updateUserPassword,
 }

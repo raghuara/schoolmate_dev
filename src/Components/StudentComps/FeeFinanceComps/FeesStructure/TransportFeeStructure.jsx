@@ -1000,7 +1000,6 @@ export default function TransportFeeStructure() {
             }}>
               <Button
                 onClick={handleResetAll}
-                startIcon={<CloseIcon />}
                 sx={{
                   border: "1px solid #000",
                   borderRadius: "30px",
@@ -1019,7 +1018,6 @@ export default function TransportFeeStructure() {
               <Button
                 variant="contained"
                 onClick={handleApply}
-                startIcon={<SaveIcon />}
                 sx={{
                   backgroundColor: websiteSettings.mainColor,
                   borderRadius: "30px",
@@ -1036,7 +1034,7 @@ export default function TransportFeeStructure() {
                   }
                 }}
               >
-                Save Fee Structure
+                {userType === "superadmin" ? "Apply" : "Send for Approval"}
               </Button>
             </Box>
           )}

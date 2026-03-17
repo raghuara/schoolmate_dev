@@ -22,65 +22,65 @@ import { Link } from "react-router-dom";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
-const groupColors = {
-    Nursery: {
-        "Pre-kg": { start: "#8338EC", end: "#4A2086" },
-        LKG: { start: "#00ADA4", end: "#00847D" },
-        UKG: { start: "#FB5506", end: "#D84600" },
-    },
-    Primary: {
-        "Grade 1": { start: "#FD7AFF", end: "#B900BC" },
-        "Grade 2": { start: "#B83940", end: "#5E1217" },
-        "Grade 3": { start: "#8338EC", end: "#4A2086" },
-    },
-    Secondary: {
-        "Grade 6": { start: "#00ADA4", end: "#00847D" },
-        "Grade 7": { start: "#FB5506", end: "#D84600" },
-    },
-};
+// Color palette cycled per grade within a category
+const GRADE_COLOR_PALETTE = [
+    "#4A2086",
+    "#00847D",
+    "#D84600",
+    "#800080",
+    "#FFA500",
+    "#4682B4",
+    "#228B22",
+    "#B83940",
+    "#008080",
+    "#6A0DAD",
+];
+
 
 const darkTheme = createTheme({
     palette: {
         mode: 'dark',
-        primary: {
-            main: '#90caf9',
-        },
-        background: {
-            paper: '#121212',
-        },
-        text: {
-            primary: '#ffffff',
-        },
+        primary: { main: '#90caf9' },
+        background: { paper: '#121212' },
+        text: { primary: '#ffffff' },
     },
 });
+
+// Custom plugin: draws grade group labels centered below the section (A/B/C) tick labels
+const groupLabelPlugin = {
+    id: 'groupLabel',
+    afterDraw(chart) {
+        const { ctx, scales: { x } } = chart;
+        const gc = chart.options.plugins.groupLabel?.groupCenters;
+        if (!gc) return;
+        ctx.save();
+        ctx.font = 'bold 11px Arial, sans-serif';
+        ctx.fillStyle = '#444';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        Object.entries(gc).forEach(([group, { start, end }]) => {
+            if (!group || group === 'null') return;
+            const xPos = (x.getPixelForValue(start) + x.getPixelForValue(end)) / 2;
+            const yPos = x.bottom - 11;
+            ctx.fillText(group.toUpperCase(), xPos, yPos);
+        });
+        ctx.restore();
+    },
+};
 
 function GroupBarChartPage({ }) {
     const chartRef = useRef(null);
     const [studentsGraphData, setStudentsGraphData] = useState(null);
-    const [isLoading, setIsLoading] = useState(false);
-    const [selectedGroup, setSelectedGroup] = useState("Nursery");
+    const [selectedGroup, setSelectedGroup] = useState('');
     const [selectedDate, setSelectedDate] = useState(dayjs());
     const [formattedDate, setFormattedDate] = useState(dayjs().format('DD-MM-YYYY'));
-    const [gradientColors, setGradientColors] = useState({});
     const [openCal, setOpenCal] = useState(false);
     const rollNumber = localStorage.getItem("rollNumber");
     const userType = localStorage.getItem("userType");
-    const userName = localStorage.getItem("userName");
-    const token = '123';
+    const token = "123"
     const handleOpen = () => setOpenCal(true);
     const handleClose = () => setOpenCal(false);
-    const [isMobile, setIsMobile] = useState(false);
-
-    useEffect(() => {
-        const handleResize = () => {
-            setIsMobile(window.innerWidth <= 768);
-        };
-
-        handleResize();
-        window.addEventListener("resize", handleResize);
-
-        return () => window.removeEventListener("resize", handleResize);
-    }, []);
+    const [isLoading, setIsLoading] = useState(false)
 
     const fetchStudentsGraphData = async () => {
         setIsLoading(true);
@@ -91,11 +91,13 @@ function GroupBarChartPage({ }) {
                     UserType: userType,
                     Date: formattedDate,
                 },
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
+                headers: { Authorization: `Bearer ${token}` },
             });
-            setStudentsGraphData(res.data.studentsAttendance || {});
+            const data = Array.isArray(res.data) ? res.data : [];
+            setStudentsGraphData(data);
+            if (data.length > 0 && !data.find(c => c.category === selectedGroup)) {
+                setSelectedGroup(data[0].category);
+            }
         } catch (error) {
             console.error(error);
         } finally {
@@ -109,77 +111,30 @@ function GroupBarChartPage({ }) {
 
     const getGroupedData = () => {
         if (!studentsGraphData) return [];
-        const nursery = [
-            ...(studentsGraphData.pre_kg_attendance || []).map((item) => ({ ...item, color: "#4A2086", group: "PRE KG" })),
-            { section: "", percentage: null },
-            ...(studentsGraphData.lkg_attendance || []).map((item) => ({ ...item, color: "#00847D", group: "LKG" })),
-            { section: "", percentage: null, color: "#008080", group: "LKG" },
-            ...(studentsGraphData.ukg_attendance || []).map((item) => ({ ...item, color: "#D84600", group: "UKG" })),
-        ];
+        const category = studentsGraphData.find(cat => cat.category === selectedGroup);
+        if (!category) return [];
 
-        const primary = [
-            ...(studentsGraphData.grade1Attendance || []).map((item) => ({ ...item, color: "#800080", group: "Grade 1" })),
-            { section: "", percentage: null },
-            ...(studentsGraphData.grade2Attendance || []).map((item) => ({ ...item, color: "#FFA500", group: "Grade 2" })),
-            { section: "", percentage: null },
-            ...(studentsGraphData.grade3Attendance || []).map((item) => ({ ...item, color: "#008080", group: "Grade 3" })),
-            { section: "", percentage: null },
-            ...(studentsGraphData.grade4Attendance || []).map((item) => ({ ...item, color: "#228B22", group: "Grade 4" })),
-            { section: "", percentage: null },
-            ...(studentsGraphData.grade5Attendance || []).map((item) => ({ ...item, color: "#4682B4", group: "Grade 5" })),
-        ];
-
-        const secondary = [
-            ...(studentsGraphData.grade6Attendance || []).map((item) => ({ ...item, color: "#008080", group: "Grade 6" })),
-            { section: "", percentage: null },
-            ...(studentsGraphData.grade7Attendance || []).map((item) => ({ ...item, color: "#D84600", group: "Grade 7" })),
-            { section: "", percentage: null },
-            ...(studentsGraphData.grade8Attendance || []).map((item) => ({ ...item, color: "#800080", group: "Grade 8" })),
-            { section: "", percentage: null },
-            ...(studentsGraphData.grade9Attendance || []).map((item) => ({ ...item, color: "#FFA500", group: "Grade 9" })),
-            { section: "", percentage: null },
-            ...(studentsGraphData.grade10Attendance || []).map((item) => ({ ...item, color: "#228B22", group: "Grade 10" })),
-        ];
-
-        switch (selectedGroup) {
-            case "Nursery":
-                return nursery;
-            case "Primary":
-                return primary;
-            case "Secondary":
-                return secondary;
-            default:
-                return [];
-        }
+        const result = [];
+        category.grades.forEach((grade, gradeIndex) => {
+            const color = GRADE_COLOR_PALETTE[gradeIndex % GRADE_COLOR_PALETTE.length];
+            grade.attendance.forEach(item => {
+                result.push({ ...item, color, group: grade.sign });
+            }); 
+            
+            if (gradeIndex < category.grades.length - 1) {
+                result.push({ section: "", percentage: null, color: "transparent", group: null });
+            }
+        });
+        return result;
     };
 
-    const createGradient = (ctx, colorStart, colorEnd) => {
-        const gradient = ctx.createLinearGradient(0, 0, 0, 400);
-        gradient.addColorStop(0, colorStart);
-        gradient.addColorStop(1, colorEnd);
-        return gradient;
-    };
-
-    useEffect(() => {
-        if (chartRef.current && chartRef.current.chartInstance) {
-            const ctx = chartRef.current.chartInstance.ctx;
-            const gradients = {};
-            const colors = groupColors[selectedGroup] || {};
-
-            Object.keys(colors).forEach((group) => {
-                const color = colors[group];
-                const gradient = createGradient(ctx, color.start, color.end);
-                gradients[group] = gradient;
-            });
-            setGradientColors(gradients);
-        }
-    }, [selectedGroup, studentsGraphData]);
+    // Dynamic tab list from API data
+    const categories = studentsGraphData ? studentsGraphData.map(cat => cat.category) : [];
 
     if (!studentsGraphData) {
         return (
             <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "400px" }}>
                 <Typography variant="h6">No data to display</Typography>
-                {/* <CircularProgress  style={{color:websiteSettings.mainColor}}/> */}
             </div>
         );
     }
@@ -221,18 +176,12 @@ function GroupBarChartPage({ }) {
         minChartWidth
     );
 
-
     return (
         <div style={{ width: "100%", overflowX: "auto" }}>
             <Grid container spacing={2}>
                 <Grid
                     sx={{ display: "flex", justifyContent: "center" }}
-                    size={{
-                        xs: 12,
-                        sm: 12,
-                        md: 12,
-                        lg: 3.7
-                    }}>
+                    size={{ xs: 12, sm: 12, md: 12, lg: 3.7 }}>
                     <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <Typography sx={{ fontSize: "16px", fontWeight: "600" }}>
                             Student Attendance
@@ -245,23 +194,14 @@ function GroupBarChartPage({ }) {
 
                 <Grid
                     sx={{ display: "flex", justifyContent: "center", }}
-                    size={{
-                        xs: 12,
-                        sm: 12,
-                        md: 12,
-                        lg: 5
-                    }}>
-                    <Box sx={{
-                        borderRadius: "50px", minHeight: '30px', mt: 0.5
-                    }}>
+                    size={{ xs: 12, sm: 12, md: 12, lg: 5 }}>
+                    <Box sx={{ borderRadius: "50px", minHeight: '30px', mt: 0.5 }}>
                         <Tabs
                             value={selectedGroup}
-                            onChange={(e, newValue) => setSelectedGroup(newValue)}
+                            onChange={(_, newValue) => setSelectedGroup(newValue)}
                             aria-label="attendance tabs"
                             variant="scrollable"
-                            TabIndicatorProps={{
-                                sx: { display: 'none' },
-                            }}
+                            slotProps={{ indicator: { sx: { display: 'none' } } }}
                             sx={{
                                 backgroundColor: '#faf6fc',
                                 minHeight: "10px",
@@ -284,21 +224,16 @@ function GroupBarChartPage({ }) {
                                 },
                             }}
                         >
-                            <Tab label="Nursery" value="Nursery" />
-                            <Tab label="Primary" value="Primary" />
-                            <Tab label="Secondary" value="Secondary" />
+                            {categories.map(cat => (
+                                <Tab key={cat} label={cat} value={cat} />
+                            ))}
                         </Tabs>
                     </Box>
                 </Grid>
 
                 <Grid
                     sx={{ display: "flex", justifyContent: "end" }}
-                    size={{
-                        xs: 12,
-                        sm: 12,
-                        md: 12,
-                        lg: 3.2
-                    }}>
+                    size={{ xs: 12, sm: 12, md: 12, lg: 3.2 }}>
                     <Box sx={{ display: "flex", justifyContent: "end" }}>
                         <ThemeProvider theme={darkTheme}>
                             <LocalizationProvider dateAdapter={AdapterDayjs}>
@@ -313,7 +248,6 @@ function GroupBarChartPage({ }) {
                                         setFormattedDate(newFormattedDate);
                                         handleClose();
                                     }}
-
                                     views={['year', 'month', 'day']}
                                     renderInput={() => null}
                                     sx={{
@@ -332,7 +266,6 @@ function GroupBarChartPage({ }) {
                                         color: '#fff',
                                         backgroundColor: 'rgba(0,0,0,0.1)',
                                     },
-
                                 }}
                                     onClick={handleOpen}>
                                     <CalendarMonthIcon style={{ color: "#000" }} />
@@ -361,7 +294,6 @@ function GroupBarChartPage({ }) {
                                         opacity: 0,
                                         transform: "translateX(5px)",
                                         transition: "opacity 0.3s ease, transform 0.3s ease",
-                                        // ml: 0.5,
                                     }}
                                 />
                             </Typography>
@@ -369,10 +301,12 @@ function GroupBarChartPage({ }) {
                     </Box>
                 </Grid>
             </Grid>
+
             <div style={{ width: "100%", overflowX: "auto" }}>
                 <div style={{ width: `${totalChartWidth}px`, height: "320px" }}>
                     <Bar
                         ref={chartRef}
+                        plugins={[groupLabelPlugin]}
                         data={{
                             labels: sections,
                             datasets: [
@@ -407,6 +341,7 @@ function GroupBarChartPage({ }) {
                             maintainAspectRatio: false,
                             plugins: {
                                 legend: { display: false },
+                                groupLabel: { groupCenters },
                                 tooltip: {
                                     callbacks: {
                                         title: (tooltipItems) => {
@@ -428,30 +363,23 @@ function GroupBarChartPage({ }) {
                             },
                             scales: {
                                 x: {
+                                    afterFit: (scale) => { scale.height += 22; },
                                     ticks: {
                                         autoSkip: false,
-                                        callback: function (value, index) {
-                                            const groupName = Object.keys(groupCenters).find(
-                                                (group) => groupCenters[group].center === index
-                                            );
+                                        callback: function (_value, index) {
                                             return sections[index];
                                         },
                                     },
-                                    grid: {
-                                        display: false,
-                                    },
+                                    grid: { display: false },
                                 },
                                 y: {
                                     beginAtZero: true,
                                     ticks: { stepSize: 5 },
-                                    grid: {
-                                        color: "rgba(200, 200, 200, 0.2)",
-                                    },
+                                    grid: { color: "rgba(200, 200, 200, 0.2)" },
                                 },
                             },
                         }}
                     />
-
                 </div>
             </div>
         </div>

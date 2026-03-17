@@ -4,13 +4,11 @@ import SearchIcon from '@mui/icons-material/Search';
 import { selectWebsiteSettings } from '../../../Redux/Slices/websiteSettingsSlice';
 import { useSelector } from 'react-redux';
 import { selectGrades } from '../../../Redux/Slices/DropdownController';
-import AddIcon from '@mui/icons-material/Add';
 import { Link, useNavigate } from 'react-router-dom';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import PersonAddAlt1Icon from '@mui/icons-material/PersonAddAlt1';
+import RequestQuoteIcon from '@mui/icons-material/RequestQuote';
 import PaymentIcon from '@mui/icons-material/Payment';
-import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
-import SportsBasketballIcon from "@mui/icons-material/SportsBasketball";
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import SportsSoccerIcon from '@mui/icons-material/SportsSoccer';
 import AddBoxIcon from '@mui/icons-material/AddBox';
@@ -18,7 +16,7 @@ import DashboardIcon from '@mui/icons-material/Dashboard';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 
 const items = [
-  
+
     {
         color: "#8600BB",
         icon: DashboardIcon,
@@ -37,7 +35,7 @@ const items = [
         path: "pay-fees",
         disabled: false,
     },
- 
+
     {
         color: "#3457D5",
         icon: SportsSoccerIcon,
@@ -80,7 +78,7 @@ export default function FeeFinancePage() {
     const user = useSelector((state) => state.auth);
     const userType = user.userType;
 
-    
+
     useEffect(() => {
         if (grades && grades.length > 0) {
             setSelectedGradeId(grades[0].id);
@@ -163,66 +161,69 @@ export default function FeeFinancePage() {
                                     </Button>
                                 </Link>
                             </Grid> */}
-                            <Grid
-                                size={{
-                                    lg: 5.3,
-                                    md: 5.3,
-                                    sm: 6,
-                                    xs: 10,
-                                }}>
-                                <Button aria-describedby={id} onClick={handleClick} sx={{ border: "1px solid #000", textTransform: "none", borderRadius: "50px", color: '#000', width: "100%" }}>
-                                    <PersonAddAlt1Icon style={{ paddingRight: "10px", paddingLeft: "5px", }} />  Create New Fee Structure
-                                </Button>
-                                <Popover
-                                    id={id}
-                                    open={open}
-                                    anchorEl={anchorEl}
-                                    onClose={handleClose}
-                                    anchorOrigin={{
-                                        vertical: "bottom",
-                                        horizontal: "center",
-                                    }}
-                                    transformOrigin={{
-                                        vertical: "top",
-                                        horizontal: "center",
-                                    }}
-                                    PaperProps={{
-                                        sx: {
-                                            bgcolor: "#000",
-                                            color: "#fff",
-                                            borderRadius: "5px",
-                                            mt: 1,
-                                            width: "190px",
-                                            padding: "10px"
-                                        },
-                                    }}
-                                >
-                                    <List disablePadding>
-                                        {feeTypes.map((fee) => (
-                                            <ListItemButton
-                                                key={fee}
-                                                onClick={() => handleFeeSelect(fee)}
-                                                sx={{
-                                                    color: "#fff",
-                                                    "&:hover": { bgcolor: "#333" },
-                                                    fontSize: "12px",
-                                                    p: "5px",
-                                                    borderRadius: "3px"
-                                                }}
-                                            >
-                                                <Typography sx={{ fontSize: "12px !important" }}>
-                                                    {fee}
-                                                </Typography>
-                                            </ListItemButton>
-                                        ))}
-                                    </List>
-                                </Popover>
-                            </Grid>
+
+                            {(userType === "superadmin" || userType === "admin") &&
+                                <Grid
+                                    size={{
+                                        lg: 5.3,
+                                        md: 5.3,
+                                        sm: 6,
+                                        xs: 10,
+                                    }}>
+                                    <Button aria-describedby={id} onClick={handleClick} sx={{ border: "1px solid #000", textTransform: "none", borderRadius: "50px", color: '#000', width: "100%" }}>
+                                        <RequestQuoteIcon style={{ paddingRight: "10px", paddingLeft: "5px", }} />  Create Fee Structure
+                                    </Button>
+                                    <Popover
+                                        id={id}
+                                        open={open}
+                                        anchorEl={anchorEl}
+                                        onClose={handleClose}
+                                        anchorOrigin={{
+                                            vertical: "bottom",
+                                            horizontal: "center",
+                                        }}
+                                        transformOrigin={{
+                                            vertical: "top",
+                                            horizontal: "center",
+                                        }}
+                                        PaperProps={{
+                                            sx: {
+                                                bgcolor: "#000",
+                                                color: "#fff",
+                                                borderRadius: "5px",
+                                                mt: 1,
+                                                width: "190px",
+                                                padding: "10px"
+                                            },
+                                        }}
+                                    >
+                                        <List disablePadding>
+                                            {feeTypes.map((fee) => (
+                                                <ListItemButton
+                                                    key={fee}
+                                                    onClick={() => handleFeeSelect(fee)}
+                                                    sx={{
+                                                        color: "#fff",
+                                                        "&:hover": { bgcolor: "#333" },
+                                                        fontSize: "12px",
+                                                        p: "5px",
+                                                        borderRadius: "3px"
+                                                    }}
+                                                >
+                                                    <Typography sx={{ fontSize: "12px !important" }}>
+                                                        {fee}
+                                                    </Typography>
+                                                </ListItemButton>
+                                            ))}
+                                        </List>
+                                    </Popover>
+                                </Grid>
+                            }
                         </Grid>
                     </Grid>
                 </Grid>
-
             </Box>
+
             <Divider sx={{ pt: 2 }} />
 
             <Grid container spacing={2} >

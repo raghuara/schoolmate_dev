@@ -676,6 +676,7 @@ export default function ViewMarksPage() {
                                 )}
                             />
                         </Grid>
+
                         <Grid
                             size={{
                                 xs: 12,
@@ -727,9 +728,7 @@ export default function ViewMarksPage() {
                                 </Box>
                             </Grid>
                         </Grid>
-
                     </Box>
-
                     <Grid container>
                         <Grid size={12}>
                             <TableContainer

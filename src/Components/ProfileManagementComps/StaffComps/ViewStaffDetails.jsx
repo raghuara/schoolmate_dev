@@ -258,60 +258,34 @@ export default function ViewStaffDetails() {
                         alignItems: "center",
                         gap: { xs: 1, md: 2 },
                         flexWrap: "wrap"
-                    }}>
-                        <Chip
-                            icon={<CalendarTodayIcon sx={{ fontSize: { xs: 14, md: 16 } }} />}
-                            label={`AY ${new Date().getFullYear()}-${new Date().getFullYear() + 1}`}
-                            sx={{
-                                bgcolor: "#fff",
-                                border: "1px solid #e0e0e0",
-                                fontWeight: 600,
-                                fontSize: { xs: "11px", md: "13px" },
-                                height: { xs: "28px", md: "32px" }
-                            }}
-                        />
+                    }}> 
                         <Button
                             variant="outlined"
                             startIcon={<EditIcon sx={{ fontSize: { xs: 16, md: 20 } }} />}
                             onClick={() => handleEditClick(staffInfo?.[0]?.staffRollNumber)}
                             sx={{
-                                textTransform: "none",
-                                borderRadius: "8px",
-                                border: "1px solid #1976d2",
-                                color: "#1976d2",
-                                fontWeight: 600,
-                                px: { xs: 1.5, md: 2 },
-                                fontSize: { xs: "12px", md: "14px" },
-                                minWidth: { xs: "60px", md: "auto" },
-                                "&:hover": {
-                                    bgcolor: "#e3f2fd",
-                                    border: "1px solid #1565c0"
-                                }
+                                textTransform: "none", fontSize: "13px", fontWeight: 600,
+                                color: "#1976d2", border: "1px solid #1976d2", borderRadius: "6px",
+                                px: 2, py: 0.4,
+                                "&:hover": { bgcolor: "#e3f2fd" }
                             }}
                         >
                             {isMobile ? "" : "Edit"}
                         </Button>
-                        <Button
+                        
+                        {/* <Button
                             variant="outlined"
                             startIcon={<DeleteIcon sx={{ fontSize: { xs: 16, md: 20 } }} />}
                             onClick={handleDeleteClick}
                             sx={{
-                                textTransform: "none",
-                                borderRadius: "8px",
-                                border: "1px solid #d32f2f",
-                                color: "#d32f2f",
-                                fontWeight: 600,
-                                px: { xs: 1.5, md: 2 },
-                                fontSize: { xs: "12px", md: "14px" },
-                                minWidth: { xs: "60px", md: "auto" },
-                                "&:hover": {
-                                    bgcolor: "#ffebee",
-                                    border: "1px solid #c62828"
-                                }
+                                textTransform: "none", fontSize: "13px", fontWeight: 600,
+                                color: "#d32f2f", border: "1px solid #d32f2f", borderRadius: "6px",
+                                px: 2, py: 0.4,
+                                "&:hover": { bgcolor: "#ffebee" }
                             }}
                         >
                             {isMobile ? "" : "Delete"}
-                        </Button>
+                        </Button> */}
                     </Grid>
                 </Grid>
             </Box>
@@ -415,6 +389,7 @@ export default function ViewStaffDetails() {
                                             <Typography sx={{ fontWeight: 700, fontSize: { xs: 18, md: 20 }, color: "#1a1a1a", mb: 0.5 }}>
                                                 {staffInfo?.[0]?.staffNameInEnglish}
                                             </Typography>
+                                         
 
                                             <Chip
                                                 icon={<WorkIcon sx={{ fontSize: { xs: 14, md: 16 } }} />}
@@ -514,6 +489,14 @@ export default function ViewStaffDetails() {
                                                 </Box>
 
                                                 <Grid container spacing={2}>
+                                                    <StatusTile
+                                                        icon={WorkIcon}
+                                                        label="Login User Type"
+                                                        value={staffInfo?.[0]?.userType
+                                                            ? staffInfo[0].userType.charAt(0).toUpperCase() +
+                                                            staffInfo[0].userType.slice(1).toLowerCase()
+                                                            : ""}
+                                                    />
                                                     <StatusTile
                                                         icon={WorkIcon}
                                                         label="Employment Status"

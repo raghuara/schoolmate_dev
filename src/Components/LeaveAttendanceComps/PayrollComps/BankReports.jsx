@@ -145,7 +145,6 @@ export default function BankReports() {
             'S.No': index + 1,
             'Roll Number': emp.rollNumber,
             'Employee Name': emp.name,
-            'Designation': emp.designation,
             'Net Salary': emp.netSalary,
             'Bank Name': emp.bankName || 'N/A',
             'Account Number': emp.accountNumber || 'N/A',

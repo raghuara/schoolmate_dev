@@ -15,6 +15,7 @@ import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { useNavigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 
 const payrollModules = [
     {
@@ -81,6 +82,8 @@ const payrollModules = [
 
 export default function PayrollOverview({ isEmbedded = false, onBack }) {
     const navigate = useNavigate();
+    const user = useSelector((state) => state.auth);
+    const userType = user.userType;
 
     // Mock data for dashboard statistics
     const dashboardStats = [
@@ -233,87 +236,95 @@ export default function PayrollOverview({ isEmbedded = false, onBack }) {
                     })}
                 </Grid>
 
-                <Typography sx={{ fontSize: '20px', fontWeight: '700', pb: 2 }}>
-                    Payroll Management Modules
-                </Typography>
+                {(userType === "superadmin" || userType === "admin" || userType === "staff") && (
+                    <>
+                        <Typography sx={{ fontSize: '20px', fontWeight: '700', pb: 2 }}>
+                            Payroll Management Modules
+                        </Typography>
 
-                {/* Payroll Module Cards */}
-                <Box sx={{ flex: 1 }}>
-                    <Grid container spacing={2.5}>
-                        {payrollModules.map((module, index) => {
-                            const ModuleIcon = module.icon;
-                            return (
-                                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }} key={index}>
-                                    <Card
-                                        onClick={() => !module.disabled && navigate(module.path)}
-                                        sx={{
-                                            border: `1px solid ${module.color}20`,
-                                            borderRadius: '12px',
-                                            boxShadow: 'none',
-                                            bgcolor: module.bgColor,
-                                            cursor: module.disabled ? 'not-allowed' : 'pointer',
-                                            opacity: module.disabled ? 0.6 : 1,
-                                            transition: 'all 0.3s',
-                                            height: '100%',
-                                            '&:hover': {
-                                                transform: module.disabled ? 'none' : 'translateY(-6px)',
-                                                boxShadow: module.disabled ? 'none' : `0 8px 24px ${module.color}30`,
-                                                borderColor: module.disabled ? `${module.color}20` : module.color,
-                                                '& .module-arrow': {
-                                                    opacity: module.disabled ? 0 : 1,
-                                                    transform: module.disabled ? 'translateX(0)' : 'translateX(4px)'
-                                                }
-                                            }
-                                        }}
-                                    >
-                                        <CardContent sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
-                                            <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 2 }}>
-                                                <Box sx={{
-                                                    width: 52,
-                                                    height: 52,
+                        {/* Payroll Module Cards */}
+                        <Box sx={{ flex: 1 }}>
+                            <Grid container spacing={2.5}>
+                                {payrollModules.filter(module =>
+                                    userType === "superadmin" || userType === "admin"
+                                        ? true
+                                        : module.text === "Bank Details" || module.text === "Audit-ready Salary Register"
+                                ).map((module, index) => {
+                                    const ModuleIcon = module.icon;
+                                    return (
+                                        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }} key={index}>
+                                            <Card
+                                                onClick={() => !module.disabled && navigate(module.path)}
+                                                sx={{
+                                                    border: `1px solid ${module.color}20`,
                                                     borderRadius: '12px',
-                                                    bgcolor: module.iconBgColor,
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    border: `2px solid ${module.color}`
-                                                }}>
-                                                    <ModuleIcon sx={{ fontSize: 28, color: module.color }} />
-                                                </Box>
-                                                <ArrowForwardIcon
-                                                    className="module-arrow"
-                                                    sx={{
-                                                        fontSize: 22,
-                                                        color: module.color,
-                                                        opacity: 0,
-                                                        transition: 'all 0.3s'
-                                                    }}
-                                                />
-                                            </Box>
-                                            <Typography sx={{
-                                                fontSize: '16px',
-                                                fontWeight: 700,
-                                                color: '#111827',
-                                                mb: 1.5,
-                                                lineHeight: 1.3
-                                            }}>
-                                                {module.text}
-                                            </Typography>
-                                            <Typography sx={{
-                                                fontSize: '13px',
-                                                color: '#6B7280',
-                                                lineHeight: 1.6,
-                                                flex: 1
-                                            }}>
-                                                {module.description}
-                                            </Typography>
-                                        </CardContent>
-                                    </Card>
-                                </Grid>
-                            );
-                        })}
-                    </Grid>
-                </Box>
+                                                    boxShadow: 'none',
+                                                    bgcolor: module.bgColor,
+                                                    cursor: module.disabled ? 'not-allowed' : 'pointer',
+                                                    opacity: module.disabled ? 0.6 : 1,
+                                                    transition: 'all 0.3s',
+                                                    height: '100%',
+                                                    '&:hover': {
+                                                        transform: module.disabled ? 'none' : 'translateY(-6px)',
+                                                        boxShadow: module.disabled ? 'none' : `0 8px 24px ${module.color}30`,
+                                                        borderColor: module.disabled ? `${module.color}20` : module.color,
+                                                        '& .module-arrow': {
+                                                            opacity: module.disabled ? 0 : 1,
+                                                            transform: module.disabled ? 'translateX(0)' : 'translateX(4px)'
+                                                        }
+                                                    }
+                                                }}
+                                            >
+                                                <CardContent sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
+                                                    <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 2 }}>
+                                                        <Box sx={{
+                                                            width: 52,
+                                                            height: 52,
+                                                            borderRadius: '12px',
+                                                            bgcolor: module.iconBgColor,
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            border: `2px solid ${module.color}`
+                                                        }}>
+                                                            <ModuleIcon sx={{ fontSize: 28, color: module.color }} />
+                                                        </Box>
+                                                        <ArrowForwardIcon
+                                                            className="module-arrow"
+                                                            sx={{
+                                                                fontSize: 22,
+                                                                color: module.color,
+                                                                opacity: 0,
+                                                                transition: 'all 0.3s'
+                                                            }}
+                                                        />
+                                                    </Box>
+                                                    <Typography sx={{
+                                                        fontSize: '16px',
+                                                        fontWeight: 700,
+                                                        color: '#111827',
+                                                        mb: 1.5,
+                                                        lineHeight: 1.3
+                                                    }}>
+                                                        {module.text}
+                                                    </Typography>
+                                                    <Typography sx={{
+                                                        fontSize: '13px',
+                                                        color: '#6B7280',
+                                                        lineHeight: 1.6,
+                                                        flex: 1
+                                                    }}>
+                                                        {module.description}
+                                                    </Typography>
+                                                </CardContent>
+                                            </Card>
+                                        </Grid>
+                                    );
+                                })}
+                            </Grid>
+                        </Box>
+                    </>
+                )}
             </Box>
         </Box>
     );

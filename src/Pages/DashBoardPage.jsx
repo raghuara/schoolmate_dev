@@ -4,12 +4,13 @@ import { Link, useNavigate } from "react-router-dom";
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import SliderComponent from "../Components/Slider/SlickSlider";
 import BirthdayPage from "../Components/DashBoard/BirthdayPage";
-import { DashboardManagement, DashboardNews,  DashboardTeachersAttendance } from "../Api/Api";
+import { DashboardManagement, DashboardNews, DashboardTeachersAttendance } from "../Api/Api";
 import axios from "axios";
 import GroupBarChartPage from "../Components/Chart/GroupBarChart";
 import dayjs from "dayjs";
 import CircularSlider from "../Components/Slider/CircularSlider";
 import { useSelector } from "react-redux";
+import { selectVersion } from "../Redux/Slices/versionSlice";
 import { motion } from "framer-motion";
 import AddIcon from '@mui/icons-material/Add';
 import AttendanceTablePage from "../Components/Chart/GroupTable";
@@ -18,6 +19,7 @@ export default function DashBoardPage() {
     const navigate = useNavigate();
     const token = '123';
     const user = useSelector((state) => state.auth);
+    const version = useSelector(selectVersion);
     const [managementCount, setManagementCount] = useState({
         curriculamManagement: [{ count: 0 }],
         facilitiesManagement: [{ count: 0 }],
@@ -310,7 +312,7 @@ export default function DashBoardPage() {
                                                 borderBottomLeftRadius: '5px',
                                             }}
                                         />
-                                        <Typography sx={{ fontWeight: "600", display: 'flex', py:1.6, justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <Typography sx={{ fontWeight: "600", display: 'flex', py: 1.6, justifyContent: 'space-between', alignItems: 'center' }}>
                                             Schoolmate - Lite
                                             <Box sx={{ display: "flex", alignItems: 'center' }}>
 
@@ -354,7 +356,7 @@ export default function DashBoardPage() {
                                                 borderBottomLeftRadius: '5px',
                                             }}
                                         />
-                                        <Typography sx={{ fontWeight: "600",py:1.6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <Typography sx={{ fontWeight: "600", py: 1.6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                             Schoolmate - Pro
                                             <Box sx={{ display: "flex", alignItems: 'center' }}>
                                                 <ArrowForwardIcon className="arrowIcon" sx={{ opacity: 0, transition: 'opacity 0.3s ease', color: "#2BA95A" }} />
@@ -397,7 +399,7 @@ export default function DashBoardPage() {
                                                 borderBottomLeftRadius: '5px',
                                             }}
                                         />
-                                        <Typography sx={{ fontWeight: "600",py:1.6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <Typography sx={{ fontWeight: "600", py: 1.6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                             Schoolmate - Plus
                                             <Box sx={{ display: "flex", alignItems: 'center' }}>
 
@@ -441,7 +443,7 @@ export default function DashBoardPage() {
                                                 borderBottomLeftRadius: '5px',
                                             }}
                                         />
-                                        <Typography sx={{ fontWeight: "600",py:1.6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <Typography sx={{ fontWeight: "600", py: 1.6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                             Schoolmate - 360
                                             <Box sx={{ display: "flex", alignItems: 'center' }}>
 
@@ -457,21 +459,23 @@ export default function DashBoardPage() {
 
 
 
-                <Grid container spacing={2}>
-                    <Grid
-                        size={{
-                            xs: 12,
-                            sm: 6,
-                            md: 12,
-                            lg: 6
-                        }}>
-                        <motion.div
-                            initial="hidden"
-                            animate="visible"
-                            variants={fadeUpEffect}
-                        >
-                            <Box sx={{ backgroundColor: "#fff", boxShadow: "0 2px 4px 0 rgba(0, 0, 0, 0.1)", borderRadius: "6px", mt: 2, px: 1.5, pb: 1.5, pt: 0.6, position: "relative" }}>
-                                {/* {newsDetails.length > 0 && (
+                {version.LITE && (
+                    <>
+                        <Grid container spacing={2}>
+                            <Grid
+                                size={{
+                                    xs: 12,
+                                    sm: 6,
+                                    md: 12,
+                                    lg: 6
+                                }}>
+                                <motion.div
+                                    initial="hidden"
+                                    animate="visible"
+                                    variants={fadeUpEffect}
+                                >
+                                    <Box sx={{ backgroundColor: "#fff", boxShadow: "0 2px 4px 0 rgba(0, 0, 0, 0.1)", borderRadius: "6px", mt: 2, px: 1.5, pb: 1.5, pt: 0.6, position: "relative" }}>
+                                        {/* {newsDetails.length > 0 && (
                                     <Box
                                         sx={{
                                             position: "absolute",
@@ -493,43 +497,43 @@ export default function DashBoardPage() {
                                         {newsDetails.length}
                                     </Box>
                                 )} */}
-                                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                    <Typography variant="h6" sx={{ fontWeight: "600" }}>
-                                        News
-                                        <span style={{ fontSize: "11px", color: "#777" }}>
-                                            &nbsp; Latest Update
-                                        </span>
-                                    </Typography>
-                                    <Link to="/dashboardmenu/news" style={{ textDecoration: "none" }}>
-                                        <Typography
-                                            variant="body1"
-                                            className="seeAllText"
-                                            sx={{
-                                                fontWeight: "600",
-                                                fontSize: "14px",
-                                                display: "flex",
-                                                alignItems: "center",
-                                                justifyContent: "end",
-                                                transition: "transform 0.3s ease",
-                                                cursor: "pointer",
-                                                color: '#000',
-                                                position: "relative",
-                                            }}
-                                        >
-                                            See all
-                                            <ArrowForwardIcon
-                                                className="arrowIcon"
-                                                sx={{
-                                                    opacity: 0,
-                                                    transform: "translateX(10px)",
-                                                    transition: "opacity 0.3s ease, transform 0.3s ease",
-                                                    ml: 0.5,
-                                                }}
-                                            />
-                                        </Typography>
-                                    </Link>
+                                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                            <Typography variant="h6" sx={{ fontWeight: "600" }}>
+                                                News
+                                                <span style={{ fontSize: "11px", color: "#777" }}>
+                                                    &nbsp; Latest Update
+                                                </span>
+                                            </Typography>
+                                            <Link to="/dashboardmenu/news" style={{ textDecoration: "none" }}>
+                                                <Typography
+                                                    variant="body1"
+                                                    className="seeAllText"
+                                                    sx={{
+                                                        fontWeight: "600",
+                                                        fontSize: "14px",
+                                                        display: "flex",
+                                                        alignItems: "center",
+                                                        justifyContent: "end",
+                                                        transition: "transform 0.3s ease",
+                                                        cursor: "pointer",
+                                                        color: '#000',
+                                                        position: "relative",
+                                                    }}
+                                                >
+                                                    See all
+                                                    <ArrowForwardIcon
+                                                        className="arrowIcon"
+                                                        sx={{
+                                                            opacity: 0,
+                                                            transform: "translateX(10px)",
+                                                            transition: "opacity 0.3s ease, transform 0.3s ease",
+                                                            ml: 0.5,
+                                                        }}
+                                                    />
+                                                </Typography>
+                                            </Link>
 
-                                    <style jsx>{`
+                                            <style jsx>{`
                                         .seeAllText {
                                             display: flex;
                                             align-items: center;
@@ -545,32 +549,32 @@ export default function DashBoardPage() {
                                         }
                                     `}</style>
 
-                                </Box>
-                                <Box sx={{ border: "1px solid #e8e8e8", borderRadius: "6px", }}>
-                                    <SliderComponent
-                                        items={newsDetails}
-                                        title="News"
-                                        subtitle="Latest Update"
-                                        link="/dashboardmenu/news"
-                                    />
-                                </Box>
-                            </Box>
-                        </motion.div>
-                    </Grid>
-                    <Grid
-                        size={{
-                            xs: 12,
-                            sm: 6,
-                            md: 12,
-                            lg: 6
-                        }}>
-                        <motion.div
-                            initial="hidden"
-                            animate="visible"
-                            variants={fadeUpEffect1}
-                        >
-                            <Box sx={{ backgroundColor: "#fff", boxShadow: "0 2px 4px 0 rgba(0, 0, 0, 0.1)", borderRadius: "6px", mt: 2, px: 1.5, pb: 1.5, pt: 0.6, position: "relative" }}>
-                                {/* {newsDetails.length > 0 && (
+                                        </Box>
+                                        <Box sx={{ border: "1px solid #e8e8e8", borderRadius: "6px", }}>
+                                            <SliderComponent
+                                                items={newsDetails}
+                                                title="News"
+                                                subtitle="Latest Update"
+                                                link="/dashboardmenu/news"
+                                            />
+                                        </Box>
+                                    </Box>
+                                </motion.div>
+                            </Grid>
+                            <Grid
+                                size={{
+                                    xs: 12,
+                                    sm: 6,
+                                    md: 12,
+                                    lg: 6
+                                }}>
+                                <motion.div
+                                    initial="hidden"
+                                    animate="visible"
+                                    variants={fadeUpEffect1}
+                                >
+                                    <Box sx={{ backgroundColor: "#fff", boxShadow: "0 2px 4px 0 rgba(0, 0, 0, 0.1)", borderRadius: "6px", mt: 2, px: 1.5, pb: 1.5, pt: 0.6, position: "relative" }}>
+                                        {/* {newsDetails.length > 0 && (
                                     <Box
                                         sx={{
                                             position: "absolute",
@@ -592,40 +596,40 @@ export default function DashBoardPage() {
                                         3
                                     </Box>
                                 )} */}
-                                <Box px={1} sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                    <Typography variant="h6" sx={{ fontWeight: "600" }}>
-                                        Circular
-                                        <span style={{ fontSize: "11px", color: "#777" }}>
-                                            &nbsp; Latest Update
-                                        </span>
-                                    </Typography>
-                                    <Link to="/dashboardmenu/circulars" style={{ textDecoration: "none" }}>
-                                        <Typography
-                                            variant="body1"
-                                            className="seeAllText"
-                                            sx={{
-                                                fontWeight: "600",
-                                                fontSize: "14px",
-                                                display: "flex",
-                                                alignItems: "center",
-                                                transition: "transform 0.3s ease",
-                                                cursor: "pointer",
-                                                color: '#000',
-                                            }}
-                                        >
-                                            See all
-                                            <ArrowForwardIcon
-                                                className="arrowIcon"
-                                                sx={{
-                                                    opacity: 0,
-                                                    transform: "translateX(5px)",
-                                                    transition: "opacity 0.3s ease, transform 0.3s ease",
-                                                    ml: 0.5,
-                                                }}
-                                            />
-                                        </Typography>
-                                    </Link>
-                                    <style jsx>{`
+                                        <Box px={1} sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                            <Typography variant="h6" sx={{ fontWeight: "600" }}>
+                                                Circular
+                                                <span style={{ fontSize: "11px", color: "#777" }}>
+                                                    &nbsp; Latest Update
+                                                </span>
+                                            </Typography>
+                                            <Link to="/dashboardmenu/circulars" style={{ textDecoration: "none" }}>
+                                                <Typography
+                                                    variant="body1"
+                                                    className="seeAllText"
+                                                    sx={{
+                                                        fontWeight: "600",
+                                                        fontSize: "14px",
+                                                        display: "flex",
+                                                        alignItems: "center",
+                                                        transition: "transform 0.3s ease",
+                                                        cursor: "pointer",
+                                                        color: '#000',
+                                                    }}
+                                                >
+                                                    See all
+                                                    <ArrowForwardIcon
+                                                        className="arrowIcon"
+                                                        sx={{
+                                                            opacity: 0,
+                                                            transform: "translateX(5px)",
+                                                            transition: "opacity 0.3s ease, transform 0.3s ease",
+                                                            ml: 0.5,
+                                                        }}
+                                                    />
+                                                </Typography>
+                                            </Link>
+                                            <style jsx>{`
                                 .seeAllText:hover {
                                     transform: translateX(-5px); 
                                 }
@@ -634,63 +638,63 @@ export default function DashBoardPage() {
                                     transform: translateX(0); 
                                 }
                             `}</style>
-                                </Box>
-                                <Box sx={{ border: "1px solid #e8e8e8", borderRadius: "6px", }}>
-                                    <CircularSlider
-                                        items={circularDetails}
-                                    />
-                                </Box>
-                            </Box>
-                        </motion.div>
-                    </Grid>
-                </Grid>
-
-                {/* Bar Chart */}
-                <Box mt={2} >
-                    <motion.div
-                        initial={{ opacity: 0, y: 50 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.6, ease: "easeOut", delay: 1.5 }}
-                    >
-                        <Typography variant="h5" sx={{ fontWeight: "600", pb: 2 }}>
-                            Attendance Graph
-                        </Typography>
-                    </motion.div>
-
-                    <Grid container spacing={2}>
-                        <Grid
-                            size={{
-                                xs: 12,
-                                sm: 12,
-                                md: 12,
-                                lg: 6
-                            }}>
-                            <motion.div
-                                initial="hidden"
-                                animate="visible"
-                                variants={fadeUpEffect2}
-                            >
-                                <Box sx={{ p: 2, boxShadow: "0 2px 4px 0 rgba(0, 0, 0, 0.1)", borderRadius: "6px", backgroundColor: "#fff" }}>
-                                    <GroupBarChartPage />
-                                </Box>
-                            </motion.div>
+                                        </Box>
+                                        <Box sx={{ border: "1px solid #e8e8e8", borderRadius: "6px", }}>
+                                            <CircularSlider
+                                                items={circularDetails}
+                                            />
+                                        </Box>
+                                    </Box>
+                                </motion.div>
+                            </Grid>
                         </Grid>
-                        <Grid
-                            size={{
-                                xs: 12,
-                                sm: 12,
-                                md: 12,
-                                lg: 6
-                            }}>
+
+
+                        <Box mt={2} >
                             <motion.div
-                                initial="hidden"
-                                animate="visible"
-                                variants={fadeUpEffect3}
+                                initial={{ opacity: 0, y: 50 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.6, ease: "easeOut", delay: 1.5 }}
                             >
-                                <AttendanceTablePage />
+                                <Typography variant="h5" sx={{ fontWeight: "600", pb: 2 }}>
+                                    Attendance Graph
+                                </Typography>
                             </motion.div>
-                        </Grid>
-                        {/* {userType !== "teacher" &&
+
+                            <Grid container spacing={2}>
+                                <Grid
+                                    size={{
+                                        xs: 12,
+                                        sm: 12,
+                                        md: 12,
+                                        lg: 6
+                                    }}>
+                                    <motion.div
+                                        initial="hidden"
+                                        animate="visible"
+                                        variants={fadeUpEffect2}
+                                    >
+                                        <Box sx={{ p: 2, boxShadow: "0 2px 4px 0 rgba(0, 0, 0, 0.1)", borderRadius: "6px", backgroundColor: "#fff" }}>
+                                            <GroupBarChartPage />
+                                        </Box>
+                                    </motion.div>
+                                </Grid>
+                                <Grid
+                                    size={{
+                                        xs: 12,
+                                        sm: 12,
+                                        md: 12,
+                                        lg: 6
+                                    }}>
+                                    <motion.div
+                                        initial="hidden"
+                                        animate="visible"
+                                        variants={fadeUpEffect3}
+                                    >
+                                        <AttendanceTablePage />
+                                    </motion.div>
+                                </Grid>
+                                {/* {userType !== "teacher" &&
                             <Grid item xs={12} sm={12} md={12} lg={6}>
                                 <motion.div
                                     initial="hidden"
@@ -781,8 +785,10 @@ export default function DashBoardPage() {
                                 </motion.div>
                             </Grid>
                         } */}
-                    </Grid>
-                </Box>
+                            </Grid>
+                        </Box>
+                    </>
+                )}
                 <Box>
                     <motion.div
                         initial="hidden"

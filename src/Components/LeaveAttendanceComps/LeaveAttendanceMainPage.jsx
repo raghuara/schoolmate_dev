@@ -13,6 +13,7 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import EventNoteIcon from '@mui/icons-material/EventNote';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 
 // Import existing page components
 import StaffAttendanceOverviewPage from './StaffAttendanceOverviewPage';
@@ -49,6 +50,8 @@ const moduleCards = [
 export default function LeaveAttendanceMainPage() {
     const navigate = useNavigate();
     const location = useLocation();
+    const user = useSelector((state) => state.auth);
+    const userType = user.userType;
     const isLeaveAttendancePath = location.pathname.endsWith('/leave-attendance');
     const [moduleTab, setModuleTab] = useState(isLeaveAttendancePath ? 0 : (location.state?.moduleTab ?? null)); // null: show cards, 0: Leave, 1: Payroll
     const [tabValue, setTabValue] = useState(0);
@@ -117,47 +120,44 @@ export default function LeaveAttendanceMainPage() {
                         Leave & Payroll Management
                     </Typography>
                 </Box>
-
-                    <Divider sx={{ mb: 1.5 }} />
-
-                    {/* Fixed Tabs Navigation - Only show for Leave & Attendance module */}
-                    {moduleTab === 0 && (
-                        <Box sx={{ borderBottom: '1px solid #E8E8E8', mb: 1.5 }}>
-                            <Tabs
-                                value={tabValue}
-                                onChange={handleTabChange}
-                                variant="scrollable"
-                                scrollButtons="auto"
-                                sx={{
+                <Divider sx={{ mb: 1.5 }} />
+                {moduleTab === 0 && (
+                    <Box sx={{ borderBottom: '1px solid #E8E8E8', mb: 1.5 }}>
+                        <Tabs
+                            value={tabValue}
+                            onChange={handleTabChange}
+                            variant="scrollable"
+                            scrollButtons="auto"
+                            sx={{
+                                minHeight: '40px',
+                                '& .MuiTab-root': {
+                                    textTransform: 'none',
+                                    fontSize: '13px',
+                                    fontWeight: '600',
+                                    color: '#666',
                                     minHeight: '40px',
-                                    '& .MuiTab-root': {
-                                        textTransform: 'none',
-                                        fontSize: '13px',
-                                        fontWeight: '600',
-                                        color: '#666',
-                                        minHeight: '40px',
-                                        px: 2.5,
-                                        py: 1
-                                    },
-                                    '& .Mui-selected': {
-                                        color: '#F97316 !important'
-                                    },
-                                    '& .MuiTabs-indicator': {
-                                        backgroundColor: '#F97316',
-                                        height: '2px',
-                                        borderRadius: '2px 2px 0 0'
-                                    }
-                                }}
-                            >
-                                <Tab label="Attendance Dashboard" />
-                                <Tab label="Add Attendance" />
-                                <Tab label="Staff Attendance Overview" />
-                                <Tab label="Leave Management" />
-                                <Tab label="Leave Approval" />
-                                <Tab label="Reports" />
-                            </Tabs>
-                        </Box>
-                    )}
+                                    px: 2.5,
+                                    py: 1
+                                },
+                                '& .Mui-selected': {
+                                    color: '#F97316 !important'
+                                },
+                                '& .MuiTabs-indicator': {
+                                    backgroundColor: '#F97316',
+                                    height: '2px',
+                                    borderRadius: '2px 2px 0 0'
+                                }
+                            }}
+                        >
+                            <Tab label="Attendance Dashboard" />
+                            <Tab label="Add Attendance" />
+                            <Tab label="Staff Attendance Overview" />
+                            <Tab label="Leave Management" />
+                            <Tab label="Leave Approval" />
+                            <Tab label="Reports" />
+                        </Tabs>
+                    </Box>
+                )}
             </Box>
 
             {/* Dynamic Content Area */}
@@ -165,7 +165,9 @@ export default function LeaveAttendanceMainPage() {
                 {moduleTab === null ? (
                     // Show module cards when no module is selected
                     <Grid container spacing={2}>
-                        {moduleCards.map((item, index) => {
+                        {moduleCards.filter(item =>
+                            item.text !== "Payroll Management" || userType === "superadmin" || userType === "admin" || userType === "staff"
+                        ).map((item, index) => {
                             const IconComponent = item.icon;
                             return (
                                 <Grid

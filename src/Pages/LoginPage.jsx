@@ -1,4 +1,4 @@
-import { Box, Button, IconButton, InputAdornment, TextField, Typography } from '@mui/material';
+import { Box, Button, IconButton, InputAdornment, TextField, Typography, Dialog, DialogTitle, DialogContent, DialogActions, FormControlLabel, Checkbox, CircularProgress } from '@mui/material';
 import React, { useEffect, useState } from 'react';
 import Grid from '@mui/material/Grid';
 import { motion } from 'framer-motion';
@@ -10,7 +10,7 @@ import LoginImage from "../Images/Login/image.jpg";
 import "../Css/Style.css";
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Login } from '../Api/Api';
+import { Login, VersionFetch, VersionUpdate } from '../Api/Api';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { Form } from 'react-bootstrap';
@@ -21,6 +21,7 @@ import { selectWebsiteSettings } from '../Redux/Slices/websiteSettingsSlice';
 import Slider from 'react-slick';
 import ErrorIcon from '@mui/icons-material/Error';
 import { loginSuccess } from '../Redux/Slices/AuthSlice';
+import { setVersion } from '../Redux/Slices/versionSlice';
 import { generateToken } from '../Components/Notification/Firebase';
 import productLogo from '../Images/Login/SchoolMate Logo.png'
 import SchoolLogo from '../Images/Login/MSMSLogo.png'
@@ -42,6 +43,42 @@ export default function LoginPage() {
     const navigate = useNavigate();
     const websiteSettings = useSelector(selectWebsiteSettings);
     const dispatch = useDispatch();
+
+    const [versionDialogOpen, setVersionDialogOpen] = useState(false);
+    const [versionData, setVersionData] = useState({ LITE: false, PRO: false, PLUS: false, FULL_360: false });
+    const [versionFetching, setVersionFetching] = useState(false);
+    const [versionSaving, setVersionSaving] = useState(false);
+
+    const handleOpenVersionDialog = async () => {
+        setVersionDialogOpen(true);
+        setVersionFetching(true);
+        try {
+            const res = await axios.get(VersionFetch, { headers: { Authorization: `Bearer ${token}` } });
+            setVersionData(res.data);
+            dispatch(setVersion(res.data));
+        } catch (error) {
+            console.error('Failed to fetch version:', error);
+        } finally {
+            setVersionFetching(false);
+        }
+    };
+
+    const handleVersionToggle = (key) => {
+        setVersionData(prev => ({ ...prev, [key]: !prev[key] }));
+    };
+
+    const handleVersionSave = async () => {
+        setVersionSaving(true);
+        try {
+            await axios.put(VersionUpdate, versionData, { headers: { Authorization: `Bearer ${token}` } });
+            dispatch(setVersion(versionData));
+            setVersionDialogOpen(false);
+        } catch (error) {
+            console.error('Failed to update version:', error);
+        } finally {
+            setVersionSaving(false);
+        }
+    };
 
     const togglePasswordVisibility = () => {
         setShowPassword(!showPassword);
@@ -526,7 +563,61 @@ export default function LoginPage() {
                             </Box>
                             </motion.div>
                         </Form>
+                        <Button
+                            onClick={handleOpenVersionDialog}
+                            sx={{ textTransform: 'none', fontSize: '12px', color: '#a0aec0' }}
+                        >
+                            Version Change
+                        </Button>
+
+                        {/* Version Control Dialog */}
+                        <Dialog open={versionDialogOpen} onClose={() => setVersionDialogOpen(false)} PaperProps={{ sx: { borderRadius: '16px', minWidth: '320px', p: 1 } }}>
+                            <DialogTitle sx={{ fontWeight: 700, fontSize: '18px', pb: 0 }}>
+                                Version Control
+                            </DialogTitle>
+                            <DialogContent>
+                                {versionFetching ? (
+                                    <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+                                        <CircularProgress size={32} />
+                                    </Box>
+                                ) : (
+                                    <Box sx={{ pt: 1 }}>
+                                        {['LITE', 'PRO', 'PLUS', 'FULL_360'].map((key) => (
+                                            <Box key={key} sx={{ display: 'flex', alignItems: 'center', py: 0.5 }}>
+                                                <FormControlLabel
+                                                    control={
+                                                        <Checkbox
+                                                            checked={versionData[key] || false}
+                                                            onChange={() => handleVersionToggle(key)}
+                                                            sx={{ color: '#4299e1', '&.Mui-checked': { color: '#4299e1' } }}
+                                                        />
+                                                    }
+                                                    label={<Typography sx={{ fontWeight: 600, fontSize: '15px' }}>{key}</Typography>}
+                                                />
+                                            </Box>
+                                        ))}
+                                    </Box>
+                                )}
+                            </DialogContent>
+                            <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+                                <Button
+                                    onClick={() => setVersionDialogOpen(false)}
+                                    sx={{ textTransform: 'none', borderRadius: '8px', color: '#718096', border: '1px solid #e2e8f0', px: 2.5 }}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    onClick={handleVersionSave}
+                                    disabled={versionFetching || versionSaving}
+                                    variant="contained"
+                                    sx={{ textTransform: 'none', borderRadius: '8px', bgcolor: '#4299e1', px: 2.5, '&:hover': { bgcolor: '#3182ce' } }}
+                                >
+                                    {versionSaving ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : 'Save'}
+                                </Button>
+                            </DialogActions>
+                        </Dialog>
                     </Box>
+                   
                 </Grid>
             </Grid>
         </Box>

@@ -16,6 +16,7 @@ import { closeSubmenu, openSubmenu } from '../../Redux/Slices/SubMenuController'
 import { closeMainMenu } from '../../Redux/Slices/MainMenuSlice';
 import { selectCommunicationActivePaths, selectMyProjectsActivePaths } from '../../Redux/Slices/PathSlice';
 import { selectWebsiteSettings } from '../../Redux/Slices/websiteSettingsSlice';
+import { selectVersion } from '../../Redux/Slices/versionSlice';
 import HubIcon from '@mui/icons-material/Hub';
 import LockResetIcon from '@mui/icons-material/LockReset';
 import KeyIcon from '@mui/icons-material/Key';
@@ -61,6 +62,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
   const isCommunicationPathActive = () => communicationActivePaths.some(path => isActive(path));
   const isMyProjectsPathActive = () => myProjectsActivePaths.some(path => isActive(path));
   const websiteSettings = useSelector(selectWebsiteSettings);
+  const version = useSelector(selectVersion);
   const [unreadCount, setUnreadCount] = useState(0);
   const [selectedActive, setSelectedActive] = useState('');
   const [imageError, setImageError] = useState(false);
@@ -134,10 +136,6 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
     }
   };
 
-
-  const handleEditProfile = () => {
-  };
-
   const handleToggleSidebar = () => {
     dispatch(toggleSidebar());
   };
@@ -155,6 +153,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
     handleResize();
 
     window.addEventListener('resize', handleResize);
+
 
     return () => {
       window.removeEventListener('resize', handleResize);
@@ -221,6 +220,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
       {/* {isLoading &&
                 <Loader />} */}
       <SnackBar open={open} status={status} color={color} message={message} />
+
       <Box sx={{ px: 3, pt: 2, borderTop: "1px solid #ccc", borderRight: "1px solid #ccc", flexShrink: 0, }}>
         {isExpanded ? (
           <>
@@ -241,7 +241,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
                   {isExpanded ? <ArrowBackIosNewIcon sx={{ color: '#777', fontSize: '20px' }} /> : <ArrowForwardIosIcon sx={{ color: '#777', fontSize: '20px' }} />}
                 </IconButton>
               </CustomTooltip>
-              <Box sx={{ display: "flex", justifyContent: "center" }}>
+              <Box sx={{ display: "flex", justifyContent: "center", cursor: "pointer" }} onClick={() => navigate('/dashboardmenu/view-profile')}>
                 <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
                   {!imageError && newsDetails.filepath ? (
                     <img
@@ -294,7 +294,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
             </Box>
           </>
         ) : (
-          <Box sx={{ display: "flex", justifyContent: "center", px: 2, pt: 2, pb: 6 }}>
+          <Box sx={{ display: "flex", justifyContent: "center", px: 2, pt: 2, pb: 6, cursor: "pointer" }} onClick={() => navigate('/dashboardmenu/view-profile')}>
             {!imageError && newsDetails.filepath ? (
               <img
                 src={newsDetails.filepath}
@@ -311,7 +311,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
                 location.pathname !== "/dashboardmenu/student/information/viewinfo" &&
                 location.pathname !== "/dashboardmenu/student/information/edit") && (
                 <CustomTooltip title="Expand" arrow placement="right-start">
-                  <IconButton onClick={handleToggleSidebar} sx={{ marginTop: "0px" }}>
+                  <IconButton onClick={(e) => { e.stopPropagation(); handleToggleSidebar(); }} sx={{ marginTop: "0px" }}>
                     <ArrowForwardIosIcon sx={{ color: '#777', fontSize: '16px', }} />
                   </IconButton>
                 </CustomTooltip>
@@ -477,79 +477,84 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
           )}
 
           {/* Communication Tab */}
-          <ListItem onClick={() => handleMenuClick('communication', 'news', 'news')} sx={{ borderRadius: 2, px: 3, paddingTop: '3px', paddingBottom: '3px' }}>
-            <CustomTooltip title={isExpanded ? "" : "Communication"} arrow placement="right-start">
-              <Box
-                sx={{
-                  display: 'flex',
-                  justifyContent: "center",
-                  alignItems: 'center',
-                  paddingTop: '2px',
-                  paddingBottom: '2px',
-                  borderRadius: '5px',
-                  boxShadow: isCommunicationPathActive() ? '1px 1px 2px 0.5px rgba(0, 0, 0, 0.4)' : 'inherit',
-                  width: '100%',
-                  backgroundColor:
-                    isCommunicationPathActive() ? websiteSettings.mainColor : 'inherit',
-                  position: 'relative',
-                  '&:hover': { backgroundColor: 'none' },
-                  cursor: "pointer",
-                  '&:hover': {
-                    backgroundColor: !isCommunicationPathActive() ? websiteSettings.lightColor : 'none',
-                  }
-                }}
-              >
-                {isExpanded && (
-                  <Box
-                    sx={{
-                      width: '5px',
-                      backgroundColor:
-                        isCommunicationPathActive() ? websiteSettings.darkColor : 'inherit',
-                      height: '100%',
-                      position: 'absolute',
-                      left: 0,
-                      top: 0,
-                      borderTopLeftRadius: '5px',
-                      borderBottomLeftRadius: '5px',
-                    }}
-                  />
-                )}
-                <ListItemIcon sx={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
-                  <HubIcon style={{ color: isCommunicationPathActive() ? websiteSettings.textColor : 'rgba(0, 0, 0, 0.7)', }} />
-                </ListItemIcon>
-                {isExpanded && (
-                  <ListItemText >
-                    <Typography sx={{ color: isCommunicationPathActive() ? websiteSettings.textColor : '#000' }}>Communication</Typography>
-                  </ListItemText>
-                )}
-                {isExpanded && unreadCount > 0 && (
-                  <Box
-                    sx={{
-                      position: 'absolute',
-                      top: '8px',
-                      right: '8px',
-                      minWidth: '16px',
-                      height: '16px',
-                      backgroundColor: isCommunicationPathActive() ? '#fff' : websiteSettings.darkColor,
-                      color: isCommunicationPathActive() ? '#000' : websiteSettings.textColor,
-                      borderRadius: '50%',
-                      display: 'flex',
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                      fontSize: '12px',
-                      fontWeight: 'bold',
-                      padding: '3px',
-                    }}
-                  >
-                    {unreadCount}
-                  </Box>
-                )}
-              </Box>
-            </CustomTooltip>
-          </ListItem>
+          {version.LITE && (
+            <ListItem onClick={() => handleMenuClick('communication', 'news', 'news')} sx={{ borderRadius: 2, px: 3, paddingTop: '3px', paddingBottom: '3px' }}>
+              <CustomTooltip title={isExpanded ? "" : "Communication"} arrow placement="right-start">
+                <Box
+                  sx={{
+                    display: 'flex',
+                    justifyContent: "center",
+                    alignItems: 'center',
+                    paddingTop: '2px',
+                    paddingBottom: '2px',
+                    borderRadius: '5px',
+                    boxShadow: isCommunicationPathActive() ? '1px 1px 2px 0.5px rgba(0, 0, 0, 0.4)' : 'inherit',
+                    width: '100%',
+                    backgroundColor:
+                      isCommunicationPathActive() ? websiteSettings.mainColor : 'inherit',
+                    position: 'relative',
+                    '&:hover': { backgroundColor: 'none' },
+                    cursor: "pointer",
+                    '&:hover': {
+                      backgroundColor: !isCommunicationPathActive() ? websiteSettings.lightColor : 'none',
+                    }
+                  }}
+                >
+                  {isExpanded && (
+                    <Box
+                      sx={{
+                        width: '5px',
+                        backgroundColor:
+                          isCommunicationPathActive() ? websiteSettings.darkColor : 'inherit',
+                        height: '100%',
+                        position: 'absolute',
+                        left: 0,
+                        top: 0,
+                        borderTopLeftRadius: '5px',
+                        borderBottomLeftRadius: '5px',
+                      }}
+                    />
+                  )}
+                  <ListItemIcon sx={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
+                    <HubIcon style={{ color: isCommunicationPathActive() ? websiteSettings.textColor : 'rgba(0, 0, 0, 0.7)', }} />
+                  </ListItemIcon>
+                  {isExpanded && (
+                    <ListItemText >
+                      <Typography sx={{ color: isCommunicationPathActive() ? websiteSettings.textColor : '#000' }}>Communication</Typography>
+                    </ListItemText>
+                  )}
+                  {isExpanded && unreadCount > 0 && (
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        top: '8px',
+                        right: '8px',
+                        minWidth: '16px',
+                        height: '16px',
+                        backgroundColor: isCommunicationPathActive() ? '#fff' : websiteSettings.darkColor,
+                        color: isCommunicationPathActive() ? '#000' : websiteSettings.textColor,
+                        borderRadius: '50%',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        fontSize: '12px',
+                        fontWeight: 'bold',
+                        padding: '3px',
+                      }}
+                    >
+                      {unreadCount}
+                    </Box>
+                  )}
+                </Box>
+              </CustomTooltip>
+            </ListItem>
+          )}
+
+
           <Box px={3}>
             <hr style={{ color: "#fff" }} />
           </Box>
+
           {isExpanded ?
             <Box px={5}>
               <Typography className="activeSidebarText" sx={{ fontWeight: "600", fontSize: "15px" }}>
@@ -566,157 +571,163 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
           }
 
           {/* Fee  Tab */}
-          <ListItem onClick={() => handleMenuClickOne('fee')} sx={{ borderRadius: 2, px: 3, paddingTop: '3px', paddingBottom: '3px' }}>
-            <CustomTooltip title={isExpanded ? "" : "Fee & Finance"} arrow placement="right-start">
-              <Box
-                sx={{
-                  display: 'flex',
-                  justifyContent: "center",
-                  alignItems: 'center',
-                  paddingTop: '2px',
-                  paddingBottom: '2px',
-                  borderRadius: '5px',
-                  boxShadow: isActive('/dashboardmenu/fee') ? '1px 1px 2px 0.5px rgba(0, 0, 0, 0.4)' : 'inherit',
-                  width: '100%',
-                  backgroundColor: isActive('/dashboardmenu/fee') ? websiteSettings.mainColor : 'inherit',
-                  color: isActive('/dashboardmenu/fee') ? websiteSettings.textColor : '#000',
-                  position: 'relative',
-                  '&:hover': { backgroundColor: 'none' },
-                  cursor: "pointer",
-                  '&:hover': {
-                    backgroundColor: !isActive('/dashboardmenu/fee') ? websiteSettings.lightColor : 'none',
-                  }
-                }}
-              >
-                {isExpanded && (
-                  <Box
-                    sx={{
-                      width: '5px',
-                      backgroundColor: isActive('/dashboardmenu/fee') ? websiteSettings.darkColor : 'inherit',
-                      height: '100%',
-                      position: 'absolute',
-                      left: 0,
-                      top: 0,
-                      borderTopLeftRadius: '5px',
-                      borderBottomLeftRadius: '5px',
-                    }}
-                  />
-                )}
-                <ListItemIcon sx={{ display: "flex", justifyContent: "center", alignItems: "center", }}>
-                  <AssuredWorkloadIcon style={{ color: isActive('/dashboardmenu/fee') ? websiteSettings.textColor : 'rgba(0, 0, 0, 0.7)', }} />
-                </ListItemIcon>
-                {isExpanded && (
-                  <ListItemText>
-                    <Typography className="activeSidebarText" sx={{ color: isActive('/dashboardmenu/fee') ? websiteSettings.textColor : '#000' }}>
-                      Fee & Finance
-                    </Typography>
-                  </ListItemText>
-                )}
-              </Box>
-            </CustomTooltip>
-          </ListItem>
+          {version.PRO && (
+            <ListItem onClick={() => handleMenuClickOne('fee')} sx={{ borderRadius: 2, px: 3, paddingTop: '3px', paddingBottom: '3px' }}>
+              <CustomTooltip title={isExpanded ? "" : "Fee & Finance"} arrow placement="right-start">
+                <Box
+                  sx={{
+                    display: 'flex',
+                    justifyContent: "center",
+                    alignItems: 'center',
+                    paddingTop: '2px',
+                    paddingBottom: '2px',
+                    borderRadius: '5px',
+                    boxShadow: isActive('/dashboardmenu/fee') ? '1px 1px 2px 0.5px rgba(0, 0, 0, 0.4)' : 'inherit',
+                    width: '100%',
+                    backgroundColor: isActive('/dashboardmenu/fee') ? websiteSettings.mainColor : 'inherit',
+                    color: isActive('/dashboardmenu/fee') ? websiteSettings.textColor : '#000',
+                    position: 'relative',
+                    '&:hover': { backgroundColor: 'none' },
+                    cursor: "pointer",
+                    '&:hover': {
+                      backgroundColor: !isActive('/dashboardmenu/fee') ? websiteSettings.lightColor : 'none',
+                    }
+                  }}
+                >
+                  {isExpanded && (
+                    <Box
+                      sx={{
+                        width: '5px',
+                        backgroundColor: isActive('/dashboardmenu/fee') ? websiteSettings.darkColor : 'inherit',
+                        height: '100%',
+                        position: 'absolute',
+                        left: 0,
+                        top: 0,
+                        borderTopLeftRadius: '5px',
+                        borderBottomLeftRadius: '5px',
+                      }}
+                    />
+                  )}
+                  <ListItemIcon sx={{ display: "flex", justifyContent: "center", alignItems: "center", }}>
+                    <AssuredWorkloadIcon style={{ color: isActive('/dashboardmenu/fee') ? websiteSettings.textColor : 'rgba(0, 0, 0, 0.7)', }} />
+                  </ListItemIcon>
+                  {isExpanded && (
+                    <ListItemText>
+                      <Typography className="activeSidebarText" sx={{ color: isActive('/dashboardmenu/fee') ? websiteSettings.textColor : '#000' }}>
+                        Fee & Finance
+                      </Typography>
+                    </ListItemText>
+                  )}
+                </Box>
+              </CustomTooltip>
+            </ListItem>
+          )}
 
           {/* Leave Tab */}
-          <ListItem onClick={() => handleMenuClickOne('leave')} sx={{ borderRadius: 2, px: 3, paddingTop: '3px', paddingBottom: '3px' }}>
-            <CustomTooltip title={isExpanded ? "" : "Leave & Payroll"} arrow placement="right-start">
-              <Box
-                sx={{
-                  display: 'flex',
-                  justifyContent: "center",
-                  alignItems: 'center',
-                  paddingTop: '2px',
-                  paddingBottom: '2px',
-                  borderRadius: '5px',
-                  boxShadow: isActive('/dashboardmenu/leave') ? '1px 1px 2px 0.5px rgba(0, 0, 0, 0.4)' : 'inherit',
-                  width: '100%',
-                  backgroundColor: isActive('/dashboardmenu/leave') ? websiteSettings.mainColor : 'inherit',
-                  color: isActive('/dashboardmenu/leave') ? websiteSettings.textColor : '#000',
-                  position: 'relative',
-                  '&:hover': { backgroundColor: 'none' },
-                  cursor: "pointer",
-                  '&:hover': {
-                    backgroundColor: !isActive('/dashboardmenu/leave') ? websiteSettings.lightColor : 'none',
-                  }
-                }}
-              >
-                {isExpanded && (
-                  <Box
-                    sx={{
-                      width: '5px',
-                      backgroundColor: isActive('/dashboardmenu/leave') ? websiteSettings.darkColor : 'inherit',
-                      height: '100%',
-                      position: 'absolute',
-                      left: 0,
-                      top: 0,
-                      borderTopLeftRadius: '5px',
-                      borderBottomLeftRadius: '5px',
-                    }}
-                  />
-                )}
-                <ListItemIcon sx={{ display: "flex", justifyContent: "center", alignItems: "center", }}>
-                  <EditCalendarIcon style={{ color: isActive('/dashboardmenu/leave') ? websiteSettings.textColor : 'rgba(0, 0, 0, 0.7)', }} />
-                </ListItemIcon>
-                {isExpanded && (
-                  <ListItemText>
-                    <Typography className="activeSidebarText" sx={{ color: isActive('/dashboardmenu/leave') ? websiteSettings.textColor : '#000' }}>
-                      Leave & Payroll
-                    </Typography>
-                  </ListItemText>
-                )}
-              </Box>
-            </CustomTooltip>
-          </ListItem>
+          {version.PRO && (
+            <ListItem onClick={() => handleMenuClickOne('leave')} sx={{ borderRadius: 2, px: 3, paddingTop: '3px', paddingBottom: '3px' }}>
+              <CustomTooltip title={isExpanded ? "" : "Leave & Payroll"} arrow placement="right-start">
+                <Box
+                  sx={{
+                    display: 'flex',
+                    justifyContent: "center",
+                    alignItems: 'center',
+                    paddingTop: '2px',
+                    paddingBottom: '2px',
+                    borderRadius: '5px',
+                    boxShadow: isActive('/dashboardmenu/leave') ? '1px 1px 2px 0.5px rgba(0, 0, 0, 0.4)' : 'inherit',
+                    width: '100%',
+                    backgroundColor: isActive('/dashboardmenu/leave') ? websiteSettings.mainColor : 'inherit',
+                    color: isActive('/dashboardmenu/leave') ? websiteSettings.textColor : '#000',
+                    position: 'relative',
+                    '&:hover': { backgroundColor: 'none' },
+                    cursor: "pointer",
+                    '&:hover': {
+                      backgroundColor: !isActive('/dashboardmenu/leave') ? websiteSettings.lightColor : 'none',
+                    }
+                  }}
+                >
+                  {isExpanded && (
+                    <Box
+                      sx={{
+                        width: '5px',
+                        backgroundColor: isActive('/dashboardmenu/leave') ? websiteSettings.darkColor : 'inherit',
+                        height: '100%',
+                        position: 'absolute',
+                        left: 0,
+                        top: 0,
+                        borderTopLeftRadius: '5px',
+                        borderBottomLeftRadius: '5px',
+                      }}
+                    />
+                  )}
+                  <ListItemIcon sx={{ display: "flex", justifyContent: "center", alignItems: "center", }}>
+                    <EditCalendarIcon style={{ color: isActive('/dashboardmenu/leave') ? websiteSettings.textColor : 'rgba(0, 0, 0, 0.7)', }} />
+                  </ListItemIcon>
+                  {isExpanded && (
+                    <ListItemText>
+                      <Typography className="activeSidebarText" sx={{ color: isActive('/dashboardmenu/leave') ? websiteSettings.textColor : '#000' }}>
+                        Leave & Payroll
+                      </Typography>
+                    </ListItemText>
+                  )}
+                </Box>
+              </CustomTooltip>
+            </ListItem>
+          )}
 
           {/* Transport Tab */}
-          <ListItem onClick={() => handleMenuClickOne('transport')} sx={{ borderRadius: 2, px: 3, paddingTop: '3px', paddingBottom: '3px' }}>
-            <CustomTooltip title={isExpanded ? "" : "Transport"} arrow placement="right-start">
-              <Box
-                sx={{
-                  display: 'flex',
-                  justifyContent: "center",
-                  alignItems: 'center',
-                  paddingTop: '2px',
-                  paddingBottom: '2px',
-                  borderRadius: '5px',
-                  boxShadow: isActive('/dashboardmenu/transport') ? '1px 1px 2px 0.5px rgba(0, 0, 0, 0.4)' : 'inherit',
-                  width: '100%',
-                  backgroundColor: isActive('/dashboardmenu/transport') ? websiteSettings.mainColor : 'inherit',
-                  color: isActive('/dashboardmenu/transport') ? websiteSettings.textColor : '#000',
-                  position: 'relative',
-                  '&:hover': { backgroundColor: 'none' },
-                  cursor: "pointer",
-                  '&:hover': {
-                    backgroundColor: !isActive('/dashboardmenu/transport') ? websiteSettings.lightColor : 'none',
-                  }
-                }}
-              >
-                {isExpanded && (
-                  <Box
-                    sx={{
-                      width: '5px',
-                      backgroundColor: isActive('/dashboardmenu/transport') ? websiteSettings.darkColor : 'inherit',
-                      height: '100%',
-                      position: 'absolute',
-                      left: 0,
-                      top: 0,
-                      borderTopLeftRadius: '5px',
-                      borderBottomLeftRadius: '5px',
-                    }}
-                  />
-                )}
-                <ListItemIcon sx={{ display: "flex", justifyContent: "center", alignItems: "center", }}>
-                  <DirectionsBusFilledIcon style={{ color: isActive('/dashboardmenu/transport') ? websiteSettings.textColor : 'rgba(0, 0, 0, 0.7)', }} />
-                </ListItemIcon>
-                {isExpanded && (
-                  <ListItemText>
-                    <Typography className="activeSidebarText" sx={{ color: isActive('/dashboardmenu/transport') ? websiteSettings.textColor : '#000' }}>
-                      Transport
-                    </Typography>
-                  </ListItemText>
-                )}
-              </Box>
-            </CustomTooltip>
-          </ListItem>
+          {(version.PRO || version.PLUS) && (userType === "superadmin" || userType === "admin" || userType === "staff") && (
+            <ListItem onClick={() => handleMenuClickOne('transport')} sx={{ borderRadius: 2, px: 3, paddingTop: '3px', paddingBottom: '3px' }}>
+              <CustomTooltip title={isExpanded ? "" : "Transport"} arrow placement="right-start">
+                <Box
+                  sx={{
+                    display: 'flex',
+                    justifyContent: "center",
+                    alignItems: 'center',
+                    paddingTop: '2px',
+                    paddingBottom: '2px',
+                    borderRadius: '5px',
+                    boxShadow: isActive('/dashboardmenu/transport') ? '1px 1px 2px 0.5px rgba(0, 0, 0, 0.4)' : 'inherit',
+                    width: '100%',
+                    backgroundColor: isActive('/dashboardmenu/transport') ? websiteSettings.mainColor : 'inherit',
+                    color: isActive('/dashboardmenu/transport') ? websiteSettings.textColor : '#000',
+                    position: 'relative',
+                    '&:hover': { backgroundColor: 'none' },
+                    cursor: "pointer",
+                    '&:hover': {
+                      backgroundColor: !isActive('/dashboardmenu/transport') ? websiteSettings.lightColor : 'none',
+                    }
+                  }}
+                >
+                  {isExpanded && (
+                    <Box
+                      sx={{
+                        width: '5px',
+                        backgroundColor: isActive('/dashboardmenu/transport') ? websiteSettings.darkColor : 'inherit',
+                        height: '100%',
+                        position: 'absolute',
+                        left: 0,
+                        top: 0,
+                        borderTopLeftRadius: '5px',
+                        borderBottomLeftRadius: '5px',
+                      }}
+                    />
+                  )}
+                  <ListItemIcon sx={{ display: "flex", justifyContent: "center", alignItems: "center", }}>
+                    <DirectionsBusFilledIcon style={{ color: isActive('/dashboardmenu/transport') ? websiteSettings.textColor : 'rgba(0, 0, 0, 0.7)', }} />
+                  </ListItemIcon>
+                  {isExpanded && (
+                    <ListItemText>
+                      <Typography className="activeSidebarText" sx={{ color: isActive('/dashboardmenu/transport') ? websiteSettings.textColor : '#000' }}>
+                        Transport
+                      </Typography>
+                    </ListItemText>
+                  )}
+                </Box>
+              </CustomTooltip>
+            </ListItem>
+          )}
 
           {/* ERP Tab */}
           <ListItem
@@ -826,7 +837,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
               opacity: isDisabled ? 0.5 : 1,
               pointerEvents: isDisabled ? 'none' : 'auto',
             }}
-          >
+          > 
             <Box
               sx={{
                 display: 'flex',
@@ -850,7 +861,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
                 position: 'relative',
                 '&:hover': {
                   backgroundColor: isDisabled
-                    ? 'none' // Prevent hover styles when disabled
+                    ? 'none' 
                     : !isActive('/dashboardmenu/erp')
                       ? websiteSettings.lightColor
                       : 'none',
@@ -987,9 +998,8 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
               </Box>
             }
 
-            {/* Approvals Tab */}
-
-            {(userType === "superadmin" || userType === "admin") && (
+            {/* My Project Tab */}
+            {version.LITE && (userType === "superadmin" || userType === "admin") && (
               <ListItem onClick={() => handleMenuClickOne('myprojects')} sx={{ borderRadius: 2, px: 3, paddingTop: '3px', paddingBottom: '3px' }}>
                 <CustomTooltip title={isExpanded ? "" : "My Projects"} arrow placement="right-start">
                   <Box

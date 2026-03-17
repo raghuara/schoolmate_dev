@@ -140,6 +140,7 @@ export default function AddStaffDetails() {
     const [profileImagePreview, setProfileImagePreview] = useState("");
     const [profileImageError, setProfileImageError] = useState("");
 
+    const [dateOfJoining, setDateOfJoining] = useState(null);
     const [staffRollNumber, setStaffRollNumber] = useState("");
     const [employmentStatus, setEmploymentStatus] = useState("");
     const [workingStatus, setWorkingStatus] = useState("");
@@ -246,6 +247,37 @@ export default function AddStaffDetails() {
             return;
         }
 
+        if (!selectedUserType) {
+            setMessage("User type is required");
+            setOpen(true);
+            setColor(false);
+            setStatus(false);
+            return;
+        }
+
+        if (!staffCategory) {
+            setMessage("Staff category is required");
+            setOpen(true);
+            setColor(false);
+            setStatus(false);
+            return;
+        }
+
+        if (!staffDesignation) {
+            setMessage("Staff designation is required");
+            setOpen(true);
+            setColor(false);
+            setStatus(false);
+            return;
+        }
+
+        if (!dateOfJoining) {
+            setMessage("Date of joining is required");
+            setOpen(true);
+            setColor(false);
+            setStatus(false);
+            return;
+        }
 
         setIsLoading(true);
         try {
@@ -260,6 +292,7 @@ export default function AddStaffDetails() {
             formData.append("StaffCategory", staffCategory);
             formData.append("UserType", selectedUserType);
             formData.append("StaffDesignation", staffDesignation);
+            formData.append("DateOfJoining", dateOfJoining);
             formData.append("StaffPassportSizePhotofiletype", "image");
             if (profileImage) {
                 formData.append("PassportSizePhotofile", profileImage);
@@ -289,7 +322,6 @@ export default function AddStaffDetails() {
     };
 
 
-
     const handleAcademicClear = () => {
         setStaffRollNumber("");
         setStaffNameEnglish("");
@@ -300,6 +332,7 @@ export default function AddStaffDetails() {
         setSelectedSection(null);
         setStaffCategory("");
         setStaffDesignation("");
+        setDateOfJoining(null);
         setProfileImage(null);
         setProfileImagePreview("");
         setProfileImageError("");
@@ -793,6 +826,25 @@ export default function AddStaffDetails() {
                                                 )}
                                             />
                                         </Box>
+                                    </Grid>
+
+                                    <Grid size={{ xs: 12, sm: 6, md: 3, lg: 2.4 }} sx={{ pt: 1 }} >
+                                        <Typography sx={{ fontSize: "12px" }} component="span">Date Of Joining<span style={{ color: "#ff0000", fontSize: "16px" }}>*</span></Typography><br />
+                                        <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                            <DatePicker
+                                                disabled={isDisabledStaffInfo}
+                                                value={dateOfJoining ? dayjs(dateOfJoining, "DD-MM-YYYY") : null}
+                                                onChange={(newValue) => {
+                                                    setDateOfJoining(newValue ? newValue.format("DD-MM-YYYY") : null);
+                                                }}
+                                                slotProps={{
+                                                    textField: {
+                                                        size: "small",
+                                                        sx: { mt: 0.5 }
+                                                    }
+                                                }}
+                                            />
+                                        </LocalizationProvider>
                                     </Grid>
 
                                     {/* Profile */}

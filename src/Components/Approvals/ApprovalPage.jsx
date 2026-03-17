@@ -1,6 +1,7 @@
 import { Box, Button, Grid, IconButton, Tab, Tabs, Typography } from "@mui/material";
 import { useSelector } from "react-redux";
 import { selectWebsiteSettings } from "../../Redux/Slices/websiteSettingsSlice";
+import { selectVersion } from "../../Redux/Slices/versionSlice";
 import Loader from "../Loader";
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { useEffect, useState } from "react";
@@ -33,6 +34,7 @@ export default function ApprovalPage() {
     const userType = user.userType
     const userName = user.name
     const websiteSettings = useSelector(selectWebsiteSettings);
+    const version = useSelector(selectVersion);
     const token = "123"
     const location = useLocation();
 
@@ -41,6 +43,14 @@ export default function ApprovalPage() {
             ? location.state.tabIndex
             : 0
     );
+
+    const tabs = [
+        ...(version.LITE ? [{ id: 'communication', label: 'Communication' }] : []),
+        ...(version.PRO ? [{ id: 'fee', label: 'Fee', sx: { width: "100px" } }] : []),
+        { id: 'inventory', label: 'Inventory' },
+        { id: 'assets', label: 'Assets' },
+    ];
+    const activeTabId = tabs[value]?.id;
 
     useEffect(() => {
         if (location.state?.tabIndex !== undefined) {
@@ -62,7 +72,7 @@ export default function ApprovalPage() {
 
     const handleChange = (event, newValue) => {
         setValue(newValue);
-    };
+    };   
 
     const fetchApprovalData = async (endpoint, setIntimation) => {
         try {
@@ -170,17 +180,16 @@ export default function ApprovalPage() {
                                 },
                             }}
                         >
-                            <Tab label="Communication" />
-                            <Tab sx={{ width: "100px" }} label="Fee" />
-                            <Tab label="Inventory" />
-                            <Tab label="Assets" />
+                            {tabs.map((tab, i) => (
+                                <Tab key={tab.id} label={tab.label} sx={tab.sx || {}} />
+                            ))}
                         </Tabs>
                     </Grid>
                 </Grid>
             </Box>
             <Box>
                 <Box sx={{  mt: 1 }}>
-                    <Box hidden={value !== 0}>
+                    <Box hidden={activeTabId !== 'communication'}>
                         <Box sx={{ display: "flex", justifyContent: "center", height: "70vh", overflowY: "auto" }}>
                             <Grid container spacing={2} sx={{ width: "100%", p:2 }}>
                                 {items.map((item, index) => {
@@ -317,7 +326,7 @@ export default function ApprovalPage() {
                             </Grid>
                         </Box>
                     </Box>
-                    <Box hidden={value !== 1}>
+                    <Box hidden={activeTabId !== 'fee'}>
                         <Box sx={{ display: "flex", justifyContent: "center", height: "70vh", overflowY: "auto" }}>
                             <Grid container spacing={2} sx={{ width: "100%", p:2 }}>
                                 {items1.map((item, index) => {

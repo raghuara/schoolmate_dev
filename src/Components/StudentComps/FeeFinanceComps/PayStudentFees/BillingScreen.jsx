@@ -2028,13 +2028,12 @@ export default function BillingScreen() {
                   <Typography
                     sx={{
                       textAlign: "center",
-                      fontWeight: 600,
-                      fontSize: "20px",
+                      fontSize: "16px",
                       mb: 1,
-                      color: "#000",
+                      color: "#555",
                     }}
                   >
-                    {Array.isArray(selectedFee) ? `Complete ${feeTabs[value]} Bill` : feeTabs[value]}
+                   Payment Receipt - {feeTabs[value]}
                   </Typography>
 
                   <Box
@@ -2103,7 +2102,6 @@ export default function BillingScreen() {
                       <TableBody>
                         {selectedFee ? (
                           Array.isArray(selectedFee) ? (
-                            // Multiple fees - Entire Bill
                             selectedFee.map((fee, index) => (
                               <TableRow key={index}>
                                 <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px" }}>
@@ -2131,7 +2129,7 @@ export default function BillingScreen() {
                               </TableRow>
                             ))
                           ) : (
-                            // Single fee
+                        
                             <TableRow>
                               <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px" }}>
                                 1
@@ -3960,10 +3958,10 @@ export default function BillingScreen() {
                   <Typography
                     sx={{
                       textAlign: "center",
-                      fontWeight: 600,
-                      fontSize: "20px",
+                      // fontWeight: 600,
+                      fontSize: "16px",
                       mb: 1,
-                      color: "#000",
+                      color: "#555",
                     }}
                   >
                     Payment Receipt - {feeTabs[value]}

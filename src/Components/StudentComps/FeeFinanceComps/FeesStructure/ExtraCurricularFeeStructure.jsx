@@ -18,12 +18,14 @@ import ClearIcon from '@mui/icons-material/Clear';
 import dayjs from 'dayjs';
 import { ecaFee, ecaFeeFetch } from '../../../../Api/Api';
 import axios from 'axios';
-
+import DeleteIcon from '@mui/icons-material/Delete';
+import EditIcon from '@mui/icons-material/Edit';
 
 export default function ExtraCurricularFeeStructure() {
   const navigate = useNavigate()
   const user = useSelector((state) => state.auth);
   const rollNumber = user.rollNumber
+  const userType = user.userType
   const dispatch = useDispatch();
   const token = "123";
   const grades = useSelector(selectGrades);
@@ -52,7 +54,6 @@ export default function ExtraCurricularFeeStructure() {
   const [fees, setFees] = useState({
     activityName: '',
     activityCategory: '',
-    paymentStatus: "Paid",
     gradeAmounts: {},
     dueDate: null,
   });
@@ -80,7 +81,6 @@ export default function ExtraCurricularFeeStructure() {
     setFees({
       activityName: '',
       activityCategory: '',
-      paymentStatus: null,
       gradeAmounts: {},
       dueDate: null,
     });
@@ -91,7 +91,7 @@ export default function ExtraCurricularFeeStructure() {
       (amount) => Number(amount) > 0
     );
   };
-  
+
 
   const formatDate = (d) => (d ? dayjs(d).format('DD-MM-YYYY') : '');
 
@@ -149,15 +149,7 @@ export default function ExtraCurricularFeeStructure() {
       return;
     }
 
-    if (!fees.paymentStatus) {
-      setMessage("Payment Status is required");
-      setOpen(true);
-      setColor(false);
-      setStatus(false);
-      return;
-    }
-
-    if (fees.paymentStatus === "Paid" && !hasAtLeastOneFee()) {
+    if (!hasAtLeastOneFee()) {
       setMessage("Please add fee amount for at least one class");
       setOpen(true);
       setColor(false);
@@ -176,13 +168,13 @@ export default function ExtraCurricularFeeStructure() {
         activityCategory: fees.activityCategory,
         activityName: fees.activityName,
 
-        ...(fees.paymentStatus === "Paid" ? gradePayload : {}),
+        ...(gradePayload),
 
         dueDate: fees.dueDate
           ? dayjs(fees.dueDate).format("YYYY-MM-DD")
           : null,
 
-        paid: fees.paymentStatus === "Paid" ? "Y" : "N",
+        paid: "Y",
       };
 
       const res = await axios.post(ecaFee, sendData, {
@@ -194,7 +186,7 @@ export default function ExtraCurricularFeeStructure() {
       setOpen(true);
       setColor(true);
       setStatus(true);
-      setMessage("Data Added successfully");
+      setMessage(userType === "superadmin" ? "ECA Fee Created Successfully" : "Requested Successfully");
       handleReset();
       getEcaFees();
 
@@ -225,6 +217,7 @@ export default function ExtraCurricularFeeStructure() {
               </IconButton>
               <Typography sx={{ fontWeight: "600", fontSize: "19px" }} >Create Extracurricular Activity Fee </Typography>
             </Grid>
+            
             <Grid
               size={{ xs: 12, sm: 12, md: 6, lg: 6 }}
               sx={{ display: "flex", alignItems: "center" }}
@@ -291,31 +284,6 @@ export default function ExtraCurricularFeeStructure() {
                       },
                       width: '100%',
                     }}
-                  />
-                </Grid>
-                <Grid size={{ lg: 3 }}>
-                  <Typography sx={{ mb: 0.5, fontWeight: "600" }}>
-                    Payment Status
-                  </Typography>
-
-                  <Autocomplete
-                    size="small"
-                    options={["Paid", "Unpaid"]}
-                    value={fees.paymentStatus}
-                    onChange={(e, newValue) => handleChange("paymentStatus", newValue)}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        variant="outlined"
-                        sx={{
-                          "& .MuiOutlinedInput-root": {
-                            borderRadius: "5px",
-                            fontSize: 14,
-                          },
-                          width: "100%",
-                        }}
-                      />
-                    )}
                   />
                 </Grid>
 
@@ -394,8 +362,7 @@ export default function ExtraCurricularFeeStructure() {
                   </LocalizationProvider>
                 </Grid>
               </Grid>
-              {fees.paymentStatus === "Paid" &&
-                <Grid container spacing={2} sx={{ backgroundColor: "#FFE5E5", p: 3, borderBottomLeftRadius:"5px", borderBottomRightRadius:"5px" }}>
+                <Grid container spacing={2} sx={{ backgroundColor: "#FFE5E5", p: 3, borderBottomLeftRadius: "5px", borderBottomRightRadius: "5px" }}>
                   {grades.map((grade, gIndex) => (
                     <Grid size={{ lg: 1.5 }} key={gIndex}>
                       <Typography
@@ -433,10 +400,9 @@ export default function ExtraCurricularFeeStructure() {
                     </Grid>
                   ))}
                 </Grid>
-              }
             </Box>
-
           </Box>
+
           <Box sx={{ display: "flex", justifyContent: "end", py: 2 }}>
             <Button
               onClick={handleReset}
@@ -463,11 +429,11 @@ export default function ExtraCurricularFeeStructure() {
                 height: "30px",
                 color: websiteSettings.textColor
               }}>
-              Apply
+              {userType === "superadmin" ? "Apply" : "Send for Approval"}
             </Button>
           </Box>
 
-          <Typography sx={{ mb: 0.5, fontWeight: "600" }}>Extra Curricular Activity Fee</Typography>
+          <Typography sx={{ mb: 0.5, fontWeight: "600" }}> Created Extra Curricular Activity Fees</Typography>
 
           {ecaFetch?.length === 0 ? (
             <Box
@@ -507,22 +473,50 @@ export default function ExtraCurricularFeeStructure() {
           ) : (
             ecaFetch.map((activity) => (
               <>
-                <Box
-                  sx={{
-                    bgcolor: "#7B1FA2",
-                    color: "#fff",
-                    fontSize: "13px",
-                    mt: "10px",
-                    px: 3,
-                    py: 0.2,
-                    ml: "15px",
-                    fontWeight: 600,
-                    borderTopLeftRadius: "7px",
-                    borderTopRightRadius: "7px",
-                    width: "fit-content",
-                  }}
-                >
-                  {activity.activityCategory} - {activity.activityName}
+                <Box sx={{ display: "flex", justifyContent:"space-between" }}>
+                  <Box
+                    sx={{
+                      bgcolor: "#7B1FA2",
+                      color: "#fff",
+                      fontSize: "13px",
+                      mt: "10px",
+                      px: 3,
+                      py: 0.2,
+                      ml: "15px",
+                      fontWeight: 600,
+                      borderTopLeftRadius: "7px",
+                      borderTopRightRadius: "7px",
+                      width: "fit-content",
+                    }}
+                  >
+                    {activity.activityCategory} - {activity.activityName}
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: '10px' }}>
+                    <Tooltip title="Edit Activity">
+                      <IconButton
+                        sx={{
+                          width: 30, height: 30,
+                          border: '1px solid #e0e0e0',
+                          bgcolor: '#f5f5f5',
+                          '&:hover': { bgcolor: '#E3F2FD', borderColor: '#1976D2' },
+                        }}
+                      >
+                        <EditIcon sx={{ fontSize: 16, color: '#1976D2' }} />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Delete Activity">
+                      <IconButton
+                        sx={{
+                          width: 30, height: 30,
+                          border: '1px solid #e0e0e0',
+                          bgcolor: '#f5f5f5',
+                          '&:hover': { bgcolor: '#FFEBEE', borderColor: '#f44336' },
+                        }}
+                      >
+                        <DeleteIcon sx={{ fontSize: 16, color: '#f44336' }} />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
                 </Box>
                 <Box p={2} sx={{ backgroundColor: "#fff", border: "1px solid #E8DDEA", borderRadius: "5px" }}>
 
@@ -543,9 +537,6 @@ export default function ExtraCurricularFeeStructure() {
                           <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#faf6fc" }}>
                             Activity Category
                           </TableCell>
-                          <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#faf6fc" }}>
-                            Payment Status
-                          </TableCell>
                           <TableCell sx={{ textAlign: "center", backgroundColor: "#faf6fc" }}>
                             Due Date
                           </TableCell>
@@ -559,9 +550,6 @@ export default function ExtraCurricularFeeStructure() {
 
                           <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center" }}>
                             {activity.activityCategory}
-                          </TableCell>
-                          <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center" }}>
-                            {activity.paid === "Y" ? "Paid" : "Unpaid"}
                           </TableCell>
 
                           <TableCell sx={{ textAlign: "center" }}>

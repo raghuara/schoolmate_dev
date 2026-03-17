@@ -97,6 +97,7 @@ import AcademicsPage from "./Components/AccessControlComps/AcademicsPage";
 import ExamManagementPage from "./Components/AccessControlComps/AcademicsComps/ExamManagementPage";
 import SubjectMangementPage from "./Components/AccessControlComps/AcademicsComps/SubjectMangementPage";
 import SubjectCreatePage from "./Components/AccessControlComps/AcademicsComps/SubjectCreatePage";
+import ClassSectionManagementPage from "./Components/AccessControlComps/AcademicsComps/ClassSectionManagementPage";
 import SchoolFeeStructure from "./Components/StudentComps/FeeFinanceComps/FeesStructure/SchoolFeeStructure";
 import TransportFeeStructure from "./Components/StudentComps/FeeFinanceComps/FeesStructure/TransportFeeStructure";
 import CreatedTransportFees from "./Components/StudentComps/FeeFinanceComps/FeesStructure/CreatedTransportFees";
@@ -147,6 +148,7 @@ import ViewVehicleDetails from "./Components/TransportComps/TransportAssetComps/
 import RouteManagement from "./Components/TransportComps/TransportAssetComps/RouteManagementComps/RouteManagement";
 import StudentMapping from "./Components/TransportComps/TransportAssetComps/StudentMappingComps/StudentMapping";
 import QuestionPaperGeneratorPage from "./Components/QuestionPaperGenerator/QuestionPaperGeneratorPage";
+import ViewProfilePage from "./Components/DashBoard/ViewProfilePage";
 
 
 export default function RouterPage() {
@@ -390,6 +392,7 @@ export default function RouterPage() {
                 <Route path="access/password" element={<PasswordManagementPage />} />
 
                 <Route path="access/academics" element={<AcademicsPage />} />
+                <Route path="access/class-section" element={<ClassSectionManagementPage />} />
                 <Route path="access/exam" element={<ExamManagementPage />} />
                 <Route path="access/subject" element={<SubjectMangementPage />} />
                 <Route path="access/subject/create" element={<SubjectCreatePage />} />
@@ -397,6 +400,9 @@ export default function RouterPage() {
                 {/* --------------------------------------------------------------------------------------------------- */}
                 {/* Question Paper Generator */}
                 <Route path="dashboard/question" element={<QuestionPaperGeneratorPage />} />
+
+                {/* View Profile */}
+                <Route path="view-profile" element={<ViewProfilePage />} />
             </Route>
         </Routes>
     );

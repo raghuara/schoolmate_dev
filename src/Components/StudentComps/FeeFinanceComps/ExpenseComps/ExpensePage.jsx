@@ -29,7 +29,6 @@ import {
     LinearProgress,
     Tooltip,
     Avatar,
-    Badge
 } from '@mui/material'
 import React, { useEffect, useState } from 'react'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
@@ -39,12 +38,6 @@ import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import TrendingDownIcon from '@mui/icons-material/TrendingDown'
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet'
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong'
-import CalendarTodayIcon from '@mui/icons-material/CalendarToday'
-import CategoryIcon from '@mui/icons-material/Category'
-import AttachMoneyIcon from '@mui/icons-material/AttachMoney'
-import DescriptionIcon from '@mui/icons-material/Description'
-import FilterListIcon from '@mui/icons-material/FilterList'
-import FileDownloadIcon from '@mui/icons-material/FileDownload'
 import CloseIcon from '@mui/icons-material/Close'
 import SettingsIcon from '@mui/icons-material/Settings'
 import WarningAmberIcon from '@mui/icons-material/WarningAmber'
@@ -196,11 +189,10 @@ export default function ExpensePage() {
     const [message, setMessage] = useState('');
 
 
-    // Current user role (mock - replace with actual auth)
     const [currentUser] = useState({
         name: "Current User",
         email: "user@school.com",
-        role: "Admin" // Admin, Super Admin, User
+        role: "Admin"
     });
 
     // Petty Cash Allocation
@@ -226,11 +218,9 @@ export default function ExpensePage() {
         requestedByEmail: currentUser.email
     });
 
-    // Approval form
     const [approvalAction, setApprovalAction] = useState("");
     const [rejectionReason, setRejectionReason] = useState("");
 
-    // Handle navigation from other pages with specific tab
     useEffect(() => {
         if (location.state?.tab !== undefined) {
             setActiveTab(location.state.tab);
@@ -277,14 +267,12 @@ export default function ExpensePage() {
         return matchesSearch && matchesCategory && matchesStatus;
     });
 
-    // Format date from YYYY-MM-DD to DD-MM-YYYY for API
     const formatDateForApi = (dateStr) => {
         if (!dateStr) return '';
         const [y, m, d] = dateStr.split('-');
         return `${d}-${m}-${y}`;
     };
 
-    // Handle submit expense request — calls POST API
     const handleSubmitRequest = async () => {
         if (!newRequest.category || !newRequest.description || !newRequest.amount || !newRequest.paymentMethod) {
             setMessage("Please fill all required fields");

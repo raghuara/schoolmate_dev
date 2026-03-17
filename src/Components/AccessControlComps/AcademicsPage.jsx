@@ -5,13 +5,10 @@ import Loader from "../Loader";
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { useEffect, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
-import { ApprovalStatusCircularFetch, ApprovalStatusHomeWorkFetch, ApprovalStatusMessageFetch, ApprovalStatusNewsFetch } from "../../Api/Api";
-import axios from "axios";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import HttpsIcon from '@mui/icons-material/Https';
-import LoginIcon from '@mui/icons-material/Login';
 import ArticleIcon from '@mui/icons-material/Article';
 import SubjectIcon from '@mui/icons-material/Subject';
+import ClassIcon from '@mui/icons-material/Class';
 
 export default function AcademicsPage() {
     const [isLoading, setIsLoading] = useState(false);
@@ -26,13 +23,11 @@ export default function AcademicsPage() {
     const websiteSettings = useSelector(selectWebsiteSettings);
     const token = "123"
 
-
-
+    
     const items = [
+        { color: "#1976D2", icon: ClassIcon, text: "Class & Section Management", bgColor: "#F5F9FF", iconBgColor: "#E3F0FD", path: '/dashboardmenu/access/class-section', intimation: false },
         { color: "#A749CC", icon: ArticleIcon, text: "Exam Management", bgColor: "#FBF9FC", iconBgColor: "#F7F0F9", path: '/dashboardmenu/access/exam', intimation: newsIntimation },
         { color: "#ED9146", icon: SubjectIcon, text: "Subject Management", bgColor: "#FCFBF9", iconBgColor: "#FBF4EF", path: '/dashboardmenu/access/subject', intimation: messageIntimation },
-        // { color: "#7DC353", icon: CircularsIcon, text: "Circulars", bgColor: "#F9FBF7", iconBgColor: "#F2F8EE", path: 'circulars', intimation: circularIntimation }, 
-        // { color: "#E10052", icon: HomeWorkIcon, text: "Homework", bgColor: "#FCF8F9", iconBgColor: "#FBEBF1", path: 'homework', intimation: homeworkIntimation },
     ];
 
     if (userType !== "superadmin" && userType !== "admin" && userType !== "staff") {
@@ -190,7 +185,7 @@ export default function AcademicsPage() {
                         </Grid>
                     </Box>
                 </Box>
-            </Box>
+            </Box> 
         </Box>
     );
 }

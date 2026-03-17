@@ -80,6 +80,7 @@ export default function EditStaffDetails() {
     const [dateOfBirth, setDateOfBirth] = useState(null);
     const [gender, setGender] = useState("");
     const [staffCategory, setStaffCategory] = useState("");
+    const [selectedUserType, setSelectedUserType] = useState("");
     const [staffDesignation, setStaffDesignation] = useState("");
     const [profileImage, setProfileImage] = useState(null);
     const [profileImagePreview, setProfileImagePreview] = useState("");
@@ -89,6 +90,7 @@ export default function EditStaffDetails() {
     const [workingStatus, setWorkingStatus] = useState("");
     const [staffExperience, setStaffExperience] = useState("");
     const [staffIncome, setStaffIncome] = useState("");
+    const [isStudentInfoNew, setIsStudentInfoNew] = useState(false);
     const [value, setValue] = useState("");
     const [anchorEl, setAnchorEl] = useState(null);
 
@@ -125,6 +127,24 @@ export default function EditStaffDetails() {
         "Teaching Staff": ["Teacher"],
         "Non Teaching Staff": ["Accountant", "Librarian", "Clerk", "Billing Staff"],
         "Supporting Staff": ["Cleaner", "Helper", "Driver", "Sweeper", "Security",],
+    };
+
+    const normalizeUserType = (value) => {
+        if (!value) return "";
+        const lower = value.toLowerCase();
+        const map = { admin: "Admin", staff: "Staff", teacher: "Teacher" };
+        return map[lower] || "";
+    };
+
+    const normalizeStaffCategory = (value) => {
+        if (!value) return "";
+        const lower = value.toLowerCase().replace(/\s+/g, "");
+        if (lower === "teaching") return "Teaching Staff";
+        if (lower === "nonteaching") return "Non Teaching Staff";
+        if (lower === "supportive" || lower === "supporting") return "Supporting Staff";
+        // If already a valid option, return as-is
+        const valid = ["Teaching Staff", "Non Teaching Staff", "Supporting Staff"];
+        return valid.includes(value) ? value : "";
     };
 
     const handleSectionChange = (event, newValue) => {
@@ -187,7 +207,8 @@ export default function EditStaffDetails() {
             setStaffRollNumber(staff?.staffRollNumber || "");
             setSelectedGradeId(staff?.grade || "");
             setSelectedSection(staff?.section || "");
-            setStaffCategory(staff?.staffCategory || "");
+            setSelectedUserType(normalizeUserType(staff?.userType));
+            setStaffCategory(normalizeStaffCategory(staff?.staffCategory));
             setStaffDesignation(staff?.staffDesignation || "");
             if (staff?.staffPassportSizePhotofilepath) {
                 setProfileImagePreview(staff.staffPassportSizePhotofilepath);
@@ -195,6 +216,7 @@ export default function EditStaffDetails() {
             }
 
             const studentInfoArray = res.data.staffstudentinfo || [];
+            setIsStudentInfoNew(studentInfoArray.length === 0);
             const studentInfo = studentInfoArray[0] || {};
 
             setEmploymentStatus(studentInfo.staffEmploymentStatus || "");
@@ -271,6 +293,29 @@ export default function EditStaffDetails() {
             return;
         }
 
+        if (!selectedUserType) {
+            setMessage("User type is required");
+            setOpen(true);
+            setColor(false);
+            setStatus(false);
+            return;
+        }
+
+        if (!staffCategory) {
+            setMessage("Staff category is required");
+            setOpen(true);
+            setColor(false);
+            setStatus(false);
+            return;
+        }
+
+        if (!staffDesignation) {
+            setMessage("Staff designation is required");
+            setOpen(true);
+            setColor(false);
+            setStatus(false);
+            return;
+        }
 
         setIsLoading(true);
         try {
@@ -282,13 +327,13 @@ export default function EditStaffDetails() {
             formData.append("Gender", gender);
             formData.append("AdmissionClass", selectedGradeId);
             formData.append("Section", selectedSection);
+            formData.append("UserType", selectedUserType.toLowerCase());
             formData.append("StaffCategory", staffCategory);
             formData.append("StaffDesignation", staffDesignation);
             formData.append("StaffPassportSizePhotofiletype", profileFileType || "existing");
             if (profileImage) {
                 formData.append("PassportSizePhotofile", profileImage);
             }
-
 
             const res = await axios.put(updateStaffInformation, formData, {
                 headers: {
@@ -406,16 +451,26 @@ export default function EditStaffDetails() {
 
             };
 
-            const res = await axios.put(updateStaffStudentInformation, sendData, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            });
+            const res = isStudentInfoNew
+                ? await axios.post(postStaffStudentInformation, sendData, {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                })
+                : await axios.put(updateStaffStudentInformation, sendData, {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                });
+
+            if (isStudentInfoNew) {
+                setIsStudentInfoNew(false);
+            }
 
             setOpen(true);
             setColor(true);
             setStatus(true);
-            setMessage("Updated successfully.");
+            setMessage(isStudentInfoNew ? "Saved successfully." : "Updated successfully.");
             setTimeout(() => {
                 navigate(-1);
             }, 1000);
@@ -734,11 +789,39 @@ export default function EditStaffDetails() {
                                     </Grid>
                                     <Grid size={{ xs: 12, sm: 6, md: 3, lg: 2.4 }} sx={{ display: "flex", justifyContent: "center", pt: 1 }} >
                                         <Box sx={{ width: "100%" }}>
+                                            <Typography sx={{ fontSize: "12px", color: "#000" }} component="span">User Type<span style={{ color: "#ff0000", fontSize: "16px" }}>*</span></Typography>
+                                            <Autocomplete
+                                                disabled={isDisabledStaffInfo}
+                                                disablePortal
+                                                size="small"
+                                                options={["Admin", "Staff", "Teacher"]}
+                                                value={selectedUserType || null}
+                                                onChange={(event, newValue) => {
+                                                    setSelectedUserType(newValue || "");
+                                                }}
+                                                sx={{ width: "100%", mt: 0.5 }}
+                                                renderInput={(params) => (
+                                                    <TextField
+                                                        {...params}
+                                                        size="small"
+                                                        sx={{
+                                                            "& .MuiInputBase-root": {
+                                                                height: 41,
+                                                                fontSize: 14,
+                                                            },
+                                                        }}
+                                                    />
+                                                )}
+                                            />
+                                        </Box>
+                                    </Grid>
+                                    <Grid size={{ xs: 12, sm: 6, md: 3, lg: 2.4 }} sx={{ display: "flex", justifyContent: "center", pt: 1 }} >
+                                        <Box sx={{ width: "100%" }}>
                                             <Typography sx={{ fontSize: "12px", color: "#000" }} component="span">Staff Category<span style={{ color: "#ff0000", fontSize: "16px" }}>*</span></Typography>
                                             <Autocomplete
                                                 disabled={isDisabledStaffInfo}
                                                 disablePortal
-                                                options={["Teaching Staff", "Non Teaching Staff", "Supporting Staff"]}
+                                                options={["Teaching Staff", "Non Teaching Staff", "Supporting Staff"]} 
                                                 value={staffCategory}
                                                 onChange={(event, newValue) => {
                                                     setStaffCategory(newValue || "");
