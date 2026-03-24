@@ -12,12 +12,14 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControlLabel,
   Grid,
   IconButton,
   InputAdornment,
   InputLabel,
   MenuItem,
   Select,
+  Switch,
   Table,
   TableBody,
   TableCell,
@@ -76,6 +78,7 @@ export default function CreatedTransportFees() {
   const [editDueDate, setEditDueDate] = useState(dayjs());
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [deleteTargetFee, setDeleteTargetFee] = useState(null);
+  const [editSameForAll, setEditSameForAll] = useState(false);
   const token = "123";
 
   const currentYear = new Date().getFullYear();
@@ -135,7 +138,6 @@ export default function CreatedTransportFees() {
       });
 
       if (response.data && response.data.fees && Array.isArray(response.data.fees)) {
-        // Group fees by routeInformationId
         const groupedFees = response.data.fees.reduce((acc, fee) => {
           const routeId = fee.routeInformationId;
           if (!acc[routeId]) {
@@ -157,10 +159,9 @@ export default function CreatedTransportFees() {
         setCreatedFees(feesArray);
       }
     } catch (error) {
-      console.error("Error fetching created fees:", error);
       setMessage('Failed to load created fees');
-      setColor('error');
-      setStatus(true);
+      setColor(false);
+      setStatus(false);
       setOpen(true);
     } finally {
       setIsLoading(false);
@@ -170,7 +171,6 @@ export default function CreatedTransportFees() {
   const filterFees = () => {
     let filtered = [...createdFees];
 
-    // Filter by search query only (year filtering is done by API)
     if (searchQuery) {
       filtered = filtered.filter(fee =>
         fee.tripName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -193,7 +193,6 @@ export default function CreatedTransportFees() {
     setSelectedYear(currentAcademicYear);
   };
 
-  // Utility function to convert grade sign to API key format
   const convertGradeSignToApiKey = (gradeSign) => {
     if (!gradeSign) return '';
     const normalized = gradeSign.replace(/[-\s]/g, '').toLowerCase();
@@ -203,7 +202,6 @@ export default function CreatedTransportFees() {
     return normalized;
   };
 
-  // Utility function to convert API key back to grade ID
   const findGradeIdByApiKey = (apiKey) => {
     const grade = grades.find(g => {
       const gradeApiKey = convertGradeSignToApiKey(g.sign);
@@ -212,23 +210,20 @@ export default function CreatedTransportFees() {
     return grade ? grade.id : null;
   };
 
-  // Handle Edit - Fetch fee details by ID
   const handleEdit = async (routeInformationId) => {
     setIsLoading(true);
     try {
-      // Find a stop ID from the fee to fetch details
       const fee = createdFees.find(f => f.routeInformationId === routeInformationId);
       if (!fee || !fee.stops || fee.stops.length === 0) {
         setMessage('No fee details found');
-        setColor('error');
-        setStatus(true);
+        setColor(false);
+        setStatus(false);
         setOpen(true);
         setIsLoading(false);
         return;
       }
 
-      // Fetch fee details using the first stop's id
-      const firstStopId = fee.stops[0].id; // Use 'id' field from transpoartFeeFetch response
+      const firstStopId = fee.stops[0].id;
       const response = await axios.get(transpoartFeeFetchID, {
         params: { Id: firstStopId },
         headers: {
@@ -237,13 +232,10 @@ export default function CreatedTransportFees() {
       });
 
       if (response.data) {
-        // Set edit data
         setEditFeeData(fee);
 
-        // Pre-populate fee amounts
         const feeAmountsMap = {};
         fee.stops.forEach(stop => {
-          // Extract grade fees from the stop.grades object
           Object.entries(stop.grades).forEach(([gradeKey, amount]) => {
             const gradeId = findGradeIdByApiKey(gradeKey);
             if (gradeId) {
@@ -253,7 +245,6 @@ export default function CreatedTransportFees() {
         });
         setEditFeeAmounts(feeAmountsMap);
 
-        // Set due date from first stop
         if (fee.stops[0]?.dueDate) {
           setEditDueDate(dayjs(fee.stops[0].dueDate));
         }
@@ -261,39 +252,47 @@ export default function CreatedTransportFees() {
         setOpenEditDialog(true);
       }
     } catch (error) {
-      console.error("Error fetching fee details:", error);
       setMessage('Failed to load fee details for editing');
-      setColor('error');
-      setStatus(true);
+      setColor(false);
+      setStatus(false);
       setOpen(true);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Handle Edit Fee Amount Change
   const handleEditFeeAmountChange = (stopId, gradeId, value) => {
-    if (value === '' || /^\d+$/.test(value)) {
-      setEditFeeAmounts(prev => ({
-        ...prev,
-        [`${stopId}_${gradeId}`]: value
-      }));
+    const stripped = value.replace(/^0+(\d)/, '$1');
+    if (stripped === '' || /^\d+$/.test(stripped)) {
+      if (editSameForAll && editFeeData) {
+        setEditFeeAmounts(prev => {
+          const updated = { ...prev };
+          editFeeData.stops.forEach(stop => {
+            grades.forEach(grade => {
+              updated[`${stop.routeStopsId}_${grade.id}`] = stripped;
+            });
+          });
+          return updated;
+        });
+      } else {
+        setEditFeeAmounts(prev => ({
+          ...prev,
+          [`${stopId}_${gradeId}`]: stripped
+        }));
+      }
     }
   };
 
-  // Handle Delete - Open confirmation dialog
   const handleDeleteClick = (fee) => {
     setDeleteTargetFee(fee);
     setOpenDeleteDialog(true);
   };
 
-  // Handle Delete Confirm - Delete all stops for the route
   const handleDeleteConfirm = async () => {
     if (!deleteTargetFee) return;
 
     setIsLoading(true);
     try {
-      // Delete all stops for this route
       const deletePromises = deleteTargetFee.stops.map(stop =>
         axios.delete(deleteTranspoartFeesStructure, {
           params: {
@@ -308,52 +307,47 @@ export default function CreatedTransportFees() {
 
       await Promise.all(deletePromises);
 
-      setMessage(`Transport fee structure deleted successfully (${deleteTargetFee.stops.length} stop(s) removed)`);
-      setColor('success');
+      setMessage(`Transport fee structure deleted successfully`);
+      setColor(true);
       setStatus(true);
       setOpen(true);
 
-      // Close dialog and refresh data
       setOpenDeleteDialog(false);
       setDeleteTargetFee(null);
       fetchCreatedFees();
 
     } catch (error) {
-      console.error("Error deleting transport fee:", error);
       setMessage(error.response?.data?.message || 'Failed to delete transport fee structure');
-      setColor('error');
-      setStatus(true);
+      setColor(false);
+      setStatus(false);
       setOpen(true);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Handle Update - Submit edited fees
   const handleUpdate = async () => {
     if (!editFeeData) return;
 
     if (!editDueDate) {
       setMessage('Please select a due date');
-      setColor('error');
-      setStatus(true);
+      setColor(false);
+      setStatus(false);
       setOpen(true);
       return;
     }
 
-    // Check if at least one fee amount is entered
     const hasAnyFee = Object.values(editFeeAmounts).some(amount => amount && amount > 0);
     if (!hasAnyFee) {
       setMessage('Please enter at least one fee amount');
-      setColor('error');
-      setStatus(true);
+      setColor(false);
+      setStatus(false);
       setOpen(true);
       return;
     }
 
     setIsLoading(true);
     try {
-      // Create routes array for update
       const routes = [];
 
       editFeeData.stops.forEach(stop => {
@@ -373,7 +367,7 @@ export default function CreatedTransportFees() {
 
         if (hasFeesForThisStop) {
           routes.push({
-            transpoartFeesID: stop.id, // Use 'id' field from transpoartFeeFetch response
+            transpoartFeesID: stop.id,
             routeStopsId: stop.routeStopsId,
             ...gradeFees,
             dueDate: dayjs(editDueDate).format('YYYY-MM-DDTHH:mm:ss')
@@ -383,14 +377,13 @@ export default function CreatedTransportFees() {
 
       if (routes.length === 0) {
         setMessage('No fee amounts to update');
-        setColor('warning');
-        setStatus(true);
+        setColor(false);
+        setStatus(false);
         setOpen(true);
         setIsLoading(false);
         return;
       }
 
-      // Create update payload
       const payload = {
         rollNumber: rollNumber,
         year: editFeeData.year,
@@ -398,7 +391,6 @@ export default function CreatedTransportFees() {
         routes: routes
       };
 
-      // Send update request
       await axios.put(updateTranspoartSchoolFee, payload, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -406,22 +398,21 @@ export default function CreatedTransportFees() {
         }
       });
 
-      setMessage(`Transport fee structure updated successfully for ${routes.length} stop(s)`);
-      setColor('success');
+      setMessage('Transport fee structure updated successfully');
+      setColor(true);
       setStatus(true);
       setOpen(true);
 
-      // Close dialog and refresh data
       setOpenEditDialog(false);
       setEditFeeData(null);
       setEditFeeAmounts({});
+      setEditSameForAll(false);
       fetchCreatedFees();
 
     } catch (error) {
-      console.error("Error updating transport fee:", error);
       setMessage(error.response?.data?.message || 'Failed to update transport fee structure');
-      setColor('error');
-      setStatus(true);
+      setColor(false);
+      setStatus(false);
       setOpen(true);
     } finally {
       setIsLoading(false);
@@ -1046,39 +1037,39 @@ export default function CreatedTransportFees() {
           }}
         >
           <DialogTitle sx={{
-            background: "linear-gradient(135deg, #FF9800 0%, #F57C00 100%)",
-            color: "#fff",
-            py: 3,
+            bgcolor: "#FFF3E0",
+            borderBottom: "1px solid #FFE0B2",
+            py: 2,
             px: 3
           }}>
             <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
                 <Box sx={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: "12px",
-                  bgcolor: "rgba(255,255,255,0.2)",
+                  width: 36,
+                  height: 36,
+                  borderRadius: "8px",
+                  bgcolor: "#FFE0B2",
+                  border: "1px solid #FFCC80",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center"
                 }}>
-                  <EditIcon sx={{ fontSize: 28 }} />
+                  <EditIcon sx={{ fontSize: 20, color: "#E65100" }} />
                 </Box>
                 <Box>
-                  <Typography sx={{ fontSize: "20px", fontWeight: 700, mb: 0.5 }}>
+                  <Typography sx={{ fontSize: "17px", fontWeight: 700, color: "#E65100" }}>
                     Edit Transport Fee Structure
                   </Typography>
-                  <Typography sx={{ fontSize: "13px", opacity: 0.9 }}>
+                  <Typography sx={{ fontSize: "12px", color: "#BF360C" }}>
                     {editFeeData?.tripName} • {editFeeData?.year}
                   </Typography>
                 </Box>
               </Box>
               <IconButton
-                onClick={() => setOpenEditDialog(false)}
+                onClick={() => { setOpenEditDialog(false); setEditSameForAll(false); }}
                 sx={{
-                  color: "#fff",
-                  bgcolor: "rgba(255,255,255,0.1)",
-                  "&:hover": { bgcolor: "rgba(255,255,255,0.2)" }
+                  color: "#E65100",
+                  "&:hover": { bgcolor: "#FFE0B2" }
                 }}
               >
                 <CloseIcon />
@@ -1166,6 +1157,27 @@ export default function CreatedTransportFees() {
                       </Box>
                     </Grid>
                   </Grid>
+
+                  {/* Same Fee for All Classes Toggle */}
+                  <Box sx={{ mt: 2, mb: 1 }}>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={editSameForAll}
+                          onChange={(e) => setEditSameForAll(e.target.checked)}
+                          sx={{
+                            '& .MuiSwitch-switchBase.Mui-checked': { color: '#FF9800' },
+                            '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { backgroundColor: '#FF9800' },
+                          }}
+                        />
+                      }
+                      label={
+                        <Typography sx={{ fontSize: "13px", fontWeight: 600, color: "#E65100" }}>
+                          Same Fee for All Classes
+                        </Typography>
+                      }
+                    />
+                  </Box>
 
                   {/* Due Date Selector */}
                   <Box sx={{ mt: 2 }}>
@@ -1381,7 +1393,7 @@ export default function CreatedTransportFees() {
                 "&:hover": { bgcolor: "#F57C00" }
               }}
             >
-              Update Fee Structure
+              {userType === "superadmin" ? "Update Fee Structure" : "Send Update Request"}
             </Button>
           </DialogActions>
         </Dialog>
@@ -1498,7 +1510,7 @@ export default function CreatedTransportFees() {
                 "&:hover": { bgcolor: "#c62828" }
               }}
             >
-              Delete Fee Structure
+              {userType === "superadmin" ? "Delete Fee Structure" : "Send Delete Request"}
             </Button>
           </DialogActions>
         </Dialog>

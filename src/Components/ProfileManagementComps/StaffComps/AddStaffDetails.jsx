@@ -292,7 +292,7 @@ export default function AddStaffDetails() {
             formData.append("StaffCategory", staffCategory);
             formData.append("UserType", selectedUserType);
             formData.append("StaffDesignation", staffDesignation);
-            formData.append("DateOfJoining", dateOfJoining);
+            formData.append("DateofJoining", dateOfJoining);
             formData.append("StaffPassportSizePhotofiletype", "image");
             if (profileImage) {
                 formData.append("PassportSizePhotofile", profileImage);

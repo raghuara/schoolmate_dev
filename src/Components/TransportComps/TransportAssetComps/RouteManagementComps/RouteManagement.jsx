@@ -137,7 +137,7 @@ export default function RouteManagement() {
     const token = "123"
     // State for stops
     const [stops, setStops] = useState([
-        { id: 1, name: "", type: "stop", arrivalTime: "", waitTime: "2" }
+        { id: 1, name: "", type: "stop", arrivalTime: "", waitTime: "2", km: "" }
     ]);
 
     // Search and filter state
@@ -193,7 +193,7 @@ export default function RouteManagement() {
             return;
         }
         const newId = Math.max(...stops.map(s => s.id), 0) + 1;
-        setStops([...stops, { id: newId, name: "", type: "stop", arrivalTime: "", waitTime: "2" }]);
+        setStops([...stops, { id: newId, name: "", type: "stop", arrivalTime: "", waitTime: "2", km: "" }]);
     };
 
     // Remove stop
@@ -286,6 +286,7 @@ export default function RouteManagement() {
                     type: "stop",
                     arrivalTime: convert12to24(stop.arrivalTime),
                     waitTime: stop.wait || "2",
+                    km: stop.kms != null ? String(stop.kms) : "",
                     remarks: stop.remarks || ''
                 }));
 
@@ -390,6 +391,9 @@ export default function RouteManagement() {
                 ? (selectedVehicle.busName || selectedVehicle.vehicleBrand || 'No Name')
                 : assignedBus;
 
+            // Compute total kms
+            const totalKms = stops.reduce((sum, s) => sum + (parseFloat(s.km) || 0), 0);
+
             const routeInformation = {
                 tripName: routeName,
                 assignBus: busDisplayName,
@@ -397,6 +401,7 @@ export default function RouteManagement() {
                 tripSlot: tripDate.toLowerCase(),
                 time: formatTime(tripTime),
                 duration: `${tripDuration} mins`,
+                totalKms: totalKms,
                 createdOn: getCurrentTimestamp()
             };
 
@@ -406,16 +411,12 @@ export default function RouteManagement() {
                 place: stop.name,
                 arrivalTime: formatTime(stop.arrivalTime),
                 wait: stop.waitTime || '2',
+                kms: parseFloat(stop.km) || 0,
                 remarks: getRemarks(index)
             }));
 
             // Determine if this is an update or create
             const isUpdate = editingRoute && editingRoute.routeInformationId !== undefined;
-
-            console.log('=== Save Route Debug ===');
-            console.log('editingRoute:', editingRoute);
-            console.log('isUpdate:', isUpdate);
-            console.log('routeInformationId:', editingRoute?.routeInformationId);
 
             let payload;
             let response;
@@ -431,6 +432,7 @@ export default function RouteManagement() {
                         tripSlot: tripDate.toLowerCase(),
                         time: formatTime(tripTime),
                         duration: `${tripDuration} mins`,
+                        totalKms: totalKms,
                         createdOn: editingRoute.fullData?.routeInformation?.createdOn || getCurrentTimestamp()
                     },
                     routeStops: stops.map((stop, index) => ({
@@ -438,13 +440,10 @@ export default function RouteManagement() {
                         place: stop.name,
                         arrivalTime: formatTime(stop.arrivalTime),
                         wait: stop.waitTime || '2',
+                        kms: parseFloat(stop.km) || 0,
                         remarks: getRemarks(index)
                     }))
                 };
-
-                console.log('=== UPDATING ROUTE (PUT) ===');
-                console.log('Endpoint:', updateNewRoute);
-                console.log('Payload:', payload);
 
                 // PUT request for update
                 response = await axios.put(updateNewRoute, payload, {
@@ -459,10 +458,6 @@ export default function RouteManagement() {
                     routeInformation,
                     routeStops
                 };
-
-                console.log('=== CREATING ROUTE (POST) ===');
-                console.log('Endpoint:', postNewRoute);
-                console.log('Payload:', payload);
 
                 // POST request for create
                 response = await axios.post(postNewRoute, payload, {
@@ -605,7 +600,8 @@ export default function RouteManagement() {
                     duration: route.duration,
                     bus: route.assignBus,
                     driver: route.assignDriver || "Not Assigned",
-                    stops: route.totalStops || 0,
+                    stops: route.stops || route.totalStops || 0,
+                    totalKms: route.totalKms != null ? route.totalKms : '',
                     status: route.active
                 }));
 
@@ -742,23 +738,6 @@ export default function RouteManagement() {
                 />
                 <Box sx={{ display: "flex", gap: 1 }}>
                     <Button
-                        variant="outlined"
-                        startIcon={<FileDownloadIcon sx={{ fontSize: 18 }} />}
-                        sx={{
-                            borderColor: "#E5E7EB",
-                            color: "#4B5563",
-                            textTransform: "none",
-                            borderRadius: "4px",
-                            height: 38,
-                            fontSize: "13px",
-                            fontWeight: 500,
-                            px: 2,
-                            "&:hover": { borderColor: "#D1D5DB", backgroundColor: "#F9FAFB" }
-                        }}
-                    >
-                        Export
-                    </Button>
-                    <Button
                         variant="contained"
                         startIcon={<AddIcon sx={{ fontSize: 18 }} />}
                         onClick={handleCreateNew}
@@ -792,14 +771,14 @@ export default function RouteManagement() {
                     <TableHead>
                         <TableRow sx={{ backgroundColor: "#E5E7EB" }}>
                             <TableCell sx={{ fontWeight: 600, fontSize: "11px", color: "#6B7280", py: 1.5, textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: "1px solid #E5E7EB" }}>Route Name</TableCell>
-                            <TableCell sx={{ fontWeight: 600, fontSize: "11px", color: "#6B7280", py: 1.5, textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: "1px solid #E5E7EB" }}>Type</TableCell>
+                            <TableCell sx={{ fontWeight: 600, fontSize: "11px", color: "#6B7280", py: 1.5, textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: "1px solid #E5E7EB", textAlign: "center" }}>Type</TableCell>
                             <TableCell sx={{ fontWeight: 600, fontSize: "11px", color: "#6B7280", py: 1.5, textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: "1px solid #E5E7EB" }}>Schedule</TableCell>
                             <TableCell sx={{ fontWeight: 600, fontSize: "11px", color: "#6B7280", py: 1.5, textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: "1px solid #E5E7EB" }}>Time</TableCell>
                             <TableCell sx={{ fontWeight: 600, fontSize: "11px", color: "#6B7280", py: 1.5, textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: "1px solid #E5E7EB" }}>Bus</TableCell>
-                            <TableCell sx={{ fontWeight: 600, fontSize: "11px", color: "#6B7280", py: 1.5, textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: "1px solid #E5E7EB" }}>Driver</TableCell>
-                            <TableCell sx={{ fontWeight: 600, fontSize: "11px", color: "#6B7280", py: 1.5, textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: "1px solid #E5E7EB" }}>Stops</TableCell>
-                            <TableCell sx={{ fontWeight: 600, fontSize: "11px", color: "#6B7280", py: 1.5, textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: "1px solid #E5E7EB" }}>Status</TableCell>
-                            <TableCell sx={{ fontWeight: 600, fontSize: "11px", color: "#6B7280", py: 1.5, textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: "1px solid #E5E7EB" }} align="center">Actions</TableCell>
+                            <TableCell sx={{ fontWeight: 600, fontSize: "11px", color: "#6B7280", py: 1.5, textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: "1px solid #E5E7EB", textAlign: "center" }}>Duration</TableCell>
+                            <TableCell sx={{ fontWeight: 600, fontSize: "11px", color: "#6B7280", py: 1.5, textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: "1px solid #E5E7EB", textAlign: "center" }}>Total KM</TableCell>
+                            <TableCell sx={{ fontWeight: 600, fontSize: "11px", color: "#6B7280", py: 1.5, textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: "1px solid #E5E7EB", textAlign: "center" }}>Stops</TableCell>
+                            <TableCell sx={{ fontWeight: 600, fontSize: "11px", color: "#6B7280", py: 1.5, textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: "1px solid #E5E7EB", textAlign: "center" }}>Actions</TableCell>
                         </TableRow>
                     </TableHead>
                     <TableBody>
@@ -831,7 +810,7 @@ export default function RouteManagement() {
                                         </Box>
                                     </Box>
                                 </TableCell>
-                                <TableCell sx={{ py: 1.5, borderBottom: "1px solid #F3F4F6" }}>
+                                <TableCell sx={{ py: 1.5, borderBottom: "1px solid #F3F4F6", textAlign: "center" }}>
                                     <Chip
                                         label={route.type}
                                         size="small"
@@ -861,8 +840,9 @@ export default function RouteManagement() {
                                         <Typography fontSize="13px" color="#4B5563">{route.bus}</Typography>
                                     </Box>
                                 </TableCell>
-                                <TableCell sx={{ fontSize: "13px", color: "#4B5563", py: 1.5, borderBottom: "1px solid #F3F4F6" }}>{route.driver}</TableCell>
-                                <TableCell sx={{ py: 1.5, borderBottom: "1px solid #F3F4F6" }}>
+                                <TableCell sx={{ fontSize: "13px", color: "#4B5563", py: 1.5, borderBottom: "1px solid #F3F4F6", textAlign: "center" }}>{route.duration}</TableCell>
+                                <TableCell sx={{ fontSize: "13px", color: "#4B5563", py: 1.5, borderBottom: "1px solid #F3F4F6", textAlign: "center" }}>{route.totalKms ? `${route.totalKms} km` : "-"}</TableCell>
+                                <TableCell sx={{ py: 1.5, borderBottom: "1px solid #F3F4F6", textAlign: "center" }}>
                                     <Box sx={{
                                         display: "inline-flex",
                                         alignItems: "center",
@@ -876,7 +856,7 @@ export default function RouteManagement() {
                                         <Typography fontSize="12px" fontWeight={500} color="#4B5563">{route.stops}</Typography>
                                     </Box>
                                 </TableCell>
-                                <TableCell sx={{ py: 1.5, borderBottom: "1px solid #F3F4F6" }}>
+                                {/* <TableCell sx={{ py: 1.5, borderBottom: "1px solid #F3F4F6" }}>
                                     <Box sx={{
                                         display: "inline-flex",
                                         alignItems: "center",
@@ -895,7 +875,7 @@ export default function RouteManagement() {
                                         }} />
                                         <Typography fontSize="11px" fontWeight={600}>{route.status}</Typography>
                                     </Box>
-                                </TableCell>
+                                </TableCell> */}
                                 <TableCell align="center" sx={{ py: 1.5, borderBottom: "1px solid #F3F4F6" }}>
                                     <Box sx={{ display: "flex", justifyContent: "center", gap: 0.25 }}>
                                         <Tooltip title="Edit Route" arrow>
@@ -1161,9 +1141,16 @@ export default function RouteManagement() {
                             <Typography fontWeight={600} fontSize="14px" color="#047857">
                                 Route Stops
                             </Typography>
-                            <Typography fontSize="11px" color={stops.length >= 30 ? "#f44336" : "#059669"}>
-                                {stops.length}/30 stops configured
-                            </Typography>
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                                <Typography fontSize="11px" color={stops.length >= 30 ? "#f44336" : "#059669"}>
+                                    {stops.length}/30 stops configured
+                                </Typography>
+                                {stops.some(s => s.km) && (
+                                    <Typography fontSize="11px" color="#047857" fontWeight={600}>
+                                        · {stops.reduce((sum, s) => sum + (parseFloat(s.km) || 0), 0).toFixed(1)} km total
+                                    </Typography>
+                                )}
+                            </Box>
                         </Box>
                     </Box>
                     <Button
@@ -1384,6 +1371,45 @@ export default function RouteManagement() {
                                         />
                                     </Box>
 
+                                    {/* KM Input */}
+                                    <Box sx={{ width: 90 }}>
+                                        <Typography fontSize="11px" color="#6B7280" fontWeight={500} mb={0.5}>
+                                            Distance (km)
+                                        </Typography>
+                                        <TextField
+                                            value={stop.km}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                if (/^\d*\.?\d{0,2}$/.test(val)) updateStop(stop.id, "km", val);
+                                            }}
+                                            placeholder="0.0"
+                                            sx={{
+                                                "& .MuiOutlinedInput-root": {
+                                                    height: 40,
+                                                    borderRadius: "4px",
+                                                    fontSize: "14px",
+                                                    backgroundColor: "#fff",
+                                                    border: "1px solid #D1D5DB",
+                                                    "&:hover": { borderColor: "#9CA3AF" },
+                                                    "&.Mui-focused": {
+                                                        borderColor: "#6366F1",
+                                                        boxShadow: "0 0 0 2px rgba(99, 102, 241, 0.1)"
+                                                    }
+                                                }
+                                            }}
+                                            slotProps={{
+                                                input: {
+                                                    endAdornment: (
+                                                        <InputAdornment position="end">
+                                                            <Typography fontSize="11px" color="#9CA3AF">km</Typography>
+                                                        </InputAdornment>
+                                                    )
+                                                }
+                                            }}
+                                            fullWidth
+                                        />
+                                    </Box>
+
                                     {/* Delete Button */}
                                     {stops.length > 1 && (
                                         <Tooltip title="Remove stop">
@@ -1496,6 +1522,7 @@ export default function RouteManagement() {
                 px: 2,
                 py: 0.5,
                 borderBottom: "1px solid #ddd",
+                borderTop: "1px solid #ddd",
                 zIndex: 1200,
                 transition: "left 0.3s ease-in-out"
             }}>
@@ -1563,7 +1590,7 @@ export default function RouteManagement() {
             </Box>
 
             {/* Content */}
-            <Box sx={{ p: 3, pt: 10 }}>
+            <Box sx={{ p: 2, pt: 8 }}>
                 {viewMode === "list" ? renderListView() : renderCreateView()}
             </Box>
 

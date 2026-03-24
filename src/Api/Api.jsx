@@ -9,6 +9,7 @@ const GettingGradesData = `${baseApiurl}GradeValueFetch/GettingGrades`;
 const GettingGrades02 = `${baseApiurl}GradeValueFetch/GettingGrades02`;
 const VersionFetch = `${baseApiurl}version/fetch`;
 const VersionUpdate = `${baseApiurl}version/update`;
+const updateLoginPassword = `${baseApiurl}Login/updateLoginPassword`;
 
 // Dashboard 
 const Dashboard = `${baseApiurl}Dashboard/`;
@@ -217,6 +218,7 @@ const FindStaffManagementDetails = `${staffManagement}FindStaffManagementDetails
 //Fee & Finance
 const schoolFee = `${baseApiurl}schoolFee/`;
 const getFees = `${schoolFee}getFees`;
+const getBillingUser = `${baseApiurl}schoolFeesBilling/getBillingUser`;
 
 const ecaFee = `${baseApiurl}ecaFee`;
 const ecaFeeFetch = `${baseApiurl}ecaFeeFetch`;
@@ -230,6 +232,7 @@ const deleteEcaFeesStructure = `${baseApiurl}ecaFee/deleteEcaFeesStructure`;
 const updateEcaFeesApprovalAction = `${baseApiurl}ecaFee/updateEcaFeesApprovalAction`;
 const updateSchoolFee = `${schoolFee}updateSchoolFee`;
 const deleteSchoolFeesStructure = `${schoolFee}deleteSchoolFeesStructure`;
+const getEligibleEcaStudents = `${baseApiurl}getEligibleEcaStudents`;
 
 const additionalFees = `${baseApiurl}additionalFees/`;
 const postAdditionalFee = `${additionalFees}postAdditionalFee`;
@@ -242,6 +245,7 @@ const additionalParentsFetch = `${additionalFees}additionalParentsFetch`;
 const approvalStatusCheckAdditional = `${additionalFees}approvalStatusCheckAdditional`;
 const updateAdditionalFee = `${additionalFees}updateAdditionalFee`;
 const deleteAdditionalFeesStructure = `${additionalFees}deleteAdditionalFeesStructure`;
+const getUsersByUserType = `${additionalFees}getUsersByUserType`;
 
 
 const schoolFeesBilling = `${baseApiurl}schoolFeesBilling/`;
@@ -340,7 +344,7 @@ const postLeaveType = `${payRoll}postLeaveType`;
 const updateLeaveTypeById = `${payRoll}updateLeaveTypeById`;
 const approvePayrollPayslipsDashboard = `${payRoll}approvePayrollPayslipsDashboard`;
 
-// Assets 
+// Transport 
 const vehicle = `${baseApiurl}vehicle/`;
 
 const getAllVehicleDetails = `${vehicle}getAllVehicleDetails`;
@@ -370,6 +374,7 @@ const updateVehicleDocuments = `${transportManagement}updateVehicleDocuments`;
 
 
 const postStudentRouteMapping = `${transportManagement}postStudentRouteMapping`;
+const getEligibleTransportStudents = `${transportManagement}getEligibleTransportStudents`;
 const getRouteFullDetailsById = `${transportManagement}getRouteFullDetailsById`;
 const getAllStudentMappingCards = `${transportManagement}getAllStudentMappingCards`;
 
@@ -738,4 +743,9 @@ export {
     postSection,
     deleteSection,
     updateUserPassword,
+    updateLoginPassword,
+    getBillingUser,
+    getEligibleEcaStudents,
+    getEligibleTransportStudents,
+    getUsersByUserType,
 }

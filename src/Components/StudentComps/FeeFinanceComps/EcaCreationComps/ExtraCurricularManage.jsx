@@ -18,7 +18,7 @@ import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { ecaFeeFetch, ecaFeeFetchID, ecaFeeStudentAdd, ecaFeeStudentFetch, GetUsersBaseDetails } from "../../../../Api/Api";
+import { ecaFeeFetch, ecaFeeFetchID, ecaFeeStudentAdd, ecaFeeStudentFetch, getEligibleEcaStudents } from "../../../../Api/Api";
 import AddAdmissionNumbersDialog from "../../../AddAdmissionNumberDialog";
 import StudentSelectionPopup from "../../../Tools/StudentSelectionPopup";
 import SnackBar from "../../../SnackBar";
@@ -37,7 +37,7 @@ export default function ExtraCurricularManage() {
 
     const [openTextarea, setOpenTextarea] = useState(false);
     const [openAddPopup, setOpenAddPopup] = useState(false);
-    const [users, setUsers] = useState([]);
+    const [eligibleStudents, setEligibleStudents] = useState([]);
     const [specificNo, setSpecificNo] = useState("");
     const [ecaFetch, setEcaFetch] = useState([]);
 
@@ -69,24 +69,23 @@ export default function ExtraCurricularManage() {
         setSelectedActivity(null);
     };
 
-    useEffect(() => {
-        getUsers()
-    }, []);
-
-    const getUsers = async () => {
+    const getEligibleStudents = async (activity) => {
         try {
-            const res = await axios.get(GetUsersBaseDetails, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
+            const res = await axios.get(getEligibleEcaStudents, {
+                params: {
+                    ActivityCategoryAndName: `${activity.activityCategory}-${activity.activityName}`,
+                    Paid: activity.paid || 'Y',
+                    Year: selectedYear,
                 },
+                headers: { Authorization: `Bearer ${token}` },
             });
-            setUsers(res.data.users)
+            const flat = (res.data || []).flatMap((g) => g.students || []);
+            setEligibleStudents(flat);
         } catch (error) {
-            console.error("Error while inserting news data:", error);
-        } finally {
-            setIsLoading(false);
+            console.error('Failed to fetch eligible students', error);
+            setEligibleStudents([]);
         }
-    }
+    };
 
     useEffect(() => {
         getEcaFees()
@@ -274,7 +273,7 @@ export default function ExtraCurricularManage() {
 
                 <Grid container spacing={3} px={3} pb={3} pt={3} alignItems="stretch">
 
-                    {ecaFetch.map((activity) => (
+                    {ecaFetch.filter((activity) => activity.level === "A").map((activity) => (
                         <Grid size={{ sm: 12, xs: 12, lg: 3, md: 6 }} key={activity.id} >
                             <Card
                                 sx={{
@@ -365,6 +364,7 @@ export default function ExtraCurricularManage() {
                                                 onClick={() => {
                                                     handleOpenStudentPopup(activity);
                                                     getEcaById(activity.id);
+                                                    getEligibleStudents(activity);
                                                 }}
 
 
@@ -391,9 +391,9 @@ export default function ExtraCurricularManage() {
                 <EcaStudentSelectionPopup
                     open={openStudentPopup}
                     onClose={handleCloseStudentPopup}
-                    users={users}
+                    users={eligibleStudents}
                     activity={selectedActivity}
-                    value={existingStudents.join(', ')}
+                    existingStudents={existingStudents}
                     onSave={(payload) => handleSaveStudents(payload)}
                 />
             </Box>

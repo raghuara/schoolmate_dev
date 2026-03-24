@@ -7,7 +7,7 @@ import { selectGrades } from '../../../Redux/Slices/DropdownController';
 import { Link, useNavigate } from 'react-router-dom';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import PersonAddAlt1Icon from '@mui/icons-material/PersonAddAlt1';
-import RequestQuoteIcon from '@mui/icons-material/RequestQuote';
+import PostAddIcon from '@mui/icons-material/PostAdd';
 import PaymentIcon from '@mui/icons-material/Payment';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import SportsSoccerIcon from '@mui/icons-material/SportsSoccer';
@@ -171,7 +171,7 @@ export default function FeeFinancePage() {
                                         xs: 10,
                                     }}>
                                     <Button aria-describedby={id} onClick={handleClick} sx={{ border: "1px solid #000", textTransform: "none", borderRadius: "50px", color: '#000', width: "100%" }}>
-                                        <RequestQuoteIcon style={{ paddingRight: "10px", paddingLeft: "5px", }} />  Create Fee Structure
+                                        <PostAddIcon style={{ paddingRight: "10px", paddingLeft: "5px", }} />  Create Fee Structure
                                     </Button>
                                     <Popover
                                         id={id}

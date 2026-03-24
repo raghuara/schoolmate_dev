@@ -928,15 +928,14 @@ export default function StudentMapping() {
             {/* Student Selection Popup */}
             <StudentSelectionPopup
                 open={openStudentPopup}
-                
                 onClose={handleCloseStudentPopup}
-                users={users}
                 activity={routeDetails}
-                value={routeDetails?.studentRouteMappings?.map(s => s.rollNumber).join(', ') || ''}
+                year={selectedYear}
+                token={token}
                 onSave={(payload) => handleSaveStudents(payload)}
             />
 
-            {/* View Existing Students Dialog */} 
+            {/* View Existing Students Dialog */} .
             <Dialog
                 open={viewExistingDialog}
                 onClose={() => setViewExistingDialog(false)}

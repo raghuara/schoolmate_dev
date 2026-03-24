@@ -19,7 +19,7 @@ import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlic
 import Loader from "../../Loader";
 import SnackBar from "../../SnackBar";
 import axios from "axios";
-import { UsersPassword, updateUserPassword } from "../../../Api/Api";
+import { UsersPassword, updateLoginPassword } from "../../../Api/Api";
 import avatarImage from "../../../Images/PagesImage/avatar.png";
 import * as XLSX from "xlsx";
 import dayjs from "dayjs";
@@ -285,9 +285,13 @@ export default function PasswordManagementPage() {
         if (!passwordsMatch) return;
         setIsLoading(true);
         try {
-            await axios.post(
-                updateUserPassword,
-                { rollNumber: dialog.user.rollNumber, newPassword: dialog.newPassword },
+            await axios.put(
+                updateLoginPassword,
+                {
+                    rollNumber: dialog.user.rollNumber,
+                    userType: dialog.user.userType,
+                    newPassword: dialog.newPassword,
+                },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             setSnack({ open: true, status: true, color: true, message: "Password updated successfully" });
@@ -428,7 +432,7 @@ export default function PasswordManagementPage() {
                                 endAdornment: (
                                     <InputAdornment position="end">
                                         <IconButton size="small" onClick={() => setDialog((prev) => ({ ...prev, showNew: !prev.showNew }))}>
-                                            {dialog.showNew ? <VisibilityOffIcon sx={{ fontSize: 18 }} /> : <VisibilityIcon sx={{ fontSize: 18 }} />}
+                                            {dialog.showNew ? <VisibilityIcon sx={{ fontSize: 18 }} /> : <VisibilityOffIcon sx={{ fontSize: 18 }} />}
                                         </IconButton>
                                     </InputAdornment>
                                 ),
@@ -461,7 +465,7 @@ export default function PasswordManagementPage() {
                                 endAdornment: (
                                     <InputAdornment position="end">
                                         <IconButton size="small" onClick={() => setDialog((prev) => ({ ...prev, showConfirm: !prev.showConfirm }))}>
-                                            {dialog.showConfirm ? <VisibilityOffIcon sx={{ fontSize: 18 }} /> : <VisibilityIcon sx={{ fontSize: 18 }} />}
+                                            {dialog.showConfirm ? <VisibilityIcon sx={{ fontSize: 18 }} /> : <VisibilityOffIcon sx={{ fontSize: 18 }} />}
                                         </IconButton>
                                     </InputAdornment>
                                 ),

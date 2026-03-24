@@ -148,6 +148,14 @@ export default function LoginPage() {
             broadcastLogin(sessionId);
 
             dispatch(loginSuccess({ name, rollNumber, userType, grade, section }));
+
+            try {
+                const versionRes = await axios.get(VersionFetch, { headers: { Authorization: `Bearer ${token}` } });
+                dispatch(setVersion(versionRes.data));
+            } catch (vErr) {
+                console.error('Failed to fetch version on login:', vErr);
+            }
+
             setActivateSuccess(true);
             setActivateError(false);
             setTimeout(() => {

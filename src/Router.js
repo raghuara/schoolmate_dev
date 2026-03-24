@@ -149,6 +149,8 @@ import RouteManagement from "./Components/TransportComps/TransportAssetComps/Rou
 import StudentMapping from "./Components/TransportComps/TransportAssetComps/StudentMappingComps/StudentMapping";
 import QuestionPaperGeneratorPage from "./Components/QuestionPaperGenerator/QuestionPaperGeneratorPage";
 import ViewProfilePage from "./Components/DashBoard/ViewProfilePage";
+import CreatedEcaFees from "./Components/StudentComps/FeeFinanceComps/FeesStructure/CreatedEcaFees";
+import CreatedExtraFees from "./Components/StudentComps/FeeFinanceComps/FeesStructure/CreatedExtraFees";
 
 
 export default function RouterPage() {
@@ -268,8 +270,10 @@ export default function RouterPage() {
                 <Route path="fee/school" element={<SchoolFeeStructure />} />
                 <Route path="fee/transport" element={<TransportFeeStructure />} />
                 <Route path="fee/transport/created-fees" element={<CreatedTransportFees />} />
-                <Route path="fee/extra" element={<ExtraFeeStructure />} />
                 <Route path="fee/extra-curricular" element={<ExtraCurricularFeeStructure />} />
+                <Route path="fee/extra-curricular/created-fees" element={<CreatedEcaFees />} />
+                <Route path="fee/extra" element={<ExtraFeeStructure />} />
+                <Route path="fee/extra/created-fees" element={<CreatedExtraFees />} />
 
                 <Route path="fee/pay-fees" element={<PayStudentFeePage />} />
                 <Route path="fee/billing" element={<BillingScreen />} />

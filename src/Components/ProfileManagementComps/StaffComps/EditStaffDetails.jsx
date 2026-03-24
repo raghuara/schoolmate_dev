@@ -95,6 +95,7 @@ export default function EditStaffDetails() {
     const [anchorEl, setAnchorEl] = useState(null);
 
     const [profileFileType, setProfileFileType] = useState("");
+    const [dateOfJoining, setDateOfJoining] = useState(null);
     
 
     useEffect(() => {
@@ -210,6 +211,7 @@ export default function EditStaffDetails() {
             setSelectedUserType(normalizeUserType(staff?.userType));
             setStaffCategory(normalizeStaffCategory(staff?.staffCategory));
             setStaffDesignation(staff?.staffDesignation || "");
+            setDateOfJoining(staff?.DateofJoining || null);
             if (staff?.staffPassportSizePhotofilepath) {
                 setProfileImagePreview(staff.staffPassportSizePhotofilepath);
                 setProfileImage(null);
@@ -330,6 +332,7 @@ export default function EditStaffDetails() {
             formData.append("UserType", selectedUserType.toLowerCase());
             formData.append("StaffCategory", staffCategory);
             formData.append("StaffDesignation", staffDesignation);
+            formData.append("DateofJoining", dateOfJoining || "");
             formData.append("StaffPassportSizePhotofiletype", profileFileType || "existing");
             if (profileImage) {
                 formData.append("PassportSizePhotofile", profileImage);
@@ -365,6 +368,7 @@ export default function EditStaffDetails() {
         setSelectedSection(null);
         setStaffCategory("");
         setStaffDesignation("");
+        setDateOfJoining(null);
         setProfileImage(null);
         setProfileImagePreview("");
         setProfileImageError("");
@@ -868,7 +872,24 @@ export default function EditStaffDetails() {
                                             />
                                         </Box>
                                     </Grid>
-
+                                    <Grid size={{ xs: 12, sm: 6, md: 3, lg: 2.4 }} sx={{ pt: 1 }} >
+                                        <Typography sx={{ fontSize: "12px" }} component="span">Date Of Joining<span style={{ color: "#ff0000", fontSize: "16px" }}>*</span></Typography><br />
+                                        <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                            <DatePicker
+                                                disabled={isDisabledStaffInfo}
+                                                value={dateOfJoining ? dayjs(dateOfJoining, "DD-MM-YYYY") : null}
+                                                onChange={(newValue) => {
+                                                    setDateOfJoining(newValue ? newValue.format("DD-MM-YYYY") : null);
+                                                }}
+                                                slotProps={{
+                                                    textField: {
+                                                        size: "small",
+                                                        sx: { mt: 0.5 }
+                                                    }
+                                                }}
+                                            />
+                                        </LocalizationProvider>
+                                    </Grid>
                                     {/* Profile */}
                                     <Grid
                                         size={{ xs: 12, sm: 6, md: 3, lg: 2.4 }}

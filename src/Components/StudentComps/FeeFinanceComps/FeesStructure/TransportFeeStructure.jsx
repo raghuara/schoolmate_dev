@@ -407,14 +407,15 @@ export default function TransportFeeStructure() {
                     startIcon={<VisibilityIcon />}
                     onClick={() => navigate('created-fees')}
                     sx={{
-                      background: "#000",
-                      color: "#fff",
+                      background: "none",
+                      color: "#000",
                       textTransform: "none",
                       fontSize: "13px",
                       fontWeight: 600,
-                      width: "200px",
-                      height: 36,
+                      width: "fit-content",
+                      height: 30,
                       borderRadius: "30px",
+                      border:"1px solid black",
                       px: 3,
                       boxShadow: "none"
                     }}
@@ -1048,18 +1049,22 @@ export default function TransportFeeStructure() {
           fullWidth
           PaperProps={{
             sx: {
-              borderRadius: "12px",
+              borderRadius: "5px",
+              p:2,
               maxHeight: "90vh",
+             
             }
           }}
         >
           <DialogTitle sx={{
-            bgcolor: "#1976d2",
-            color: "#fff",
+            bgcolor: "#F3E5F5",
+            color: "#000",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
             py: 2,
+            border:"1px solid #6C1E9B",
+            borderRadius: "5px 5px 0px 0px",
           }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
               <RouteIcon sx={{ fontSize: 24 }} />
@@ -1075,7 +1080,7 @@ export default function TransportFeeStructure() {
             <IconButton
               onClick={() => setOpenRouteDialog(false)}
               sx={{
-                color: "#fff",
+                color: "#000",
                 "&:hover": { bgcolor: "rgba(255,255,255,0.1)" }
               }}
             >
@@ -1083,7 +1088,7 @@ export default function TransportFeeStructure() {
             </IconButton>
           </DialogTitle>
 
-          <DialogContent sx={{ p: 0 }}>
+          <DialogContent sx={{ p: 0, border:"1px solid #6C1E9B", borderTop:"none", borderRadius:"0px 0px 5px 5px" }}>
             {routesData.length === 0 ? (
               <Box sx={{ textAlign: "center", py: 8 }}>
                 <InfoIcon sx={{ fontSize: 64, color: "#ccc", mb: 2 }} />
@@ -1100,11 +1105,11 @@ export default function TransportFeeStructure() {
                   <TableHead>
                     <TableRow>
                       <TableCell sx={{
-                        bgcolor: "#F5F5F5",
+                        bgcolor: "#EEF2FF",
                         fontWeight: 700,
                         fontSize: "13px",
                         color: "#333",
-                        borderBottom: "2px solid #1976d2",
+                        borderBottom: "1px solid #1976D2",
                       }}>
                         <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
                           <RouteIcon sx={{ fontSize: 16, color: "#1976d2" }} />
@@ -1112,11 +1117,11 @@ export default function TransportFeeStructure() {
                         </Box>
                       </TableCell>
                       <TableCell sx={{
-                        bgcolor: "#F5F5F5",
+                        bgcolor: "#EEF2FF",
                         fontWeight: 700,
                         fontSize: "13px",
                         color: "#333",
-                        borderBottom: "2px solid #1976d2",
+                        borderBottom: "1px solid #1976d2",
                       }}>
                         <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
                           <DirectionsBusIcon sx={{ fontSize: 16, color: "#1976d2" }} />
@@ -1124,11 +1129,11 @@ export default function TransportFeeStructure() {
                         </Box>
                       </TableCell>
                       <TableCell sx={{
-                        bgcolor: "#F5F5F5",
+                        bgcolor: "#EEF2FF",
                         fontWeight: 700,
                         fontSize: "13px",
                         color: "#333",
-                        borderBottom: "2px solid #1976d2",
+                        borderBottom: "1px solid #1976D2",
                       }}>
                         <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
                           <SyncAltIcon sx={{ fontSize: 16, color: "#1976d2" }} />
@@ -1136,11 +1141,11 @@ export default function TransportFeeStructure() {
                         </Box>
                       </TableCell>
                       <TableCell sx={{
-                        bgcolor: "#F5F5F5",
+                        bgcolor: "#EEF2FF",
                         fontWeight: 700,
                         fontSize: "13px",
                         color: "#333",
-                        borderBottom: "2px solid #1976d2",
+                        borderBottom: "1px solid #1976d2",
                       }}>
                         <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
                           <ScheduleIcon sx={{ fontSize: 16, color: "#1976d2" }} />
@@ -1148,11 +1153,11 @@ export default function TransportFeeStructure() {
                         </Box>
                       </TableCell>
                       <TableCell sx={{
-                        bgcolor: "#F5F5F5",
+                        bgcolor: "#EEF2FF",
                         fontWeight: 700,
                         fontSize: "13px",
                         color: "#333",
-                        borderBottom: "2px solid #1976d2",
+                        borderBottom: "1px solid #1976d2",
                       }}>
                         <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
                           <AccessTimeIcon sx={{ fontSize: 16, color: "#1976d2" }} />
@@ -1160,11 +1165,11 @@ export default function TransportFeeStructure() {
                         </Box>
                       </TableCell>
                       <TableCell sx={{
-                        bgcolor: "#F5F5F5",
+                        bgcolor: "#EEF2FF",
                         fontWeight: 700,
                         fontSize: "13px",
                         color: "#333",
-                        borderBottom: "2px solid #1976d2",
+                        borderBottom: "1px solid #1976d2",
                       }}>
                         <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
                           <CheckCircleIcon sx={{ fontSize: 16, color: "#1976d2" }} />
@@ -1172,11 +1177,11 @@ export default function TransportFeeStructure() {
                         </Box>
                       </TableCell>
                       <TableCell sx={{
-                        bgcolor: "#F5F5F5",
+                        bgcolor: "#EEF2FF",
                         fontWeight: 700,
                         fontSize: "13px",
                         color: "#333",
-                        borderBottom: "2px solid #1976d2",
+                        borderBottom: "1px solid #1976d2",
                         textAlign: "center",
                       }}>
                         Action
@@ -1246,6 +1251,8 @@ export default function TransportFeeStructure() {
                                     "#6A1B9A",
                               fontWeight: 600,
                               fontSize: "12px",
+                              border:"1px solid #ccc",
+                              px:1
                             }}
                           />
                         </TableCell>
@@ -1324,50 +1331,7 @@ export default function TransportFeeStructure() {
             )}
           </DialogContent>
 
-          <Divider />
 
-          <DialogActions sx={{ px: 3, py: 2, bgcolor: "#FAFAFA" }}>
-            <Box sx={{ display: "flex", justifyContent: "space-between", width: "100%", alignItems: "center" }}>
-              <Typography sx={{ fontSize: "13px", color: "#666" }}>
-                {selectedRoute
-                  ? `Selected: ${routesData.find(r => r.routeInformationId === selectedRoute)?.tripName || ''}`
-                  : 'No trip selected'}
-              </Typography>
-              <Box sx={{ display: "flex", gap: 2 }}>
-                <Button
-                  onClick={() => setOpenRouteDialog(false)}
-                  sx={{
-                    textTransform: "none",
-                    fontSize: "14px",
-                    fontWeight: 600,
-                    color: "#666",
-                    "&:hover": { bgcolor: "#F5F5F5" }
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  variant="contained"
-                  onClick={() => setOpenRouteDialog(false)}
-                  disabled={!selectedRoute}
-                  sx={{
-                    textTransform: "none",
-                    fontSize: "14px",
-                    fontWeight: 600,
-                    bgcolor: "#1976d2",
-                    px: 3,
-                    "&:hover": { bgcolor: "#1565c0" },
-                    "&:disabled": {
-                      bgcolor: "#E0E0E0",
-                      color: "#999"
-                    }
-                  }}
-                >
-                  Confirm Selection
-                </Button>
-              </Box>
-            </Box>
-          </DialogActions>
         </Dialog>
       </Box>
     </Box>

@@ -16,12 +16,12 @@ import {
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { additionalFeeFetch, additionalFeeFetchID, additionalFeeStudentAdd, ecaFeeFetch, ecaFeeFetchID, ecaFeeStudentAdd, ecaFeeStudentFetch, GetUsersBaseDetails } from "../../../../Api/Api";
+import { additionalFeeFetch, additionalFeeFetchID, additionalFeeStudentAdd, ecaFeeFetch, ecaFeeFetchID, ecaFeeStudentAdd, ecaFeeStudentFetch, GetUsersBaseDetails, getUsersByUserType } from "../../../../Api/Api";
 import StudentSelectionPopup from "../../../Tools/StudentSelectionPopup";
 import SnackBar from "../../../SnackBar";
 import Loader from "../../../Loader";
 import { useSelector } from "react-redux";
-import EcaStudentSelectionPopup from "../../../Tools/EcaStudentSelectionPopup";
+import AdditionalStudentSelectionPopup from "../../../Tools/AdditionalStudentSelectionPopup";
 
 
 export default function AdditionalFeeManage() {
@@ -83,12 +83,16 @@ export default function AdditionalFeeManage() {
 
     const getUsers = async () => {
         try {
-            const res = await axios.get(GetUsersBaseDetails, {
+            const res = await axios.get(getUsersByUserType, {
+                params:{
+                    userType : "student"
+                },
                 headers: {
                     Authorization: `Bearer ${token}`,
                 },
             });
-            setUsers(res.data.users)
+            const flattened = (res.data.data || []).flatMap(g => g.users || []);
+            setUsers(flattened);
         } catch (error) {
             console.error("Error while inserting news data:", error);
         } finally {
@@ -439,7 +443,7 @@ export default function AdditionalFeeManage() {
                                                 fontSize: "14px",
                                             }}
                                         >
-                                            Add / Edit / Remove Student
+                                            Add / Remove Student
                                         </Button>
                                     </Box>
 
@@ -449,12 +453,12 @@ export default function AdditionalFeeManage() {
                     ))}
                 </Grid>
 
-                <EcaStudentSelectionPopup
+                <AdditionalStudentSelectionPopup
                     open={openStudentPopup}
                     onClose={handleCloseStudentPopup}
                     users={users}
                     activity={selectedActivity}
-                    value={existingStudents.join(', ')}
+                    existingStudents={existingStudents}
                     onSave={(payload) => handleSaveStudents(payload)}
                 />
             </Box>

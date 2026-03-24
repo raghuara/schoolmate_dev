@@ -31,7 +31,7 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs from 'dayjs';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import axios from 'axios';
-import { findStudentEcaFeesBilling, findStudents, findStudentSchoolFeesBilling, findStudentAdditionalFeesBilling, postPaymentMethod, postEcaPaymentMethod, postAdditionalPaymentMethod, findStudentTransportFeesBilling, postTransportPaymentMethod } from '../../../../Api/Api';
+import { findStudentEcaFeesBilling, findStudents, findStudentSchoolFeesBilling, findStudentAdditionalFeesBilling, postPaymentMethod, postEcaPaymentMethod, postAdditionalPaymentMethod, findStudentTransportFeesBilling, postTransportPaymentMethod, getBillingUser } from '../../../../Api/Api';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import CreditCardIcon from '@mui/icons-material/CreditCard';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
@@ -40,6 +40,7 @@ import PaymentsIcon from '@mui/icons-material/Payments';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import SecurityIcon from '@mui/icons-material/Security';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import PrintIcon from '@mui/icons-material/Print';
 import HistoryIcon from '@mui/icons-material/History';
 import LockIcon from '@mui/icons-material/Lock';
@@ -219,6 +220,8 @@ export default function BillingScreen() {
   const [additionalDetails, setAdditionalDetails] = useState([]);
   const [additionalFeeElements, setAdditionalFeeElements] = useState([]);
 
+  const [studentInfo, setStudentInfo] = useState(null);
+
   const [paymentStep, setPaymentStep] = useState(0);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
   const [paymentProcessing, setPaymentProcessing] = useState(false);
@@ -307,6 +310,8 @@ export default function BillingScreen() {
   };
 
   const handleSelect = (index) => {
+    const currentFeeData = getCurrentFeeData();
+    if (currentFeeData[index]?.pendingAmount === 0) return;
     setSelectedRows((prev) =>
       prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index]
     );
@@ -710,30 +715,30 @@ export default function BillingScreen() {
         case 'upi':
           if (isTransportFee) {
             paymentMethods.upiid = sanitizeInput(paymentFormData.upiId || '');
-            paymentMethods.transactionID = sanitizeInput(paymentFormData.transactionId || `UPI-TXN-${Date.now()}`);
+            paymentMethods.transactionID = sanitizeInput(paymentFormData.transactionId || '');
           } else {
             paymentMethods.UPIID = sanitizeInput(paymentFormData.upiId || '');
-            paymentMethods.TransactionID = sanitizeInput(paymentFormData.transactionId || `UPI-TXN-${Date.now()}`);
+            paymentMethods.TransactionID = sanitizeInput(paymentFormData.transactionId || '');
           }
           break;
 
         case 'netbanking':
           if (isTransportFee) {
-            paymentMethods.transactionID = sanitizeInput(paymentFormData.transactionId || `NB-TXN-${Date.now()}`);
+            paymentMethods.transactionID = sanitizeInput(paymentFormData.transactionId || '');
             paymentMethods.bankName = sanitizeInput(paymentFormData.bankName || '');
           } else {
-            paymentMethods.TransactionID = sanitizeInput(paymentFormData.transactionId || `NB-TXN-${Date.now()}`);
+            paymentMethods.TransactionID = sanitizeInput(paymentFormData.transactionId || '');
             paymentMethods.BankName = sanitizeInput(paymentFormData.bankName || '');
           }
           break;
 
         case 'cheque':
           if (isTransportFee) {
-            paymentMethods.transactionID = sanitizeInput(paymentFormData.transactionId || `CHQ-TXN-${Date.now()}`);
+            paymentMethods.transactionID = sanitizeInput(paymentFormData.transactionId || '');
             paymentMethods.chequeNo = sanitizeInput(paymentFormData.chequeNo || '');
             paymentMethods.bankName = sanitizeInput(paymentFormData.bankName || '');
           } else {
-            paymentMethods.TransactionID = sanitizeInput(paymentFormData.transactionId || `CHQ-TXN-${Date.now()}`);
+            paymentMethods.TransactionID = sanitizeInput(paymentFormData.transactionId || '');
             paymentMethods.ChequeNo = sanitizeInput(paymentFormData.chequeNo || '');
             paymentMethods.BankName = sanitizeInput(paymentFormData.bankName || '');
           }
@@ -742,11 +747,11 @@ export default function BillingScreen() {
 
         case 'card':
           if (isTransportFee) {
-            paymentMethods.transactionID = sanitizeInput(paymentFormData.transactionId || `CARD-TXN-${Date.now()}`);
+            paymentMethods.transactionID = sanitizeInput(paymentFormData.transactionId || '');
             paymentMethods.cardType = sanitizeInput(paymentFormData.cardType || '');
             paymentMethods.cardLastFourDigits = paymentFormData.cardLast4?.replace(/\D/g, '').substring(0, 4) || '';
           } else {
-            paymentMethods.TransactionID = sanitizeInput(paymentFormData.transactionId || `CARD-TXN-${Date.now()}`);
+            paymentMethods.TransactionID = sanitizeInput(paymentFormData.transactionId || '');
             paymentMethods.CardType = sanitizeInput(paymentFormData.cardType || '');
             paymentMethods.CardLastFourDigits = paymentFormData.cardLast4?.replace(/\D/g, '').substring(0, 4) || '';
           }
@@ -937,11 +942,20 @@ export default function BillingScreen() {
     const isPaid = paymentStatus?.toLowerCase() === 'paid' || pendingAmount === 0;
 
     if (isPaid) {
+      if (!dueDate || dueDate === '' || dueDate === '-') {
+        return {
+          text: 'No Due Date',
+          color: '#94a3b8',
+          bgColor: '#f1f5f9',
+          icon: '📅',
+          status: 'paid'
+        };
+      }
       return {
-        text: 'Paid',
-        color: '#10b981',
-        bgColor: '#d1fae5',
-        icon: '✓',
+        text: dueDate,
+        color: '#64748b',
+        bgColor: '#f1f5f9',
+        icon: '📅',
         status: 'paid'
       };
     }
@@ -1042,18 +1056,24 @@ export default function BillingScreen() {
   }, [activeTab]);
 
   const getCurrentFeeData = () => {
+    let data;
     switch (value) {
       case 0:
-        return schoolFee;
+        data = schoolFee;
+        break;
       case 1:
-        return transportFeeElements;
+        data = transportFeeElements;
+        break;
       case 2:
-        return ecaFeeElements;
+        data = ecaFeeElements;
+        break;
       case 3:
-        return additionalFeeElements;
+        data = additionalFeeElements;
+        break;
       default:
-        return [];
+        data = [];
     }
+    return (data || []).filter(fee => (fee.feeAmount || 0) !== 0);
   };
 
   const getCurrentDetails = () => {
@@ -1152,6 +1172,24 @@ export default function BillingScreen() {
     }
   };
 
+
+  useEffect(() => {
+    fetchBillingUser();
+  }, []);
+
+  const fetchBillingUser = async () => {
+    try {
+      const res = await axios.get(getBillingUser, {
+        params: { rollNumber },
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.data?.data) {
+        setStudentInfo(res.data.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch billing user:', error);
+    }
+  };
 
   useEffect(() => {
     switch (value) {
@@ -1388,7 +1426,7 @@ export default function BillingScreen() {
               sx={{ display: "flex", justifyContent: "center", alignItems: "center" }}
             >
               <img
-                src={avatarImage}
+                src={studentInfo?.image || avatarImage}
                 alt="student"
                 style={{
                   border: "1px solid #0000002A",
@@ -1432,7 +1470,7 @@ export default function BillingScreen() {
                         display: "block",
                       }}
                     >
-                      {getCurrentDetails().name}
+                      {studentInfo?.name || "—"}
                     </Typography>
                   </Box>
                 </Grid>
@@ -1454,7 +1492,7 @@ export default function BillingScreen() {
                       Roll No
                     </Typography>
                     <Typography sx={{ color: "#000", fontSize: "16px", py: 1 }}>
-                      {getCurrentDetails().rollnumber}
+                      {studentInfo?.rollNumber || "—"}
                     </Typography>
                   </Box>
                 </Grid>
@@ -1475,7 +1513,7 @@ export default function BillingScreen() {
                       Gender
                     </Typography>
                     <Typography sx={{ color: "#000", fontSize: "16px", py: 1 }}>
-                      {getCurrentDetails().gender}
+                      {studentInfo?.gender || "—"}
                     </Typography>
                   </Box>
                 </Grid>
@@ -1497,7 +1535,7 @@ export default function BillingScreen() {
                       Grade
                     </Typography>
                     <Typography sx={{ color: "#000", fontSize: "16px", py: 1 }}>
-                      {getCurrentDetails().grade}
+                      {studentInfo?.grade || "—"}
                     </Typography>
                   </Box>
                 </Grid>
@@ -1519,7 +1557,7 @@ export default function BillingScreen() {
                       Section
                     </Typography>
                     <Typography sx={{ color: "#000", fontSize: "16px", py: 1 }}>
-                      {getCurrentDetails().section}
+                      {studentInfo?.section || "—"}
                     </Typography>
                   </Box>
                 </Grid>
@@ -1699,10 +1737,10 @@ export default function BillingScreen() {
                         key={rowIndex}
                         onClick={() => handleSelect(rowIndex)}
                         sx={{
-                          cursor: "pointer",
+                          cursor: row.pendingAmount === 0 ? "default" : "pointer",
                           backgroundColor: isSelected ? "#FFF7F7" : "transparent",
                           "&:hover": {
-                            backgroundColor: isSelected ? "#ff00001A" : "#fafafa",
+                            backgroundColor: row.pendingAmount === 0 ? "transparent" : isSelected ? "#ff00001A" : "#fafafa",
                           },
                           transition: "background-color 0.2s ease",
                         }}
@@ -1726,6 +1764,7 @@ export default function BillingScreen() {
                             <Checkbox
                               size="small"
                               checked={isSelected}
+                              disabled={row.pendingAmount === 0}
                               onChange={() => handleSelect(rowIndex)}
                               color="secondary"
                               sx={{
@@ -1959,12 +1998,13 @@ export default function BillingScreen() {
                           <Button
                             variant="outlined"
                             size="small"
+                            disabled={!row.paidAmount || row.paidAmount === 0}
                             onClick={(e) => {
                               e.stopPropagation();
                               handleOpenPopup(row);
                             }}
                             sx={{
-                              backgroundColor: "#E60154",
+                              backgroundColor: (!row.paidAmount || row.paidAmount === 0) ? "#ccc" : "#E60154",
                               color: "#fff",
                               fontWeight: "600",
                               textTransform: "none",
@@ -1973,7 +2013,8 @@ export default function BillingScreen() {
                               width: "80px",
                               fontSize: 13,
                               boxShadow: "none",
-                              borderColor: "#E601542A"
+                              borderColor: "#E601542A",
+                              "&.Mui-disabled": { backgroundColor: "#e0e0e0", color: "#aaa" }
                             }}
                           >
                             Print
@@ -2281,29 +2322,28 @@ export default function BillingScreen() {
                       ₹{getTotalFeeAmount().toLocaleString()}
                     </Box>
                   </Box>
-                  {areAllFeesPaid() && (
-                    <Box
-                      sx={{
-                        textTransform: "none",
-                        textDecoration: "underline",
-                        color: "#1F73C2",
-                        mt: 1,
-                        cursor: "pointer",
-                        display: "inline-block",
-                        transition: "color 0.2s ease",
-                        userSelect: "none",
-                        "&:hover": {
-                          color: "#145A9E",
-                        },
-                        "&:active": {
-                          transform: "scale(0.98)",
-                        },
-                      }}
-                      onClick={handlePrintEntireBill}
-                    >
-                      Print as Entire Bill
-                    </Box>
-                  )}
+                  {(() => {
+                    const hasAnyPaid = getCurrentFeeData().some(fee => (fee.paidAmount || 0) > 0);
+                    return (
+                      <Box
+                        sx={{
+                          textTransform: "none",
+                          textDecoration: hasAnyPaid ? "underline" : "none",
+                          color: hasAnyPaid ? "#1F73C2" : "#aaa",
+                          mt: 1,
+                          cursor: hasAnyPaid ? "pointer" : "not-allowed",
+                          display: "inline-block",
+                          transition: "color 0.2s ease",
+                          userSelect: "none",
+                          "&:hover": hasAnyPaid ? { color: "#145A9E" } : {},
+                          "&:active": hasAnyPaid ? { transform: "scale(0.98)" } : {},
+                        }}
+                        onClick={hasAnyPaid ? handlePrintEntireBill : undefined}
+                      >
+                        Print as Entire Bill
+                      </Box>
+                    );
+                  })()}
                 </Box>
 
                 <Box sx={{ display: "flex", justifyContent: "space-between" }}>
@@ -2347,7 +2387,7 @@ export default function BillingScreen() {
                   <Button
                     variant="contained"
                     size="small"
-                    disabled={selectedRows.length === 0}
+                    disabled={selectedRows.length === 0 || getTotalPending() === 0}
                     onClick={handleOpenPaymentPopup}
                     sx={{
                       backgroundColor: "#2e7d32",
@@ -2454,7 +2494,7 @@ export default function BillingScreen() {
                   >
                     <Typography sx={{ fontSize: "0.9rem", color: websiteSettings.textColor, fontWeight: 500, opacity: 0.9 }}>₹</Typography>
                     <Typography sx={{ fontSize: "2rem", fontWeight: 800, color: websiteSettings.textColor, letterSpacing: "-0.02em" }}>
-                      {getTotalPending().toLocaleString()}
+                      {paymentSuccess ? completedPaymentAmount.toLocaleString() : getTotalPending().toLocaleString()}
                     </Typography>
                   </Box>
                 </Box>
@@ -2521,6 +2561,19 @@ export default function BillingScreen() {
                       <Typography sx={{ fontWeight: 600, fontSize: "0.95rem", color: "#64748b", mb: 2, textAlign: "center" }}>
                         Select how you want to pay
                       </Typography>
+                      {/* Offline Payment Notice */}
+                      <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5, background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: "12px", p: 2, mb: 2.5 }}>
+                        <InfoOutlinedIcon sx={{ color: "#2563EB", fontSize: 20, mt: 0.2, flexShrink: 0 }} />
+                        <Box>
+                          <Typography sx={{ fontSize: "0.82rem", fontWeight: 700, color: "#1D4ED8", mb: 0.4 }}>
+                            Offline Payment Recording
+                          </Typography>
+                          <Typography sx={{ fontSize: "0.78rem", color: "#1e40af", lineHeight: 1.6 }}>
+                            This is an <strong>offline payment process.</strong> You are recording the fee payment received from the student. The transaction details will be saved in the system for tracking and reporting purposes only.
+                          </Typography>
+                        </Box>
+                      </Box>
+
                       <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
                         {paymentMethodOptions.map((method) => (
                           <Box
@@ -2883,8 +2936,8 @@ export default function BillingScreen() {
                               type="number"
                               fullWidth
                               value={paymentFormData.amount}
-                              onChange={(e) => handlePaymentFormChange("amount", e.target.value)}
-                              InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }}
+                              disabled
+                              slotProps={{ input: { startAdornment: <InputAdornment position="start">₹</InputAdornment> } }}
                               sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
                             />
                           </Grid>
@@ -2912,7 +2965,7 @@ export default function BillingScreen() {
                               value={paymentFormData.bankName}
                               onChange={(e) => handlePaymentFormChange("bankName", e.target.value)}
                               InputProps={{
-                                startAdornment: <InputAdornment position="start"><AccountBalanceIcon sx={{ color: "#3b82f6" }} /></InputAdornment>,
+                                startAdornment: <InputAdornment position="start"><AccountBalanceIcon sx={{ color:"#3b82f6" }} /></InputAdornment>,
                               }}
                               sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
                             />
@@ -2942,8 +2995,8 @@ export default function BillingScreen() {
                               type="number"
                               fullWidth
                               value={paymentFormData.amount}
-                              onChange={(e) => handlePaymentFormChange("amount", e.target.value)}
-                              InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }}
+                              disabled
+                              slotProps={{ input: { startAdornment: <InputAdornment position="start">₹</InputAdornment> } }}
                               sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
                             />
                           </Grid>
@@ -3050,8 +3103,8 @@ export default function BillingScreen() {
                               type="number"
                               fullWidth
                               value={paymentFormData.amount}
-                              onChange={(e) => handlePaymentFormChange("amount", e.target.value)}
-                              InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }}
+                              disabled
+                              slotProps={{ input: { startAdornment: <InputAdornment position="start">₹</InputAdornment> } }}
                               sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
                             />
                           </Grid>
@@ -3307,6 +3360,16 @@ export default function BillingScreen() {
                         </Box>
                       </Box>
 
+                      {/* Offline Payment Notice */}
+                      {!paymentProcessing && (
+                        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5, background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: "12px", p: 2, mt: 2 }}>
+                          <InfoOutlinedIcon sx={{ color: "#2563EB", fontSize: 20, mt: 0.2, flexShrink: 0 }} />
+                          <Typography sx={{ fontSize: "0.78rem", color: "#1e40af", lineHeight: 1.6 }}>
+                            <strong>Note:</strong> Confirming this will record the payment as received in the system. This is an <strong>offline process</strong> — the transaction is being logged manually based on the payment already collected from the student.
+                          </Typography>
+                        </Box>
+                      )}
+
                       {paymentProcessing && (
                         <Box sx={{ mt: 4, textAlign: "center" }}>
                           <Box sx={{ position: "relative", display: "inline-flex", mb: 2 }}>
@@ -3428,7 +3491,7 @@ export default function BillingScreen() {
                                   Transaction ID
                                 </Typography>
                                 <Typography sx={{ fontWeight: 700, fontSize: "0.85rem", color: "#1e293b" }}>
-                                  TXN{Date.now().toString().slice(-10)}
+                                  {paymentFormData.transactionId || '-'}
                                 </Typography>
                               </Box>
                             </Grid>
@@ -3468,6 +3531,106 @@ export default function BillingScreen() {
                                 </Typography>
                               </Box>
                             </Grid>
+
+                            {/* UPI Details */}
+                            {selectedPaymentMethod === "upi" && paymentFormData.upiId && (
+                              <Grid size={{ xs: 6 }}>
+                                <Box sx={{ textAlign: "left" }}>
+                                  <Typography sx={{ color: "#94a3b8", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
+                                    UPI ID
+                                  </Typography>
+                                  <Typography sx={{ fontWeight: 700, fontSize: "0.85rem", color: "#1e293b" }}>
+                                    {paymentFormData.upiId}
+                                  </Typography>
+                                </Box>
+                              </Grid>
+                            )}
+
+                            {/* Net Banking Details */}
+                            {selectedPaymentMethod === "netbanking" && paymentFormData.bankName && (
+                              <Grid size={{ xs: 6 }}>
+                                <Box sx={{ textAlign: "left" }}>
+                                  <Typography sx={{ color: "#94a3b8", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
+                                    Bank Name
+                                  </Typography>
+                                  <Typography sx={{ fontWeight: 700, fontSize: "0.85rem", color: "#1e293b" }}>
+                                    {paymentFormData.bankName}
+                                  </Typography>
+                                </Box>
+                              </Grid>
+                            )}
+
+                            {/* Cheque Details */}
+                            {selectedPaymentMethod === "cheque" && (
+                              <>
+                                {paymentFormData.bankName && (
+                                  <Grid size={{ xs: 6 }}>
+                                    <Box sx={{ textAlign: "left" }}>
+                                      <Typography sx={{ color: "#94a3b8", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
+                                        Bank Name
+                                      </Typography>
+                                      <Typography sx={{ fontWeight: 700, fontSize: "0.85rem", color: "#1e293b" }}>
+                                        {paymentFormData.bankName}
+                                      </Typography>
+                                    </Box>
+                                  </Grid>
+                                )}
+                                {paymentFormData.chequeNo && (
+                                  <Grid size={{ xs: 6 }}>
+                                    <Box sx={{ textAlign: "left" }}>
+                                      <Typography sx={{ color: "#94a3b8", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
+                                        Cheque No
+                                      </Typography>
+                                      <Typography sx={{ fontWeight: 700, fontSize: "0.85rem", color: "#1e293b" }}>
+                                        {paymentFormData.chequeNo}
+                                      </Typography>
+                                    </Box>
+                                  </Grid>
+                                )}
+                                {paymentFormData.chequeDate && (
+                                  <Grid size={{ xs: 6 }}>
+                                    <Box sx={{ textAlign: "left" }}>
+                                      <Typography sx={{ color: "#94a3b8", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
+                                        Cheque Date
+                                      </Typography>
+                                      <Typography sx={{ fontWeight: 700, fontSize: "0.85rem", color: "#1e293b" }}>
+                                        {dayjs(paymentFormData.chequeDate).format("DD MMM YYYY")}
+                                      </Typography>
+                                    </Box>
+                                  </Grid>
+                                )}
+                              </>
+                            )}
+
+                            {/* Card Details */}
+                            {selectedPaymentMethod === "card" && (
+                              <>
+                                {paymentFormData.cardType && (
+                                  <Grid size={{ xs: 6 }}>
+                                    <Box sx={{ textAlign: "left" }}>
+                                      <Typography sx={{ color: "#94a3b8", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
+                                        Card Type
+                                      </Typography>
+                                      <Typography sx={{ fontWeight: 700, fontSize: "0.85rem", color: "#1e293b" }}>
+                                        {paymentFormData.cardType}
+                                      </Typography>
+                                    </Box>
+                                  </Grid>
+                                )}
+                                {paymentFormData.cardLast4 && (
+                                  <Grid size={{ xs: 6 }}>
+                                    <Box sx={{ textAlign: "left" }}>
+                                      <Typography sx={{ color: "#94a3b8", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
+                                        Card (Last 4)
+                                      </Typography>
+                                      <Typography sx={{ fontWeight: 700, fontSize: "0.85rem", color: "#1e293b" }}>
+                                        **** **** **** {paymentFormData.cardLast4}
+                                      </Typography>
+                                    </Box>
+                                  </Grid>
+                                )}
+                              </>
+                            )}
                           </Grid>
 
                           <Divider sx={{ my: 2 }} />
@@ -3595,49 +3758,6 @@ export default function BillingScreen() {
                               </>
                             )}
 
-                            <Divider sx={{ my: 2 }} />
-
-                            {/* Fee Items Paid */}
-                            <Typography sx={{ color: "#1e293b", fontSize: "0.9rem", fontWeight: 700, mb: 1.5 }}>
-                              Fee Items Paid ({selectedRows.length})
-                            </Typography>
-                            <Box sx={{ maxHeight: 180, overflowY: "auto", pr: 1 }}>
-                              {selectedRows.map((index) => {
-                                const fee = getCurrentFeeData()[index];
-                                const amountPaid = toPayAmounts[index] || 0;
-                                return (
-                                  <Box
-                                    key={index}
-                                    sx={{
-                                      display: "flex",
-                                      justifyContent: "space-between",
-                                      mb: 1,
-                                      p: 1.5,
-                                      background: "#f8fafc",
-                                      borderRadius: "8px",
-                                      border: "1px solid #e2e8f0",
-                                    }}
-                                  >
-                                    <Box sx={{ flex: 1 }}>
-                                      <Typography sx={{ fontSize: "0.85rem", fontWeight: 600, color: "#1e293b", mb: 0.3 }}>
-                                        {fee?.feeName || fee?.feeDetails || fee?.activityName || `Fee ${index + 1}`}
-                                      </Typography>
-                                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b" }}>
-                                        Total: ₹{fee?.feeAmount || fee?.amount || 0} | Pending: ₹{fee?.pendingAmount || 0}
-                                      </Typography>
-                                    </Box>
-                                    <Box sx={{ textAlign: "right" }}>
-                                      <Typography sx={{ fontSize: "0.9rem", fontWeight: 700, color: "#10b981" }}>
-                                        ₹{amountPaid.toLocaleString()}
-                                      </Typography>
-                                      <Typography sx={{ fontSize: "0.7rem", color: "#64748b" }}>
-                                        paid
-                                      </Typography>
-                                    </Box>
-                                  </Box>
-                                );
-                              })}
-                            </Box>
                           </Box>
                         </CardContent>
                       </Card>
@@ -3658,6 +3778,14 @@ export default function BillingScreen() {
                         <VerifiedUserIcon sx={{ fontSize: 20, color: "#10b981" }} />
                         <Typography sx={{ fontSize: "0.9rem", fontWeight: 600, color: "#10b981" }}>
                           Verified & Secured Payment
+                        </Typography>
+                      </Box>
+
+                      {/* Offline Payment Notice */}
+                      <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5, background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: "12px", p: 2, mt: 2, textAlign: "left" }}>
+                        <InfoOutlinedIcon sx={{ color: "#2563EB", fontSize: 20, mt: 0.2, flexShrink: 0 }} />
+                        <Typography sx={{ fontSize: "0.78rem", color: "#1e40af", lineHeight: 1.6 }}>
+                          <strong>Payment Recorded:</strong> This transaction has been saved in the system as an offline payment. The record will reflect in the student's fee history and financial reports.
                         </Typography>
                       </Box>
                     </Box>
@@ -3976,7 +4104,7 @@ export default function BillingScreen() {
                     }}
                   >
                     {[
-                      { label: "Transaction ID", value: `TXN${Date.now().toString().slice(-10)}` },
+                      { label: "Transaction ID", value: paymentFormData.transactionId || '-' },
                       { label: "Student Name", value: details?.name || "-" },
                       { label: "Roll No", value: details?.rollNumber || rollNumber || "-" },
                       { label: "Class & Section", value: `${details?.grade || '-'} ${details?.section || ''}`.trim() },

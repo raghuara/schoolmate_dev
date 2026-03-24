@@ -49,7 +49,7 @@ export default function SchoolFeeStructure() {
   const [selectedYear, setSelectedYear] = useState(currentAcademicYear);
   const [hasApprovedFees, setHasApprovedFees] = useState(false);
 
-
+  const isExpanded = useSelector((state) => state.sidebar.isExpanded);
   const academicYears = [
     `${currentYear - 2}-${currentYear - 1}`,
     `${currentYear - 1}-${currentYear}`,
@@ -120,7 +120,7 @@ export default function SchoolFeeStructure() {
       if (!backendFees.length) {
         setPrimeSchoolFeesID(null);
       }
-    
+
     } catch (err) {
       setHasApprovedFees(false);
       console.log("Failed to save fee structure.")
@@ -363,9 +363,20 @@ export default function SchoolFeeStructure() {
       <Box sx={{ width: "100%", minHeight: "83vh", }}>
         <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
         {isLoading && <Loader />}
-        <Box sx={{ position: "fixed", backgroundColor: "#f2f2f2", px: 2, borderBottom: "1px solid #ddd", mb: 0.13, zIndex: "1200", width: "100%" }}>
+        <Box sx={{
+          position: "fixed",
+          top: "60px",
+          left: isExpanded ? "260px" : "80px",
+          right: 0,
+          backgroundColor: "#f2f2f2",
+          px: 2,
+          borderBottom: "1px solid #ddd",
+          zIndex: 1200,
+          transition: "left 0.3s ease-in-out",
+          overflow: 'hidden',
+        }}>
           <Grid container>
-            <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }} sx={{ display: "flex", alignItems: "center" }}>
+            <Grid size={{ xs: 6, sm: 6, md: 9, lg: 9 }} sx={{ display: "flex", alignItems: "center" }}>
               <IconButton onClick={() => navigate(-1)} sx={{ width: "27px", height: "27px", marginTop: '2px', }}>
                 <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
               </IconButton>
@@ -376,51 +387,34 @@ export default function SchoolFeeStructure() {
               sx={{
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "flex-end",
+                justifyContent: "end",
                 gap: 1.5,
                 borderRadius: "8px",
                 px: 2,
                 py: 1,
               }}
             >
-              <Typography
-                sx={{
-                  fontSize: "14px",
-                  fontWeight: 600,
-                  color: "#555",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                Academic Year
-              </Typography>
 
               <Autocomplete
                 size="small"
                 options={academicYears}
+                sx={{ width: "170px" }}
                 value={selectedYear}
                 onChange={(e, newValue) => setSelectedYear(newValue)}
-                sx={{ width: 180 }}
                 renderInput={(params) => (
                   <TextField
+                    placeholder="Select Academic Year"
                     {...params}
-                    placeholder="Select"
                     variant="outlined"
                     sx={{
                       "& .MuiOutlinedInput-root": {
-                        height: 36,
-                        fontSize: "14px",
-                        fontWeight: 600,
-                        borderRadius: "6px",
-                        backgroundColor: "#fafafa",
+                        borderRadius: "5px",
+                        fontSize: 14,
+                        height: 35,
                       },
-                      "& .MuiOutlinedInput-notchedOutline": {
-                        borderColor: "#ddd",
-                      },
-                      "&:hover .MuiOutlinedInput-notchedOutline": {
-                        borderColor: "#bbb",
-                      },
-                      "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                        borderColor: "#1976d2",
+                      "& .MuiOutlinedInput-input": {
+                        textAlign: "center",
+                        fontWeight: "600"
                       },
                     }}
                   />
