@@ -49,7 +49,6 @@ export default function ExtraFeeStructure() {
   const [fees, setFees] = useState({
     feeName: '',
     remarks: '',
-    paymentStatus: null,
     amount: '',
     dueDate: null,
   });
@@ -65,7 +64,6 @@ export default function ExtraFeeStructure() {
     setFees({
       feeName: '',
       remarks: '',
-      paymentStatus: null,
       amount: '',
       dueDate: null,
     });
@@ -89,13 +87,6 @@ export default function ExtraFeeStructure() {
       return;
     }
 
-    if (!fees.paymentStatus) {
-      setMessage("Payment Status is required");
-      setOpen(true);
-      setStatus(false);
-      return;
-    }
-
     if (!fees.amount) {
       setMessage("Fee Amount is required");
       setOpen(true);
@@ -111,7 +102,7 @@ export default function ExtraFeeStructure() {
         year: selectedYear,
         feeName: fees.feeName,
         remarks: fees.remarks,
-        paid: fees.paymentStatus === "Paid" ? "Y" : "N",
+        paid: "Y",
         feeAmount: fees.amount ? Number(fees.amount) : null,
         dueDate: fees.dueDate
           ? dayjs(fees.dueDate).format("YYYY-MM-DD")
@@ -246,7 +237,7 @@ export default function ExtraFeeStructure() {
             </Box>
 
             <Grid container rowSpacing={2} columnSpacing={4} p={3}>
-              <Grid size={{ xs: 12, sm: 6, md: 2.4, lg: 2.4 }}>
+              <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
                 <Typography sx={{ mb: 0.5, fontWeight: "600" }}>Fee Name</Typography>
                 <TextField
                   size="small"
@@ -262,7 +253,7 @@ export default function ExtraFeeStructure() {
                   }}
                 />
               </Grid>
-              <Grid size={{ xs: 12, sm: 6, md: 2.4, lg: 2.4 }}>
+              <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
                 <Typography sx={{ mb: 0.5, fontWeight: '600' }}>Remarks</Typography>
                 <TextField
                   size="small"
@@ -278,31 +269,7 @@ export default function ExtraFeeStructure() {
                   }}
                 />
               </Grid>
-              <Grid size={{ xs: 12, sm: 6, md: 2.4, lg: 2.4 }}>
-                <Typography sx={{ mb: 0.5, fontWeight: "600" }}>
-                  Payment Status
-                </Typography>
-                <Autocomplete
-                  size="small"
-                  options={["Paid", "Unpaid"]}
-                  value={fees.paymentStatus}
-                  onChange={(e, newValue) => handleChange("paymentStatus", newValue)}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      variant="outlined"
-                      sx={{
-                        "& .MuiOutlinedInput-root": {
-                          borderRadius: "5px",
-                          fontSize: 14,
-                        },
-                        width: "100%",
-                      }}
-                    />
-                  )}
-                />
-              </Grid>
-              <Grid size={{ xs: 12, sm: 6, md: 2.4, lg: 2.4 }}>
+              <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
                 <Typography sx={{ mb: 0.5, fontWeight: '600' }}>Fee Amount</Typography>
                 <TextField
                   fullWidth
@@ -326,7 +293,7 @@ export default function ExtraFeeStructure() {
                   }}
                 />
               </Grid>
-              <Grid size={{ xs: 12, sm: 6, md: 2.4, lg: 2.4 }}>
+              <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
                 <Typography sx={{ mb: 0.5, fontWeight: '600' }}>Add due date</Typography>
                 <LocalizationProvider dateAdapter={AdapterDayjs}>
                   <DatePicker

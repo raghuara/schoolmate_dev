@@ -196,45 +196,22 @@ export default function ExtraCurricularManage() {
                             py: 1,
                         }}
                     >
-                        <Typography
-                            sx={{
-                                fontSize: "14px",
-                                fontWeight: 600,
-                                color: "#555",
-                                whiteSpace: "nowrap",
-                            }}
-                        >
-                            Academic Year
-                        </Typography>
+                      
 
                         <Autocomplete
                             size="small"
                             options={academicYears}
+                            sx={{ width: "170px" }}
                             value={selectedYear}
                             onChange={(e, newValue) => setSelectedYear(newValue)}
-                            sx={{ width: 180 }}
                             renderInput={(params) => (
                                 <TextField
+                                    placeholder="Select Academic Year"
                                     {...params}
-                                    placeholder="Select"
                                     variant="outlined"
                                     sx={{
-                                        "& .MuiOutlinedInput-root": {
-                                            height: 36,
-                                            fontSize: "14px",
-                                            fontWeight: 600,
-                                            borderRadius: "6px",
-                                            backgroundColor: "#fafafa",
-                                        },
-                                        "& .MuiOutlinedInput-notchedOutline": {
-                                            borderColor: "#ddd",
-                                        },
-                                        "&:hover .MuiOutlinedInput-notchedOutline": {
-                                            borderColor: "#bbb",
-                                        },
-                                        "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                                            borderColor: "#1976d2",
-                                        },
+                                        "& .MuiOutlinedInput-root": { borderRadius: "5px", fontSize: 14, height: 35 },
+                                        "& .MuiOutlinedInput-input": { textAlign: "center", fontWeight: "600" },
                                     }}
                                 />
                             )}

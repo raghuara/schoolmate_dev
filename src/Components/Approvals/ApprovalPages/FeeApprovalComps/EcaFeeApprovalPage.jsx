@@ -1,4 +1,4 @@
-import { Autocomplete, Box, Button, Card, createTheme, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Fab, Grid, IconButton, Popper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from "@mui/material";
+import { Autocomplete, Box, Button, Card, Chip, createTheme, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Fab, Grid, IconButton, Popper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from "@mui/material";
 import axios from "axios";
 import React, { useEffect, useRef, useState } from "react";
 import Loader from "../../../Loader";
@@ -72,6 +72,17 @@ export default function EcaFeeApprovalPage() {
     const toInputDate = (dateString) => {
         if (!dateString) return "";
         return dateString.split("T")[0];
+    };
+
+    const getRequestBadge = (requestFor) => {
+        switch ((requestFor || '').toLowerCase()) {
+            case 'edit':
+                return { label: 'Requested for Edit', bgcolor: '#FFF3E0', color: '#E65100', border: '#FFB74D' };
+            case 'delete':
+                return { label: 'Requested for Delete', bgcolor: '#FFEBEE', color: '#C62828', border: '#EF9A9A' };
+            default:
+                return { label: 'Requested for New', bgcolor: '#E8F5E9', color: '#2E7D32', border: '#A5D6A7' };
+        }
     };
 
     const openEditFeeDialog = (item) => {
@@ -315,7 +326,7 @@ export default function EcaFeeApprovalPage() {
                         filteredDetails.map((item, index) => (
                             <Grid key={item} size={{ lg: 12, md: 8, }}>
                                 <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "end" }}>
-                                    <Box sx={{ display: "flex", alignItems: "end" }}>
+                                    <Box sx={{ display: "flex", alignItems: "end", gap: 1 }}>
                                         <Box
                                             sx={{
                                                 bgcolor: "#7B1FA2",
@@ -331,10 +342,28 @@ export default function EcaFeeApprovalPage() {
                                                 height: "20px"
                                             }}
                                         >
-                                            {item.activityName} -  {item.activityCategory}
+                                            {item.activityName} - {item.activityCategory}
                                         </Box>
-
-
+                                        {item.requestFor && item.requestFor !== 'Approved' && (() => {
+                                            const badge = getRequestBadge(item.requestFor);
+                                            return (
+                                                <Chip
+                                                    label={badge.label}
+                                                    size="small"
+                                                    sx={{
+                                                        mb: 0.2,
+                                                        height: 20,
+                                                        fontSize: 11,
+                                                        fontWeight: 700,
+                                                        bgcolor: badge.bgcolor,
+                                                        color: badge.color,
+                                                        border: `1px solid ${badge.border}`,
+                                                        borderRadius: '6px',
+                                                        '& .MuiChip-label': { px: 1 },
+                                                    }}
+                                                />
+                                            );
+                                        })()}
                                     </Box>
                                     <Box
                                         sx={{

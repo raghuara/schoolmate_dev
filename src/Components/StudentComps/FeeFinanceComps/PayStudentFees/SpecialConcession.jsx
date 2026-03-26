@@ -2,8 +2,11 @@ import { Box } from '@mui/system'
 import React, { useEffect, useState } from 'react'
 import Loader from '../../../Loader'
 import SnackBar from '../../../SnackBar'
-import { Button, Grid, IconButton, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tabs, TextField, Typography } from '@mui/material';
+import { Button, Card, Grid, IconButton, InputAdornment, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tabs, TextField, Typography } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import CategoryIcon from '@mui/icons-material/Category';
+import PersonIcon from '@mui/icons-material/Person';
+import NotesIcon from '@mui/icons-material/Notes';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { selectWebsiteSettings } from '../../../../Redux/Slices/websiteSettingsSlice';
@@ -62,10 +65,23 @@ export default function SpecialConcession() {
         return row.feeAmount || row.amount || 0;
     };
 
+    const isFeePaid = (item) => {
+        const amount = getFeeAmount(item);
+        // hide zero-amount rows
+        if (amount <= 0) return true;
+        // hide if any amount has been paid (partial or full)
+        const paid = parseFloat(item.paidAmount ?? item.amountPaid ?? item.paid ?? 0);
+        if (paid > 0) return true;
+        // hide via explicit status flags
+        if (item.status === 'Paid' || item.status === 'Partial' || item.isPaid === true) return true;
+        return false;
+    };
+
     const buildRows = (tab, feeData) => {
         const data = feeData?.[tab] || [];
-        if (data.length > 0) {
-            return data.map((item) => ({
+        return data
+            .filter((item) => !isFeePaid(item))
+            .map((item) => ({
                 ...item,
                 displayName: getFeeName(item, tab),
                 displayAmount: getFeeAmount(item),
@@ -73,8 +89,6 @@ export default function SpecialConcession() {
                 concessionAmount: "",
                 finalFee: getFeeAmount(item),
             }));
-        }
-        return [];
     };
 
     // Fetch all 4 fee types fresh on mount
@@ -317,49 +331,115 @@ export default function SpecialConcession() {
                     px: 2, pb: 2, pt: "68px", minHeight: "72vh",
                 }}>
 
-                    <Grid container sx={{ mt: 2 }}>
-                        <Grid size={{ xs: 12, sm: 12, md: 4, lg: 4 }} sx={{ display: "flex", justifyContent: { lg: "center" }, }} >
-                            <Box>
-                                <Typography sx={{ pb: 1, textAlign: "center" }}> Concession category</Typography>
+                    <Card sx={{ mt: 2, mb: 1, border: '1px solid #E5E7EB', borderRadius: '12px', boxShadow: 'none', backgroundColor: '#fff' }}>
+                        {/* Card header */}
+                        <Box sx={{ px: 2.5, py: 1.5, borderBottom: '1px solid #F0F0F0', display: 'flex', alignItems: 'center', gap: 1, backgroundColor: '#FAFAFA', borderRadius: '12px 12px 0 0' }}>
+                            <Box sx={{ width: 28, height: 28, borderRadius: '8px', backgroundColor: `${websiteSettings.mainColor}22`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <NotesIcon sx={{ fontSize: 16, color: websiteSettings.mainColor }} />
+                            </Box>
+                            <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#374151' }}>
+                                Concession Details
+                            </Typography>
+                            <Typography sx={{ fontSize: 11, color: '#9CA3AF', ml: 0.5 }}>
+                                — Fill in the details below before applying concession
+                            </Typography>
+                        </Box>
+
+                        {/* Fields */}
+                        <Grid container spacing={2.5} sx={{ p: 2.5 }}>
+                            {/* Concession Category */}
+                            <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                                <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#374151', mb: 0.8, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                    <CategoryIcon sx={{ fontSize: 14, color: websiteSettings.mainColor }} />
+                                    Concession Category
+                                </Typography>
                                 <TextField
                                     fullWidth
                                     variant="outlined"
                                     size="small"
+                                    placeholder="e.g. Merit, Staff Ward, SC/ST..."
                                     value={concessionCategory}
                                     onChange={(e) => setConcessionCategory(e.target.value)}
-                                    sx={{ width: "250px" }}
+                                    slotProps={{
+                                        input: {
+                                            startAdornment: (
+                                                <InputAdornment position="start">
+                                                    <CategoryIcon sx={{ fontSize: 16, color: '#9CA3AF' }} />
+                                                </InputAdornment>
+                                            ),
+                                        }
+                                    }}
+                                    sx={{
+                                        '& .MuiOutlinedInput-root': {
+                                            borderRadius: '8px', fontSize: 13, backgroundColor: '#F9FAFB',
+                                            '& fieldset': { borderColor: '#E5E7EB' },
+                                            '&:hover fieldset': { borderColor: websiteSettings.mainColor },
+                                            '&.Mui-focused fieldset': { borderColor: websiteSettings.mainColor },
+                                        }
+                                    }}
                                 />
-                            </Box>
-                        </Grid>
-                        <Grid size={{ xs: 12, sm: 12, md: 6, lg: 4 }} sx={{ display: "flex", justifyContent: { lg: "center" } }} >
-                            <Box>
-                                <Typography sx={{ pb: 1, textAlign: "center" }}> Recommended by </Typography>
+                            </Grid>
+
+                            {/* Recommended By */}
+                            <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                                <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#374151', mb: 0.8, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                    <PersonIcon sx={{ fontSize: 14, color: websiteSettings.mainColor }} />
+                                    Recommended By
+                                </Typography>
                                 <TextField
                                     fullWidth
                                     variant="outlined"
                                     size="small"
+                                    placeholder="e.g. Principal, Class Teacher..."
                                     value={recommendedBy}
                                     onChange={(e) => setRecommendedBy(e.target.value)}
-                                    sx={{ width: "250px" }}
+                                    slotProps={{
+                                        input: {
+                                            startAdornment: (
+                                                <InputAdornment position="start">
+                                                    <PersonIcon sx={{ fontSize: 16, color: '#9CA3AF' }} />
+                                                </InputAdornment>
+                                            ),
+                                        }
+                                    }}
+                                    sx={{
+                                        '& .MuiOutlinedInput-root': {
+                                            borderRadius: '8px', fontSize: 13, backgroundColor: '#F9FAFB',
+                                            '& fieldset': { borderColor: '#E5E7EB' },
+                                            '&:hover fieldset': { borderColor: websiteSettings.mainColor },
+                                            '&.Mui-focused fieldset': { borderColor: websiteSettings.mainColor },
+                                        }
+                                    }}
                                 />
-                            </Box>
-                        </Grid>
-                        <Grid size={{ xs: 12, sm: 12, md: 6, lg: 4 }} sx={{ display: "flex", justifyContent: { lg: "center" } }} >
-                            <Box>
-                                <Typography sx={{ pb: 1, textAlign: "center" }}> Recommendation Reason</Typography>
+                            </Grid>
+
+                            {/* Recommendation Reason */}
+                            <Grid size={{ xs: 12, sm: 12, md: 4, lg: 4 }}>
+                                <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#374151', mb: 0.8, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                    <NotesIcon sx={{ fontSize: 14, color: websiteSettings.mainColor }} />
+                                    Recommendation Reason
+                                </Typography>
                                 <TextField
                                     fullWidth
                                     variant="outlined"
                                     size="small"
                                     multiline
                                     rows={2}
+                                    placeholder="Brief reason for granting this concession..."
                                     value={recommendationReason}
                                     onChange={(e) => setRecommendationReason(e.target.value)}
-                                    sx={{ width: "250px" }}
+                                    sx={{
+                                        '& .MuiOutlinedInput-root': {
+                                            borderRadius: '8px', fontSize: 13, backgroundColor: '#F9FAFB',
+                                            '& fieldset': { borderColor: '#E5E7EB' },
+                                            '&:hover fieldset': { borderColor: websiteSettings.mainColor },
+                                            '&.Mui-focused fieldset': { borderColor: websiteSettings.mainColor },
+                                        }
+                                    }}
                                 />
-                            </Box>
+                            </Grid>
                         </Grid>
-                    </Grid>
+                    </Card>
                     <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", backgroundColor: websiteSettings.mainColor, py: 1, width: "fit-content", px: 4, borderTopLeftRadius: "5px", borderTopRightRadius: "5px", mt: 2 }}>
                         <Typography sx={{ color: websiteSettings.textColor }}>Concession {feeTabs[tabValue]} Detail</Typography>
                     </Box>

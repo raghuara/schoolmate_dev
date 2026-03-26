@@ -56,6 +56,8 @@ export default function StudentSelectionPopup({ open, onClose, onSave, activity 
             let students = [];
             if (Array.isArray(res.data)) {
                 students = res.data.flatMap(g => g.students || []);
+            } else if (Array.isArray(res.data?.data)) {
+                students = res.data.data.flatMap(g => g.students || []);
             } else if (res.data?.students) {
                 students = res.data.students;
             }

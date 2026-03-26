@@ -53,6 +53,7 @@ import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { selectGrades } from '../../../../Redux/Slices/DropdownController';
 import SaveIcon from '@mui/icons-material/Save';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 
 export default function CreatedTransportFees() {
   const navigate = useNavigate();
@@ -489,204 +490,218 @@ export default function CreatedTransportFees() {
         {/* Main Content */}
         <Box sx={{ px: 2, pb: 2, pt: "68px" }}>
 
-          {/* Filters */}
-          <Card sx={{ mb: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
-            <CardContent sx={{ py: 2 }}>
-              <Grid container spacing={2}>
-                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
-                  <InputLabel sx={labelSx}>
-                    <SearchIcon sx={{ fontSize: 15, color: "#1976d2" }} />
-                    Search
-                  </InputLabel>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    placeholder="Search by trip name or bus..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    slotProps={{
-                      input: {
-                        startAdornment: (
-                          <InputAdornment position="start">
-                            <SearchIcon sx={{ fontSize: 18, color: "#999" }} />
-                          </InputAdornment>
-                        ),
-                      }
-                    }}
-                    sx={{
-                      "& .MuiOutlinedInput-root": {
-                        height: 44,
-                        fontSize: "14px",
-                      }
-                    }}
-                  />
-                </Grid>
-
-             
-              </Grid>
-            </CardContent>
-          </Card>
-
-          {/* Results Count */}
-          <Box sx={{ mb: 2, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <Typography sx={{ fontSize: "14px", color: "#666", fontWeight: 600 }}>
-              Showing {filteredFees.length} result{filteredFees.length !== 1 ? 's' : ''}
+          {/* Info note */}
+          <Box sx={{
+            display: 'flex', alignItems: 'center', gap: 1,
+            bgcolor: '#FFF8E1', border: '1px solid #FFE082',
+            borderRadius: '8px', px: 2, py: 1, mb: 2, mt: 1,
+          }}>
+            <InfoOutlinedIcon sx={{ fontSize: 18, color: '#F9A825', flexShrink: 0 }} />
+            <Typography sx={{ fontSize: 13, color: '#795548' }}>
+              Editing and deleting fee details is only allowed before any student has paid. Once even one student has paid, both edit and delete will be disabled.
             </Typography>
           </Box>
 
+          {/* Toolbar: search + results count */}
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2, gap: 2, flexWrap: "wrap" }}>
+            <TextField
+              size="small"
+              placeholder="Search by trip name or slot..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon sx={{ fontSize: 17, color: "#9CA3AF" }} />
+                    </InputAdornment>
+                  ),
+                }
+              }}
+              sx={{
+                width: 280,
+                "& .MuiOutlinedInput-root": {
+                  height: 36,
+                  fontSize: "13px",
+                  borderRadius: "8px",
+                  backgroundColor: "#fff",
+                  "& fieldset": { borderColor: "#E5E7EB" },
+                  "&:hover fieldset": { borderColor: "#1976d2" },
+                  "&.Mui-focused fieldset": { borderColor: "#1976d2" },
+                }
+              }}
+            />
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: "#1976d2" }} />
+              <Typography sx={{ fontSize: "13px", color: "#6B7280", fontWeight: 500 }}>
+                <span style={{ fontWeight: 700, color: "#1F2937" }}>{filteredFees.length}</span> trip{filteredFees.length !== 1 ? 's' : ''} found
+              </Typography>
+            </Box>
+          </Box>
+
           {/* Fees Table */}
-          <Card sx={{ boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
+          <Card sx={{ boxShadow: "0 1px 4px rgba(0,0,0,0.07)", borderRadius: "10px", overflow: "hidden", border: "1px solid #F0F0F0" }}>
             <TableContainer>
               <Table>
                 <TableHead>
-                  <TableRow sx={{ bgcolor: "#F5F5F5" }}>
-                    <TableCell sx={{ fontWeight: 700, fontSize: "13px", color: "#333", py: 2 }}>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
-                        <RouteIcon sx={{ fontSize: 16, color: "#1976d2" }} />
-                        Trip Name
-                      </Box>
-                    </TableCell>
-                    <TableCell sx={{ fontWeight: 700, fontSize: "13px", color: "#333" }}>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
-                        <DirectionsBusIcon sx={{ fontSize: 16, color: "#1976d2" }} />
-                        Trip Type
-                      </Box>
-                    </TableCell>
-                    <TableCell sx={{ fontWeight: 700, fontSize: "13px", color: "#333" }}>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
-                        <CalendarMonthIcon sx={{ fontSize: 16, color: "#1976d2" }} />
-                        Trip Slot
-                      </Box>
-                    </TableCell>
-                    <TableCell sx={{ fontWeight: 700, fontSize: "13px", color: "#333" }}>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
-                        <AttachMoneyIcon sx={{ fontSize: 16, color: "#1976d2" }} />
-                        Stops Count
-                      </Box>
-                    </TableCell>
-                    <TableCell sx={{ fontWeight: 700, fontSize: "13px", color: "#333" }}>
-                      Academic Year
-                    </TableCell>
-                    <TableCell sx={{ fontWeight: 700, fontSize: "13px", color: "#333", textAlign: "center" }}>
-                      Actions
-                    </TableCell>
+                  <TableRow sx={{ bgcolor: "#F8F9FB", borderBottom: "2px solid #E5E7EB" }}>
+                    {[
+                      { icon: <RouteIcon sx={{ fontSize: 14 }} />, label: "Trip Name" },
+                      { icon: <DirectionsBusIcon sx={{ fontSize: 14 }} />, label: "Trip Type" },
+                      { icon: <CalendarMonthIcon sx={{ fontSize: 14 }} />, label: "Trip Slot" },
+                      { icon: <AttachMoneyIcon sx={{ fontSize: 14 }} />, label: "Stops Count" },
+                      { icon: null, label: "Academic Year" },
+                      { icon: null, label: "Actions", center: true },
+                    ].map(({ icon, label, center }) => (
+                      <TableCell
+                        key={label}
+                        sx={{
+                          fontWeight: 700, fontSize: "12px", color: "#6B7280",
+                          textTransform: "uppercase", letterSpacing: "0.05em",
+                          py: 1.5, textAlign: center ? "center" : "left",
+                          borderBottom: "none",
+                        }}
+                      >
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.6, justifyContent: center ? "center" : "flex-start" }}>
+                          {icon && <Box sx={{ color: "#1976d2" }}>{icon}</Box>}
+                          {label}
+                        </Box>
+                      </TableCell>
+                    ))}
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {filteredFees.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} sx={{ textAlign: "center", py: 6 }}>
-                        <Box>
-                          <DirectionsBusIcon sx={{ fontSize: 48, color: "#ccc", mb: 1 }} />
-                          <Typography sx={{ fontSize: "16px", color: "#666", fontWeight: 600 }}>
-                            No Transport Fees Found
-                          </Typography>
-                          <Typography sx={{ fontSize: "14px", color: "#999", mt: 0.5 }}>
-                            {searchQuery || selectedYear !== 'All'
-                              ? 'Try adjusting your filters'
-                              : 'Create your first transport fee structure'}
-                          </Typography>
-                        </Box>
+                      <TableCell colSpan={6} sx={{ textAlign: "center", py: 8, border: "none" }}>
+                        <DirectionsBusIcon sx={{ fontSize: 44, color: "#D1D5DB", mb: 1.5 }} />
+                        <Typography sx={{ fontSize: "15px", color: "#6B7280", fontWeight: 600 }}>
+                          No Transport Fees Found
+                        </Typography>
+                        <Typography sx={{ fontSize: "13px", color: "#9CA3AF", mt: 0.5 }}>
+                          {searchQuery ? 'Try adjusting your search' : 'Create your first transport fee structure'}
+                        </Typography>
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredFees.map((fee, index) => (
+                    filteredFees.map((fee, index) => {
+                      const tripType = fee.tripType?.toLowerCase();
+                      const tripSlot = fee.tripSlot?.toLowerCase();
+                      const tripTypeStyle =
+                        tripType === 'pickup' ? { bg: "#EFF6FF", color: "#1D4ED8" } :
+                        tripType === 'drop'   ? { bg: "#FFF7ED", color: "#C2410C" } :
+                                               { bg: "#FAF5FF", color: "#7C3AED" };
+                      const tripSlotStyle =
+                        tripSlot === 'morning'   ? { bg: "#EFF6FF", color: "#1D4ED8" } :
+                        tripSlot === 'afternoon' ? { bg: "#FFF7ED", color: "#C2410C" } :
+                        tripSlot === 'evening'   ? { bg: "#FAF5FF", color: "#7C3AED" } :
+                                                   { bg: "#F0FDF4", color: "#15803D" };
+                      return (
                       <TableRow
                         key={index}
                         sx={{
-                          "&:hover": { bgcolor: "#fafafa" },
-                          transition: "background-color 0.2s"
+                          borderBottom: "1px solid #F3F4F6",
+                          "&:last-child": { borderBottom: "none" },
+                          "&:hover": { bgcolor: "#FAFBFF" },
+                          transition: "background-color 0.15s",
                         }}
                       >
-                        <TableCell sx={{ fontSize: "14px", fontWeight: 600, color: "#333" }}>
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                            <RouteIcon sx={{ fontSize: 16, color: "#1976d2" }} />
-                            {fee.tripName || 'N/A'}
+                        <TableCell sx={{ py: 1.8 }}>
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 1.2 }}>
+                            <Box sx={{ width: 32, height: 32, borderRadius: "8px", bgcolor: "#EFF6FF", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                              <RouteIcon sx={{ fontSize: 16, color: "#1976d2" }} />
+                            </Box>
+                            <Typography sx={{ fontSize: "14px", fontWeight: 600, color: "#1F2937" }}>
+                              {fee.tripName || 'N/A'}
+                            </Typography>
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ fontSize: "14px", color: "#555" }}>
+                        <TableCell sx={{ py: 1.8 }}>
                           <Chip
                             label={fee.tripType?.charAt(0).toUpperCase() + fee.tripType?.slice(1) || 'N/A'}
                             size="small"
-                            sx={{
-                              bgcolor: fee.tripType?.toLowerCase() === 'pickup' ? "#E3F2FD" :
-                                fee.tripType?.toLowerCase() === 'drop' ? "#FFF3E0" : "#F3E5F5",
-                              color: fee.tripType?.toLowerCase() === 'pickup' ? "#1565C0" :
-                                fee.tripType?.toLowerCase() === 'drop' ? "#E65100" : "#6A1B9A",
-                              fontWeight: 600,
-                              fontSize: "12px"
-                            }}
+                            sx={{ bgcolor: tripTypeStyle.bg, color: tripTypeStyle.color, fontWeight: 600, fontSize: "12px", borderRadius: "6px", height: 24 }}
                           />
                         </TableCell>
-                        <TableCell sx={{ fontSize: "14px", color: "#555" }}>
+                        <TableCell sx={{ py: 1.8 }}>
                           <Chip
                             label={fee.tripSlot?.charAt(0).toUpperCase() + fee.tripSlot?.slice(1) || 'N/A'}
                             size="small"
-                            sx={{
-                              bgcolor: "#FFF3E0",
-                              color: "#E65100",
-                              fontWeight: 600,
-                              fontSize: "12px"
-                            }}
+                            sx={{ bgcolor: tripSlotStyle.bg, color: tripSlotStyle.color, fontWeight: 600, fontSize: "12px", borderRadius: "6px", height: 24 }}
                           />
                         </TableCell>
-                        <TableCell sx={{ fontSize: "14px", color: "#555" }}>
+                        <TableCell sx={{ py: 1.8 }}>
                           <Chip
-                            label={`${fee.stops?.length || 0} Stops`}
+                            label={`${fee.stops?.length || 0} Stop${fee.stops?.length !== 1 ? 's' : ''}`}
                             size="small"
-                            sx={{
-                              bgcolor: "#E8F5E9",
-                              color: "#2E7D32",
-                              fontWeight: 600,
-                              fontSize: "12px"
-                            }}
+                            sx={{ bgcolor: "#F0FDF4", color: "#15803D", fontWeight: 600, fontSize: "12px", borderRadius: "6px", height: 24 }}
                           />
                         </TableCell>
-                        <TableCell sx={{ fontSize: "14px", color: "#555" }}>
-                          {fee.year || 'N/A'}
+                        <TableCell sx={{ py: 1.8 }}>
+                          <Typography sx={{ fontSize: "13px", color: "#374151", fontWeight: 500 }}>
+                            {fee.year || 'N/A'}
+                          </Typography>
                         </TableCell>
                         <TableCell sx={{ textAlign: "center" }}>
-                          <Box sx={{ display: "flex", gap: 0.5, justifyContent: "center" }}>
-                            <Tooltip title="View Details" arrow>
-                              <IconButton
-                                size="small"
-                                onClick={() => handleViewDetails(fee)}
-                                sx={{
-                                  color: "#1976d2",
-                                  "&:hover": { bgcolor: "#E3F2FD" }
-                                }}
-                              >
-                                <VisibilityIcon sx={{ fontSize: 18 }} />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Edit" arrow>
-                              <IconButton
-                                size="small"
-                                onClick={() => handleEdit(fee.routeInformationId)}
-                                sx={{
-                                  color: "#FF9800",
-                                  "&:hover": { bgcolor: "#FFF3E0" }
-                                }}
-                              >
-                                <EditIcon sx={{ fontSize: 18 }} />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Delete" arrow>
-                              <IconButton
-                                size="small"
-                                onClick={() => handleDeleteClick(fee)}
-                                sx={{
-                                  color: "#f44336",
-                                  "&:hover": { bgcolor: "#FFEBEE" }
-                                }}
-                              >
-                                <DeleteIcon sx={{ fontSize: 18 }} />
-                              </IconButton>
-                            </Tooltip>
-                          </Box>
+                          {(() => {
+                            const isPaid = fee.stops?.some(stop => stop.isAnyStudentPaid === true);
+                            return (
+                              <Box sx={{ display: "flex", gap: 0.5, justifyContent: "center", alignItems: "center" }}>
+                                <Tooltip title="View Details" arrow>
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleViewDetails(fee)}
+                                    sx={{ color: "#1976d2", "&:hover": { bgcolor: "#E3F2FD" } }}
+                                  >
+                                    <VisibilityIcon sx={{ fontSize: 18 }} />
+                                  </IconButton>
+                                </Tooltip>
+                                {isPaid ? (
+                                  <Tooltip title="Cannot edit — a student has already paid this fee" arrow>
+                                    <Chip
+                                      label="Student Paid"
+                                      size="small"
+                                      sx={{
+                                        height: 22,
+                                        fontSize: 11,
+                                        fontWeight: 700,
+                                        bgcolor: "#FFF3E0",
+                                        color: "#E65100",
+                                        border: "1px solid #FFB74D",
+                                        borderRadius: "6px",
+                                        "& .MuiChip-label": { px: 1 },
+                                      }}
+                                    />
+                                  </Tooltip>
+                                ) : (
+                                  <>
+                                    <Tooltip title="Edit" arrow>
+                                      <IconButton
+                                        size="small"
+                                        onClick={() => handleEdit(fee.routeInformationId)}
+                                        sx={{ color: "#FF9800", "&:hover": { bgcolor: "#FFF3E0" } }}
+                                      >
+                                        <EditIcon sx={{ fontSize: 18 }} />
+                                      </IconButton>
+                                    </Tooltip>
+                                    <Tooltip title="Delete" arrow>
+                                      <IconButton
+                                        size="small"
+                                        onClick={() => handleDeleteClick(fee)}
+                                        sx={{ color: "#f44336", "&:hover": { bgcolor: "#FFEBEE" } }}
+                                      >
+                                        <DeleteIcon sx={{ fontSize: 18 }} />
+                                      </IconButton>
+                                    </Tooltip>
+                                  </>
+                                )}
+                              </Box>
+                            );
+                          })()}
                         </TableCell>
                       </TableRow>
-                    ))
+                    );
+                    })
                   )}
                 </TableBody>
               </Table>

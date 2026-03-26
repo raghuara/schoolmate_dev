@@ -507,6 +507,9 @@ export default function StudentMapping() {
         setIsLoading(true);
         try {
             const response = await axios.get(getAllStudentMappingCards, {
+                params:{
+                    Year:selectedYear,
+                },
                 headers: { Authorization: `Bearer ${token}` }
             });
 

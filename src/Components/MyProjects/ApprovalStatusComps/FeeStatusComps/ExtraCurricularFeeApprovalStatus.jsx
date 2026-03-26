@@ -1,4 +1,4 @@
-import { Autocomplete, Box, Button, createTheme, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Fab, Grid, IconButton, Paper, Popper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from "@mui/material";
+import { Autocomplete, Box, Button, Chip, createTheme, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Fab, Grid, IconButton, Paper, Popper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Tooltip, Typography } from "@mui/material";
 import axios from "axios";
 import React, { useEffect, useRef, useState } from "react";
 import Loader from "../../../Loader";
@@ -11,6 +11,11 @@ import { selectGrades } from "../../../../Redux/Slices/DropdownController";
 import { additionalFeeFetch, approvalStatusCheck, approvalStatusCheckAdditional, approvalStatusCheckEca, deleteAdditionalFeesStructure, deleteEcaFeesStructure, deleteSchoolFeesStructure, ecaFeeFetch } from "../../../../Api/Api";
 import NoData from '../../../../Images/Login/No Data.png';
 import DeleteIcon from '@mui/icons-material/Delete';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 
 
 export default function ExtraCurricularFeeApprovalStatus() {
@@ -49,6 +54,7 @@ export default function ExtraCurricularFeeApprovalStatus() {
   const [openReasonId, setOpenReasonId] = useState(null);
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
+  const [openActivityLogId, setOpenActivityLogId] = useState(null);
 
   const isExpanded = useSelector((state) => state.sidebar.isExpanded);
 
@@ -69,13 +75,40 @@ export default function ExtraCurricularFeeApprovalStatus() {
 
   const formatDate = (dateString) => {
     if (!dateString) return "-";
-
     const date = new Date(dateString);
     const day = String(date.getDate()).padStart(2, "0");
     const month = String(date.getMonth() + 1).padStart(2, "0");
     const year = date.getFullYear();
-
     return `${day}-${month}-${year}`;
+  };
+
+  const formatDateTime = (dateString) => {
+    if (!dateString) return "-";
+    const date = new Date(dateString);
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const year = date.getFullYear();
+    const hours = String(date.getHours()).padStart(2, "0");
+    const mins = String(date.getMinutes()).padStart(2, "0");
+    return `${day}/${month}/${year} at ${hours}:${mins}`;
+  };
+
+  const getRequestBadge = (requestFor) => {
+    if (requestFor === 'edit')
+      return { label: 'Requested for Edit', bgcolor: '#FFF7ED', color: '#C2410C', border: '1px solid #FED7AA' };
+    if (requestFor === 'delete')
+      return { label: 'Requested for Delete', bgcolor: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA' };
+    return { label: 'Requested for New', bgcolor: '#F0FDF4', color: '#16A34A', border: '1px solid #BBF7D0' };
+  };
+
+  // Parses "919160-DivyaSharma-admin" → { rollNumber, name, role }
+  const parseUser = (str) => {
+    if (!str) return null;
+    const parts = str.split("-");
+    if (parts.length >= 3) {
+      return { rollNumber: parts[0], name: parts[1], role: parts[2] };
+    }
+    return { rollNumber: "", name: str, role: "" };
   };
 
   useEffect(() => {
@@ -272,7 +305,7 @@ export default function ExtraCurricularFeeApprovalStatus() {
           <Grid container sx={{ pb: 2 }}>
             {
               details.map((item) => (
-                <Grid key={item} size={{ lg: 12, md: 8, }}>
+                <Grid key={item} size={{ lg: 12, md: 8, }} sx={{pt:2}}>
                   <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "end" }}>
                     <Box sx={{ display: "flex", alignItems: "end" }}>
 
@@ -492,47 +525,157 @@ export default function ExtraCurricularFeeApprovalStatus() {
                           />
                         </IconButton>
                       }
+
+                      {/* requestFor badge */}
+                      {item.requestFor && item.requestFor !== 'Approved' && (() => {
+                        const badge = getRequestBadge(item.requestFor);
+                        return (
+                          <Chip
+                            label={badge.label}
+                            size="small"
+                            sx={{
+                              ml: 1,
+                              height: 22,
+                              fontSize: '11.5px',
+                              fontWeight: 600,
+                              bgcolor: badge.bgcolor,
+                              color: badge.color,
+                              border: badge.border,
+                              borderRadius: '6px 6px 0 0',
+                            }}
+                          />
+                        );
+                      })()}
                     </Box>
 
-                    <Box
-                      sx={{
-                        color: "#000",
-                        fontSize: "13px",
-                        mt: 1,
-                        px: 3,
-                        py: 0.2,
-                        ml: "15px",
-                        fontWeight: 600,
-                        borderTopLeftRadius: "7px",
-                        borderTopRightRadius: "7px",
-                        width: "fit-content",
-                      }}
-                    >
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                      {(() => {
+                        const creator = parseUser(item.createdBy);
+                        return creator ? (
+                          <Typography sx={{ fontSize: "11px", color: "#777" }}>
+                            By <span style={{ fontWeight: 600, color: "#444" }}>{creator.name}</span>
+                            {" · "}{formatDate(item.createdOn)}
+                          </Typography>
+                        ) : null;
+                      })()}
+                      <Tooltip title="View activity log" placement="top">
+                        <IconButton
+                          size="small"
+                          onClick={() => setOpenActivityLogId(item.id)}
+                          sx={{ width: 22, height: 22, color: "#9CA3AF", "&:hover": { color: "#7B1FA2", backgroundColor: "#F3E5F5" } }}
+                        >
+                          <InfoOutlinedIcon sx={{ fontSize: 15 }} />
+                        </IconButton>
+                      </Tooltip>
 
-                      <Typography sx={{
-                        fontSize: "11px", fontWeight: 600, color: "#555",
-                      }} >
-                        <span style={{
-                          fontSize: "11px",
-                          color: "#777",
-                          fontWeight: 500,
-                        }}>  Created By : </span>  {item.createdBy}
-                        {/* <span style={{ color: "#666", fontWeight: 500 }}>
-                                            (Admin)
-                                        </span> */}
-                      </Typography>
-                      <Typography
-                        sx={{
-                          fontSize: "11px", fontWeight: 600, color: "#555",
-                        }}
+                      {/* Activity Log Dialog */}
+                      <Dialog
+                        open={openActivityLogId === item.id}
+                        onClose={() => setOpenActivityLogId(null)}
+                        maxWidth="xs"
+                        fullWidth
+                        PaperProps={{ sx: { borderRadius: "12px", overflow: "hidden" } }}
                       >
-                        <span style={{
-                          fontSize: "11px",
-                          color: "#777",
-                          fontWeight: 500,
-                        }}>  Created Time : </span>
-                        {item.createdOn}
-                      </Typography>
+                        <Box sx={{ px: 2.5, py: 1.8, backgroundColor: "#7B1FA2", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                            <InfoOutlinedIcon sx={{ color: "#fff", fontSize: 18 }} />
+                            <Typography sx={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>Activity Log</Typography>
+                          </Box>
+                          <IconButton size="small" onClick={() => setOpenActivityLogId(null)} sx={{ color: "rgba(255,255,255,0.8)", "&:hover": { color: "#fff" } }}>
+                            <CancelOutlinedIcon sx={{ fontSize: 18 }} />
+                          </IconButton>
+                        </Box>
+
+                        <DialogContent sx={{ px: 2.5, py: 2.5 }}>
+                          <Box sx={{ display: "flex", flexDirection: "column", gap: 0 }}>
+
+                            {/* Created */}
+                            {(() => {
+                              const u = parseUser(item.createdBy);
+                              return (
+                                <Box sx={{ display: "flex", gap: 1.5 }}>
+                                  <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                                    <Box sx={{ width: 32, height: 32, borderRadius: "50%", backgroundColor: "#E8F5E9", border: "2px solid #4CAF50", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                      <AddCircleOutlineIcon sx={{ fontSize: 16, color: "#4CAF50" }} />
+                                    </Box>
+                                    {(item.editedBy || ((item.approvedBy || item.approvedOnDate) && item.approvedBy !== item.createdBy)) && (
+                                      <Box sx={{ width: 2, flex: 1, minHeight: 24, backgroundColor: "#E5E7EB", my: 0.4 }} />
+                                    )}
+                                  </Box>
+                                  <Box sx={{ pb: 2 }}>
+                                    <Typography sx={{ fontSize: 12, fontWeight: 700, color: "#2E7D32" }}>Created</Typography>
+                                    {u && <Typography sx={{ fontSize: 13, fontWeight: 600, color: "#1F2937", mt: 0.2 }}>{u.name} <Chip label={u.role} size="small" sx={{ height: 16, fontSize: 10, backgroundColor: "#E8F5E9", color: "#2E7D32", fontWeight: 600, ml: 0.5 }} /></Typography>}
+                                    {u && <Typography sx={{ fontSize: 11, color: "#6B7280", mt: 0.2 }}>{u.rollNumber}</Typography>}
+                                    <Typography sx={{ fontSize: 11, color: "#9CA3AF", mt: 0.3 }}>{formatDateTime(item.createdOn)}</Typography>
+                                  </Box>
+                                </Box>
+                              );
+                            })()}
+
+                            {/* Edited — only if editedBy exists */}
+                            {item.editedBy && (() => {
+                              const u = parseUser(item.editedBy);
+                              return (
+                                <Box sx={{ display: "flex", gap: 1.5 }}>
+                                  <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                                    <Box sx={{ width: 32, height: 32, borderRadius: "50%", backgroundColor: "#FFF3E0", border: "2px solid #FF9800", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                      <EditOutlinedIcon sx={{ fontSize: 16, color: "#FF9800" }} />
+                                    </Box>
+                                    {(item.approvedBy || item.approvedOnDate) && item.approvedBy !== item.createdBy && (
+                                      <Box sx={{ width: 2, flex: 1, minHeight: 24, backgroundColor: "#E5E7EB", my: 0.4 }} />
+                                    )}
+                                  </Box>
+                                  <Box sx={{ pb: 2 }}>
+                                    <Typography sx={{ fontSize: 12, fontWeight: 700, color: "#E65100" }}>Edited</Typography>
+                                    {u && <Typography sx={{ fontSize: 13, fontWeight: 600, color: "#1F2937", mt: 0.2 }}>{u.name} <Chip label={u.role} size="small" sx={{ height: 16, fontSize: 10, backgroundColor: "#FFF3E0", color: "#E65100", fontWeight: 600, ml: 0.5 }} /></Typography>}
+                                    {u && <Typography sx={{ fontSize: 11, color: "#6B7280", mt: 0.2 }}>{u.rollNumber}</Typography>}
+                                    <Typography sx={{ fontSize: 11, color: "#9CA3AF", mt: 0.3 }}>{formatDateTime(item.editedOnDate)}</Typography>
+                                  </Box>
+                                </Box>
+                              );
+                            })()}
+
+                            {/* Approved / Declined */}
+                            {/* Hide Approved step if the same person who created also approved (e.g. superadmin self-approval) */}
+                            {(item.approvedBy || item.approvedOnDate) && item.approvedBy !== item.createdBy && (() => {
+                              const u = parseUser(item.approvedBy);
+                              const isDeclined = item.status === "Declined";
+                              return (
+                                <Box sx={{ display: "flex", gap: 1.5 }}>
+                                  <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                                    <Box sx={{ width: 32, height: 32, borderRadius: "50%", backgroundColor: isDeclined ? "#FFEBEE" : "#E8F5E9", border: `2px solid ${isDeclined ? "#f44336" : "#4CAF50"}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                      {isDeclined
+                                        ? <CancelOutlinedIcon sx={{ fontSize: 16, color: "#f44336" }} />
+                                        : <CheckCircleOutlineIcon sx={{ fontSize: 16, color: "#4CAF50" }} />
+                                      }
+                                    </Box>
+                                  </Box>
+                                  <Box sx={{ pb: 1 }}>
+                                    <Typography sx={{ fontSize: 12, fontWeight: 700, color: isDeclined ? "#C62828" : "#2E7D32" }}>
+                                      {isDeclined ? "Rejected" : "Approved"}
+                                    </Typography>
+                                    {u && <Typography sx={{ fontSize: 13, fontWeight: 600, color: "#1F2937", mt: 0.2 }}>{u.name} <Chip label={u.role} size="small" sx={{ height: 16, fontSize: 10, backgroundColor: isDeclined ? "#FFEBEE" : "#E8F5E9", color: isDeclined ? "#C62828" : "#2E7D32", fontWeight: 600, ml: 0.5 }} /></Typography>}
+                                    {u && <Typography sx={{ fontSize: 11, color: "#6B7280", mt: 0.2 }}>{u.rollNumber}</Typography>}
+                                    <Typography sx={{ fontSize: 11, color: "#9CA3AF", mt: 0.3 }}>{formatDateTime(item.approvedOnDate)}</Typography>
+                                  </Box>
+                                </Box>
+                              );
+                            })()}
+
+                          </Box>
+                        </DialogContent>
+
+                        <DialogActions sx={{ px: 2.5, py: 1.5, borderTop: "1px solid #F3F4F6" }}>
+                          <Button
+                            onClick={() => setOpenActivityLogId(null)}
+                            variant="outlined"
+                            size="small"
+                            sx={{ textTransform: "none", borderRadius: "8px", fontWeight: 600, fontSize: 12, borderColor: "#D1D5DB", color: "#6B7280", "&:hover": { backgroundColor: "#F9FAFB" } }}
+                          >
+                            Close
+                          </Button>
+                        </DialogActions>
+                      </Dialog>
                     </Box>
                   </Box>
                   <Box p={2} sx={{ backgroundColor: "#fff", border: "1px solid #E8DDEA", borderRadius: "5px" }}>

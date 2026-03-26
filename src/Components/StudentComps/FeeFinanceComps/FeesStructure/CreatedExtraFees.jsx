@@ -57,7 +57,6 @@ export default function CreatedExtraFees() {
   const [editFees, setEditFees] = useState({
     feeName: '',
     remarks: '',
-    paymentStatus: null,
     amount: '',
     dueDate: null,
   })
@@ -88,13 +87,12 @@ export default function CreatedExtraFees() {
     }
   }
 
-  // ── Edit ──────────────────────────────────────────────────────────────────
+
   const handleEdit = (item) => {
     setEditActivity(item)
     setEditFees({
       feeName: item.feeName || '',
       remarks: item.remarks || '',
-      paymentStatus: item.paid === 'Y' ? 'Paid' : 'Unpaid',
       amount: item.feeAmount !== undefined ? String(item.feeAmount) : '',
       dueDate: item.dueDate ? dayjs(item.dueDate) : null,
     })
@@ -108,9 +106,6 @@ export default function CreatedExtraFees() {
     if (!editFees.remarks.trim()) {
       setMessage('Remarks are required'); setOpen(true); setColor(false); setStatus(false); return
     }
-    if (!editFees.paymentStatus) {
-      setMessage('Payment Status is required'); setOpen(true); setColor(false); setStatus(false); return
-    }
     if (!editFees.amount) {
       setMessage('Fee Amount is required'); setOpen(true); setColor(false); setStatus(false); return
     }
@@ -122,14 +117,14 @@ export default function CreatedExtraFees() {
         year: selectedYear,
         feeName: editFees.feeName,
         remarks: editFees.remarks,
-        paid: editFees.paymentStatus === 'Paid' ? 'Y' : 'N',
+        paid: 'Y',
         feeAmount: Number(editFees.amount),
         dueDate: editFees.dueDate ? dayjs(editFees.dueDate).format('YYYY-MM-DD') : null,
       }
       await axios.put(updateAdditionalFee, sendData, {
         headers: { Authorization: `Bearer ${token}` },
       })
-      setMessage('Additional Fee updated successfully')
+      setMessage(userType === 'superadmin' ? 'Additional Fee updated successfully' : 'Requested successfully')
       setOpen(true); setColor(true); setStatus(true)
       setEditOpen(false)
       getAdditionalFees()
@@ -141,7 +136,6 @@ export default function CreatedExtraFees() {
     }
   }
 
-  // ── Delete ────────────────────────────────────────────────────────────────
   const handleDeleteClick = (item) => {
     setDeleteTarget(item)
     setDeleteOpen(true)
@@ -158,7 +152,7 @@ export default function CreatedExtraFees() {
         },
         headers: { Authorization: `Bearer ${token}` },
       })
-      setMessage('Additional Fee deleted successfully')
+      setMessage(userType === 'superadmin' ? 'Additional Fee deleted successfully' : 'Requested successfully')
       setOpen(true); setColor(true); setStatus(true)
       setDeleteOpen(false); setDeleteTarget(null)
       getAdditionalFees()
@@ -171,6 +165,7 @@ export default function CreatedExtraFees() {
   }
 
   const canEditActivity = (item) => {
+    if (item.isAnyStudentPaid === true) return false
     if (item.isEditable === false) return false
     if (typeof item.paidStudents === 'number') return item.paidStudents === 0
     return true
@@ -373,23 +368,6 @@ export default function CreatedExtraFees() {
                 </Grid>
 
                 <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
-                  <Typography sx={{ mb: 0.5, fontWeight: '600' }}>Payment Status</Typography>
-                  <Autocomplete
-                    size="small"
-                    options={['Paid', 'Unpaid']}
-                    value={editFees.paymentStatus}
-                    onChange={(e, newValue) => setEditFees((prev) => ({ ...prev, paymentStatus: newValue }))}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        variant="outlined"
-                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '5px', fontSize: 14 }, width: '100%' }}
-                      />
-                    )}
-                  />
-                </Grid>
-
-                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
                   <Typography sx={{ mb: 0.5, fontWeight: '600' }}>Fee Amount</Typography>
                   <TextField
                     fullWidth
@@ -479,9 +457,14 @@ export default function CreatedExtraFees() {
               </Box>
             </Box>
             <Box sx={{ p: 3 }}>
-              <Typography sx={{ fontSize: '17px', fontWeight: 600, color: '#111827', mb: 1 }}>Delete Additional Fee?</Typography>
+              <Typography sx={{ fontSize: '17px', fontWeight: 600, color: '#111827', mb: 1 }}>
+                {userType === 'superadmin' ? 'Delete Additional Fee?' : 'Request for Delete?'}
+              </Typography>
               <Typography sx={{ fontSize: '13px', color: '#6B7280', mb: 3, lineHeight: 1.6 }}>
-                Are you sure you want to delete <strong>"{deleteTarget?.feeName}"</strong>?<br />This action cannot be undone.
+                {userType === 'superadmin'
+                  ? <>Are you sure you want to delete <strong>"{deleteTarget?.feeName}"</strong>?<br />This action cannot be undone.</>
+                  : <>Are you sure you want to send a delete request for <strong>"{deleteTarget?.feeName}"</strong>?<br />This will be sent for admin approval.</>
+                }
               </Typography>
               <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2 }}>
                 <Button
@@ -496,7 +479,10 @@ export default function CreatedExtraFees() {
                   disabled={isLoading}
                   sx={{ textTransform: 'none', backgroundColor: '#DC2626', color: '#fff', fontWeight: 500, borderRadius: '30px', px: 3, py: 0.8, boxShadow: 'none', '&:hover': { backgroundColor: '#B91C1C' } }}
                 >
-                  {isLoading ? 'Deleting...' : 'Delete'}
+                  {isLoading
+                    ? (userType === 'superadmin' ? 'Deleting...' : 'Sending...')
+                    : (userType === 'superadmin' ? 'Delete' : 'Send Request')
+                  }
                 </Button>
               </Box>
             </Box>

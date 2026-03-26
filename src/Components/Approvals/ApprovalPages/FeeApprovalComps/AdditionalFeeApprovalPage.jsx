@@ -1,4 +1,4 @@
-import { Autocomplete, Box, Button, Card, createTheme, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Fab, Grid, IconButton, Popper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from "@mui/material";
+import { Autocomplete, Box, Button, Card, Chip, createTheme, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Fab, Grid, IconButton, Popper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from "@mui/material";
 import axios from "axios";
 import React, { useEffect, useRef, useState } from "react";
 import Loader from "../../../Loader";
@@ -74,6 +74,14 @@ export default function AdditionalFeeApprovalPage() {
     const toInputDate = (dateString) => {
         if (!dateString) return "";
         return dateString.split("T")[0];
+    };
+
+    const getRequestBadge = (requestFor) => {
+        if (requestFor === 'edit')
+            return { label: 'Requested for Edit', bgcolor: '#FFF7ED', color: '#C2410C', border: '1px solid #FED7AA' };
+        if (requestFor === 'delete')
+            return { label: 'Requested for Delete', bgcolor: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA' };
+        return { label: 'Requested for New', bgcolor: '#F0FDF4', color: '#16A34A', border: '1px solid #BBF7D0' };
     };
 
 
@@ -299,39 +307,25 @@ export default function AdditionalFeeApprovalPage() {
                                         >
                                             {item.feeName}
                                         </Box>
-                                        <Box
-                                            sx={{
-                                                display: "flex",
-                                                alignItems: "center",
-                                                gap: 1,
-                                                ml: 1.5,
-                                                px: 1.6,
-                                                py: "3px",
-                                                borderRadius: "6px",
-                                                backgroundColor: "#EEF4FF",
-                                                border: "1px solid #C7D7FE",
-                                            }}
-                                        >
-                                            <Typography
-                                                sx={{
-                                                    fontSize: "11.5px",
-                                                    color: "#4B5563",
-                                                    fontWeight: 500,
-                                                }}
-                                            >
-                                                Requested for
-                                            </Typography>
-
-                                            <Typography
-                                                sx={{
-                                                    fontSize: "12px",
-                                                    fontWeight: 700,
-                                                    color: "#1D4ED8",
-                                                }}
-                                            >
-                                                New
-                                            </Typography>
-                                        </Box>
+                                        {item.requestFor && item.requestFor !== 'Approved' && (() => {
+                                            const badge = getRequestBadge(item.requestFor);
+                                            return (
+                                                <Chip
+                                                    label={badge.label}
+                                                    size="small"
+                                                    sx={{
+                                                        ml: 1.5,
+                                                        height: 22,
+                                                        fontSize: '11.5px',
+                                                        fontWeight: 600,
+                                                        bgcolor: badge.bgcolor,
+                                                        color: badge.color,
+                                                        border: badge.border,
+                                                        borderRadius: '6px',
+                                                    }}
+                                                />
+                                            );
+                                        })()}
 
 
                                     </Box>

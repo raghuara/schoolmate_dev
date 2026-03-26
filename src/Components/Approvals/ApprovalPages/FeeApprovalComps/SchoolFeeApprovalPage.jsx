@@ -234,14 +234,8 @@ export default function SchoolFeeApprovalPage() {
                         </IconButton>
                         <Typography sx={{ fontWeight: "600", fontSize: "20px" }} >School Fee Approval</Typography>
                     </Grid>
-                    <Grid
-                        size={{ xs: 6, sm: 6, md: 3, lg: 3 }}
-                        sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "end",
-                        }}
-                    >
+                    <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }} sx={{ display: "flex", alignItems: "center", justifyContent: "end", gap: 1.5, py: 1 }}>
+
                         <Autocomplete
                             disablePortal
                             options={grades}
@@ -280,6 +274,7 @@ export default function SchoolFeeApprovalPage() {
                             renderInput={(params) => (
                                 <TextField
                                     {...params}
+                                    placeholder="Select Class"
                                     size="small"
                                     sx={{
                                         "& .MuiInputBase-root": {
@@ -295,62 +290,26 @@ export default function SchoolFeeApprovalPage() {
                             )}
                         />
 
-                    </Grid>
-                    <Grid
-                        size={{ xs: 6, sm: 6, md: 3, lg: 3 }}
-                        sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "flex-end",
-                            gap: 1.5,
-                            borderRadius: "8px",
-                            px: 2,
-                            py: 1,
-                        }}
-                    >
-                        <Typography
-                            sx={{
-                                fontSize: "14px",
-                                fontWeight: 600,
-                                color: "#555",
-                                whiteSpace: "nowrap",
-                            }}
-                        >
-                            Academic Year
-                        </Typography>
 
                         <Autocomplete
                             size="small"
                             options={academicYears}
+                            sx={{ width: "170px" }}
                             value={selectedYear}
                             onChange={(e, newValue) => setSelectedYear(newValue)}
-                            sx={{ width: 180 }}
                             renderInput={(params) => (
                                 <TextField
+                                    placeholder="Select Academic Year"
                                     {...params}
-                                    placeholder="Select"
                                     variant="outlined"
                                     sx={{
-                                        "& .MuiOutlinedInput-root": {
-                                            height: 36,
-                                            fontSize: "14px",
-                                            fontWeight: 600,
-                                            borderRadius: "6px",
-                                            backgroundColor: "#fafafa",
-                                        },
-                                        "& .MuiOutlinedInput-notchedOutline": {
-                                            borderColor: "#ddd",
-                                        },
-                                        "&:hover .MuiOutlinedInput-notchedOutline": {
-                                            borderColor: "#bbb",
-                                        },
-                                        "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                                            borderColor: "#1976d2",
-                                        },
+                                        "& .MuiOutlinedInput-root": { borderRadius: "5px", fontSize: 14, height: 35 },
+                                        "& .MuiOutlinedInput-input": { textAlign: "center", fontWeight: "600" },
                                     }}
                                 />
                             )}
                         />
+
                     </Grid>
                 </Grid>
             </Box>

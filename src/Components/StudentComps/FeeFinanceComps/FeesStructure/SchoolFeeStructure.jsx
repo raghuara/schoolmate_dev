@@ -48,6 +48,7 @@ export default function SchoolFeeStructure() {
   const currentAcademicYear = `${currentYear}-${currentYear + 1}`;
   const [selectedYear, setSelectedYear] = useState(currentAcademicYear);
   const [hasApprovedFees, setHasApprovedFees] = useState(false);
+  const [isAnyStudentPaid, setIsAnyStudentPaid] = useState(false);
 
   const isExpanded = useSelector((state) => state.sidebar.isExpanded);
   const academicYears = [
@@ -100,6 +101,7 @@ export default function SchoolFeeStructure() {
       const backendFees = data?.fees || [];
 
       setPrimeSchoolFeesID(data?.primeSchoolFeesID || null);
+      setIsAnyStudentPaid(data?.isAnyStudentPaid === true);
 
       setGradeFees((prev) => {
         const updated = { ...prev };
@@ -119,11 +121,27 @@ export default function SchoolFeeStructure() {
       setHasApprovedFees(backendFees.length > 0);
       if (!backendFees.length) {
         setPrimeSchoolFeesID(null);
+        setIsAnyStudentPaid(false);
       }
 
     } catch (err) {
+      // API returns 400/404 when no fee structure exists yet — reset to blank editable form
       setHasApprovedFees(false);
-      console.log("Failed to save fee structure.")
+      setPrimeSchoolFeesID(null);
+      setIsAnyStudentPaid(false);
+      setGradeFees((prev) => ({
+        ...prev,
+        [gradeSign]: [
+          {
+            feeName: "Admission Fee *",
+            desc: "",
+            amount: "",
+            dueDate: null,
+            mandatory: true,
+            openCal: false,
+          },
+        ],
+      }));
     } finally {
       setIsLoading(false);
     }
@@ -280,7 +298,7 @@ export default function SchoolFeeStructure() {
       setOpen(true);
       setColor(true);
       setStatus(true);
-      setMessage("Data Added successfully");
+      setMessage(userType === 'superadmin' ? 'School fee created successfully' : 'Requested successfully');
       await fetchFeesForGrade(selectedGrade);
 
     } catch (error) {
@@ -344,7 +362,7 @@ export default function SchoolFeeStructure() {
       setOpen(true);
       setColor(true);
       setStatus(true);
-      setMessage("Data Added successfully");
+      setMessage(userType === 'superadmin' ? 'School fee updated successfully' : 'Requested successfully');
       await fetchFeesForGrade(selectedGrade);
 
     } catch (error) {
@@ -477,15 +495,17 @@ export default function SchoolFeeStructure() {
               return (
                 tabIndex === idx && (
                   <Box key={g.sign} sx={{ position: "relative", width: "100%", mx: "auto" }}>
-                    <Box sx={{ position: "absolute", left: "-33px", bottom: "39px", backgroundColor: "#F3E5F5", borderTopLeftRadius: "20px", borderBottomLeftRadius: "20px", }}>
-                      <IconButton
-                        onClick={() => handleAddFee(g.sign)}
-                        sx={{ width: "33px", height: "33px" }}
-                      >
-                        <AddIcon style={{ fontSize: "18px", color: "#8600BB", marginLeft: "3px" }} />
-                      </IconButton>
-                    </Box>
-                    {fees.length > 1 && (
+                    {!isAnyStudentPaid && (
+                      <Box sx={{ position: "absolute", left: "-33px", bottom: "39px", backgroundColor: "#F3E5F5", borderTopLeftRadius: "20px", borderBottomLeftRadius: "20px", }}>
+                        <IconButton
+                          onClick={() => handleAddFee(g.sign)}
+                          sx={{ width: "33px", height: "33px" }}
+                        >
+                          <AddIcon style={{ fontSize: "18px", color: "#8600BB", marginLeft: "3px" }} />
+                        </IconButton>
+                      </Box>
+                    )}
+                    {!isAnyStudentPaid && fees.length > 1 && (
                       <Box sx={{ position: "absolute", right: "-33px", bottom: "39px", backgroundColor: "#F3E5F5", borderTopRightRadius: "20px", borderBottomRightRadius: "20px", }}>
                         <IconButton
                           onClick={() => handleRemoveFee(g.sign)}
@@ -558,7 +578,7 @@ export default function SchoolFeeStructure() {
                                     onChange={(e) =>
                                       handleChange(g.sign, i, "feeName", e.target.value)
                                     }
-                                    disabled={fee.mandatory}
+                                    disabled={fee.mandatory || isAnyStudentPaid}
                                     variant="outlined"
                                     sx={{
                                       "& .MuiOutlinedInput-root": {
@@ -584,6 +604,7 @@ export default function SchoolFeeStructure() {
                                     onChange={(e) =>
                                       handleChange(g.sign, i, "desc", e.target.value)
                                     }
+                                    disabled={isAnyStudentPaid}
                                     variant="outlined"
                                     multiline
                                     rows={2}
@@ -607,6 +628,7 @@ export default function SchoolFeeStructure() {
                                         handleChange(g.sign, i, "amount", value);
                                       }
                                     }}
+                                    disabled={isAnyStudentPaid}
                                     variant="outlined"
                                     slotProps={{
                                       root: {
@@ -677,41 +699,43 @@ export default function SchoolFeeStructure() {
                                       }}
                                     />
 
-                                    <Button sx={{
-                                      width: '150px',
-                                      height: '30px',
-                                      backgroundColor: '#F3E5F5',
-                                      textTransform: "none",
-                                      color: "#8600BB",
-
-                                    }}
-                                      onClick={() =>
-                                        setGradeFees((prev) => {
-                                          const updated = { ...prev };
-                                          updated[g.sign][i].openCal = true;
-                                          return updated;
-                                        })
-                                      }>
-                                      {fee.dueDate ? formatDate(fee.dueDate) : "Add Due Date"}
-                                      <CalendarMonthIcon style={{ color: "#8600BB", marginLeft: "10px", fontSize: '20px' }} />
-                                    </Button>
-                                    {fee.dueDate ? (
-                                      <Tooltip title="Clear Due Date">
-                                        <IconButton sx={{
-                                          width: '33px',
-                                          height: '33px',
-                                          transition: 'color 0.3s, background-color 0.3s',
-                                          '&:hover': {
-                                            color: '#fff',
-                                            backgroundColor: 'rgba(0,0,0,0.1)',
-                                          },
-                                        }} onClick={() => handleClearDate(g.sign, i)} >
-                                          <HighlightOffIcon style={{ color: "red" }} />
-                                        </IconButton>
-                                      </Tooltip>
+                                    {isAnyStudentPaid ? (
+                                      <Typography sx={{ fontSize: 13, color: "#555", fontWeight: 500 }}>
+                                        {fee.dueDate ? formatDate(fee.dueDate) : "-"}
+                                      </Typography>
                                     ) : (
-                                      <Box sx={{ width: "33px" }}>
-                                      </Box>
+                                      <>
+                                        <Button sx={{
+                                          width: '150px',
+                                          height: '30px',
+                                          backgroundColor: '#F3E5F5',
+                                          textTransform: "none",
+                                          color: "#8600BB",
+                                        }}
+                                          onClick={() =>
+                                            setGradeFees((prev) => {
+                                              const updated = { ...prev };
+                                              updated[g.sign][i].openCal = true;
+                                              return updated;
+                                            })
+                                          }>
+                                          {fee.dueDate ? formatDate(fee.dueDate) : "Add Due Date"}
+                                          <CalendarMonthIcon style={{ color: "#8600BB", marginLeft: "10px", fontSize: '20px' }} />
+                                        </Button>
+                                        {fee.dueDate ? (
+                                          <Tooltip title="Clear Due Date">
+                                            <IconButton sx={{
+                                              width: '33px', height: '33px',
+                                              transition: 'color 0.3s, background-color 0.3s',
+                                              '&:hover': { color: '#fff', backgroundColor: 'rgba(0,0,0,0.1)' },
+                                            }} onClick={() => handleClearDate(g.sign, i)}>
+                                              <HighlightOffIcon style={{ color: "red" }} />
+                                            </IconButton>
+                                          </Tooltip>
+                                        ) : (
+                                          <Box sx={{ width: "33px" }} />
+                                        )}
+                                      </>
                                     )}
                                   </LocalizationProvider>
                                 </TableCell>
@@ -759,18 +783,20 @@ export default function SchoolFeeStructure() {
       </Box>
 
       <Box sx={{ display: "flex", justifyContent: "center", pb: 2 }}>
-        <Button
-          onClick={handleResetAll}
-          sx={{
-            border: "1px solid #000",
-            borderRadius: "30px",
-            textTransform: "none",
-            width: "100px",
-            height: "30px",
-            color: "#000"
-          }}>
-          Reset All
-        </Button>
+        {!isAnyStudentPaid && (
+          <Button
+            onClick={handleResetAll}
+            sx={{
+              border: "1px solid #000",
+              borderRadius: "30px",
+              textTransform: "none",
+              width: "100px",
+              height: "30px",
+              color: "#000"
+            }}>
+            Reset All
+          </Button>
+        )}
 
         {/*  {(userType === "superadmin" || userType === "admin") && (
           <Button
@@ -792,7 +818,7 @@ export default function SchoolFeeStructure() {
               : `Request Approval`}
           </Button>
         )} */}
-        {(userType === "superadmin" || userType === "admin") && (
+        {(userType === "superadmin" || userType === "admin") && !isAnyStudentPaid && (
           <Button
             onClick={hasApprovedFees ? handleUpdate : handleSubmit}
             sx={{

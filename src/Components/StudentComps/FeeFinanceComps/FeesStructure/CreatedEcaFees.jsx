@@ -198,7 +198,7 @@ export default function CreatedEcaFees() {
         },
         headers: { Authorization: `Bearer ${token}` },
       })
-      setMessage('ECA Fee deleted successfully')
+      setMessage(userType === 'superadmin' ? 'ECA Fee deleted successfully' : 'Delete request sent successfully')
       setOpen(true); setColor(true); setStatus(true)
       setDeleteOpen(false); setDeleteTarget(null)
       getEcaFees()
@@ -212,6 +212,7 @@ export default function CreatedEcaFees() {
 
   // Edit is allowed only when NO student has paid yet
   const canEditActivity = (activity) => {
+    if (activity.isAnyStudentPaid === true) return false
     if (activity.isEditable === false) return false
     if (typeof activity.paidStudents === 'number') {
       return activity.paidStudents === 0
@@ -301,9 +302,8 @@ export default function CreatedEcaFees() {
                     {activity.activityCategory} - {activity.activityName}
                   </Box>
 
-                  {!activity.isAnyStudentPaid && 
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: '10px' }}>
-                    <Tooltip title={canEditActivity(activity) ? 'Edit Activity' : 'Cannot edit — all students have paid'} arrow>
+                    <Tooltip title={canEditActivity(activity) ? 'Edit Activity' : 'Cannot edit — a student has already paid'} arrow>
                       <span>
                         <IconButton
                           onClick={() => canEditActivity(activity) && handleEdit(activity)}
@@ -319,16 +319,23 @@ export default function CreatedEcaFees() {
                         </IconButton>
                       </span>
                     </Tooltip>
-                    <Tooltip title="Delete Activity">
-                      <IconButton
-                        onClick={() => handleDeleteClick(activity)}
-                        sx={{ width: 30, height: 30, border: '1px solid #e0e0e0', bgcolor: '#f5f5f5', '&:hover': { bgcolor: '#FFEBEE', borderColor: '#f44336' } }}
-                      >
-                        <DeleteIcon sx={{ fontSize: 16, color: '#f44336' }} />
-                      </IconButton>
+                    <Tooltip title={activity.isAnyStudentPaid ? 'Cannot delete — a student has already paid' : (userType === 'superadmin' ? 'Delete Activity' : 'Request for Delete')} arrow>
+                      <span>
+                        <IconButton
+                          onClick={() => handleDeleteClick(activity)}
+                          disabled={activity.isAnyStudentPaid === true}
+                          sx={{
+                            width: 30, height: 30, border: '1px solid #e0e0e0',
+                            bgcolor: activity.isAnyStudentPaid ? '#f0f0f0' : '#f5f5f5',
+                            '&:hover': activity.isAnyStudentPaid ? {} : { bgcolor: '#FFEBEE', borderColor: '#f44336' },
+                            '&.Mui-disabled': { opacity: 0.45 },
+                          }}
+                        >
+                          <DeleteIcon sx={{ fontSize: 16, color: activity.isAnyStudentPaid ? '#bbb' : '#f44336' }} />
+                        </IconButton>
+                      </span>
                     </Tooltip>
                   </Box>
-                        }
                   
                 </Box>
 
@@ -547,9 +554,14 @@ export default function CreatedEcaFees() {
               </Box>
             </Box>
             <Box sx={{ p: 3 }}>
-              <Typography sx={{ fontSize: '17px', fontWeight: 600, color: '#111827', mb: 1 }}>Delete ECA Fee?</Typography>
+              <Typography sx={{ fontSize: '17px', fontWeight: 600, color: '#111827', mb: 1 }}>
+                {userType === 'superadmin' ? 'Delete ECA Fee?' : 'Request for Delete?'}
+              </Typography>
               <Typography sx={{ fontSize: '13px', color: '#6B7280', mb: 3, lineHeight: 1.6 }}>
-                Are you sure you want to delete <strong>"{deleteTarget?.activityName}"</strong>?<br />This action cannot be undone.
+                {userType === 'superadmin'
+                  ? <>Are you sure you want to delete <strong>"{deleteTarget?.activityName}"</strong>?<br />This action cannot be undone.</>
+                  : <>Are you sure you want to send a delete request for <strong>"{deleteTarget?.activityName}"</strong>?<br />This will be sent for admin approval.</>
+                }
               </Typography>
               <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2 }}>
                 <Button
@@ -564,7 +576,10 @@ export default function CreatedEcaFees() {
                   disabled={isLoading}
                   sx={{ textTransform: 'none', backgroundColor: '#DC2626', color: '#fff', fontWeight: 500, borderRadius: '30px', px: 3, py: 0.8, boxShadow: 'none', '&:hover': { backgroundColor: '#B91C1C' } }}
                 >
-                  {isLoading ? 'Deleting...' : 'Delete'}
+                  {isLoading
+                    ? (userType === 'superadmin' ? 'Deleting...' : 'Sending...')
+                    : (userType === 'superadmin' ? 'Delete' : 'Send Request')
+                  }
                 </Button>
               </Box>
             </Box>
