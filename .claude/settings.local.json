@@ -8,7 +8,9 @@
       "Read(//c/Users/demom/React Projects/schoolmate_dev/**)",
       "Bash(find:*)",
       "Bash(node -e:*)",
-      "Bash(npx react-scripts:*)"
+      "Bash(npx react-scripts:*)",
+      "Bash(npx -y acorn-jsx --ecma2020 src/Components/StudentComps/FeeFinanceComps/ExpenseComps/ExpensePage.jsx)",
+      "Bash(ipconfig)"
     ]
   }
 }

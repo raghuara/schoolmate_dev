@@ -28,6 +28,7 @@ import PeopleIcon from '@mui/icons-material/People';
 import DownloadIcon from '@mui/icons-material/Download';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import axios from 'axios';
+import * as XLSX from 'xlsx';
 import { useSelector } from 'react-redux';
 import { selectGrades } from '../../../../Redux/Slices/DropdownController';
 import { feeReport } from '../../../../Api/Api';
@@ -111,6 +112,30 @@ export default function FeeReportTab() {
     };
 
     const rows = reportData?.rows || [];
+
+    const handleExport = () => {
+        if (rows.length === 0) {
+            setMessage('No data to export'); setOpen(true); setColor(false); setStatus(false);
+            return;
+        }
+        const exportData = rows.map((row) => ({
+            'S.No': row.sNo,
+            'Roll Number': row.rollNumber,
+            'Student Name': row.studentName,
+            'Grade': row.grade,
+            'Section': row.section || '',
+            'Fee Type': row.feeType,
+            'Fee Amount': row.feeAmount,
+            'Paid Amount': row.paidAmount,
+            'Pending Amount': row.pendingAmount,
+            'Due Date': row.dueDate || '',
+            'Status': row.status,
+        }));
+        const ws = XLSX.utils.json_to_sheet(exportData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Fee Report');
+        XLSX.writeFile(wb, `Fee_Report_${selectedFeeType.replace(/\s/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`);
+    };
 
     const summaryStats = [
         {
@@ -491,6 +516,7 @@ export default function FeeReportTab() {
                                 size="small"
                                 variant="outlined"
                                 startIcon={<DownloadIcon />}
+                                onClick={handleExport}
                                 sx={{
                                     textTransform: 'none', fontSize: '12px', fontWeight: '600',
                                     borderColor: '#0891B2', color: '#0891B2', borderRadius: '8px',

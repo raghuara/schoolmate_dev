@@ -12,11 +12,20 @@ const firebaseConfig = {
   };
   
 const app = initializeApp(firebaseConfig);
-const messaging = getMessaging(app);
+
+let messaging = null;
+try {
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator && 'Notification' in window) {
+        messaging = getMessaging(app);
+    }
+} catch (error) {
+    console.warn("Firebase Messaging not supported in this browser:", error.message);
+}
 
 export { messaging }
 
 export const generateToken = async () => {
+    if (!messaging) return;
     try {
         const permission = await Notification.requestPermission();
         console.log("Notification permission:", permission);

@@ -14,6 +14,7 @@ import RemoveIcon from '@mui/icons-material/Remove';
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import HighlightOffIcon from '@mui/icons-material/HighlightOff';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import dayjs from 'dayjs';
 import { getFees, schoolFee, updateSchoolFee } from '../../../../Api/Api';
 import axios from 'axios';
@@ -443,9 +444,33 @@ export default function SchoolFeeStructure() {
         </Box>
         <Box sx={{ px: 2, pb: 2, pt: "68px" }}>
           <Box sx={{ border: "1px solid #CCC", p: 3, borderRadius: "10px" }}>
-            <Typography fontWeight={600} mb={1}>
-              Choose Grade
-            </Typography>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+              <Typography fontWeight={600}>Choose Grade</Typography>
+              {isAnyStudentPaid && (
+                <Tooltip
+                  title="One or more students have already paid fees. Editing is disabled for this grade."
+                  arrow
+                  placement="right"
+                >
+                  <Box sx={{
+                    width: 20,
+                    height: 20,
+                    borderRadius: "50%",
+                    bgcolor: "#FFF8E1",
+                    border: "1.5px solid #FFD54F",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                    flexShrink: 0,
+                    transition: "border-color 0.2s",
+                    "&:hover": { borderColor: "#F9A825" },
+                  }}>
+                    <WarningAmberIcon sx={{ fontSize: 12, color: "#F9A825" }} />
+                  </Box>
+                </Tooltip>
+              )}
+            </Box>
 
             <Grid container spacing={4}>
               {grades.map((g, index) => (
@@ -588,10 +613,10 @@ export default function SchoolFeeStructure() {
                                         ...(fee.mandatory && {
                                           fontWeight: 600,
                                           color: "#000",
-                                          "& .MuiInputBase-input.Mui-disabled": {
-                                            WebkitTextFillColor: "#000",
-                                          },
                                         }),
+                                        "& .MuiInputBase-input.Mui-disabled": {
+                                          WebkitTextFillColor: "#000",
+                                        },
                                       },
                                     }}
                                   />
@@ -613,6 +638,9 @@ export default function SchoolFeeStructure() {
                                         borderRadius: "5px",
                                         fontSize: 14,
                                         padding: "8px",
+                                        "& .MuiInputBase-input.Mui-disabled": {
+                                          WebkitTextFillColor: "#000",
+                                        },
                                       },
                                     }}
                                   />
@@ -630,6 +658,11 @@ export default function SchoolFeeStructure() {
                                     }}
                                     disabled={isAnyStudentPaid}
                                     variant="outlined"
+                                    sx={{
+                                      "& .MuiInputBase-input.Mui-disabled": {
+                                        WebkitTextFillColor: "#000",
+                                      },
+                                    }}
                                     slotProps={{
                                       root: {
                                         sx: {
@@ -646,6 +679,7 @@ export default function SchoolFeeStructure() {
                                           padding: "0 8px",
                                           WebkitAppearance: "textfield",
                                           MozAppearance: "textfield",
+                                          WebkitTextFillColor: "#000",
                                         },
                                       },
                                       maxLength: 8,

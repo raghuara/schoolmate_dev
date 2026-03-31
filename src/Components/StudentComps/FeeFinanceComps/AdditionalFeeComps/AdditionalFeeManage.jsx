@@ -333,12 +333,13 @@ export default function AdditionalFeeManage() {
                                             <Typography fontSize={13} fontWeight={600} color="#555">
                                                 Remarks
                                             </Typography>
+                                            
                                             <Typography
                                                 fontSize={13}
                                                 fontWeight={500}
                                                 color={"#333"}
                                             >
-                                                {activity.feeName}
+                                                {activity.remarks}
                                             </Typography>
                                         </Box>
                                         <Box

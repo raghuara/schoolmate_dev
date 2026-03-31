@@ -294,22 +294,30 @@ export default function ExtraCurricularManage() {
                                                 mb: 3,
                                             }}
                                         >
-                                            {Object.entries(activity.grades || {}).map(([gradeKey, amount]) => (
+                                            {Object.entries(activity.grades || {}).filter(([, amount]) => amount !== null).map(([gradeKey, amount]) => {
+                                                const isFree = amount === 0;
+                                                return (
                                                     <Box key={gradeKey} textAlign="center">
-                                                        <Typography fontSize={11}>{gradeKey.toUpperCase()}</Typography>
+                                                        <Typography fontSize={11} sx={{ color: isFree ? "#2E7D32" : "#333", fontWeight: isFree ? 600 : 400 }}>
+                                                            {gradeKey.toUpperCase()}
+                                                        </Typography>
                                                         <Box
                                                             sx={{
-                                                                border: "1px solid #dedede",
+                                                                border: `1px solid ${isFree ? "#A5D6A7" : "#dedede"}`,
                                                                 borderRadius: 50,
                                                                 py: 0.6,
                                                                 px: 1.6,
                                                                 mt: 0.5,
+                                                                bgcolor: isFree ? "#E8F5E9" : "transparent",
                                                             }}
                                                         >
-                                                            <Typography fontSize={10}> ₹ {amount}</Typography>
+                                                            <Typography fontSize={10} sx={{ color: isFree ? "#2E7D32" : "inherit", fontWeight: isFree ? 600 : 400 }}>
+                                                                {isFree ? "Free" : `₹ ${amount}`}
+                                                            </Typography>
                                                         </Box>
                                                     </Box>
-                                                ))}
+                                                );
+                                            })}
                                         </Box>
                                     ) : (
 

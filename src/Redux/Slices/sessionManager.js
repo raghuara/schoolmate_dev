@@ -1,12 +1,16 @@
-export const generateSessionId = () => crypto.randomUUID();
+export const generateSessionId = () =>
+  typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2) + Date.now().toString(36);
 
-const channel = new BroadcastChannel("auth_channel");
+const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel("auth_channel") : null;
 
 export const broadcastLogin = (sessionId) => {
-  channel.postMessage({ type: "NEW_LOGIN", sessionId });
+  if (channel) channel.postMessage({ type: "NEW_LOGIN", sessionId });
 };
 
 export const initSessionListener = (onSessionMismatch) => {
+  if (!channel) return;
   const currentSessionId = localStorage.getItem("sessionId");
 
   channel.onmessage = (event) => {

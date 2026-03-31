@@ -213,7 +213,13 @@ export default function TransportFeeApprovalPage() {
         return { label: 'Requested for New', bgcolor: '#F0FDF4', color: '#16A34A', border: '1px solid #BBF7D0' };
     };
 
-    const pendingFees = groupedFees.filter(fee => fee.status === "Requested");
+    const getRollFromString = (str) => {
+        if (!str) return '';
+        const idx = str.indexOf('-');
+        return idx !== -1 ? str.substring(0, idx) : str;
+    };
+
+    const pendingFees = groupedFees.filter(fee => fee.status === "Requested" && getRollFromString(fee.requestedBy) !== String(rollNumber));
 
     return (
         <Box sx={{ width: "100%" }}>
@@ -323,8 +329,8 @@ export default function TransportFeeApprovalPage() {
                                     {/* Created By */}
                                     <Box sx={{ color: "#000", fontSize: "13px", mt: "30px", px: 3, py: 0.2, ml: "15px", fontWeight: 600, borderTopLeftRadius: "7px", borderTopRightRadius: "7px", width: "fit-content" }}>
                                         <Typography sx={{ fontSize: "13px", fontWeight: 600, color: "#555" }}>
-                                            <span style={{ fontSize: "12px", color: "#777", fontWeight: 500 }}>Created By : </span>
-                                            {parseUser(fee.createdBy).name}
+                                            <span style={{ fontSize: "12px", color: "#777", fontWeight: 500 }}>Requested By : </span>
+                                            {parseUser(fee.requestedBy).name} - {parseUser(fee.requestedBy).rollNumber}
                                         </Typography>
                                     </Box>
                                 </Box>

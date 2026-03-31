@@ -261,30 +261,30 @@ export default function ResponsesPage() {
         <Box sx={{ width: "100%", }}>
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
             {isLoading && <Loader />}
-            <Box sx={{ backgroundColor: "#f2f2f2", px: 2, borderRadius: "10px 10px 10px 0px", borderBottom: "1px solid #ddd", }}>
-                <Grid container>
+            <Box sx={{ backgroundColor: "#f2f2f2", px: 2, py: { xs: 1, md: 0 }, borderRadius: "10px 10px 10px 0px", borderBottom: "1px solid #ddd" }}>
+                <Grid container spacing={1} sx={{ alignItems: "center" }}>
                     <Grid
                         sx={{ display: "flex", alignItems: "center" }}
                         size={{
-                            xs: 6,
-                            sm: 6,
-                            md: 4,
-                            lg: 4
+                            xs: 12,
+                            sm: 4,
+                            md: 3,
+                            lg: 3
                         }}>
                         <Link style={{ textDecoration: "none" }} to="/dashboardmenu/consentforms">
                             <IconButton sx={{ width: "27px", height: "27px", marginTop: '2px' }}>
                                 <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
                             </IconButton>
                         </Link>
-                        <Typography sx={{ fontWeight: "600", fontSize: "20px" }} >Responses</Typography>
+                        <Typography sx={{ fontWeight: "600", fontSize: "20px" }}>Responses</Typography>
                     </Grid>
                     <Grid
-                        sx={{ display: "flex", justifyContent: "center", alignItems: "center", pr: 2 }}
+                        sx={{ display: "flex", alignItems: "center", pr: { md: 2 } }}
                         size={{
-                            xs: 6,
-                            sm: 6,
-                            md: 2.5,
-                            lg: 2.5
+                            xs: 12,
+                            sm: 8,
+                            md: 3,
+                            lg: 3
                         }}>
                         <TextField
                             fullWidth
@@ -318,16 +318,19 @@ export default function ResponsesPage() {
                         />
                     </Grid>
                     <Grid
-                        sx={{ display: "flex", justifyContent: "center", alignItems: "center" }}
+                        sx={{ display: "flex", alignItems: "center", justifyContent: { xs: "flex-start", md: "center" } }}
                         size={{
                             xs: 12,
-                            sm: 12,
+                            sm: 8,
                             md: 4,
-                            lg: 4
+                            lg: 4.5
                         }}>
                         <Grid container spacing={2}>
                             <Grid
                                 size={{
+                                    xs: 6,
+                                    sm: 6,
+                                    md: 6,
                                     lg: 6
                                 }}>
                                 <Autocomplete
@@ -376,6 +379,9 @@ export default function ResponsesPage() {
                             </Grid>
                             <Grid
                                 size={{
+                                    xs: 6,
+                                    sm: 6,
+                                    md: 6,
                                     lg: 6
                                 }}>
                                 <Autocomplete
@@ -428,11 +434,11 @@ export default function ResponsesPage() {
                     </Grid>
 
                     <Grid
-                        sx={{ display: "flex", justifyContent: "end", alignItems: "center", px: 1 }}
+                        sx={{ display: "flex", justifyContent: { xs: "flex-start", sm: "flex-end" }, alignItems: "center", px: 1 }}
                         size={{
                             xs: 12,
-                            sm: 12,
-                            md: 3,
+                            sm: 4,
+                            md: 2,
                             lg: 1.5
                         }}>
                         <Box>
@@ -518,15 +524,21 @@ export default function ResponsesPage() {
                         }}>
                             <Grid container>
                                 <Grid
-                                    sx={{ display: "flex", alignItems: "center" }}
+                                    sx={{ display: "flex", alignItems: "center", justifyContent: "center" }}
                                     size={{
+                                        xs: 12,
+                                        sm: 4,
+                                        md: 4,
                                         lg: 4
                                     }}>
                                     <DeleteOutlineOutlinedIcon style={{ fontSize: "100px" }} />
                                 </Grid>
                                 <Grid
-                                    sx={{ display: "flex", alignItems: "center" }}
+                                    sx={{ display: "flex", alignItems: "center", justifyContent: "center" }}
                                     size={{
+                                        xs: 12,
+                                        sm: 8,
+                                        md: 7,
                                         lg: 7
                                     }}>
                                     <p>Do you really want to delete this news?</p>
@@ -575,7 +587,7 @@ export default function ResponsesPage() {
                         {filteredData.length > 0 ? (
                             filteredData.map((data, dataIndex) => (
                                 <Box key={dataIndex}>
-                                    <Typography sx={{ fontSize: '12px', color: '#595959', py: 2 }}>
+                                    <Typography sx={{ fontSize: '12px', color: '#888', py: 1.5, fontWeight: 500 }}>
                                         Posted on: {data.postedOnDate} | {data.postedOnDay}
                                     </Typography>
                                     {data.consentForm
@@ -583,40 +595,48 @@ export default function ResponsesPage() {
                                             item.question.toLowerCase().includes(searchQuery.toLowerCase())
                                         )
                                         .map((item, itemIndex) => {
+                                            const isOpen = !!expanded[`panel${dataIndex}-${itemIndex}`];
                                             return (
                                                 <Accordion
                                                     key={itemIndex}
-                                                    sx={{ py: 1, mb: 2 }}
-                                                    expanded={!!expanded[`panel${dataIndex}-${itemIndex}`]}
+                                                    sx={{
+                                                        mb: 1.5,
+                                                        width: "100%",
+                                                        border: "1px solid #E8DDEA",
+                                                        borderRadius: "5px !important",
+                                                        boxShadow: "none",
+                                                        "&:before": { display: "none" },
+                                                        "&.Mui-expanded": { margin: "0 0 12px 0" },
+                                                    }}
+                                                    expanded={isOpen}
                                                     onChange={handleAccordionChange(`panel${dataIndex}-${itemIndex}`)}
                                                 >
                                                     <AccordionSummary
                                                         aria-controls={`panel${dataIndex}-${itemIndex}-content`}
                                                         id={`panel${dataIndex}-${itemIndex}-header`}
-                                                        sx={{ position: 'relative' }}
+                                                        sx={{ px: 2, py: 0.5 }}
                                                     >
-                                                        <Grid container>
+                                                        <Grid container sx={{ alignItems: "center", width: "100%" }}>
                                                             <Grid
                                                                 size={{
+                                                                    xs: 12,
+                                                                    sm: 8,
+                                                                    md: 9,
                                                                     lg: 10
                                                                 }}>
-                                                                <Typography sx={{ fontWeight: '600' }}>
+                                                                <Typography sx={{ fontWeight: '600', fontSize: '14px' }}>
                                                                     {item.heading}
-                                                                    <br />
-                                                                    <span
-                                                                        style={{
-                                                                            fontSize: '12px',
-                                                                            color: '#595959',
-                                                                            fontWeight: '500',
-                                                                        }}
-                                                                    >
-                                                                        Posted by: {item.name} | at: {item.time}
-                                                                    </span>
+                                                                </Typography>
+                                                                <Typography sx={{ fontSize: '12px', color: '#888', fontWeight: 500, mt: 0.3 }}>
+                                                                    Posted by: {item.name} | at: {item.time}
                                                                 </Typography>
                                                             </Grid>
                                                             <Grid
-                                                                sx={{ display: 'flex', alignItems: 'center' }}
+                                                                sx={{ display: 'flex', justifyContent: 'flex-end' }}
                                                                 size={{
+                                                                    xs: 12,
+                                                                    sm: 4,
+                                                                    md: 3,
                                                                     lg: 2
                                                                 }}>
                                                                 <Button
@@ -628,35 +648,27 @@ export default function ResponsesPage() {
                                                                                 !prev[`panel${dataIndex}-${itemIndex}`],
                                                                         }))
                                                                     }
+                                                                    endIcon={isOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />}
                                                                     sx={{
-                                                                        width: '200px',
-                                                                        fontSize: '14px',
-                                                                        display: 'flex',
-                                                                        alignItems: 'center',
+                                                                        fontSize: '12px',
                                                                         color: '#E60154',
                                                                         textTransform: 'none',
                                                                         borderRadius: '50px',
-                                                                        backgroundColor: 'rgba(230, 1, 84, 0.1)',
+                                                                        fontWeight: 600,
+                                                                        px: 2,
+                                                                        height: 30,
+                                                                        backgroundColor: 'rgba(230, 1, 84, 0.08)',
+                                                                        border: '1px solid rgba(230, 1, 84, 0.2)',
+                                                                        "&:hover": { backgroundColor: 'rgba(230, 1, 84, 0.15)' },
                                                                     }}
                                                                 >
-                                                                    {!!expanded[`panel${dataIndex}-${itemIndex}`]
-                                                                        ? 'View Responses'
-                                                                        : 'View Responses'}
-                                                                    <span
-                                                                        style={{ marginLeft: '5px', display: 'flex', alignItems: 'center' }}
-                                                                    >
-                                                                        {!!expanded[`panel${dataIndex}-${itemIndex}`] ? (
-                                                                            <ExpandLessIcon />
-                                                                        ) : (
-                                                                            <ExpandMoreIcon />
-                                                                        )}
-                                                                    </span>
+                                                                    View Responses
                                                                 </Button>
                                                             </Grid>
                                                         </Grid>
                                                     </AccordionSummary>
-                                                    <AccordionDetails>
-                                                        <Box sx={{ display: "flex", justifyContent: "end", pb: 2 }}>
+                                                    <AccordionDetails sx={{ px: 2, pt: 0, pb: 2, borderTop: "1px solid #E8DDEA" }}>
+                                                        <Box sx={{ display: "flex", justifyContent: "end", py: 1.5 }}>
                                                             <Autocomplete
                                                                 disablePortal
                                                                 options={['Yes', 'No', 'Nill']}

@@ -30,7 +30,8 @@ import InfoIcon from '@mui/icons-material/Info';
 import CloseIcon from '@mui/icons-material/Close';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import { getAllRoutes, getAllTrip, postTranspoartFee } from '../../../../Api/Api';
+import { getAllRoutes, getAllTrip, postTranspoartFee, transpoartFeeFetchID } from '../../../../Api/Api';
+import LockIcon from '@mui/icons-material/Lock';
 import axios from 'axios';
 import dayjs from 'dayjs';
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
@@ -85,6 +86,7 @@ export default function TransportFeeStructure() {
   const currentYear = new Date().getFullYear();
   const currentAcademicYear = `${currentYear}-${currentYear + 1}`;
   const [selectedYear, setSelectedYear] = useState(currentAcademicYear);
+  const [feeAlreadyCreated, setFeeAlreadyCreated] = useState(false);
 
   const user = useSelector((state) => state.auth);
   const rollNumber = user.rollNumber;
@@ -183,6 +185,68 @@ export default function TransportFeeStructure() {
 
     // For Roman numerals (I, II, III, etc.), just convert to lowercase
     return normalized;
+  };
+
+  const findGradeIdByApiKey = (apiKey) => {
+    const grade = grades.find(g => {
+      const gradeApiKey = convertGradeSignToApiKey(g.sign);
+      return gradeApiKey === apiKey.toLowerCase();
+    });
+    return grade ? grade.id : null;
+  };
+
+  const fetchExistingTripFee = async (tripDetails) => {
+    if (!tripDetails || !tripDetails.routeStops || tripDetails.routeStops.length === 0) return;
+
+    try {
+      // Check first stop to see if fees already exist for this trip
+      const firstStop = tripDetails.routeStops[0];
+      const checkResponse = await axios.get(transpoartFeeFetchID, {
+        params: { Id: firstStop.id },
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (checkResponse.data) {
+        // Fees exist — fetch data for all stops and populate feeAmounts
+        const feeAmountsMap = {};
+
+        await Promise.all(
+          tripDetails.routeStops.map(async (stop) => {
+            try {
+              const stopResponse = await axios.get(transpoartFeeFetchID, {
+                params: { Id: stop.id },
+                headers: { Authorization: `Bearer ${token}` },
+              });
+
+              if (stopResponse.data) {
+                const feeData = Array.isArray(stopResponse.data)
+                  ? stopResponse.data[0]
+                  : stopResponse.data;
+
+                if (feeData && feeData.grades) {
+                  Object.entries(feeData.grades).forEach(([gradeKey, amount]) => {
+                    const gradeId = findGradeIdByApiKey(gradeKey);
+                    if (gradeId && amount) {
+                      feeAmountsMap[`${stop.id}_${gradeId}`] = String(amount);
+                    }
+                  });
+                }
+              }
+            } catch {
+              // stop may not have a fee record yet
+            }
+          })
+        );
+
+        setFeeAmounts(feeAmountsMap);
+        setFeeAlreadyCreated(true);
+      } else {
+        setFeeAlreadyCreated(false);
+      }
+    } catch {
+      // No fee record found — not created yet
+      setFeeAlreadyCreated(false);
+    }
   };
 
   // Handle Reset All
@@ -349,9 +413,15 @@ export default function TransportFeeStructure() {
       });
 
       if (response.data && response.data.trips && response.data.trips.length > 0) {
+        const tripDetails = response.data.trips[0];
         setTripsData(response.data.trips);
-        // Set the first trip as selected (since we're fetching by tripName, it should be the specific trip)
-        setSelectedTripDetails(response.data.trips[0]);
+        setSelectedTripDetails(tripDetails);
+        // Reset fee state before checking
+        setFeeAlreadyCreated(false);
+        setFeeAmounts({});
+        setSameFeeEnabled({});
+        // Check if fee is already created for this trip
+        fetchExistingTripFee(tripDetails);
       }
     } catch (error) {
       console.error("Error fetching trips:", error);
@@ -751,6 +821,47 @@ export default function TransportFeeStructure() {
             </Box>
           )}
 
+          {/* Fee Already Created Banner */}
+          {selectedTripDetails && feeAlreadyCreated && (
+            <Box sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1.5,
+              bgcolor: "#F0FDF4",
+              border: "1px solid #86EFAC",
+              borderRadius: "6px",
+              px: 2.5,
+              py: 1.25,
+              mb: 2,
+            }}>
+              <LockIcon sx={{ fontSize: 18, color: "#16A34A" }} />
+              <Box>
+                <Typography sx={{ fontSize: "13px", fontWeight: 700, color: "#15803D" }}>
+                  Fee Structure Already Created
+                </Typography>
+                <Typography sx={{ fontSize: "12px", color: "#166534" }}>
+                  Fees are already set for this trip. Go to "Created Fees" to edit or manage them.
+                </Typography>
+              </Box>
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={() => navigate('created-fees')}
+                sx={{
+                  ml: "auto",
+                  textTransform: "none",
+                  fontSize: "12px",
+                  borderRadius: "20px",
+                  color: "#16A34A",
+                  borderColor: "#16A34A",
+                  "&:hover": { bgcolor: "#DCFCE7", borderColor: "#15803D" }
+                }}
+              >
+                View Created Fees
+              </Button>
+            </Box>
+          )}
+
           {/* Bus Stops Fee Structure */}
           {selectedTripDetails && (
             <>
@@ -888,6 +999,7 @@ export default function TransportFeeStructure() {
                         </Typography>
                         <Switch
                           size="small"
+                          disabled={feeAlreadyCreated}
                           checked={sameFeeEnabled[stop.id] || false}
                           onChange={() => handleSameFeeToggle(stop.id)}
                           sx={{
@@ -941,6 +1053,7 @@ export default function TransportFeeStructure() {
                                 fullWidth
                                 size="small"
                                 placeholder="Amount"
+                                disabled={feeAlreadyCreated}
                                 value={feeAmounts[`${stop.id}_${grade.id}`] || ''}
                                 onChange={(e) => handleFeeAmountChange(stop.id, grade.id, e.target.value)}
                                 slotProps={{
@@ -974,6 +1087,9 @@ export default function TransportFeeStructure() {
                                     padding: "8px 10px",
                                     color: "#333",
                                     fontWeight: 500
+                                  },
+                                  "& .MuiInputBase-input.Mui-disabled": {
+                                    WebkitTextFillColor: "#000",
                                   }
                                 }}
                               />
@@ -1000,6 +1116,7 @@ export default function TransportFeeStructure() {
               }
             }}>
               <Button
+                disabled={feeAlreadyCreated}
                 onClick={handleResetAll}
                 sx={{
                   border: "1px solid #000",
@@ -1012,31 +1129,49 @@ export default function TransportFeeStructure() {
                   fontWeight: 600,
                   "&:hover": {
                     bgcolor: "#f5f5f5"
+                  },
+                  "&.Mui-disabled": {
+                    border: "1px solid #ccc",
+                    color: "#aaa"
                   }
                 }}>
                 Reset All
               </Button>
-              <Button
-                variant="contained"
-                onClick={handleApply}
-                sx={{
-                  backgroundColor: websiteSettings.mainColor,
-                  borderRadius: "30px",
-                  textTransform: "none",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
-                  border: "1px solid rgba(0,0,0,0.1)",
-                  px: 3,
-                  height: "35px",
-                  color: websiteSettings.textColor,
-                  fontSize: "13px",
-                  fontWeight: 600,
-                  "&:hover": {
-                    boxShadow: "0 2px 6px rgba(0,0,0,0.3)",
-                  }
-                }}
+              <Tooltip
+                title={feeAlreadyCreated ? "Fee structure already created for this trip. Go to 'Created Fees' to edit." : ""}
+                placement="top"
+                arrow
               >
-                {userType === "superadmin" ? "Apply" : "Send for Approval"}
-              </Button>
+                <span>
+                  <Button
+                    variant="contained"
+                    disabled={feeAlreadyCreated}
+                    onClick={handleApply}
+                    sx={{
+                      backgroundColor: websiteSettings.mainColor,
+                      borderRadius: "30px",
+                      textTransform: "none",
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                      border: "1px solid rgba(0,0,0,0.1)",
+                      px: 3,
+                      height: "35px",
+                      color: websiteSettings.textColor,
+                      fontSize: "13px",
+                      fontWeight: 600,
+                      "&:hover": {
+                        boxShadow: "0 2px 6px rgba(0,0,0,0.3)",
+                      },
+                      "&.Mui-disabled": {
+                        bgcolor: "#e0e0e0",
+                        color: "#aaa",
+                        boxShadow: "none"
+                      }
+                    }}
+                  >
+                    {userType === "superadmin" ? "Apply" : "Send for Approval"}
+                  </Button>
+                </span>
+              </Tooltip>
             </Box>
           )}
         </Box>

@@ -169,7 +169,7 @@ export default function CreatedEcaFees() {
       await axios.put(ECAupdateSchoolFee, sendData, {
         headers: { Authorization: `Bearer ${token}` },
       })
-      setMessage('ECA Fee updated successfully')
+      setMessage(userType === 'superadmin' ? 'ECA Fee updated successfully' : 'Update request sent successfully')
       setOpen(true); setColor(true); setStatus(true)
       setEditOpen(false)
       getEcaFees()

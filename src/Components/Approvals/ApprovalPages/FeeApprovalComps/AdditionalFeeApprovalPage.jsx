@@ -112,10 +112,8 @@ export default function AdditionalFeeApprovalPage() {
     }
 
     const filteredDetails = details.filter(item => {
-        const createdBy = item.createdByRollNumber ?? "";
-        const editedBy = item.editedByRollnumber ?? "";
-
-        return createdBy !== rollNumber && editedBy !== rollNumber;
+        const requestedBy = item.requestedByRollNumber ?? "";
+        return String(requestedBy) !== String(rollNumber);
     });
 
 
@@ -344,17 +342,9 @@ export default function AdditionalFeeApprovalPage() {
                                         }}
                                     >
 
-                                        <Typography sx={{
-                                            fontSize: "13px", fontWeight: 600, color: "#555",
-                                        }} >
-                                            <span style={{
-                                                fontSize: "12px",
-                                                color: "#777",
-                                                fontWeight: 500,
-                                            }}>  Created By : </span>  {item.createdByRollName} - {item.createdByRollNumber}
-                                            {/* <span style={{ color: "#666", fontWeight: 500 }}>
-                                            (Admin)
-                                        </span> */}
+                                        <Typography sx={{ fontSize: "13px", fontWeight: 600, color: "#555" }}>
+                                            <span style={{ fontSize: "12px", color: "#777", fontWeight: 500 }}>Requested By : </span>
+                                            {item.requestedByName} - {item.requestedByRollNumber}
                                         </Typography>
                                         {/* <Typography
                                             sx={{

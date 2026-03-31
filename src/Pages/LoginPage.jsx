@@ -2,10 +2,6 @@ import { Box, Button, IconButton, InputAdornment, TextField, Typography, Dialog,
 import React, { useEffect, useState } from 'react';
 import Grid from '@mui/material/Grid';
 import { motion } from 'framer-motion';
-import Logo from "../Images/Login/MSMSLogo.png";
-import slider1 from "../Images/Login/01.png";
-import slider2 from "../Images/Login/02.png";
-import slider3 from "../Images/Login/03.png";
 import LoginImage from "../Images/Login/image.jpg";
 import "../Css/Style.css";
 import { Link, useNavigate } from 'react-router-dom';

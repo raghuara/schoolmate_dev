@@ -1,15 +1,23 @@
-import { Autocomplete, Box, Button, Card, Chip, createTheme, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Fab, Grid, IconButton, Popper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from "@mui/material";
+import { Autocomplete, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Grid, IconButton, InputAdornment, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from "@mui/material";
 import axios from "axios";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import Loader from "../../../Loader";
 import SnackBar from "../../../SnackBar";
 import { useLocation, useNavigate } from "react-router-dom";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import AddIcon from '@mui/icons-material/Add';
+import ClearIcon from '@mui/icons-material/Clear';
+import CloseIcon from '@mui/icons-material/Close';
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import HighlightOffIcon from '@mui/icons-material/HighlightOff';
 import { useDispatch, useSelector } from "react-redux";
 import { selectWebsiteSettings } from "../../../../Redux/Slices/websiteSettingsSlice";
 import { selectGrades } from "../../../../Redux/Slices/DropdownController";
 import NoData from '../../../../Images/Login/No Data.png'
-import { additionalFeeFetch, approvalStatusCheck, ecaFeeFetch, ECAupdateSchoolFee, updateAdditionalFee, updateAdditionalFeesApprovalAction, updateEcaFeesApprovalAction, updateSchoolFee, updateSchoolFeesApprovalAction } from "../../../../Api/Api";
+import { ecaFeeFetch, ECAupdateSchoolFee, updateEcaFeesApprovalAction } from "../../../../Api/Api";
+import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import dayjs from 'dayjs';
 
 export default function EcaFeeApprovalPage() {
     const user = useSelector((state) => state.auth);
@@ -30,19 +38,20 @@ export default function EcaFeeApprovalPage() {
     const currentYear = new Date().getFullYear();
     const currentAcademicYear = `${currentYear}-${currentYear + 1}`;
     const [selectedYear, setSelectedYear] = useState(currentAcademicYear);
-    const [selectedClass, setSelectedClass] = useState("Prekg");
-
     const websiteSettings = useSelector(selectWebsiteSettings)
 
     const [openRejectDialog, setOpenRejectDialog] = useState(false);
     const [openEditDialog, setOpenEditDialog] = useState(false);
+    const [openCal, setOpenCal] = useState(false);
 
     const [rejectItem, setRejectItem] = useState(null);
     const [editItem, setEditItem] = useState(null);
 
     const [rejectReason, setRejectReason] = useState("");
     const [rejectError, setRejectError] = useState(false);
-    const [editFees, setEditFees] = useState([]);
+    const [editFees, setEditFees] = useState({ activityName: '', activityCategory: '', gradeAmounts: {}, dueDate: null });
+    const [editRemovedGrades, setEditRemovedGrades] = useState(new Set());
+    const [gradeErrors, setGradeErrors] = useState({});
 
     const dispatch = useDispatch();
     const grades = useSelector(selectGrades);
@@ -69,11 +78,6 @@ export default function EcaFeeApprovalPage() {
         return `${day}-${month}-${year}`;
     };
 
-    const toInputDate = (dateString) => {
-        if (!dateString) return "";
-        return dateString.split("T")[0];
-    };
-
     const getRequestBadge = (requestFor) => {
         switch ((requestFor || '').toLowerCase()) {
             case 'edit':
@@ -87,24 +91,52 @@ export default function EcaFeeApprovalPage() {
 
     const openEditFeeDialog = (item) => {
         if (!item || !grades?.length) return;
-
-        const gradeFees = grades.map((g) => {
-            const key = g.sign.toLowerCase();
-
-            return {
-                sign: key,
-                amount: Number(item.grades?.[key] ?? 0),
-            };
+        const gradeAmounts = {};
+        const removedGrades = new Set();
+        grades.forEach((g) => {
+            const val = item.grades?.[g.sign.toLowerCase()];
+            if (val === null || val === undefined) {
+                removedGrades.add(g.sign);
+            } else {
+                gradeAmounts[g.sign] = val;
+            }
         });
-
-        setEditFees([
-            {
-                ...item,
-                gradeFees,
-            },
-        ]);
-
+        setEditItem(item);
+        setEditFees({
+            activityName: item.activityName,
+            activityCategory: item.activityCategory,
+            gradeAmounts,
+            dueDate: item.dueDate ? dayjs(item.dueDate) : null,
+        });
+        setEditRemovedGrades(removedGrades);
+        setGradeErrors({});
         setOpenEditDialog(true);
+    };
+
+    const handleEditGradeChange = (gradeSign, value) => {
+        if (!/^\d{0,8}$/.test(value)) return;
+        const cleaned = value.replace(/^0+(\d)/, '$1');
+        setEditFees((prev) => ({ ...prev, gradeAmounts: { ...prev.gradeAmounts, [gradeSign]: cleaned } }));
+        if (gradeErrors[gradeSign]) {
+            setGradeErrors((prev) => { const next = { ...prev }; delete next[gradeSign]; return next; });
+        }
+    };
+
+    const handleEditRemoveGrade = (gradeSign) => {
+        setEditRemovedGrades((prev) => new Set([...prev, gradeSign]));
+        setEditFees((prev) => {
+            const newAmounts = { ...prev.gradeAmounts };
+            delete newAmounts[gradeSign];
+            return { ...prev, gradeAmounts: newAmounts };
+        });
+    };
+
+    const handleEditRestoreGrade = (gradeSign) => {
+        setEditRemovedGrades((prev) => {
+            const next = new Set(prev);
+            next.delete(gradeSign);
+            return next;
+        });
     };
 
 
@@ -135,10 +167,8 @@ export default function EcaFeeApprovalPage() {
     }
 
     const filteredDetails = details.filter(item => {
-        const createdBy = item.createdByRollNumber ?? "";
-        const editedBy = item.editedByRollnumber ?? "";
-
-        return createdBy !== rollNumber && editedBy !== rollNumber;
+        const requestedBy = item.requestedByRollNumber ?? "";
+        return String(requestedBy) !== String(rollNumber);
     });
 
 
@@ -186,42 +216,59 @@ export default function EcaFeeApprovalPage() {
     };
 
 
-    const handleUpdate = async (status) => {
+    const handleUpdate = async () => {
+        if (!editItem) return;
+        if (!editFees.activityName.trim()) {
+            setMessage('Activity Name is required'); setOpen(true); setColor(false); setStatus(false); return;
+        }
+
+        // Validate: all active (non-removed) grades must have an amount
+        const errors = {};
+        grades.forEach((g) => {
+            if (!editRemovedGrades.has(g.sign)) {
+                const val = editFees.gradeAmounts[g.sign];
+                if (val === '' || val === undefined || val === null) {
+                    errors[g.sign] = true;
+                }
+            }
+        });
+        if (Object.keys(errors).length > 0) {
+            setGradeErrors(errors);
+            const names = Object.keys(errors).join(', ');
+            setMessage(`Please enter the amount for: ${names}`);
+            setOpen(true); setColor(false); setStatus(false);
+            return;
+        }
+        setGradeErrors({});
 
         setIsLoading(true);
         try {
-            const fee = editFees[0];
-
+            const gradePayload = {};
+            grades.forEach((g) => {
+                if (!editRemovedGrades.has(g.sign)) {
+                    gradePayload[g.sign.toLowerCase()] = Number(editFees.gradeAmounts[g.sign]) || 0;
+                }
+            });
             const payload = {
-                ecaFeesID: fee.id,
+                ecaFeesID: editItem.ecaFeesID || editItem.id,
                 rollNumber,
                 year: selectedYear,
-                activityCategory: fee.activityCategory,
-                activityName: fee.activityName,
-                paid: fee.paid,
-                dueDate: fee.dueDate
+                activityCategory: editFees.activityCategory,
+                activityName: editFees.activityName,
+                paid: editItem.paid,
+                dueDate: editFees.dueDate ? dayjs(editFees.dueDate).format('YYYY-MM-DD') : null,
+                ...gradePayload,
             };
-
-            fee.gradeFees.forEach(g => {
-                payload[g.sign] = Number(g.amount);
+            await axios.put(ECAupdateSchoolFee, payload, {
+                headers: { Authorization: `Bearer ${token}` },
             });
-
-            const res = await axios.put(ECAupdateSchoolFee, payload, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            });
-
-            setOpen(true);
-            setColor(true);
-            setStatus(true);
+            setOpen(true); setColor(true); setStatus(true);
             setMessage("Updated successfully");
-            fetchStatusDetails()
+            setOpenEditDialog(false);
+            fetchStatusDetails();
         } catch (error) {
-            setOpen(true);
-            setColor(false);
-            setStatus(false);
-            setMessage(error.message || "Failed to save fee structure.");
+            setOpen(true); setColor(false); setStatus(false);
+            setMessage(error?.response?.data?.message || "Failed to save fee structure.");
         } finally {
             setIsLoading(false);
         }
@@ -380,17 +427,9 @@ export default function EcaFeeApprovalPage() {
                                         }}
                                     >
 
-                                        <Typography sx={{
-                                            fontSize: "13px", fontWeight: 600, color: "#555",
-                                        }} >
-                                            <span style={{
-                                                fontSize: "12px",
-                                                color: "#777",
-                                                fontWeight: 500,
-                                            }}>  Created By : </span>  {item.createdByRollName} - {item.createdByRollNumber}
-                                            {/* <span style={{ color: "#666", fontWeight: 500 }}>
-                                            (Admin)
-                                        </span> */}
+                                        <Typography sx={{ fontSize: "13px", fontWeight: 600, color: "#555" }}>
+                                            <span style={{ fontSize: "12px", color: "#777", fontWeight: 500 }}>Requested By : </span>
+                                            {item.requestedByName} - {item.requestedByRollNumber}
                                         </Typography>
                                         {/* <Typography
                                             sx={{
@@ -458,22 +497,15 @@ export default function EcaFeeApprovalPage() {
                                     {item.paid === "Y" &&
                                         <Box sx={{ backgroundColor: "#FFE5E5", p: 3, border: "1px solid #E8DDEA", borderTop: "none" }}>
                                             <Grid container spacing={2}>
-                                                {Object.entries(item.grades || {}).map(
+                                                {Object.entries(item.grades || {}).filter(([, amount]) => amount !== null).map(
                                                     ([gradeKey, amount]) => (
                                                         <Grid size={{ lg: 1.5 }} key={gradeKey}>
-                                                            <Typography
-                                                                sx={{
-                                                                    color: "red",
-                                                                    fontSize: "12px",
-                                                                    mb: 0.5,
-                                                                }}
-                                                            >
+                                                            <Typography sx={{ color: "red", fontSize: "12px", mb: 0.5 }}>
                                                                 {gradeKey.toUpperCase()}
                                                             </Typography>
                                                             <Box sx={{ border: "1px solid #0000003A", borderRadius: "5px", height: "30px", backgroundColor: "#F6F6F8", px: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
                                                                 ₹ {amount}
                                                             </Box>
-
                                                         </Grid>
                                                     ))}
                                             </Grid>
@@ -652,218 +684,156 @@ export default function EcaFeeApprovalPage() {
                 <Dialog
                     open={openEditDialog}
                     onClose={() => setOpenEditDialog(false)}
-                    maxWidth="lg"
+                    maxWidth="md"
                     fullWidth
+                    PaperProps={{ sx: { borderRadius: '10px', overflow: 'hidden' } }}
                 >
-                    <DialogTitle sx={{ fontWeight: 600 }}>
-                        Edit Fee Structure - {selectedClass}
-                    </DialogTitle>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 3, py: 1.5, backgroundColor: '#f2f2f2', borderBottom: '1px solid #ddd' }}>
+                        <Typography sx={{ fontWeight: 600, fontSize: '16px' }}>Edit ECA Activity Fee</Typography>
+                        <IconButton size="small" onClick={() => setOpenEditDialog(false)}>
+                            <CloseIcon sx={{ fontSize: 18 }} />
+                        </IconButton>
+                    </Box>
 
-                    <DialogContent dividers>
-                        <Card sx={{ borderRadius: 0, boxShadow: "none" }}>
-                            <Table sx={{ borderCollapse: "separate", borderSpacing: 0 }}>
-                                <TableHead sx={{ bgcolor: "#f3e5f5" }}>
-                                    <TableRow>
-                                        {["Fee Name", "Remarks", "Payment Status", "Due Date"].map((h) => (
-                                            <TableCell
-                                                key={h}
-                                                sx={{
-                                                    fontWeight: 600,
-                                                    fontSize: 14,
-                                                    border: "1px dotted #ccc",
-                                                }}
-                                            >
-                                                {h}
-                                            </TableCell>
-                                        ))}
-                                    </TableRow>
-                                </TableHead>
+                    <Box sx={{ p: 2 }}>
+                        <Box sx={{ border: '1px solid #CCC', borderRadius: '5px' }}>
+                            <Grid container rowSpacing={2} columnSpacing={4} p={3}>
+                                <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                                    <Typography sx={{ mb: 0.5, fontWeight: '600' }}>Activity Name</Typography>
+                                    <TextField
+                                        size="small"
+                                        fullWidth
+                                        value={editFees.activityName}
+                                        onChange={(e) => setEditFees((prev) => ({ ...prev, activityName: e.target.value }))}
+                                        variant="outlined"
+                                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '5px', fontSize: 14 } }}
+                                    />
+                                </Grid>
 
-                                <TableBody>
-                                    {Array.isArray(editFees) && editFees.map((fee, i) => (
-                                        <TableRow key={i}>
-                                            <TableCell sx={{ border: "1px dotted #ccc" }}>
-                                                <TextField
-                                                    fullWidth
-                                                    size="small"
-                                                    value={fee.activityName}
-                                                    onChange={(e) => {
-                                                        const updated = [...editFees];
-                                                        updated[i].activityName = e.target.value;
-                                                        setEditFees(updated);
-                                                    }}
-                                                    variant="outlined"
-                                                    sx={{
-                                                        "& fieldset": { border: "none" },
-                                                        fontSize: 14,
-                                                    }}
-                                                />
-                                            </TableCell>
+                                <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                                    <Typography sx={{ mb: 0.5, fontWeight: '600' }}>Activity Category</Typography>
+                                    <TextField
+                                        size="small"
+                                        fullWidth
+                                        value={editFees.activityCategory}
+                                        onChange={(e) => setEditFees((prev) => ({ ...prev, activityCategory: e.target.value }))}
+                                        variant="outlined"
+                                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '5px', fontSize: 14 } }}
+                                    />
+                                </Grid>
 
-                                            <TableCell sx={{ border: "1px dotted #ccc", minWidth: 250 }}>
-                                                <TextField
-                                                    fullWidth
-                                                    multiline
-                                                    rows={2}
-                                                    size="small"
-                                                    value={fee.activityCategory}
-                                                    onChange={(e) => {
-                                                        const updated = [...editFees];
-                                                        updated[i].activityCategory = e.target.value;
-                                                        setEditFees(updated);
-                                                    }}
-                                                />
-                                            </TableCell>
+                                <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                                    <Typography sx={{ mb: 0.5, fontWeight: '600' }}>Due Date</Typography>
+                                    <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                        <DatePicker
+                                            open={openCal}
+                                            onClose={() => setOpenCal(false)}
+                                            value={editFees.dueDate}
+                                            onChange={(newValue) => {
+                                                setEditFees((prev) => ({ ...prev, dueDate: newValue }));
+                                                setOpenCal(false);
+                                            }}
+                                            disablePast
+                                            views={['year', 'month', 'day']}
+                                            renderInput={() => null}
+                                            sx={{ opacity: 0, pointerEvents: 'none', width: '0px' }}
+                                        />
+                                        <Button
+                                            sx={{ width: '150px', height: '35px', backgroundColor: '#F3E5F5', textTransform: 'none', color: '#8600BB' }}
+                                            onClick={() => setOpenCal(true)}
+                                        >
+                                            {editFees.dueDate ? dayjs(editFees.dueDate).format('DD-MM-YYYY') : 'Add Due Date'}
+                                            <CalendarMonthIcon style={{ color: '#8600BB', marginLeft: '10px', fontSize: '20px' }} />
+                                        </Button>
+                                        {editFees.dueDate && (
+                                            <IconButton sx={{ width: '33px', height: '33px' }} onClick={() => setEditFees((prev) => ({ ...prev, dueDate: null }))}>
+                                                <HighlightOffIcon style={{ color: 'red' }} />
+                                            </IconButton>
+                                        )}
+                                    </LocalizationProvider>
+                                </Grid>
+                            </Grid>
 
-                                            <TableCell sx={{ border: "1px dotted #ccc", minWidth: 250 }}>
-                                                <Autocomplete
-                                                    size="small"
-                                                    options={["Paid", "Unpaid"]}
-                                                    value={fee.paid === "Y" ? "Paid" : "Unpaid"}
-                                                    onChange={(e, newValue) => {
-                                                        const updated = [...editFees];
-                                                        updated[i].paid = newValue === "Paid" ? "Y" : "N";
-                                                        setEditFees(updated);
-                                                    }}
-                                                    renderInput={(params) => (
-                                                        <TextField
-                                                            {...params}
-                                                            placeholder="Select status"
-                                                        />
-                                                    )}
-                                                />
-                                            </TableCell>
-
-                                            <TableCell sx={{ border: "1px dotted #ccc", textAlign: "center" }}>
-                                                <TextField
-                                                    type="date"
-                                                    size="small"
-                                                    value={toInputDate(fee.dueDate)}
-                                                    onChange={(e) => {
-                                                        const updated = [...editFees];
-                                                        updated[i].dueDate = e.target.value;
-                                                        setEditFees(updated);
-                                                    }}
-                                                    InputLabelProps={{ shrink: true }}
-                                                />
-                                            </TableCell>
-
-                                        </TableRow>
+                            {/* Removed grade chips */}
+                            {editRemovedGrades.size > 0 && (
+                                <Box sx={{ px: 3, pb: 1, display: 'flex', flexWrap: 'wrap', gap: 0.8, alignItems: 'center' }}>
+                                    <Typography sx={{ fontSize: 12, color: '#999' }}>Removed grades:</Typography>
+                                    {[...editRemovedGrades].map((g) => (
+                                        <Chip
+                                            key={g}
+                                            label={g}
+                                            size="small"
+                                            onClick={() => handleEditRestoreGrade(g)}
+                                            icon={<AddIcon sx={{ fontSize: '14px !important' }} />}
+                                            sx={{
+                                                fontSize: 12, height: 22, bgcolor: '#f5f5f5', border: '1px solid #ddd', cursor: 'pointer',
+                                                '&:hover': { bgcolor: '#ede7f6', borderColor: '#7B1FA2', color: '#7B1FA2' },
+                                            }}
+                                        />
                                     ))}
-                                </TableBody>
-                            </Table>
-                            
-                            {editFees.length > 0 && editFees[0]?.paid === "Y" && (
-
-                                <Box
-                                    sx={{
-                                        backgroundColor: "#FFE5E5",
-                                        p: 3,
-                                        border: "1px solid #E8DDEA",
-                                        borderTop: "none",
-                                        mt: 2,
-                                    }}
-                                >
-                                    <Grid container spacing={2}>
-                                        {editFees.length > 0 &&
-                                            editFees[0]?.gradeFees?.map((g, index) => (
-                                                <Grid size={{ lg: 1.5, md: 2, sm: 3, xs: 4 }} key={g.sign}>
-                                                    <Typography
-                                                        sx={{
-                                                            color: "red",
-                                                            fontSize: "12px",
-                                                            mb: 0.5,
-                                                            fontWeight: 600,
-                                                        }}
-                                                    >
-                                                        {g.sign.toUpperCase()}
-                                                    </Typography>
-
-                                                    <Box
-                                                        sx={{
-                                                            border: "1px solid #0000003A",
-                                                            borderRadius: "5px",
-                                                            height: "32px",
-                                                            backgroundColor: "#F6F6F8",
-                                                            px: 1,
-                                                            display: "flex",
-                                                            alignItems: "center",
-                                                            justifyContent: "center",
-                                                        }}
-                                                    >
-                                                        <TextField
-                                                            variant="standard"
-                                                            value={g.amount}
-                                                            onChange={(e) => {
-                                                                const value = e.target.value;
-
-                                                                if (/^\d*$/.test(value)) {
-                                                                    const updated = [...editFees];
-                                                                    updated[0].gradeFees[index].amount =
-                                                                        value === "" ? "" : Number(value);
-                                                                    setEditFees(updated);
-                                                                }
-                                                            }}
-                                                            slotProps={{
-                                                                input: {
-                                                                    disableUnderline: true,
-                                                                    startAdornment: (
-                                                                        <Typography sx={{ fontSize: "13px", mr: 0.5 }}>
-                                                                            ₹
-                                                                        </Typography>
-                                                                    ),
-                                                                    inputProps: {
-                                                                        inputMode: "numeric",
-                                                                        pattern: "[0-9]*",
-                                                                        style: {
-                                                                            fontWeight: 600,
-                                                                            fontSize: "13px",
-                                                                            width: "60px",
-                                                                        },
-                                                                    },
-                                                                },
-                                                            }}
-                                                        />
-
-
-                                                    </Box>
-                                                </Grid>
-                                            ))}
-                                    </Grid>
                                 </Box>
                             )}
 
-                        </Card>
-                    </DialogContent>
+                            {/* Grade amounts */}
+                            <Grid container spacing={2} sx={{ backgroundColor: '#FFE5E5', p: 3, borderBottomLeftRadius: '5px', borderBottomRightRadius: '5px' }}>
+                                {grades.filter((g) => !editRemovedGrades.has(g.sign)).map((grade) => (
+                                    <Grid size={{ lg: 1.5, md: 2, sm: 3, xs: 4 }} key={grade.sign}>
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                                            <Typography sx={{ color: 'red', fontSize: '12px', ml: 0.5 }}>{grade.sign}</Typography>
+                                            <IconButton
+                                                size="small"
+                                                onClick={() => handleEditRemoveGrade(grade.sign)}
+                                                sx={{
+                                                    p: 0.3, color: '#bbb', bgcolor: 'rgba(0,0,0,0.04)', borderRadius: '50%',
+                                                    transition: 'all 0.2s ease',
+                                                    '&:hover': { color: '#fff', bgcolor: '#f44336', transform: 'scale(1.15)' },
+                                                }}
+                                            >
+                                                <ClearIcon sx={{ fontSize: 13 }} />
+                                            </IconButton>
+                                        </Box>
+                                        <TextField
+                                            size="small"
+                                            value={editFees.gradeAmounts[grade.sign] ?? ''}
+                                            onChange={(e) => handleEditGradeChange(grade.sign, e.target.value)}
+                                            variant="outlined"
+                                            error={!!gradeErrors[grade.sign]}
+                                            helperText={gradeErrors[grade.sign] ? 'Amount required' : ''}
+                                            slotProps={{
+                                                input: {
+                                                    startAdornment: <InputAdornment position="start">₹</InputAdornment>,
+                                                    inputMode: 'numeric',
+                                                }
+                                            }}
+                                            sx={{
+                                                '& .MuiOutlinedInput-root': { height: 33, fontSize: 14, borderRadius: '5px', backgroundColor: '#F6F6F8' },
+                                                '& .MuiFormHelperText-root': { fontSize: '10px', mx: 0, mt: 0.3 },
+                                            }}
+                                        />
+                                    </Grid>
+                                ))}
+                            </Grid>
+                        </Box>
+                    </Box>
 
-                    <DialogActions sx={{ px: 3, py: 2 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'end', px: 2, py: 1.5, borderTop: '1px solid #eee', gap: 1 }}>
                         <Button
-                            variant="outlined"
                             onClick={() => setOpenEditDialog(false)}
-                            sx={{ textTransform: "none", fontWeight: 600, borderRadius: "999px", height: 28, borderColor: "#ccc", color: "#555" }}
+                            sx={{ border: '1px solid #000', borderRadius: '30px', textTransform: 'none', width: '100px', height: '30px', color: '#000' }}
                         >
                             Cancel
                         </Button>
-
                         <Button
-                            variant="contained"
-                            color="success"
-                            onClick={() => {
-                                handleUpdate()
-                                setOpenEditDialog(false);
-                            }}
+                            onClick={handleUpdate}
                             sx={{
-                                textTransform: "none",
-                                fontWeight: 600,
-                                borderRadius: "999px",
-                                px: 3,
-                                height: 28,
-                                boxShadow: "none"
+                                backgroundColor: websiteSettings.mainColor, borderRadius: '30px', textTransform: 'none',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.2)', border: '1px solid rgba(0,0,0,0.1)',
+                                px: 3, height: '30px', color: websiteSettings.textColor,
                             }}
                         >
-                            Accept
+                            Update
                         </Button>
-                    </DialogActions>
+                    </Box>
                 </Dialog>
             </Box>
         </Box >

@@ -121,9 +121,16 @@ export default function SchoolFeeApprovalPage() {
         }
     };
 
-    const filteredFees = selectedGradeSign
+    const getRollFromString = (str) => {
+        if (!str) return '';
+        const idx = str.indexOf('-');
+        return idx !== -1 ? str.substring(0, idx) : str;
+    };
+
+    const filteredFees = (selectedGradeSign
         ? feesData.filter((item) => item.grade === selectedGradeSign)
-        : feesData;
+        : feesData
+    ).filter((item) => getRollFromString(item.requestedBy) !== String(rollNumber));
 
     const showNoData =
         !feesData.length ||
@@ -411,17 +418,9 @@ export default function SchoolFeeApprovalPage() {
                                         }}
                                     >
 
-                                        <Typography sx={{
-                                            fontSize: "13px", fontWeight: 600, color: "#555",
-                                        }} >
-                                            <span style={{
-                                                fontSize: "12px",
-                                                color: "#777",
-                                                fontWeight: 500,
-                                            }}>  Created By : </span>  {item.createdBy}
-                                            {/* <span style={{ color: "#666", fontWeight: 500 }}>
-                                            (Admin)
-                                        </span> */}
+                                        <Typography sx={{ fontSize: "13px", fontWeight: 600, color: "#555" }}>
+                                            <span style={{ fontSize: "12px", color: "#777", fontWeight: 500 }}>Requested By : </span>
+                                            {item.requestedBy ? `${item.requestedBy.split('-').slice(1, -1).join('-')} - ${item.requestedBy.split('-')[0]}` : ''}
                                         </Typography>
                                         {/* <Typography
                                             sx={{

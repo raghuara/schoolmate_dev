@@ -290,6 +290,8 @@ const updateAddFundApprovalAction = `${baseApiurl}updateAddFundApprovalAction`;
 const getAddedFund = `${baseApiurl}getAddedFund`;
 const getAddedFundById = `${baseApiurl}getAddedFundById`;
 const updateFundById = `${baseApiurl}updateFundById`;
+const myExpenceRequests = `${baseApiurl}myExpenceRequests`;
+const myFundRequests = `${baseApiurl}myFundRequests`;
 
 
 
@@ -748,4 +750,6 @@ export {
     getEligibleEcaStudents,
     getEligibleTransportStudents,
     getUsersByUserType,
+    myExpenceRequests,
+    myFundRequests
 }

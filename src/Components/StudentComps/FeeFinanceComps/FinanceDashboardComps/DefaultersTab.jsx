@@ -59,7 +59,7 @@ export default function DefaultersTab({ selectedYear }) {
     const [isLoading, setIsLoading] = useState(false);
     const [defaultersData, setDefaultersData] = useState(null);
     const [selectedFeeType, setSelectedFeeType] = useState('School Fee');
-    const [selectedGradeId, setSelectedGradeId] = useState(null);
+    const [selectedGradeId, setSelectedGradeId] = useState(grades?.[0]?.id || null);
     const [searchText, setSearchText] = useState('');
 
     // Reminder modal state
@@ -467,7 +467,7 @@ export default function DefaultersTab({ selectedYear }) {
                     </Box>
 
                     {/* Message Box */}
-                    <Box sx={{ px: 3, pt: 1, pb: 2.5 }}>
+                    <Box sx={{ px: 3, pt: 1, pb: 1.5 }}>
                         <Typography sx={{ fontSize: '12px', fontWeight: '700', color: '#555', mb: 1, letterSpacing: '0.4px' }}>
                             MESSAGE
                         </Typography>
@@ -485,6 +485,7 @@ export default function DefaultersTab({ selectedYear }) {
                                 },
                             }}
                         />
+
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.8 }}>
                             <Typography sx={{ fontSize: '11px', color: '#999' }}>
                                 {reminderMsg.length === 0 ? 'Write a message or pick a template above' : `${reminderMsg.length} characters`}
@@ -499,11 +500,26 @@ export default function DefaultersTab({ selectedYear }) {
                             )}
                         </Box>
                     </Box>
+
+                    {/* Delivery info note */}
+                    <Box sx={{ mx: 3, mb: 2, display: 'flex', alignItems: 'flex-start', gap: 1.2, bgcolor: '#F0F4FF', border: '1px solid #C7D2FE', borderRadius: '8px', px: 2, py: 1.5 }}>
+                        <Box sx={{ width: 18, height: 18, borderRadius: '50%', bgcolor: '#6366F1', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, mt: '1px' }}>
+                            <Typography sx={{ fontSize: '10px', fontWeight: 800, color: '#fff', lineHeight: 1 }}>i</Typography>
+                        </Box>
+                        <Box>
+                            <Typography sx={{ fontSize: '12px', fontWeight: '700', color: '#4338CA', mb: 0.3 }}>
+                                Where will this message appear?
+                            </Typography>
+                            <Typography sx={{ fontSize: '11px', color: '#5B6FA6', lineHeight: 1.6 }}>
+                                This message will be delivered directly to the <strong>student's login inbox</strong> (Messages section). The student and their parent will see it the next time they log in to SchoolMate.
+                            </Typography>
+                        </Box>
+                    </Box>
                 </DialogContent>
 
                 <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid #F0F0F0', bgcolor: '#FAFAFA', gap: 1 }}>
                     <Button
-                        onClick={() => setReminderModal(false)}
+                        onClick={() => setReminderModal(false)} 
                         sx={{
                             textTransform: 'none', borderRadius: '8px',
                             color: '#666', border: '1px solid #E0E0E0',
@@ -520,10 +536,11 @@ export default function DefaultersTab({ selectedYear }) {
                             textTransform: 'none', borderRadius: '8px',
                             bgcolor: '#6366F1', fontWeight: '600', px: 3,
                             '&:hover': { bgcolor: '#4F46E5' },
+
                             '&.Mui-disabled': { bgcolor: '#E0E0E0', color: '#aaa' },
-                        }}
+                        }}  
                     >
-                        {reminderStudent ? `Send via ${reminderType}` : `Send to All via ${reminderType}`}
+                        {reminderStudent ? 'Send' : 'Send to All'}
                     </Button>
                 </DialogActions>
             </Dialog>
