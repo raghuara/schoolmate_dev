@@ -140,6 +140,7 @@ import ApprovePayroll from "./Components/LeaveAttendanceComps/PayrollComps/Appro
 import BankReports from "./Components/LeaveAttendanceComps/PayrollComps/BankReports";
 import SalaryRegister from "./Components/LeaveAttendanceComps/PayrollComps/SalaryRegister";
 import LeavePolicy from "./Components/LeaveAttendanceComps/PayrollComps/LeavePolicy";
+import LeaveMasterScreen from "./Components/LeaveAttendanceComps/PayrollComps/LeaveMasterScreen";
 import LeaveAttendancePage from "./Components/LeaveAttendanceComps/LeaveAttendancePage";
 import VehicleDetailsPage from "./Components/TransportComps/TransportAssetComps/VehicleDetailsComps/VehicleDetailsPage";
 import EditVehicleDetails from "./Components/TransportComps/TransportAssetComps/VehicleDetailsComps/EditVehicleDetails";
@@ -303,6 +304,7 @@ export default function RouterPage() {
                 <Route path="Leave/payroll/bank-reports" element={<BankReports />} />
                 <Route path="Leave/payroll/salary-register" element={<SalaryRegister />} />
                 <Route path="Leave/payroll/leave-policy" element={<LeavePolicy />} />
+                <Route path="Leave/payroll/leave-policy/leave-master" element={<LeaveMasterScreen />} />
 
                 {/* --------------------------------------------------------------------------------------------------- */}
 

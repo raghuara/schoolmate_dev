@@ -34,13 +34,13 @@ const CircularSlider = ({ items, title, subtitle, link }) => {
     }
 
     const settings = {
-        dots: true,
-        infinite: true,
+        dots: items.length > 1,
+        infinite: items.length > 1,
         speed: 1000,
         slidesToShow: 1,
         slidesToScroll: 1,
         arrows: false,
-        autoplay: true,
+        autoplay: items.length > 1,
         autoplaySpeed: 4000,
         responsive: [
             {

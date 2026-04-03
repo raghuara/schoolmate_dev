@@ -51,6 +51,7 @@ export default function AdditionalFeeApprovalPage() {
     const [selectedGradeSign, setSelectedGradeSign] = useState(null);
     const [details, setDetails] = useState([]);
     const [selectedFee, setSelectedFee] = useState(null);
+    const isExpanded = useSelector((state) => state.sidebar.isExpanded);
 
 
 
@@ -204,9 +205,20 @@ export default function AdditionalFeeApprovalPage() {
         <Box sx={{ width: "100%", }}>
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
             {isLoading && <Loader />}
-            <Box sx={{ backgroundColor: "#f2f2f2", px: 2, borderRadius: "10px 10px 10px 0px", borderBottom: "1px solid #ddd", }}>
+            <Box sx={{
+                position: "fixed",
+                top: "60px",
+                left: isExpanded ? "260px" : "80px",
+                right: 0,
+                backgroundColor: "#f2f2f2",
+                px: 2,
+                borderBottom: "1px solid #ddd",
+                zIndex: 1200,
+                transition: "left 0.3s ease-in-out",
+                overflow: 'hidden',
+            }}>
                 <Grid container>
-                    <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }} sx={{ display: "flex", alignItems: "center", py: 1.5 }}>
+                    <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }} sx={{ display: "flex", alignItems: "center", py: 1 }}>
                         <IconButton
                             onClick={() =>
                                 navigate("/dashboardmenu/approvals", {
@@ -259,7 +271,7 @@ export default function AdditionalFeeApprovalPage() {
                     </Grid>
                 </Grid>
             </Box>
-            <Box sx={{ px: 2 }}>
+            <Box sx={{ px: 2, pt: "60px" }}>
 
                 <Grid container sx={{ pb: 2 }}>
                     {filteredDetails.length === 0 ? (

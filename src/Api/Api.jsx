@@ -432,6 +432,8 @@ const updateExamsByGradeId = `${baseApiurl}GradeValueFetch/updateExamsByGradeId`
 const fetchAllSubjects = `${baseApiurl}GradeValueFetch/fetchAllSubjects`;
 const fetchSubjectsByID = `${baseApiurl}GradeValueFetch/fetchSubjectsByID`;
 const updatePrimaryAndSecondarySubjects = `${baseApiurl}GradeValueFetch/updatePrimaryAndSecondarySubjects`;
+const AddClass = `${baseApiurl}GradeValueFetch/AddClass`;
+const AddClassSection = `${baseApiurl}GradeValueFetch/AddClassSection`;
 
 export {
     poststudyMaterial,
@@ -751,5 +753,7 @@ export {
     getEligibleTransportStudents,
     getUsersByUserType,
     myExpenceRequests,
-    myFundRequests
+    myFundRequests,
+    AddClass,
+    AddClassSection
 }

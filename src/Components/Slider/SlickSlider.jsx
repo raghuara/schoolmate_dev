@@ -12,8 +12,6 @@ import ReactPlayer from "react-player";
 
 const SliderComponent = ({ items, title, subtitle, link }) => {
 
-
-
     const websiteSettings = useSelector(selectWebsiteSettings);
     if (!items || items.length === 0) {
         return (
@@ -34,13 +32,13 @@ const SliderComponent = ({ items, title, subtitle, link }) => {
     }
 
     const settings = {
-        dots: true,
-        infinite: true,
+        dots: items.length > 1,
+        infinite: items.length > 1,
         speed: 1000,
         slidesToShow: 1,
         slidesToScroll: 1,
         arrows: false,
-        autoplay: true,
+        autoplay: items.length > 1,
         autoplaySpeed: 3500,
         responsive: [
             {

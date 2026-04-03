@@ -15,7 +15,7 @@ import { selectGrades, fetchGradesData } from '../../../Redux/Slices/DropdownCon
 import axios from 'axios';
 import Loader from '../../Loader';
 import SnackBar from '../../SnackBar';
-import { postGrade, postSection } from '../../../Api/Api';
+import { AddClass, AddClassSection } from '../../../Api/Api';
 
 const CATEGORIES = ['Nursery', 'Primary', 'Secondary', 'Higher Secondary'];
 
@@ -25,6 +25,24 @@ const CATEGORY_COLORS = {
     'Secondary':        { color: '#388E3C', bg: '#E8F5E9', chipBg: '#D9F0DB' },
     'Higher Secondary': { color: '#F57C00', bg: '#FFF3E0', chipBg: '#FFE9C8' },
 };
+
+const CLASS_OPTIONS = [
+    { gradeName: 'PREKG', gradeId: 131 },
+    { gradeName: 'LKG', gradeId: 132 },
+    { gradeName: 'UKG', gradeId: 133 },
+    { gradeName: 'I', gradeId: 134 },
+    { gradeName: 'II', gradeId: 135 },
+    { gradeName: 'III', gradeId: 136 },
+    { gradeName: 'IV', gradeId: 137 },
+    { gradeName: 'V', gradeId: 138 },
+    { gradeName: 'VI', gradeId: 139 },
+    { gradeName: 'VII', gradeId: 140 },
+    { gradeName: 'VIII', gradeId: 141 },
+    { gradeName: 'IX', gradeId: 142 },
+    { gradeName: 'X', gradeId: 143 },
+    { gradeName: 'XI', gradeId: 144 },
+    { gradeName: 'XII', gradeId: 145 },
+];
 
 export default function ClassSectionManagementPage() {
     const navigate = useNavigate();
@@ -39,15 +57,13 @@ export default function ClassSectionManagementPage() {
     const [color, setColor] = useState(false);
     const [message, setMessage] = useState('');
 
-    // Category filter
     const [selectedCategory, setSelectedCategory] = useState('Nursery');
 
-    // Create Class dialog
     const [openClassDialog, setOpenClassDialog] = useState(false);
     const [newClassName, setNewClassName] = useState('');
     const [newClassCategory, setNewClassCategory] = useState('');
+    const [newClassGradeId, setNewClassGradeId] = useState(null);
 
-    // Add Section dialog
     const [openSectionDialog, setOpenSectionDialog] = useState(false);
     const [sectionTargetGrade, setSectionTargetGrade] = useState(null);
     const [newSectionName, setNewSectionName] = useState('');
@@ -63,11 +79,29 @@ export default function ClassSectionManagementPage() {
         setStatus(success);
     };
     
+    // ── Auto category from class name ──────────────────────────────
+    const getCategoryFromClass = (className) => {
+        if (!className) return '';
+        const upper = className.toUpperCase();
+        if (['PREKG', 'LKG', 'UKG'].includes(upper)) return 'Nursery';
+        if (['I', 'II', 'III', 'IV', 'V'].includes(upper)) return 'Primary';
+        if (['VI', 'VII', 'VIII', 'IX', 'X'].includes(upper)) return 'Secondary';
+        if (['XI', 'XII'].includes(upper)) return 'Higher Secondary';
+        return '';
+    };
+
     // ── Create Class ──────────────────────────────────────────────
     const handleOpenClassDialog = () => {
         setNewClassName('');
-        setNewClassCategory(selectedCategory || '');
+        setNewClassCategory('');
+        setNewClassGradeId(null);
         setOpenClassDialog(true);
+    };
+
+    const handleClassNameChange = (option) => {
+        setNewClassName(option?.gradeName || '');
+        setNewClassGradeId(option?.gradeId || null);
+        setNewClassCategory(getCategoryFromClass(option?.gradeName));
     };
 
     const handleCreateClass = async () => {
@@ -76,21 +110,21 @@ export default function ClassSectionManagementPage() {
             return;
         }
         if (!newClassCategory) {
-            showSnack('Category is required', false);
+            showSnack('Category could not be determined', false);
             return;
         }
         setIsLoading(true);
         try {
             await axios.post(
-                postGrade,
-                { sign: newClassName.trim(), category: newClassCategory },
+                AddClass,
+                { gradeId: newClassGradeId, category: newClassCategory, gradeName: newClassName.trim() },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             showSnack('Class created successfully', true);
             setOpenClassDialog(false);
             dispatch(fetchGradesData());
-        } catch {
-            showSnack('Failed to create class', false);
+        } catch (error) {
+            showSnack(error?.response?.data?.message || 'Failed to create class', false);
         } finally {
             setIsLoading(false);
         }
@@ -111,15 +145,15 @@ export default function ClassSectionManagementPage() {
         setIsLoading(true);
         try {
             await axios.post(
-                postSection,
-                { gradeId: sectionTargetGrade.id, section: newSectionName.trim().toUpperCase() },
+                AddClassSection,
+                { gradeId: sectionTargetGrade.id, sign: sectionTargetGrade.sign, sectionName: newSectionName.trim().toUpperCase() },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             showSnack('Section added successfully', true);
             setOpenSectionDialog(false);
             dispatch(fetchGradesData());
-        } catch {
-            showSnack('Failed to add section', false);
+        } catch (error) {
+            showSnack(error?.response?.data?.message || 'Failed to add section', false);
         } finally {
             setIsLoading(false);
         }
@@ -302,37 +336,40 @@ export default function ClassSectionManagementPage() {
                 </Box>
                 <DialogContent sx={{ pt: 2.5, pb: 1 }}>
                     <Typography sx={{ fontSize: '12px', mb: 0.5, color: '#555' }}>
-                        Category<span style={{ color: '#f00', fontSize: 16 }}>*</span>
-                    </Typography>
-                    <Autocomplete
-                        options={CATEGORIES}
-                        value={newClassCategory}
-                        onChange={(_, v) => setNewClassCategory(v || '')}
-                        renderInput={(params) => (
-                            <TextField
-                                {...params}
-                                size="small"
-                                placeholder="Select category"
-                                sx={{ mb: 2, '& .MuiInputBase-root': { fontSize: 14 } }}
-                            />
-                        )}
-                    />
-                    <Typography sx={{ fontSize: '12px', mb: 0.5, color: '#555' }}>
                         Class Name<span style={{ color: '#f00', fontSize: 16 }}>*</span>
                     </Typography>
                     <Autocomplete
-                        options={['PREKG', 'LKG', 'UKG', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII']}
-                        value={newClassName}
-                        onChange={(_, v) => setNewClassName(v || '')}
+                        options={CLASS_OPTIONS}
+                        getOptionLabel={(option) => option.gradeName || ''}
+                        value={CLASS_OPTIONS.find((o) => o.gradeName === newClassName) || null}
+                        onChange={(_, v) => handleClassNameChange(v)}
+                        isOptionEqualToValue={(option, value) => option.gradeId === value.gradeId}
                         renderInput={(params) => (
                             <TextField
                                 {...params}
                                 size="small"
                                 placeholder="Select class"
-                                sx={{ '& .MuiInputBase-root': { fontSize: 14 } }}
+                                sx={{ mb: 2, '& .MuiInputBase-root': { fontSize: 14 } }}
                             />
                         )}
                     />
+                    <Typography sx={{ fontSize: '12px', mb: 0.5, color: '#555' }}>
+                        Category
+                    </Typography>
+                    <TextField
+                        fullWidth
+                        size="small"
+                        value={newClassCategory}
+                        disabled
+                        placeholder="Select a class first"
+                        sx={{
+                            '& .MuiInputBase-root': { fontSize: 14, bgcolor: '#F9FAFB' },
+                            '& .MuiInputBase-input.Mui-disabled': { WebkitTextFillColor: '#000' },
+                        }}
+                    />
+                    <Typography sx={{ fontSize: '11px', color: '#9CA3AF', mt: 0.5 }}>
+                        Category is automatically assigned based on the selected class and cannot be changed.
+                    </Typography>
                 </DialogContent>
                 <DialogActions sx={{ px: 2.5, pb: 2 }}>
                     <Button onClick={() => setOpenClassDialog(false)} sx={{ textTransform: 'none', color: '#555', borderRadius: '20px' }}>
@@ -344,6 +381,7 @@ export default function ClassSectionManagementPage() {
                         sx={{
                             textTransform: 'none',
                             borderRadius: '20px',
+                            color:"#000",
                             bgcolor: websiteSettings.mainColor,
                             '&:hover': { bgcolor: websiteSettings.mainColor, opacity: 0.9 },
                         }}

@@ -194,6 +194,8 @@ export default function ExpensePage() {
     const [myFundRequestsData, setMyFundRequestsData] = useState([]);
     const [myRequestsTypeFilter, setMyRequestsTypeFilter] = useState("Expense");
     const [myRequestsStatusFilter, setMyRequestsStatusFilter] = useState("All");
+    const [myRequestsSearch, setMyRequestsSearch] = useState("");
+    const [approvalsSearch, setApprovalsSearch] = useState("");
 
     // Role-based tab configuration
     const getTabs = () => {
@@ -344,6 +346,7 @@ export default function ExpensePage() {
             });
             setMessage(userType === "superadmin" ? "Expense added successfully!" : "Expense request submitted successfully!");
             setOpen(true); setColor(true); setStatus(true);
+            fetchDashboardData();
             fetchDashboardExpenseData();
             setActiveTab(0);
         } catch (error) {
@@ -388,6 +391,8 @@ export default function ExpensePage() {
             setMessage(`Expense request ${approvalAction === "approve" ? "approved" : "rejected"} successfully!`);
             setOpen(true); setColor(true); setStatus(true);
             fetchPendingExpenseData();
+            fetchDashboardData();
+            fetchDashboardExpenseData();
         } catch (error) {
             console.error("Error processing approval:", error);
             setMessage("Failed to process request. Please try again.");
@@ -654,7 +659,7 @@ export default function ExpensePage() {
             setMessage(`Fund allocation ${fundApprovalAction === "approve" ? "approved" : "rejected"} successfully!`);
             setOpen(true); setColor(true); setStatus(true);
             fetchPendingFundData();
-            if (fundApprovalAction === "approve") fetchDashboardData();
+            fetchDashboardData();
         } catch (error) {
             console.error("Error processing fund approval:", error);
             setMessage("Failed to process request. Please try again.");
@@ -686,19 +691,26 @@ export default function ExpensePage() {
                         ₹{(dashboardData?.currentAllocationMonthly ?? 0).toLocaleString()}
                     </Typography>
                 </Box>
-                {userType === "superadmin" && (
-                    <IconButton
+                {(userType === "superadmin" || userType === "admin") && (
+                    <Button
+                        startIcon={<AddIcon />}
                         onClick={() => setOpenAllocationDialog(true)}
                         sx={{
                             bgcolor: "#667eea",
                             color: "#fff",
+                            textTransform: "none",
+                            borderRadius: "30px",
+                            fontSize: "12px",
+                            fontWeight: 600,
+                            px: 2,
+                            height: 32,
                             "&:hover": {
                                 bgcolor: "#5568d3"
                             }
                         }}
                     >
-                        <SettingsIcon />
-                    </IconButton>
+                        {userType === "superadmin" ? "Set Allocation" : "Request Allocation"}
+                    </Button>
                 )}
             </Box>
 
@@ -1135,7 +1147,14 @@ export default function ExpensePage() {
     // ── Render My Requests (Status) Tab ────────────────────────────────────
     const renderMyRequests = () => {
         const isExpense = myRequestsTypeFilter === "Expense";
-        const sourceData = isExpense ? myRequestsData : myFundRequestsData;
+        const rawData = isExpense ? myRequestsData : myFundRequestsData;
+        const q = myRequestsSearch.toLowerCase();
+        const sourceData = q ? rawData.filter(item =>
+            (item.category || '').toLowerCase().includes(q) ||
+            (item.description || '').toLowerCase().includes(q) ||
+            (item.paymentMethod || '').toLowerCase().includes(q) ||
+            String(item.amount || item.expenceAmount || item.fundAmount || '').includes(q)
+        ) : rawData;
         const statusTabs = [
             { key: "All", label: "All" },
             { key: "Requested", label: "Pending" },
@@ -1214,6 +1233,14 @@ export default function ExpensePage() {
                                     {tab.label}
                                 </Button>
                             ))}
+                            <TextField
+                                placeholder="Search..."
+                                value={myRequestsSearch}
+                                onChange={(e) => setMyRequestsSearch(e.target.value)}
+                                slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: "#9CA3AF", fontSize: 18 }} /></InputAdornment> } }}
+                                sx={{ width: 170, backgroundColor: "#fff", "& .MuiOutlinedInput-root": { borderRadius: "5px", height: 28 } }}
+                                size="small"
+                            />
                             <Typography sx={{ fontSize: "12px", color: "#777", fontWeight: 500, whiteSpace: "nowrap", ml: 0.5 }}>
                                 {sourceData.length} records
                             </Typography>
@@ -1263,7 +1290,41 @@ export default function ExpensePage() {
                                             {isExpense ? "Expense Request" : "Fund Request"}
                                         </Box>
                                         <Box sx={{ ml: 1.5 }}>{renderStatusChip(item.status)}</Box>
+                                        {displayStatus === "Rejected" && item.rejectReason && (
+                                            <Tooltip title={item.rejectReason} arrow placement="top">
+                                                <Button
+                                                    size="small"
+                                                    sx={{
+                                                        ml: 1,
+                                                        textTransform: "none",
+                                                        fontSize: "11px",
+                                                        fontWeight: 600,
+                                                        color: "#C62828",
+                                                        bgcolor: "#FFEBEE",
+                                                        border: "1px solid #FFCDD2",
+                                                        borderRadius: "20px",
+                                                        px: 1.5,
+                                                        height: 22,
+                                                        minWidth: 0,
+                                                        "&:hover": { bgcolor: "#FFCDD2" },
+                                                    }}
+                                                >
+                                                    Reason
+                                                </Button>
+                                            </Tooltip>
+                                        )}
                                     </Box>
+
+                                    {/* Approved/Rejected By strip */}
+                                    {item.approvedByName && (displayStatus === "Approved" || displayStatus === "Rejected") && (
+                                        <Box sx={{ display: "flex", justifyContent: "flex-end", px: 3, mt: "2px" }}>
+                                            <Typography sx={{ fontSize: "12px", fontWeight: 500, color: "#777" }}>
+                                                {displayStatus === "Approved" ? "Approved By : " : "Rejected By : "}
+                                                <span style={{ fontWeight: 600, color: "#333" }}>{item.approvedByName}</span>
+                                                <span style={{ color: "#999", marginLeft: 4 }}>- {item.approvedByRollNumber}</span>
+                                            </Typography>
+                                        </Box>
+                                    )}
 
                                     {/* Table body */}
                                     <Box sx={{ border: "1px solid #E8DDEA", borderRadius: "5px", bgcolor: "#fff", overflow: "hidden" }}>
@@ -1412,7 +1473,15 @@ export default function ExpensePage() {
                                 </Button>
                             ))}
                         </Grid>
-                        <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }} sx={{ display: "flex", alignItems: "center", justifyContent: { xs: "flex-start", md: "flex-end" }, py: 0.5 }}>
+                        <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }} sx={{ display: "flex", alignItems: "center", justifyContent: { xs: "flex-start", md: "flex-end" }, gap: 1, py: 0.5 }}>
+                            <TextField
+                                placeholder="Search..."
+                                value={approvalsSearch}
+                                onChange={(e) => setApprovalsSearch(e.target.value)}
+                                slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: "#9CA3AF", fontSize: 18 }} /></InputAdornment> } }}
+                                sx={{ width: 170, backgroundColor: "#fff", "& .MuiOutlinedInput-root": { borderRadius: "5px", height: 28 } }}
+                                size="small"
+                            />
                             <Typography sx={{ fontSize: "12px", color: "#777", fontWeight: 500, whiteSpace: "nowrap" }}>
                                 {dataList.filter((d) => parseUser(d.createdBy).roll !== String(rollNumber)).length} pending records
                             </Typography>
@@ -1435,7 +1504,12 @@ export default function ExpensePage() {
                 ) : (
                     <Grid container sx={{ pb: 2 }}>
                         {isExpense ? (
-                            pendingExpenseData.filter((item) => parseUser(item.createdBy).roll !== String(rollNumber)).map((item) => {
+                            pendingExpenseData.filter((item) => {
+                                if (parseUser(item.createdBy).roll === String(rollNumber)) return false;
+                                if (!approvalsSearch) return true;
+                                const s = approvalsSearch.toLowerCase();
+                                return (item.category || '').toLowerCase().includes(s) || (item.description || '').toLowerCase().includes(s) || parseUser(item.createdBy).name.toLowerCase().includes(s);
+                            }).map((item) => {
                                 const requestedBy = parseUser(item.createdBy);
                                 const canAct = (userType === "superadmin" || userType === "admin") && item.status === "Requested";
                                 return (
@@ -1530,7 +1604,12 @@ export default function ExpensePage() {
                                 );
                             })
                         ) : (
-                            pendingFundData.filter((fund) => parseUser(fund.createdBy).roll !== String(rollNumber)).map((fund) => {
+                            pendingFundData.filter((fund) => {
+                                if (parseUser(fund.createdBy).roll === String(rollNumber)) return false;
+                                if (!approvalsSearch) return true;
+                                const s = approvalsSearch.toLowerCase();
+                                return (fund.description || '').toLowerCase().includes(s) || parseUser(fund.createdBy).name.toLowerCase().includes(s);
+                            }).map((fund) => {
                                 const addedBy = parseUser(fund.createdBy);
                                 const canAct = (userType === "superadmin" || userType === "admin") && fund.status === "Requested";
                                 return (
@@ -1650,9 +1729,19 @@ export default function ExpensePage() {
         borderColor: "#E8DDEA",
         textAlign: "center",
         fontWeight: 600,
-        fontSize: "13px",
-        py: 1,
-        whiteSpace: "nowrap"
+        fontSize: "12px",
+        py: 1.2,
+        whiteSpace: "nowrap",
+        px: 1.5,
+    };
+
+    const tdCell = {
+        borderRight: 1,
+        borderColor: "#E8DDEA",
+        textAlign: "center",
+        fontSize: "12px",
+        py: 1.2,
+        px: 1.5,
     };
 
     const renderStatusChip = (rawStatus) => {
@@ -1800,22 +1889,21 @@ export default function ExpensePage() {
             </Box>
 
             {/* Table */}
-            <Box sx={{ border: "1px solid #E8DDEA", borderRadius: "5px", overflow: "hidden", bgcolor: "#fff" }}>
+            <Box sx={{ border: "1px solid #E8DDEA", borderRadius: "5px", overflow: "auto", bgcolor: "#fff" }}>
                     {historyTypeFilter === "Expense" ? (
                         /* ── Expense Table ── */
-                        <Table stickyHeader>
+                        <Table stickyHeader sx={{ minWidth: 900 }}>
                             <TableHead>
                                 <TableRow>
-                                    <TableCell sx={{ ...thCell, width: 48 }}>S.No</TableCell>
-                                    <TableCell sx={thCell}>Date</TableCell>
-                                    <TableCell sx={thCell}>Category</TableCell>
-                                    <TableCell sx={thCell}>Requested By</TableCell>
-                                    <TableCell sx={thCell}>Description</TableCell>
-                                    <TableCell sx={thCell}>Payment Method</TableCell>
-                                    <TableCell sx={thCell}>Remarks</TableCell>
-                                    <TableCell sx={thCell}>Amount</TableCell>
-                                    <TableCell sx={thCell}>Status</TableCell>
-                                    <TableCell sx={thCell}>Approved By</TableCell>
+                                    <TableCell sx={{ ...thCell, width: 40 }}>S.No</TableCell>
+                                    <TableCell sx={{ ...thCell, minWidth: 95 }}>Date</TableCell>
+                                    <TableCell sx={{ ...thCell, minWidth: 90 }}>Category</TableCell>
+                                    <TableCell sx={{ ...thCell, minWidth: 120 }}>Requested By</TableCell>
+                                    <TableCell sx={{ ...thCell, minWidth: 150 }}>Description</TableCell>
+                                    <TableCell sx={{ ...thCell, minWidth: 80 }}>Method</TableCell>
+                                    <TableCell sx={{ ...thCell, minWidth: 80 }}>Amount</TableCell>
+                                    <TableCell sx={{ ...thCell, minWidth: 90 }}>Status</TableCell>
+                                    <TableCell sx={{ ...thCell, minWidth: 110, borderRight: 0 }}>Approved By</TableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
@@ -1823,58 +1911,45 @@ export default function ExpensePage() {
                                     filteredHistory.map((item, idx) => {
                                         const requestedBy = parseUser(item.createdBy);
                                         const approvedByUser = parseUser(item.approvedBy);
+                                        const isRejected = item.status === "Declined" || item.status === "Rejected";
                                         return (
                                             <TableRow key={item.expenceId} sx={{ bgcolor: idx % 2 === 0 ? "#fff" : "#FAFAFA", "&:hover": { bgcolor: "#f5f0fa" } }}>
-                                                <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", fontSize: "13px", color: "#9CA3AF" }}>
-                                                    {idx + 1}
-                                                </TableCell>
-                                                <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", fontSize: "13px", color: "#374151", whiteSpace: "nowrap" }}>
+                                                <TableCell sx={{ ...tdCell, color: "#9CA3AF" }}>{idx + 1}</TableCell>
+                                                <TableCell sx={{ ...tdCell, whiteSpace: "nowrap", color: "#374151" }}>
                                                     {new Date(item.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                                                 </TableCell>
-                                                <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center" }}>
-                                                    <Chip
-                                                        label={item.category || '-'}
-                                                        size="small"
-                                                        sx={{ fontSize: "11px", bgcolor: "#EFF6FF", color: "#1D4ED8", border: "1px solid #BFDBFE", fontWeight: 600 }}
-                                                    />
+                                                <TableCell sx={tdCell}>
+                                                    <Chip label={item.category || '-'} size="small" sx={{ fontSize: "10px", bgcolor: "#EFF6FF", color: "#1D4ED8", border: "1px solid #BFDBFE", fontWeight: 600, height: 22 }} />
                                                 </TableCell>
-                                                <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center" }}>
-                                                    <Typography sx={{ fontSize: "13px", fontWeight: 600, color: "#111827" }}>
-                                                        {requestedBy.name}
-                                                    </Typography>
-                                                    <Typography sx={{ fontSize: "11px", color: "#6B7280" }}>
-                                                        Roll: {requestedBy.roll}
-                                                    </Typography>
+                                                <TableCell sx={tdCell}>
+                                                    <Typography sx={{ fontSize: "12px", fontWeight: 600, color: "#111827" }}>{requestedBy.name}</Typography>
+                                                    <Typography sx={{ fontSize: "10px", color: "#9CA3AF" }}>{requestedBy.roll}</Typography>
                                                 </TableCell>
-                                                <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", maxWidth: 180 }}>
-                                                    <Tooltip title={item.description} arrow>
-                                                        <Typography sx={{ fontSize: "13px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                                <TableCell sx={{ ...tdCell, maxWidth: 160 }}>
+                                                    <Tooltip title={item.description || ''} arrow>
+                                                        <Typography sx={{ fontSize: "12px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#555" }}>
                                                             {item.description || '-'}
                                                         </Typography>
                                                     </Tooltip>
                                                 </TableCell>
-                                                <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", fontSize: "13px", color: "#374151", whiteSpace: "nowrap" }}>
-                                                    {item.paymentMethod || '-'}
-                                                </TableCell>
-                                                <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", fontSize: "13px", color: "#6B7280" }}>
-                                                    {item.remarks || '-'}
-                                                </TableCell>
-                                                <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", fontSize: "14px", fontWeight: 700, color: "#DC2626", whiteSpace: "nowrap" }}>
+                                                <TableCell sx={{ ...tdCell, whiteSpace: "nowrap", color: "#555" }}>{item.paymentMethod || '-'}</TableCell>
+                                                <TableCell sx={{ ...tdCell, fontWeight: 700, color: "#DC2626", whiteSpace: "nowrap" }}>
                                                     ₹{(item.expenceAmount ?? 0).toLocaleString()}
                                                 </TableCell>
-                                                <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center" }}>
+                                                <TableCell sx={tdCell}>
                                                     {renderStatusChip(item.status)}
+                                                    {isRejected && item.rejectReason && (
+                                                        <Tooltip title={item.rejectReason} arrow placement="top">
+                                                            <Typography sx={{ fontSize: "10px", color: "#C62828", cursor: "pointer", mt: 0.5, textDecoration: "underline" }}>View Reason</Typography>
+                                                        </Tooltip>
+                                                    )}
                                                 </TableCell>
-                                                <TableCell sx={{ textAlign: "center" }}>
+                                                <TableCell sx={{ ...tdCell, borderRight: 0 }}>
                                                     {item.approvedBy ? (
                                                         <>
-                                                            <Typography sx={{ fontSize: "13px", fontWeight: 600, color: "#111827" }}>
-                                                                {approvedByUser.name}
-                                                            </Typography>
-                                                            <Typography sx={{ fontSize: "11px", color: "#6B7280" }}>
-                                                                {item.approvedOnDate
-                                                                    ? new Date(item.approvedOnDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
-                                                                    : '-'}
+                                                            <Typography sx={{ fontSize: "12px", fontWeight: 600, color: "#111827" }}>{approvedByUser.name}</Typography>
+                                                            <Typography sx={{ fontSize: "10px", color: "#9CA3AF" }}>
+                                                                {item.approvedOnDate ? new Date(item.approvedOnDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}
                                                             </Typography>
                                                         </>
                                                     ) : (
@@ -1886,7 +1961,7 @@ export default function ExpensePage() {
                                     })
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={10} sx={{ textAlign: "center", py: 6, borderBottom: "none" }}>
+                                        <TableCell colSpan={9} sx={{ textAlign: "center", py: 6, borderBottom: "none" }}>
                                             <ReceiptLongIcon sx={{ fontSize: 48, color: "#D1D5DB", mb: 2, display: "block", mx: "auto" }} />
                                             <Typography sx={{ fontSize: "14px", color: "#9CA3AF", fontWeight: 500 }}>
                                                 {isLoading ? "Loading..." : "No expense records found"}
@@ -1898,17 +1973,17 @@ export default function ExpensePage() {
                         </Table>
                     ) : (
                         /* ── Fund (Allocation) Table ── */
-                        <Table stickyHeader>
+                        <Table stickyHeader sx={{ minWidth: 750 }}>
                             <TableHead>
                                 <TableRow>
-                                    <TableCell sx={{ ...thCell, width: 48 }}>S.No</TableCell>
-                                    <TableCell sx={thCell}>Date</TableCell>
-                                    <TableCell sx={thCell}>Added By</TableCell>
-                                    <TableCell sx={thCell}>Description</TableCell>
-                                    <TableCell sx={thCell}>Remarks</TableCell>
-                                    <TableCell sx={thCell}>Amount</TableCell>
-                                    <TableCell sx={thCell}>Status</TableCell>
-                                    <TableCell sx={thCell}>Approved By</TableCell>
+                                    <TableCell sx={{ ...thCell, width: 40 }}>S.No</TableCell>
+                                    <TableCell sx={{ ...thCell, minWidth: 95 }}>Date</TableCell>
+                                    <TableCell sx={{ ...thCell, minWidth: 120 }}>Added By</TableCell>
+                                    <TableCell sx={{ ...thCell, minWidth: 150 }}>Description</TableCell>
+                                    <TableCell sx={{ ...thCell, minWidth: 100 }}>Remarks</TableCell>
+                                    <TableCell sx={{ ...thCell, minWidth: 90 }}>Amount</TableCell>
+                                    <TableCell sx={{ ...thCell, minWidth: 90 }}>Status</TableCell>
+                                    <TableCell sx={{ ...thCell, minWidth: 110, borderRight: 0 }}>Approved By</TableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
@@ -1916,48 +1991,42 @@ export default function ExpensePage() {
                                     filteredHistory.map((item, idx) => {
                                         const addedBy = parseUser(item.createdBy);
                                         const approvedByUser = parseUser(item.approvedBy);
+                                        const isRejected = item.status === "Declined" || item.status === "Rejected";
                                         return (
                                             <TableRow key={item.addFundId} sx={{ bgcolor: idx % 2 === 0 ? "#fff" : "#FAFAFA", "&:hover": { bgcolor: "#f0f0ff" } }}>
-                                                <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", fontSize: "13px", color: "#9CA3AF" }}>
-                                                    {idx + 1}
-                                                </TableCell>
-                                                <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", fontSize: "13px", color: "#374151", whiteSpace: "nowrap" }}>
+                                                <TableCell sx={{ ...tdCell, color: "#9CA3AF" }}>{idx + 1}</TableCell>
+                                                <TableCell sx={{ ...tdCell, whiteSpace: "nowrap", color: "#374151" }}>
                                                     {new Date(item.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                                                 </TableCell>
-                                                <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center" }}>
-                                                    <Typography sx={{ fontSize: "13px", fontWeight: 600, color: "#111827" }}>
-                                                        {addedBy.name}
-                                                    </Typography>
-                                                    <Typography sx={{ fontSize: "11px", color: "#6B7280" }}>
-                                                        Roll: {addedBy.roll}
-                                                    </Typography>
+                                                <TableCell sx={tdCell}>
+                                                    <Typography sx={{ fontSize: "12px", fontWeight: 600, color: "#111827" }}>{addedBy.name}</Typography>
+                                                    <Typography sx={{ fontSize: "10px", color: "#9CA3AF" }}>{addedBy.roll}</Typography>
                                                 </TableCell>
-                                                <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", maxWidth: 200 }}>
-                                                    <Tooltip title={item.description} arrow>
-                                                        <Typography sx={{ fontSize: "13px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                                <TableCell sx={{ ...tdCell, maxWidth: 180 }}>
+                                                    <Tooltip title={item.description || ''} arrow>
+                                                        <Typography sx={{ fontSize: "12px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#555" }}>
                                                             {item.description || '-'}
                                                         </Typography>
                                                     </Tooltip>
                                                 </TableCell>
-                                                <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", fontSize: "13px", color: "#6B7280" }}>
-                                                    {item.remarks || '-'}
-                                                </TableCell>
-                                                <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", fontSize: "14px", fontWeight: 700, color: "#667eea", whiteSpace: "nowrap" }}>
+                                                <TableCell sx={{ ...tdCell, color: "#6B7280" }}>{item.remarks || '-'}</TableCell>
+                                                <TableCell sx={{ ...tdCell, fontWeight: 700, color: "#667eea", whiteSpace: "nowrap" }}>
                                                     ₹{(item.fundAmount ?? 0).toLocaleString()}
                                                 </TableCell>
-                                                <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center" }}>
+                                                <TableCell sx={tdCell}>
                                                     {renderStatusChip(item.status)}
+                                                    {isRejected && item.rejectReason && (
+                                                        <Tooltip title={item.rejectReason} arrow placement="top">
+                                                            <Typography sx={{ fontSize: "10px", color: "#C62828", cursor: "pointer", mt: 0.5, textDecoration: "underline" }}>View Reason</Typography>
+                                                        </Tooltip>
+                                                    )}
                                                 </TableCell>
-                                                <TableCell sx={{ textAlign: "center" }}>
+                                                <TableCell sx={{ ...tdCell, borderRight: 0 }}>
                                                     {item.approvedBy ? (
                                                         <>
-                                                            <Typography sx={{ fontSize: "13px", fontWeight: 600, color: "#111827" }}>
-                                                                {approvedByUser.name}
-                                                            </Typography>
-                                                            <Typography sx={{ fontSize: "11px", color: "#6B7280" }}>
-                                                                {item.approvedOnDate
-                                                                    ? new Date(item.approvedOnDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
-                                                                    : '-'}
+                                                            <Typography sx={{ fontSize: "12px", fontWeight: 600, color: "#111827" }}>{approvedByUser.name}</Typography>
+                                                            <Typography sx={{ fontSize: "10px", color: "#9CA3AF" }}>
+                                                                {item.approvedOnDate ? new Date(item.approvedOnDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}
                                                             </Typography>
                                                         </>
                                                     ) : (

@@ -205,6 +205,23 @@ export default function LeavePolicy() {
                                 Configure leave types and entitlements for all staff
                             </Typography>
                         </Box>
+                        <Button
+                            variant="outlined"
+                            onClick={() => navigate('leave-master')}
+                            sx={{
+                                textTransform: 'none',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                borderRadius: '30px',
+                                borderColor: PRIMARY,
+                                color: PRIMARY,
+                                px: 2,
+                                height: 32,
+                                '&:hover': { bgcolor: PRIMARY_LIGHT, borderColor: PRIMARY_DARK },
+                            }}
+                        >
+                            Leave Master Screen
+                        </Button>
                     </Box>
                     <Button
                         variant="contained"
