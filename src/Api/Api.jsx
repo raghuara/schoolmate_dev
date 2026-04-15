@@ -274,6 +274,9 @@ const approvalStatusCheck = `${schoolFee}approvalStatusCheck`;
 const updateSchoolFeesApprovalAction = `${schoolFee}updateSchoolFeesApprovalAction`;
 const getFeesById = `${schoolFee}getFeesById`;
 
+const GetConcessionLog = `${baseApiurl}schoolFeesBilling/GetConcessionLog`;
+const getUserConcessionDetails = `${baseApiurl}schoolFeesBilling/getUserConcessionDetails`;
+
 // Finance Dashboard 
 const finance = `${baseApiurl}finance/`;
 const overView = `${finance}overView`;
@@ -282,6 +285,7 @@ const cashCollection = `${finance}cashCollection`;
 const classWiseCollection = `${finance}classWiseCollection`;
 const defaulters = `${finance}defaulters`;
 const feeReport = `${finance}feeReport`;
+
 
 // Expense 
 const postFund = `${baseApiurl}postFund`;
@@ -380,8 +384,6 @@ const getEligibleTransportStudents = `${transportManagement}getEligibleTransport
 const getRouteFullDetailsById = `${transportManagement}getRouteFullDetailsById`;
 const getAllStudentMappingCards = `${transportManagement}getAllStudentMappingCards`;
 
-
-
 const postNewRoute = `${transportManagement}postNewRoute`;
 const updateNewRoute = `${transportManagement}updateNewRoute`;
 const getAllRoutes = `${transportManagement}getAllRoutes`;
@@ -393,6 +395,7 @@ const getAllTrip = `${transportManagement}getAllTrip`;
 const postTranspoartFee = `${baseApiurl}postTranspoartFee`;
 const transpoartFeeFetch = `${baseApiurl}transpoartFeeFetch`;
 const transpoartFeeFetchID = `${baseApiurl}transpoartFeeFetchID`;
+const transpoartFeeFetchByRouteId = `${baseApiurl}transpoartFeeFetchByRouteId`;
 const transpoartActivityFetch = `${baseApiurl}transpoartActivityFetch`;
 
 const transpoartFee = `${baseApiurl}transpoartFee/`;
@@ -684,6 +687,7 @@ export {
     postTranspoartFee,
     transpoartFeeFetch,
     transpoartFeeFetchID,
+    transpoartFeeFetchByRouteId,
     transpoartActivityFetch,
     updateTranspoartFeesApprovalAction,
     approvalStatusCheckTranspoart,
@@ -755,5 +759,7 @@ export {
     myExpenceRequests,
     myFundRequests,
     AddClass,
-    AddClassSection
+    AddClassSection,
+    GetConcessionLog,
+    getUserConcessionDetails
 }

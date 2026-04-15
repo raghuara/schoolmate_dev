@@ -14,6 +14,7 @@ import SportsSoccerIcon from '@mui/icons-material/SportsSoccer';
 import AddBoxIcon from '@mui/icons-material/AddBox';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 
 const items = [
 
@@ -61,6 +62,15 @@ const items = [
         bgColor: "#CFE8BB1A",
         iconBgColor: "#7DC3531A",
         path: "expense",
+        disabled: false,
+    },
+    {
+        color: "#00ACC1",
+        icon: ReceiptLongIcon,
+        text: "Concession Log",
+        bgColor: "#EEF6F8",
+        iconBgColor: "#00ACC11A",
+        path: "concession-log",
         disabled: false,
     },
 ];

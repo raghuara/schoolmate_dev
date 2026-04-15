@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Box, Stepper, Step, StepLabel, Typography, IconButton, useMediaQuery, Grid, Button, FormLabel, RadioGroup, FormControlLabel, Radio, FormControl, Accordion, AccordionSummary, AccordionDetails, TextField, FormGroup, Checkbox, Autocomplete, Paper, Popper, InputAdornment, Dialog, TextareaAutosize, DialogContent, DialogActions, Popover } from "@mui/material";
+import { Box, Stepper, Step, StepLabel, Switch, Typography, IconButton, useMediaQuery, Grid, Button, FormLabel, RadioGroup, FormControlLabel, Radio, FormControl, Accordion, AccordionSummary, AccordionDetails, TextField, FormGroup, Checkbox, Autocomplete, Paper, Popper, InputAdornment, Dialog, TextareaAutosize, DialogContent, DialogActions, Popover } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { Link, useNavigate } from "react-router-dom";
 import { useTheme } from "@mui/material/styles";
@@ -79,6 +79,7 @@ export default function CreateStudentInfoPage() {
     const [originalCertificateReceived, setOriginalCertificateReceived] = useState("");
     const [rteStudent, setRteStudent] = useState("");
     const [studentNameEnglish, setStudentNameEnglish] = useState("");
+    const [isNewStudent, setIsNewStudent] = useState(true);
     const [studentNameTamil, setStudentNameTamil] = useState("");
     const [dateOfBirth, setDateOfBirth] = useState(null);
     const [gender, setGender] = useState("");
@@ -544,6 +545,7 @@ export default function CreateStudentInfoPage() {
                 admissionClass: selectedGradeId,
                 section: selectedSection,
                 RTEStudent: rteStudent,
+                oldOrNewAdmission: isNewStudent ? "new" : "old",
             };
 
             const res = await axios.post(postStudentAcademicInformation, sendData, {
@@ -1179,6 +1181,7 @@ export default function CreateStudentInfoPage() {
                     </Grid>
                 </Grid>
             </Box>
+
             <Box sx={{ maxHeight: "83vh", overflowY: "auto" }}>
                 <Box sx={{ mt: 4 }}>
                     <Stepper activeStep={activeStep} alternativeLabel>
@@ -1196,9 +1199,40 @@ export default function CreateStudentInfoPage() {
                                 expandIcon={<ExpandMoreIcon />}
                                 aria-controls="panel1-content"
                                 id="panel1-header"
-                                sx={{ backgroundColor: "#fff7f7", py: 0.5, position: "relative", }}
+                                sx={{
+                                    backgroundColor: "#fff7f7",
+                                    py: 0.5,
+                                    position: "relative",
+                                    "& .MuiAccordionSummary-content": {
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "space-between",
+                                        pr: 1,
+                                    },
+                                }}
                             >
                                 <Typography sx={{ fontWeight: "600" }} component="span">Student Academic Info</Typography>
+                                <FormControlLabel
+                                    onClick={(e) => e.stopPropagation()}
+                                    onFocus={(e) => e.stopPropagation()}
+                                    control={
+                                        <Switch
+                                            size="small"
+                                            checked={isNewStudent}
+                                            onChange={(e) => setIsNewStudent(e.target.checked)}
+                                            sx={{
+                                                "& .MuiSwitch-switchBase.Mui-checked": { color: "#E60154" },
+                                                "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": { backgroundColor: "#E60154" },
+                                            }}
+                                        />
+                                    }
+                                    label={
+                                        <Typography sx={{ fontSize: "13px", fontWeight: 600, color: "#333" }}>
+                                            New Student
+                                        </Typography>
+                                    }
+                                    sx={{ m: 0 }}
+                                />
                             </AccordionSummary>
                             <AccordionDetails>
                                 <Grid container pb={1}>

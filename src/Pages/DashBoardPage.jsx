@@ -651,15 +651,7 @@ export default function DashBoardPage() {
 
 
                         <Box mt={2} >
-                            <motion.div
-                                initial={{ opacity: 0, y: 50 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.6, ease: "easeOut", delay: 1.5 }}
-                            >
-                                <Typography variant="h5" sx={{ fontWeight: "600", pb: 2 }}>
-                                    Attendance Graph
-                                </Typography>
-                            </motion.div>
+                                                
 
                             <Grid container spacing={2}>
                                 <Grid

@@ -764,9 +764,6 @@ export default function LeaveMasterScreen() {
                             </Box>
                         )}
 
-                        {/* Extra Leave */}
-                        
-
                         {/* Unused Leave Action */}
                         <Typography sx={{ fontSize: '12px', fontWeight: 700, color: '#333', mb: 1.5 }}>
                             What happens to unused leave at the end of the period?

@@ -8,23 +8,11 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { selectGrades } from '../../../../Redux/Slices/DropdownController';
 import { selectWebsiteSettings } from '../../../../Redux/Slices/websiteSettingsSlice';
-import avatarImage from '../../../../Images/PagesImage/avatar.png'
+import avatarImage from '../../../../Images/PagesImage/avatar.png';
 import ClearIcon from '@mui/icons-material/Clear';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import html2pdf from 'html2pdf.js';
 import { useReactToPrint } from 'react-to-print';
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import GooglePayLogo from "../../../../Images/logo/google-pay-icon.webp"
-import PhonePayLogo from "../../../../Images/logo/phone-pay.png"
-import PaytmPayLogo from "../../../../Images/logo/paytm.png"
-import VisaLogo from "../../../../Images/logo/visa.png"
-import MasterCardLogo from "../../../../Images/logo/Mastercard_logo.webp"
-import RupayLogo from "../../../../Images/logo/rupay.png"
-import CashLogo from "../../../../Images/logo/cash.png"
-import SbiLogo from "../../../../Images/logo/sbi.png"
-import HdfcLogo from "../../../../Images/logo/Hdfc.png"
-import IciciLogo from "../../../../Images/logo/icici.jpg"
-import CheckLogo from "../../../../Images/logo/check.webp"
 import CloseIcon from "@mui/icons-material/Close";
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
@@ -4328,7 +4316,7 @@ export default function BillingScreen() {
               </Box>
             </Dialog>
 
-            <Dialog
+            {/* <Dialog
               open={openHistoryPopup}
               onClose={() => setOpenHistoryPopup(false)}
               maxWidth="md"
@@ -4381,7 +4369,7 @@ export default function BillingScreen() {
                 </Box>
 
               </DialogContent>
-            </Dialog>
+            </Dialog> */}
           </>
         </Box>
       </Box>

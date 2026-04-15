@@ -92,6 +92,7 @@ export default function TransportFeeApprovalPage() {
                             approvedOnDate: fee.approvedOnDate,
                             requestFor: fee.requestFor,
                             editedBy: fee.editedBy,
+                            requestedBy: fee.requestedBy,
                             editedOnDate: fee.editedOnDate,
                             stops: []
                         };
@@ -330,7 +331,7 @@ export default function TransportFeeApprovalPage() {
                                     <Box sx={{ color: "#000", fontSize: "13px", mt: "30px", px: 3, py: 0.2, ml: "15px", fontWeight: 600, borderTopLeftRadius: "7px", borderTopRightRadius: "7px", width: "fit-content" }}>
                                         <Typography sx={{ fontSize: "13px", fontWeight: 600, color: "#555" }}>
                                             <span style={{ fontSize: "12px", color: "#777", fontWeight: 500 }}>Requested By : </span>
-                                            {parseUser(fee.requestedBy).name} - {parseUser(fee.requestedBy).rollNumber}
+                                            {fee.requestedBy?.split("-")[0]} - {fee.requestedBy?.split("-")[1]}
                                         </Typography>
                                     </Box>
                                 </Box>
@@ -380,7 +381,7 @@ export default function TransportFeeApprovalPage() {
                                                     <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#f0f4ff", fontWeight: 600, fontSize: "13px" }}>Due Date</TableCell>
                                                     <TableCell sx={{ textAlign: "center", backgroundColor: "#f0f4ff", fontWeight: 600, fontSize: "13px" }}>Grades & Fees</TableCell>
                                                 </TableRow>
-                                            </TableHead>
+                                            </TableHead> 
                                             <TableBody>
                                                 {fee.stops?.map((stop, index) => (
                                                     <TableRow key={stop.id || index}>
@@ -429,7 +430,7 @@ export default function TransportFeeApprovalPage() {
                                             color="error"
                                             onClick={() => handleRejectClick(fee)}
                                             sx={{
-                                                textTransform: "none",
+                                                textTransform: "none", 
                                                 fontWeight: 600,
                                                 borderRadius: "999px",
                                                 height: 28,

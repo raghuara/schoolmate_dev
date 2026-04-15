@@ -30,7 +30,7 @@ import InfoIcon from '@mui/icons-material/Info';
 import CloseIcon from '@mui/icons-material/Close';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import { getAllRoutes, getAllTrip, postTranspoartFee, transpoartFeeFetchID } from '../../../../Api/Api';
+import { getAllRoutes, getAllTrip, postTranspoartFee, transpoartFeeFetchByRouteId } from '../../../../Api/Api';
 import LockIcon from '@mui/icons-material/Lock';
 import axios from 'axios';
 import dayjs from 'dayjs';
@@ -39,28 +39,8 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 
 
-const buses = [
-  { id: 1, name: "Bus A", number: "TN-45-AB-1234" },
-  { id: 2, name: "Bus B", number: "TN-45-CD-5678" },
-  { id: 3, name: "Bus C", number: "TN-45-EF-9012" },
-];
-
-const TripSlot = [
-  { value: "Morning", label: "Morning", icon: <WbTwilightIcon sx={{ fontSize: 16, color: "#F97316" }} /> },
-  { value: "Afternoon", label: "Afternoon", icon: <WbSunnyIcon sx={{ fontSize: 16, color: "#EAB308" }} /> },
-  { value: "Evening", label: "Evening", icon: <NightsStayIcon sx={{ fontSize: 16, color: "#6366F1" }} /> },
-  { value: "Special", label: "Special", icon: <StarIcon sx={{ fontSize: 16, color: "#EC4899" }} /> }
-];
-
-const tripTypes = [
-  { value: "Pickup", label: "Pickup", icon: <AirportShuttleIcon sx={{ fontSize: 16, color: "#3B82F6" }} /> },
-  { value: "Drop", label: "Drop", icon: <HomeIcon sx={{ fontSize: 16, color: "#F59E0B" }} /> },
-  { value: "Round Trip", label: "Round Trip", icon: <SyncAltIcon sx={{ fontSize: 16, color: "#8B5CF6" }} /> }
-];
-
-
 export default function TransportFeeStructure() {
-  const navigate = useNavigate()
+  const navigate = useNavigate();
   const dispatch = useDispatch();
   const grades = useSelector(selectGrades);
   const websiteSettings = useSelector(selectWebsiteSettings);
@@ -87,6 +67,7 @@ export default function TransportFeeStructure() {
   const currentAcademicYear = `${currentYear}-${currentYear + 1}`;
   const [selectedYear, setSelectedYear] = useState(currentAcademicYear);
   const [feeAlreadyCreated, setFeeAlreadyCreated] = useState(false);
+  const [routeFeeStatus, setRouteFeeStatus] = useState({}); // { routeInformationId: true/false }
 
   const user = useSelector((state) => state.auth);
   const rollNumber = user.rollNumber;
@@ -101,8 +82,8 @@ export default function TransportFeeStructure() {
   const isExpanded = useSelector((state) => state.sidebar.isExpanded);
 
   const selectSx = {
-    height: 44,
-    borderRadius: "4px",
+    height: 57,
+    borderRadius: "5px",
     fontSize: "14px",
     backgroundColor: "#fff",
     transition: "all 0.2s ease",
@@ -129,12 +110,9 @@ export default function TransportFeeStructure() {
     }
   };
 
-
-
   const handleFeeAmountChange = (stopId, gradeId, value) => {
     if (value === '' || /^\d+$/.test(value)) {
-      if (sameFeeEnabled[stopId]) {
-        // If same fee is enabled for this stop, update all grades with the same value
+      if (sameFeeEnabled[stopId]) { 
         const updates = {};
         grades.forEach(grade => {
           updates[`${stopId}_${grade.id}`] = value;
@@ -144,7 +122,6 @@ export default function TransportFeeStructure() {
           ...updates
         }));
       } else {
-        // Normal update for single grade
         setFeeAmounts(prev => ({
           ...prev,
           [`${stopId}_${gradeId}`]: value
@@ -164,26 +141,21 @@ export default function TransportFeeStructure() {
     setSelectedRoute(routeId);
     setOpenRouteDialog(false);
 
-    // Find the selected route and get its tripName
     const route = routesData.find(r => r.routeInformationId === routeId);
     if (route && route.tripName) {
       fetchTrip(route.tripName);
     }
   };
 
-  // Utility function to convert grade sign to API key format
   const convertGradeSignToApiKey = (gradeSign) => {
     if (!gradeSign) return '';
 
-    // Remove spaces and hyphens, convert to lowercase
     const normalized = gradeSign.replace(/[-\s]/g, '').toLowerCase();
 
-    // Handle special cases
     if (normalized === 'prekg') return 'prekg';
     if (normalized === 'lkg') return 'lkg';
     if (normalized === 'ukg') return 'ukg';
 
-    // For Roman numerals (I, II, III, etc.), just convert to lowercase
     return normalized;
   };
 
@@ -196,47 +168,31 @@ export default function TransportFeeStructure() {
   };
 
   const fetchExistingTripFee = async (tripDetails) => {
-    if (!tripDetails || !tripDetails.routeStops || tripDetails.routeStops.length === 0) return;
+    if (!tripDetails?.routeInformation?.id) return;
 
     try {
-      // Check first stop to see if fees already exist for this trip
-      const firstStop = tripDetails.routeStops[0];
-      const checkResponse = await axios.get(transpoartFeeFetchID, {
-        params: { Id: firstStop.id },
+      const response = await axios.get(transpoartFeeFetchByRouteId, {
+        params: {
+          RouteInformationId: tripDetails.routeInformation.id,
+          Year: selectedYear,
+        },
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (checkResponse.data) {
-        // Fees exist — fetch data for all stops and populate feeAmounts
+      const data = response.data;
+      if (data?.success && data.routeStopsFees && data.routeStopsFees.length > 0) {
         const feeAmountsMap = {};
 
-        await Promise.all(
-          tripDetails.routeStops.map(async (stop) => {
-            try {
-              const stopResponse = await axios.get(transpoartFeeFetchID, {
-                params: { Id: stop.id },
-                headers: { Authorization: `Bearer ${token}` },
-              });
-
-              if (stopResponse.data) {
-                const feeData = Array.isArray(stopResponse.data)
-                  ? stopResponse.data[0]
-                  : stopResponse.data;
-
-                if (feeData && feeData.grades) {
-                  Object.entries(feeData.grades).forEach(([gradeKey, amount]) => {
-                    const gradeId = findGradeIdByApiKey(gradeKey);
-                    if (gradeId && amount) {
-                      feeAmountsMap[`${stop.id}_${gradeId}`] = String(amount);
-                    }
-                  });
-                }
+        data.routeStopsFees.forEach((stop) => {
+          if (stop.grades) {
+            Object.entries(stop.grades).forEach(([gradeKey, amount]) => {
+              const gradeId = findGradeIdByApiKey(gradeKey);
+              if (gradeId && amount !== null && amount !== undefined) {
+                feeAmountsMap[`${stop.routeStopsId}_${gradeId}`] = String(amount);
               }
-            } catch {
-              // stop may not have a fee record yet
-            }
-          })
-        );
+            });
+          }
+        });
 
         setFeeAmounts(feeAmountsMap);
         setFeeAlreadyCreated(true);
@@ -244,12 +200,10 @@ export default function TransportFeeStructure() {
         setFeeAlreadyCreated(false);
       }
     } catch {
-      // No fee record found — not created yet
       setFeeAlreadyCreated(false);
     }
   };
 
-  // Handle Reset All
   const handleResetAll = () => {
     setFeeAmounts({});
     setSameFeeEnabled({});
@@ -259,7 +213,6 @@ export default function TransportFeeStructure() {
     setOpen(true);
   };
 
-  // Handle Apply - Post transport fee structure
   const handleApply = async () => {
     if (!selectedTripDetails) {
       setMessage('Please select a trip first');
@@ -277,7 +230,6 @@ export default function TransportFeeStructure() {
       return;
     }
 
-    // Check if at least one fee amount is entered
     const hasAnyFee = Object.values(feeAmounts).some(amount => amount && amount > 0);
     if (!hasAnyFee) {
       setMessage('Please enter at least one fee amount');
@@ -289,12 +241,9 @@ export default function TransportFeeStructure() {
 
     setIsLoading(true);
     try {
-      // Create routes array to hold all stops data
       const routes = [];
 
-      // Iterate through each route stop
       selectedTripDetails.routeStops.forEach(stop => {
-        // Build the grade fees object dynamically
         const gradeFees = {};
         let hasFeesForThisStop = false;
 
@@ -346,10 +295,6 @@ export default function TransportFeeStructure() {
       setStatus(true);
       setOpen(true);
 
-      // Optionally reset the form
-      // setFeeAmounts({});
-      // setSameFeeEnabled({});
-
     } catch (error) {
       console.error("Error saving transport fee:", error);
       setMessage(error.response?.data?.message || 'Failed to save transport fee structure');
@@ -386,6 +331,7 @@ export default function TransportFeeStructure() {
 
       if (response.data && response.data.routes) {
         setRoutesData(response.data.routes);
+        checkAllRoutesFeeStatus(response.data.routes);
       }
     } catch (error) {
       console.error("Error fetching routes:", error);
@@ -396,6 +342,24 @@ export default function TransportFeeStructure() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const checkAllRoutesFeeStatus = async (routes) => {
+    const statusMap = {};
+    await Promise.all(
+      routes.map(async (route) => {
+        try {
+          const res = await axios.get(transpoartFeeFetchByRouteId, {
+            params: { RouteInformationId: route.routeInformationId, Year: selectedYear },
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          statusMap[route.routeInformationId] = !!(res.data?.success && res.data.routeStopsFees?.length > 0);
+        } catch {
+          statusMap[route.routeInformationId] = false;
+        }
+      })
+    );
+    setRouteFeeStatus(statusMap);
   };
 
   const fetchTrip = async (tripName) => {
@@ -416,11 +380,9 @@ export default function TransportFeeStructure() {
         const tripDetails = response.data.trips[0];
         setTripsData(response.data.trips);
         setSelectedTripDetails(tripDetails);
-        // Reset fee state before checking
         setFeeAlreadyCreated(false);
         setFeeAmounts({});
         setSameFeeEnabled({});
-        // Check if fee is already created for this trip
         fetchExistingTripFee(tripDetails);
       }
     } catch (error) {
@@ -440,7 +402,7 @@ export default function TransportFeeStructure() {
         <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
         {isLoading && <Loader />}
 
-        {/* Header */}
+        {/* Fixed Header */}
         <Box sx={{
           position: "fixed",
           top: "60px",
@@ -452,77 +414,63 @@ export default function TransportFeeStructure() {
           borderBottom: "1px solid #ddd",
           zIndex: 1200,
           transition: "left 0.3s ease-in-out",
-          overflow: 'hidden',
+          overflow: "hidden",
           py: 0.7
         }}>
           <Grid container>
-            <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }} sx={{ display: "flex", alignItems: "center" }}>
-              <IconButton onClick={() => navigate(-1)} sx={{
-                width: "32px",
-                height: "32px",
-                mr: 1,
-                "&:hover": { bgcolor: "#f5f5f5" }
-              }}>
+            <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }} sx={{ display: "flex", alignItems: "center" }}>
+              <IconButton onClick={() => navigate(-1)} sx={{ width: "32px", height: "32px", mr: 1 }}>
                 <ArrowBackIcon sx={{ fontSize: 20, color: "#333" }} />
               </IconButton>
-              <Typography sx={{ fontWeight: "600", fontSize: "18px", color: "#333" }}>
+              <Typography sx={{ fontWeight: 600, fontSize: "18px", color: "#333" }}>
                 Create Transport Fee Structure
               </Typography>
             </Grid>
-            <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }} sx={{ display: "flex", alignItems: "center", justifyContent: { xs: "flex-start", md: "flex-end" }, mt: { xs: 1, md: 0 } }}>
-              <Grid container>
-                <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }} sx={{ display: "flex", alignItems: "center", justifyContent: { xs: "flex-start", md: "flex-end" }, pr: { md: 1 } }}>
-                  <Button
-                    variant="contained"
-                    startIcon={<VisibilityIcon />}
-                    onClick={() => navigate('created-fees')}
+            <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }} sx={{ display: "flex", alignItems: "center", justifyContent: { xs: "flex-start", md: "flex-end" }, gap: 1.5, mt: { xs: 1, md: 0 } }}>
+              <Button
+                startIcon={<VisibilityIcon />}
+                onClick={() => navigate('created-fees')}
+                sx={{
+                  background: "none",
+                  color: "#000",
+                  textTransform: "none",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  height: 30,
+                  borderRadius: "30px",
+                  border: "1px solid #000",
+                  px: 3,
+                  boxShadow: "none",
+                  "&:hover": { bgcolor: "#e8e8e8" }
+                }}
+              >
+                Created Fees
+              </Button>
+              <Autocomplete
+                size="small"
+                options={academicYears}
+                sx={{ width: "170px" }}
+                value={selectedYear}
+                onChange={(e, newValue) => setSelectedYear(newValue)}
+                renderInput={(params) => (
+                  <TextField
+                    placeholder="Select Academic Year"
+                    {...params}
+                    variant="outlined"
                     sx={{
-                      background: "none",
-                      color: "#000",
-                      textTransform: "none",
-                      fontSize: "13px",
-                      fontWeight: 600,
-                      width: "fit-content",
-                      height: 30,
-                      borderRadius: "30px",
-                      border:"1px solid black",
-                      px: 3,
-                      boxShadow: "none"
+                      "& .MuiOutlinedInput-root": {
+                        borderRadius: "5px",
+                        fontSize: 14,
+                        height: 35,
+                      },
+                      "& .MuiOutlinedInput-input": {
+                        textAlign: "center",
+                        fontWeight: 600
+                      },
                     }}
-                  >
-                    Created Fees
-                  </Button>
-                </Grid>
-                <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }}>
-                  <Box sx={{ minWidth: 140 }}>
-                    <Autocomplete
-                      size="small"
-                      options={academicYears}
-                      sx={{ width: "170px" }}
-                      value={selectedYear}
-                      onChange={(e, newValue) => setSelectedYear(newValue)}
-                      renderInput={(params) => (
-                        <TextField
-                          placeholder="Select Academic Year"
-                          {...params}
-                          variant="outlined"
-                          sx={{
-                            "& .MuiOutlinedInput-root": {
-                              borderRadius: "5px",
-                              fontSize: 14,
-                              height: 35,
-                            },
-                            "& .MuiOutlinedInput-input": {
-                              textAlign: "center",
-                              fontWeight: "600"
-                            },
-                          }}
-                        />
-                      )}
-                    />
-                  </Box>
-                </Grid>
-              </Grid>
+                  />
+                )}
+              />
             </Grid>
           </Grid>
         </Box>
@@ -531,112 +479,145 @@ export default function TransportFeeStructure() {
         <Box sx={{ px: 2, pb: 2, pt: "68px" }}>
 
           {/* Filter Dropdowns */}
-          <Grid container spacing={2} sx={{ mb: 2 }}>
-            <Grid size={{ xs: 12, sm: 6, md: 3, lg: 2.5 }}>
-              <InputLabel sx={labelSx}>
-                <RouteIcon sx={{ fontSize: 15, color: "#1976d2" }} />
-                Trip Name <span className="required">*</span>
-                <Tooltip title="View all available trips" placement="top" arrow>
-                  <IconButton
-                    size="small"
-                    onClick={() => setOpenRouteDialog(true)}
-                    sx={{
-                      ml: 0.75,
-                      width: 26,
-                      height: 26,
-                      bgcolor: "#E3F2FD",
-                      color: "#1976d2",
-                      border: "1px solid #BBDEFB",
-                      boxShadow: "0 1px 2px rgba(25, 118, 210, 0.15)",
-                      transition: "all 0.2s ease",
-                      "&:hover": {
-                        bgcolor: "#1976d2",
-                        color: "#fff",
-                        borderColor: "#1976d2",
-                        boxShadow: "0 2px 4px rgba(25, 118, 210, 0.3)",
-                        transform: "scale(1.08)",
-                      },
-                      "&:active": {
-                        transform: "scale(0.95)",
-                      },
-                    }}
-                  >
-                    <InfoIcon sx={{ fontSize: 16 }} />
-                  </IconButton>
-                </Tooltip>
-              </InputLabel>
-              <Select
-                fullWidth
-                value={selectedRoute}
-                onChange={(e) => setSelectedRoute(e.target.value)}
-                displayEmpty
-                sx={selectSx}
-              >
-                <MenuItem value="" disabled>
-                  <Typography color="#999">Select a trip</Typography>
-                </MenuItem>
-                {routesData.map((route) => (
-                  <MenuItem key={route.routeInformationId} value={route.routeInformationId}>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                      <RouteIcon sx={{ fontSize: 18, color: "#1976d2" }} />
-                      <Box>
-                        <Typography fontSize="14px" fontWeight="600">
-                          {route.tripName}
-                        </Typography>
-                        <Typography fontSize="11px" color="#666">
-                          {route.assignBus} • {route.tripSlot} • {route.time}
-                        </Typography>
+          <Box sx={{ border: "1px solid #E8DDEA", borderRadius: "5px", bgcolor: "#fff", p: 2, mb: 2 }}>
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, sm: 6, md: 3, lg: 2.5 }}>
+                <InputLabel sx={labelSx}>
+                  <RouteIcon sx={{ fontSize: 15, color: "#1976d2" }} />
+                  Trip Name <span className="required">*</span>
+                  <Tooltip title="View all available trips" placement="top" arrow>
+                    <IconButton
+                      size="small"
+                      onClick={() => setOpenRouteDialog(true)}
+                      sx={{
+                        ml: 0.5,
+                        width: 24,
+                        height: 24,
+                        bgcolor: "#E3F2FD",
+                        color: "#1976d2",
+                        border: "1px solid #BBDEFB",
+                        "&:hover": {
+                          bgcolor: "#1976d2",
+                          color: "#fff",
+                          borderColor: "#1976d2",
+                        },
+                      }}
+                    >
+                      <InfoIcon sx={{ fontSize: 15 }} />
+                    </IconButton>
+                  </Tooltip>
+                </InputLabel>
+                <Select
+                  fullWidth
+                  value={selectedRoute}
+                  onChange={(e) => setSelectedRoute(e.target.value)}
+                  displayEmpty
+                  sx={selectSx}
+                  renderValue={(value) => {
+                    if (!value) return <Typography color="#999" fontSize="14px">Select a trip</Typography>;
+                    const route = routesData.find(r => r.routeInformationId === value);
+                    if (!route) return value;
+                    const hasFee = routeFeeStatus[route.routeInformationId];
+                    return (
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                        <RouteIcon sx={{ fontSize: 18, color: hasFee ? "#16A34A" : "#1976d2" }} />
+                        <Typography fontSize="14px" fontWeight="600">{route.tripName}</Typography>
+                        {hasFee && <CheckCircleIcon sx={{ fontSize: 16, color: "#16A34A", ml: 0.5 }} />}
                       </Box>
-                    </Box>
-                  </MenuItem>
-                ))}
-              </Select>
-            </Grid>
-
-            <Grid size={{ xs: 12, sm: 6, md: 3, lg: 2.5 }}>
-              <InputLabel sx={labelSx}>
-                <CalendarMonthIcon sx={{ fontSize: 15, color: "#1976d2" }} />
-                Due Date <span className="required">*</span>
-              </InputLabel>
-              <LocalizationProvider dateAdapter={AdapterDayjs}>
-                <DatePicker
-                  value={dueDate}
-                  onChange={(newValue) => setDueDate(newValue)}
-                  slotProps={{
-                    textField: {
-                      fullWidth: true,
-                      sx: {
-                        "& .MuiOutlinedInput-root": {
-                          height: 44,
-                          borderRadius: "4px",
-                          fontSize: "14px",
-                          backgroundColor: "#fff",
-                          transition: "all 0.2s ease",
-                          "&:hover .MuiOutlinedInput-notchedOutline": {
-                            borderColor: "#1976d2",
-                          },
-                          "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                            borderColor: "#1976d2",
-                          },
-                          "&.Mui-focused": {
-                            boxShadow: "0 0 0 2px rgba(25, 118, 210, 0.1)",
-                          },
-                        },
-                        "& .MuiOutlinedInput-input": {
-                          fontSize: "14px",
-                          padding: "10px 14px",
-                        },
-                      }
-                    }
+                    );
                   }}
-                  format="DD/MM/YYYY"
-                />
-              </LocalizationProvider>
+                >
+                  <MenuItem value="" disabled>
+                    <Typography color="#999" fontSize="14px">Select a trip</Typography>
+                  </MenuItem>
+                  {routesData.map((route) => {
+                    const hasFee = routeFeeStatus[route.routeInformationId];
+                    return (
+                      <MenuItem key={route.routeInformationId} value={route.routeInformationId}>
+                        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                            <RouteIcon sx={{ fontSize: 18, color: hasFee ? "#16A34A" : "#1976d2" }} />
+                            <Box>
+                              <Typography sx={{ fontSize: "14px", fontWeight: 600 }}>
+                                {route.tripName}
+                              </Typography>
+                              <Typography sx={{ fontSize: "11px", color: "#666" }}>
+                                {route.assignBus} • {route.tripSlot} • {route.time}
+                              </Typography>
+                            </Box>
+                          </Box>
+                          {hasFee && (
+                            <Chip
+                              label="Fee Created"
+                              size="small"
+                              icon={<CheckCircleIcon sx={{ fontSize: "14px !important", color: "#16A34A !important" }} />}
+                              sx={{
+                                fontSize: 10, fontWeight: 700, height: 22, ml: 1,
+                                bgcolor: "#F0FDF4", color: "#16A34A",
+                                border: "1px solid #A7F3D0",
+                              }}
+                            />
+                          )}
+                        </Box>
+                      </MenuItem>
+                    );
+                  })}
+                </Select>
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 6, md: 3, lg: 2.5 }}>
+                <InputLabel sx={{
+                  color: "#333",
+                  fontWeight: 600,
+                  fontSize: "13px",
+                  mb: "10px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 0.5,
+                  "& .required": {
+                    color: "#d32f2f",
+                    marginLeft: "2px"
+                  }
+                }}>
+
+                  <CalendarMonthIcon sx={{ fontSize: 15, color: "#1976d2" }} />
+                  Due Date <span className="required">*</span>
+                </InputLabel>
+                <LocalizationProvider dateAdapter={AdapterDayjs}>
+                  <DatePicker
+                    value={dueDate}
+                    onChange={(newValue) => setDueDate(newValue)}
+                    slotProps={{
+                      textField: {
+                        fullWidth: true,
+                        sx: {
+                          "& .MuiOutlinedInput-root": {
+
+                            borderRadius: "5px",
+                            fontSize: "14px",
+                            backgroundColor: "#fff",
+                            "&:hover .MuiOutlinedInput-notchedOutline": {
+                              borderColor: "#1976d2",
+                            },
+                            "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                              borderColor: "#1976d2",
+                            },
+                          },
+                          "& .MuiOutlinedInput-input": {
+                            fontSize: "14px",
+                            padding: "10px 14px",
+                          },
+                        }
+                      }
+                    }}
+                    format="DD/MM/YYYY"
+                  />
+                </LocalizationProvider>
+              </Grid>
             </Grid>
+          </Box>
 
-          </Grid>
-
-          {/* Bus Route Info */}
+          {/* Bus Route Info Table */}
           {selectedTripDetails && (
             <>
               <Box
@@ -647,8 +628,8 @@ export default function TransportFeeStructure() {
                   px: 3,
                   py: 0.75,
                   fontWeight: 600,
-                  borderTopLeftRadius: "4px",
-                  borderTopRightRadius: "4px",
+                  borderTopLeftRadius: "7px",
+                  borderTopRightRadius: "7px",
                   width: "fit-content",
                   display: "flex",
                   alignItems: "center",
@@ -659,37 +640,37 @@ export default function TransportFeeStructure() {
                 {selectedTripDetails.routeInformation.assignBus}
               </Box>
 
-              <Box sx={{ backgroundColor: "#fff", border: "1px solid rgb(199, 210, 254)", borderRadius: "4px", borderTopLeftRadius: 0, mb: 2 }}>
+              <Box sx={{ border: "1px solid #E8DDEA", borderRadius: "5px", borderTopLeftRadius: 0, mb: 2, bgcolor: "#fff" }}>
                 <TableContainer>
-                  <Table sx={{ minWidth: '100%' }}>
+                  <Table sx={{ minWidth: "100%" }}>
                     <TableHead>
-                      <TableRow sx={{ bgcolor: "#EEF2FF" }}>
-                        <TableCell sx={{ fontWeight: "600", fontSize: "13px", color: "#555", py: 1.5 }}>
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+                      <TableRow>
+                        <TableCell sx={{ backgroundColor: "#faf6fc", borderRight: 1, borderColor: "#E8DDEA", fontWeight: 600, fontSize: "13px", color: "#555", py: 1.5, textAlign: "center" }}>
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, justifyContent: "center" }}>
                             <RouteIcon sx={{ fontSize: 16, color: "#1976d2" }} />
                             Trip Name
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ fontWeight: "600", fontSize: "13px", color: "#555" }}>
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+                        <TableCell sx={{ backgroundColor: "#faf6fc", borderRight: 1, borderColor: "#E8DDEA", fontWeight: 600, fontSize: "13px", color: "#555", textAlign: "center" }}>
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, justifyContent: "center" }}>
                             <SyncAltIcon sx={{ fontSize: 16, color: "#1976d2" }} />
                             Trip Type
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ fontWeight: "600", fontSize: "13px", color: "#555" }}>
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+                        <TableCell sx={{ backgroundColor: "#faf6fc", borderRight: 1, borderColor: "#E8DDEA", fontWeight: 600, fontSize: "13px", color: "#555", textAlign: "center" }}>
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, justifyContent: "center" }}>
                             <ScheduleIcon sx={{ fontSize: 16, color: "#1976d2" }} />
                             Trip Slot
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ fontWeight: "600", fontSize: "13px", color: "#555" }}>
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+                        <TableCell sx={{ backgroundColor: "#faf6fc", borderRight: 1, borderColor: "#E8DDEA", fontWeight: 600, fontSize: "13px", color: "#555", textAlign: "center" }}>
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, justifyContent: "center" }}>
                             <AccessTimeIcon sx={{ fontSize: 16, color: "#1976d2" }} />
                             Duration
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ fontWeight: "600", fontSize: "13px", color: "#555" }}>
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+                        <TableCell sx={{ backgroundColor: "#faf6fc", fontWeight: 600, fontSize: "13px", color: "#555", textAlign: "center" }}>
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, justifyContent: "center" }}>
                             <FmdGoodIcon sx={{ fontSize: 16, color: "#00796b" }} />
                             No. of Bus Stops
                           </Box>
@@ -697,13 +678,13 @@ export default function TransportFeeStructure() {
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      <TableRow sx={{ "&:hover": { bgcolor: "#fafafa" } }}>
-                        <TableCell sx={{ fontSize: "14px", color: "#333" }}>
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, pl: 1, fontWeight: 600 }}>
+                      <TableRow>
+                        <TableCell sx={{ fontSize: "14px", color: "#333", textAlign: "center", borderRight: 1, borderColor: "#E8DDEA" }}>
+                          <Typography sx={{ fontWeight: 600, fontSize: "14px" }}>
                             {selectedTripDetails.routeInformation.tripName}
-                          </Box>
+                          </Typography>
                         </TableCell>
-                        <TableCell sx={{ fontSize: "14px", color: "#333" }}>
+                        <TableCell sx={{ fontSize: "14px", color: "#333", textAlign: "center", borderRight: 1, borderColor: "#E8DDEA" }}>
                           <Chip
                             label={selectedTripDetails.routeInformation.tripType.charAt(0).toUpperCase() + selectedTripDetails.routeInformation.tripType.slice(1)}
                             size="small"
@@ -730,8 +711,8 @@ export default function TransportFeeStructure() {
                             }}
                           />
                         </TableCell>
-                        <TableCell sx={{ fontSize: "14px", color: "#333" }}>
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+                        <TableCell sx={{ fontSize: "14px", color: "#333", textAlign: "center", borderRight: 1, borderColor: "#E8DDEA" }}>
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, justifyContent: "center" }}>
                             {selectedTripDetails.routeInformation.tripSlot.toLowerCase() === 'morning' && (
                               <WbTwilightIcon sx={{ fontSize: 16, color: "#F97316" }} />
                             )}
@@ -747,30 +728,26 @@ export default function TransportFeeStructure() {
                             {selectedTripDetails.routeInformation.tripSlot.charAt(0).toUpperCase() + selectedTripDetails.routeInformation.tripSlot.slice(1)}
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ fontSize: "14px", color: "#333" }}>
-                          <Box sx={{ pl: 1 }}>
-                            <Typography sx={{ fontSize: "14px", fontWeight: 600, color: "#333" }}>
-                              {selectedTripDetails.routeInformation.durationTime}
-                            </Typography>
-                            <Typography sx={{ fontSize: "12px", color: "#666" }}>
-                              {selectedTripDetails.routeInformation.durationMin}
-                            </Typography>
-                          </Box>
+                        <TableCell sx={{ fontSize: "14px", color: "#333", textAlign: "center", borderRight: 1, borderColor: "#E8DDEA" }}>
+                          <Typography sx={{ fontSize: "14px", fontWeight: 600, color: "#333" }}>
+                            {selectedTripDetails.routeInformation.durationTime}
+                          </Typography>
+                          <Typography sx={{ fontSize: "12px", color: "#666" }}>
+                            {selectedTripDetails.routeInformation.durationMin}
+                          </Typography>
                         </TableCell>
-                        <TableCell sx={{ fontSize: "14px", color: "#333" }}>
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, pl: 1 }}>
-                            <Chip
-                              label={selectedTripDetails.routeStops.length}
-                              size="small"
-                              sx={{
-                                bgcolor: "#E8F5E9",
-                                color: "#2E7D32",
-                                fontWeight: 700,
-                                fontSize: "13px",
-                                minWidth: "36px"
-                              }}
-                            />
-                          </Box>
+                        <TableCell sx={{ fontSize: "14px", color: "#333", textAlign: "center" }}>
+                          <Chip
+                            label={selectedTripDetails.routeStops.length}
+                            size="small"
+                            sx={{
+                              bgcolor: "#E8F5E9",
+                              color: "#2E7D32",
+                              fontWeight: 700,
+                              fontSize: "13px",
+                              minWidth: "36px"
+                            }}
+                          />
                         </TableCell>
                       </TableRow>
                     </TableBody>
@@ -780,11 +757,12 @@ export default function TransportFeeStructure() {
             </>
           )}
 
+          {/* No Trip Selected Empty State */}
           {!selectedRoute && (
             <Box sx={{
               bgcolor: "#fff",
-              border: "1px solid #e0e0e0",
-              borderRadius: "8px",
+              border: "1px solid #E8DDEA",
+              borderRadius: "5px",
               p: 5,
               mb: 2,
               textAlign: "center"
@@ -801,21 +779,10 @@ export default function TransportFeeStructure() {
               }}>
                 <DirectionsBusIcon sx={{ fontSize: 32, color: "#1976d2" }} />
               </Box>
-
-              <Typography sx={{
-                fontSize: "16px",
-                fontWeight: 600,
-                color: "#333",
-                mb: 1
-              }}>
+              <Typography sx={{ fontSize: "16px", fontWeight: 600, color: "#333", mb: 1 }}>
                 No Trip Selected
               </Typography>
-
-              <Typography sx={{
-                fontSize: "14px",
-                color: "#666",
-                lineHeight: 1.5
-              }}>
+              <Typography sx={{ fontSize: "14px", color: "#666", lineHeight: 1.5 }}>
                 Please select a trip from the dropdown above
               </Typography>
             </Box>
@@ -829,7 +796,7 @@ export default function TransportFeeStructure() {
               gap: 1.5,
               bgcolor: "#F0FDF4",
               border: "1px solid #86EFAC",
-              borderRadius: "6px",
+              borderRadius: "5px",
               px: 2.5,
               py: 1.25,
               mb: 2,
@@ -851,7 +818,7 @@ export default function TransportFeeStructure() {
                   ml: "auto",
                   textTransform: "none",
                   fontSize: "12px",
-                  borderRadius: "20px",
+                  borderRadius: "30px",
                   color: "#16A34A",
                   borderColor: "#16A34A",
                   "&:hover": { bgcolor: "#DCFCE7", borderColor: "#15803D" }
@@ -862,7 +829,7 @@ export default function TransportFeeStructure() {
             </Box>
           )}
 
-          {/* Bus Stops Fee Structure */}
+          {/* Bus Stops & Fee Structure */}
           {selectedTripDetails && (
             <>
               <Box
@@ -873,8 +840,8 @@ export default function TransportFeeStructure() {
                   px: 3,
                   py: 0.75,
                   fontWeight: 600,
-                  borderTopLeftRadius: "4px",
-                  borderTopRightRadius: "4px",
+                  borderTopLeftRadius: "7px",
+                  borderTopRightRadius: "7px",
                   width: "fit-content",
                   display: "flex",
                   alignItems: "center",
@@ -887,17 +854,15 @@ export default function TransportFeeStructure() {
 
               <Box sx={{
                 bgcolor: "#fff",
-                border: "1px solid rgb(167, 243, 208)",
-                borderRadius: "4px",
+                border: "1px solid #E8DDEA",
+                borderRadius: "5px",
                 borderTopLeftRadius: 0
               }}>
-                {/* Bus stops data from API */}
                 {selectedTripDetails.routeStops.map((stop, index) => (
                   <Box
                     key={stop.id}
                     sx={{
-                      borderBottom: index !== selectedTripDetails.routeStops.length - 1 ? "1px solid #e0e0e0" : "none",
-
+                      borderBottom: index !== selectedTripDetails.routeStops.length - 1 ? "1px solid #E8DDEA" : "none",
                     }}
                   >
                     {/* Stop Header */}
@@ -907,32 +872,30 @@ export default function TransportFeeStructure() {
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "space-between",
-                        borderBottom: "1px solid rgb(167, 243, 208)",
+                        borderBottom: "1px solid #E8DDEA",
+                        flexWrap: "wrap",
                       }}
                     >
                       <Box
                         sx={{
-                          bgcolor: "#ECFDF5",
-                          px: 2.5,
-                          py: 1.25,
+                          px: 2,
+                          py: 1,
                           display: "flex",
                           alignItems: "center",
                           gap: 1.5,
-
-
                         }}
                       >
                         <Box
                           sx={{
                             bgcolor: "#1976d2",
                             color: "#fff",
-                            minWidth: 28,
-                            height: 28,
+                            minWidth: 26,
+                            height: 26,
                             borderRadius: "4px",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
-                            fontSize: "13px",
+                            fontSize: "12px",
                             fontWeight: 600
                           }}
                         >
@@ -975,16 +938,17 @@ export default function TransportFeeStructure() {
                           />
                         </Box>
                       </Box>
+
+                      {/* Same Fee Toggle */}
                       <Box sx={{
                         display: "flex",
                         alignItems: "center",
                         gap: 1,
-                        px: 2.5,
+                        px: 2,
                         py: 0.5,
                         bgcolor: sameFeeEnabled[stop.id] ? "#E0F2FE" : "transparent",
                         borderRadius: "4px",
                         border: sameFeeEnabled[stop.id] ? "1px solid #0284C7" : "1px solid transparent",
-                        transition: "all 0.2s"
                       }}>
                         <LinkIcon sx={{
                           fontSize: 16,
@@ -1015,28 +979,23 @@ export default function TransportFeeStructure() {
                     </Box>
 
                     {/* Fee Grid */}
-                    <Box sx={{ p: 2.5 }}>
-                      <Grid container spacing={2}>
+                    <Box sx={{ p: 2 }}>
+                      <Grid container spacing={1.5}>
                         {grades.map((grade) => (
                           <Grid
                             key={grade.id}
                             size={{
-                              xs: 12,
-                              sm: 6,
-                              md: 4,
+                              xs: 6,
+                              sm: 4,
+                              md: 3,
                               lg: 2
                             }}
                           >
                             <Box
                               sx={{
-                                border: "1px solid #e0e0e0",
-                                borderRadius: "4px",
+                                border: "1px solid #E8DDEA",
+                                borderRadius: "5px",
                                 p: 1.5,
-                                transition: "all 0.2s",
-                                "&:hover": {
-                                  borderColor: "#00796B",
-                                  boxShadow: "0 2px 4px rgba(25, 118, 210, 0.1)"
-                                }
                               }}
                             >
                               <Typography
@@ -1073,7 +1032,7 @@ export default function TransportFeeStructure() {
                                     bgcolor: "#fafafa",
                                     borderRadius: "4px",
                                     "& fieldset": {
-                                      borderColor: "#e0e0e0"
+                                      borderColor: "#E8DDEA"
                                     },
                                     "&:hover fieldset": {
                                       borderColor: "#bdbdbd"
@@ -1134,7 +1093,8 @@ export default function TransportFeeStructure() {
                     border: "1px solid #ccc",
                     color: "#aaa"
                   }
-                }}>
+                }}
+              >
                 Reset All
               </Button>
               <Tooltip
@@ -1151,7 +1111,7 @@ export default function TransportFeeStructure() {
                       backgroundColor: websiteSettings.mainColor,
                       borderRadius: "30px",
                       textTransform: "none",
-                      boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                      boxShadow: "none",
                       border: "1px solid rgba(0,0,0,0.1)",
                       px: 3,
                       height: "35px",
@@ -1159,7 +1119,8 @@ export default function TransportFeeStructure() {
                       fontSize: "13px",
                       fontWeight: 600,
                       "&:hover": {
-                        boxShadow: "0 2px 6px rgba(0,0,0,0.3)",
+                        boxShadow: "none",
+                        opacity: 0.9,
                       },
                       "&.Mui-disabled": {
                         bgcolor: "#e0e0e0",
@@ -1185,49 +1146,44 @@ export default function TransportFeeStructure() {
           PaperProps={{
             sx: {
               borderRadius: "5px",
-              p:2,
               maxHeight: "90vh",
-             
             }
           }}
         >
           <DialogTitle sx={{
-            bgcolor: "#F3E5F5",
-            color: "#000",
+            bgcolor: "#1976D2",
+            color: "#fff",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            py: 2,
-            border:"1px solid #6C1E9B",
-            borderRadius: "5px 5px 0px 0px",
+            py: 1.5,
+            px: 2.5,
+            borderBottom: "1px solid #ddd",
           }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-              <RouteIcon sx={{ fontSize: 24 }} />
+              <RouteIcon sx={{ fontSize: 22, color: "#fff" }} />
               <Box>
-                <Typography sx={{ fontSize: "18px", fontWeight: 700 }}>
+                <Typography sx={{ fontSize: "16px", fontWeight: 700, color: "#fff" }}>
                   Select Trip Route
                 </Typography>
-                <Typography sx={{ fontSize: "12px", opacity: 0.9, mt: 0.5 }}>
-                  {routesData.length} trips available • Choose the correct trip for fee structure
+                <Typography sx={{ fontSize: "12px", color: "#fff", mt: 0.25 }}>
+                  {routesData.length} trips available
                 </Typography>
               </Box>
             </Box>
             <IconButton
               onClick={() => setOpenRouteDialog(false)}
-              sx={{
-                color: "#000",
-                "&:hover": { bgcolor: "rgba(255,255,255,0.1)" }
-              }}
+              sx={{ color: "#fff" }}
             >
-              <CloseIcon />
+              <CloseIcon sx={{ fontSize: 20 }} />
             </IconButton>
           </DialogTitle>
 
-          <DialogContent sx={{ p: 0, border:"1px solid #6C1E9B", borderTop:"none", borderRadius:"0px 0px 5px 5px" }}>
+          <DialogContent sx={{ p: 0 }}>
             {routesData.length === 0 ? (
               <Box sx={{ textAlign: "center", py: 8 }}>
-                <InfoIcon sx={{ fontSize: 64, color: "#ccc", mb: 2 }} />
-                <Typography sx={{ fontSize: "16px", color: "#666", mb: 1 }}>
+                <InfoIcon sx={{ fontSize: 48, color: "#ccc", mb: 2 }} />
+                <Typography sx={{ fontSize: "16px", color: "#666", mb: 0.5 }}>
                   No trips available
                 </Typography>
                 <Typography sx={{ fontSize: "13px", color: "#999" }}>
@@ -1239,86 +1195,43 @@ export default function TransportFeeStructure() {
                 <Table stickyHeader>
                   <TableHead>
                     <TableRow>
-                      <TableCell sx={{
-                        bgcolor: "#EEF2FF",
-                        fontWeight: 700,
-                        fontSize: "13px",
-                        color: "#333",
-                        borderBottom: "1px solid #1976D2",
-                      }}>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+                      <TableCell sx={{ backgroundColor: "#faf6fc", borderRight: 1, borderColor: "#E8DDEA", fontWeight: 700, fontSize: "13px", color: "#333", textAlign: "center" }}>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, justifyContent: "center" }}>
                           <RouteIcon sx={{ fontSize: 16, color: "#1976d2" }} />
                           Trip Name
                         </Box>
                       </TableCell>
-                      <TableCell sx={{
-                        bgcolor: "#EEF2FF",
-                        fontWeight: 700,
-                        fontSize: "13px",
-                        color: "#333",
-                        borderBottom: "1px solid #1976d2",
-                      }}>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+                      <TableCell sx={{ backgroundColor: "#faf6fc", borderRight: 1, borderColor: "#E8DDEA", fontWeight: 700, fontSize: "13px", color: "#333", textAlign: "center" }}>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, justifyContent: "center" }}>
                           <DirectionsBusIcon sx={{ fontSize: 16, color: "#1976d2" }} />
                           Assigned Bus
                         </Box>
                       </TableCell>
-                      <TableCell sx={{
-                        bgcolor: "#EEF2FF",
-                        fontWeight: 700,
-                        fontSize: "13px",
-                        color: "#333",
-                        borderBottom: "1px solid #1976D2",
-                      }}>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+                      <TableCell sx={{ backgroundColor: "#faf6fc", borderRight: 1, borderColor: "#E8DDEA", fontWeight: 700, fontSize: "13px", color: "#333", textAlign: "center" }}>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, justifyContent: "center" }}>
                           <SyncAltIcon sx={{ fontSize: 16, color: "#1976d2" }} />
                           Trip Type
                         </Box>
                       </TableCell>
-                      <TableCell sx={{
-                        bgcolor: "#EEF2FF",
-                        fontWeight: 700,
-                        fontSize: "13px",
-                        color: "#333",
-                        borderBottom: "1px solid #1976d2",
-                      }}>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+                      <TableCell sx={{ backgroundColor: "#faf6fc", borderRight: 1, borderColor: "#E8DDEA", fontWeight: 700, fontSize: "13px", color: "#333", textAlign: "center" }}>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, justifyContent: "center" }}>
                           <ScheduleIcon sx={{ fontSize: 16, color: "#1976d2" }} />
                           Trip Slot
                         </Box>
                       </TableCell>
-                      <TableCell sx={{
-                        bgcolor: "#EEF2FF",
-                        fontWeight: 700,
-                        fontSize: "13px",
-                        color: "#333",
-                        borderBottom: "1px solid #1976d2",
-                      }}>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+                      <TableCell sx={{ backgroundColor: "#faf6fc", borderRight: 1, borderColor: "#E8DDEA", fontWeight: 700, fontSize: "13px", color: "#333", textAlign: "center" }}>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, justifyContent: "center" }}>
                           <AccessTimeIcon sx={{ fontSize: 16, color: "#1976d2" }} />
                           Time & Duration
                         </Box>
                       </TableCell>
-                      <TableCell sx={{
-                        bgcolor: "#EEF2FF",
-                        fontWeight: 700,
-                        fontSize: "13px",
-                        color: "#333",
-                        borderBottom: "1px solid #1976d2",
-                      }}>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+                      <TableCell sx={{ backgroundColor: "#faf6fc", borderRight: 1, borderColor: "#E8DDEA", fontWeight: 700, fontSize: "13px", color: "#333", textAlign: "center" }}>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, justifyContent: "center" }}>
                           <CheckCircleIcon sx={{ fontSize: 16, color: "#1976d2" }} />
                           Status
                         </Box>
                       </TableCell>
-                      <TableCell sx={{
-                        bgcolor: "#EEF2FF",
-                        fontWeight: 700,
-                        fontSize: "13px",
-                        color: "#333",
-                        borderBottom: "1px solid #1976d2",
-                        textAlign: "center",
-                      }}>
+                      <TableCell sx={{ backgroundColor: "#faf6fc", fontWeight: 700, fontSize: "13px", color: "#333", textAlign: "center" }}>
                         Action
                       </TableCell>
                     </TableRow>
@@ -1328,20 +1241,17 @@ export default function TransportFeeStructure() {
                       <TableRow
                         key={route.routeInformationId}
                         sx={{
-                          "&:hover": {
-                            bgcolor: "#F5F9FF",
-                          },
+                          "&:hover": { bgcolor: "#F5F9FF" },
                           bgcolor: selectedRoute === route.routeInformationId ? "#E3F2FD" : "transparent",
-                          transition: "all 0.2s",
                         }}
                       >
-                        <TableCell sx={{ fontSize: "14px", fontWeight: 600, color: "#333" }}>
+                        <TableCell sx={{ fontSize: "14px", fontWeight: 600, color: "#333", borderRight: 1, borderColor: "#E8DDEA" }}>
                           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                             <Box
                               sx={{
-                                minWidth: 28,
-                                height: 28,
-                                borderRadius: "6px",
+                                minWidth: 26,
+                                height: 26,
+                                borderRadius: "4px",
                                 bgcolor: selectedRoute === route.routeInformationId ? "#1976d2" : "#E0E0E0",
                                 color: selectedRoute === route.routeInformationId ? "#fff" : "#666",
                                 display: "flex",
@@ -1356,13 +1266,13 @@ export default function TransportFeeStructure() {
                             {route.tripName}
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ fontSize: "14px", color: "#555" }}>
+                        <TableCell sx={{ fontSize: "14px", color: "#555", borderRight: 1, borderColor: "#E8DDEA" }}>
                           <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
                             <DirectionsBusIcon sx={{ fontSize: 16, color: "#1976d2" }} />
                             {route.assignBus}
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ fontSize: "14px", color: "#555" }}>
+                        <TableCell sx={{ fontSize: "14px", color: "#555", borderRight: 1, borderColor: "#E8DDEA", textAlign: "center" }}>
                           <Chip
                             label={route.tripType}
                             size="small"
@@ -1386,12 +1296,10 @@ export default function TransportFeeStructure() {
                                     "#6A1B9A",
                               fontWeight: 600,
                               fontSize: "12px",
-                              border:"1px solid #ccc",
-                              px:1
                             }}
                           />
                         </TableCell>
-                        <TableCell sx={{ fontSize: "14px", color: "#555" }}>
+                        <TableCell sx={{ fontSize: "14px", color: "#555", borderRight: 1, borderColor: "#E8DDEA" }}>
                           <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
                             {route.tripSlot.toLowerCase() === 'morning' && (
                               <WbTwilightIcon sx={{ fontSize: 16, color: "#F97316" }} />
@@ -1408,17 +1316,15 @@ export default function TransportFeeStructure() {
                             {route.tripSlot}
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ fontSize: "13px", color: "#555" }}>
-                          <Box>
-                            <Typography sx={{ fontSize: "14px", fontWeight: 600, color: "#333" }}>
-                              {route.time}
-                            </Typography>
-                            <Typography sx={{ fontSize: "12px", color: "#999", mt: 0.25 }}>
-                              {route.duration}
-                            </Typography>
-                          </Box>
+                        <TableCell sx={{ fontSize: "13px", color: "#555", borderRight: 1, borderColor: "#E8DDEA" }}>
+                          <Typography sx={{ fontSize: "14px", fontWeight: 600, color: "#333" }}>
+                            {route.time}
+                          </Typography>
+                          <Typography sx={{ fontSize: "12px", color: "#999", mt: 0.25 }}>
+                            {route.duration}
+                          </Typography>
                         </TableCell>
-                        <TableCell>
+                        <TableCell sx={{ textAlign: "center", borderRight: 1, borderColor: "#E8DDEA" }}>
                           <Chip
                             label={route.active}
                             size="small"
@@ -1440,11 +1346,12 @@ export default function TransportFeeStructure() {
                               textTransform: "none",
                               fontSize: "12px",
                               fontWeight: 600,
-                              borderRadius: "6px",
+                              borderRadius: "30px",
                               px: 2,
                               ...(selectedRoute === route.routeInformationId ? {
                                 bgcolor: "#1976d2",
-                                "&:hover": { bgcolor: "#1565c0" }
+                                boxShadow: "none",
+                                "&:hover": { bgcolor: "#1565c0", boxShadow: "none" }
                               } : {
                                 borderColor: "#1976d2",
                                 color: "#1976d2",
@@ -1465,8 +1372,6 @@ export default function TransportFeeStructure() {
               </TableContainer>
             )}
           </DialogContent>
-
-
         </Dialog>
       </Box>
     </Box>

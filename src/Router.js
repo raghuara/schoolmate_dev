@@ -131,6 +131,7 @@ import EcaFeeApprovalPage from "./Components/Approvals/ApprovalPages/FeeApproval
 import AdditionalFeeManage from "./Components/StudentComps/FeeFinanceComps/AdditionalFeeComps/AdditionalFeeManage";
 import FinanceDashboard from "./Components/StudentComps/FeeFinanceComps/FinanceDashboardComps/FinanceDashboard";
 import ExpensePage from "./Components/StudentComps/FeeFinanceComps/ExpenseComps/ExpensePage";
+import ConcessionLog from "./Components/StudentComps/FeeFinanceComps/ConcessionLogComps/ConcessionLog";
 import TransportFeeApprovalPage from "./Components/Approvals/ApprovalPages/FeeApprovalComps/TransportFeeApprovalPage";
 import AddEditPayroll from "./Components/LeaveAttendanceComps/PayrollComps/AddEditPayroll";
 import PayrollOverview from "./Components/LeaveAttendanceComps/PayrollComps/PayrollOverview";
@@ -284,6 +285,7 @@ export default function RouterPage() {
 
                 <Route path="fee/report" element={<FeesReportPage />} />
                 <Route path="fee/expense" element={<ExpensePage />} />
+                <Route path="fee/concession-log" element={<ConcessionLog />} />
 
                 <Route path="fee/eca-manage" element={<ExtraCurricularManage />} />
                 <Route path="fee/additional-manage" element={<AdditionalFeeManage />} />

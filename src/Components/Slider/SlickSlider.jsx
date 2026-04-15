@@ -15,18 +15,22 @@ const SliderComponent = ({ items, title, subtitle, link }) => {
     const websiteSettings = useSelector(selectWebsiteSettings);
     if (!items || items.length === 0) {
         return (
-            <Box
-                sx={{
-                    display: "flex",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    height: "160px",
-                    backgroundColor: "#fff",
-                    boxShadow: "0 2px 4px 0 rgba(0, 0, 0, 0.1)",
-                    borderRadius: "6px",
-                }}
-            >
-                <Typography variant="h6">No data to display</Typography>
+            <Box sx={{
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "center",
+                alignItems: "center",
+                height: "160px",
+                backgroundColor: "#fff",
+                border: "1px solid #E8E8E8",
+                borderRadius: "10px",
+            }}>
+                <Typography sx={{ fontSize: "14px", fontWeight: 600, color: "#999" }}>
+                    No {title || "data"} available
+                </Typography>
+                <Typography sx={{ fontSize: "11px", color: "#ccc", mt: 0.5 }}>
+                    Check back later for updates
+                </Typography>
             </Box>
         );
     }

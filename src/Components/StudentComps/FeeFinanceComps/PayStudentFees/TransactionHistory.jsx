@@ -465,7 +465,7 @@ const TransactionHistory = () => {
                     Roll No
                   </Typography>
                   <Typography sx={{ color: "#000", fontSize: "16px", py: 1 }}>
-                    {transactionData.rollnumber}
+                    {transactionData.rollnumber || transactionData.rollNumber}
                   </Typography>
                 </Box>
               </Grid>

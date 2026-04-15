@@ -20,6 +20,7 @@ import {
     findStudentEcaFeesBilling,
     findStudentAdditionalFeesBilling,
     findStudentTransportFeesBilling,
+    getUserConcessionDetails,
 } from '../../../../Api/Api';
 
 const feeTabs = [
@@ -61,18 +62,17 @@ export default function SpecialConcession() {
         return row.feeDetails || row.feeName || "-";
     };
 
-    const getFeeAmount = (row) => {
-        return row.feeAmount || row.amount || 0;
+    const getActualFeeAmount = (row) => {
+        const fee = parseFloat(row.feeAmount || row.amount || 0);
+        const existingConcession = parseFloat(row.concessionAmount || 0);
+        return fee + existingConcession;
     };
 
     const isFeePaid = (item) => {
-        const amount = getFeeAmount(item);
-        // hide zero-amount rows
-        if (amount <= 0) return true;
-        // hide if any amount has been paid (partial or full)
+        const actualAmount = getActualFeeAmount(item);
+        if (actualAmount <= 0) return true;
         const paid = parseFloat(item.paidAmount ?? item.amountPaid ?? item.paid ?? 0);
         if (paid > 0) return true;
-        // hide via explicit status flags
         if (item.status === 'Paid' || item.status === 'Partial' || item.isPaid === true) return true;
         return false;
     };
@@ -81,14 +81,17 @@ export default function SpecialConcession() {
         const data = feeData?.[tab] || [];
         return data
             .filter((item) => !isFeePaid(item))
-            .map((item) => ({
-                ...item,
-                displayName: getFeeName(item, tab),
-                displayAmount: getFeeAmount(item),
-                concessionPercent: "",
-                concessionAmount: "",
-                finalFee: getFeeAmount(item),
-            }));
+            .map((item) => {
+                const actualAmount = getActualFeeAmount(item);
+                return {
+                    ...item,
+                    displayName: getFeeName(item, tab),
+                    displayAmount: actualAmount,
+                    concessionPercent: "",
+                    concessionAmount: "",
+                    finalFee: actualAmount,
+                };
+            });
     };
 
     // Fetch all 4 fee types fresh on mount
@@ -134,10 +137,53 @@ export default function SpecialConcession() {
         }
     };
 
-    // Rebuild rows when tab changes (allFeeData already populated)
     useEffect(() => {
-        setRows(buildRows(tabValue, allFeeData));
+        const newRows = buildRows(tabValue, allFeeData);
+        setRows(newRows);
+        if (rollNumber && selectedYear) {
+            fetchExistingConcessions(newRows);
+        }
     }, [tabValue, allFeeData]);
+
+    const fetchExistingConcessions = async (currentRows) => {
+        try {
+            const res = await axios.get(getUserConcessionDetails, {
+                params: {
+                    rollNumber,
+                    year: selectedYear,
+                    feeType: feeTabs[tabValue],
+                },
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            const concessions = res.data?.data?.data;
+            if (!concessions || !Array.isArray(concessions) || concessions.length === 0) return;
+
+            const concessionMap = {};
+            concessions.forEach(c => {
+                concessionMap[c.feeElementId] = c.concessionAmount;
+            });
+
+            const updatedRows = currentRows.map(row => {
+                const existingAmount = concessionMap[row.id];
+                if (existingAmount !== undefined && existingAmount > 0) {
+                    const amount = parseFloat(row.displayAmount);
+                    const concessionAmount = parseFloat(existingAmount);
+                    const percent = amount > 0 ? ((concessionAmount / amount) * 100).toFixed(2) : '0';
+                    return {
+                        ...row,
+                        concessionAmount: String(concessionAmount),
+                        concessionPercent: percent,
+                        finalFee: Math.round(amount - concessionAmount),
+                    };
+                }
+                return row;
+            });
+            setRows(updatedRows);
+        } catch {
+            // No existing concessions — rows stay as default
+        }
+    };
 
     const handleTabChange = (event, newValue) => {
         setTabValue(newValue);
@@ -149,15 +195,15 @@ export default function SpecialConcession() {
         const amount = parseFloat(row.displayAmount);
 
         if (field === "percent") {
-            const percent = parseFloat(value) || 0;
+            const percent = Math.min(parseFloat(value) || 0, 100);
             const concessionAmount = Math.round((amount * percent) / 100);
-            row.concessionPercent = value;
+            row.concessionPercent = parseFloat(value) > 100 ? '100' : value;
             row.concessionAmount = concessionAmount;
             row.finalFee = Math.round(amount - concessionAmount);
         } else if (field === "amount") {
-            const concessionAmount = parseFloat(value) || 0;
+            const concessionAmount = Math.min(parseFloat(value) || 0, amount);
             const percent = ((concessionAmount / amount) * 100).toFixed(2);
-            row.concessionAmount = value;
+            row.concessionAmount = parseFloat(value) > amount ? String(amount) : value;
             row.concessionPercent = percent;
             row.finalFee = Math.round(amount - concessionAmount);
         }
@@ -327,6 +373,7 @@ export default function SpecialConcession() {
                         </Grid>
                     </Grid>
                 </Box>
+                
                 <Box sx={{
                     px: 2, pb: 2, pt: "68px", minHeight: "72vh",
                 }}>
