@@ -10,7 +10,8 @@
       "Bash(node -e:*)",
       "Bash(npx react-scripts:*)",
       "Bash(npx -y acorn-jsx --ecma2020 src/Components/StudentComps/FeeFinanceComps/ExpenseComps/ExpensePage.jsx)",
-      "Bash(ipconfig)"
+      "Bash(ipconfig)",
+      "Bash(npx eslint *)"
     ]
   }
 }

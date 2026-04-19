@@ -35,8 +35,9 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import SendIcon from '@mui/icons-material/Send';
 import { useSelector } from 'react-redux';
 import { selectGrades } from '../../../../Redux/Slices/DropdownController';
-import { defaulters } from '../../../../Api/Api';
+import { defaulters, sendFeeReminder } from '../../../../Api/Api';
 import axios from 'axios';
+import SnackBar from '../../../SnackBar';
 
 const token = "123";
 
@@ -55,6 +56,7 @@ const formatDate = (dateStr) => {
 
 export default function DefaultersTab({ selectedYear }) {
     const grades = useSelector(selectGrades);
+    const auth = useSelector((state) => state.auth);
 
     const [isLoading, setIsLoading] = useState(false);
     const [defaultersData, setDefaultersData] = useState(null);
@@ -62,10 +64,17 @@ export default function DefaultersTab({ selectedYear }) {
     const [selectedGradeId, setSelectedGradeId] = useState(grades?.[0]?.id || null);
     const [searchText, setSearchText] = useState('');
 
+    // Snackbar state
+    const [snackOpen, setSnackOpen] = useState(false);
+    const [snackStatus, setSnackStatus] = useState(false);
+    const [snackColor, setSnackColor] = useState(false);
+    const [snackMessage, setSnackMessage] = useState('');
+
     // Reminder modal state
     const [reminderModal, setReminderModal] = useState(false);
+    const [reminderHeadline, setReminderHeadline] = useState('');
     const [reminderMsg, setReminderMsg] = useState('');
-    const [reminderType, setReminderType] = useState('SMS');
+    const [reminderSending, setReminderSending] = useState(false);
     const [reminderStudent, setReminderStudent] = useState(null);
 
     const selectedGrade = grades.find((g) => g.id === selectedGradeId);
@@ -101,8 +110,66 @@ export default function DefaultersTab({ selectedYear }) {
         d.rollNumber.toLowerCase().includes(searchText.toLowerCase())
     );
 
+    const handleSendReminder = async () => {
+        if (!reminderMsg.trim()) return;
+        if (!reminderHeadline.trim()) {
+            setSnackMessage('Please enter a headline for the reminder');
+            setSnackOpen(true); setSnackColor(false); setSnackStatus(false);
+            return;
+        }
+
+        const rollNumbers = reminderStudent
+            ? [reminderStudent.rollNumber]
+            : filteredDefaulters.map((d) => d.rollNumber);
+
+        if (rollNumbers.length === 0) {
+            setSnackMessage('No students to send reminder');
+            setSnackOpen(true); setSnackColor(false); setSnackStatus(false);
+            return;
+        }
+
+        const payload = {
+            headLine: reminderHeadline.trim(),
+            message: reminderMsg.trim(),
+            rollNumbers,
+            postedByRollNumber: auth?.rollNumber || '',
+            postedByUserType: auth?.userType || 'superadmin',
+        };
+
+        setReminderSending(true);
+        try {
+            const res = await axios.post(sendFeeReminder, payload, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+            });
+
+            if (res.data.error === false || res.status === 200) {
+                setSnackMessage(
+                    reminderStudent
+                        ? `Reminder sent to ${reminderStudent.name}`
+                        : `Reminder sent to ${rollNumbers.length} student${rollNumbers.length !== 1 ? 's' : ''}`
+                );
+                setSnackOpen(true); setSnackColor(true); setSnackStatus(true);
+                setReminderModal(false);
+                setReminderMsg('');
+                setReminderHeadline('');
+                setReminderStudent(null);
+            } else {
+                throw new Error(res.data.message || 'Failed to send reminder');
+            }
+        } catch (error) {
+            setSnackMessage(error.response?.data?.message || error.message || 'Failed to send reminder');
+            setSnackOpen(true); setSnackColor(false); setSnackStatus(false);
+        } finally {
+            setReminderSending(false);
+        }
+    };
+
     return (
         <Box>
+            <SnackBar open={snackOpen} color={snackColor} setOpen={setSnackOpen} status={snackStatus} message={snackMessage} />
             <Grid container spacing={3}>
                 <Grid size={{ xs: 12, sm: 12, md: 12, lg: 12 }}>
                     <Card sx={{ boxShadow: 'none', border: '1px solid #E8E8E8', borderRadius: '4px', bgcolor: '#FFFFFF' }}>
@@ -249,7 +316,7 @@ export default function DefaultersTab({ selectedYear }) {
                                     variant="contained"
                                     size="small"
                                     startIcon={<NotificationsActiveIcon />}
-                                    onClick={() => { setReminderMsg(''); setReminderStudent(null); setReminderModal(true); }}
+                                    onClick={() => { setReminderHeadline(`${selectedFeeType} Reminder`); setReminderMsg(''); setReminderStudent(null); setReminderModal(true); }}
                                     sx={{
                                         textTransform: 'none',
                                         fontSize: '12px',
@@ -364,8 +431,9 @@ export default function DefaultersTab({ selectedYear }) {
                                                                 variant="outlined"
                                                                 startIcon={<NotificationsActiveIcon sx={{ fontSize: '12px !important' }} />}
                                                                 onClick={() => {
+                                                                    setReminderHeadline(`${selectedFeeType} Reminder`);
                                                                     setReminderMsg('');
-                                                                    setReminderStudent({ name: student.name, grade: student.grade, section: student.section });
+                                                                    setReminderStudent({ name: student.name, rollNumber: student.rollNumber, grade: student.grade, section: student.section });
                                                                     setReminderModal(true);
                                                                 }}
                                                                 sx={{
@@ -438,8 +506,28 @@ export default function DefaultersTab({ selectedYear }) {
                 </DialogTitle>
 
                 <DialogContent sx={{ p: 0 }}>
-                    {/* Quick Templates */}
+                    {/* Headline */}
                     <Box sx={{ px: 3, pt: 2, pb: 1 }}>
+                        <Typography sx={{ fontSize: '12px', fontWeight: '700', color: '#555', mb: 1, letterSpacing: '0.4px' }}>
+                            HEADLINE
+                        </Typography>
+                        <TextField
+                            fullWidth
+                            size="small"
+                            placeholder="e.g. School Fee Reminder"
+                            value={reminderHeadline}
+                            onChange={(e) => setReminderHeadline(e.target.value)}
+                            sx={{
+                                '& .MuiOutlinedInput-root': {
+                                    borderRadius: '10px', fontSize: '13px',
+                                    '&.Mui-focused fieldset': { borderColor: '#6366F1' },
+                                },
+                            }}
+                        />
+                    </Box>
+
+                    {/* Quick Templates */}
+                    <Box sx={{ px: 3, pt: 1.5, pb: 1 }}>
                         <Typography sx={{ fontSize: '12px', fontWeight: '700', color: '#555', mb: 1.2, letterSpacing: '0.4px' }}>
                             QUICK TEMPLATES
                         </Typography>
@@ -530,17 +618,17 @@ export default function DefaultersTab({ selectedYear }) {
                     </Button>
                     <Button
                         variant="contained"
-                        disabled={reminderMsg.trim().length === 0}
-                        startIcon={<SendIcon />}
+                        disabled={reminderMsg.trim().length === 0 || reminderHeadline.trim().length === 0 || reminderSending}
+                        startIcon={reminderSending ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : <SendIcon />}
+                        onClick={handleSendReminder}
                         sx={{
                             textTransform: 'none', borderRadius: '8px',
                             bgcolor: '#6366F1', fontWeight: '600', px: 3,
                             '&:hover': { bgcolor: '#4F46E5' },
-
                             '&.Mui-disabled': { bgcolor: '#E0E0E0', color: '#aaa' },
-                        }}  
+                        }}
                     >
-                        {reminderStudent ? 'Send' : 'Send to All'}
+                        {reminderSending ? 'Sending...' : reminderStudent ? 'Send' : 'Send to All'}
                     </Button>
                 </DialogActions>
             </Dialog>

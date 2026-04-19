@@ -271,66 +271,44 @@ export default function FeedBackPage() {
         <Box sx={{ width: "100%", }}>
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
             {isLoading && <Loader />}
-            <Box sx={{ backgroundColor: "#f2f2f2", px: 2, borderRadius: "10px 10px 10px 0px",borderBottom:"1px solid #ddd",  }}>
-                <Grid container py={1}>
-                    <Grid
-                        sx={{ display: "flex", alignItems: "center" }}
-                        size={{
-                            xs: 6,
-                            sm: 6,
-                            md: 3,
-                            lg: 4.3
-                        }}>
-                        <Typography sx={{ fontWeight: "600", fontSize: "20px" }} >Feedback from Parents</Typography>
+            <Box sx={{ backgroundColor: "#f2f2f2", px: 2.5, py: 1.2, borderBottom: "1px solid #E5E7EB" }}>
+                <Grid container alignItems="center" spacing={1.5}>
+                    {/* Title */}
+                    <Grid size={{ xs: 12, sm: 12, md: 3, lg: 3 }} sx={{ display: "flex", alignItems: "center" }}>
+                        <Typography sx={{ fontWeight: 700, fontSize: "18px", color: "#1F2937" }}>
+                            Feedback from Parents
+                        </Typography>
                     </Grid>
-                    <Grid
-                        sx={{ display: "flex", justifyContent: "center", alignItems: "center", pt: 1 }}
-                        size={{
-                            xs: 6,
-                            sm: 6,
-                            md: 3,
-                            lg: 2
-                        }}>
-                        <Link to='questions'>
-                            <Button
-                                sx={{
-                                    marginRight: 1,
-                                    textTransform: "none",
-                                    color: "#D84600",
-                                    backgroundColor: "rgba(216, 70, 0, 0.1)",
-                                    borderRadius: "30px",
-                                    padding: "2px 20px",
-                                    marginLeft: "20px"
-                                }}>
-                                Questions
-                            </Button>
-                        </Link>
-                    </Grid>
-                    <Grid
-                        sx={{ display: "flex", justifyContent: "center", alignItems: "center", pt: 1 }}
-                        size={{
-                            xs: 12,
-                            sm: 12,
-                            md: 3,
-                            lg: 3.5
-                        }}>
+
+                    {/* Filter dropdown */}
+                    <Grid size={{ xs: 12, sm: 6, md: 3, lg: 2.5 }}>
                         <Autocomplete
                             disablePortal
                             options={['Suggestions', 'Complaints', 'Others']}
                             value={filter}
                             onChange={(event, newValue) => handleFilterChange(newValue)}
-                            sx={{ width: "200px" }}
+                            sx={{ width: '100%' }}
                             PaperComponent={(props) => (
                                 <Paper
                                     {...props}
                                     style={{
                                         ...props.style,
-                                        maxHeight: "150px",
                                         backgroundColor: "#000",
                                         color: "#fff",
                                     }}
                                 />
                             )}
+                            slotProps={{
+                                listbox: {
+                                    sx: {
+                                        maxHeight: 220,
+                                        overflowY: 'auto',
+                                        '&::-webkit-scrollbar': { width: 6 },
+                                        '&::-webkit-scrollbar-thumb': { backgroundColor: '#555', borderRadius: 3 },
+                                        '&::-webkit-scrollbar-track': { backgroundColor: 'transparent' },
+                                    },
+                                },
+                            }}
                             renderOption={(props, option) => (
                                 <li {...props} className="classdropdownOptions">
                                     {option}
@@ -338,63 +316,73 @@ export default function FeedBackPage() {
                             )}
                             renderInput={(params) => (
                                 <TextField
-                                    placeholder="Select Filter"
+                                    placeholder="Filter by Type"
                                     {...params}
                                     fullWidth
-                                    InputProps={{
-                                        ...params.InputProps,
-                                        sx: {
-                                            paddingRight: 0,
-                                            height: "33px",
-                                            fontSize: "13px",
-                                            fontWeight: "600",
+                                    slotProps={{
+                                        input: {
+                                            ...params.InputProps,
+                                            sx: {
+                                                paddingRight: 0,
+                                                height: "33px",
+                                                fontSize: "13px",
+                                                fontWeight: 600,
+                                                backgroundColor: "#fff",
+                                            },
                                         },
                                     }}
                                 />
                             )}
                         />
-                        <Link to='responses'>
-                            <Button
-                                sx={{
-                                    marginRight: 1,
-                                    textTransform: "none",
-                                    color: "#D84600",
-                                    backgroundColor: "rgba(216, 70, 0, 0.1)",
-                                    borderRadius: "30px",
-                                    padding: "2px 20px",
-                                    marginLeft: "20px"
-                                }}>
-                                Responses
-                            </Button>
-                        </Link>
                     </Grid>
 
-                    <Grid
-                        sx={{ display: "flex", justifyContent: "end", alignItems: "center", px: 1 }}
-                        size={{
-                            xs: 12,
-                            sm: 12,
-                            md: 3,
-                            lg: 2.2
-                        }}>
-                        
+                    {/* Action Buttons — right aligned */}
+                    <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6.5 }}
+                        sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 1.2, flexWrap: "wrap" }}>
+                        <Link to="questions" style={{ textDecoration: "none" }}>
+                            <Button
+                                size="small"
+                                sx={{
+                                    textTransform: "none", fontSize: "12px", fontWeight: 600,
+                                    color: "#D84600", bgcolor: "rgba(216, 70, 0, 0.1)",
+                                    border: "1px solid rgba(216, 70, 0, 0.25)",
+                                    borderRadius: "20px", px: 2.5, height: 33,
+                                    "&:hover": { bgcolor: "rgba(216, 70, 0, 0.18)" },
+                                }}>
+                                Created Feedback
+                            </Button>
+                        </Link>
+                        <Link to="responses" style={{ textDecoration: "none" }}>
+                            <Button
+                                size="small"
+                                sx={{
+                                    textTransform: "none", fontSize: "12px", fontWeight: 600,
+                                    color: "#6366F1", bgcolor: "rgba(99, 102, 241, 0.1)",
+                                    border: "1px solid rgba(99, 102, 241, 0.25)",
+                                    borderRadius: "20px", px: 2.5, height: 33,
+                                    "&:hover": { bgcolor: "rgba(99, 102, 241, 0.18)" },
+                                }}>
+                                Responses Received
+                            </Button>
+                        </Link>
                         <Button
                             onClick={handleCreateNews}
-                            variant="outlined"
+                            variant="contained"
+                            startIcon={<AddIcon sx={{ fontSize: 16 }} />}
                             sx={{
-                                borderColor: "#A9A9A9",
-                                backgroundColor: "#000",
-                                py: 0.3,
-                                width: "300px",
-                                height: "30px",
-                                color: "#fff",
                                 textTransform: "none",
-                                border: "none",
-
+                                fontSize: "12px",
+                                fontWeight: 600,
+                                backgroundColor: "#1F2937",
+                                color: "#fff",
+                                borderRadius: "20px",
+                                px: 2.5,
+                                height: 33,
+                                boxShadow: "none",
+                                "&:hover": { backgroundColor: "#374151", boxShadow: "none" },
                             }}
                         >
-                            <AddIcon sx={{ fontSize: "20px" }} />
-                            &nbsp; Feedback
+                            New Feedback
                         </Button>
                     </Grid>
                 </Grid>

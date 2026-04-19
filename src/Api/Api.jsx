@@ -159,6 +159,12 @@ const parentsFeedBackFetchAll = `${baseApiurl}parentsFeedBack/parentsFeedBackFet
 const updateFeedBack = `${baseApiurl}FeedBack/updateFeedBack`;
 const GetFeedBackDetailByID = `${baseApiurl}feedBack/GetFeedBackDetailByID`;
 const parentsFeedbackAdminUpdate = `${baseApiurl}parentsFeedBack/parentsFeedbackAdminUpdate`;
+const findingGradeWithSubject = `${baseApiurl}GradeValueFetch/findingGradeWithSubject`;
+const postNewFeedback = `${baseApiurl}newFeedBackAll/postNewFeedback`;
+const deleteNewFeedbackByTitleId = `${baseApiurl}newFeedBackAll/deleteNewFeedbackByTitleId`;
+const updateNewFeedbackQuestions = `${baseApiurl}newFeedBackAll/updateNewFeedbackQuestions`;
+const fetchNewFeedbackAdminResponses = `${baseApiurl}newFeedBackAll/fetchNewFeedbackAdminResponses`;
+
 
 // Attendance 
 const Attendance = `${baseApiurl}attendance/`;
@@ -285,7 +291,7 @@ const cashCollection = `${finance}cashCollection`;
 const classWiseCollection = `${finance}classWiseCollection`;
 const defaulters = `${finance}defaulters`;
 const feeReport = `${finance}feeReport`;
-
+const sendFeeReminder = `${baseApiurl}finance/sendFeeReminder/`;
 
 // Expense 
 const postFund = `${baseApiurl}postFund`;
@@ -761,5 +767,11 @@ export {
     AddClass,
     AddClassSection,
     GetConcessionLog,
-    getUserConcessionDetails
+    getUserConcessionDetails,
+    sendFeeReminder,
+    findingGradeWithSubject,
+    postNewFeedback,
+    deleteNewFeedbackByTitleId,
+    updateNewFeedbackQuestions,
+    fetchNewFeedbackAdminResponses
 }

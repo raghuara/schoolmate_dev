@@ -157,6 +157,7 @@ export default function BillingScreen() {
     setPaymentSuccess(false);
     setCompletedPaymentAmount(0);
     setCompletedPaymentFees([]);
+    setCompletedBillID('');
     setPaymentFormData({
       upiId: '',
       transactionId: '',
@@ -216,6 +217,7 @@ export default function BillingScreen() {
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [completedPaymentAmount, setCompletedPaymentAmount] = useState(0);
   const [completedPaymentFees, setCompletedPaymentFees] = useState([]);
+  const [completedBillID, setCompletedBillID] = useState('');
   const [paymentFormData, setPaymentFormData] = useState({
     upiId: '',
     transactionId: '',
@@ -798,6 +800,7 @@ export default function BillingScreen() {
       if (res.data.success || res.status === 200) {
         setPaymentProcessing(false);
         setPaymentSuccess(true);
+        setCompletedBillID(res.data.billID || res.data.data?.billID || '');
 
         switch (value) {
           case 0:
@@ -1607,7 +1610,9 @@ export default function BillingScreen() {
               </Tabs>
             </Grid>
           </Grid>
-          <Box sx={{ display: "flex",}}>
+
+          <Box sx={{ display: "flex", justifyContent:"space-between" }}>
+          <Box sx={{ display: "flex", }}>
             <Box
               sx={{
                 display: "flex",
@@ -1625,29 +1630,100 @@ export default function BillingScreen() {
                 {feeTabs[value]}
               </Typography>
             </Box>
-            {getCurrentFeeData().some(fee => parseFloat(fee.concessionAmount || 0) > 0) && (
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "center",
-                  gap: 0.5,
-                  backgroundColor: "#4caf50",
-                  border: "1px solid #4caf50",
-                  height:"20px",
-                  width: "fit-content",
-                  px: 2,
-                  borderRadius:"999px",
-                  mt:1
-                }}
-              >
-                <CheckCircleIcon sx={{ fontSize: 15, color: "#fff" }} />
-                <Typography sx={{ color: "#fff", fontSize: "12px", fontWeight: 600 }}>
-                  Concession Applied
-                </Typography>
-              </Box>
-            )}
+            {(() => {
+              const concessionFees = getCurrentFeeData().filter(
+                (fee) => parseFloat(fee.concessionAmount || 0) > 0
+              );
+              if (concessionFees.length === 0) return null;
+              const totalConcession = concessionFees.reduce(
+                (sum, fee) => sum + parseFloat(fee.concessionAmount || 0),
+                0
+              );
+              const getFeeLabel = (fee) =>
+                fee.feeName || fee.feeDetails || fee.activityName || fee.place || "-";
+              return (
+                <Box
+                  sx={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    alignItems: "center",
+                    gap: 0.75,
+                    ml: 1,
+                    mt: 1,
+                  }}
+                >
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 0.5,
+                      backgroundColor: "#4caf50",
+                      border: "1px solid #4caf50",
+                      height: "22px",
+                      px: 1.25,
+                      borderRadius: "999px",
+                    }}
+                  >
+                    <CheckCircleIcon sx={{ fontSize: 15, color: "#fff" }} />
+                    <Typography sx={{ color: "#fff", fontSize: "12px", fontWeight: 600 }}>
+                      Concession Applied
+                    </Typography>
+                    <Box
+                      sx={{
+                        ml: 0.5,
+                        px: 0.75,
+                        py: 0.1,
+                        borderRadius: "999px",
+                        backgroundColor: "#fff",
+                      }}
+                    >
+                      <Typography sx={{ color: "#2e7d32", fontSize: "11px", fontWeight: 700 }}>
+                        ₹{totalConcession.toLocaleString("en-IN")}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+              );
+            })()}
           </Box>
+          <Box>
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={<HistoryIcon sx={{ fontSize: 16 }} />}
+              onClick={() => {
+                const feeTypeMap = {
+                  0: 'schoolfee',
+                  1: 'transport',
+                  2: 'eca',
+                  3: 'additional'
+                };
+                navigate('/dashboardmenu/fee/transaction-history', {
+                  state: {
+                    rollNumber,
+                    year: selectedYear,
+                    feeType: feeTypeMap[value],
+                    activeTab: value
+                  }
+                });
+              }}
+              sx={{
+                backgroundColor: "#E60154",
+                textTransform: "none",
+                borderRadius: "999px",
+                px: 2,
+                fontSize: 13,
+                fontWeight: 600,
+                boxShadow: "none",
+                "&:hover": { backgroundColor: "#B8003F", boxShadow: "none" },
+              }}
+            >
+              Transaction History
+            </Button>
+          </Box>
+          </Box>
+          
+       
 
           <TableContainer
             sx={{
@@ -1669,7 +1745,6 @@ export default function BillingScreen() {
                     "Pending Amount",
                     "To Pay",
                     "Due Date",
-                    "Print",
                   ].map((header, index) => (
                     <TableCell
                       key={index}
@@ -1692,7 +1767,7 @@ export default function BillingScreen() {
               <TableBody>
                 {getCurrentFeeData().length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} sx={{ textAlign: "center", py: 8 }}>
+                    <TableCell colSpan={8} sx={{ textAlign: "center", py: 8 }}>
                       <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
                         <Box
                           sx={{
@@ -1792,7 +1867,35 @@ export default function BillingScreen() {
                             textAlign: "center",
                           }}
                         >
-                          ₹{row.feeAmount}
+                          <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0.5 }}>
+                            <Typography sx={{ fontSize: "14px", color: "#333" }}>
+                              ₹{row.feeAmount}
+                            </Typography>
+                            {parseFloat(row.concessionAmount || 0) > 0 && (
+                              <Tooltip title="Concession applied on this fee" arrow>
+                                <Box
+                                  sx={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 0.4,
+                                    px: 0.9,
+                                    py: 0.1,
+                                    borderRadius: "999px",
+                                    backgroundColor: "#E8F5E9",
+                                    border: "1px solid #A5D6A7",
+                                  }}
+                                >
+                                  <CheckCircleIcon sx={{ fontSize: 12, color: "#2e7d32" }} />
+                                  <Typography sx={{ fontSize: "11px", fontWeight: 600, color: "#1b5e20" }}>
+                                    Concession
+                                  </Typography>
+                                  <Typography sx={{ fontSize: "11px", fontWeight: 700, color: "#2e7d32" }}>
+                                    ₹{parseFloat(row.concessionAmount || 0).toLocaleString("en-IN")}
+                                  </Typography>
+                                </Box>
+                              </Tooltip>
+                            )}
+                          </Box>
                         </TableCell>
 
                         <TableCell
@@ -1971,43 +2074,6 @@ export default function BillingScreen() {
                           })()}
                         </TableCell>
 
-                        <TableCell
-                          sx={{
-                            borderRight: 1,
-                            borderColor: "#E601542A",
-                            textAlign: "center",
-                            color: "#6A1B9A",
-                            fontWeight: 500,
-                            textDecoration: "underline",
-                            "&:hover": { color: "#4A148C" },
-                            cursor: "pointer",
-                          }}
-                        >
-                          <Button
-                            variant="outlined"
-                            size="small"
-                            disabled={!row.paidAmount || row.paidAmount === 0}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleOpenPopup(row);
-                            }}
-                            sx={{
-                              backgroundColor: (!row.paidAmount || row.paidAmount === 0) ? "#ccc" : "#E60154",
-                              color: "#fff",
-                              fontWeight: "600",
-                              textTransform: "none",
-                              borderRadius: "999px",
-                              height: "25px",
-                              width: "80px",
-                              fontSize: 13,
-                              boxShadow: "none",
-                              borderColor: "#E601542A",
-                              "&.Mui-disabled": { backgroundColor: "#e0e0e0", color: "#aaa" }
-                            }}
-                          >
-                            Print
-                          </Button>
-                        </TableCell>
                       </TableRow>
                     );
                   })
@@ -2062,7 +2128,7 @@ export default function BillingScreen() {
                       color: "#555",
                     }}
                   >
-                   Payment Receipt - {feeTabs[value]}
+                    Payment Receipt - {feeTabs[value]}
                   </Typography>
 
                   <Box
@@ -2158,7 +2224,7 @@ export default function BillingScreen() {
                               </TableRow>
                             ))
                           ) : (
-                        
+
                             <TableRow>
                               <TableCell sx={{ textAlign: "center", border: "1px solid #E601542A", color: "#000", fontSize: "14px" }}>
                                 1
@@ -2301,7 +2367,7 @@ export default function BillingScreen() {
 
             {getCurrentFeeData().length > 0 && (
               <>
-                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <Box sx={{ display: "flex", ml: 12 }}>
                     <Box sx={{ border: "1px solid #ccc", py: 1, px: 3, color: "#00963C", fontWeight: "600", borderTop: "none", borderBottomLeftRadius: "5px", backgroundColor: "#fff", }}>
                       Total Fees Amount
@@ -2310,88 +2376,29 @@ export default function BillingScreen() {
                       ₹{getTotalFeeAmount().toLocaleString()}
                     </Box>
                   </Box>
-                  {(() => {
-                    const hasAnyPaid = getCurrentFeeData().some(fee => (fee.paidAmount || 0) > 0);
-                    return (
-                      <Box
-                        sx={{
-                          textTransform: "none",
-                          textDecoration: hasAnyPaid ? "underline" : "none",
-                          color: hasAnyPaid ? "#1F73C2" : "#aaa",
-                          mt: 1,
-                          cursor: hasAnyPaid ? "pointer" : "not-allowed",
-                          display: "inline-block",
-                          transition: "color 0.2s ease",
-                          userSelect: "none",
-                          "&:hover": hasAnyPaid ? { color: "#145A9E" } : {},
-                          "&:active": hasAnyPaid ? { transform: "scale(0.98)" } : {},
-                        }}
-                        onClick={hasAnyPaid ? handlePrintEntireBill : undefined}
-                      >
-                        Print as Entire Bill
-                      </Box>
-                    );
-                  })()}
-                </Box>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
 
-                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                  <Box
-                    sx={{
-                      textTransform: "none",
-                      textDecoration: "underline",
-                      color: "#1F73C2",
-                      mt: 2,
-                      cursor: "pointer",
-                      display: "inline-block",
-                      transition: "color 0.2s ease",
-                      userSelect: "none",
-                      "&:hover": {
-                        color: "#145A9E",
-                      },
-                      "&:active": {
-                        transform: "scale(0.98)",
-                      },
-                    }}
-                    onClick={() => {
-                      // Map tab value to feeType
-                      const feeTypeMap = {
-                        0: 'schoolfee',
-                        1: 'transport',
-                        2: 'eca',
-                        3: 'additional'
-                      };
-                      navigate('/dashboardmenu/fee/transaction-history', {
-                        state: {
-                          rollNumber,
-                          year: selectedYear,
-                          feeType: feeTypeMap[value],
-                          activeTab: value
-                        }
-                      });
-                    }}
-                  >
-                    View Previous bill Transaction History
+                    <Button
+                      variant="contained"
+                      size="small"
+                      disabled={selectedRows.length === 0 || getTotalPending() === 0}
+                      onClick={handleOpenPaymentPopup}
+                      sx={{
+                        backgroundColor: "#2e7d32",
+                        textTransform: "none",
+                        borderRadius: "8px",
+                        mt: 1,
+                        px: 3,
+                        "&:hover": {
+                          backgroundColor: "#1b5e20",
+                        },
+                        fontSize: 13,
+                        boxShadow: "none",
+                      }}
+                    >
+                      Pay ₹{getTotalPending().toLocaleString()}
+                    </Button>
                   </Box>
-                  <Button
-                    variant="contained"
-                    size="small"
-                    disabled={selectedRows.length === 0 || getTotalPending() === 0}
-                    onClick={handleOpenPaymentPopup}
-                    sx={{
-                      backgroundColor: "#2e7d32",
-                      textTransform: "none",
-                      borderRadius: "8px",
-                      mt: 1,
-                      px: 3,
-                      "&:hover": {
-                        backgroundColor: "#1b5e20",
-                      },
-                      fontSize: 13,
-                      boxShadow: "none",
-                    }}
-                  >
-                    Pay ₹{getTotalPending().toLocaleString()}
-                  </Button>
                 </Box>
               </>
             )}
@@ -2953,7 +2960,7 @@ export default function BillingScreen() {
                               value={paymentFormData.bankName}
                               onChange={(e) => handlePaymentFormChange("bankName", e.target.value)}
                               InputProps={{
-                                startAdornment: <InputAdornment position="start"><AccountBalanceIcon sx={{ color:"#3b82f6" }} /></InputAdornment>,
+                                startAdornment: <InputAdornment position="start"><AccountBalanceIcon sx={{ color: "#3b82f6" }} /></InputAdornment>,
                               }}
                               sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
                             />
@@ -3476,10 +3483,10 @@ export default function BillingScreen() {
                             <Grid size={{ xs: 6 }}>
                               <Box sx={{ textAlign: "left" }}>
                                 <Typography sx={{ color: "#94a3b8", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
-                                  Transaction ID
+                                  Bill ID
                                 </Typography>
                                 <Typography sx={{ fontWeight: 700, fontSize: "0.85rem", color: "#1e293b" }}>
-                                  {paymentFormData.transactionId || '-'}
+                                  {completedBillID || '-'}
                                 </Typography>
                               </Box>
                             </Grid>
@@ -3519,6 +3526,18 @@ export default function BillingScreen() {
                                 </Typography>
                               </Box>
                             </Grid>
+                            {paymentFormData.transactionId && (
+                              <Grid size={{ xs: 6 }}>
+                                <Box sx={{ textAlign: "left" }}>
+                                  <Typography sx={{ color: "#94a3b8", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
+                                    Transaction ID
+                                  </Typography>
+                                  <Typography sx={{ fontWeight: 700, fontSize: "0.85rem", color: "#1e293b" }}>
+                                    {paymentFormData.transactionId}
+                                  </Typography>
+                                </Box>
+                              </Grid>
+                            )}
 
                             {/* UPI Details */}
                             {selectedPaymentMethod === "upi" && paymentFormData.upiId && (
@@ -4092,7 +4111,7 @@ export default function BillingScreen() {
                     }}
                   >
                     {[
-                      { label: "Transaction ID", value: paymentFormData.transactionId || '-' },
+                      { label: "Bill ID", value: completedBillID || '-' },
                       { label: "Student Name", value: details?.name || "-" },
                       { label: "Roll No", value: details?.rollNumber || rollNumber || "-" },
                       { label: "Class & Section", value: `${details?.grade || '-'} ${details?.section || ''}`.trim() },
@@ -4234,6 +4253,11 @@ export default function BillingScreen() {
                       <Typography sx={{ fontSize: "14px", color: "#666" }}>
                         <b>Payment Method:</b> {paymentMethodOptions.find(m => m.id === selectedPaymentMethod)?.name || '-'}
                       </Typography>
+                      {paymentFormData.transactionId && (
+                        <Typography sx={{ fontSize: "14px", color: "#666" }}>
+                          <b>Transaction ID:</b> {paymentFormData.transactionId}
+                        </Typography>
+                      )}
                       <Typography sx={{ fontSize: "14px", color: "#666" }}>
                         <b>Payment Date:</b> {dayjs().format("DD MMMM YYYY, hh:mm A")}
                       </Typography>

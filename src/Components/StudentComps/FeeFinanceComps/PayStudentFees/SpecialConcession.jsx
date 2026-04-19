@@ -2,7 +2,7 @@ import { Box } from '@mui/system'
 import React, { useEffect, useState } from 'react'
 import Loader from '../../../Loader'
 import SnackBar from '../../../SnackBar'
-import { Button, Card, Grid, IconButton, InputAdornment, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tabs, TextField, Typography } from '@mui/material';
+import { Button, Card, FormControlLabel, Grid, IconButton, InputAdornment, Switch, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tabs, TextField, Tooltip, Typography } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CategoryIcon from '@mui/icons-material/Category';
 import PersonIcon from '@mui/icons-material/Person';
@@ -50,6 +50,7 @@ export default function SpecialConcession() {
     const [concessionCategory, setConcessionCategory] = useState('');
     const [recommendedBy, setRecommendedBy] = useState('');
     const [recommendationReason, setRecommendationReason] = useState('');
+    const [isIndividual, setIsIndividual] = useState(false);
 
     const getFeeName = (row, tab) => {
         if (tab === 1) {
@@ -90,6 +91,9 @@ export default function SpecialConcession() {
                     concessionPercent: "",
                     concessionAmount: "",
                     finalFee: actualAmount,
+                    rowCategory: "",
+                    rowRecommendedBy: "",
+                    rowReason: "",
                 };
             });
     };
@@ -206,6 +210,12 @@ export default function SpecialConcession() {
             row.concessionAmount = parseFloat(value) > amount ? String(amount) : value;
             row.concessionPercent = percent;
             row.finalFee = Math.round(amount - concessionAmount);
+        } else if (field === "rowCategory") {
+            row.rowCategory = value;
+        } else if (field === "rowRecommendedBy") {
+            row.rowRecommendedBy = value;
+        } else if (field === "rowReason") {
+            row.rowReason = value;
         }
 
         updatedRows[index] = row;
@@ -231,38 +241,53 @@ export default function SpecialConcession() {
         // rollNumber is used as concessionBy (the student identifier)
         const concessionBy = rollNumber || "";
 
+        const getRowDetails = (row) => {
+            if (isIndividual) {
+                return {
+                    concessionCategory: row.rowCategory || '',
+                    recommendedBy: row.rowRecommendedBy || '',
+                    recommendationReason: row.rowReason || '',
+                };
+            }
+            return {
+                concessionCategory,
+                recommendedBy,
+                recommendationReason,
+            };
+        };
+
         let concessionElements = [];
 
         if (tabValue === 0) {
-            // School Fee: primeSchoolFeesID + feesElementID
             concessionElements = rowsWithConcession.map(row => ({
                 primeSchoolFeesID: row.primeSchoolFeesID,
                 feesElementID: row.id,
                 concessionAmount: parseFloat(row.concessionAmount),
                 concessionBy,
+                ...getRowDetails(row),
             }));
         } else if (tabValue === 1) {
-            // Transport Fee: feesElementID only
             concessionElements = rowsWithConcession.map(row => ({
                 feesElementID: row.id,
                 concessionAmount: parseFloat(row.concessionAmount),
                 concessionBy,
+                ...getRowDetails(row),
             }));
         } else if (tabValue === 2) {
-            // ECA Fee: ecaFeesID + feesElementID
             concessionElements = rowsWithConcession.map(row => ({
                 ecaFeesID: row.ecaFeesID,
                 feesElementID: row.id,
                 concessionAmount: parseFloat(row.concessionAmount),
                 concessionBy,
+                ...getRowDetails(row),
             }));
         } else if (tabValue === 3) {
-            // Additional Fee: additionalFeesID + feesElementID
             concessionElements = rowsWithConcession.map(row => ({
                 additionalFeesID: row.additionalFeesID,
                 feesElementID: row.id,
                 concessionAmount: parseFloat(row.concessionAmount),
                 concessionBy,
+                ...getRowDetails(row),
             }));
         }
 
@@ -380,21 +405,42 @@ export default function SpecialConcession() {
 
                     <Card sx={{ mt: 2, mb: 1, border: '1px solid #E5E7EB', borderRadius: '12px', boxShadow: 'none', backgroundColor: '#fff' }}>
                         {/* Card header */}
-                        <Box sx={{ px: 2.5, py: 1.5, borderBottom: '1px solid #F0F0F0', display: 'flex', alignItems: 'center', gap: 1, backgroundColor: '#FAFAFA', borderRadius: '12px 12px 0 0' }}>
-                            <Box sx={{ width: 28, height: 28, borderRadius: '8px', backgroundColor: `${websiteSettings.mainColor}22`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <NotesIcon sx={{ fontSize: 16, color: websiteSettings.mainColor }} />
+                        <Box sx={{ px: 2.5, py: 1.5, borderBottom: '1px solid #F0F0F0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#FAFAFA', borderRadius: '12px 12px 0 0' }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Box sx={{ width: 28, height: 28, borderRadius: '8px', backgroundColor: `${websiteSettings.mainColor}22`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <NotesIcon sx={{ fontSize: 16, color: websiteSettings.mainColor }} />
+                                </Box>
+                                <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#374151' }}>
+                                    Concession Details
+                                </Typography>
+                                <Typography sx={{ fontSize: 11, color: '#9CA3AF', ml: 0.5 }}>
+                                    — {isIndividual ? 'Enter details for each fee separately in the table below' : 'Fill in the details below before applying concession'}
+                                </Typography>
                             </Box>
-                            <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#374151' }}>
-                                Concession Details
-                            </Typography>
-                            <Typography sx={{ fontSize: 11, color: '#9CA3AF', ml: 0.5 }}>
-                                — Fill in the details below before applying concession
-                            </Typography>
+                            <FormControlLabel
+                                control={
+                                    <Switch
+                                        size="small"
+                                        checked={isIndividual}
+                                        onChange={(e) => setIsIndividual(e.target.checked)}
+                                        sx={{
+                                            "& .MuiSwitch-switchBase.Mui-checked": { color: websiteSettings.mainColor },
+                                            "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": { backgroundColor: websiteSettings.mainColor },
+                                        }}
+                                    />
+                                }
+                                label={
+                                    <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>
+                                        Separate Details per Fee
+                                    </Typography>
+                                }
+                                sx={{ m: 0 }}
+                            />
                         </Box>
 
-                        {/* Fields */}
-                        <Grid container spacing={2.5} sx={{ p: 2.5 }}>
-                            {/* Concession Category */}
+                        {/* Fields — shown only when common details mode */}
+                        {!isIndividual && (
+                        <Grid container spacing={2} sx={{ px: 2.5, py: 2 }} alignItems="flex-end">
                             <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
                                 <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#374151', mb: 0.8, display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                     <CategoryIcon sx={{ fontSize: 14, color: websiteSettings.mainColor }} />
@@ -418,7 +464,7 @@ export default function SpecialConcession() {
                                     }}
                                     sx={{
                                         '& .MuiOutlinedInput-root': {
-                                            borderRadius: '8px', fontSize: 13, backgroundColor: '#F9FAFB',
+                                            height: 40, borderRadius: '8px', fontSize: 13, backgroundColor: '#F9FAFB',
                                             '& fieldset': { borderColor: '#E5E7EB' },
                                             '&:hover fieldset': { borderColor: websiteSettings.mainColor },
                                             '&.Mui-focused fieldset': { borderColor: websiteSettings.mainColor },
@@ -427,7 +473,6 @@ export default function SpecialConcession() {
                                 />
                             </Grid>
 
-                            {/* Recommended By */}
                             <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
                                 <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#374151', mb: 0.8, display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                     <PersonIcon sx={{ fontSize: 14, color: websiteSettings.mainColor }} />
@@ -451,7 +496,7 @@ export default function SpecialConcession() {
                                     }}
                                     sx={{
                                         '& .MuiOutlinedInput-root': {
-                                            borderRadius: '8px', fontSize: 13, backgroundColor: '#F9FAFB',
+                                            height: 40, borderRadius: '8px', fontSize: 13, backgroundColor: '#F9FAFB',
                                             '& fieldset': { borderColor: '#E5E7EB' },
                                             '&:hover fieldset': { borderColor: websiteSettings.mainColor },
                                             '&.Mui-focused fieldset': { borderColor: websiteSettings.mainColor },
@@ -460,7 +505,6 @@ export default function SpecialConcession() {
                                 />
                             </Grid>
 
-                            {/* Recommendation Reason */}
                             <Grid size={{ xs: 12, sm: 12, md: 4, lg: 4 }}>
                                 <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#374151', mb: 0.8, display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                     <NotesIcon sx={{ fontSize: 14, color: websiteSettings.mainColor }} />
@@ -470,14 +514,21 @@ export default function SpecialConcession() {
                                     fullWidth
                                     variant="outlined"
                                     size="small"
-                                    multiline
-                                    rows={2}
                                     placeholder="Brief reason for granting this concession..."
                                     value={recommendationReason}
                                     onChange={(e) => setRecommendationReason(e.target.value)}
+                                    slotProps={{
+                                        input: {
+                                            startAdornment: (
+                                                <InputAdornment position="start">
+                                                    <NotesIcon sx={{ fontSize: 16, color: '#9CA3AF' }} />
+                                                </InputAdornment>
+                                            ),
+                                        }
+                                    }}
                                     sx={{
                                         '& .MuiOutlinedInput-root': {
-                                            borderRadius: '8px', fontSize: 13, backgroundColor: '#F9FAFB',
+                                            height: 40, borderRadius: '8px', fontSize: 13, backgroundColor: '#F9FAFB',
                                             '& fieldset': { borderColor: '#E5E7EB' },
                                             '&:hover fieldset': { borderColor: websiteSettings.mainColor },
                                             '&.Mui-focused fieldset': { borderColor: websiteSettings.mainColor },
@@ -486,6 +537,7 @@ export default function SpecialConcession() {
                                 />
                             </Grid>
                         </Grid>
+                        )}
                     </Card>
                     <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", backgroundColor: websiteSettings.mainColor, py: 1, width: "fit-content", px: 4, borderTopLeftRadius: "5px", borderTopRightRadius: "5px", mt: 2 }}>
                         <Typography sx={{ color: websiteSettings.textColor }}>Concession {feeTabs[tabValue]} Detail</Typography>
@@ -507,6 +559,7 @@ export default function SpecialConcession() {
                                         "Concession %",
                                         "Concession Amount",
                                         "Final Fee Amount",
+                                        ...(isIndividual ? ["Category", "Recommended By", "Reason"] : []),
                                     ].map((header, index) => (
                                         <TableCell
                                             key={index}
@@ -529,7 +582,7 @@ export default function SpecialConcession() {
                             <TableBody>
                                 {rows.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={6} sx={{ textAlign: "center", py: 6 }}>
+                                        <TableCell colSpan={isIndividual ? 9 : 6} sx={{ textAlign: "center", py: 6 }}>
                                             <Typography sx={{ fontSize: "14px", color: "#94a3b8" }}>
                                                 No fee records available for concession
                                             </Typography>
@@ -633,10 +686,47 @@ export default function SpecialConcession() {
                                                     textAlign: "center",
                                                     fontWeight: 500,
                                                     color: "#333",
+                                                    borderRight: isIndividual ? 1 : 0,
+                                                    borderColor: "#E601542A",
                                                 }}
                                             >
                                                 ₹ {row.finalFee}
                                             </TableCell>
+
+                                            {isIndividual && (
+                                                <>
+                                                    <TableCell sx={{ borderRight: 1, borderColor: "#E601542A", textAlign: "center" }}>
+                                                        <TextField
+                                                            variant="outlined"
+                                                            size="small"
+                                                            placeholder="Category"
+                                                            value={row.rowCategory}
+                                                            onChange={(e) => handleChange(rowIndex, "rowCategory", e.target.value)}
+                                                            sx={{ width: "130px", '& .MuiOutlinedInput-root': { fontSize: 12, borderRadius: '6px' } }}
+                                                        />
+                                                    </TableCell>
+                                                    <TableCell sx={{ borderRight: 1, borderColor: "#E601542A", textAlign: "center" }}>
+                                                        <TextField
+                                                            variant="outlined"
+                                                            size="small"
+                                                            placeholder="Recommended By"
+                                                            value={row.rowRecommendedBy}
+                                                            onChange={(e) => handleChange(rowIndex, "rowRecommendedBy", e.target.value)}
+                                                            sx={{ width: "130px", '& .MuiOutlinedInput-root': { fontSize: 12, borderRadius: '6px' } }}
+                                                        />
+                                                    </TableCell>
+                                                    <TableCell sx={{ textAlign: "center" }}>
+                                                        <TextField
+                                                            variant="outlined"
+                                                            size="small"
+                                                            placeholder="Reason"
+                                                            value={row.rowReason}
+                                                            onChange={(e) => handleChange(rowIndex, "rowReason", e.target.value)}
+                                                            sx={{ width: "150px", '& .MuiOutlinedInput-root': { fontSize: 12, borderRadius: '6px' } }}
+                                                        />
+                                                    </TableCell>
+                                                </>
+                                            )}
                                         </TableRow>
                                     ))
                                 )}
@@ -644,7 +734,7 @@ export default function SpecialConcession() {
                                 {rows.length > 0 && (
                                     <TableRow>
                                         <TableCell
-                                            colSpan={5}
+                                            colSpan={isIndividual ? 8 : 5}
                                             sx={{
                                                 textAlign: "right",
                                                 fontWeight: 600,

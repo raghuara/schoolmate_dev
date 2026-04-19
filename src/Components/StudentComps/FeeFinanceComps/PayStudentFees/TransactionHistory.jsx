@@ -106,6 +106,53 @@ const TransactionHistory = () => {
   const printReceiptRef = useRef(null);
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
 
+  const attemptPrintRef = useRef(null);
+  const [attemptPrintOpen, setAttemptPrintOpen] = useState(false);
+  const [selectedAttempt, setSelectedAttempt] = useState(null);
+  const [selectedAttemptFee, setSelectedAttemptFee] = useState(null);
+
+  const handleOpenAttemptPrint = (attempt, feeElement) => {
+    setSelectedAttempt(attempt);
+    setSelectedAttemptFee(feeElement);
+    setAttemptPrintOpen(true);
+  };
+  const handleCloseAttemptPrint = () => setAttemptPrintOpen(false);
+
+  const handlePrintAttempt = useReactToPrint({
+    contentRef: attemptPrintRef,
+    documentTitle: `Receipt_${transactionData?.name || 'Student'}_${selectedAttempt?.billID || ''}`,
+    pageStyle: `
+      @page { size: A4; margin: 12mm; }
+      @media print {
+        body * { visibility: hidden !important; }
+        .print-receipt-area, .print-receipt-area * { visibility: visible !important; }
+        .print-receipt-area { position: absolute; left: 0; top: 0; width: 100%; }
+      }
+    `,
+  });
+
+  const handleDownloadAttempt = () => {
+    const element = attemptPrintRef.current;
+    if (!element) return;
+    html2pdf().set({
+      margin: 0.5,
+      filename: `Receipt_${transactionData?.name || 'Student'}_${selectedAttempt?.billID || dayjs().format('DD-MM-YYYY')}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' },
+    }).from(element).save();
+  };
+
+  const getAttemptFeeLabel = (fee) => {
+    if (!fee) return '-';
+    switch (currentFeeType) {
+      case 'transport': return fee.place || '-';
+      case 'eca': return `${fee.activityName || '-'} - ${fee.activityCategory || '-'}`;
+      case 'additional': return fee.feeName || '-';
+      default: return fee.feeDetails || '-';
+    }
+  };
+
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
     setTransactionData(null);
@@ -158,6 +205,7 @@ const TransactionHistory = () => {
             }
             feeElementsMap[elementId].attempts.push({
               attemptNo: feeElementsMap[elementId].attempts.length + 1,
+              billID: payment.billID,
               paidDate: payment.paidDate,
               paymentOption: payment.paymentOption,
               totalPaidAmount: payment.totalPaidAmount,
@@ -246,8 +294,16 @@ const TransactionHistory = () => {
   const goBack = () => navigate('/dashboardmenu/fee/billing', { state: { rollNumber, activeTab: tabValue } });
 
   const handlePrint = useReactToPrint({
-    content: () => printReceiptRef.current,
+    contentRef: printReceiptRef,
     documentTitle: `TransactionHistory_${transactionData?.name || 'Student'}_${dayjs().format('DD-MM-YYYY')}`,
+    pageStyle: `
+      @page { size: A4; margin: 12mm; }
+      @media print {
+        body * { visibility: hidden !important; }
+        .print-receipt-area, .print-receipt-area * { visibility: visible !important; }
+        .print-receipt-area { position: absolute; left: 0; top: 0; width: 100%; }
+      }
+    `,
   });
 
   const handleDownload = () => {
@@ -261,39 +317,9 @@ const TransactionHistory = () => {
     html2pdf().set(opt).from(element).save();
   };
 
-  // ── Loading ──────────────────────────────────────────────────────────────
-  if (isLoading) {
-    return (
-      <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '86vh', gap: 2 }}>
-        <CircularProgress size={36} sx={{ color: ftConfig.color }} />
-        <Typography sx={{ fontSize: '13px', color: '#888' }}>Loading transaction history...</Typography>
-      </Box>
-    );
-  }
-
-  // ── No data ──────────────────────────────────────────────────────────────
-  if (!transactionData) {
-    return (
-      <Box sx={{ width: '100%' }}>
-        <Box sx={{ backgroundColor: '#f2f2f2', p: 1.5, borderRadius: '10px 10px 10px 0px', borderBottom: '1px solid #ddd' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <IconButton sx={{ width: 27, height: 27 }} onClick={goBack}>
-              <ArrowBackIcon sx={{ fontSize: 20, color: '#000' }} />
-            </IconButton>
-            <Typography sx={{ fontWeight: 600, fontSize: '20px' }}>Transaction History</Typography>
-          </Box>
-        </Box>
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '70vh', color: '#ccc', gap: 1 }}>
-          <ReceiptLongIcon sx={{ fontSize: 48 }} />
-          <Typography sx={{ fontSize: '14px', fontStyle: 'italic' }}>No transaction history found</Typography>
-        </Box>
-      </Box>
-    );
-  }
-
-  const totalFee = transactionData.feesElements?.reduce((s, e) => s + (e.feeAmount || 0), 0) || 0;
-  const totalPaid = transactionData.feesElements?.reduce((s, e) => s + (e.paidAmount || 0), 0) || 0;
-  const totalPending = transactionData.feesElements?.reduce((s, e) => s + (e.pendingAmount || 0), 0) || 0;
+  const totalFee = transactionData?.feesElements?.reduce((s, e) => s + (e.feeAmount || 0), 0) || 0;
+  const totalPaid = transactionData?.feesElements?.reduce((s, e) => s + (e.paidAmount || 0), 0) || 0;
+  const totalPending = transactionData?.feesElements?.reduce((s, e) => s + (e.pendingAmount || 0), 0) || 0;
 
   return (
     <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', height: '86vh' }}>
@@ -372,19 +398,27 @@ const TransactionHistory = () => {
             </Tabs>
           </Grid>
           <Grid size={{ xs: 12, sm: 5, lg: 3 }} sx={{ display: 'flex', alignItems: 'center', justifyContent: { xs: 'flex-start', sm: 'flex-end' }, gap: 1 }}>
-            <Chip
-              label={year || '—'}
-              size="small"
-              sx={{ bgcolor: '#f0f0f0', color: '#555', fontWeight: 600, fontSize: '12px' }}
-            />
             {transactionData && (
               <Tooltip title="Print / Download Receipt">
-                <IconButton
+                <Button
+                  variant="contained"
                   onClick={() => setPrintDialogOpen(true)}
-                  sx={{ width: 32, height: 32, bgcolor: '#fff', border: '1px solid #ddd', '&:hover': { bgcolor: '#f0f0f0' } }}
+                  startIcon={<PrintIcon sx={{ fontSize: 17, color: '#fff' }} />}
+                  sx={{
+                    height: 32,
+                    bgcolor: '#E60154',
+                    borderRadius: '999px',
+                    color: '#fff',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    textTransform: 'none',
+                    px: 2,
+                    boxShadow: 'none',
+                    '&:hover': { bgcolor: '#B8003F', boxShadow: 'none' },
+                  }}
                 >
-                  <PrintIcon sx={{ fontSize: 17, color: '#444' }} />
-                </IconButton>
+                  Print All
+                </Button>
               </Tooltip>
             )}
           </Grid>
@@ -392,7 +426,18 @@ const TransactionHistory = () => {
       </Box>
 
       <Box sx={{ p: 2, flex: 1, overflowY: 'auto' }}>
-
+        {isLoading ? (
+          <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100%', minHeight: '50vh', gap: 2 }}>
+            <CircularProgress size={36} sx={{ color: ftConfig.color }} />
+            <Typography sx={{ fontSize: '13px', color: '#888' }}>Loading transaction history...</Typography>
+          </Box>
+        ) : !transactionData ? (
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '50vh', color: '#ccc', gap: 1 }}>
+            <ReceiptLongIcon sx={{ fontSize: 48 }} />
+            <Typography sx={{ fontSize: '14px', fontStyle: 'italic' }}>No transaction history found</Typography>
+          </Box>
+        ) : (
+          <>
         <Grid container sx={{ py: 2 }} >
           <Grid
             size={{ xs: 12, md: 4.8, lg: 1.6 }}
@@ -671,17 +716,40 @@ const TransactionHistory = () => {
                                 </Typography>
                               </TableCell>
                               <TableCell align="center" sx={{ py: 1 }}>
-                                {attempt.paymentOption?.toUpperCase() === 'CASH' && attempt.cashDenominations?.length > 0 && (
-                                  <Tooltip title="View Cash Denomination">
-                                    <IconButton
+                                <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.6 }}>
+                                  {attempt.paymentOption?.toUpperCase() === 'CASH' && attempt.cashDenominations?.length > 0 && (
+                                    <Tooltip title="View Cash Denomination">
+                                      <IconButton
+                                        size="small"
+                                        onClick={() => handleViewDenomination(attempt.cashDenominations)}
+                                        sx={{ width: 28, height: 28, border: '1px solid #e0e0e0', '&:hover': { bgcolor: '#f5f5f5', borderColor: ftConfig.color } }}
+                                      >
+                                        <VisibilityIcon sx={{ fontSize: 14, color: ftConfig.color }} />
+                                      </IconButton>
+                                    </Tooltip>
+                                  )}
+                                  <Tooltip title="Print Receipt">
+                                    <Button
+                                      variant="contained"
                                       size="small"
-                                      onClick={() => handleViewDenomination(attempt.cashDenominations)}
-                                      sx={{ width: 28, height: 28, border: '1px solid #e0e0e0', '&:hover': { bgcolor: '#f5f5f5', borderColor: ftConfig.color } }}
+                                      onClick={() => handleOpenAttemptPrint(attempt, feeElement)}
+                                      sx={{
+                                        backgroundColor: '#E60154',
+                                        color: '#fff',
+                                        fontWeight: 600,
+                                        textTransform: 'none',
+                                        borderRadius: '999px',
+                                        height: '25px',
+                                        minWidth: '70px',
+                                        fontSize: 12,
+                                        boxShadow: 'none',
+                                        '&:hover': { backgroundColor: '#B8003F' },
+                                      }}
                                     >
-                                      <VisibilityIcon sx={{ fontSize: 14, color: ftConfig.color }} />
-                                    </IconButton>
+                                      Print
+                                    </Button>
                                   </Tooltip>
-                                )}
+                                </Box>
                               </TableCell>
                             </TableRow>
                           ))}
@@ -699,6 +767,8 @@ const TransactionHistory = () => {
             <Typography sx={{ fontSize: '14px', fontStyle: 'italic' }}>No fee elements found</Typography>
           </Box>
         )}
+          </>
+        )}
       </Box>
 
       {/* ── Print Receipt Dialog ── */}
@@ -708,12 +778,13 @@ const TransactionHistory = () => {
         maxWidth="md"
         fullWidth
         keepMounted
-        PaperProps={{ sx: { borderRadius: '16px', overflow: 'hidden', maxHeight: '90vh' } }}
+        PaperProps={{ sx: { borderRadius: '5px', overflow: 'hidden', maxHeight: '90vh' } }}
       >
         <Box sx={{ p: 2, overflowY: 'auto', maxHeight: 'calc(90vh - 80px)' }}>
           {/* Printable receipt area */}
           <Box
             ref={printReceiptRef}
+            className="print-receipt-area"
             sx={{
               backgroundColor: '#fff',
               borderRadius: '6px',
@@ -823,7 +894,7 @@ const TransactionHistory = () => {
                     <Table size="small">
                       <TableHead>
                         <TableRow sx={{ bgcolor: '#f8f8f8' }}>
-                          {['#', 'Date', 'Method', 'Transaction Info', 'Amount'].map((h) => (
+                          {['#', 'Bill ID', 'Date', 'Method', 'Transaction Info', 'Amount'].map((h) => (
                             <TableCell key={h} sx={{ fontWeight: 700, fontSize: '11px', py: 0.6, border: '1px solid #e8e8e8' }}>{h}</TableCell>
                           ))}
                         </TableRow>
@@ -832,6 +903,7 @@ const TransactionHistory = () => {
                         {el.attempts.map((att, attIdx) => (
                           <TableRow key={attIdx}>
                             <TableCell sx={{ fontSize: '11px', py: 0.5, border: '1px solid #f0f0f0' }}>{att.attemptNo}</TableCell>
+                            <TableCell sx={{ fontSize: '11px', py: 0.5, border: '1px solid #f0f0f0', fontWeight: 600, whiteSpace: 'nowrap' }}>{att.billID || '—'}</TableCell>
                             <TableCell sx={{ fontSize: '11px', py: 0.5, border: '1px solid #f0f0f0', whiteSpace: 'nowrap' }}>{att.paidDate || '—'}</TableCell>
                             <TableCell sx={{ fontSize: '11px', py: 0.5, border: '1px solid #f0f0f0', fontWeight: 600 }}>{att.paymentOption || '—'}</TableCell>
                             <TableCell sx={{ fontSize: '11px', py: 0.5, border: '1px solid #f0f0f0', color: '#666' }}>
@@ -888,7 +960,7 @@ const TransactionHistory = () => {
               onClick={handlePrint}
               variant="contained"
               startIcon={<PrintIcon />}
-              sx={{ backgroundColor: websiteSettings?.mainColor || '#1976D2', textTransform: 'none', color: websiteSettings?.textColor || '#fff', width: '120px', height: '33px', borderRadius: '30px', fontWeight: 600, '&:hover': { backgroundColor: websiteSettings?.darkColor || '#1565C0' } }}
+              sx={{ backgroundColor: websiteSettings?.mainColor || '#1976D2', textTransform: 'none', color: websiteSettings?.textColor || '#fff', width: '120px', height: '33px', borderRadius: '30px', '&:hover': { backgroundColor: websiteSettings?.darkColor || '#1565C0' } }}
             >
               Print
             </Button>
@@ -896,7 +968,198 @@ const TransactionHistory = () => {
               onClick={handleDownload}
               variant="contained"
               startIcon={<FileDownloadIcon />}
-              sx={{ backgroundColor: websiteSettings?.mainColor || '#1976D2', textTransform: 'none', color: websiteSettings?.textColor || '#fff', width: '140px', height: '33px', borderRadius: '30px', fontWeight: 600, '&:hover': { backgroundColor: websiteSettings?.darkColor || '#1565C0' } }}
+              sx={{ backgroundColor: websiteSettings?.mainColor || '#1976D2', textTransform: 'none', color: websiteSettings?.textColor || '#fff', width: '140px', height: '33px', borderRadius: '30px', '&:hover': { backgroundColor: websiteSettings?.darkColor || '#1565C0' } }}
+            >
+              Download
+            </Button>
+          </DialogActions>
+        </Box>
+      </Dialog>
+
+      {/* ── Per-Attempt Print Receipt Dialog ── */}
+      <Dialog
+        open={attemptPrintOpen}
+        onClose={handleCloseAttemptPrint}
+        maxWidth="md"
+        fullWidth
+        keepMounted
+      >
+        <Box sx={{ p: 2 }}>
+          <Box
+            ref={attemptPrintRef}
+            className="print-receipt-area"
+            sx={{
+              backgroundColor: '#fff',
+              borderRadius: '6px',
+              px: 3,
+              '@media print': { boxShadow: 'none' },
+            }}
+          >
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mb: 1, gap: 2 }}>
+              <img src={websiteSettings?.logo} width="70px" alt="school logo" />
+              <Typography sx={{ fontWeight: 700, fontSize: '20px', color: '#000' }}>
+                {websiteSettings?.title || ''}
+              </Typography>
+            </Box>
+
+            <Box sx={{ height: '1px', width: '100%', backgroundColor: '#ccc', mb: 1 }} />
+
+            <Typography sx={{ textAlign: 'center', fontSize: '16px', mb: 1, color: '#555' }}>
+              Payment Receipt - {ftConfig.label}
+            </Typography>
+
+            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', border: '1px solid #e0e0e0' }}>
+              {[
+                { label: 'Bill ID', value: selectedAttempt?.billID || '-' },
+                { label: 'Student Name', value: transactionData?.name || '-' },
+                { label: 'Roll No', value: transactionData?.rollnumber || rollNumber || '-' },
+                { label: 'Class & Section', value: `${transactionData?.grade || '-'} ${transactionData?.section || ''}`.trim() },
+                { label: 'Receipt Date', value: selectedAttempt?.paidDate ? dayjs(selectedAttempt.paidDate).format('DD/MM/YYYY') : dayjs().format('DD/MM/YYYY') },
+              ].map((item, i) => (
+                <Box
+                  key={i}
+                  sx={{
+                    borderRight: i !== 4 ? '1px solid #e0e0e0' : 'none',
+                    p: 0.7,
+                  }}
+                >
+                  <Typography sx={{ color: '#888', fontSize: '12px' }}>{item.label}</Typography>
+                  <Typography sx={{ color: '#000', fontSize: '15px', fontWeight: 500, mt: 0.5 }}>
+                    {item.value}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+
+            <TableContainer sx={{ border: '1px solid #E601542A', mt: 1.5 }}>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    {['S.No', 'Fee Details', 'Fee Amount', 'Paid Amount', 'Pending Amount'].map((header) => (
+                      <TableCell
+                        key={header}
+                        sx={{
+                          backgroundColor: '#ff00001A',
+                          fontWeight: header === 'Paid Amount' ? 700 : 600,
+                          textAlign: 'center',
+                          border: '1px solid #E601542A',
+                          color: header === 'Paid Amount' ? '#00963C' : '#000',
+                          fontSize: '14px',
+                        }}
+                      >
+                        {header}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {selectedAttemptFee ? (
+                    <TableRow>
+                      <TableCell sx={{ textAlign: 'center', border: '1px solid #E601542A', color: '#000', fontSize: '14px' }}>
+                        1
+                      </TableCell>
+                      <TableCell sx={{ textAlign: 'center', border: '1px solid #E601542A', color: '#000', fontSize: '14px' }}>
+                        {getAttemptFeeLabel(selectedAttemptFee)}
+                      </TableCell>
+                      <TableCell sx={{ textAlign: 'center', border: '1px solid #E601542A', color: '#000', fontSize: '14px' }}>
+                        ₹{(selectedAttemptFee.feeAmount || 0).toLocaleString()}
+                      </TableCell>
+                      <TableCell sx={{ textAlign: 'center', border: '1px solid #E601542A', bgcolor: '#00963C0A', color: '#00963C', fontSize: '14px', fontWeight: 700 }}>
+                        ₹{(selectedAttempt?.totalPaidAmount || 0).toLocaleString()}
+                      </TableCell>
+                      <TableCell sx={{ textAlign: 'center', border: '1px solid #E601542A', color: '#000', fontSize: '14px' }}>
+                        ₹{(selectedAttemptFee.pendingAmount || 0).toLocaleString()}
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={5} sx={{ textAlign: 'center', border: '1px solid #E601542A', color: '#999', fontSize: '14px', py: 3 }}>
+                        No data
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+
+            <Box sx={{ display: 'flex', justifyContent: 'end' }}>
+              <Box
+                sx={{
+                  border: '1px solid #00963C',
+                  py: 1.5,
+                  px: 4,
+                  color: '#00963C',
+                  fontWeight: 700,
+                  backgroundColor: '#00963C0A',
+                  borderTop: 'none',
+                  borderBottomLeftRadius: '5px',
+                  mr: '-2px',
+                  borderBottomRightRadius: '5px',
+                  fontSize: '16px',
+                }}
+              >
+                Paid Amount:{' '}
+                <span style={{ marginLeft: '20px', fontSize: '18px' }}>
+                  ₹{(selectedAttempt?.totalPaidAmount || 0).toLocaleString()}
+                </span>
+              </Box>
+            </Box>
+
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
+              <Typography sx={{ fontSize: '15px', color: '#000' }}>
+                <b>Paid amount in words :</b>{' '}
+                {selectedAttempt?.totalPaidAmount
+                  ? `${convertToWords(selectedAttempt.totalPaidAmount)} rupees only`
+                  : 'No amount'}
+              </Typography>
+
+              <Box sx={{ textAlign: 'center' }}>
+                <Box sx={{ border: '1px solid #000', width: '180px', height: '35px', borderRadius: '5px', mx: 'auto' }} />
+                <Typography sx={{ fontSize: '13px', mt: 1 }}>School staff signature</Typography>
+              </Box>
+            </Box>
+          </Box>
+
+          <DialogActions sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+            <Button
+              onClick={handleCloseAttemptPrint}
+              variant="outlined"
+              sx={{
+                borderColor: '#000',
+                color: '#000',
+                textTransform: 'none',
+                borderRadius: '30px',
+                width: '100px',
+                height: '33px',
+              }}
+            >
+              Close
+            </Button>
+            <Button
+              onClick={handlePrintAttempt}
+              variant="contained"
+              sx={{
+                backgroundColor: websiteSettings?.mainColor || '#E60154',
+                textTransform: 'none',
+                color: websiteSettings?.textColor || '#fff',
+                width: '100px',
+                height: '33px',
+                borderRadius: '30px',
+              }}
+            >
+              Print
+            </Button>
+            <Button
+              onClick={handleDownloadAttempt}
+              variant="contained"
+              sx={{
+                backgroundColor: websiteSettings?.mainColor || '#E60154',
+                textTransform: 'none',
+                color: websiteSettings?.textColor || '#fff',
+                width: '110px',
+                height: '33px',
+                borderRadius: '30px',
+              }}
             >
               Download
             </Button>
