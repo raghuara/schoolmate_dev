@@ -527,7 +527,7 @@ export default function AddStaffDetails() {
                                     </Grid>
                                     <Grid size={{ xs: 12, sm: 6, md: 3, lg: 2.4 }} sx={{ display: "flex", justifyContent: "center", pt: 1 }} >
                                         <Box sx={{ width: "100%" }}>
-                                            <Typography sx={{ fontSize: "12px" }} component="span">Student Name In Tamil</Typography><br />
+                                            <Typography sx={{ fontSize: "12px" }} component="span">Staff Name In Tamil</Typography><br />
                                             <TextField
                                                 disabled={isDisabledStaffInfo}
                                                 size="small"

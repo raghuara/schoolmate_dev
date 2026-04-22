@@ -52,8 +52,26 @@ const normalizeQuestions = (questions = []) =>
         question: q.question,
         feedBackType: q.feedBackType || 'openended',
         required: q.required === 'Y',
+        allowMultiple: q.allowMultipleOptions === 'Y' || q.allowMultiple === 'Y',
         options: [q.option01, q.option02, q.option03, q.option04].filter(Boolean),
     }));
+
+// Parse a multi-select answer — accepts JSON array, comma-separated string, or single value.
+// Backend currently may not send structured data, so we handle every shape defensively.
+const parseMultiSelectAnswer = (value) => {
+    if (value === undefined || value === null || value === '') return [];
+    if (Array.isArray(value)) return value.map((v) => String(v).trim()).filter(Boolean);
+    const str = String(value).trim();
+    if (str.startsWith('[') && str.endsWith(']')) {
+        try {
+            const arr = JSON.parse(str);
+            if (Array.isArray(arr)) return arr.map((v) => String(v).trim()).filter(Boolean);
+        } catch { /* fall through */ }
+    }
+    if (str.includes(',')) return str.split(',').map((v) => v.trim()).filter(Boolean);
+    if (str.includes('|')) return str.split('|').map((v) => v.trim()).filter(Boolean);
+    return [str];
+};
 
 // Build a student row keyed by rollNumber with answers by questionId
 const normalizeStudents = (students = []) =>
@@ -75,7 +93,7 @@ const normalizeStudents = (students = []) =>
     });
 
 // Render one response cell based on question type
-const ResponseCell = ({ type, value }) => {
+const ResponseCell = ({ type, value, allowMultiple }) => {
     if (value === undefined || value === null || value === '') {
         return <Typography sx={{ fontSize: '12px', color: '#D1D5DB' }}>—</Typography>;
     }
@@ -91,6 +109,47 @@ const ResponseCell = ({ type, value }) => {
         }
         return <Typography sx={{ fontSize: '12px', color: '#999' }}>—</Typography>;
     }
+
+    // Multiple choice — answer may be comma-separated ("Grammar,Speaking") or a single value.
+    // Always parse and render every selected option as its own chip.
+    if (type === 'multiplechoice') {
+        const values = parseMultiSelectAnswer(value);
+        if (values.length === 0) {
+            return <Typography sx={{ fontSize: '12px', color: '#D1D5DB' }}>—</Typography>;
+        }
+        const isMulti = values.length > 1 || allowMultiple;
+        return (
+            <Tooltip title={values.join(', ')} arrow>
+                <Box sx={{
+                    display: 'flex', flexWrap: 'wrap', gap: 0.4,
+                    justifyContent: 'center', alignItems: 'center',
+                    maxWidth: 220, mx: 'auto',
+                }}>
+                    {values.map((v, i) => (
+                        <Chip
+                            key={i}
+                            label={v}
+                            size="small"
+                            sx={{
+                                height: 20, fontSize: '10px', fontWeight: 600,
+                                bgcolor: isMulti ? '#EEF2FF' : '#F3F4F6',
+                                color: isMulti ? '#4F46E5' : '#374151',
+                                border: `1px solid ${isMulti ? '#C7D2FE' : '#E5E7EB'}`,
+                                maxWidth: 140,
+                                '& .MuiChip-label': {
+                                    px: 0.8,
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                },
+                            }}
+                        />
+                    ))}
+                </Box>
+            </Tooltip>
+        );
+    }
+
     return (
         <Tooltip title={value} arrow>
             <Typography sx={{
@@ -254,13 +313,23 @@ export default function ResponsesFeedBackPage() {
     // Export a single question-set to Excel
     const handleExport = (questions, students, title) => {
         const header = ['S.No', 'Roll Number', 'Student Name', 'Class', 'Section'];
-        questions.forEach((q) => header.push(`Q${q.questionNo}: ${q.question}`));
+        questions.forEach((q) => {
+            const suffix = q.feedBackType === 'multiplechoice' && q.allowMultiple ? ' (multi)' : '';
+            header.push(`Q${q.questionNo}${suffix}: ${q.question}`);
+        });
         const data = students.map((s, i) => {
             const row = [i + 1, s.rollNumber, s.studentName, s.class, s.section];
             questions.forEach((q) => {
                 const v = s.answers[q.questionId];
-                if (q.feedBackType === 'ratings') row.push(emojiLabels[parseInt(v) - 1] || '-');
-                else row.push(v || '-');
+                if (q.feedBackType === 'ratings') {
+                    row.push(emojiLabels[parseInt(v) - 1] || '-');
+                } else if (q.feedBackType === 'multiplechoice') {
+                    // Always parse — handles both single "Grammar" and multi "Grammar,Speaking"
+                    const vals = parseMultiSelectAnswer(v);
+                    row.push(vals.length > 0 ? vals.join(' | ') : '-');
+                } else {
+                    row.push(v || '-');
+                }
             });
             return row;
         });
@@ -292,8 +361,17 @@ export default function ResponsesFeedBackPage() {
     const renderMultiQuestionTable = (questions, students, feedbackKey) => {
         const currentFilter = filterState[feedbackKey] || '';
         const hasRatings = questions.some((q) => q.feedBackType === 'ratings');
+        const ratingQuestionIds = new Set(
+            questions.filter((q) => q.feedBackType === 'ratings').map((q) => q.questionId)
+        );
         const filteredStudents = currentFilter
-            ? students.filter((s) => Object.values(s.answers).some((v) => String(v) === currentFilter))
+            ? students.filter((s) =>
+                Object.entries(s.answers).some(([qId, v]) =>
+                    ratingQuestionIds.has(Number(qId)) || ratingQuestionIds.has(qId)
+                        ? String(v) === currentFilter
+                        : false
+                )
+            )
             : students;
 
         if (questions.length === 0) {
@@ -369,9 +447,23 @@ export default function ResponsesFeedBackPage() {
                                                     {q.question || 'Untitled'}
                                                 </Typography>
                                             </Tooltip>
-                                            <Typography sx={{ fontSize: '9px', color: '#9CA3AF', fontWeight: 500, textTransform: 'uppercase' }}>
-                                                {TYPE_LABELS[q.feedBackType] || q.feedBackType}
-                                            </Typography>
+                                            <Box sx={{ display: 'flex', gap: 0.4, justifyContent: 'center', alignItems: 'center', mt: 0.2 }}>
+                                                <Typography sx={{ fontSize: '9px', color: '#9CA3AF', fontWeight: 500, textTransform: 'uppercase' }}>
+                                                    {TYPE_LABELS[q.feedBackType] || q.feedBackType}
+                                                </Typography>
+                                                {q.feedBackType === 'multiplechoice' && q.allowMultiple && (
+                                                    <Chip
+                                                        label="Multi"
+                                                        size="small"
+                                                        sx={{
+                                                            height: 14, fontSize: '8px', fontWeight: 700,
+                                                            bgcolor: '#EEF2FF', color: '#4F46E5',
+                                                            border: '1px solid #C7D2FE',
+                                                            '& .MuiChip-label': { px: 0.6 },
+                                                        }}
+                                                    />
+                                                )}
+                                            </Box>
                                         </Box>
                                     </TableCell>
                                 ))}
@@ -400,7 +492,11 @@ export default function ResponsesFeedBackPage() {
                                     </TableCell>
                                     {questions.map((q, qi) => (
                                         <TableCell key={q.questionId || qi} sx={{ textAlign: 'center', borderLeft: '1px solid #F0F0F0', borderColor: '#F0F0F0' }}>
-                                            <ResponseCell type={q.feedBackType} value={s.answers[q.questionId]} />
+                                            <ResponseCell
+                                                type={q.feedBackType}
+                                                value={s.answers[q.questionId]}
+                                                allowMultiple={q.allowMultiple}
+                                            />
                                         </TableCell>
                                     ))}
                                 </TableRow>

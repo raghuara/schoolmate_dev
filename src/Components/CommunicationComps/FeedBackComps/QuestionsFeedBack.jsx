@@ -20,6 +20,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import RadioButtonCheckedIcon from '@mui/icons-material/RadioButtonChecked';
+import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
 import NotesOutlinedIcon from '@mui/icons-material/NotesOutlined';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import { selectSidebarExpanded } from "../../../Redux/Slices/sidebarSlice";
@@ -51,6 +52,7 @@ const normalizeQuestions = (questions = []) =>
         question: q.question,
         feedBackType: q.feedBackType || 'openended',
         required: q.required === 'Y',
+        allowMultiple: q.allowMultipleOptions === 'Y' || q.allowMultiple === 'Y',
         options: [q.option01, q.option02, q.option03, q.option04].filter(Boolean),
     }));
 
@@ -69,10 +71,24 @@ const EditQuestionCard = ({ q, qIdx, onUpdate, onTypeChange, onOptionChange, onA
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                 px: 2, py: 1, bgcolor: '#FAFAFA', borderBottom: '1px solid #F0F0F0',
             }}>
-                <Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#374151' }}>
-                    Question {qIdx + 1}
-                    {q.required && <span style={{ color: '#EF4444', marginLeft: 4 }}>*</span>}
-                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                    <Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#374151' }}>
+                        Question {qIdx + 1}
+                        {q.required && <span style={{ color: '#EF4444', marginLeft: 4 }}>*</span>}
+                    </Typography>
+                    {q.feedBackType === 'multiplechoice' && q.allowMultiple && (
+                        <Chip
+                            icon={<CheckBoxOutlineBlankIcon sx={{ fontSize: '11px !important', color: '#4F46E5 !important' }} />}
+                            label="Multi-select"
+                            size="small"
+                            sx={{
+                                height: 20, fontSize: '10px', fontWeight: 700,
+                                bgcolor: '#EEF2FF', color: '#4F46E5',
+                                border: '1px solid #C7D2FE',
+                            }}
+                        />
+                    )}
+                </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                     <Typography sx={{ fontSize: '11px', color: '#9CA3AF' }}>Required</Typography>
                     <Switch size="small" checked={q.required}
@@ -121,6 +137,36 @@ const EditQuestionCard = ({ q, qIdx, onUpdate, onTypeChange, onOptionChange, onA
 
                 {q.feedBackType === 'multiplechoice' && (
                     <Box>
+                        {/* Allow Multiple Options toggle */}
+                        <Box sx={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            mb: 1.5, px: 1.2, py: 0.6,
+                            backgroundColor: q.allowMultiple ? `${mainColor}08` : '#F9FAFB',
+                            borderRadius: '8px',
+                            border: `1px solid ${q.allowMultiple ? `${mainColor}40` : '#E5E7EB'}`,
+                            transition: 'all 0.15s',
+                        }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, flexWrap: 'wrap' }}>
+                                <Typography sx={{ fontSize: '12px', fontWeight: 600, color: '#374151' }}>
+                                    Allow Multiple Options
+                                </Typography>
+                                <Typography sx={{ fontSize: '10px', color: '#9CA3AF', fontStyle: 'italic' }}>
+                                    {q.allowMultiple
+                                        ? 'Respondents can pick more than one'
+                                        : 'Respondents can pick only one'}
+                                </Typography>
+                            </Box>
+                            <Switch
+                                size="small"
+                                checked={!!q.allowMultiple}
+                                onChange={(e) => onUpdate('allowMultiple', e.target.checked)}
+                                sx={{
+                                    '& .MuiSwitch-switchBase.Mui-checked': { color: mainColor },
+                                    '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { backgroundColor: mainColor },
+                                }}
+                            />
+                        </Box>
+
                         <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                             <Typography sx={{ fontSize: '12px', fontWeight: 600, color: '#555' }}>Options</Typography>
                             {q.options.length < 4 && (
@@ -133,10 +179,13 @@ const EditQuestionCard = ({ q, qIdx, onUpdate, onTypeChange, onOptionChange, onA
                             {q.options.map((opt, optIdx) => (
                                 <Grid key={optIdx} size={{ xs: 12, sm: 6 }}>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                        {q.allowMultiple
+                                            ? <CheckBoxOutlineBlankIcon sx={{ fontSize: 16, color: '#9CA3AF' }} />
+                                            : <RadioButtonCheckedIcon sx={{ fontSize: 16, color: '#D1D5DB' }} />}
                                         <TextField
                                             size="small" fullWidth value={opt}
                                             placeholder={`Option ${optIdx + 1}`}
-                                            onChange={(e) => onOptionChange(optIdx, e.target.value)}
+                                            onChange={(e) => onOptionChange(optIdx, e.target.value.replace(/[^a-zA-Z0-9 ]/g, ''))}
                                             inputProps={{ maxLength: 50 }}
                                             sx={{ '& .MuiOutlinedInput-root': { height: 34, fontSize: '13px', borderRadius: '6px', backgroundColor: '#fff' } }}
                                         />
@@ -172,7 +221,7 @@ const QuestionDisplay = ({ q, mainColor }) => {
         }}>
             {/* Question header */}
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, flexWrap: 'wrap' }}>
                     <Box sx={{
                         minWidth: 24, height: 20, px: 0.8, borderRadius: '6px',
                         bgcolor: `${mainColor}15`, color: mainColor,
@@ -186,6 +235,14 @@ const QuestionDisplay = ({ q, mainColor }) => {
                         size="small"
                         sx={{ height: 20, fontSize: '10px', fontWeight: 600, bgcolor: '#F3F4F6', color: '#6B7280' }}
                     />
+                    {q.feedBackType === 'multiplechoice' && q.allowMultiple && (
+                        <Chip
+                            icon={<CheckBoxOutlineBlankIcon sx={{ fontSize: '11px !important', color: '#4F46E5 !important' }} />}
+                            label="Multi-select"
+                            size="small"
+                            sx={{ height: 20, fontSize: '10px', fontWeight: 700, bgcolor: '#EEF2FF', color: '#4F46E5', border: '1px solid #C7D2FE' }}
+                        />
+                    )}
                     {q.required && (
                         <Chip label="Required" size="small"
                             sx={{ height: 20, fontSize: '10px', fontWeight: 600, bgcolor: '#FEE2E2', color: '#DC2626' }}
@@ -220,7 +277,9 @@ const QuestionDisplay = ({ q, mainColor }) => {
                                 border: '1px solid #E5E7EB', borderRadius: '6px',
                                 px: 1, py: 0.6, bgcolor: '#FAFAFA',
                             }}>
-                                <RadioButtonCheckedIcon sx={{ fontSize: 14, color: '#D1D5DB' }} />
+                                {q.allowMultiple
+                                    ? <CheckBoxOutlineBlankIcon sx={{ fontSize: 14, color: '#D1D5DB' }} />
+                                    : <RadioButtonCheckedIcon sx={{ fontSize: 14, color: '#D1D5DB' }} />}
                                 <Typography sx={{ fontSize: '12px', color: '#374151', fontWeight: 500 }}>
                                     {i + 1}. {opt}
                                 </Typography>
@@ -347,6 +406,7 @@ export default function QuestionsFeedBackPage() {
                         question: q.question || '',
                         feedBackType: q.feedBackType,
                         required: q.required,
+                        allowMultiple: !!q.allowMultiple,
                         options: q.options.length > 0 ? [...q.options] : ['', ''],
                     })),
                 })),
@@ -361,6 +421,7 @@ export default function QuestionsFeedBackPage() {
                     question: q.question || '',
                     feedBackType: q.feedBackType,
                     required: q.required,
+                    allowMultiple: !!q.allowMultiple,
                     options: q.options.length > 0 ? [...q.options] : ['', ''],
                 })),
             });
@@ -403,7 +464,7 @@ export default function QuestionsFeedBackPage() {
             if (!prev) return prev;
             const apply = (qs) => {
                 const updated = [...qs];
-                updated[qIdx] = { ...updated[qIdx], feedBackType: value, options: ['', ''] };
+                updated[qIdx] = { ...updated[qIdx], feedBackType: value, options: ['', ''], allowMultiple: false };
                 return updated;
             };
             if (subjectIdx !== null) {
@@ -473,7 +534,7 @@ export default function QuestionsFeedBackPage() {
     };
 
     const addQuestion = (subjectIdx = null) => {
-        const newQ = { question: '', feedBackType: 'ratings', required: false, options: ['', ''] };
+        const newQ = { question: '', feedBackType: 'ratings', required: false, allowMultiple: false, options: ['', ''] };
         setEditForm((prev) => {
             if (!prev) return prev;
             if (subjectIdx !== null) {
@@ -513,6 +574,9 @@ export default function QuestionsFeedBackPage() {
                     required: q.required ? 'Y' : 'N',
                 };
                 if (q.feedBackType === 'multiplechoice') {
+                    // Toggle ON  → "Y"
+                    // Toggle OFF → "N"
+                    base.allowMultipleOptions = q.allowMultiple === true ? 'Y' : 'N';
                     (q.options || []).forEach((opt, i) => {
                         if (opt && opt.trim() !== '') base[`option0${i + 1}`] = opt;
                     });
@@ -694,7 +758,7 @@ export default function QuestionsFeedBackPage() {
                                 <ArrowBackIcon sx={{ fontSize: 20, color: '#000' }} />
                             </IconButton>
                         </Link>
-                        <Typography sx={{ fontWeight: 700, fontSize: '18px', color: '#1F2937' }}>Asked Feedback</Typography>
+                        <Typography sx={{ fontWeight: 700, fontSize: '18px', color: '#1F2937' }}>Created Feedback</Typography>
                     </Grid>
 
                     <Grid size={{ xs: 12, sm: 6, md: 5, lg: 6 }}>

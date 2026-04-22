@@ -152,6 +152,7 @@ export default function CreateFeedBackPage() {
         questionType: '',
         options: ['', ''],
         required: false,
+        allowMultiple: false,
     });
 
     const [questions, setQuestions] = useState([createEmptyQuestion()]);
@@ -179,7 +180,7 @@ export default function CreateFeedBackPage() {
 
     const handleQuestionTypeChange = (qIndex, newValue) => {
         setQuestions(prev => prev.map((q, i) =>
-            i === qIndex ? { ...q, questionType: newValue ? newValue.value : '', options: ['', ''] } : q
+            i === qIndex ? { ...q, questionType: newValue ? newValue.value : '', options: ['', ''], allowMultiple: false } : q
         ));
     };
 
@@ -249,7 +250,7 @@ export default function CreateFeedBackPage() {
     };
 
     const handleSubjectQuestionTypeChange = (subject, qIndex, newValue) => {
-        applySubjectUpdate(subject, (qs) => { qs[qIndex] = { ...qs[qIndex], questionType: newValue ? newValue.value : '', options: ['', ''] }; return qs; });
+        applySubjectUpdate(subject, (qs) => { qs[qIndex] = { ...qs[qIndex], questionType: newValue ? newValue.value : '', options: ['', ''], allowMultiple: false }; return qs; });
     };
 
     const handleSubjectOptionChange = (subject, qIndex, optIndex, value) => {
@@ -472,6 +473,9 @@ export default function CreateFeedBackPage() {
                 required: q.required ? "Y" : "N",
             };
             if (q.questionType === "multiplechoice") {
+                // Toggle ON  → "Y"
+                // Toggle OFF → "N"
+                base.allowMultipleOptions = q.allowMultiple === true ? "Y" : "N";
                 q.options.forEach((opt, i) => {
                     if (opt && opt.trim() !== '') {
                         base[`option0${i + 1}`] = opt;
@@ -731,14 +735,46 @@ export default function CreateFeedBackPage() {
                 {/* Type-specific preview / inputs */}
                 {q.questionType === 'multiplechoice' && (
                     <Box sx={{ mt: 2, ml: 5.3 }}>
+                        {/* Allow Multiple Options toggle */}
+                        <Box sx={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            mb: 1.5, px: 1.2, py: 0.6,
+                            backgroundColor: q.allowMultiple ? `${websiteSettings.mainColor}08` : '#F9FAFB',
+                            borderRadius: '8px',
+                            border: `1px solid ${q.allowMultiple ? `${websiteSettings.mainColor}40` : '#E5E7EB'}`,
+                            transition: 'all 0.15s',
+                        }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, flexWrap: 'wrap' }}>
+                                <Typography sx={{ fontSize: '12px', fontWeight: 600, color: '#374151' }}>
+                                    Allow Multiple Options
+                                </Typography>
+                                <Typography sx={{ fontSize: '10px', color: '#9CA3AF', fontStyle: 'italic' }}>
+                                    {q.allowMultiple
+                                        ? 'Respondents can pick more than one'
+                                        : 'Respondents can pick only one'}
+                                </Typography>
+                            </Box>
+                            <Switch
+                                size="small"
+                                checked={!!q.allowMultiple}
+                                onChange={(e) => onUpdate(qIndex, 'allowMultiple', e.target.checked)}
+                                sx={{
+                                    '& .MuiSwitch-switchBase.Mui-checked': { color: websiteSettings.mainColor },
+                                    '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { backgroundColor: websiteSettings.mainColor },
+                                }}
+                            />
+                        </Box>
+
                         {q.options.map((opt, optIdx) => (
                             <Box key={optIdx} sx={{ display: 'flex', alignItems: 'center', mb: 0.8 }}>
-                                <Radio disabled size="small" sx={{ p: 0.3, mr: 0.5, color: '#D1D5DB' }} />
+                                {q.allowMultiple
+                                    ? <Checkbox disabled size="small" sx={{ p: 0.3, mr: 0.5, color: '#D1D5DB' }} />
+                                    : <Radio disabled size="small" sx={{ p: 0.3, mr: 0.5, color: '#D1D5DB' }} />}
                                 <TextField
                                     variant="standard"
                                     fullWidth
                                     value={opt}
-                                    onChange={(e) => onOptionChange(qIndex, optIdx, e.target.value)}
+                                    onChange={(e) => onOptionChange(qIndex, optIdx, e.target.value.replace(/[^a-zA-Z0-9 ]/g, ''))}
                                     placeholder={`Option ${optIdx + 1}`}
                                     inputProps={{ maxLength: 50 }}
                                     slotProps={{
@@ -762,7 +798,9 @@ export default function CreateFeedBackPage() {
                         ))}
                         {q.options.length < 4 && (
                             <Box sx={{ display: 'flex', alignItems: 'center', ml: 0.3, mt: 0.5 }}>
-                                <Radio disabled size="small" sx={{ p: 0.3, mr: 0.5, color: '#D1D5DB' }} />
+                                {q.allowMultiple
+                                    ? <Checkbox disabled size="small" sx={{ p: 0.3, mr: 0.5, color: '#D1D5DB' }} />
+                                    : <Radio disabled size="small" sx={{ p: 0.3, mr: 0.5, color: '#D1D5DB' }} />}
                                 <Button
                                     size="small"
                                     onClick={() => onAddOption(qIndex)}
@@ -876,7 +914,7 @@ export default function CreateFeedBackPage() {
                             <Grid size={{ xs: 12, sm: 6, md: 3, lg: 2.5 }}>
                                 <Typography sx={labelSx}>Subjects</Typography>
                                 <Autocomplete
-                                    multiple limitTags={2} disableCloseOnSelect
+                                    multiple limitTags={1} disableCloseOnSelect
                                     options={subjectsList} value={selectedSubjects} onChange={handleSubjectSelect}
                                     PaperComponent={(props) => (
                                         <Paper {...props} style={{ ...props.style, backgroundColor: "#000", color: "#fff" }} />
@@ -888,17 +926,50 @@ export default function CreateFeedBackPage() {
                                         </li>
                                     )}
                                     sx={{
+                                        width: '100%',
                                         '& .MuiOutlinedInput-root': {
-                                            height: "38px", flexWrap: "nowrap", overflow: "hidden",
-                                            fontSize: "13px", fontWeight: 500, backgroundColor: "#fff",
-                                            py: "0px !important",
+                                            minHeight: "38px",
+                                            height: "38px",
+                                            flexWrap: "nowrap",
+                                            overflow: "hidden",
+                                            fontSize: "13px",
+                                            fontWeight: 500,
+                                            backgroundColor: "#fff",
+                                            paddingTop: "0px !important",
+                                            paddingBottom: "0px !important",
+                                            paddingLeft: "8px !important",
+                                            paddingRight: "64px !important",
+                                            gap: "4px",
+                                        },
+                                        '& .MuiAutocomplete-input': {
+                                            minWidth: "30px !important",
+                                            padding: "0 4px !important",
+                                        },
+                                        '& .MuiAutocomplete-endAdornment': {
+                                            right: "8px !important",
                                         },
                                     }}
                                     renderInput={(params) => (
                                         <TextField {...params} placeholder={selectedSubjects.length === 0 ? "Select Subjects" : ""} fullWidth />
                                     )}
                                     slotProps={{
-                                        chip: { size: "small", sx: { height: "20px", fontSize: "11px", fontWeight: 600, my: 0 } },
+                                        chip: {
+                                            size: "small",
+                                            sx: {
+                                                height: "22px",
+                                                fontSize: "11px",
+                                                fontWeight: 600,
+                                                my: 0,
+                                                maxWidth: "110px",
+                                                flexShrink: 0,
+                                                '& .MuiChip-label': {
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                    whiteSpace: 'nowrap',
+                                                    px: '6px',
+                                                },
+                                            },
+                                        },
                                         listbox: {
                                             sx: {
                                                 maxHeight: 220,

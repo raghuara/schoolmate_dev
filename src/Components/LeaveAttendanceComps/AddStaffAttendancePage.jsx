@@ -1,46 +1,39 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
-    Box,
-    Card,
-    CardContent,
-    Grid,
-    Typography,
-    Button,
-    Chip,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
-    Avatar,
-    Select,
-    MenuItem,
-    Radio,
-    RadioGroup,
-    FormControlLabel,
-    TextField,
-    InputAdornment,
-    Switch,
-    Tooltip,
-    CircularProgress,
-    Alert,
+    Box, Card, CardContent, Grid, Typography, Button, Chip,
+    Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+    Avatar, Select, MenuItem, TextField, InputAdornment,
+    Switch, Tooltip, CircularProgress, Alert, IconButton, Menu, Divider,
+    Popover, Paper,
 } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
 import SearchIcon from '@mui/icons-material/Search';
 import PeopleIcon from '@mui/icons-material/People';
 import EventIcon from '@mui/icons-material/Event';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import LogoutIcon from '@mui/icons-material/Logout';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import EditNoteIcon from '@mui/icons-material/EditNote';
+import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
+import DoneAllIcon from '@mui/icons-material/DoneAll';
+import ClearAllIcon from '@mui/icons-material/ClearAll';
+import FlashOnIcon from '@mui/icons-material/FlashOn';
+import StickyNote2Icon from '@mui/icons-material/StickyNote2';
 import axios from 'axios';
+import { useSelector } from 'react-redux';
 import { getAttendanceTeacherBefor, postAttendanceTeachers, updateTeachersAttendance } from '../../Api/Api';
 import SnackBar from '../SnackBar';
 
 const today = new Date().toISOString().split('T')[0];
 const token = "123";
 
-// ── Display configs ────────────────────────────────────────────────────────────
+// ─── Time / status logic ─────────────────────────────────────────────────────
+const SCHOOL_START_HOUR = 9;       // 9:00 AM expected
+const LATE_THRESHOLD_MIN = 15;     // > 9:15 → Late
+const DEFAULT_CHECK_OUT = '17:00'; // 5:00 PM default for bulk fill
+
+// ─── Display maps ────────────────────────────────────────────────────────────
 const USER_TYPE_CONFIG = {
     'Teacher':     { color: '#059669', bg: '#F0FDF4' },
     'Staff':       { color: '#0891B2', bg: '#F0F9FA' },
@@ -54,7 +47,13 @@ const ROLE_CONFIG = {
     'Supporting Staff':   { color: '#EA580C', bg: '#FFF7ED' },
 };
 
-// API userType (lowercase) → UI display label
+const STATUS_STYLE = {
+    'Present':  { color: '#16A34A', bg: '#DCFCE7', border: '#86EFAC' },
+    'Absent':   { color: '#DC2626', bg: '#FEE2E2', border: '#FCA5A5' },
+    'Late':     { color: '#EA580C', bg: '#FFEDD5', border: '#FDBA74' },
+    'On Leave': { color: '#2563EB', bg: '#DBEAFE', border: '#93C5FD' },
+};
+
 const USER_TYPE_DISPLAY = {
     'teacher':    'Teacher',
     'staff':      'Staff',
@@ -62,7 +61,6 @@ const USER_TYPE_DISPLAY = {
     'superadmin': 'Super Admin',
 };
 
-// API userType → Role category shown in the Role column
 const ROLE_FROM_USER_TYPE = {
     'teacher':    'Teaching Staff',
     'staff':      'Supporting Staff',
@@ -70,7 +68,6 @@ const ROLE_FROM_USER_TYPE = {
     'superadmin': 'Non Teaching Staff',
 };
 
-// API status string → UI status label
 const STATUS_API_TO_UI = {
     'present': 'Present',
     'absent':  'Absent',
@@ -78,7 +75,6 @@ const STATUS_API_TO_UI = {
     'leave':   'On Leave',
 };
 
-// UI status label → API status string for POST/PUT body
 const STATUS_UI_TO_API = {
     'Present':  'present',
     'Absent':   'absent',
@@ -86,7 +82,6 @@ const STATUS_UI_TO_API = {
     'On Leave': 'leave',
 };
 
-// UI label → API userType (lowercase) for POST body
 const UI_TO_API_USER_TYPE = {
     'Teacher':     'teacher',
     'Staff':       'staff',
@@ -94,63 +89,90 @@ const UI_TO_API_USER_TYPE = {
     'Super Admin': 'superadmin',
 };
 
-// UI label → subUserType for POST body
-const UI_TO_SUB_USER_TYPE = {
-    'Teacher':     'teaching',
-    'Staff':       'supporting',
-    'Admin':       'nonteaching',
-    'Super Admin': 'nonteaching',
-};
-
-// User types to fetch in parallel
 const FETCH_USER_TYPES = ['teacher', 'staff', 'admin'];
 
-const STATUS_OPTIONS = [
-    { value: 'Present',  color: '#22C55E' },
-    { value: 'Absent',   color: '#DC2626' },
-    { value: 'Late',     color: '#F97316' },
-    { value: 'On Leave', color: '#3B82F6' },
-];
+const STATUS_OPTIONS = ['Present', 'Late', 'Absent', 'On Leave'];
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+const toHHmm = (date = new Date()) =>
+    `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+
+const getCurrentTime = () => toHHmm(new Date());
+
+const isoToApiDate = (isoDate) => {
+    const [y, m, d] = isoDate.split('-');
+    return `${d}-${m}-${y}`;
+};
+
+const parseHHmm = (hhmm) => {
+    if (!hhmm) return null;
+    const [h, m] = hhmm.split(':').map(Number);
+    if (Number.isNaN(h) || Number.isNaN(m)) return null;
+    return h * 60 + m;
+};
+
+const isLateTime = (checkInHHmm) => {
+    const mins = parseHHmm(checkInHHmm);
+    if (mins === null) return false;
+    return mins > (SCHOOL_START_HOUR * 60 + LATE_THRESHOLD_MIN);
+};
+
+const computeWorkingHours = (checkIn, checkOut) => {
+    const a = parseHHmm(checkIn);
+    const b = parseHHmm(checkOut);
+    if (a === null || b === null || b <= a) return null;
+    const diff = b - a;
+    const h = Math.floor(diff / 60);
+    const m = diff % 60;
+    return { hours: h, minutes: m, label: `${h}h ${m}m`, totalMinutes: diff };
+};
+
+// ─── Component ───────────────────────────────────────────────────────────────
 export default function AddStaffAttendancePage() {
+    const user = useSelector(state => state.auth);
+    const currentUserRoll = user?.rollNumber || '';
+
     const [attendanceDate, setAttendanceDate] = useState(today);
     const [userTypeFilter, setUserTypeFilter] = useState('Teacher');
     const [searchText, setSearchText] = useState('');
 
-    // Dynamic staff list from API
     const [staffList, setStaffList] = useState([]);
     const [loading, setLoading] = useState(false);
-    // Per-userType attendance added flag: { 'Teacher': true, 'Staff': false, ... }
     const [isAttendanceAddedMap, setIsAttendanceAddedMap] = useState({});
 
-    // Skip userTypeFilter effect on initial mount (fetchStaffList already handles all types)
     const isMounted = useRef(false);
 
-    const [attendanceMarks, setAttendanceMarks] = useState({});
-    const [loginTimes, setLoginTimes] = useState({});
-    const [sameTimeEnabled, setSameTimeEnabled] = useState(false);
-    const [globalTime, setGlobalTime] = useState('');
+    // Per-row state
+    const [attendanceMarks, setAttendanceMarks] = useState({}); // id → 'Present' | ...
+    const [checkInTimes, setCheckInTimes]       = useState({}); // id → 'HH:MM'
+    const [checkOutTimes, setCheckOutTimes]     = useState({}); // id → 'HH:MM'
+    const [rowNotes, setRowNotes]               = useState({}); // id → text
 
-    // SnackBar state
+    // Bulk-time controls
+    const [sameTimeEnabled, setSameTimeEnabled] = useState(false);
+    const [globalCheckIn, setGlobalCheckIn]     = useState('');
+    const [globalCheckOut, setGlobalCheckOut]   = useState('');
+
+    // Notes popover
+    const [notesAnchor, setNotesAnchor] = useState(null);
+    const [notesTargetId, setNotesTargetId] = useState(null);
+
+    // Bulk menu
+    const [bulkMenuAnchor, setBulkMenuAnchor] = useState(null);
+
+    // SnackBar
     const [open, setOpen] = useState(false);
     const [status, setStatus] = useState(false);
     const [color, setColor] = useState(false);
     const [message, setMessage] = useState('');
-
     const showSnack = (msg, success) => {
-        setMessage(msg);
-        setOpen(true);
-        setColor(success);
-        setStatus(success);
+        setMessage(msg); setOpen(true); setColor(success); setStatus(success);
     };
 
-    // ── Fetch staff list ───────────────────────────────────────────────────────
-
-    // Helper: map one API result item to a staff object
+    // ─── Data fetch ──────────────────────────────────────────────────────────
     const mapStaffItem = (item) => {
         const apiUType = item.userType?.toLowerCase() || '';
-        // Extract "HH:MM" from "DD-MM-YYYY HH:MM", or '' if absent
-        const existingTime = item.dateTime ? (item.dateTime.split(' ')[1] || '') : '';
+        const existingCheckIn = item.dateTime ? (item.dateTime.split(' ')[1] || '') : '';
         return {
             id: item.rollNumber,
             rollNumber: item.rollNumber,
@@ -160,16 +182,26 @@ export default function AddStaffAttendancePage() {
             avatar: item.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase(),
             filePath: item.filePath || '',
             existingStatus: item.status || '',
-            existingTime,
+            existingCheckIn,
+            existingCheckOut: item.checkOut || '',
+            existingNotes: item.notes || '',
         };
     };
 
-    // Fetch ALL user types in parallel (called on date change)
+    const initRowState = (staff) => {
+        const marks = {}, ins = {}, outs = {}, notes = {};
+        staff.forEach(s => {
+            marks[s.id] = STATUS_API_TO_UI[s.existingStatus.toLowerCase()] || 'Present';
+            ins[s.id]   = s.existingCheckIn;
+            outs[s.id]  = s.existingCheckOut;
+            notes[s.id] = s.existingNotes;
+        });
+        return { marks, ins, outs, notes };
+    };
+
     const fetchStaffList = async (date) => {
         setLoading(true);
-        const [year, month, day] = date.split('-');
-        const formattedDate = `${day}-${month}-${year}`;
-
+        const formattedDate = isoToApiDate(date);
         try {
             const results = await Promise.allSettled(
                 FETCH_USER_TYPES.map(uType =>
@@ -182,7 +214,6 @@ export default function AddStaffAttendancePage() {
 
             const allStaff = [];
             const addedMap = {};
-
             results.forEach((result, i) => {
                 const uiType = USER_TYPE_DISPLAY[FETCH_USER_TYPES[i]];
                 if (result.status === 'fulfilled' && !result.value.data.error) {
@@ -196,15 +227,8 @@ export default function AddStaffAttendancePage() {
 
             setStaffList(allStaff);
             setIsAttendanceAddedMap(addedMap);
-
-            const marks = {};
-            const times = {};
-            allStaff.forEach(s => {
-                marks[s.id] = STATUS_API_TO_UI[s.existingStatus.toLowerCase()] || 'Present';
-                times[s.id] = s.existingTime;
-            });
-            setAttendanceMarks(marks);
-            setLoginTimes(times);
+            const { marks, ins, outs, notes } = initRowState(allStaff);
+            setAttendanceMarks(marks); setCheckInTimes(ins); setCheckOutTimes(outs); setRowNotes(notes);
         } catch {
             showSnack('Failed to load staff list', false);
         } finally {
@@ -212,44 +236,36 @@ export default function AddStaffAttendancePage() {
         }
     };
 
-    // Fetch a SINGLE user type (called on userTypeFilter change)
     const fetchUserType = async (date, uiType) => {
         const apiUType = UI_TO_API_USER_TYPE[uiType] || uiType.toLowerCase();
         setLoading(true);
-        const [year, month, day] = date.split('-');
-        const formattedDate = `${day}-${month}-${year}`;
-
+        const formattedDate = isoToApiDate(date);
         try {
             const res = await axios.get(getAttendanceTeacherBefor, {
                 params: { Date: formattedDate, UserType: apiUType },
                 headers: { Authorization: `Bearer ${token}` },
             });
-
             if (!res.data.error) {
                 const { details = [], isAttendanceAdded: flag } = res.data;
                 const newStaff = details.map(item => mapStaffItem(item));
 
-                // Replace only this userType's entries in the master list
-                setStaffList(prev => [
-                    ...prev.filter(s => s.userType !== uiType),
-                    ...newStaff,
-                ]);
-
+                setStaffList(prev => [...prev.filter(s => s.userType !== uiType), ...newStaff]);
                 setIsAttendanceAddedMap(prev => ({ ...prev, [uiType]: flag === 'Y' }));
 
-                // Reset marks and times for the refreshed staff
-                setAttendanceMarks(prev => {
+                const apply = (prev, key) => {
                     const updated = { ...prev };
                     newStaff.forEach(s => {
-                        updated[s.id] = STATUS_API_TO_UI[s.existingStatus.toLowerCase()] || 'Present';
+                        if (key === 'marks')  updated[s.id] = STATUS_API_TO_UI[s.existingStatus.toLowerCase()] || 'Present';
+                        if (key === 'ins')    updated[s.id] = s.existingCheckIn;
+                        if (key === 'outs')   updated[s.id] = s.existingCheckOut;
+                        if (key === 'notes')  updated[s.id] = s.existingNotes;
                     });
                     return updated;
-                });
-                setLoginTimes(prev => {
-                    const updated = { ...prev };
-                    newStaff.forEach(s => { updated[s.id] = s.existingTime; });
-                    return updated;
-                });
+                };
+                setAttendanceMarks(prev => apply(prev, 'marks'));
+                setCheckInTimes(prev   => apply(prev, 'ins'));
+                setCheckOutTimes(prev  => apply(prev, 'outs'));
+                setRowNotes(prev       => apply(prev, 'notes'));
             }
         } catch {
             showSnack('Failed to reload staff data', false);
@@ -259,103 +275,196 @@ export default function AddStaffAttendancePage() {
     };
 
     useEffect(() => {
-        isMounted.current = false; // reset on date change so filter effect skips next cycle
+        isMounted.current = false;
         fetchStaffList(attendanceDate);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [attendanceDate]);
 
     useEffect(() => {
-        if (!isMounted.current) {
-            isMounted.current = true;
-            return;
-        }
+        if (!isMounted.current) { isMounted.current = true; return; }
         fetchUserType(attendanceDate, userTypeFilter);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [userTypeFilter]);
 
-    // ── Handlers ──────────────────────────────────────────────────────────────
-
-    // Only Present and Late require a visible login time in the UI
-    const needsLoginTime = (staffId) => {
-        const s = attendanceMarks[staffId];
+    // ─── Derived ─────────────────────────────────────────────────────────────
+    const needsTime = (id) => {
+        const s = attendanceMarks[id];
         return s === 'Present' || s === 'Late';
     };
 
-    const handleMarkChange = (staffId, value) => {
-        setAttendanceMarks(prev => ({ ...prev, [staffId]: value }));
+    const userTypes = Object.keys(USER_TYPE_CONFIG);
+
+    const filteredStaff = useMemo(() =>
+        staffList.filter(s => {
+            const matchUserType = s.userType === userTypeFilter;
+            const q = searchText.trim().toLowerCase();
+            const matchSearch = !q ||
+                s.name.toLowerCase().includes(q) ||
+                String(s.rollNumber).toLowerCase().includes(q);
+            return matchUserType && matchSearch;
+        }),
+        [staffList, userTypeFilter, searchText]
+    );
+
+    const counts = useMemo(() => ({
+        present: filteredStaff.filter(s => attendanceMarks[s.id] === 'Present').length,
+        absent:  filteredStaff.filter(s => attendanceMarks[s.id] === 'Absent').length,
+        late:    filteredStaff.filter(s => attendanceMarks[s.id] === 'Late').length,
+        onLeave: filteredStaff.filter(s => attendanceMarks[s.id] === 'On Leave').length,
+    }), [filteredStaff, attendanceMarks]);
+
+    const isCurrentTypeAdded = isAttendanceAddedMap[userTypeFilter] || false;
+
+    // ─── Handlers ────────────────────────────────────────────────────────────
+    const handleMarkChange = (id, newMark) => {
+        setAttendanceMarks(prev => ({ ...prev, [id]: newMark }));
+        if (newMark === 'Absent' || newMark === 'On Leave') {
+            setCheckInTimes(prev => ({ ...prev, [id]: '' }));
+            setCheckOutTimes(prev => ({ ...prev, [id]: '' }));
+        }
     };
 
-    const handleLoginTimeChange = (staffId, value) => {
-        setLoginTimes(prev => ({ ...prev, [staffId]: value }));
+    const handleCheckInChange = (id, value) => {
+        setCheckInTimes(prev => ({ ...prev, [id]: value }));
+        // Auto-suggest Late if currently marked Present and time is late
+        if (attendanceMarks[id] === 'Present' && isLateTime(value)) {
+            setAttendanceMarks(prev => ({ ...prev, [id]: 'Late' }));
+        } else if (attendanceMarks[id] === 'Late' && value && !isLateTime(value)) {
+            setAttendanceMarks(prev => ({ ...prev, [id]: 'Present' }));
+        }
     };
 
-    const handleGlobalTimeChange = (value) => {
-        setGlobalTime(value);
-        setLoginTimes(prev => {
+    const handleCheckOutChange = (id, value) => {
+        const checkIn = checkInTimes[id];
+        if (checkIn && parseHHmm(value) !== null && parseHHmm(value) <= parseHHmm(checkIn)) {
+            showSnack('Check-out must be after check-in', false);
+            return;
+        }
+        setCheckOutTimes(prev => ({ ...prev, [id]: value }));
+    };
+
+    const applyGlobalCheckIn = (time) => {
+        setGlobalCheckIn(time);
+        setCheckInTimes(prev => {
             const updated = { ...prev };
-            staffList.forEach(s => { if (needsLoginTime(s.id)) updated[s.id] = value; });
+            filteredStaff.forEach(s => { if (needsTime(s.id)) updated[s.id] = time; });
+            return updated;
+        });
+        // Auto-late sync
+        if (time) {
+            setAttendanceMarks(prev => {
+                const updated = { ...prev };
+                filteredStaff.forEach(s => {
+                    if (updated[s.id] === 'Present' && isLateTime(time)) updated[s.id] = 'Late';
+                    else if (updated[s.id] === 'Late' && !isLateTime(time)) updated[s.id] = 'Present';
+                });
+                return updated;
+            });
+        }
+    };
+
+    const applyGlobalCheckOut = (time) => {
+        setGlobalCheckOut(time);
+        setCheckOutTimes(prev => {
+            const updated = { ...prev };
+            filteredStaff.forEach(s => { if (needsTime(s.id)) updated[s.id] = time; });
             return updated;
         });
     };
 
-    // Fill Present / Late staff login time fields with the current clock time (one-shot)
     const handleFillCurrentTime = () => {
-        const now = new Date();
-        const hh = String(now.getHours()).padStart(2, '0');
-        const mm = String(now.getMinutes()).padStart(2, '0');
-        const currentTime = `${hh}:${mm}`;
-        setLoginTimes(prev => {
+        const now = getCurrentTime();
+        setCheckInTimes(prev => {
             const updated = { ...prev };
-            staffList.forEach(s => { if (needsLoginTime(s.id)) updated[s.id] = currentTime; });
+            filteredStaff.forEach(s => {
+                if (needsTime(s.id) && !updated[s.id]) updated[s.id] = now;
+            });
             return updated;
         });
+    };
+
+    const handleFillDefaultCheckOut = () => {
+        setCheckOutTimes(prev => {
+            const updated = { ...prev };
+            filteredStaff.forEach(s => {
+                if (needsTime(s.id) && !updated[s.id]) updated[s.id] = DEFAULT_CHECK_OUT;
+            });
+            return updated;
+        });
+    };
+
+    const handleBulkStatus = (newMark) => {
+        setBulkMenuAnchor(null);
+        setAttendanceMarks(prev => {
+            const updated = { ...prev };
+            filteredStaff.forEach(s => { updated[s.id] = newMark; });
+            return updated;
+        });
+        if (newMark === 'Absent' || newMark === 'On Leave') {
+            setCheckInTimes(prev => {
+                const updated = { ...prev };
+                filteredStaff.forEach(s => { updated[s.id] = ''; });
+                return updated;
+            });
+            setCheckOutTimes(prev => {
+                const updated = { ...prev };
+                filteredStaff.forEach(s => { updated[s.id] = ''; });
+                return updated;
+            });
+        }
     };
 
     const handleSameTimeToggle = (enabled) => {
         setSameTimeEnabled(enabled);
-        if (enabled && globalTime) {
-            setLoginTimes(prev => {
-                const updated = { ...prev };
-                staffList.forEach(s => { if (needsLoginTime(s.id)) updated[s.id] = globalTime; });
-                return updated;
-            });
+        if (enabled) {
+            if (globalCheckIn)  applyGlobalCheckIn(globalCheckIn);
+            if (globalCheckOut) applyGlobalCheckOut(globalCheckOut);
+        } else {
+            setGlobalCheckIn(''); setGlobalCheckOut('');
         }
-        if (!enabled) setGlobalTime('');
     };
 
+    const openNotesPopover = (e, id) => { setNotesAnchor(e.currentTarget); setNotesTargetId(id); };
+    const closeNotesPopover = () => { setNotesAnchor(null); setNotesTargetId(null); };
+
     const handleSaveAttendance = async () => {
-        // Only Present / Late staff require login time
-        const missing = filteredStaff.filter(s => needsLoginTime(s.id) && !loginTimes[s.id]);
-        if (missing.length > 0) {
-            showSnack(`Login time is required for Present / Late staff. ${missing.length} member${missing.length > 1 ? 's' : ''} missing.`, false);
+        const missingIn = filteredStaff.filter(s => needsTime(s.id) && !checkInTimes[s.id]);
+        if (missingIn.length > 0) {
+            showSnack(`Check-in required for ${missingIn.length} Present/Late member(s).`, false);
             return;
         }
 
-        const [year, month, day] = attendanceDate.split('-');
-        const datePart = `${day}-${month}-${year}`;
-
-        const now = new Date();
-        const hh = String(now.getHours()).padStart(2, '0');
-        const mm = String(now.getMinutes()).padStart(2, '0');
-        const currentTime = `${hh}:${mm}`;
+        const datePart = isoToApiDate(attendanceDate);
 
         const details = filteredStaff.map(s => {
-            const status = STATUS_UI_TO_API[attendanceMarks[s.id]] || 'present';
-            // Absent / On Leave → send 00:00; Present / Late → use recorded or current time
-            const time = needsLoginTime(s.id) ? (loginTimes[s.id] || currentTime) : '00:00';
+            const statusUI = attendanceMarks[s.id] || 'Present';
+            const apiStatus = STATUS_UI_TO_API[statusUI] || 'present';
+            const checkIn = needsTime(s.id) ? (checkInTimes[s.id] || getCurrentTime()) : '00:00';
+            const checkOut = needsTime(s.id) ? (checkOutTimes[s.id] || '') : '';
+            const note = (rowNotes[s.id] || '').trim();
+            const work = computeWorkingHours(checkIn, checkOut);
+
             return {
                 rollNumber: s.rollNumber,
-                dateTime: `${datePart} ${time}`,
-                status,
+                // Backward-compat: existing API reads `dateTime`
+                dateTime: `${datePart} ${checkIn}`,
+                status: apiStatus,
+                // Extended manual-entry fields (backend may choose to persist these)
+                checkIn,
+                checkOut,
+                workingMinutes: work ? work.totalMinutes : 0,
+                notes: note,
+                source: 'manual',
             };
         });
 
         const body = {
             userType: UI_TO_API_USER_TYPE[userTypeFilter] || userTypeFilter.toLowerCase(),
+            date: datePart,
+            source: 'manual',
+            markedBy: currentUserRoll,
             details,
         };
-
-        const isCurrentTypeAdded = isAttendanceAddedMap[userTypeFilter] || false;
 
         try {
             if (isCurrentTypeAdded) {
@@ -374,29 +483,89 @@ export default function AddStaffAttendancePage() {
         }
     };
 
-    // ── Derived values ────────────────────────────────────────────────────────
-
-    const userTypes = Object.keys(USER_TYPE_CONFIG);
-
-    const filteredStaff = staffList.filter(s => {
-        const matchUserType = s.userType === userTypeFilter;
-        const matchSearch =
-            s.name.toLowerCase().includes(searchText.toLowerCase()) ||
-            s.id.toString().toLowerCase().includes(searchText.toLowerCase());
-        return matchUserType && matchSearch;
-    });
-
-    const counts = {
-        present: filteredStaff.filter(s => attendanceMarks[s.id] === 'Present').length,
-        absent:  filteredStaff.filter(s => attendanceMarks[s.id] === 'Absent').length,
-        late:    filteredStaff.filter(s => attendanceMarks[s.id] === 'Late').length,
-        onLeave: filteredStaff.filter(s => attendanceMarks[s.id] === 'On Leave').length,
+    // ─── Render helpers ──────────────────────────────────────────────────────
+    const statusPill = (value, selected, onClick) => {
+        const s = STATUS_STYLE[value];
+        return (
+            <Box
+                key={value}
+                onClick={onClick}
+                sx={{
+                    px: 1.1, py: '3px', borderRadius: '50px', cursor: 'pointer',
+                    border: `1px solid ${selected ? s.color : '#E5E7EB'}`,
+                    bgcolor: selected ? s.bg : '#fff',
+                    transition: 'all 0.15s',
+                    '&:hover': { borderColor: s.color, bgcolor: s.bg },
+                }}
+            >
+                <Typography sx={{
+                    fontSize: '10.5px', fontWeight: selected ? 700 : 600,
+                    color: selected ? s.color : '#6B7280', whiteSpace: 'nowrap',
+                }}>
+                    {value}
+                </Typography>
+            </Box>
+        );
     };
 
-    const isCurrentTypeAdded = isAttendanceAddedMap[userTypeFilter] || false;
+    const renderTimeCell = (id, value, onChange, placeholder, icon, activeColor, mode) => {
+        if (!needsTime(id)) {
+            const mark = attendanceMarks[id];
+            return (
+                <Typography sx={{
+                    fontSize: '11px', fontStyle: 'italic', fontWeight: 500,
+                    color: mark === 'Absent' ? '#DC2626' : '#2563EB',
+                }}>
+                    {mark === 'Absent' ? '—' : (mark === 'On Leave' ? 'On Leave' : '—')}
+                </Typography>
+            );
+        }
+        const disabled = sameTimeEnabled;
+        const isEmpty = !value;
+        return (
+            <Tooltip
+                title={disabled ? 'Controlled by "Same time for all" — disable toggle to edit individually' : ''}
+                placement="top" arrow disableHoverListener={!disabled}
+            >
+                <span>
+                    <TextField
+                        type="time"
+                        size="small"
+                        value={value}
+                        disabled={disabled}
+                        onChange={(e) => onChange(id, e.target.value)}
+                        slotProps={{
+                            input: {
+                                startAdornment: (
+                                    <InputAdornment position="start">
+                                        {icon}
+                                    </InputAdornment>
+                                ),
+                            },
+                        }}
+                        sx={{
+                            width: 125,
+                            '& .MuiOutlinedInput-root': {
+                                fontSize: '12px', fontWeight: 600, height: 32, bgcolor: '#fff',
+                                '& fieldset': {
+                                    borderColor: isEmpty && mode === 'in' ? '#FCA5A5' : '#E5E7EB',
+                                    borderWidth: 1,
+                                },
+                                '&:hover fieldset': { borderColor: activeColor },
+                                '&.Mui-focused fieldset': { borderColor: activeColor, borderWidth: 1.5 },
+                                '&.Mui-disabled': {
+                                    bgcolor: '#F9FAFB',
+                                    '& input': { color: '#6B7280', WebkitTextFillColor: '#6B7280' },
+                                },
+                            },
+                        }}
+                    />
+                </span>
+            </Tooltip>
+        );
+    };
 
-    // ── Render ────────────────────────────────────────────────────────────────
-
+    // ─── UI ──────────────────────────────────────────────────────────────────
     return (
         <Box>
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
@@ -404,42 +573,38 @@ export default function AddStaffAttendancePage() {
             {/* Sub-header */}
             <Box sx={{
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                mb: 2.5, pb: 2, borderBottom: '1px solid #F0F0F0',
+                mb: 2, pb: 1.5, borderBottom: '1px solid #F3F4F6', flexWrap: 'wrap', gap: 1,
             }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <Box sx={{
-                        width: 40, height: 40, borderRadius: '10px', bgcolor: '#E8F5E9',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}>
-                        <PeopleIcon sx={{ color: '#22C55E', fontSize: 22 }} />
-                    </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
+                    <Avatar sx={{ bgcolor: '#F0FDF4', width: 38, height: 38 }}>
+                        <PeopleIcon sx={{ color: '#16A34A' }} />
+                    </Avatar>
                     <Box>
-                        <Typography sx={{ fontSize: '17px', fontWeight: '700', color: '#1a1a1a' }}>
+                        <Typography sx={{ fontSize: '15px', fontWeight: 700, color: '#111827' }}>
                             Mark Staff Attendance
                         </Typography>
-                        <Typography sx={{ fontSize: '11px', color: '#888' }}>
-                            {attendanceDate === today ? 'Marking for today' : `Marking for ${attendanceDate}`}
+                        <Typography sx={{ fontSize: '11px', color: '#6B7280' }}>
+                            Manual entry · {attendanceDate === today ? 'Today' : attendanceDate}
                         </Typography>
                     </Box>
                 </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    {/* Date picker */}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Box sx={{
-                        display: 'flex', alignItems: 'center', gap: 0.8,
-                        bgcolor: '#fff', border: '1.5px solid #22C55E', borderRadius: '8px', px: 1.5, py: 0.5,
+                        display: 'flex', alignItems: 'center', gap: 0.6,
+                        bgcolor: '#fff', border: '1px solid #D1D5DB', borderRadius: '8px', px: 1.3, py: 0.3,
                     }}>
-                        <EventIcon sx={{ fontSize: 16, color: '#22C55E' }} />
+                        <EventIcon sx={{ fontSize: 16, color: '#6B7280' }} />
                         <TextField
                             type="date"
                             size="small"
                             value={attendanceDate}
                             onChange={(e) => setAttendanceDate(e.target.value)}
                             variant="standard"
-                            sx={{ width: '130px' }}
+                            sx={{ width: 130 }}
                             slotProps={{
                                 input: {
                                     disableUnderline: true,
-                                    style: { fontSize: '13px', fontWeight: '600', color: '#22C55E' },
+                                    style: { fontSize: '12px', fontWeight: 600, color: '#111827' },
                                 },
                             }}
                         />
@@ -447,51 +612,43 @@ export default function AddStaffAttendancePage() {
                 </Box>
             </Box>
 
-            {/* Already-added banner */}
             {isCurrentTypeAdded && (
                 <Alert
                     icon={<CheckCircleIcon sx={{ fontSize: 18 }} />}
-                    severity="success"
-                    sx={{ mb: 2, fontSize: '13px', borderRadius: '8px' }}
+                    severity="info"
+                    sx={{ mb: 2, fontSize: '12px', borderRadius: '8px', py: 0.5, '& .MuiAlert-message': { fontSize: '12px' } }}
                 >
-                    Attendance has already been marked for <strong>{userTypeFilter}</strong> on this date. Your changes will update the existing record.
+                    Attendance already marked for <strong>{userTypeFilter}</strong> on this date — edits will update the existing record.
                 </Alert>
             )}
 
-            {/* Summary counters */}
-            <Grid container spacing={2} sx={{ mb: 2.5 }}>
+            {/* Counters */}
+            <Grid container spacing={1.5} sx={{ mb: 2 }}>
                 {[
-                    { label: 'Present',  count: counts.present,  color: '#22C55E', bg: '#F0FDF4', border: '#22C55E' },
-                    { label: 'Absent',   count: counts.absent,   color: '#DC2626', bg: '#FEF2F2', border: '#DC2626' },
-                    { label: 'Late',     count: counts.late,     color: '#F97316', bg: '#FFF7ED', border: '#F97316' },
-                    { label: 'On Leave', count: counts.onLeave,  color: '#3B82F6', bg: '#EFF6FF', border: '#3B82F6' },
+                    { label: 'Present',  count: counts.present,  ...STATUS_STYLE.Present },
+                    { label: 'Late',     count: counts.late,     ...STATUS_STYLE.Late },
+                    { label: 'Absent',   count: counts.absent,   ...STATUS_STYLE.Absent },
+                    { label: 'On Leave', count: counts.onLeave,  ...STATUS_STYLE['On Leave'] },
                 ].map((item) => (
-                    <Grid size={{ xs: 6, sm: 3, md: 3, lg: 3 }} key={item.label}>
-                        <Card sx={{
-                            boxShadow: 'none', border: `1px solid ${item.border}`,
-                            borderRadius: '4px', bgcolor: item.bg,
-                        }}>
-                            <CardContent sx={{ py: '12px !important' }}>
-                                <Typography sx={{ fontSize: '11px', color: '#666' }}>{item.label}</Typography>
-                                <Typography sx={{ fontSize: '26px', fontWeight: '700', color: '#1a1a1a' }}>
-                                    {item.count}
-                                </Typography>
-                                <Typography sx={{ fontSize: '10px', color: item.color, fontWeight: '600' }}>
-                                    {staffList.length > 0
-                                        ? ((item.count / staffList.length) * 100).toFixed(0)
-                                        : 0}% of staff
-                                </Typography>
+                    <Grid size={{ xs: 6, sm: 3 }} key={item.label}>
+                        <Card sx={{ boxShadow: 'none', border: `1px solid ${item.color}33`, borderRadius: '10px', bgcolor: '#fff' }}>
+                            <CardContent sx={{ py: '12px !important', px: 2 }}>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <Box>
+                                        <Typography sx={{ fontSize: '10px', color: '#6B7280', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4 }}>{item.label}</Typography>
+                                        <Typography sx={{ fontSize: '22px', fontWeight: 800, color: '#111827' }}>{item.count}</Typography>
+                                    </Box>
+                                    <Box sx={{ width: 8, height: 32, bgcolor: item.color, borderRadius: 2 }} />
+                                </Box>
                             </CardContent>
                         </Card>
                     </Grid>
                 ))}
             </Grid>
 
-            {/* Filters */}
+            {/* Filters row */}
             <Box sx={{
-                display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5,
-                px: 2, py: 1.2, bgcolor: '#F8FAFC', border: '1px solid #E8EFF5',
-                borderRadius: '8px', flexWrap: 'wrap',
+                display: 'flex', alignItems: 'center', gap: 1.2, mb: 1.5, flexWrap: 'wrap',
             }}>
                 <TextField
                     size="small"
@@ -502,407 +659,237 @@ export default function AddStaffAttendancePage() {
                         input: {
                             startAdornment: (
                                 <InputAdornment position="start">
-                                    <SearchIcon sx={{ fontSize: 17, color: '#aaa' }} />
+                                    <SearchIcon sx={{ fontSize: 16, color: '#9CA3AF' }} />
                                 </InputAdornment>
                             ),
                         },
                     }}
-                    sx={{ width: '230px', bgcolor: '#fff', borderRadius: '6px' }}
+                    sx={{
+                        width: 260,
+                        '& .MuiOutlinedInput-root': {
+                            height: 36, fontSize: '13px', borderRadius: '50px', bgcolor: '#fff',
+                            '& fieldset': { borderColor: '#E5E7EB' },
+                        },
+                    }}
                 />
                 <Select
                     value={userTypeFilter}
                     onChange={(e) => setUserTypeFilter(e.target.value)}
                     size="small"
-                    sx={{ minWidth: 160, bgcolor: '#fff', fontSize: '13px', borderRadius: '6px' }}
+                    sx={{
+                        minWidth: 160, bgcolor: '#fff', fontSize: '13px', height: 36, borderRadius: '50px',
+                        '& .MuiOutlinedInput-notchedOutline': { borderColor: '#E5E7EB' },
+                    }}
                 >
                     {userTypes.map(type => (
-                        <MenuItem key={type} value={type} sx={{ fontSize: '13px' }}>
-                            {type}
-                        </MenuItem>
+                        <MenuItem key={type} value={type} sx={{ fontSize: '13px' }}>{type}</MenuItem>
                     ))}
                 </Select>
-                <Typography sx={{ fontSize: '12px', color: '#888', ml: 'auto' }}>
-                    {loading ? 'Loading…' : `${filteredStaff.length} staff member${filteredStaff.length !== 1 ? 's' : ''}`}
+
+                <Button
+                    size="small" variant="outlined"
+                    startIcon={<DoneAllIcon />}
+                    endIcon={<MoreHorizIcon sx={{ fontSize: 16 }} />}
+                    onClick={(e) => setBulkMenuAnchor(e.currentTarget)}
+                    sx={{
+                        textTransform: 'none', fontSize: '12px', fontWeight: 600, height: 36, borderRadius: '50px',
+                        borderColor: '#D1D5DB', color: '#374151', px: 1.8,
+                        '&:hover': { borderColor: '#9CA3AF', bgcolor: '#F9FAFB' },
+                    }}
+                >
+                    Bulk Actions
+                </Button>
+                <Menu
+                    anchorEl={bulkMenuAnchor}
+                    open={Boolean(bulkMenuAnchor)}
+                    onClose={() => setBulkMenuAnchor(null)}
+                    slotProps={{ paper: { sx: { borderRadius: '10px', minWidth: 200, boxShadow: '0 8px 24px rgba(0,0,0,0.08)', border: '1px solid #E5E7EB', mt: 0.5 } } }}
+                >
+                    {STATUS_OPTIONS.map(opt => (
+                        <MenuItem key={opt} onClick={() => handleBulkStatus(opt)} sx={{ fontSize: '13px', fontWeight: 600 }}>
+                            <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: STATUS_STYLE[opt].color, mr: 1.2 }} />
+                            Mark all as {opt}
+                        </MenuItem>
+                    ))}
+                    <Divider />
+                    <MenuItem onClick={handleFillCurrentTime} sx={{ fontSize: '13px', fontWeight: 600 }}>
+                        <FlashOnIcon sx={{ fontSize: 16, color: '#F97316', mr: 1 }} />
+                        Fill current time (check-in)
+                    </MenuItem>
+                    <MenuItem onClick={handleFillDefaultCheckOut} sx={{ fontSize: '13px', fontWeight: 600 }}>
+                        <LogoutIcon sx={{ fontSize: 16, color: '#2563EB', mr: 1 }} />
+                        Fill default check-out (5:00 PM)
+                    </MenuItem>
+                </Menu>
+
+                <Typography sx={{ fontSize: '12px', color: '#6B7280', ml: 'auto', fontWeight: 500 }}>
+                    {loading ? 'Loading...' : `${filteredStaff.length} member${filteredStaff.length !== 1 ? 's' : ''}`}
                 </Typography>
             </Box>
 
-            {/* Login Time Control Bar */}
+            {/* Same-time bar */}
             <Box sx={{
-                display: 'flex', alignItems: 'center', gap: 2, mb: 1.5,
-                px: 2, py: 1.2,
-                bgcolor: sameTimeEnabled ? '#F0FDF4' : '#FAFAFA',
-                border: `1px solid ${sameTimeEnabled ? '#86EFAC' : '#E8E8E8'}`,
-                borderRadius: '8px',
-                transition: 'all 0.25s ease',
+                display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5,
+                px: 1.5, py: 1,
+                bgcolor: sameTimeEnabled ? '#F0FDF4' : '#F9FAFB',
+                border: `1px solid ${sameTimeEnabled ? '#86EFAC' : '#E5E7EB'}`,
+                borderRadius: '10px',
+                transition: 'all 0.2s',
                 flexWrap: 'wrap',
             }}>
-                {/* Left: icon + label */}
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Box sx={{
-                        width: 30, height: 30, borderRadius: '8px',
-                        bgcolor: sameTimeEnabled ? '#DCFCE7' : '#F0F0F0',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        transition: 'background-color 0.25s',
-                    }}>
-                        <AccessTimeIcon sx={{
-                            fontSize: 17,
-                            color: sameTimeEnabled ? '#22C55E' : '#999',
-                            transition: 'color 0.25s',
-                        }} />
-                    </Box>
-                    <Box>
-                        <Typography sx={{ fontSize: '13px', fontWeight: '700', color: '#1a1a1a', lineHeight: 1.2 }}>
-                            Login Time
-                        </Typography>
-                        <Typography sx={{ fontSize: '10px', color: '#888' }}>
-                            Record check-in time for staff
-                        </Typography>
-                    </Box>
-                </Box>
-
-                {/* Divider */}
-                <Box sx={{ width: '1px', height: 32, bgcolor: '#E0E0E0', mx: 0.5 }} />
-
-                {/* Toggle: Apply same time to all */}
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
                     <Switch
                         checked={sameTimeEnabled}
                         onChange={(e) => handleSameTimeToggle(e.target.checked)}
                         size="small"
                         sx={{
-                            '& .MuiSwitch-switchBase.Mui-checked': { color: '#22C55E' },
-                            '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#22C55E' },
+                            '& .MuiSwitch-switchBase.Mui-checked': { color: '#16A34A' },
+                            '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#16A34A' },
                         }}
                     />
-                    <Typography sx={{ fontSize: '12px', fontWeight: '600', color: sameTimeEnabled ? '#22C55E' : '#555' }}>
-                        Apply same time to all
+                    <Typography sx={{ fontSize: '12px', fontWeight: 600, color: sameTimeEnabled ? '#16A34A' : '#374151' }}>
+                        Same time for all
                     </Typography>
-                    <Tooltip
-                        title="Enable to set one login time for all staff at once. Disable to edit each staff individually."
-                        placement="top"
-                        arrow
-                    >
-                        <InfoOutlinedIcon sx={{ fontSize: 15, color: '#bbb', cursor: 'help', ml: 0.3 }} />
+                    <Tooltip title="Sets one check-in + check-out for every Present/Late member at once" arrow placement="top">
+                        <InfoOutlinedIcon sx={{ fontSize: 14, color: '#9CA3AF', cursor: 'help' }} />
                     </Tooltip>
                 </Box>
 
-                {/* Right side: always show "Use Current Time" + context-dependent extras */}
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 'auto', flexWrap: 'wrap' }}>
-                    {/* One-shot: fill all Present/Late fields with current clock time */}
-                    <Tooltip
-                        title="Sets current time in all Present / Late login fields. You can edit individually after."
-                        placement="top"
-                        arrow
-                    >
-                        <Button
-                            size="small"
-                            variant="outlined"
-                            onClick={handleFillCurrentTime}
-                            startIcon={<AccessTimeIcon sx={{ fontSize: 14 }} />}
-                            sx={{
-                                textTransform: 'none', fontSize: '12px', fontWeight: '600',
-                                borderColor: '#22C55E', color: '#22C55E', borderRadius: '6px',
-                                px: 1.5, py: 0.5,
-                                '&:hover': { bgcolor: '#F0FDF4', borderColor: '#16A34A', color: '#16A34A' },
-                            }}
-                        >
-                            Use Current Time
-                        </Button>
-                    </Tooltip>
+                {sameTimeEnabled && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Typography sx={{ fontSize: '11px', fontWeight: 600, color: '#6B7280' }}>Check-In:</Typography>
+                        <TextField
+                            type="time" size="small" value={globalCheckIn}
+                            onChange={(e) => applyGlobalCheckIn(e.target.value)}
+                            slotProps={{ input: { startAdornment: <InputAdornment position="start"><AccessTimeIcon sx={{ fontSize: 14, color: '#16A34A' }} /></InputAdornment> } }}
+                            sx={{ width: 140, '& .MuiOutlinedInput-root': { height: 32, fontSize: '12px', fontWeight: 600, bgcolor: '#fff' } }}
+                        />
+                        <Typography sx={{ fontSize: '11px', fontWeight: 600, color: '#6B7280' }}>Check-Out:</Typography>
+                        <TextField
+                            type="time" size="small" value={globalCheckOut}
+                            onChange={(e) => applyGlobalCheckOut(e.target.value)}
+                            slotProps={{ input: { startAdornment: <InputAdornment position="start"><LogoutIcon sx={{ fontSize: 14, color: '#2563EB' }} /></InputAdornment> } }}
+                            sx={{ width: 140, '& .MuiOutlinedInput-root': { height: 32, fontSize: '12px', fontWeight: 600, bgcolor: '#fff' } }}
+                        />
+                    </Box>
+                )}
 
-                    <Box sx={{ width: '1px', height: 24, bgcolor: '#E0E0E0' }} />
-
-                    {sameTimeEnabled ? (
-                        <>
-                            <Typography sx={{ fontSize: '12px', color: '#555', fontWeight: '500', whiteSpace: 'nowrap' }}>
-                                Set time for all:
-                            </Typography>
-                            <TextField
-                                type="time"
-                                size="small"
-                                value={globalTime}
-                                onChange={(e) => handleGlobalTimeChange(e.target.value)}
-                                placeholder="HH:MM"
-                                slotProps={{
-                                    input: {
-                                        startAdornment: (
-                                            <InputAdornment position="start">
-                                                <AccessTimeIcon sx={{ fontSize: 15, color: '#22C55E' }} />
-                                            </InputAdornment>
-                                        ),
-                                    },
-                                }}
-                                sx={{
-                                    width: '155px', 
-                                    bgcolor: '#fff',
-                                    borderRadius: '6px',
-                                    '& .MuiOutlinedInput-root': {
-                                        fontSize: '13px', fontWeight: '600',
-                                        '& fieldset': { borderColor: '#22C55E' },
-                                        '&:hover fieldset': { borderColor: '#16A34A' },
-                                        '&.Mui-focused fieldset': { borderColor: '#16A34A' },
-                                    },
-                                }}
-                            />
-                            {globalTime && (
-                                <Chip
-                                    label={`Applied to ${staffList.length} staff`}
-                                    size="small"
-                                    sx={{
-                                        bgcolor: '#DCFCE7', color: '#16A34A',
-                                        fontWeight: '600', fontSize: '10px', height: '22px',
-                                    }}
-                                />
-                            )}
-                        </>
-                    ) : (
-                        <Typography sx={{ fontSize: '11px', color: '#aaa', fontStyle: 'italic' }}>
-                            Edit each staff's time individually in the table
-                        </Typography>
-                    )}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, ml: 'auto' }}>
+                    <Button size="small" startIcon={<FlashOnIcon sx={{ fontSize: 14 }} />} onClick={handleFillCurrentTime}
+                        sx={{ textTransform: 'none', fontSize: '11px', fontWeight: 600, color: '#F97316', '&:hover': { bgcolor: '#FFF7ED' } }}>
+                        Use Current Time
+                    </Button>
                 </Box>
             </Box>
 
-            {/* Attendance Table */}
-            <Card sx={{ boxShadow: 'none', border: '1px solid #E8E8E8', borderRadius: '4px', bgcolor: '#FFFFFF' }}>
+            {/* Table */}
+            <Card sx={{ boxShadow: 'none', border: '1px solid #E5E7EB', borderRadius: '10px', bgcolor: '#fff', overflow: 'hidden' }}>
                 {loading ? (
                     <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 6 }}>
-                        <CircularProgress size={32} sx={{ color: '#22C55E' }} />
-                        <Typography sx={{ ml: 2, fontSize: '13px', color: '#888' }}>
-                            Loading staff list…
-                        </Typography>
+                        <CircularProgress size={28} sx={{ color: '#16A34A' }} />
+                        <Typography sx={{ ml: 2, fontSize: '13px', color: '#6B7280' }}>Loading staff list...</Typography>
                     </Box>
                 ) : (
-                    <TableContainer>
-                        <Table size="small">
+                    <TableContainer sx={{ maxHeight: '52vh' }}>
+                        <Table size="small" stickyHeader>
                             <TableHead>
-                                <TableRow sx={{ bgcolor: '#F9FAFB' }}>
-                                    <TableCell sx={{ fontWeight: '600', fontSize: '11px', color: '#666', textTransform: 'uppercase', width: 50 }}>
-                                        S.No
-                                    </TableCell>
-                                    <TableCell sx={{ fontWeight: '600', fontSize: '11px', color: '#666', textTransform: 'uppercase' }}>
-                                        Staff Member
-                                    </TableCell>
-                                    <TableCell sx={{ fontWeight: '600', fontSize: '11px', color: '#666', textTransform: 'uppercase' }}>
-                                        User Type
-                                    </TableCell>
-                                    <TableCell sx={{ fontWeight: '600', fontSize: '11px', color: '#666', textTransform: 'uppercase' }}>
-                                        Attendance
-                                    </TableCell>
-                                    <TableCell sx={{ fontWeight: '600', fontSize: '11px', textTransform: 'uppercase', minWidth: 140 }}>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                            <AccessTimeIcon sx={{ fontSize: 13, color: sameTimeEnabled ? '#22C55E' : '#666' }} />
-                                            <Typography sx={{
-                                                fontSize: '11px', fontWeight: '600', textTransform: 'uppercase',
-                                                color: sameTimeEnabled ? '#22C55E' : '#666',
-                                            }}>
-                                                Login Time
-                                            </Typography>
-                                            {sameTimeEnabled && (
-                                                <Chip label="Synced" size="small" sx={{
-                                                    fontSize: '9px', height: '16px', bgcolor: '#DCFCE7',
-                                                    color: '#16A34A', fontWeight: '700', ml: 0.3,
-                                                }} />
-                                            )}
-                                        </Box>
-                                    </TableCell>
-                                    <TableCell sx={{ fontWeight: '600', fontSize: '11px', color: '#666', textTransform: 'uppercase' }}>
-                                        Status
-                                    </TableCell>
+                                <TableRow sx={{ '& th': { bgcolor: '#F9FAFB', fontWeight: 700, fontSize: '10px', color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.4, borderBottom: '1px solid #E5E7EB' } }}>
+                                    <TableCell sx={{ width: 42 }}>#</TableCell>
+                                    <TableCell>Staff Member</TableCell>
+                                    <TableCell>Role</TableCell>
+                                    <TableCell sx={{ minWidth: 280 }}>Status</TableCell>
+                                    <TableCell>Check-In</TableCell>
+                                    <TableCell>Check-Out</TableCell>
+                                    <TableCell>Working Hrs</TableCell>
+                                    <TableCell sx={{ width: 54, textAlign: 'center' }}>Notes</TableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
                                 {filteredStaff.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={7} align="center">
-                                            <Typography sx={{ fontSize: '13px', color: '#999', py: 3 }}>
+                                        <TableCell colSpan={8} align="center">
+                                            <Typography sx={{ fontSize: '13px', color: '#9CA3AF', py: 4 }}>
                                                 {staffList.length === 0 ? 'No staff data available for this date' : 'No staff found'}
                                             </Typography>
                                         </TableCell>
                                     </TableRow>
-                                ) : (
-                                    filteredStaff.map((staff, idx) => {
-                                        const mark = attendanceMarks[staff.id] || 'Present';
-                                        const loginTime = loginTimes[staff.id] || '';
-                                        const statusColor = mark === 'Present' ? '#22C55E' : mark === 'Absent' ? '#DC2626' : mark === 'Late' ? '#F97316' : '#3B82F6';
-                                        const statusBg    = mark === 'Present' ? '#DCFCE7' : mark === 'Absent' ? '#FEE2E2' : mark === 'Late' ? '#FFF7ED' : '#DBEAFE';
-                                        const timeDisabled = sameTimeEnabled;
+                                ) : filteredStaff.map((staff, idx) => {
+                                    const mark   = attendanceMarks[staff.id] || 'Present';
+                                    const inT    = checkInTimes[staff.id]    || '';
+                                    const outT   = checkOutTimes[staff.id]   || '';
+                                    const note   = rowNotes[staff.id]        || '';
+                                    const work   = computeWorkingHours(inT, outT);
+                                    const roleConf = ROLE_CONFIG[staff.role] || { color: '#6B7280', bg: '#F3F4F6' };
 
-                                        return (
-                                            <TableRow
-                                                key={staff.id}
-                                                sx={{ '&:hover': { bgcolor: '#F9FAFB' }, borderBottom: '1px solid #F0F0F0' }}
-                                            >
-                                                {/* S.No */}
-                                                <TableCell>
-                                                    <Typography sx={{ fontSize: '13px', color: '#888', fontWeight: '500' }}>
-                                                        {idx + 1}
-                                                    </Typography>
-                                                </TableCell>
-
-                                                {/* Staff Member */}
-                                                <TableCell>
-                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
-                                                        <Avatar
-                                                            src={staff.filePath || undefined}
-                                                            sx={{ width: 34, height: 34, bgcolor: '#1976d2', fontSize: '12px', fontWeight: '700' }}
-                                                        >
-                                                            {staff.avatar}
-                                                        </Avatar>
-                                                        <Box>
-                                                            <Typography sx={{ fontSize: '13px', fontWeight: '600', color: '#1a1a1a' }}>
-                                                                {staff.name}
-                                                            </Typography>
-                                                            <Typography sx={{ fontSize: '10px', color: '#999' }}>
-                                                                {staff.rollNumber}
-                                                            </Typography>
-                                                        </Box>
+                                    return (
+                                        <TableRow key={staff.id}
+                                            sx={{ '&:hover': { bgcolor: '#FAFBFD' }, '& td': { borderBottom: '1px solid #F3F4F6' } }}
+                                        >
+                                            <TableCell>
+                                                <Typography sx={{ fontSize: '12px', color: '#9CA3AF', fontWeight: 500 }}>{idx + 1}</Typography>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.1 }}>
+                                                    <Avatar src={staff.filePath || undefined}
+                                                        sx={{ width: 32, height: 32, bgcolor: '#3457D5', fontSize: '11px', fontWeight: 700 }}>
+                                                        {staff.avatar}
+                                                    </Avatar>
+                                                    <Box>
+                                                        <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>{staff.name}</Typography>
+                                                        <Typography sx={{ fontSize: '10px', color: '#9CA3AF' }}>{staff.rollNumber}</Typography>
                                                     </Box>
-                                                </TableCell>
-
-                                                {/* User Type */}
-                                                <TableCell>
-                                                    <Chip
-                                                        label={staff.userType}
-                                                        size="small"
+                                                </Box>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Chip label={staff.role} size="small"
+                                                    sx={{ bgcolor: roleConf.bg, color: roleConf.color, fontWeight: 600, fontSize: '10px', height: 20 }} />
+                                            </TableCell>
+                                            <TableCell>
+                                                <Box sx={{ display: 'flex', gap: 0.6, flexWrap: 'wrap' }}>
+                                                    {STATUS_OPTIONS.map(opt =>
+                                                        statusPill(opt, mark === opt, () => handleMarkChange(staff.id, opt))
+                                                    )}
+                                                </Box>
+                                            </TableCell>
+                                            <TableCell>
+                                                {renderTimeCell(
+                                                    staff.id, inT, handleCheckInChange, 'HH:MM',
+                                                    <AccessTimeIcon sx={{ fontSize: 14, color: '#16A34A' }} />,
+                                                    '#16A34A', 'in'
+                                                )}
+                                            </TableCell>
+                                            <TableCell>
+                                                {renderTimeCell(
+                                                    staff.id, outT, handleCheckOutChange, 'HH:MM',
+                                                    <LogoutIcon sx={{ fontSize: 14, color: '#2563EB' }} />,
+                                                    '#2563EB', 'out'
+                                                )}
+                                            </TableCell>
+                                            <TableCell>
+                                                {needsTime(staff.id) && work ? (
+                                                    <Chip size="small" label={work.label}
+                                                        sx={{ bgcolor: '#F3F4F6', color: '#111827', fontWeight: 700, fontSize: '11px', height: 22 }} />
+                                                ) : (
+                                                    <Typography sx={{ fontSize: '11px', color: '#D1D5DB' }}>—</Typography>
+                                                )}
+                                            </TableCell>
+                                            <TableCell align="center">
+                                                <Tooltip title={note ? note : 'Add note'} placement="top" arrow>
+                                                    <IconButton size="small"
+                                                        onClick={(e) => openNotesPopover(e, staff.id)}
                                                         sx={{
-                                                            fontSize: '10px', height: '20px', fontWeight: '600',
-                                                            bgcolor: USER_TYPE_CONFIG[staff.userType]?.bg ?? '#F5F5F5',
-                                                            color: USER_TYPE_CONFIG[staff.userType]?.color ?? '#555',
+                                                            color: note ? '#F97316' : '#9CA3AF',
+                                                            bgcolor: note ? '#FFF7ED' : 'transparent',
+                                                            '&:hover': { bgcolor: '#FFF7ED', color: '#F97316' },
                                                         }}
-                                                    />
-                                                </TableCell>
-
-                                                {/* Attendance Radio */}
-                                                <TableCell>
-                                                    <RadioGroup
-                                                        row
-                                                        value={mark}
-                                                        onChange={(e) => handleMarkChange(staff.id, e.target.value)}
-                                                        sx={{ gap: 0.5, flexWrap: 'wrap' }}
                                                     >
-                                                        {STATUS_OPTIONS.map(opt => (
-                                                            <FormControlLabel
-                                                                key={opt.value}
-                                                                value={opt.value}
-                                                                control={
-                                                                    <Radio
-                                                                        size="small"
-                                                                        sx={{
-                                                                            p: 0.3,
-                                                                            color: '#ccc',
-                                                                            '&.Mui-checked': { color: opt.color },
-                                                                        }}
-                                                                    />
-                                                                }
-                                                                label={
-                                                                    <Typography sx={{
-                                                                        fontSize: '12px',
-                                                                        color: mark === opt.value ? opt.color : '#666',
-                                                                        fontWeight: mark === opt.value ? '600' : '400',
-                                                                    }}>
-                                                                        {opt.value}
-                                                                    </Typography>
-                                                                }
-                                                                sx={{ mr: 1, ml: 0 }}
-                                                            />
-                                                        ))}
-                                                    </RadioGroup>
-                                                </TableCell>
-
-                                                {/* Login Time — required for Present / Late only */}
-                                                <TableCell>
-                                                    {!needsLoginTime(staff.id) ? (
-                                                        // Absent / On Leave — no login time needed
-                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.7 }}>
-                                                            <Box sx={{
-                                                                width: 6, height: 6, borderRadius: '50%',
-                                                                bgcolor: mark === 'Absent' ? '#DC2626' : '#3B82F6',
-                                                            }} />
-                                                            <Typography sx={{
-                                                                fontSize: '11px', fontStyle: 'italic', fontWeight: '500',
-                                                                color: mark === 'Absent' ? '#DC2626' : '#3B82F6',
-                                                            }}>
-                                                                {mark === 'Absent' ? 'Not applicable' : 'On leave'}
-                                                            </Typography>
-                                                        </Box>
-                                                    ) : (() => {
-                                                        const isLate   = mark === 'Late';
-                                                        const activeColor  = isLate ? '#F97316' : '#22C55E';
-                                                        const activeBg     = isLate ? '#FFF7ED' : '#F0FDF4';
-                                                        const activeBorder = isLate ? '#FED7AA' : '#86EFAC';
-                                                        const isEmpty = !loginTime;
-                                                        return (
-                                                            <Tooltip
-                                                                title={timeDisabled ? 'Controlled by "Apply same time to all" — disable the toggle to edit individually' : ''}
-                                                                placement="top"
-                                                                arrow
-                                                                disableHoverListener={!timeDisabled}
-                                                            >
-                                                                <span>
-                                                                    <TextField
-                                                                        type="time"
-                                                                        size="small"
-                                                                        value={loginTime}
-                                                                        disabled={timeDisabled}
-                                                                        onChange={(e) => handleLoginTimeChange(staff.id, e.target.value)}
-                                                                        slotProps={{
-                                                                            input: {
-                                                                                startAdornment: (
-                                                                                    <InputAdornment position="start">
-                                                                                        <AccessTimeIcon sx={{
-                                                                                            fontSize: 14,
-                                                                                            color: isEmpty ? '#f87171' : activeColor,
-                                                                                        }} />
-                                                                                    </InputAdornment>
-                                                                                ),
-                                                                            },
-                                                                        }}
-                                                                        sx={{
-                                                                            width: '130px',
-                                                                            '& .MuiOutlinedInput-root': {
-                                                                                fontSize: '12px', fontWeight: '600',
-                                                                                bgcolor: timeDisabled ? activeBg : '#fff',
-                                                                                '& fieldset': {
-                                                                                    borderColor: isEmpty ? '#FCA5A5' : (timeDisabled ? activeBorder : activeColor),
-                                                                                    borderWidth: isEmpty ? '1.5px' : '1px',
-                                                                                },
-                                                                                '&:hover fieldset': {
-                                                                                    borderColor: isEmpty ? '#f87171' : (timeDisabled ? activeBorder : activeColor),
-                                                                                },
-                                                                                '&.Mui-focused fieldset': { borderColor: activeColor },
-                                                                                '&.Mui-disabled': {
-                                                                                    bgcolor: activeBg,
-                                                                                    '& input': {
-                                                                                        color: activeColor,
-                                                                                        WebkitTextFillColor: activeColor,
-                                                                                        fontWeight: '700',
-                                                                                    },
-                                                                                },
-                                                                            },
-                                                                        }}
-                                                                    />
-                                                                </span>
-                                                            </Tooltip>
-                                                        );
-                                                    })()}
-                                                </TableCell>
-
-                                                {/* Status chip */}
-                                                <TableCell>
-                                                    <Chip
-                                                        label={mark}
-                                                        size="small"
-                                                        sx={{
-                                                            bgcolor: statusBg, color: statusColor,
-                                                            fontWeight: '700', fontSize: '10px', height: '22px',
-                                                        }}
-                                                    />
-                                                </TableCell>
-                                            </TableRow>
-                                        );
-                                    })
-                                )}
+                                                        <StickyNote2Icon sx={{ fontSize: 16 }} />
+                                                    </IconButton>
+                                                </Tooltip>
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })}
                             </TableBody>
                         </Table>
                     </TableContainer>
@@ -912,21 +899,30 @@ export default function AddStaffAttendancePage() {
                 {!loading && (
                     <Box sx={{
                         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                        px: 2, py: 1.5, borderTop: '1px solid #F0F0F0', bgcolor: '#FAFAFA',
+                        px: 2, py: 1.2, borderTop: '1px solid #F3F4F6', bgcolor: '#FAFBFD',
                     }}>
-                        <Typography sx={{ fontSize: '12px', color: '#888' }}>
-                            Total: {filteredStaff.length} staff members
-                        </Typography>
+                        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                            <Typography sx={{ fontSize: '12px', color: '#6B7280' }}>
+                                <strong style={{ color: '#111827' }}>{filteredStaff.length}</strong> staff
+                            </Typography>
+                            <Divider orientation="vertical" flexItem />
+                            <Typography sx={{ fontSize: '11px', color: '#6B7280' }}>
+                                Present <strong style={{ color: '#16A34A' }}>{counts.present}</strong>
+                                {' · '}Late <strong style={{ color: '#EA580C' }}>{counts.late}</strong>
+                                {' · '}Absent <strong style={{ color: '#DC2626' }}>{counts.absent}</strong>
+                                {' · '}Leave <strong style={{ color: '#2563EB' }}>{counts.onLeave}</strong>
+                            </Typography>
+                        </Box>
                         <Button
                             variant="contained"
                             startIcon={<SaveIcon />}
                             onClick={handleSaveAttendance}
                             disabled={staffList.length === 0}
                             sx={{
-                                textTransform: 'none', fontSize: '13px', fontWeight: '600',
-                                bgcolor: isCurrentTypeAdded ? '#1D4ED8' : '#22C55E',
-                                borderRadius: '8px', px: 3,
-                                '&:hover': { bgcolor: isCurrentTypeAdded ? '#1E40AF' : '#16A34A' },
+                                textTransform: 'none', fontSize: '13px', fontWeight: 700,
+                                bgcolor: isCurrentTypeAdded ? '#2563EB' : '#16A34A',
+                                borderRadius: '8px', px: 3, boxShadow: 'none',
+                                '&:hover': { bgcolor: isCurrentTypeAdded ? '#1D4ED8' : '#15803D', boxShadow: 'none' },
                             }}
                         >
                             {isCurrentTypeAdded ? 'Update Attendance' : 'Save Attendance'}
@@ -934,6 +930,35 @@ export default function AddStaffAttendancePage() {
                     </Box>
                 )}
             </Card>
+
+            {/* Notes popover */}
+            <Popover
+                open={Boolean(notesAnchor)}
+                anchorEl={notesAnchor}
+                onClose={closeNotesPopover}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                slotProps={{ paper: { sx: { borderRadius: '10px', border: '1px solid #E5E7EB', boxShadow: '0 8px 24px rgba(0,0,0,0.08)', mt: 0.5 } } }}
+            >
+                <Paper sx={{ p: 1.5, width: 280 }}>
+                    <Typography sx={{ fontSize: '12px', fontWeight: 700, color: '#111827', mb: 0.8 }}>
+                        Add Note
+                    </Typography>
+                    <TextField
+                        multiline minRows={3} fullWidth size="small"
+                        placeholder="Remarks for this day (optional)"
+                        value={notesTargetId ? (rowNotes[notesTargetId] || '') : ''}
+                        onChange={(e) => setRowNotes(prev => ({ ...prev, [notesTargetId]: e.target.value }))}
+                        sx={{ '& .MuiOutlinedInput-root': { fontSize: '12px', borderRadius: '8px' } }}
+                    />
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
+                        <Button size="small" onClick={closeNotesPopover}
+                            sx={{ textTransform: 'none', fontSize: '12px', fontWeight: 600, color: '#111827' }}>
+                            Done
+                        </Button>
+                    </Box>
+                </Paper>
+            </Popover>
         </Box>
     );
 }

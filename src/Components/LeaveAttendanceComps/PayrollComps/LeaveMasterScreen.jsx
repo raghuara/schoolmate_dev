@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
     Box, Typography, Button, Grid, IconButton, Divider,
     TextField, Switch, Autocomplete, Tooltip,
+    Dialog, CircularProgress, Chip,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SaveIcon from '@mui/icons-material/Save';
@@ -11,17 +12,56 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import EventBusyIcon from '@mui/icons-material/EventBusy';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import AddIcon from '@mui/icons-material/Add';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import CloseIcon from '@mui/icons-material/Close';
+import MonetizationOnIcon from '@mui/icons-material/MonetizationOn';
+import PolicyIcon from '@mui/icons-material/Policy';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
+import axios from 'axios';
 import SnackBar from '../../SnackBar';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import dayjs from 'dayjs';
+import { leavePolicyDashboard, postLeaveType, updateLeaveTypeById } from '../../../Api/Api';
 
 const PRIMARY = '#059669';
 const PRIMARY_LIGHT = '#ECFDF5';
+const PRIMARY_DARK = '#047857';
 
 const PAYOUT_FREQUENCIES = ['Monthly', 'Quarterly', 'Half-Yearly', 'Yearly'];
+
+// ── Leave Policy Management constants ──────────────────────────────────────
+const TOKEN = '123';
+
+const LEAVE_COLORS = [
+    '#3B82F6', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4',
+    '#10B981', '#F59E0B', '#6B7280', '#FF6B35', '#059669',
+];
+
+const LP_ALLOCATION_PERIODS = [
+    { key: 'Monthly',     label: 'Monthly',     months: 1 },
+    { key: 'Quarterly',   label: 'Quarterly',   months: 3 },
+    { key: 'Half-Yearly', label: 'Half-Yearly', months: 6 },
+    { key: 'Yearly',      label: 'Yearly',      months: 12 },
+];
+
+const emptyLeaveForm = {
+    name: '',
+    shortCode: '',
+    daysPerMonth: 1,
+    allocationPeriod: 'Monthly',
+    encashUnused: false,
+    color: '#3B82F6',
+    description: '',
+};
+
+const getTotalDaysForPeriod = (daysPerMonth, period) => {
+    const p = LP_ALLOCATION_PERIODS.find(a => a.key === period);
+    return daysPerMonth * (p?.months || 1);
+};
 
 // ── Section wrapper ────────────────────────────────────────────────────────
 const Section = ({ icon: Icon, title, subtitle, color, children }) => (
@@ -294,6 +334,128 @@ export default function LeaveMasterScreen() {
         console.log('Leave Master Config:', config);
         console.log('Day Overrides:', dayOverrides);
         showSnack('Leave policy master saved successfully', true);
+    };
+
+    // ── Leave Policy Management State ──────────────────────────────────────
+    const [policies, setPolicies] = useState([]);
+    const [isLoadingPolicies, setIsLoadingPolicies] = useState(false);
+    const [isSavingPolicy, setIsSavingPolicy] = useState(false);
+    const [policyDialogOpen, setPolicyDialogOpen] = useState(false);
+    const [deletePolicyDialogOpen, setDeletePolicyDialogOpen] = useState(false);
+    const [editingPolicy, setEditingPolicy] = useState(null);
+    const [policyForm, setPolicyForm] = useState(emptyLeaveForm);
+    const [deletePolicyTarget, setDeletePolicyTarget] = useState(null);
+    const [policyStats, setPolicyStats] = useState({
+        totalLeaveTypes: 0,
+        totalDaysPerMonth: 0,
+        onDemandUnlimited: 0,
+        encashableLeaveTypes: 0,
+    });
+
+    const ffPolicy = (key, value) => setPolicyForm(prev => ({ ...prev, [key]: value }));
+
+    const fetchLeavePolicies = async () => {
+        setIsLoadingPolicies(true);
+        try {
+            const res = await axios.get(leavePolicyDashboard, {
+                headers: { Authorization: `Bearer ${TOKEN}` },
+            });
+            if (res.data && !res.data.error) {
+                const d = res.data.data;
+                setPolicyStats({
+                    totalLeaveTypes: d.totalLeaveTypes,
+                    totalDaysPerMonth: d.totalDaysPerMonth,
+                    onDemandUnlimited: d.onDemandUnlimited,
+                    encashableLeaveTypes: d.encashableLeaveTypes,
+                });
+                setPolicies((d.leaveTypes || []).map(lt => ({
+                    id: lt.id,
+                    name: lt.leaveTypeName,
+                    shortCode: lt.shortCode,
+                    daysPerMonth: lt.daysPerMonth,
+                    allocationPeriod: lt.allocationPeriod || 'Monthly',
+                    encashUnused: lt.encash === 'Y',
+                    color: lt.colorTag || '#3B82F6',
+                    description: lt.description || '',
+                })));
+            }
+        } catch {
+            showSnack('Failed to load leave policies', false);
+        } finally {
+            setIsLoadingPolicies(false);
+        }
+    };
+
+    useEffect(() => { fetchLeavePolicies(); }, []);
+
+    const handleAddPolicy = () => {
+        setEditingPolicy(null);
+        setPolicyForm({ ...emptyLeaveForm });
+        setPolicyDialogOpen(true);
+    };
+
+    const handleEditPolicy = (policy) => {
+        setEditingPolicy(policy);
+        setPolicyForm({ ...policy });
+        setPolicyDialogOpen(true);
+    };
+
+    const handleDeletePolicyClick = (policy) => {
+        setDeletePolicyTarget(policy);
+        setDeletePolicyDialogOpen(true);
+    };
+
+    const handleConfirmDeletePolicy = () => {
+        setPolicies(prev => prev.filter(p => p.id !== deletePolicyTarget.id));
+        showSnack(`"${deletePolicyTarget.name}" deleted successfully.`, true);
+        setDeletePolicyDialogOpen(false);
+        setDeletePolicyTarget(null);
+    };
+
+    const handleSavePolicy = async () => {
+        if (!policyForm.name.trim() || !policyForm.shortCode.trim()) {
+            showSnack('Leave type name and short code are required.', false);
+            return;
+        }
+        const body = {
+            leaveTypeName: policyForm.name,
+            shortCode: policyForm.shortCode,
+            daysPerMonth: policyForm.daysPerMonth,
+            allocationPeriod: policyForm.allocationPeriod,
+            encash: policyForm.encashUnused ? 'Y' : 'N',
+            colorTag: policyForm.color,
+            description: policyForm.description,
+        };
+        setIsSavingPolicy(true);
+        try {
+            if (editingPolicy) {
+                const res = await axios.put(updateLeaveTypeById, { ...body, id: editingPolicy.id }, {
+                    headers: { Authorization: `Bearer ${TOKEN}` },
+                });
+                if (res.data && !res.data.error) {
+                    showSnack('Leave type updated successfully!', true);
+                    setPolicyDialogOpen(false);
+                    fetchLeavePolicies();
+                } else {
+                    showSnack(res.data?.message || 'Failed to update leave type', false);
+                }
+            } else {
+                const res = await axios.post(postLeaveType, body, {
+                    headers: { Authorization: `Bearer ${TOKEN}` },
+                });
+                if (res.data && !res.data.error) {
+                    showSnack('Leave type added successfully!', true);
+                    setPolicyDialogOpen(false);
+                    fetchLeavePolicies();
+                } else {
+                    showSnack(res.data?.message || 'Failed to add leave type', false);
+                }
+            }
+        } catch {
+            showSnack(editingPolicy ? 'Failed to update leave type.' : 'Failed to add leave type.', false);
+        } finally {
+            setIsSavingPolicy(false);
+        }
     };
 
     return (
@@ -1101,8 +1263,375 @@ export default function LeaveMasterScreen() {
                         </Box>
                     </Section>
 
+                    {/* ═══ Section 7: Leave Policy Management ═══ */}
+                    <Section icon={PolicyIcon} title="Leave Policy Management" color={PRIMARY}
+                        subtitle="Create the leave types that drive this policy — each type feeds into payroll LOP & encashment calculations">
+
+                        {/* Top action row: stat pills + Add button */}
+                        <Box sx={{
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                            mb: 2, gap: 1.5, flexWrap: 'wrap',
+                        }}>
+                            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                                {[
+                                    { label: 'Total Types',  value: policyStats.totalLeaveTypes,       color: '#0891B2' },
+                                    { label: 'Days / Month', value: `${policyStats.totalDaysPerMonth}d`, color: '#22C55E' },
+                                    { label: 'On-Demand',    value: policyStats.onDemandUnlimited,     color: '#F97316' },
+                                    { label: 'Encashable',   value: policyStats.encashableLeaveTypes,  color: '#E91E63' },
+                                ].map((s, i) => (
+                                    <Box key={i} sx={{
+                                        px: 1.5, py: 0.5, borderRadius: '20px',
+                                        bgcolor: `${s.color}10`, border: `1px solid ${s.color}30`,
+                                        display: 'flex', alignItems: 'center', gap: 0.7,
+                                    }}>
+                                        <Typography sx={{ fontSize: '11px', color: '#666', fontWeight: 500 }}>{s.label}:</Typography>
+                                        <Typography sx={{ fontSize: '13px', fontWeight: 800, color: s.color }}>{s.value}</Typography>
+                                    </Box>
+                                ))}
+                            </Box>
+                            <Button
+                                variant="contained"
+                                startIcon={<AddIcon />}
+                                onClick={handleAddPolicy}
+                                sx={{
+                                    textTransform: 'none', bgcolor: PRIMARY, borderRadius: '30px',
+                                    fontSize: '12px', fontWeight: 600, px: 2, height: 32,
+                                    '&:hover': { bgcolor: PRIMARY_DARK },
+                                }}
+                            >
+                                Add Leave Type
+                            </Button>
+                        </Box>
+
+                        {/* Info banner */}
+                        <Box sx={{
+                            mb: 2, p: 1.5, borderRadius: '8px',
+                            bgcolor: '#FFFBEB', border: '1px solid #FDE68A',
+                            display: 'flex', alignItems: 'flex-start', gap: 1,
+                        }}>
+                            <InfoOutlinedIcon sx={{ fontSize: 16, color: '#F59E0B', mt: 0.2, flexShrink: 0 }} />
+                            <Typography sx={{ fontSize: 11, color: '#78350F', lineHeight: 1.7 }}>
+                                <strong>Days Per Month</strong> — monthly accrual rate. Set <strong>0</strong> for on-demand leaves.
+                                <strong> Allocation Period</strong> — pool days monthly, quarterly, half-yearly, or yearly.
+                                <strong> Encash</strong> — unused days are credited to salary at the end of the period (uses encashment formula from section above).
+                            </Typography>
+                        </Box>
+
+                        {/* Grid / loading / empty */}
+                        {isLoadingPolicies ? (
+                            <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}>
+                                <CircularProgress size={28} sx={{ color: PRIMARY }} />
+                            </Box>
+                        ) : policies.length === 0 ? (
+                            <Box sx={{
+                                textAlign: 'center', py: 4, borderRadius: '8px',
+                                border: '1px dashed #D1D5DB', bgcolor: '#FAFAFA',
+                            }}>
+                                <Typography sx={{ fontSize: '13px', color: '#888', mb: 1 }}>
+                                    No leave types created yet
+                                </Typography>
+                                <Button size="small" variant="outlined" startIcon={<AddIcon />}
+                                    onClick={handleAddPolicy}
+                                    sx={{
+                                        textTransform: 'none', fontSize: '12px', fontWeight: 600, borderRadius: '30px',
+                                        borderColor: PRIMARY, color: PRIMARY,
+                                        '&:hover': { borderColor: PRIMARY_DARK, bgcolor: PRIMARY_LIGHT },
+                                    }}>
+                                    Create your first leave type
+                                </Button>
+                            </Box>
+                        ) : (
+                            <Box sx={{
+                                display: 'grid',
+                                gridTemplateColumns: {
+                                    xs: '1fr',
+                                    sm: 'repeat(2, minmax(0, 1fr))',
+                                    md: 'repeat(3, minmax(0, 1fr))',
+                                },
+                                gap: 2,
+                                alignItems: 'stretch',
+                            }}>
+                                {policies.map(policy => {
+                                    const totalDays = getTotalDaysForPeriod(policy.daysPerMonth, policy.allocationPeriod);
+                                    return (
+                                        <Box key={policy.id} sx={{
+                                            border: `1px solid ${policy.color}`, borderRadius: '8px',
+                                            bgcolor: `${policy.color}08`, p: 2,
+                                            display: 'flex', flexDirection: 'column',
+                                            minHeight: 150, boxSizing: 'border-box',
+                                        }}>
+                                            <Box sx={{
+                                                display: 'flex', justifyContent: 'space-between',
+                                                alignItems: 'flex-start', mb: 1.5, gap: 1,
+                                            }}>
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, flex: 1 }}>
+                                                    <Box sx={{
+                                                        width: 36, height: 36, borderRadius: '50%',
+                                                        bgcolor: `${policy.color}15`, flexShrink: 0,
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    }}>
+                                                        <Typography sx={{ fontSize: 12, fontWeight: 900, color: policy.color }}>
+                                                            {policy.shortCode}
+                                                        </Typography>
+                                                    </Box>
+                                                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                                                        <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#1a1a1a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                            {policy.name}
+                                                        </Typography>
+                                                        {policy.description && (
+                                                            <Typography sx={{ fontSize: 11, color: '#999', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                                {policy.description}
+                                                            </Typography>
+                                                        )}
+                                                    </Box>
+                                                </Box>
+                                                <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
+                                                    <Tooltip title="Edit" arrow>
+                                                        <IconButton size="small" onClick={() => handleEditPolicy(policy)} sx={{ width: 26, height: 26 }}>
+                                                            <EditIcon sx={{ fontSize: 14, color: '#1976D2' }} />
+                                                        </IconButton>
+                                                    </Tooltip>
+                                                    <Tooltip title="Delete" arrow>
+                                                        <IconButton size="small" onClick={() => handleDeletePolicyClick(policy)} sx={{ width: 26, height: 26 }}>
+                                                            <DeleteIcon sx={{ fontSize: 14, color: '#f44336' }} />
+                                                        </IconButton>
+                                                    </Tooltip>
+                                                </Box>
+                                            </Box>
+                                            <Box sx={{
+                                                display: 'flex', justifyContent: 'space-between',
+                                                alignItems: 'flex-end', mt: 'auto', gap: 1,
+                                            }}>
+                                                <Box sx={{ minWidth: 0 }}>
+                                                    <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
+                                                        <Typography sx={{ fontSize: 22, fontWeight: 700, color: '#1a1a1a', lineHeight: 1 }}>
+                                                            {policy.daysPerMonth === 0 ? '∞' : policy.daysPerMonth}
+                                                        </Typography>
+                                                        <Typography sx={{ fontSize: 11, color: '#999' }}>
+                                                            {policy.daysPerMonth === 0 ? 'on-demand' : 'day(s) / month'}
+                                                        </Typography>
+                                                    </Box>
+                                                    {policy.daysPerMonth > 0 && policy.allocationPeriod !== 'Monthly' && (
+                                                        <Typography sx={{ fontSize: 11, color: '#999', mt: 0.3 }}>
+                                                            = {totalDays} days / {policy.allocationPeriod.toLowerCase()}
+                                                        </Typography>
+                                                    )}
+                                                </Box>
+                                                <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', justifyContent: 'flex-end', flexShrink: 0 }}>
+                                                    <Chip label={policy.allocationPeriod} size="small"
+                                                        sx={{ fontSize: 10, fontWeight: 600, height: 20, bgcolor: '#fff', color: policy.color, border: `1px solid ${policy.color}40` }} />
+                                                    {policy.encashUnused && (
+                                                        <Chip label="Encash" size="small"
+                                                            sx={{ fontSize: 10, fontWeight: 600, height: 20, bgcolor: '#fff', color: '#7C3AED', border: '1px solid #DDD6FE' }} />
+                                                    )}
+                                                </Box>
+                                            </Box>
+                                        </Box>
+                                    );
+                                })}
+                            </Box>
+                        )}
+                    </Section>
+
                 </Box>
             </Box>
+
+            {/* ── Leave Type Add/Edit Dialog ────────────────────────────────── */}
+            <Dialog
+                open={policyDialogOpen}
+                onClose={() => setPolicyDialogOpen(false)}
+                maxWidth="sm"
+                fullWidth
+                PaperProps={{ sx: { borderRadius: '10px', overflow: 'hidden' } }}
+            >
+                <Box sx={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    px: 3, py: 1.5, bgcolor: '#f2f2f2', borderBottom: '1px solid #ddd',
+                }}>
+                    <Typography sx={{ fontWeight: 600, fontSize: '16px' }}>
+                        {editingPolicy ? 'Edit Leave Type' : 'Add Leave Type'}
+                    </Typography>
+                    <IconButton size="small" onClick={() => setPolicyDialogOpen(false)}>
+                        <CloseIcon sx={{ fontSize: 18 }} />
+                    </IconButton>
+                </Box>
+
+                <Box sx={{ p: 2.5 }}>
+                    <Box sx={{ border: '1px solid #CCC', borderRadius: '5px', p: 2.5 }}>
+                        <Grid container spacing={2}>
+                            <Grid size={{ xs: 12, sm: 8, md: 8, lg: 8 }}>
+                                <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#555', mb: 0.5 }}>Leave Type Name *</Typography>
+                                <TextField
+                                    fullWidth size="small"
+                                    value={policyForm.name}
+                                    onChange={e => ffPolicy('name', e.target.value)}
+                                    placeholder="e.g., Casual Leave"
+                                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '5px', fontSize: 14 } }}
+                                />
+                            </Grid>
+                            <Grid size={{ xs: 12, sm: 4, md: 4, lg: 4 }}>
+                                <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#555', mb: 0.5 }}>Short Code *</Typography>
+                                <TextField
+                                    fullWidth size="small"
+                                    value={policyForm.shortCode}
+                                    onChange={e => ffPolicy('shortCode', e.target.value.toUpperCase().slice(0, 5))}
+                                    placeholder="e.g., CL"
+                                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '5px', fontSize: 14 } }}
+                                />
+                            </Grid>
+
+                            <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
+                                <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#555', mb: 0.5 }}>Days Per Month</Typography>
+                                <TextField
+                                    fullWidth size="small" type="number"
+                                    value={policyForm.daysPerMonth}
+                                    onChange={e => ffPolicy('daysPerMonth', Math.max(0, parseInt(e.target.value) || 0))}
+                                    slotProps={{ input: { inputProps: { min: 0, step: 1 } } }}
+                                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '5px', fontSize: 14 } }}
+                                />
+                                <Typography sx={{ fontSize: 10, color: '#9CA3AF', mt: 0.3 }}>Set 0 for unlimited / on-demand</Typography>
+                            </Grid>
+
+                            <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
+                                <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#555', mb: 0.5 }}>Allocation Period</Typography>
+                                <Autocomplete
+                                    size="small"
+                                    options={LP_ALLOCATION_PERIODS.map(a => a.key)}
+                                    value={policyForm.allocationPeriod}
+                                    onChange={(_, v) => ffPolicy('allocationPeriod', v || 'Monthly')}
+                                    renderInput={(params) => (
+                                        <TextField {...params} placeholder="Select period"
+                                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '5px', fontSize: 14 } }}
+                                        />
+                                    )}
+                                />
+                                {policyForm.daysPerMonth > 0 && policyForm.allocationPeriod !== 'Monthly' && (
+                                    <Typography sx={{ fontSize: 10, color: PRIMARY, fontWeight: 600, mt: 0.3 }}>
+                                        = {getTotalDaysForPeriod(policyForm.daysPerMonth, policyForm.allocationPeriod)} days per {policyForm.allocationPeriod.toLowerCase()}
+                                    </Typography>
+                                )}
+                            </Grid>
+
+                            <Grid size={{ xs: 12, sm: 12, md: 12, lg: 12 }}>
+                                <Box sx={{
+                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                    p: 1.5, borderRadius: '8px',
+                                    border: `1px solid ${policyForm.encashUnused ? '#DDD6FE' : '#E5E7EB'}`,
+                                    bgcolor: policyForm.encashUnused ? '#F5F3FF' : '#FAFAFA',
+                                    transition: '0.2s',
+                                }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                                        <MonetizationOnIcon sx={{ fontSize: 18, mt: 0.2, flexShrink: 0, color: policyForm.encashUnused ? '#7C3AED' : '#999' }} />
+                                        <Box>
+                                            <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#333' }}>Encash Untaken Days</Typography>
+                                            <Typography sx={{ fontSize: 11, color: '#777', mt: 0.2 }}>
+                                                {policyForm.encashUnused
+                                                    ? 'Untaken days will be added to salary at end of period'
+                                                    : 'Untaken days will lapse — not added to salary'}
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+                                    <Switch
+                                        checked={policyForm.encashUnused}
+                                        onChange={e => ffPolicy('encashUnused', e.target.checked)}
+                                        size="small"
+                                        sx={{
+                                            flexShrink: 0,
+                                            '& .MuiSwitch-switchBase.Mui-checked': { color: '#7C3AED' },
+                                            '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#7C3AED' },
+                                        }}
+                                    />
+                                </Box>
+                            </Grid>
+
+                            <Grid size={{ xs: 12, sm: 12, md: 12, lg: 12 }}>
+                                <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#555', mb: 0.8 }}>Color Tag</Typography>
+                                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                                    {LEAVE_COLORS.map(c => (
+                                        <Box key={c} onClick={() => ffPolicy('color', c)}
+                                            sx={{
+                                                width: 24, height: 24, borderRadius: '50%', bgcolor: c, cursor: 'pointer',
+                                                border: policyForm.color === c ? '3px solid #333' : '3px solid transparent',
+                                                transition: '0.15s',
+                                                '&:hover': { transform: 'scale(1.15)' },
+                                            }}
+                                        />
+                                    ))}
+                                </Box>
+                            </Grid>
+
+                            <Grid size={{ xs: 12, sm: 12, md: 12, lg: 12 }}>
+                                <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#555', mb: 0.5 }}>Description</Typography>
+                                <TextField
+                                    fullWidth size="small" multiline rows={2}
+                                    value={policyForm.description}
+                                    onChange={e => ffPolicy('description', e.target.value)}
+                                    placeholder="Brief description of when this leave applies"
+                                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '5px', fontSize: 13 } }}
+                                />
+                            </Grid>
+                        </Grid>
+                    </Box>
+                </Box>
+
+                <Box sx={{ display: 'flex', justifyContent: 'end', px: 2, py: 1.5, borderTop: '1px solid #eee', gap: 1 }}>
+                    <Button
+                        onClick={() => setPolicyDialogOpen(false)}
+                        sx={{ border: '1px solid #000', borderRadius: '30px', textTransform: 'none', width: '100px', height: '30px', color: '#000', fontSize: 13, fontWeight: 600 }}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        onClick={handleSavePolicy}
+                        disabled={isSavingPolicy}
+                        sx={{
+                            bgcolor: PRIMARY, borderRadius: '30px', textTransform: 'none',
+                            px: 3, height: '30px', color: '#fff', fontSize: 13, fontWeight: 600,
+                            '&:hover': { bgcolor: PRIMARY_DARK },
+                            '&.Mui-disabled': { bgcolor: '#E0E0E0', color: '#aaa' },
+                        }}
+                    >
+                        {isSavingPolicy ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : editingPolicy ? 'Update' : 'Add Leave Type'}
+                    </Button>
+                </Box>
+            </Dialog>
+
+            {/* ── Delete Leave Type Dialog ───────────────────────────────────── */}
+            <Dialog
+                open={deletePolicyDialogOpen}
+                onClose={() => setDeletePolicyDialogOpen(false)}
+                PaperProps={{ sx: { borderRadius: '10px', minWidth: 380, overflow: 'hidden', border: '1px solid #E5E7EB' } }}
+            >
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 3, py: 1.5, bgcolor: '#f2f2f2', borderBottom: '1px solid #ddd' }}>
+                    <Typography sx={{ fontWeight: 600, fontSize: '16px' }}>Delete Leave Type</Typography>
+                    <IconButton size="small" onClick={() => setDeletePolicyDialogOpen(false)}>
+                        <CloseIcon sx={{ fontSize: 18 }} />
+                    </IconButton>
+                </Box>
+                <Box sx={{ p: 3 }}>
+                    <Typography sx={{ fontSize: 13, color: '#555' }}>
+                        Are you sure you want to delete <strong>"{deletePolicyTarget?.name}"</strong>? This will remove it from all salary calculations.
+                    </Typography>
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'end', px: 2, py: 1.5, borderTop: '1px solid #eee', gap: 1 }}>
+                    <Button
+                        onClick={() => setDeletePolicyDialogOpen(false)}
+                        sx={{ border: '1px solid #000', borderRadius: '30px', textTransform: 'none', width: '100px', height: '30px', color: '#000', fontSize: 13, fontWeight: 600 }}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        onClick={handleConfirmDeletePolicy}
+                        sx={{
+                            bgcolor: '#DC2626', borderRadius: '30px', textTransform: 'none',
+                            px: 3, height: '30px', color: '#fff', fontSize: 13, fontWeight: 600,
+                            '&:hover': { bgcolor: '#B91C1C' },
+                        }}
+                    >
+                        Delete
+                    </Button>
+                </Box>
+            </Dialog>
         </>
     );
 }
