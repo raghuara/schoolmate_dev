@@ -195,7 +195,7 @@ export default function CreateFeedBackPage() {
 
     const handleAddOption = (qIndex) => {
         setQuestions(prev => prev.map((q, i) => {
-            if (i !== qIndex || q.options.length >= 4) return q;
+            if (i !== qIndex || q.options.length >= 15) return q;
             return { ...q, options: [...q.options, ''] };
         }));
     };
@@ -258,7 +258,7 @@ export default function CreateFeedBackPage() {
     };
 
     const handleSubjectAddOption = (subject, qIndex) => {
-        applySubjectUpdate(subject, (qs) => { if (qs[qIndex].options.length >= 4) return null; qs[qIndex] = { ...qs[qIndex], options: [...qs[qIndex].options, ''] }; return qs; });
+        applySubjectUpdate(subject, (qs) => { if (qs[qIndex].options.length >= 15) return null; qs[qIndex] = { ...qs[qIndex], options: [...qs[qIndex].options, ''] }; return qs; });
     };
 
     const handleSubjectRemoveOption = (subject, qIndex, optIndex) => {
@@ -459,6 +459,19 @@ export default function CreateFeedBackPage() {
                     setOpen(true); setColor(false); setStatus(false);
                     return false;
                 }
+                // Reject duplicate options (case-insensitive, trimmed) so the same value can't appear twice
+                const seen = new Set();
+                for (const raw of q.options) {
+                    const opt = (raw || '').trim();
+                    if (!opt) continue; // empty rows are ignored
+                    const key = opt.toLowerCase();
+                    if (seen.has(key)) {
+                        setMessage(`${label} - Question ${i + 1}: Duplicate option "${opt}" — please make each option unique.`);
+                        setOpen(true); setColor(false); setStatus(false);
+                        return false;
+                    }
+                    seen.add(key);
+                }
             }
         }
         return true;
@@ -476,11 +489,10 @@ export default function CreateFeedBackPage() {
                 // Toggle ON  → "Y"
                 // Toggle OFF → "N"
                 base.allowMultipleOptions = q.allowMultiple === true ? "Y" : "N";
-                q.options.forEach((opt, i) => {
-                    if (opt && opt.trim() !== '') {
-                        base[`option0${i + 1}`] = opt;
-                    }
-                });
+                // Send all non-empty options as a single array (trimmed, in the order entered)
+                base.options = (q.options || [])
+                    .map((opt) => (opt || '').trim())
+                    .filter((opt) => opt !== '');
             }
             return base;
         });
@@ -579,6 +591,7 @@ export default function CreateFeedBackPage() {
             '&.Mui-focused fieldset': { borderColor: websiteSettings.mainColor },
         },
     };
+    
     const labelSx = { fontSize: "12px", fontWeight: 600, color: "#555", mb: 0.5 };
 
     // Google Forms-style question renderer — clean, one-by-one layout
@@ -774,7 +787,7 @@ export default function CreateFeedBackPage() {
                                     variant="standard"
                                     fullWidth
                                     value={opt}
-                                    onChange={(e) => onOptionChange(qIndex, optIdx, e.target.value.replace(/[^a-zA-Z0-9 ]/g, ''))}
+                                    onChange={(e) => onOptionChange(qIndex, optIdx, e.target.value)}
                                     placeholder={`Option ${optIdx + 1}`}
                                     inputProps={{ maxLength: 50 }}
                                     slotProps={{
@@ -796,7 +809,7 @@ export default function CreateFeedBackPage() {
                                 )}
                             </Box>
                         ))}
-                        {q.options.length < 4 && (
+                        {q.options.length < 15 && (
                             <Box sx={{ display: 'flex', alignItems: 'center', ml: 0.3, mt: 0.5 }}>
                                 {q.allowMultiple
                                     ? <Checkbox disabled size="small" sx={{ p: 0.3, mr: 0.5, color: '#D1D5DB' }} />
@@ -809,7 +822,7 @@ export default function CreateFeedBackPage() {
                                         color: '#6B7280', p: 0, minWidth: 'auto',
                                         '&:hover': { bgcolor: 'transparent', color: websiteSettings.mainColor },
                                     }}>
-                                    Add option
+                                    Add option ({q.options.length}/15)
                                 </Button>
                             </Box>
                         )}
@@ -1260,7 +1273,7 @@ export default function CreateFeedBackPage() {
                                             {qs.length}/20
                                         </Typography>
                                     </Box>
-                                    <Box sx={{ p: 2, maxHeight: "58vh", overflowY: "auto", flex: 1 }}>
+                                    <Box sx={{ p: 2 }}>
                                         {qs.map((q, qIndex) => renderQuestionCard(q, qIndex, {
                                             onUpdate: (idx, field, val) => updateSubjectQuestion(subject, idx, field, val),
                                             onTypeChange: (idx, val) => handleSubjectQuestionTypeChange(subject, idx, val),

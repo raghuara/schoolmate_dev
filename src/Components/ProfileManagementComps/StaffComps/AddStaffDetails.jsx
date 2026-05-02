@@ -987,7 +987,7 @@ export default function AddStaffDetails() {
                                     id="panel2-header"
                                     sx={{ backgroundColor: "#fff7f7", py: 0.5, position: "relative" }}
                                 >
-                                    <Typography sx={{ fontWeight: "600" }} component="span">Student Info</Typography>
+                                    <Typography sx={{ fontWeight: "600" }} component="span">Staff Info</Typography>
                                 </AccordionSummary>
                                 <AccordionDetails>
                                     <Grid container pb={2} columnSpacing={3}>

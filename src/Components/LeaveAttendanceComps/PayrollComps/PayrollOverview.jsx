@@ -8,7 +8,6 @@ import AssignmentIcon from '@mui/icons-material/Assignment';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import DescriptionIcon from '@mui/icons-material/Description';
 import TaskAltIcon from '@mui/icons-material/TaskAlt';
-import BeachAccessIcon from '@mui/icons-material/BeachAccess';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import PeopleIcon from '@mui/icons-material/People';
@@ -38,7 +37,6 @@ const payrollModules = [
     { color: '#00ACC1', icon: ReceiptLongIcon,      text: 'Bank Details',               description: 'Manage employee bank account details for salary disbursement and maintain records for payroll processing.', bgColor: '#E0F7FA', iconBgColor: '#00ACC11A', path: 'bank-reports' },
     { color: '#E30053', icon: DescriptionIcon,      text: 'Audit-Ready Salary Register',description: 'View and export detailed salary breakdowns per employee including earnings, deductions, and net pay for each month.', bgColor: '#FCF8F9', iconBgColor: '#fbebf1',  path: 'salary-register' },
     { color: '#FF9800', icon: TaskAltIcon,          text: 'Run & Approve Payroll',      description: 'Process monthly payroll, approve salary disbursement, and download professional payslips for employees.', bgColor: '#FFF4E6', iconBgColor: '#FF98001A', path: 'approve-payroll' },
-    { color: '#059669', icon: BeachAccessIcon,      text: 'Leave Policy Master',        description: 'Create leave types with monthly accrual rates, carry-forward & encashment rules. Drives payroll LOP logic.', bgColor: '#ECFDF5', iconBgColor: '#0596691A', path: 'leave-policy/leave-master' },
 ];
 
 // ─── Payroll Cycle Stages ───────────────────────────────────────────────────

@@ -52,6 +52,11 @@ export default function SpecialConcession() {
     const [recommendationReason, setRecommendationReason] = useState('');
     const [isIndividual, setIsIndividual] = useState(false);
 
+    const user = useSelector((state) => state.auth);
+    const userRollNumber = user.rollNumber
+    const userType = user.userType
+    const userName = user.name
+    
     const getFeeName = (row, tab) => {
         if (tab === 1) {
             return row.place || "-";
@@ -97,8 +102,7 @@ export default function SpecialConcession() {
                 };
             });
     };
-
-    // Fetch all 4 fee types fresh on mount
+ 
     useEffect(() => {
         if (!rollNumber || !selectedYear) return;
         fetchAllFeeData();
@@ -161,31 +165,72 @@ export default function SpecialConcession() {
             });
 
             const concessions = res.data?.data?.data;
-            if (!concessions || !Array.isArray(concessions) || concessions.length === 0) return;
 
+            // No saved concessions for this tab — reset toggle + common fields, leave rows blank
+            if (!concessions || !Array.isArray(concessions) || concessions.length === 0) {
+                setIsIndividual(false);
+                setConcessionCategory('');
+                setRecommendedBy('');
+                setRecommendationReason('');
+                return;
+            }
+
+            // Lookup by feeElementId so we can fill the right row
             const concessionMap = {};
-            concessions.forEach(c => {
-                concessionMap[c.feeElementId] = c.concessionAmount;
-            });
+            concessions.forEach((c) => { concessionMap[c.feeElementId] = c; });
 
-            const updatedRows = currentRows.map(row => {
-                const existingAmount = concessionMap[row.id];
-                if (existingAmount !== undefined && existingAmount > 0) {
+            // Detect mode from saved records:
+            //   "Y" on ANY record → per-fee (turn toggle ON)
+            //   otherwise → common mode (toggle OFF). Old records with "" fall here.
+            const perFeeMode = concessions.some((c) => c.isSeparateDetailsPerFee === 'Y');
+            setIsIndividual(perFeeMode);
+
+            if (perFeeMode) {
+                // Per-fee mode — clear common fields; each row will carry its own
+                setConcessionCategory('');
+                setRecommendedBy('');
+                setRecommendationReason('');
+            } else {
+                // Common mode — populate top-level fields from the first record that has any detail.
+                // If none has details (e.g. old records with all empty strings), fields stay empty.
+                const firstWithDetails =
+                    concessions.find((c) =>
+                        (c.concessionCategory || '').trim() ||
+                        (c.recommendedBy || '').trim() ||
+                        (c.recommendationReason || '').trim()
+                    ) || concessions[0];
+                setConcessionCategory(firstWithDetails.concessionCategory || '');
+                setRecommendedBy(firstWithDetails.recommendedBy || '');
+                setRecommendationReason(firstWithDetails.recommendationReason || '');
+            }
+
+            // Populate each row with its saved concession amount + per-row details (when in per-fee mode)
+            const updatedRows = currentRows.map((row) => {
+                const existing = concessionMap[row.id];
+                if (existing && parseFloat(existing.concessionAmount) > 0) {
                     const amount = parseFloat(row.displayAmount);
-                    const concessionAmount = parseFloat(existingAmount);
+                    const concessionAmount = parseFloat(existing.concessionAmount);
                     const percent = amount > 0 ? ((concessionAmount / amount) * 100).toFixed(2) : '0';
                     return {
                         ...row,
                         concessionAmount: String(concessionAmount),
                         concessionPercent: percent,
                         finalFee: Math.round(amount - concessionAmount),
+                        // Fill per-row detail fields only when we're in per-fee mode
+                        rowCategory: perFeeMode ? (existing.concessionCategory || '') : (row.rowCategory || ''),
+                        rowRecommendedBy: perFeeMode ? (existing.recommendedBy || '') : (row.rowRecommendedBy || ''),
+                        rowReason: perFeeMode ? (existing.recommendationReason || '') : (row.rowReason || ''),
                     };
                 }
                 return row;
             });
             setRows(updatedRows);
         } catch {
-            // No existing concessions — rows stay as default
+            // Fetch failed — reset to clean defaults so we don't show stale state from another tab
+            setIsIndividual(false);
+            setConcessionCategory('');
+            setRecommendedBy('');
+            setRecommendationReason('');
         }
     };
 
@@ -238,21 +283,29 @@ export default function SpecialConcession() {
             return;
         }
 
-        // rollNumber is used as concessionBy (the student identifier)
-        const concessionBy = rollNumber || "";
+        // concessionBy = the logged-in user who is granting this concession (admin / staff / etc.)
+        const concessionBy = userRollNumber || "";
+
+        // Safely convert to Number (returns 0 if invalid, for IDs we use undefined so they aren't sent wrong)
+        const numOrUndef = (v) => {
+            const n = Number(v);
+            return Number.isFinite(n) ? n : undefined;
+        };
 
         const getRowDetails = (row) => {
             if (isIndividual) {
                 return {
-                    concessionCategory: row.rowCategory || '',
-                    recommendedBy: row.rowRecommendedBy || '',
-                    recommendationReason: row.rowReason || '',
+                    isSeparateDetailsPerFee: "Y",
+                    concessionCategory: (row.rowCategory || '').trim(),
+                    recommendedBy: (row.rowRecommendedBy || '').trim(),
+                    recommendationReason: (row.rowReason || '').trim(),
                 };
             }
             return {
-                concessionCategory,
-                recommendedBy,
-                recommendationReason,
+                isSeparateDetailsPerFee: "N",
+                concessionCategory: (concessionCategory || '').trim(),
+                recommendedBy: (recommendedBy || '').trim(),
+                recommendationReason: (recommendationReason || '').trim(),
             };
         };
 
@@ -260,35 +313,49 @@ export default function SpecialConcession() {
 
         if (tabValue === 0) {
             concessionElements = rowsWithConcession.map(row => ({
-                primeSchoolFeesID: row.primeSchoolFeesID,
-                feesElementID: row.id,
+                primeSchoolFeesID: numOrUndef(row.primeSchoolFeesID),
+                feesElementID: numOrUndef(row.id),
                 concessionAmount: parseFloat(row.concessionAmount),
                 concessionBy,
                 ...getRowDetails(row),
             }));
         } else if (tabValue === 1) {
             concessionElements = rowsWithConcession.map(row => ({
-                feesElementID: row.id,
+                feesElementID: numOrUndef(row.id),
                 concessionAmount: parseFloat(row.concessionAmount),
                 concessionBy,
                 ...getRowDetails(row),
             }));
         } else if (tabValue === 2) {
             concessionElements = rowsWithConcession.map(row => ({
-                ecaFeesID: row.ecaFeesID,
-                feesElementID: row.id,
+                ecaFeesID: numOrUndef(row.ecaFeesID),
+                feesElementID: numOrUndef(row.id),
                 concessionAmount: parseFloat(row.concessionAmount),
                 concessionBy,
                 ...getRowDetails(row),
             }));
         } else if (tabValue === 3) {
             concessionElements = rowsWithConcession.map(row => ({
-                additionalFeesID: row.additionalFeesID,
-                feesElementID: row.id,
+                additionalFeesID: numOrUndef(row.additionalFeesID),
+                feesElementID: numOrUndef(row.id),
                 concessionAmount: parseFloat(row.concessionAmount),
                 concessionBy,
                 ...getRowDetails(row),
             }));
+        }
+
+        // Safety: bail out if any critical ID is missing — that's the #1 cause of the EF save error
+        const badRow = concessionElements.find((el) =>
+            el.feesElementID == null ||
+            (tabValue === 0 && el.primeSchoolFeesID == null) ||
+            (tabValue === 2 && el.ecaFeesID == null) ||
+            (tabValue === 3 && el.additionalFeesID == null)
+        );
+        if (badRow) {
+            console.warn('Missing ID in concession payload row:', badRow);
+            setMessage('Some fee rows are missing their reference ID. Please refresh and try again.');
+            setStatus(false); setColor(false); setOpen(true);
+            return;
         }
 
         const payload = { concessionElements };
@@ -303,12 +370,18 @@ export default function SpecialConcession() {
 
         setIsLoading(true);
         try {
+            // Debug: log the exact payload so we can diagnose backend EF save failures
+            console.log('[Concession] POST', feeTabs[tabValue], apiEndpoint);
+            console.log('[Concession] params:', { RollNumber: rollNumber, Year: selectedYear });
+            console.log('[Concession] body:', JSON.stringify(payload, null, 2));
+
             const res = await axios.post(apiEndpoint, payload, {
                 params: { RollNumber: rollNumber, Year: selectedYear },
                 headers: {
                     Authorization: `Bearer ${token}`,
                     'Content-Type': 'application/json',
                 },
+                timeout: 60000, // 60s — EF save can be slow on the first call
             });
 
             if (res.data.success || res.status === 200) {
@@ -325,8 +398,17 @@ export default function SpecialConcession() {
                 throw new Error(res.data.message || 'Failed to apply concession');
             }
         } catch (error) {
-            console.error("Error applying concession:", error);
-            setMessage(error.response?.data?.message || error.message || 'Failed to apply concession');
+            console.error("Error applying concession (full):", error);
+            console.error("Response data:", error.response?.data);
+            // Surface inner exception text if backend returned it
+            const serverMsg =
+                error.response?.data?.innerException ||
+                error.response?.data?.InnerException ||
+                error.response?.data?.message ||
+                error.response?.data?.Message ||
+                error.message ||
+                'Failed to apply concession';
+            setMessage(String(serverMsg).slice(0, 300));
             setStatus(false);
             setColor(false);
             setOpen(true);

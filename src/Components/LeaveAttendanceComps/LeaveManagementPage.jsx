@@ -28,6 +28,8 @@ import {
     DialogActions,
     FormControl,
     InputLabel,
+    Checkbox,
+    FormControlLabel,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AddIcon from '@mui/icons-material/Add';
@@ -37,8 +39,14 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import EventIcon from '@mui/icons-material/Event';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import FilterListIcon from '@mui/icons-material/FilterList';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import dayjs from 'dayjs';
 import { postLeaveRequest, getLeaveDashboard } from '../../Api/Api';
 import SnackBar from '../SnackBar';
 import { useSelector } from 'react-redux';
@@ -53,7 +61,35 @@ const formatDateForApi = (dateStr) => {
     return `${d}-${m}-${y}`;
 };
 
-export default function LeaveManagementPage({ isEmbedded = false, onGoToApprovalWorkflow }) {
+// ─── Working Calendar (sourced from Leave Policy Master) ────────────────────
+// TODO: replace with API fetch — same data the HR sets in Working Calendar section.
+// Fallback defaults: Mon–Sat working, Sunday off, a couple of mock mandatory dates.
+const DEFAULT_WORKING_DOW = [1, 2, 3, 4, 5, 6];                       // 0=Sun
+const MOCK_HOLIDAY_OVERRIDES = new Set();                             // YYYY-MM-DD strings
+const MOCK_MANDATORY_DAYS = new Set([
+    dayjs().date(15).format('YYYY-MM-DD'),                            // 15th of current month
+    dayjs().add(1, 'month').date(1).format('YYYY-MM-DD'),             // 1st of next month
+]);
+
+const getDayType = (date) => {
+    const key = date.format('YYYY-MM-DD');
+    if (MOCK_MANDATORY_DAYS.has(key)) return 'mandatory';
+    if (MOCK_HOLIDAY_OVERRIDES.has(key)) return 'holiday';
+    return DEFAULT_WORKING_DOW.includes(date.day()) ? 'working' : 'holiday';
+};
+
+const DAY_TYPE_STYLE = {
+    working:   { bg: '#F0FDF4', color: '#16A34A', border: '#A7F3D0', tag: '' },
+    holiday:   { bg: '#FEF2F2', color: '#DC2626', border: '#FECACA', tag: 'OFF' },
+    mandatory: { bg: '#FFF7ED', color: '#EA580C', border: '#FED7AA', tag: 'MWD' },
+};
+
+const DOW_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const PRIMARY = '#059669';        // emerald — same as Leave Policy Master
+const PRIMARY_LIGHT = '#ECFDF5';
+const PRIMARY_DARK = '#047857';
+
+export default function LeaveManagementPage({ isEmbedded = false, onGoToApprovalWorkflow, onGoToApplyLeave }) {
     const navigate = useNavigate();
     const [tabValue, setTabValue] = useState(2); // Leave Management tab (updated to tab 2)
     const [leaveTab, setLeaveTab] = useState(0); // All Leaves tab
@@ -107,17 +143,6 @@ export default function LeaveManagementPage({ isEmbedded = false, onGoToApproval
         fetchDashboard();
     }, []);
 
-    // Leave Application Dialog State
-    const [openLeaveDialog, setOpenLeaveDialog] = useState(false);
-    const [leaveFormData, setLeaveFormData] = useState({
-        leaveType: '',
-        startDate: '',
-        endDate: '',
-        reason: '',
-        contactNumber: '',
-        emergencyContact: ''
-    });
-
     const handleTabChange = (event, newValue) => {
         switch(newValue) {
             case 0:
@@ -146,67 +171,8 @@ export default function LeaveManagementPage({ isEmbedded = false, onGoToApproval
     };
 
     const handleApplyLeave = () => {
-        setOpenLeaveDialog(true);
-    };
-
-    const handleCloseLeaveDialog = () => {
-        setOpenLeaveDialog(false);
-        // Reset form
-        setLeaveFormData({
-            leaveType: '',
-            startDate: '',
-            endDate: '',
-            reason: '',
-            contactNumber: '',
-            emergencyContact: ''
-        });
-    };
-
-    const handleLeaveFormChange = (field, value) => {
-        setLeaveFormData(prev => ({
-            ...prev,
-            [field]: value
-        }));
-    };
-
-    const handleSubmitLeave = async () => {
-        if (!leaveFormData.leaveType || !leaveFormData.startDate || !leaveFormData.endDate || !leaveFormData.reason) {
-            showSnack('Please fill all required fields', false);
-            return;
-        }
-
-        const fromDate = formatDateForApi(leaveFormData.startDate);
-        const toDate = formatDateForApi(leaveFormData.endDate);
-        const duration = Math.max(
-            1,
-            Math.ceil((new Date(leaveFormData.endDate) - new Date(leaveFormData.startDate)) / (1000 * 60 * 60 * 24)) + 1
-        );
-
-        const sendData = {
-            forRollNumber: rollNumber,
-            fromDate,
-            toDate,
-            duration,
-            leaveType: leaveFormData.leaveType,
-            reason: leaveFormData.reason,
-            contact: leaveFormData.contactNumber,
-            emergencyContact: leaveFormData.emergencyContact,
-            remarks: leaveFormData.reason,
-        };
-
-        setIsLoading(true);
-        try {
-            await axios.post(postLeaveRequest, sendData, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            showSnack('Leave applied successfully!', true);
-            handleCloseLeaveDialog();
-            fetchDashboard();
-        } catch (error) {
-            console.error('Error while submitting leave:', error);
-            showSnack('Failed to submit leave application', false);
-        } finally {
-            setIsLoading(false);
+        if (onGoToApplyLeave) {
+            onGoToApplyLeave();
         }
     };
 
@@ -732,232 +698,6 @@ export default function LeaveManagementPage({ isEmbedded = false, onGoToApproval
                 </Grid>
             </Grid>
 
-            {/* Leave Application Dialog */}
-            <Dialog
-                open={openLeaveDialog}
-                onClose={handleCloseLeaveDialog}
-                maxWidth="md"
-                fullWidth
-                PaperProps={{
-                    sx: {
-                        borderRadius: '12px',
-                        p: 1
-                    }
-                }}
-            >
-                <DialogTitle>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                        <Box sx={{
-                            width: '40px',
-                            height: '40px',
-                            borderRadius: '8px',
-                            bgcolor: '#22C55E1A',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                        }}>
-                            <AddIcon sx={{ color: '#22C55E', fontSize: '20px' }} />
-                        </Box>
-                        <Box>
-                            <Typography sx={{ fontSize: '20px', fontWeight: '700', color: '#1a1a1a' }}>
-                                Apply for Leave
-                            </Typography>
-                            <Typography sx={{ fontSize: '13px', color: '#666' }}>
-                                Fill in the details below to submit your leave application
-                            </Typography>
-                        </Box>
-                    </Box>
-                </DialogTitle>
-
-                <DialogContent sx={{ pt: 3 }}>
-                    <Grid container spacing={2.5}>
-                        {/* Leave Type */}
-                        <Grid size={{ xs: 12, sm: 6 }}>
-                            <FormControl fullWidth required>
-                                <InputLabel>Leave Type</InputLabel>
-                                <Select
-                                    value={leaveFormData.leaveType}
-                                    onChange={(e) => handleLeaveFormChange('leaveType', e.target.value)}
-                                    label="Leave Type"
-                                    sx={{
-                                        '& .MuiOutlinedInput-notchedOutline': {
-                                            borderColor: '#E8E8E8'
-                                        }
-                                    }}
-                                >
-                                    <MenuItem value="Sick Leave">Sick Leave</MenuItem>
-                                    <MenuItem value="Casual Leave">Casual Leave</MenuItem>
-                                    <MenuItem value="Emergency Leave">Emergency Leave</MenuItem>
-                                    <MenuItem value="Maternity Leave">Maternity Leave</MenuItem>
-                                    <MenuItem value="Paternity Leave">Paternity Leave</MenuItem>
-                                    <MenuItem value="Annual Leave">Annual Leave</MenuItem>
-                                    <MenuItem value="Unpaid Leave">Unpaid Leave</MenuItem>
-                                </Select>
-                            </FormControl>
-                        </Grid>
-
-                        {/* Duration Display */}
-                        <Grid size={{ xs: 12, sm: 6 }}>
-                            <Box sx={{
-                                height: '56px',
-                                border: '1px solid #E8E8E8',
-                                borderRadius: '4px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                bgcolor: '#F9FAFB'
-                            }}>
-                                <Typography sx={{ fontSize: '14px', color: '#666' }}>
-                                    Duration: <Typography component="span" sx={{ fontWeight: '700', color: '#1a1a1a' }}>
-                                        {leaveFormData.startDate && leaveFormData.endDate
-                                            ? Math.ceil((new Date(leaveFormData.endDate) - new Date(leaveFormData.startDate)) / (1000 * 60 * 60 * 24)) + 1
-                                            : 0} days
-                                    </Typography>
-                                </Typography>
-                            </Box>
-                        </Grid>
-
-                        {/* Start Date */}
-                        <Grid size={{ xs: 12, sm: 6 }}>
-                            <TextField
-                                fullWidth
-                                required
-                                label="Start Date"
-                                type="date"
-                                value={leaveFormData.startDate}
-                                onChange={(e) => handleLeaveFormChange('startDate', e.target.value)}
-                                slotProps={{
-                                    inputLabel: {
-                                        shrink: true,
-                                    },
-                                    htmlInput: {
-                                        min: new Date().toISOString().split('T')[0]
-                                    }
-                                }}
-                                sx={{
-                                    '& .MuiOutlinedInput-notchedOutline': {
-                                        borderColor: '#E8E8E8'
-                                    }
-                                }}
-                            />
-                        </Grid>
-
-                        {/* End Date */}
-                        <Grid size={{ xs: 12, sm: 6 }}>
-                            <TextField
-                                fullWidth
-                                required
-                                label="End Date"
-                                type="date"
-                                value={leaveFormData.endDate}
-                                onChange={(e) => handleLeaveFormChange('endDate', e.target.value)}
-                                slotProps={{
-                                    inputLabel: {
-                                        shrink: true,
-                                    },
-                                    htmlInput: {
-                                        min: leaveFormData.startDate || new Date().toISOString().split('T')[0]
-                                    }
-                                }}
-                                sx={{
-                                    '& .MuiOutlinedInput-notchedOutline': {
-                                        borderColor: '#E8E8E8'
-                                    }
-                                }}
-                            />
-                        </Grid>
-
-                        {/* Reason */}
-                        <Grid size={{ xs: 12 }}>
-                            <TextField
-                                fullWidth
-                                required
-                                multiline
-                                rows={4}
-                                label="Reason for Leave"
-                                placeholder="Please provide a detailed reason for your leave request..."
-                                value={leaveFormData.reason}
-                                onChange={(e) => handleLeaveFormChange('reason', e.target.value)}
-                                sx={{
-                                    '& .MuiOutlinedInput-notchedOutline': {
-                                        borderColor: '#E8E8E8'
-                                    }
-                                }}
-                            />
-                        </Grid>
-
-                        {/* Contact Number */}
-                        <Grid size={{ xs: 12, sm: 6 }}>
-                            <TextField
-                                fullWidth
-                                label="Contact Number"
-                                placeholder="Enter your contact number"
-                                value={leaveFormData.contactNumber}
-                                onChange={(e) => handleLeaveFormChange('contactNumber', e.target.value)}
-                                sx={{
-                                    '& .MuiOutlinedInput-notchedOutline': {
-                                        borderColor: '#E8E8E8'
-                                    }
-                                }}
-                            />
-                        </Grid>
-
-                        {/* Emergency Contact */}
-                        <Grid size={{ xs: 12, sm: 6 }}>
-                            <TextField
-                                fullWidth
-                                label="Emergency Contact"
-                                placeholder="Emergency contact number"
-                                value={leaveFormData.emergencyContact}
-                                onChange={(e) => handleLeaveFormChange('emergencyContact', e.target.value)}
-                                sx={{
-                                    '& .MuiOutlinedInput-notchedOutline': {
-                                        borderColor: '#E8E8E8'
-                                    }
-                                }}
-                            />
-                        </Grid>
-
-                    </Grid>
-                </DialogContent>
-
-                <DialogActions sx={{ p: 3, pt: 2 }}>
-                    <Button
-                        onClick={handleCloseLeaveDialog}
-                        sx={{
-                            textTransform: 'none',
-                            fontSize: '14px',
-                            fontWeight: '600',
-                            color: '#666',
-                            px: 3,
-                            '&:hover': {
-                                bgcolor: '#F5F5F5'
-                            }
-                        }}
-                    >
-                        Cancel
-                    </Button>
-                    <Button
-                        onClick={handleSubmitLeave}
-                        variant="contained"
-                        disabled={isLoading}
-                        startIcon={isLoading ? <CircularProgress size={16} color="inherit" /> : null}
-                        sx={{
-                            textTransform: 'none',
-                            fontSize: '14px',
-                            fontWeight: '600',
-                            bgcolor: '#22C55E',
-                            color: '#fff',
-                            px: 4,
-                            '&:hover': {
-                                bgcolor: '#16A34A'
-                            }
-                        }}
-                    >
-                        {isLoading ? 'Submitting...' : 'Submit Application'}
-                    </Button>
-                </DialogActions>
-            </Dialog>
         </Box>
         </>
     );

@@ -75,13 +75,19 @@ export default function SchoolFeeStructure() {
     return initialFees;
   };
 
+  // Detects the protected Admission Fee row regardless of trailing "*" / casing / whitespace.
+  // Backend stores it with the asterisk because we send it as "Admission Fee *" on create.
+  const isAdmissionFeeRow = (name = "") =>
+    name.replace(/\*/g, "").trim().toLowerCase() === "admission fee";
+
   const normalizeBackendFees = (backendFees = []) => {
     return backendFees.map((f) => ({
       feeName: f.feeDetails || "",
       desc: f.feeDescription || "",
       amount: f.feeAmount != null ? String(f.feeAmount) : "",
       dueDate: f.dueDate ? dayjs(f.dueDate) : null,
-      mandatory: false,
+      // Lock Admission Fee on edit too — its name must match what was created
+      mandatory: isAdmissionFeeRow(f.feeDetails),
       openCal: false,
     }));
   };
@@ -174,6 +180,19 @@ export default function SchoolFeeStructure() {
     ) || 0;
 
   const handleChange = (grade, index, key, value) => {
+    // Reject duplicate "Admission Fee" name on any non-mandatory row.
+    // The seeded mandatory row already owns this name (with or without "*").
+    if (key === "feeName") {
+      const row = gradeFees[grade]?.[index];
+      if (row && !row.mandatory && isAdmissionFeeRow(value)) {
+        setOpen(true);
+        setStatus(false);
+        setColor(false);
+        setMessage('"Admission Fee" is already added by default. Please choose a different fee name.');
+        return; // do not update state
+      }
+    }
+
     setGradeFees((prev) => {
       const updated = { ...prev };
       updated[grade][index][key] = value;
@@ -260,6 +279,16 @@ export default function SchoolFeeStructure() {
   };
 
   const handleSubmit = async (status) => {
+    // Block duplicate "Admission Fee" — it's seeded by default, only one allowed
+    const feesForGradePreCheck = gradeFees[selectedGrade] || [];
+    const admissionCount = feesForGradePreCheck.filter((f) => isAdmissionFeeRow(f.feeName)).length;
+    if (admissionCount > 1) {
+      setOpen(true);
+      setStatus(false);
+      setColor(false);
+      setMessage('"Admission Fee" is already added by default. Please rename or remove the duplicate row before saving.');
+      return;
+    }
 
     setIsLoading(true);
     try {
@@ -314,6 +343,16 @@ export default function SchoolFeeStructure() {
   };
 
   const handleUpdate = async (status) => {
+    // Block duplicate "Admission Fee" — it's seeded by default, only one allowed
+    const feesForGradePreCheck = gradeFees[selectedGrade] || [];
+    const admissionCount = feesForGradePreCheck.filter((f) => isAdmissionFeeRow(f.feeName)).length;
+    if (admissionCount > 1) {
+      setOpen(true);
+      setStatus(false);
+      setColor(false);
+      setMessage('"Admission Fee" is already added by default. Please rename or remove the duplicate row before updating.');
+      return;
+    }
 
     setIsLoading(true);
     try {

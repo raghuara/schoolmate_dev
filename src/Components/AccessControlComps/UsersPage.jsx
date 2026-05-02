@@ -26,12 +26,15 @@ export default function UsersPage() {
 
 
 
-    const items = [
-        { color: "#A749CC", icon: LoginIcon, text: "Users Activity", bgColor: "#FBF9FC", iconBgColor: "#F7F0F9", path: '/dashboardmenu/access/useractivity', },
-        { color: "#ED9146", icon: HttpsIcon, text: "Password Management", bgColor: "#FCFBF9", iconBgColor: "#FBF4EF", path: '/dashboardmenu/access/password', },
-        // { color: "#7DC353", icon: CircularsIcon, text: "Circulars", bgColor: "#F9FBF7", iconBgColor: "#F2F8EE", path: 'circulars', intimation: circularIntimation }, 
+    const allItems = [
+        { color: "#A749CC", icon: LoginIcon, text: "Users Activity", bgColor: "#FBF9FC", iconBgColor: "#F7F0F9", path: '/dashboardmenu/access/useractivity', superadminOnly: false },
+        { color: "#ED9146", icon: HttpsIcon, text: "Password Management", bgColor: "#FCFBF9", iconBgColor: "#FBF4EF", path: '/dashboardmenu/access/password', superadminOnly: true },
+        // { color: "#7DC353", icon: CircularsIcon, text: "Circulars", bgColor: "#F9FBF7", iconBgColor: "#F2F8EE", path: 'circulars', intimation: circularIntimation },
         // { color: "#E10052", icon: HomeWorkIcon, text: "Homework", bgColor: "#FCF8F9", iconBgColor: "#FBEBF1", path: 'homework', intimation: homeworkIntimation },
     ];
+
+    // Hide superadmin-only cards from admin / staff
+    const items = allItems.filter((item) => !item.superadminOnly || userType === "superadmin");
 
     if (userType !== "superadmin" && userType !== "admin" && userType !== "staff") {
         return <Navigate to="/dashboardmenu/dashboard" replace />;

@@ -338,6 +338,18 @@ const updateSalaryStructureByRollnumber = `${payRoll}updateSalaryStructureByRoll
 const deleteSalaryStructureByRollnumber = `${payRoll}deleteSalaryStructureByRollnumber`;
 const salaryStructureDashboard = `${payRoll}salaryStructureDashboard`;
 
+// Leave policy master 
+const leavePolicy = `${baseApiurl}leavePolicy/`;
+const postleavepolicy = `${leavePolicy}postleavepolicy`;
+const GetLeavePolicy = `${leavePolicy}GetLeavePolicy`;
+const postleavetypes = `${leavePolicy}postleavetypes`;
+const GetleaveTypes = `${leavePolicy}GetleaveTypes`;
+const postworkingcalendar = `${leavePolicy}postworkingcalendar`;
+const GetWorkingcalendar = `${leavePolicy}GetWorkingcalendar`;
+const UpdateleaveTypeByID = `${leavePolicy}UpdateleaveTypeByID`;
+const DeleteleaveTypeByID = `${leavePolicy}DeleteleaveTypeByID`;
+
+
 const postPFConfiguration = `${payRoll}postPFConfiguration`;
 const postESIConfiguration = `${payRoll}postESIConfiguration`;
 const postProfessionalTaxConfiguration = `${payRoll}postProfessionalTaxConfiguration`;
@@ -773,5 +785,13 @@ export {
     postNewFeedback,
     deleteNewFeedbackByTitleId,
     updateNewFeedbackQuestions,
-    fetchNewFeedbackAdminResponses
+    fetchNewFeedbackAdminResponses,
+    postleavepolicy,
+    GetLeavePolicy,
+    postleavetypes,
+    GetleaveTypes,
+    postworkingcalendar,
+    GetWorkingcalendar,
+    UpdateleaveTypeByID,
+    DeleteleaveTypeByID
 }

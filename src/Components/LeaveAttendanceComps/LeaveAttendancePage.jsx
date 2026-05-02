@@ -36,6 +36,7 @@ import LeaveManagementPage from './LeaveManagementPage';
 import ApprovalWorkflowPage from './ApprovalWorkflowPage';
 import AttendanceReportsPage from './AttendanceReportsPage';
 import AddStaffAttendancePage from './AddStaffAttendancePage';
+import ApplyLeavePage from './ApplyLeavePage';
 
 
 const token = "123";
@@ -663,15 +664,28 @@ export default function LeaveAttendancePage() {
     };
 
     const renderTabContent = () => {
-        if (userType === "teacher") return <LeaveManagementPage isEmbedded={true} />;
+        if (userType === "teacher") {
+            // Teachers see only Leave Management + Apply Leave (single embedded view)
+            return <LeaveManagementPage
+                isEmbedded={true}
+                onGoToApplyLeave={() => setTabValue(4)}
+            />;
+        }
 
         if (userType === "staff") {
             switch (tabValue) {
                 case 0: return renderDashboard();
                 case 1: return <AddStaffAttendancePage />;
                 case 2: return <StaffAttendanceOverviewPage isEmbedded={true} />;
-                case 3: return <LeaveManagementPage isEmbedded={true} />;
-                case 4: return <AttendanceReportsPage isEmbedded={true} />;
+                case 3: return <LeaveManagementPage
+                    isEmbedded={true}
+                    onGoToApplyLeave={() => setTabValue(4)}
+                />;
+                case 4: return <ApplyLeavePage
+                    onSuccess={() => setTabValue(3)}
+                    onCancel={() => setTabValue(3)}
+                />;
+                case 5: return <AttendanceReportsPage isEmbedded={true} />;
                 default: return renderDashboard();
             }
         }
@@ -680,9 +694,17 @@ export default function LeaveAttendancePage() {
             case 0: return renderDashboard();
             case 1: return <AddStaffAttendancePage />;
             case 2: return <StaffAttendanceOverviewPage isEmbedded={true} />;
-            case 3: return <LeaveManagementPage isEmbedded={true} onGoToApprovalWorkflow={() => setTabValue(4)} />;
-            case 4: return <ApprovalWorkflowPage isEmbedded={true} />;
-            case 5: return <AttendanceReportsPage isEmbedded={true} />;
+            case 3: return <LeaveManagementPage
+                isEmbedded={true}
+                onGoToApprovalWorkflow={() => setTabValue(5)}
+                onGoToApplyLeave={() => setTabValue(4)}
+            />;
+            case 4: return <ApplyLeavePage
+                onSuccess={() => setTabValue(3)}
+                onCancel={() => setTabValue(3)}
+            />;
+            case 5: return <ApprovalWorkflowPage isEmbedded={true} />;
+            case 6: return <AttendanceReportsPage isEmbedded={true} />;
             default: return renderDashboard();
         }
     };
@@ -882,6 +904,7 @@ export default function LeaveAttendancePage() {
                                 <Tab label="Add Attendance" />
                                 <Tab label="Overview" />
                                 <Tab label="Leave Management" />
+                                <Tab label="Apply Leave" />
                                 {userType !== "staff" && <Tab label="Leave Approval" />}
                                 <Tab label="Reports" />
                             </Tabs>

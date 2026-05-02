@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Box, Stepper, Step, StepLabel, Switch, Typography, IconButton, useMediaQuery, Grid, Button, FormLabel, RadioGroup, FormControlLabel, Radio, FormControl, Accordion, AccordionSummary, AccordionDetails, TextField, FormGroup, Checkbox, Autocomplete, Paper, Popper, InputAdornment, Dialog, TextareaAutosize, DialogContent, DialogActions, Popover } from "@mui/material";
+import { Box, Stepper, Step, StepLabel, Switch, Typography, IconButton, useMediaQuery, Grid, Button, FormLabel, RadioGroup, FormControlLabel, Radio, FormControl, Accordion, AccordionSummary, AccordionDetails, TextField, FormGroup, Checkbox, Autocomplete, Paper, Popper, InputAdornment, Dialog, TextareaAutosize, DialogContent, DialogActions, Popover, Tooltip } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useTheme } from "@mui/material/styles";
@@ -79,6 +79,7 @@ export default function EdeitStudentInfoPage() {
     const [rteStudent, setRteStudent] = useState("");
     const [studentNameEnglish, setStudentNameEnglish] = useState("");
     const [isNewStudent, setIsNewStudent] = useState(false);
+    const [isFeeStructureCreated, setIsFeeStructureCreated] = useState(false);
     const [studentNameTamil, setStudentNameTamil] = useState("");
     const [dateOfBirth, setDateOfBirth] = useState(null);
     const [gender, setGender] = useState("");
@@ -547,6 +548,8 @@ export default function EdeitStudentInfoPage() {
             setOriginalCertificateReceived(studentAcademicInfo?.[0]?.originalCertificateReceived || "")
             setRteStudent(studentAcademicInfo?.[0]?.rteStudent || "")
             setIsNewStudent((studentAcademicInfo?.[0]?.oldOrNewAdmission || "").toLowerCase() === "new")
+            // Lock the New Student toggle once the fee structure has been created — admission status drives fee logic
+            setIsFeeStructureCreated(res.data.isFeeStructureCreated === true)
 
             const studentInfo = res.data.studentInfo
             setReligion(studentInfo?.[0]?.religion || "")
@@ -1425,27 +1428,51 @@ export default function EdeitStudentInfoPage() {
                                 }}
                             >
                                 <Typography sx={{ fontWeight: "600" }} component="span">Student Academic Info</Typography>
-                                <FormControlLabel
-                                    onClick={(e) => e.stopPropagation()}
-                                    onFocus={(e) => e.stopPropagation()}
-                                    control={
-                                        <Switch
-                                            size="small"
-                                            checked={isNewStudent}
-                                            onChange={(e) => setIsNewStudent(e.target.checked)}
-                                            sx={{
-                                                "& .MuiSwitch-switchBase.Mui-checked": { color: "#E60154" },
-                                                "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": { backgroundColor: "#E60154" },
-                                            }}
-                                        />
-                                    }
-                                    label={
-                                        <Typography sx={{ fontSize: "13px", fontWeight: 600, color: "#333" }}>
-                                            New Student
-                                        </Typography>
-                                    }
-                                    sx={{ m: 0 }}
-                                />
+                                <Tooltip
+                                    title={isFeeStructureCreated
+                                        ? "Admission status is locked because the fee structure has already been created for this student."
+                                        : ""}
+                                    arrow
+                                    placement="left"
+                                    disableHoverListener={!isFeeStructureCreated}
+                                >
+                                    <FormControlLabel
+                                        onClick={(e) => e.stopPropagation()}
+                                        onFocus={(e) => e.stopPropagation()}
+                                        control={
+                                            <Switch
+                                                size="small"
+                                                checked={isNewStudent}
+                                                disabled={isFeeStructureCreated}
+                                                onChange={(e) => setIsNewStudent(e.target.checked)}
+                                                sx={{
+                                                    "& .MuiSwitch-switchBase.Mui-checked": { color: "#E60154" },
+                                                    "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": { backgroundColor: "#E60154" },
+                                                    "&.Mui-disabled .MuiSwitch-thumb": { color: "#9CA3AF" },
+                                                }}
+                                            />
+                                        }
+                                        label={
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                <Typography sx={{ fontSize: "13px", fontWeight: 600, color: isFeeStructureCreated ? "#9CA3AF" : "#333" }}>
+                                                    New Student
+                                                </Typography>
+                                                {isFeeStructureCreated && (
+                                                    <Typography sx={{
+                                                        fontSize: "9px", fontWeight: 700,
+                                                        color: "#9A3412", bgcolor: "#FFF7ED",
+                                                        border: "1px solid #FED7AA",
+                                                        borderRadius: "10px", px: 0.6, py: 0.1,
+                                                        textTransform: 'uppercase', letterSpacing: 0.3,
+                                                    }}>
+                                                        Locked
+                                                    </Typography>
+                                                )}
+                                            </Box>
+                                        }
+                                        sx={{ m: 0 }}
+                                    />
+                                </Tooltip>
                             </AccordionSummary>
                             <AccordionDetails>
                                 <Grid container columnSpacing={3} pb={1}>

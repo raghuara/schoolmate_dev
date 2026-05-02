@@ -12,6 +12,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import EventNoteIcon from '@mui/icons-material/EventNote';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
+import PolicyIcon from '@mui/icons-material/Policy';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 
@@ -31,6 +32,7 @@ const moduleCards = [
         color: "#F97316",
         icon: EventNoteIcon,
         text: "Leave & Attendance",
+        description: "Daily attendance, leave requests, approvals & reports",
         bgColor: "#FFF5F2",
         iconBgColor: "#FF6B351A",
         moduleIndex: 0,
@@ -40,9 +42,20 @@ const moduleCards = [
         color: "#2563EB",
         icon: AccountBalanceIcon,
         text: "Payroll Management",
+        description: "Salary structures, statutory compliance & payroll runs",
         bgColor: "#EFF6FF",
         iconBgColor: "#2563EB1A",
         moduleIndex: 1,
+        disabled: false,
+    },
+    {
+        color: "#059669",
+        icon: PolicyIcon,
+        text: "Leave Policy Master",
+        description: "Configure leave types, attendance bonus & deduction rules",
+        bgColor: "#ECFDF5",
+        iconBgColor: "#0596691A",
+        moduleIndex: 2,
         disabled: false,
     },
 ];
@@ -57,15 +70,15 @@ export default function LeaveAttendanceMainPage() {
     const [tabValue, setTabValue] = useState(0);
 
     const handleModuleCardClick = (moduleIndex) => {
-        if (moduleIndex === 1) {
-            // Navigate to separate Payroll route
-            navigate('payroll');
-        } else if (moduleIndex === 0) {
-            // Navigate to dedicated Leave & Attendance route so refresh persists
+        if (moduleIndex === 0) {
+            // Dedicated Leave & Attendance route so refresh persists
             navigate('leave-attendance');
-        } else {
-            setModuleTab(moduleIndex);
-            setTabValue(0);
+        } else if (moduleIndex === 1) {
+            // Separate Payroll route
+            navigate('payroll');
+        } else if (moduleIndex === 2) {
+            // Leave Policy Master — direct entry from main page
+            navigate('payroll/leave-policy/leave-master');
         }
     };
 
@@ -164,40 +177,39 @@ export default function LeaveAttendanceMainPage() {
             <Box sx={{ flex: 1, overflow: 'auto' }}>
                 {moduleTab === null ? (
                     // Show module cards when no module is selected
-                    <Grid container spacing={2}>
-                        {moduleCards.filter(item =>
-                            item.text !== "Payroll Management" || userType === "superadmin" || userType === "admin" || userType === "staff"
-                        ).map((item, index) => {
+                    <Grid container spacing={2} sx={{ mt: 1 }}>
+                        {moduleCards.filter(item => {
+                            const adminGated = ["Payroll Management", "Leave Policy Master"];
+                            if (!adminGated.includes(item.text)) return true;
+                            return ["superadmin", "admin", "staff"].includes(userType);
+                        }).map((item, index) => {
                             const IconComponent = item.icon;
                             return (
                                 <Grid
-                                    sx={{ display: "flex", justifyContent: "center", pb: 6, mb: 1, mt: 3 }}
+                                    sx={{ display: "flex", justifyContent: "center" }}
                                     key={index}
-                                    size={{
-                                        xs: 12,
-                                        sm: 6,
-                                        md: 3,
-                                        lg: 3
-                                    }}
+                                    size={{ xs: 12, sm: 6, md: 4, lg: 3 }}
                                 >
                                     <Box
                                         onClick={() => !item.disabled && handleModuleCardClick(item.moduleIndex)}
                                         sx={{
                                             position: "relative",
                                             backgroundColor: item.bgColor,
-                                            boxShadow: "1px 1px 2px 0.5px rgba(0, 0, 0, 0.2)",
-                                            borderTop: "1px solid rgba(0, 0, 0, 0.08)",
+                                            boxShadow: "0 2px 6px rgba(0, 0, 0, 0.08)",
+                                            border: "1px solid rgba(0, 0, 0, 0.06)",
                                             width: "100%",
-                                            height: "100px",
-                                            borderRadius: "5px",
+                                            minHeight: "115px",
+                                            borderRadius: "8px",
                                             cursor: item.disabled ? "not-allowed" : "pointer",
                                             opacity: item.disabled ? 0.6 : 1,
-                                            transition: "0.3s",
-                                            textDecoration: 'none',
+                                            transition: "transform 0.25s ease, box-shadow 0.25s ease",
+                                            overflow: "hidden",
+                                            display: "flex",
+                                            alignItems: "stretch",
                                             "&:hover": {
-                                                ".arrowIcon": {
-                                                    opacity: item.disabled ? 0 : 1,
-                                                },
+                                                transform: item.disabled ? "none" : "translateY(-3px)",
+                                                boxShadow: item.disabled ? "0 2px 6px rgba(0, 0, 0, 0.08)" : `0 6px 16px ${item.color}30`,
+                                                ".arrowIcon": { opacity: item.disabled ? 0 : 1, transform: "translateX(2px)" },
                                             },
                                             "&::before": {
                                                 content: '""',
@@ -206,75 +218,55 @@ export default function LeaveAttendanceMainPage() {
                                                 top: 0,
                                                 height: "100%",
                                                 width: "5px",
-                                                borderTopLeftRadius: "10px",
-                                                borderBottomLeftRadius: "10px",
                                                 background: `linear-gradient(180deg, ${item.color} 0%, ${item.color}99 100%)`,
                                             },
                                         }}
                                     >
-                                        <Grid container spacing={1} sx={{ height: '100%', px: 2 }}>
-                                            <Grid
-                                                sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}
-                                                size={{ md: 0.5 }}
-                                            >
-                                                <Box
-                                                    sx={{
-                                                        width: '7px',
-                                                        backgroundColor: item.color,
-                                                        height: '100%',
-                                                        position: 'absolute',
-                                                        left: 0,
-                                                        top: 0,
-                                                        borderTopLeftRadius: '5px',
-                                                        borderBottomLeftRadius: '5px',
-                                                    }}
-                                                />
-                                            </Grid>
-                                            <Grid
-                                                sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}
-                                                size={{ md: 2 }}
-                                            >
-                                                <Box sx={{
-                                                    backgroundColor: item.iconBgColor,
-                                                    borderRadius: "50px",
-                                                    width: "25px",
-                                                    height: "25px",
-                                                    p: 1.3,
-                                                    display: "flex",
-                                                    justifyContent: "center",
-                                                    alignItems: "center"
-                                                }}>
-                                                    <IconComponent sx={{ color: item.color, fontSize: "23px" }} />
-                                                </Box>
-                                            </Grid>
-                                            <Grid
-                                                sx={{
-                                                    display: 'flex',
-                                                    justifyContent: 'center',
-                                                    alignItems: 'center',
-                                                }}
-                                                size={{ md: 7 }}
-                                            >
-                                                <Typography sx={{ fontWeight: "600", color: "#000" }}>
+                                        <Box sx={{
+                                            flex: 1,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            px: 2.5,
+                                            py: 2,
+                                            gap: 1.5,
+                                            minWidth: 0,
+                                        }}>
+                                            <Box sx={{
+                                                backgroundColor: item.iconBgColor,
+                                                borderRadius: "50%",
+                                                width: 44,
+                                                height: 44,
+                                                display: "flex",
+                                                justifyContent: "center",
+                                                alignItems: "center",
+                                                flexShrink: 0,
+                                            }}>
+                                                <IconComponent sx={{ color: item.color, fontSize: 24 }} />
+                                            </Box>
+                                            <Box sx={{
+                                                flex: 1,
+                                                minWidth: 0,
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                justifyContent: 'center',
+                                            }}>
+                                                <Typography sx={{ fontWeight: 700, fontSize: 15, color: "#1a1a1a", lineHeight: 1.3 }}>
                                                     {item.text}
                                                 </Typography>
-                                            </Grid>
-                                            <Grid
-                                                sx={{
-                                                    display: 'flex',
-                                                    justifyContent: "center",
-                                                    alignItems: 'center',
-                                                    height: '100%'
-                                                }}
-                                                size={{ md: 2 }}
-                                            >
-                                                <ArrowForwardIcon className="arrowIcon" sx={{
-                                                    opacity: 0,
-                                                    transition: 'opacity 0.3s ease',
-                                                    color: item.color,
-                                                }} />
-                                            </Grid>
-                                        </Grid>
+                                                {item.description && (
+                                                    <Typography sx={{ fontSize: 11.5, color: "#666", lineHeight: 1.5, mt: 0.5 }}>
+                                                        {item.description}
+                                                    </Typography>
+                                                )}
+                                            </Box>
+                                            <ArrowForwardIcon className="arrowIcon" sx={{
+                                                opacity: 0,
+                                                transition: "opacity 0.25s ease, transform 0.25s ease",
+                                                color: item.color,
+                                                flexShrink: 0,
+                                                alignSelf: 'center',
+                                            }} />
+                                        </Box>
                                     </Box>
                                 </Grid>
                             );

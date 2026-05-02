@@ -33,6 +33,10 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import PendingIcon from '@mui/icons-material/Pending';
 import SearchIcon from '@mui/icons-material/Search';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import PriorityHighIcon from '@mui/icons-material/PriorityHigh';
+import EventBusyIcon from '@mui/icons-material/EventBusy';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import axios from 'axios';
@@ -60,6 +64,42 @@ const formatDate = (isoStr) => {
     if (!isoStr) return '-';
     return new Date(isoStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 };
+
+// "2h ago", "3d ago", etc.
+const getRelativeTime = (isoStr) => {
+    if (!isoStr) return '';
+    const d = new Date(isoStr);
+    const diffMs = Date.now() - d.getTime();
+    if (diffMs < 0) return '';
+    const minutes = Math.floor(diffMs / 60000);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+    if (minutes < 1) return 'just now';
+    if (minutes < 60) return `${minutes}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    if (days < 7) return `${days}d ago`;
+    if (days < 30) return `${Math.floor(days / 7)}w ago`;
+    return `${Math.floor(days / 30)}mo ago`;
+};
+
+// Days until a date (negative if past). Used to flag urgent pending requests.
+const getDaysUntil = (isoStr) => {
+    if (!isoStr) return null;
+    const d = new Date(isoStr);
+    d.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return Math.round((d - today) / (1000 * 60 * 60 * 24));
+};
+
+// Quick-pick chips for the Reject dialog (saves manager typing for common reasons).
+const QUICK_REJECT_REASONS = [
+    'Insufficient notice period',
+    'Critical work period — please reschedule',
+    'Documentation not provided',
+    'Already covered by another leave',
+    'Conflicting with team schedule',
+];
 
 export default function ApprovalWorkflowPage({ isEmbedded = false }) {
     const navigate = useNavigate();
@@ -203,10 +243,11 @@ export default function ApprovalWorkflowPage({ isEmbedded = false }) {
         );
     };
 
+    const totalApplications = pendingCount + approvedCount + rejectedCount;
     const summaryCards = [
-        { label: 'Pending',  value: pendingCount,  border: '#F97316', bg: '#FFF7ED', iconBg: '#FED7AA40', color: '#F97316', Icon: PendingIcon },
-        { label: 'Approved', value: approvedCount, border: '#22C55E', bg: '#F0FDF4', iconBg: '#DCFCE740', color: '#22C55E', Icon: CheckCircleIcon },
-        { label: 'Rejected', value: rejectedCount, border: '#DC2626', bg: '#FEF2F2', iconBg: '#FEE2E240', color: '#DC2626', Icon: CancelIcon },
+        { label: 'Pending',  value: pendingCount,  border: '#F97316', bg: '#FFF7ED', iconBg: '#FED7AA40', color: '#F97316', Icon: PendingIcon,    tabIndex: 0, hint: 'Awaiting your review' },
+        { label: 'Approved', value: approvedCount, border: '#22C55E', bg: '#F0FDF4', iconBg: '#DCFCE740', color: '#22C55E', Icon: CheckCircleIcon, tabIndex: 1, hint: 'Approved leaves' },
+        { label: 'Rejected', value: rejectedCount, border: '#DC2626', bg: '#FEF2F2', iconBg: '#FEE2E240', color: '#DC2626', Icon: CancelIcon,      tabIndex: 2, hint: 'Declined leaves' },
     ];
 
     const emptyLabel = ['pending', 'approved', 'rejected'][approvalTab];
@@ -240,41 +281,75 @@ export default function ApprovalWorkflowPage({ isEmbedded = false }) {
                 </Box>
             )}
 
-            {/* Summary Cards */}
+            {/* Summary Cards — clickable, switch tab on click, active state highlighted */}
             <Grid container spacing={2} sx={{ mb: 2.5 }}>
-                {summaryCards.map(c => (
-                    <Grid size={{ xs: 12, sm: 4, md: 4, lg: 4 }} key={c.label}>
-                        <Card sx={{
-                            border: `1.5px solid ${c.border}20`,
-                            borderLeft: `4px solid ${c.border}`,
-                            borderRadius: '10px',
-                            boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-                            bgcolor: c.bg,
-                        }}>
-                            <CardContent sx={{ py: '14px !important', px: '16px !important' }}>
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <Box>
-                                        <Typography sx={{ fontSize: '11px', fontWeight: '600', color: '#888', textTransform: 'uppercase', letterSpacing: '0.5px', mb: 0.5 }}>
-                                            {c.label}
-                                        </Typography>
-                                        <Typography sx={{ fontSize: '32px', fontWeight: '800', color: '#1a1a1a', lineHeight: 1 }}>
-                                            {c.value}
-                                        </Typography>
-                                        <Typography sx={{ fontSize: '11px', color: '#aaa', mt: 0.5 }}>applications</Typography>
+                {summaryCards.map(c => {
+                    const isActive = approvalTab === c.tabIndex;
+                    const pct = totalApplications > 0 ? Math.round((c.value / totalApplications) * 100) : 0;
+                    return (
+                        <Grid size={{ xs: 12, sm: 4, md: 4, lg: 4 }} key={c.label}>
+                            <Card
+                                onClick={() => setApprovalTab(c.tabIndex)}
+                                sx={{
+                                    cursor: 'pointer',
+                                    border: `1.5px solid ${isActive ? c.border : `${c.border}20`}`,
+                                    borderLeft: `4px solid ${c.border}`,
+                                    borderRadius: '10px',
+                                    boxShadow: isActive
+                                        ? `0 4px 14px ${c.border}30`
+                                        : '0 2px 8px rgba(0,0,0,0.05)',
+                                    bgcolor: c.bg,
+                                    transition: 'transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease',
+                                    '&:hover': {
+                                        transform: 'translateY(-2px)',
+                                        boxShadow: `0 6px 18px ${c.border}40`,
+                                        borderColor: c.border,
+                                    },
+                                }}>
+                                <CardContent sx={{ py: '14px !important', px: '16px !important' }}>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <Box sx={{ minWidth: 0, flex: 1 }}>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, mb: 0.5 }}>
+                                                <Typography sx={{ fontSize: '11px', fontWeight: '600', color: '#888', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                                    {c.label}
+                                                </Typography>
+                                                {isActive && (
+                                                    <Box sx={{
+                                                        px: 0.7, py: 0.1, borderRadius: '20px',
+                                                        bgcolor: c.color, color: '#fff',
+                                                        fontSize: 9, fontWeight: 700, letterSpacing: 0.3,
+                                                    }}>
+                                                        VIEWING
+                                                    </Box>
+                                                )}
+                                            </Box>
+                                            <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
+                                                <Typography sx={{ fontSize: '32px', fontWeight: '800', color: '#1a1a1a', lineHeight: 1 }}>
+                                                    {c.value}
+                                                </Typography>
+                                                {totalApplications > 0 && (
+                                                    <Typography sx={{ fontSize: 12, fontWeight: 700, color: c.color }}>
+                                                        {pct}%
+                                                    </Typography>
+                                                )}
+                                            </Box>
+                                            <Typography sx={{ fontSize: '11px', color: '#888', mt: 0.5 }}>{c.hint}</Typography>
+                                        </Box>
+                                        <Box sx={{
+                                            width: 48, height: 48, borderRadius: '12px',
+                                            bgcolor: c.iconBg,
+                                            border: `1px solid ${c.border}30`,
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            flexShrink: 0,
+                                        }}>
+                                            <c.Icon sx={{ color: c.color, fontSize: 26 }} />
+                                        </Box>
                                     </Box>
-                                    <Box sx={{
-                                        width: 48, height: 48, borderRadius: '12px',
-                                        bgcolor: c.iconBg,
-                                        border: `1px solid ${c.border}30`,
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center'
-                                    }}>
-                                        <c.Icon sx={{ color: c.color, fontSize: 26 }} />
-                                    </Box>
-                                </Box>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-                ))}
+                                </CardContent>
+                            </Card>
+                        </Grid>
+                    );
+                })}
             </Grid>
 
             {/* Main Table Card */}
@@ -295,30 +370,57 @@ export default function ApprovalWorkflowPage({ isEmbedded = false }) {
                                 {pendingCount} request{pendingCount !== 1 ? 's' : ''} awaiting your review
                             </Typography>
                         </Box>
-                        {/* Search */}
-                        <TextField
-                            size="small"
-                            placeholder="Search by name, dept, leave type..."
-                            value={search}
-                            onChange={e => setSearch(e.target.value)}
-                            sx={{
-                                width: { xs: '100%', sm: '280px' },
-                                '& .MuiOutlinedInput-root': {
-                                    borderRadius: '8px',
-                                    fontSize: '13px',
-                                    bgcolor: '#F8F9FB',
-                                }
-                            }}
-                            slotProps={{
-                                input: {
-                                    startAdornment: (
-                                        <InputAdornment position="start">
-                                            <SearchIcon sx={{ fontSize: 18, color: '#aaa' }} />
-                                        </InputAdornment>
-                                    )
-                                }
-                            }}
-                        />
+                        {/* Search + Refresh */}
+                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', width: { xs: '100%', sm: 'auto' } }}>
+                            <TextField
+                                size="small"
+                                placeholder="Search by name, leave type, reason..."
+                                value={search}
+                                onChange={e => setSearch(e.target.value)}
+                                sx={{
+                                    flex: 1,
+                                    width: { xs: '100%', sm: '280px' },
+                                    '& .MuiOutlinedInput-root': {
+                                        borderRadius: '8px',
+                                        fontSize: '13px',
+                                        bgcolor: '#F8F9FB',
+                                    },
+                                }}
+                                slotProps={{
+                                    input: {
+                                        startAdornment: (
+                                            <InputAdornment position="start">
+                                                <SearchIcon sx={{ fontSize: 18, color: '#aaa' }} />
+                                            </InputAdornment>
+                                        ),
+                                        endAdornment: search ? (
+                                            <InputAdornment position="end">
+                                                <IconButton size="small" onClick={() => setSearch('')} sx={{ width: 22, height: 22 }}>
+                                                    <CancelIcon sx={{ fontSize: 14, color: '#9CA3AF' }} />
+                                                </IconButton>
+                                            </InputAdornment>
+                                        ) : null,
+                                    },
+                                }}
+                            />
+                            <Tooltip title="Refresh" arrow>
+                                <IconButton
+                                    onClick={fetchLeaves}
+                                    disabled={isFetching}
+                                    sx={{
+                                        width: 36, height: 36,
+                                        border: '1px solid #E5E7EB',
+                                        borderRadius: '8px',
+                                        bgcolor: '#fff',
+                                        '&:hover': { bgcolor: '#FFF7ED', borderColor: '#FED7AA' },
+                                    }}
+                                >
+                                    {isFetching
+                                        ? <CircularProgress size={16} sx={{ color: '#F97316' }} />
+                                        : <RefreshIcon sx={{ fontSize: 18, color: '#F97316' }} />}
+                                </IconButton>
+                            </Tooltip>
+                        </Box>
                     </Box>
 
                     {/* Sub-tabs */}
@@ -408,21 +510,58 @@ export default function ApprovalWorkflowPage({ isEmbedded = false }) {
                             ) : filtered.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
-                                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.6 }}>
+                                            {/* Decorative circle */}
                                             <Box sx={{
-                                                width: 56, height: 56, borderRadius: '50%', bgcolor: '#F3F4F6',
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 1
+                                                width: 64, height: 64, borderRadius: '50%',
+                                                bgcolor: approvalTab === 0 ? '#FFF7ED' : approvalTab === 1 ? '#F0FDF4' : '#FEF2F2',
+                                                border: `2px solid ${approvalTab === 0 ? '#FED7AA' : approvalTab === 1 ? '#A7F3D0' : '#FECACA'}`,
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 1,
                                             }}>
-                                                <CalendarTodayIcon sx={{ fontSize: 28, color: '#ccc' }} />
+                                                {approvalTab === 0 && <PendingIcon sx={{ fontSize: 32, color: '#F97316' }} />}
+                                                {approvalTab === 1 && <CheckCircleIcon sx={{ fontSize: 32, color: '#22C55E' }} />}
+                                                {approvalTab === 2 && <EventBusyIcon sx={{ fontSize: 32, color: '#DC2626' }} />}
                                             </Box>
-                                            <Typography sx={{ fontSize: '14px', fontWeight: '600', color: '#555' }}>
-                                                No {emptyLabel} applications
+                                            <Typography sx={{ fontSize: '15px', fontWeight: 700, color: '#1a1a1a' }}>
+                                                {search ? 'No matching applications' : `No ${emptyLabel} applications`}
                                             </Typography>
-                                            <Typography sx={{ fontSize: '12px', color: '#aaa' }}>
-                                                {approvalTab === 0
-                                                    ? 'All leave requests have been reviewed.'
-                                                    : `No applications have been ${emptyLabel} yet.`}
+                                            <Typography sx={{ fontSize: '12px', color: '#888', maxWidth: 360, textAlign: 'center', lineHeight: 1.6 }}>
+                                                {search
+                                                    ? `Try clearing the search or switching to a different tab.`
+                                                    : approvalTab === 0
+                                                        ? 'All caught up! There are no pending leave requests waiting for your review.'
+                                                        : `Nothing has been ${emptyLabel} yet for this period.`}
                                             </Typography>
+                                            <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+                                                {search && (
+                                                    <Button
+                                                        size="small"
+                                                        onClick={() => setSearch('')}
+                                                        sx={{
+                                                            textTransform: 'none', fontSize: 12, fontWeight: 600,
+                                                            color: '#374151', borderRadius: '8px',
+                                                            border: '1px solid #E5E7EB', px: 2, height: 32,
+                                                            '&:hover': { bgcolor: '#F9FAFB' },
+                                                        }}
+                                                    >
+                                                        Clear search
+                                                    </Button>
+                                                )}
+                                                <Button
+                                                    size="small"
+                                                    startIcon={<RefreshIcon sx={{ fontSize: 14 }} />}
+                                                    onClick={fetchLeaves}
+                                                    sx={{
+                                                        textTransform: 'none', fontSize: 12, fontWeight: 600,
+                                                        color: '#F97316', borderRadius: '8px',
+                                                        border: '1px solid #FED7AA', px: 2, height: 32,
+                                                        bgcolor: '#FFF7ED',
+                                                        '&:hover': { bgcolor: '#FFEDD5', borderColor: '#F97316' },
+                                                    }}
+                                                >
+                                                    Refresh
+                                                </Button>
+                                            </Box>
                                         </Box>
                                     </TableCell>
                                 </TableRow>
@@ -458,19 +597,41 @@ export default function ApprovalWorkflowPage({ isEmbedded = false }) {
                                         {/* Leave Type */}
                                         <TableCell>{getLeaveTypeChip(req.leaveType)}</TableCell>
 
-                                        {/* Duration */}
+                                        {/* Duration + urgency */}
                                         <TableCell>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
-                                                <CalendarTodayIcon sx={{ fontSize: 13, color: '#aaa' }} />
-                                                <Box>
-                                                    <Typography sx={{ fontSize: '12px', fontWeight: '600', color: '#1a1a1a', whiteSpace: 'nowrap' }}>
-                                                        {formatDate(req.fromDate)}
-                                                    </Typography>
-                                                    <Typography sx={{ fontSize: '11px', color: '#aaa', whiteSpace: 'nowrap' }}>
-                                                        to {formatDate(req.toDate)}
-                                                    </Typography>
-                                                </Box>
-                                            </Box>
+                                            {(() => {
+                                                const daysUntil = getDaysUntil(req.fromDate);
+                                                const isPending = getEffectiveStatus(req) === 'Requested';
+                                                const isUrgent = isPending && daysUntil !== null && daysUntil >= 0 && daysUntil <= 3;
+                                                const startsTodayOrTomorrow = daysUntil === 0 || daysUntil === 1;
+                                                return (
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                                                        <CalendarTodayIcon sx={{ fontSize: 13, color: isUrgent ? '#DC2626' : '#aaa' }} />
+                                                        <Box>
+                                                            <Typography sx={{ fontSize: '12px', fontWeight: '600', color: '#1a1a1a', whiteSpace: 'nowrap' }}>
+                                                                {formatDate(req.fromDate)}
+                                                            </Typography>
+                                                            <Typography sx={{ fontSize: '11px', color: '#aaa', whiteSpace: 'nowrap' }}>
+                                                                to {formatDate(req.toDate)}
+                                                            </Typography>
+                                                            {isUrgent && (
+                                                                <Box sx={{
+                                                                    mt: 0.5, display: 'inline-flex', alignItems: 'center', gap: 0.3,
+                                                                    px: 0.7, py: 0.1, borderRadius: '20px',
+                                                                    bgcolor: '#FEF2F2', border: '1px solid #FECACA',
+                                                                }}>
+                                                                    <PriorityHighIcon sx={{ fontSize: 11, color: '#DC2626' }} />
+                                                                    <Typography sx={{ fontSize: 9, fontWeight: 700, color: '#DC2626', letterSpacing: 0.2 }}>
+                                                                        {startsTodayOrTomorrow
+                                                                            ? (daysUntil === 0 ? 'STARTS TODAY' : 'STARTS TOMORROW')
+                                                                            : `IN ${daysUntil} DAYS`}
+                                                                    </Typography>
+                                                                </Box>
+                                                            )}
+                                                        </Box>
+                                                    </Box>
+                                                );
+                                            })()}
                                         </TableCell>
 
                                         {/* Days */}
@@ -524,9 +685,19 @@ export default function ApprovalWorkflowPage({ isEmbedded = false }) {
 
                                         {/* Applied On */}
                                         <TableCell>
-                                            <Typography sx={{ fontSize: '12px', color: '#666', whiteSpace: 'nowrap' }}>
-                                                {formatDate(req.createdOn)}
-                                            </Typography>
+                                            <Box>
+                                                <Typography sx={{ fontSize: '12px', color: '#666', whiteSpace: 'nowrap', fontWeight: 600 }}>
+                                                    {formatDate(req.createdOn)}
+                                                </Typography>
+                                                {req.createdOn && (
+                                                    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.3, mt: 0.3 }}>
+                                                        <AccessTimeIcon sx={{ fontSize: 10, color: '#9CA3AF' }} />
+                                                        <Typography sx={{ fontSize: '10px', color: '#9CA3AF' }}>
+                                                            {getRelativeTime(req.createdOn)}
+                                                        </Typography>
+                                                    </Box>
+                                                )}
+                                            </Box>
                                         </TableCell>
 
                                         {/* Action */}
@@ -544,12 +715,21 @@ export default function ApprovalWorkflowPage({ isEmbedded = false }) {
                                                         sx={{
                                                             textTransform: 'none',
                                                             fontSize: '12px',
-                                                            fontWeight: '600',
+                                                            fontWeight: 700,
                                                             bgcolor: '#22C55E',
-                                                            borderRadius: '7px',
-                                                            px: 1.5,
-                                                            boxShadow: 'none',
-                                                            '&:hover': { bgcolor: '#16A34A', boxShadow: 'none' },
+                                                            color: '#fff',
+                                                            borderRadius: '8px',
+                                                            px: 1.8,
+                                                            height: 30,
+                                                            boxShadow: '0 2px 6px rgba(34, 197, 94, 0.3)',
+                                                            transition: 'transform 0.2s, box-shadow 0.2s, background-color 0.2s',
+                                                            '&:hover': {
+                                                                bgcolor: '#16A34A',
+                                                                boxShadow: '0 4px 12px rgba(34, 197, 94, 0.45)',
+                                                                transform: 'translateY(-1px)',
+                                                            },
+                                                            '&:active': { transform: 'translateY(0)' },
+                                                            '&.Mui-disabled': { bgcolor: '#A7F3D0', color: '#fff', boxShadow: 'none' },
                                                         }}
                                                     >
                                                         Approve
@@ -565,13 +745,21 @@ export default function ApprovalWorkflowPage({ isEmbedded = false }) {
                                                         sx={{
                                                             textTransform: 'none',
                                                             fontSize: '12px',
-                                                            fontWeight: '600',
+                                                            fontWeight: 700,
                                                             color: '#DC2626',
-                                                            borderColor: '#DC262640',
-                                                            borderRadius: '7px',
-                                                            px: 1.5,
-                                                            bgcolor: '#FEF2F2',
-                                                            '&:hover': { borderColor: '#DC2626', bgcolor: '#FEE2E2' },
+                                                            borderColor: '#FECACA',
+                                                            borderRadius: '8px',
+                                                            px: 1.8,
+                                                            height: 30,
+                                                            bgcolor: '#fff',
+                                                            transition: 'transform 0.2s, box-shadow 0.2s, border-color 0.2s, background-color 0.2s',
+                                                            '&:hover': {
+                                                                borderColor: '#DC2626',
+                                                                bgcolor: '#FEF2F2',
+                                                                boxShadow: '0 2px 6px rgba(220, 38, 38, 0.18)',
+                                                                transform: 'translateY(-1px)',
+                                                            },
+                                                            '&:active': { transform: 'translateY(0)' },
                                                         }}
                                                     >
                                                         Reject
@@ -720,14 +908,44 @@ export default function ApprovalWorkflowPage({ isEmbedded = false }) {
             </DialogTitle>
 
             <DialogContent sx={{ pt: '12px !important' }}>
+                {/* Quick-pick reasons */}
+                <Typography sx={{ fontSize: 11, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.5, mb: 1 }}>
+                    Quick reasons
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.6, mb: 1.5 }}>
+                    {QUICK_REJECT_REASONS.map(r => {
+                        const isSelected = rejectReason.trim() === r;
+                        return (
+                            <Chip
+                                key={r}
+                                label={r}
+                                size="small"
+                                onClick={() => setRejectReason(r)}
+                                sx={{
+                                    fontSize: 11, fontWeight: 600, height: 24,
+                                    borderRadius: '14px',
+                                    cursor: 'pointer',
+                                    bgcolor: isSelected ? '#FEE2E2' : '#F3F4F6',
+                                    color: isSelected ? '#991B1B' : '#374151',
+                                    border: `1px solid ${isSelected ? '#FCA5A5' : '#E5E7EB'}`,
+                                    '&:hover': { bgcolor: isSelected ? '#FEE2E2' : '#FEF2F2', borderColor: '#FCA5A5' },
+                                }}
+                            />
+                        );
+                    })}
+                </Box>
+
+                <Typography sx={{ fontSize: 11, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.5, mb: 0.6 }}>
+                    Custom reason
+                </Typography>
                 <TextField
                     autoFocus
                     fullWidth
                     multiline
                     rows={3}
-                    placeholder="Enter reason for rejection..."
+                    placeholder="Add details — this will be visible to the staff member"
                     value={rejectReason}
-                    onChange={(e) => setRejectReason(e.target.value)}
+                    onChange={(e) => setRejectReason(e.target.value.slice(0, 250))}
                     sx={{
                         '& .MuiOutlinedInput-root': {
                             borderRadius: '8px',
@@ -736,6 +954,14 @@ export default function ApprovalWorkflowPage({ isEmbedded = false }) {
                         },
                     }}
                 />
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
+                    <Typography sx={{ fontSize: 10, color: '#9CA3AF' }}>
+                        Required — at least 5 characters
+                    </Typography>
+                    <Typography sx={{ fontSize: 10, color: rejectReason.length > 230 ? '#DC2626' : '#9CA3AF', fontWeight: 600 }}>
+                        {rejectReason.length}/250
+                    </Typography>
+                </Box>
             </DialogContent>
 
             <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
@@ -745,7 +971,7 @@ export default function ApprovalWorkflowPage({ isEmbedded = false }) {
                     sx={{
                         textTransform: 'none', borderRadius: '8px',
                         color: '#555', fontWeight: '600', fontSize: '13px',
-                        border: '1px solid #E0E0E0', px: 2.5,
+                        border: '1px solid #E0E0E0', px: 2.5, height: 36,
                         '&:hover': { bgcolor: '#F5F5F5' },
                     }}
                 >
@@ -753,17 +979,24 @@ export default function ApprovalWorkflowPage({ isEmbedded = false }) {
                 </Button>
                 <Button
                     onClick={handleRejectSubmit}
-                    disabled={!rejectReason.trim() || rejectLoading}
+                    disabled={rejectReason.trim().length < 5 || rejectLoading}
                     variant="contained"
                     startIcon={rejectLoading
                         ? <CircularProgress size={14} color="inherit" />
                         : <CancelIcon sx={{ fontSize: '16px !important' }} />}
                     sx={{
                         textTransform: 'none', borderRadius: '8px',
-                        bgcolor: '#DC2626', fontWeight: '600', fontSize: '13px',
-                        px: 2.5, boxShadow: 'none',
-                        '&:hover': { bgcolor: '#B91C1C', boxShadow: 'none' },
-                        '&:disabled': { bgcolor: '#FECACA', color: '#fff' },
+                        bgcolor: '#DC2626', fontWeight: 700, fontSize: '13px',
+                        px: 2.5, height: 36,
+                        boxShadow: '0 2px 6px rgba(220, 38, 38, 0.25)',
+                        transition: 'transform 0.2s, box-shadow 0.2s, background-color 0.2s',
+                        '&:hover': {
+                            bgcolor: '#B91C1C',
+                            boxShadow: '0 4px 12px rgba(220, 38, 38, 0.4)',
+                            transform: 'translateY(-1px)',
+                        },
+                        '&:active': { transform: 'translateY(0)' },
+                        '&:disabled': { bgcolor: '#FECACA', color: '#fff', boxShadow: 'none' },
                     }}
                 >
                     {rejectLoading ? 'Rejecting...' : 'Reject Leave'}

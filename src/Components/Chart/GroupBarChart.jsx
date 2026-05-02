@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { Bar } from "react-chartjs-2";
-import { Typography, Box, Grid, Tabs, Tab, IconButton, createTheme } from "@mui/material";
+import { Typography, Box, Tabs, Tab, IconButton, createTheme } from "@mui/material";
 import { LocalizationProvider, DatePicker } from "@mui/x-date-pickers";
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
@@ -176,213 +176,239 @@ function GroupBarChartPage({ }) {
         minChartWidth
     );
 
-    return (
-        <div style={{ width: "100%", overflowX: "auto" }}>
-            <Grid container spacing={2}>
-                <Grid
-                    sx={{ display: "flex", justifyContent: "center" }}
-                    size={{ xs: 12, sm: 12, md: 12, lg: 3.7 }}>
-                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <Typography sx={{ fontSize: "16px", fontWeight: "600" }}>
-                            Student Attendance
-                            <Typography style={{ fontSize: "12px", color: "#777" }}>
-                                {dayjs(selectedDate).format('DD MMMM YYYY')}
-                            </Typography>
-                        </Typography>
-                    </Box>
-                </Grid>
+    const hasBars = groupedData.some((d) => d.percentage !== null && d.percentage !== undefined);
 
-                <Grid
-                    sx={{ display: "flex", justifyContent: "center", }}
-                    size={{ xs: 12, sm: 12, md: 12, lg: 5 }}>
-                    <Box sx={{ borderRadius: "50px", minHeight: '30px', mt: 0.5 }}>
+    return (
+        <Box sx={{ width: '100%' }}>
+            {/* Header — flex layout that adapts to 1..N categories */}
+            <Box sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.5,
+                mb: 1.5,
+                flexWrap: 'wrap',
+                width: '100%',
+                minWidth: 0,
+            }}>
+                {/* Title + date */}
+                <Box sx={{ flexShrink: 0 }}>
+                    <Typography sx={{ fontSize: '16px', fontWeight: 600, lineHeight: 1.2, color: '#111827' }}>
+                        Student Attendance
+                    </Typography>
+                    <Typography sx={{ fontSize: '11px', color: '#777', mt: 0.2 }}>
+                        {dayjs(selectedDate).format('DD MMMM YYYY')}
+                    </Typography>
+                </Box>
+
+                {/* Tabs — fills remaining space, scrolls when many categories */}
+                <Box sx={{
+                    flex: 1,
+                    minWidth: 0,
+                    display: 'flex',
+                    justifyContent: 'center',
+                    overflow: 'hidden',
+                }}>
+                    {categories.length > 0 && (
                         <Tabs
-                            value={selectedGroup}
+                            value={selectedGroup || categories[0]}
                             onChange={(_, newValue) => setSelectedGroup(newValue)}
                             aria-label="attendance tabs"
                             variant="scrollable"
+                            scrollButtons="auto"
+                            allowScrollButtonsMobile
                             slotProps={{ indicator: { sx: { display: 'none' } } }}
                             sx={{
                                 backgroundColor: '#faf6fc',
-                                minHeight: "10px",
-                                borderRadius: "50px",
+                                minHeight: 32,
+                                borderRadius: '50px',
+                                maxWidth: '100%',
+                                '& .MuiTabs-scrollButtons.Mui-disabled': { opacity: 0.3 },
                                 '& .MuiTab-root': {
                                     textTransform: 'none',
                                     fontSize: '12px',
                                     color: '#555',
-                                    fontWeight: 'bold',
+                                    fontWeight: 700,
                                     minWidth: 0,
-                                    paddingX: 1,
-                                    minHeight: '30px',
-                                    height: '30px',
-                                    px: 2,
+                                    minHeight: 30,
+                                    height: 30,
+                                    px: 1.8,
+                                    mx: 0.3,
+                                    my: 0.3,
+                                    whiteSpace: 'nowrap',
                                 },
                                 '& .Mui-selected': {
                                     color: '#fff !important',
                                     bgcolor: '#000',
-                                    borderRadius: "50px",
+                                    borderRadius: '50px',
                                 },
                             }}
                         >
-                            {categories.map(cat => (
+                            {categories.map((cat) => (
                                 <Tab key={cat} label={cat} value={cat} />
                             ))}
                         </Tabs>
-                    </Box>
-                </Grid>
+                    )}
+                </Box>
 
-                <Grid
-                    sx={{ display: "flex", justifyContent: "end" }}
-                    size={{ xs: 12, sm: 12, md: 12, lg: 3.2 }}>
-                    <Box sx={{ display: "flex", justifyContent: "end" }}>
-                        <ThemeProvider theme={darkTheme}>
-                            <LocalizationProvider dateAdapter={AdapterDayjs}>
-                                <DatePicker
-                                    disableFuture
-                                    open={openCal}
-                                    onClose={handleClose}
-                                    value={selectedDate}
-                                    onChange={(newValue) => {
-                                        setSelectedDate(newValue);
-                                        const newFormattedDate = dayjs(newValue).format('DD-MM-YYYY');
-                                        setFormattedDate(newFormattedDate);
-                                        handleClose();
-                                    }}
-                                    views={['year', 'month', 'day']}
-                                    renderInput={() => null}
-                                    sx={{
-                                        opacity: 0,
-                                        pointerEvents: 'none',
-                                        width: "10px",
-                                        marginRight: "80px"
-                                    }}
-                                />
-                                <IconButton sx={{
-                                    width: '40px',
-                                    height: '40px',
-                                    marginLeft: '-100px',
-                                    transition: 'color 0.3s, background-color 0.3s',
-                                    '&:hover': {
-                                        color: '#fff',
-                                        backgroundColor: 'rgba(0,0,0,0.1)',
-                                    },
+                {/* Calendar + View All */}
+                <Box sx={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <ThemeProvider theme={darkTheme}>
+                        <LocalizationProvider dateAdapter={AdapterDayjs}>
+                            <DatePicker
+                                disableFuture
+                                open={openCal}
+                                onClose={handleClose}
+                                value={selectedDate}
+                                onChange={(newValue) => {
+                                    setSelectedDate(newValue);
+                                    setFormattedDate(dayjs(newValue).format('DD-MM-YYYY'));
+                                    handleClose();
                                 }}
-                                    onClick={handleOpen}>
-                                    <CalendarMonthIcon style={{ color: "#000" }} />
-                                </IconButton>
-                            </LocalizationProvider>
-                        </ThemeProvider>
-                        <Link to="/dashboardmenu/attendance" style={{ textDecoration: "none" }}>
-                            <Typography
-                                variant="body1"
-                                className="seeAllText"
+                                views={['year', 'month', 'day']}
+                                renderInput={() => null}
                                 sx={{
-                                    fontWeight: "600",
-                                    fontSize: "14px",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    transition: "transform 0.3s ease",
-                                    cursor: "pointer",
-                                    color: '#000',
-                                    marginTop: "10px"
+                                    opacity: 0,
+                                    pointerEvents: 'none',
+                                    width: 0,
+                                    height: 0,
+                                    position: 'absolute',
+                                }}
+                            />
+                            <IconButton
+                                onClick={handleOpen}
+                                sx={{
+                                    width: 34, height: 34,
+                                    border: '1px solid #E5E7EB', borderRadius: '8px',
+                                    bgcolor: '#fff',
+                                    '&:hover': { bgcolor: '#F9FAFB' },
                                 }}
                             >
-                                View all
-                                <ArrowForwardIcon
-                                    className="arrowIcon"
-                                    sx={{
-                                        opacity: 0,
-                                        transform: "translateX(5px)",
-                                        transition: "opacity 0.3s ease, transform 0.3s ease",
-                                    }}
-                                />
-                            </Typography>
-                        </Link>
-                    </Box>
-                </Grid>
-            </Grid>
+                                <CalendarMonthIcon sx={{ fontSize: 18, color: '#000' }} />
+                            </IconButton>
+                        </LocalizationProvider>
+                    </ThemeProvider>
+                    <Link to="/dashboardmenu/attendance" style={{ textDecoration: 'none' }}>
+                        <Typography
+                            className="seeAllText"
+                            sx={{
+                                fontWeight: 600,
+                                fontSize: '13px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                cursor: 'pointer',
+                                color: '#000',
+                                '&:hover .arrowIcon': { opacity: 1, transform: 'translateX(4px)' },
+                            }}
+                        >
+                            View all
+                            <ArrowForwardIcon
+                                className="arrowIcon"
+                                sx={{
+                                    fontSize: 16, ml: 0.3,
+                                    opacity: 0,
+                                    transition: 'opacity 0.3s ease, transform 0.3s ease',
+                                }}
+                            />
+                        </Typography>
+                    </Link>
+                </Box>
+            </Box>
 
-            <div style={{ width: "100%", overflowX: "auto" }}>
-                <div style={{ width: `${totalChartWidth}px`, height: "320px" }}>
-                    <Bar
-                        ref={chartRef}
-                        plugins={[groupLabelPlugin]}
-                        data={{
-                            labels: sections,
-                            datasets: [
-                                {
-                                    label: "Attendance",
-                                    data: groupedData.map((item) => ({
-                                        x: item.section,
-                                        y: item.percentage,
-                                        present: item.present,
-                                        absent: item.absent,
-                                        leave: item.leave,
-                                        late: item.late,
-                                        group: item.group,
-                                    })),
-                                    backgroundColor: backgroundColors,
-                                    borderColor: borderColors,
-                                    borderWidth: 2,
-                                    barThickness: barWidth,
-                                    categoryPercentage: 1,
-                                    barPercentage: 1,
-                                    borderRadius: {
-                                        topLeft: 4,
-                                        topRight: 4,
-                                        bottomLeft: 0,
-                                        bottomRight: 0,
-                                    },
-                                },
-                            ],
-                        }}
-                        options={{
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: {
-                                legend: { display: false },
-                                groupLabel: { groupCenters },
-                                tooltip: {
-                                    callbacks: {
-                                        title: (tooltipItems) => {
-                                            const item = tooltipItems[0].raw;
-                                            return `Class: ${item.group || ''} - ${tooltipItems[0].label}`;
-                                        },
-                                        label: (tooltipItem) => {
-                                            const item = tooltipItem.raw;
-                                            return [
-                                                `🔵 Present: ${item.present ?? '-'}`,
-                                                `🔴 Absent: ${item.absent ?? '-'}`,
-                                                `🟡 Leave: ${item.leave ?? '-'}`,
-                                                `🟣 Late: ${item.late ?? '-'}`,
-                                            ];
+            {/* Chart */}
+            {!hasBars ? (
+                <Box sx={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    height: 325, color: '#9CA3AF',
+                    border: '1px dashed #E5E7EB', borderRadius: '8px', bgcolor: '#FAFAFA',
+                }}>
+                    <Typography sx={{ fontSize: 13, fontWeight: 500 }}>
+                        No attendance data for {selectedGroup || 'this category'}
+                    </Typography>
+                </Box>
+            ) : (
+                <Box sx={{ width: '100%', overflowX: 'auto' }}>
+                    <Box sx={{ width: `${totalChartWidth}px`, height: '320px' }}>
+                        <Bar
+                            ref={chartRef}
+                            plugins={[groupLabelPlugin]}
+                            data={{
+                                labels: sections,
+                                datasets: [
+                                    {
+                                        label: 'Attendance',
+                                        data: groupedData.map((item) => ({
+                                            x: item.section,
+                                            y: item.percentage,
+                                            present: item.present,
+                                            absent: item.absent,
+                                            leave: item.leave,
+                                            late: item.late,
+                                            group: item.group,
+                                        })),
+                                        backgroundColor: backgroundColors,
+                                        borderColor: borderColors,
+                                        borderWidth: 2,
+                                        barThickness: barWidth,
+                                        categoryPercentage: 1,
+                                        barPercentage: 1,
+                                        borderRadius: {
+                                            topLeft: 4,
+                                            topRight: 4,
+                                            bottomLeft: 0,
+                                            bottomRight: 0,
                                         },
                                     },
-                                    displayColors: false,
-                                },
-                            },
-                            scales: {
-                                x: {
-                                    afterFit: (scale) => { scale.height += 22; },
-                                    ticks: {
-                                        autoSkip: false,
-                                        callback: function (_value, index) {
-                                            return sections[index];
+                                ],
+                            }}
+                            options={{
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: {
+                                    legend: { display: false },
+                                    groupLabel: { groupCenters },
+                                    tooltip: {
+                                        callbacks: {
+                                            title: (tooltipItems) => {
+                                                const item = tooltipItems[0].raw;
+                                                return `Class: ${item.group || ''} - ${tooltipItems[0].label}`;
+                                            },
+                                            label: (tooltipItem) => {
+                                                const item = tooltipItem.raw;
+                                                return [
+                                                    `🔵 Present: ${item.present ?? '-'}`,
+                                                    `🔴 Absent: ${item.absent ?? '-'}`,
+                                                    `🟡 Leave: ${item.leave ?? '-'}`,
+                                                    `🟣 Late: ${item.late ?? '-'}`,
+                                                ];
+                                            },
                                         },
+                                        displayColors: false,
                                     },
-                                    grid: { display: false },
                                 },
-                                y: {
-                                    beginAtZero: true,
-                                    ticks: { stepSize: 5 },
-                                    grid: { color: "rgba(200, 200, 200, 0.2)" },
+                                scales: {
+                                    x: {
+                                        afterFit: (scale) => { scale.height += 22; },
+                                        ticks: {
+                                            autoSkip: false,
+                                            callback: function (_value, index) {
+                                                return sections[index];
+                                            },
+                                        },
+                                        grid: { display: false },
+                                    },
+                                    y: {
+                                        beginAtZero: true,
+                                        max: 100,
+                                        ticks: { stepSize: 20, callback: (v) => `${v}%` },
+                                        grid: { color: 'rgba(200, 200, 200, 0.2)' },
+                                    },
                                 },
-                            },
-                        }}
-                    />
-                </div>
-            </div>
-        </div>
+                            }}
+                        />
+                    </Box>
+                </Box>
+            )}
+        </Box>
     );
 }
 

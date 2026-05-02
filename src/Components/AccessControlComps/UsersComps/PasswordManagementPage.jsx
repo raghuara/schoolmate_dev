@@ -13,7 +13,7 @@ import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import ImageIcon from "@mui/icons-material/Image";
 import CloseIcon from "@mui/icons-material/Close";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Navigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlice";
 import Loader from "../../Loader";
@@ -303,6 +303,12 @@ export default function PasswordManagementPage() {
             setIsLoading(false);
         }
     };
+
+    // Route guard — only superadmin can access this page.
+    // Placed AFTER all hooks to comply with react-hooks/rules-of-hooks.
+    if (user?.userType !== "superadmin") {
+        return <Navigate to="/dashboardmenu/dashboard" replace />;
+    }
 
     return (
         <Box sx={{ width: "100%" }}>

@@ -562,10 +562,15 @@ export default function CreateStudentInfoPage() {
             setIsDisabledAcademic(true)
             setActiveStep("1")
         } catch (error) {
+            const serverMsg =
+                error.response?.data?.message ||
+                error.response?.data?.Message ||
+                error.message ||
+                "Error while inserting data";
             setOpen(true);
             setColor(false);
             setStatus(false);
-            setMessage("Error while inserting data");
+            setMessage(serverMsg);
             setFetchRollNumber("")
         } finally {
             setIsLoading(false);
@@ -680,10 +685,15 @@ export default function CreateStudentInfoPage() {
             setIsDisabledStudentInfo(true)
             setActiveStep("2")
         } catch (error) {
+            const serverMsg =
+                error.response?.data?.message ||
+                error.response?.data?.Message ||
+                error.message ||
+                "Error while inserting data";
             setOpen(true);
             setColor(false);
             setStatus(false);
-            setMessage("Error while inserting data");
+            setMessage(serverMsg);
         } finally {
             setIsLoading(false);
         }
@@ -787,10 +797,15 @@ export default function CreateStudentInfoPage() {
             setIsDisabledFamilyInfo(true)
             setActiveStep("3")
         } catch (error) {
+            const serverMsg =
+                error.response?.data?.message ||
+                error.response?.data?.Message ||
+                error.message ||
+                "Error while inserting data";
             setOpen(true);
             setColor(false);
             setStatus(false);
-            setMessage("Error while inserting data");
+            setMessage(serverMsg);
         } finally {
             setIsLoading(false);
         }
@@ -879,10 +894,15 @@ export default function CreateStudentInfoPage() {
             setIsDisabledGuardianInfo(true)
             setActiveStep("4")
         } catch (error) {
+            const serverMsg =
+                error.response?.data?.message ||
+                error.response?.data?.Message ||
+                error.message ||
+                "Error while inserting data";
             setOpen(true);
             setColor(false);
             setStatus(false);
-            setMessage("Error while inserting data");
+            setMessage(serverMsg);
         } finally {
             setIsLoading(false);
         }
@@ -918,10 +938,15 @@ export default function CreateStudentInfoPage() {
             setIsDisabledSiblingInfo(true)
             setActiveStep("5")
         } catch (error) {
+            const serverMsg =
+                error.response?.data?.message ||
+                error.response?.data?.Message ||
+                error.message ||
+                "Error while inserting data";
             setOpen(true);
             setColor(false);
             setStatus(false);
-            setMessage("Error while inserting data");
+            setMessage(serverMsg);
         } finally {
             setIsLoading(false);
         }
@@ -1018,10 +1043,15 @@ export default function CreateStudentInfoPage() {
             setIsDisabledDocument(true)
             setActiveStep("6")
         } catch (error) {
+            const serverMsg =
+                error.response?.data?.message ||
+                error.response?.data?.Message ||
+                error.message ||
+                "Error while inserting data";
             setOpen(true);
             setColor(false);
             setStatus(false);
-            setMessage("Error while inserting data");
+            setMessage(serverMsg);
         } finally {
             setIsLoading(false);
         }
@@ -1117,10 +1147,15 @@ export default function CreateStudentInfoPage() {
                 navigate('/dashboardmenu/student/information')
             }, 1000);
         } catch (error) {
+            const serverMsg =
+                error.response?.data?.message ||
+                error.response?.data?.Message ||
+                error.message ||
+                "Error while inserting data";
             setOpen(true);
             setColor(false);
             setStatus(false);
-            setMessage("Error while inserting data");
+            setMessage(serverMsg);
         } finally {
             setIsLoading(false);
         }

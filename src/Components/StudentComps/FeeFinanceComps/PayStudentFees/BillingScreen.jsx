@@ -1630,6 +1630,62 @@ export default function BillingScreen() {
                 {feeTabs[value]}
               </Typography>
             </Box>
+
+            {/* Admission status chip — only on School Fee tab when API returned a value */}
+            {value === 0 && (() => {
+              const admission = (details?.oldOrNewAdmission || "").toLowerCase();
+              if (admission !== "old" && admission !== "new") return null;
+              const isOld = admission === "old";
+              return (
+                <Tooltip
+                  arrow
+                  placement="top"
+                  title={
+                    isOld
+                      ? "Old student — Admission Fee is waived. Only the recurring school fees apply."
+                      : "New student — full School Fee structure (including Admission Fee) applies."
+                  }
+                >
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 0.6,
+                      ml: 1,
+                      mt: 1,
+                      px: 1.25,
+                      height: "22px",
+                      borderRadius: "999px",
+                      backgroundColor: isOld ? "#FFF7ED" : "#EEF2FF",
+                      border: `1px solid ${isOld ? "#FDBA74" : "#C7D2FE"}`,
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        width: 7, height: 7, borderRadius: "50%",
+                        backgroundColor: isOld ? "#EA580C" : "#4F46E5",
+                      }}
+                    />
+                    <Typography sx={{
+                      fontSize: "11px", fontWeight: 700, letterSpacing: 0.2,
+                      color: isOld ? "#9A3412" : "#3730A3",
+                    }}>
+                      {isOld ? "Old Student" : "New Student"}
+                    </Typography>
+                    {isOld && (
+                      <Typography sx={{
+                        fontSize: "10px", fontWeight: 600,
+                        color: "#9A3412", opacity: 0.85,
+                        ml: 0.3, borderLeft: "1px solid #FDBA74", pl: 0.6,
+                      }}>
+                        No Admission Fee
+                      </Typography>
+                    )}
+                  </Box>
+                </Tooltip>
+              );
+            })()}
+
             {(() => {
               const concessionFees = getCurrentFeeData().filter(
                 (fee) => parseFloat(fee.concessionAmount || 0) > 0

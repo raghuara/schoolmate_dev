@@ -1,16 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
     Box, Typography, Button, Grid, IconButton, TextField, Chip,
     Table, TableBody, TableCell, TableHead, TableRow, Tooltip,
-    Autocomplete, InputAdornment, LinearProgress,
+    Autocomplete, InputAdornment, LinearProgress, Tab, Tabs, Paper,
+    Avatar, TablePagination,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SearchIcon from '@mui/icons-material/Search';
 import DownloadIcon from '@mui/icons-material/Download';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
+import PaidIcon from '@mui/icons-material/Paid';
+import PendingActionsIcon from '@mui/icons-material/PendingActions';
+import TrendingDownIcon from '@mui/icons-material/TrendingDown';
+import GroupIcon from '@mui/icons-material/Group';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { selectGrades } from '../../../../Redux/Slices/DropdownController';
+import { selectWebsiteSettings } from '../../../../Redux/Slices/websiteSettingsSlice';
 import SnackBar from '../../../SnackBar';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
@@ -25,12 +31,15 @@ const FEE_TYPE_COLORS = {
     'Additional Fee': { color: '#FF6B35', bg: '#FFF5F2' },
 };
 
+const FEE_TABS = ['All', 'School Fee', 'Transport Fee', 'ECA Fee', 'Additional Fee'];
+
+const formatINR = (n) => `₹${(Number(n) || 0).toLocaleString('en-IN')}`;
+
 export default function ConcessionLog() {
     const navigate = useNavigate();
     const isExpanded = useSelector((state) => state.sidebar.isExpanded);
     const grades = useSelector(selectGrades);
-    const user = useSelector((state) => state.auth);
-    const rollNumber = user.rollNumber;
+    const websiteSettings = useSelector(selectWebsiteSettings);
 
     const currentYear = new Date().getFullYear();
     const currentAcademicYear = `${currentYear}-${currentYear + 1}`;
@@ -43,16 +52,21 @@ export default function ConcessionLog() {
     const [selectedYear, setSelectedYear] = useState(currentAcademicYear);
     const [selectedGradeId, setSelectedGradeId] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
-    const [feeTypeFilter, setFeeTypeFilter] = useState('All');
+    const [feeTypeTab, setFeeTypeTab] = useState(0); // index into FEE_TABS
     const [isLoading, setIsLoading] = useState(false);
     const [logs, setLogs] = useState([]);
+
+    // Pagination
+    const [page, setPage] = useState(0);
+    const [rowsPerPage, setRowsPerPage] = useState(25);
 
     const [open, setOpen] = useState(false);
     const [status, setStatus] = useState(false);
     const [color, setColor] = useState(false);
     const [message, setMessage] = useState('');
 
-    const selectedGrade = grades.find(g => g.id === selectedGradeId);
+    const selectedGrade = grades.find((g) => g.id === selectedGradeId);
+    const feeTypeFilter = FEE_TABS[feeTypeTab];
 
     useEffect(() => {
         fetchConcessionLogs();
@@ -61,10 +75,7 @@ export default function ConcessionLog() {
     const fetchConcessionLogs = async () => {
         setIsLoading(true);
         try {
-            const params = {
-                academicYear: selectedYear,
-                feeType: feeTypeFilter,
-            };
+            const params = { academicYear: selectedYear, feeType: feeTypeFilter };
             if (selectedGrade?.sign) params.gradeSign = selectedGrade.sign;
             const res = await axios.get(GetConcessionLog, {
                 params,
@@ -79,17 +90,52 @@ export default function ConcessionLog() {
         }
     };
 
-    const filteredLogs = logs.filter(log => {
-        if (!searchQuery) return true;
+    const filteredLogs = useMemo(() => {
+        if (!searchQuery) return logs;
         const q = searchQuery.toLowerCase();
-        return (
+        return logs.filter((log) =>
             (log.studentName || '').toLowerCase().includes(q) ||
             (log.rollNo || '').toLowerCase().includes(q) ||
             (log.feeName || '').toLowerCase().includes(q) ||
             (log.gradeSection || '').toLowerCase().includes(q) ||
-            (log.concessionByName || '').toLowerCase().includes(q)
+            (log.concessionByName || '').toLowerCase().includes(q) ||
+            (log.concessionCategory || '').toLowerCase().includes(q) ||
+            (log.recommendedBy || '').toLowerCase().includes(q) ||
+            (log.recommendationReason || '').toLowerCase().includes(q)
         );
-    });
+    }, [logs, searchQuery]);
+
+    const stats = useMemo(() => {
+        const data = filteredLogs;
+        const totalOriginal = data.reduce((s, r) => s + (Number(r.originalAmount ?? r.originalAmt) || 0), 0);
+        const totalConcession = data.reduce((s, r) => s + (Number(r.concessionAmt) || 0), 0);
+        const totalPending = data.reduce((s, r) => s + (Number(r.pendingAmount) || 0), 0);
+        const uniqueStudents = new Set(data.map((r) => r.rollNo)).size;
+        return {
+            totalRecords: data.length,
+            totalOriginal,
+            totalConcession,
+            totalPending,
+            uniqueStudents,
+        };
+    }, [filteredLogs]);
+
+    // Reset page to 0 whenever filters/search change so the user doesn't land on an empty page
+    useEffect(() => {
+        setPage(0);
+    }, [searchQuery, feeTypeTab, selectedGradeId, selectedYear]);
+
+    // Rows to show on the current page
+    const pagedLogs = useMemo(
+        () => filteredLogs.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage),
+        [filteredLogs, page, rowsPerPage]
+    );
+
+    const handleChangePage = (_e, newPage) => setPage(newPage);
+    const handleChangeRowsPerPage = (e) => {
+        setRowsPerPage(parseInt(e.target.value, 10));
+        setPage(0);
+    };
 
     const handleExport = () => {
         if (filteredLogs.length === 0) {
@@ -103,9 +149,13 @@ export default function ConcessionLog() {
             'Grade & Section': log.gradeSection,
             'Fee Type': log.feeType,
             'Fee Name': log.feeName,
-            'Original Amount': log.originalAmt,
+            'Original Amount': log.originalAmount ?? log.originalAmt ?? 0,
             'Concession Amount': log.concessionAmt,
             'Pending Amount': log.pendingAmount,
+            'Category': log.concessionCategory || '-',
+            'Recommended By': log.recommendedBy || '-',
+            'Reason': log.recommendationReason || '-',
+            'Mode': log.isSeparateDetailsPerFee === 'Y' ? 'Per-fee' : log.isSeparateDetailsPerFee === 'N' ? 'Common' : '-',
             'Concession By': `${log.concessionByName} (${log.concessionByRollNumber})`,
             'Date': log.concessionDate ? new Date(log.concessionDate).toLocaleDateString('en-IN') : '',
         }));
@@ -120,16 +170,19 @@ export default function ConcessionLog() {
         borderRight: 1,
         borderColor: '#E8DDEA',
         textAlign: 'center',
-        fontWeight: 600,
-        fontSize: '12px',
-        py: 1.2,
+        fontWeight: 700,
+        fontSize: '11px',
+        color: '#4B5563',
+        textTransform: 'uppercase',
+        letterSpacing: 0.3,
+        py: 1.3,
         px: 1.5,
         whiteSpace: 'nowrap',
     };
 
     const tdCell = {
         borderRight: 1,
-        borderColor: '#E8DDEA',
+        borderColor: '#F0E6F0',
         textAlign: 'center',
         fontSize: '12px',
         py: 1.2,
@@ -159,7 +212,12 @@ export default function ConcessionLog() {
                         <IconButton onClick={() => navigate(-1)} sx={{ width: '27px', height: '27px', mt: '2px' }}>
                             <ArrowBackIcon sx={{ fontSize: 20, color: '#000' }} />
                         </IconButton>
-                        <Typography sx={{ fontWeight: '600', fontSize: '19px' }}>Concession Log</Typography>
+                        <Box sx={{ ml: 1 }}>
+                            <Typography sx={{ fontWeight: 700, fontSize: '18px', lineHeight: 1.1 }}>Concession Log</Typography>
+                            <Typography sx={{ fontSize: '11px', color: '#888' }}>
+                                All special concessions applied across {selectedYear}
+                            </Typography>
+                        </Box>
                     </Grid>
                     <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'end', gap: 1.5 }}>
                         <Autocomplete
@@ -173,7 +231,7 @@ export default function ConcessionLog() {
                                 <TextField {...params} placeholder="All Grades" variant="outlined"
                                     sx={{
                                         '& .MuiOutlinedInput-root': { borderRadius: '5px', fontSize: 14, height: 35 },
-                                        '& .MuiOutlinedInput-input': { textAlign: 'center', fontWeight: '600' },
+                                        '& .MuiOutlinedInput-input': { textAlign: 'center', fontWeight: 600 },
                                     }}
                                 />
                             )}
@@ -188,7 +246,7 @@ export default function ConcessionLog() {
                                 <TextField {...params} variant="outlined"
                                     sx={{
                                         '& .MuiOutlinedInput-root': { borderRadius: '5px', fontSize: 14, height: 35 },
-                                        '& .MuiOutlinedInput-input': { textAlign: 'center', fontWeight: '600' },
+                                        '& .MuiOutlinedInput-input': { textAlign: 'center', fontWeight: 600 },
                                     }}
                                 />
                             )}
@@ -198,161 +256,379 @@ export default function ConcessionLog() {
             </Box>
 
             {/* Content */}
-            <Box sx={{ px: 2, pt: '68px' }}>
+            <Box sx={{ px: 2, pt: '68px', pb: 3 }}>
 
-                {/* Filter Bar */}
-                <Box sx={{ backgroundColor: '#f2f2f2', px: 2, py: 1, borderRadius: '10px 10px 10px 0px', borderBottom: '1px solid #ddd', mb: 2 }}>
-                    <Grid container sx={{ alignItems: 'center' }}>
-                        <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }} sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.5 }}>
-                            {['All', 'School Fee', 'Transport Fee', 'ECA Fee', 'Additional Fee'].map((type) => {
-                                const isActive = feeTypeFilter === type;
-                                const tc = FEE_TYPE_COLORS[type];
-                                return (
-                                    <Button
-                                        key={type}
-                                        size="small"
-                                        variant={isActive ? 'contained' : 'outlined'}
-                                        onClick={() => setFeeTypeFilter(type)}
-                                        sx={{
-                                            textTransform: 'none',
-                                            borderRadius: '999px',
-                                            fontSize: '11px',
-                                            fontWeight: 600,
-                                            height: 28,
-                                            px: 1.5,
-                                            boxShadow: 'none',
-                                            ...(isActive ? {
-                                                bgcolor: type === 'All' ? '#00ACC1' : tc?.color,
-                                                borderColor: type === 'All' ? '#00ACC1' : tc?.color,
-                                                '&:hover': { bgcolor: type === 'All' ? '#0097A7' : tc?.color, boxShadow: 'none' },
-                                            } : {
-                                                borderColor: '#ccc',
-                                                color: '#555',
-                                                '&:hover': { borderColor: '#00ACC1', color: '#00ACC1', bgcolor: 'transparent' },
-                                            })
-                                        }}
-                                    >
-                                        {type}
-                                    </Button>
-                                );
-                            })}
-                        </Grid>
-                        <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }} sx={{ display: 'flex', alignItems: 'center', justifyContent: { xs: 'flex-start', md: 'flex-end' }, gap: 1.5, py: 0.5 }}>
-                            <TextField
-                                placeholder="Search student, roll no, fee..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: '#9CA3AF', fontSize: 18 }} /></InputAdornment> } }}
-                                sx={{ width: 200, backgroundColor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: '5px', height: 28 } }}
-                                size="small"
-                            />
-                            <Button
-                                size="small"
-                                variant="outlined"
-                                startIcon={<DownloadIcon sx={{ fontSize: 14 }} />}
-                                onClick={handleExport}
-                                sx={{
-                                    textTransform: 'none', fontSize: '12px', fontWeight: 600,
-                                    borderColor: '#00ACC1', color: '#00ACC1', borderRadius: '30px', height: 28, px: 2,
-                                    '&:hover': { bgcolor: '#E0F7FA', borderColor: '#00ACC1' },
-                                }}
-                            >
-                                Export
-                            </Button>
-                            <Typography sx={{ fontSize: '12px', color: '#777', fontWeight: 500, whiteSpace: 'nowrap' }}>
-                                {filteredLogs.length} records
-                            </Typography>
-                        </Grid>
-                    </Grid>
+        
+                {/* ═══ Pill Tabs + Search + Export ═══ */}
+                <Box sx={{
+                    display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1.5,
+                    mb: 2, p: 1.2, borderRadius: '50px', bgcolor: '#f2f2f2',
+                    border: '1px solid #E5E7EB',
+                }}>
+                    {/* Category Pill Tabs */}
+                    <Tabs
+                        value={feeTypeTab}
+                        onChange={(_e, v) => setFeeTypeTab(v)}
+                        variant="scrollable"
+                        slotProps={{ indicator: { sx: { display: 'none' } } }}
+                        sx={{
+                            backgroundColor: '#fff',
+                            minHeight: '10px',
+                            borderRadius: '50px',
+                            border: '1px solid rgba(0,0,0,0.1)',
+                            '& .MuiTab-root': {
+                                textTransform: 'none',
+                                fontSize: '12px',
+                                color: '#555',
+                                fontWeight: 700,
+                                minWidth: 0,
+                                minHeight: '30px',
+                                height: '30px',
+                                px: 1.8,
+                                m: 0.6,
+                            },
+                            '& .Mui-selected': {
+                                color: `${websiteSettings.textColor} !important`,
+                                bgcolor: websiteSettings.mainColor,
+                                borderRadius: '50px',
+                                boxShadow: '1px 1px 2px 0.5px rgba(0, 0, 0, 0.2)',
+                                border: '1px solid rgba(0,0,0,0.1)',
+                            },
+                        }}
+                    >
+                        {FEE_TABS.map((label) => <Tab key={label} label={label} />)}
+                    </Tabs>
+
+                    <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1.2, flexWrap: 'wrap' }}>
+                        {/* Search pill */}
+                        <TextField
+                            placeholder="Search student, roll, fee, category..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            slotProps={{
+                                input: {
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <SearchIcon sx={{ fontSize: 18, color: '#555' }} />
+                                        </InputAdornment>
+                                    ),
+                                    sx: {
+                                        padding: '0 10px',
+                                        borderRadius: '50px',
+                                        height: '33px',
+                                        fontSize: '12px',
+                                        backgroundColor: '#fff',
+                                    },
+                                },
+                            }}
+                            sx={{
+                                width: 260,
+                                '& .MuiOutlinedInput-root': {
+                                    minHeight: '28px',
+                                    paddingRight: '3px',
+                                    backgroundColor: '#fff',
+                                },
+                                '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                    borderColor: websiteSettings.mainColor,
+                                },
+                            }}
+                            size="small"
+                        />
+
+                        {/* Record count */}
+                        <Chip
+                            label={`${filteredLogs.length} record${filteredLogs.length !== 1 ? 's' : ''}`}
+                            size="small"
+                            sx={{
+                                height: 28, fontSize: '11px', fontWeight: 700,
+                                bgcolor: '#fff', color: '#374151',
+                                border: '1px solid #E5E7EB',
+                            }}
+                        />
+
+                        {/* Export button */}
+                        <Button
+                            size="small"
+                            startIcon={<DownloadIcon sx={{ fontSize: 14 }} />}
+                            onClick={handleExport}
+                            sx={{
+                                textTransform: 'none', fontSize: '12px', fontWeight: 700,
+                                bgcolor: websiteSettings.mainColor, color: websiteSettings.textColor,
+                                borderRadius: '50px', height: 30, px: 2, boxShadow: 'none',
+                                '&:hover': { bgcolor: websiteSettings.mainColor, opacity: 0.9, boxShadow: 'none' },
+                            }}
+                        >
+                            Export
+                        </Button>
+                    </Box>
                 </Box>
 
-                {/* Colored Tab */}
+                {/* Active filter summary */}
+                {(searchQuery || selectedGrade || feeTypeFilter !== 'All') && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5, flexWrap: 'wrap' }}>
+                        <Typography sx={{ fontSize: '11px', color: '#6B7280', fontWeight: 600 }}>
+                            Active filters:
+                        </Typography>
+                        {feeTypeFilter !== 'All' && (
+                            <Chip
+                                label={feeTypeFilter}
+                                size="small"
+                                onDelete={() => setFeeTypeTab(0)}
+                                sx={{
+                                    height: 22, fontSize: '10px', fontWeight: 600,
+                                    bgcolor: FEE_TYPE_COLORS[feeTypeFilter]?.bg,
+                                    color: FEE_TYPE_COLORS[feeTypeFilter]?.color,
+                                    border: `1px solid ${FEE_TYPE_COLORS[feeTypeFilter]?.color}30`,
+                                }}
+                            />
+                        )}
+                        {selectedGrade && (
+                            <Chip
+                                label={`Grade: ${selectedGrade.sign}`}
+                                size="small"
+                                onDelete={() => setSelectedGradeId(null)}
+                                sx={{ height: 22, fontSize: '10px', fontWeight: 600, bgcolor: '#EEF2FF', color: '#4F46E5', border: '1px solid #C7D2FE' }}
+                            />
+                        )}
+                        {searchQuery && (
+                            <Chip
+                                label={`Search: "${searchQuery}"`}
+                                size="small"
+                                onDelete={() => setSearchQuery('')}
+                                sx={{ height: 22, fontSize: '10px', fontWeight: 600, bgcolor: '#F3F4F6', color: '#374151', border: '1px solid #D1D5DB' }}
+                            />
+                        )}
+                    </Box>
+                )}
+
+                {/* Colored Tab Label */}
                 <Box sx={{
-                    bgcolor: '#00ACC1',
-                    color: '#fff',
-                    fontSize: '13px',
-                    px: 3,
-                    py: 0.2,
-                    ml: '15px',
-                    fontWeight: 600,
-                    borderTopLeftRadius: '7px',
-                    borderTopRightRadius: '7px',
-                    width: 'fit-content',
-                    height: '20px',
+                    display: 'inline-flex', alignItems: 'center', gap: 0.8,
+                    bgcolor: websiteSettings.mainColor, color: websiteSettings.textColor,
+                    fontSize: '12px', px: 2.5, py: 0.5, ml: '15px',
+                    fontWeight: 700, letterSpacing: 0.3,
+                    borderTopLeftRadius: '7px', borderTopRightRadius: '7px',
                 }}>
+                    <ReceiptLongIcon sx={{ fontSize: 14 }} />
                     Special Concession Log
                 </Box>
 
                 {/* Table */}
-                <Box sx={{ border: '1px solid #E8DDEA', borderRadius: '5px', overflow: 'auto', bgcolor: '#fff' }}>
+                <Paper elevation={0} sx={{
+                    border: '1px solid #E8DDEA', borderRadius: '5px', overflow: 'auto',
+                    bgcolor: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                }}>
                     {isLoading ? (
-                        <Box sx={{ p: 4, textAlign: 'center' }}>
-                            <LinearProgress sx={{ mb: 2, mx: 'auto', width: '50%', borderRadius: 2, '& .MuiLinearProgress-bar': { bgcolor: '#00ACC1' } }} />
+                        <Box sx={{ p: 6, textAlign: 'center' }}>
+                            <LinearProgress sx={{ mb: 2, mx: 'auto', width: '40%', borderRadius: 2, '& .MuiLinearProgress-bar': { bgcolor: websiteSettings.mainColor } }} />
                             <Typography sx={{ fontSize: '13px', color: '#9CA3AF' }}>Loading concession logs...</Typography>
                         </Box>
                     ) : (
-                        <Table sx={{ minWidth: 950 }}>
+                        <Table sx={{ minWidth: 1200 }}>
                             <TableHead>
                                 <TableRow>
                                     <TableCell sx={{ ...thCell, width: 40 }}>S.No</TableCell>
-                                    <TableCell sx={{ ...thCell, minWidth: 120 }}>Student Name</TableCell>
-                                    <TableCell sx={{ ...thCell, minWidth: 80 }}>Roll No</TableCell>
+                                    <TableCell sx={{ ...thCell, minWidth: 140 }}>Student</TableCell>
                                     <TableCell sx={{ ...thCell, minWidth: 100 }}>Grade & Section</TableCell>
-                                    <TableCell sx={{ ...thCell, minWidth: 90 }}>Fee Type</TableCell>
-                                    <TableCell sx={{ ...thCell, minWidth: 110 }}>Fee Name</TableCell>
-                                    <TableCell sx={{ ...thCell, minWidth: 85 }}>Original Amt</TableCell>
-                                    <TableCell sx={{ ...thCell, minWidth: 95 }}>Concession Amt</TableCell>
-                                    <TableCell sx={{ ...thCell, minWidth: 85 }}>Pending Amt</TableCell>
-                                    <TableCell sx={{ ...thCell, minWidth: 110 }}>Concession By</TableCell>
-                                    <TableCell sx={{ ...thCell, minWidth: 90, borderRight: 0 }}>Date</TableCell>
+                                    <TableCell sx={{ ...thCell, minWidth: 100 }}>Fee Type</TableCell>
+                                    <TableCell sx={{ ...thCell, minWidth: 120 }}>Fee Name</TableCell>
+                                    <TableCell sx={{ ...thCell, minWidth: 90 }}>Original</TableCell>
+                                    <TableCell sx={{ ...thCell, minWidth: 95 }}>Concession</TableCell>
+                                    <TableCell sx={{ ...thCell, minWidth: 90 }}>Pending</TableCell>
+                                    <TableCell sx={{ ...thCell, minWidth: 110 }}>Category</TableCell>
+                                    <TableCell sx={{ ...thCell, minWidth: 110 }}>Recommended By</TableCell>
+                                    <TableCell sx={{ ...thCell, minWidth: 160 }}>Reason</TableCell>
+                                    <TableCell sx={{ ...thCell, minWidth: 120 }}>Concession By</TableCell>
+                                    <TableCell sx={{ ...thCell, minWidth: 95, borderRight: 0 }}>Date</TableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
-                                {filteredLogs.length > 0 ? (
-                                    filteredLogs.map((log, idx) => {
+                                {pagedLogs.length > 0 ? (
+                                    pagedLogs.map((log, idx) => {
                                         const ftc = FEE_TYPE_COLORS[log.feeType] || { color: '#555', bg: '#F9FAFB' };
+                                        const origAmount = log.originalAmount ?? log.originalAmt ?? 0;
+                                        const globalIdx = page * rowsPerPage + idx;
                                         return (
-                                            <TableRow key={idx} sx={{ bgcolor: idx % 2 === 0 ? '#fff' : '#FAFAFA', '&:hover': { bgcolor: '#f5f0fa' } }}>
-                                                <TableCell sx={{ ...tdCell, color: '#9CA3AF' }}>{idx + 1}</TableCell>
+                                            <TableRow
+                                                key={globalIdx}
+                                                sx={{
+                                                    bgcolor: idx % 2 === 0 ? '#fff' : '#FAFAFA',
+                                                    '&:hover': { bgcolor: '#F5F0FA' },
+                                                    transition: 'background-color 0.15s',
+                                                }}
+                                            >
+                                                <TableCell sx={{ ...tdCell, color: '#9CA3AF', fontWeight: 600 }}>{globalIdx + 1}</TableCell>
+
+                                                {/* Student */}
                                                 <TableCell sx={tdCell}>
-                                                    <Typography sx={{ fontSize: '12px', fontWeight: 600, color: '#111' }}>{log.studentName}</Typography>
+                                                    <Typography sx={{ fontSize: '12px', fontWeight: 700, color: '#111' }}>{log.studentName}</Typography>
+                                                    <Typography sx={{ fontSize: '10px', color: '#9CA3AF', fontWeight: 500 }}>Roll: {log.rollNo}</Typography>
                                                 </TableCell>
-                                                <TableCell sx={{ ...tdCell, color: '#555' }}>{log.rollNo}</TableCell>
+
                                                 <TableCell sx={{ ...tdCell, color: '#555' }}>{log.gradeSection}</TableCell>
+
+                                                {/* Fee Type chip */}
                                                 <TableCell sx={tdCell}>
-                                                    <Chip label={log.feeType} size="small" sx={{ fontSize: 10, fontWeight: 600, height: 20, bgcolor: ftc.bg, color: ftc.color, border: `1px solid ${ftc.color}30` }} />
+                                                    <Chip
+                                                        label={log.feeType}
+                                                        size="small"
+                                                        sx={{
+                                                            fontSize: 10, fontWeight: 700, height: 22,
+                                                            bgcolor: ftc.bg, color: ftc.color,
+                                                            border: `1px solid ${ftc.color}30`,
+                                                        }}
+                                                    />
                                                 </TableCell>
+
                                                 <TableCell sx={{ ...tdCell, color: '#333' }}>{log.feeName}</TableCell>
-                                                <TableCell sx={{ ...tdCell, color: '#555' }}>₹{(log.originalAmt ?? 0).toLocaleString()}</TableCell>
-                                                <TableCell sx={{ ...tdCell, fontWeight: 700, color: '#DC2626' }}>- ₹{(log.concessionAmt ?? 0).toLocaleString()}</TableCell>
-                                                <TableCell sx={{ ...tdCell, fontWeight: 700, color: log.pendingAmount > 0 ? '#F59E0B' : '#059669' }}>₹{(log.pendingAmount ?? 0).toLocaleString()}</TableCell>
+
+                                                {/* Amounts */}
+                                                <TableCell sx={{ ...tdCell, color: '#111', fontWeight: 600 }}>
+                                                    {formatINR(origAmount)}
+                                                </TableCell>
+                                                <TableCell sx={{ ...tdCell, fontWeight: 700, color: '#DC2626' }}>
+                                                    − {formatINR(log.concessionAmt ?? 0)}
+                                                </TableCell>
+                                                <TableCell sx={{ ...tdCell, fontWeight: 700, color: (log.pendingAmount || 0) > 0 ? '#F59E0B' : '#059669' }}>
+                                                    {formatINR(log.pendingAmount ?? 0)}
+                                                </TableCell>
+
+                                                {/* Category + Mode chip */}
+                                                <TableCell sx={tdCell}>
+                                                    {log.concessionCategory ? (
+                                                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.3 }}>
+                                                            <Typography sx={{ fontSize: '12px', fontWeight: 600, color: '#111' }}>
+                                                                {log.concessionCategory}
+                                                            </Typography>
+                                                            {log.isSeparateDetailsPerFee === 'Y' && (
+                                                                <Chip label="Per-fee" size="small"
+                                                                    sx={{ fontSize: 9, fontWeight: 700, height: 16, bgcolor: '#EEF2FF', color: '#4F46E5', border: '1px solid #C7D2FE', '& .MuiChip-label': { px: 0.6 } }}
+                                                                />
+                                                            )}
+                                                            {log.isSeparateDetailsPerFee === 'N' && (
+                                                                <Chip label="Common" size="small"
+                                                                    sx={{ fontSize: 9, fontWeight: 700, height: 16, bgcolor: '#F0FDF4', color: '#059669', border: '1px solid #A7F3D0', '& .MuiChip-label': { px: 0.6 } }}
+                                                                />
+                                                            )}
+                                                        </Box>
+                                                    ) : (
+                                                        <Typography sx={{ fontSize: '12px', color: '#D1D5DB' }}>—</Typography>
+                                                    )}
+                                                </TableCell>
+
+                                                {/* Recommended By */}
+                                                <TableCell sx={tdCell}>
+                                                    {log.recommendedBy
+                                                        ? <Typography sx={{ fontSize: '12px', color: '#333' }}>{log.recommendedBy}</Typography>
+                                                        : <Typography sx={{ fontSize: '12px', color: '#D1D5DB' }}>—</Typography>}
+                                                </TableCell>
+
+                                                {/* Reason */}
+                                                <TableCell sx={tdCell}>
+                                                    {log.recommendationReason ? (
+                                                        <Tooltip title={log.recommendationReason} arrow>
+                                                            <Typography sx={{
+                                                                fontSize: '12px', color: '#333',
+                                                                maxWidth: 180, mx: 'auto',
+                                                                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                                            }}>
+                                                                {log.recommendationReason}
+                                                            </Typography>
+                                                        </Tooltip>
+                                                    ) : (
+                                                        <Typography sx={{ fontSize: '12px', color: '#D1D5DB' }}>—</Typography>
+                                                    )}
+                                                </TableCell>
+
+                                                {/* Concession By */}
                                                 <TableCell sx={tdCell}>
                                                     <Typography sx={{ fontSize: '12px', fontWeight: 600, color: '#111' }}>{log.concessionByName}</Typography>
                                                     <Typography sx={{ fontSize: '10px', color: '#9CA3AF' }}>{log.concessionByRollNumber}</Typography>
                                                 </TableCell>
+
+                                                {/* Date */}
                                                 <TableCell sx={{ ...tdCell, borderRight: 0, color: '#555', whiteSpace: 'nowrap' }}>
-                                                    {log.concessionDate ? new Date(log.concessionDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}
+                                                    {log.concessionDate
+                                                        ? new Date(log.concessionDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+                                                        : '-'}
                                                 </TableCell>
                                             </TableRow>
                                         );
                                     })
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={11} sx={{ textAlign: 'center', py: 8, borderBottom: 'none' }}>
-                                            <ReceiptLongIcon sx={{ fontSize: 48, color: '#D1D5DB', mb: 2, display: 'block', mx: 'auto' }} />
-                                            <Typography sx={{ fontSize: '15px', fontWeight: 600, color: '#6B7280' }}>
+                                        <TableCell colSpan={13} sx={{ textAlign: 'center', py: 8, borderBottom: 'none' }}>
+                                            <Avatar sx={{ width: 60, height: 60, bgcolor: '#F3F4F6', mx: 'auto', mb: 1.5 }}>
+                                                <ReceiptLongIcon sx={{ fontSize: 32, color: '#9CA3AF' }} />
+                                            </Avatar>
+                                            <Typography sx={{ fontSize: '15px', fontWeight: 700, color: '#374151' }}>
                                                 No concession records found
                                             </Typography>
                                             <Typography sx={{ fontSize: '12px', color: '#9CA3AF', mt: 0.5 }}>
-                                                Special concessions applied from the Billing Screen will appear here.
+                                                {searchQuery || selectedGrade || feeTypeFilter !== 'All'
+                                                    ? 'Try adjusting your filters or clearing the search.'
+                                                    : 'Special concessions applied from the Billing Screen will appear here.'}
                                             </Typography>
                                         </TableCell>
+                                    </TableRow>
+                                )}
+
+                                {/* Totals row (all filtered records — not per page) */}
+                                {filteredLogs.length > 0 && (
+                                    <TableRow sx={{ bgcolor: '#FAF6FC' }}>
+                                        <TableCell colSpan={5} sx={{ ...tdCell, textAlign: 'right', fontWeight: 700, color: '#374151', borderTop: '2px solid #E8DDEA' }}>
+                                            Totals (all {stats.totalRecords} filtered)
+                                        </TableCell>
+                                        <TableCell sx={{ ...tdCell, fontWeight: 800, color: '#111', borderTop: '2px solid #E8DDEA' }}>
+                                            {formatINR(stats.totalOriginal)}
+                                        </TableCell>
+                                        <TableCell sx={{ ...tdCell, fontWeight: 800, color: '#DC2626', borderTop: '2px solid #E8DDEA' }}>
+                                            − {formatINR(stats.totalConcession)}
+                                        </TableCell>
+                                        <TableCell sx={{ ...tdCell, fontWeight: 800, color: '#F59E0B', borderTop: '2px solid #E8DDEA' }}>
+                                            {formatINR(stats.totalPending)}
+                                        </TableCell>
+                                        <TableCell colSpan={5} sx={{ ...tdCell, borderRight: 0, borderTop: '2px solid #E8DDEA' }} />
                                     </TableRow>
                                 )}
                             </TableBody>
                         </Table>
                     )}
-                </Box>
+
+                    {/* Pagination */}
+                    {!isLoading && filteredLogs.length > 0 && (
+                        <TablePagination
+                            component="div"
+                            count={filteredLogs.length}
+                            page={page}
+                            onPageChange={handleChangePage}
+                            rowsPerPage={rowsPerPage}
+                            onRowsPerPageChange={handleChangeRowsPerPage}
+                            rowsPerPageOptions={[10, 25, 50, 100]}
+                            sx={{
+                                borderTop: '1px solid #E8DDEA',
+                                bgcolor: '#FAFAFA',
+                                '& .MuiTablePagination-toolbar': { minHeight: 44, px: 2 },
+                                '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': {
+                                    fontSize: '12px',
+                                    fontWeight: 600,
+                                    color: '#374151',
+                                    margin: 0,
+                                },
+                                '& .MuiTablePagination-select': {
+                                    fontSize: '12px',
+                                    fontWeight: 700,
+                                    color: websiteSettings.mainColor,
+                                },
+                                '& .MuiTablePagination-actions button': {
+                                    color: websiteSettings.mainColor,
+                                    '&:hover': { bgcolor: `${websiteSettings.mainColor}15` },
+                                    '&.Mui-disabled': { color: '#D1D5DB' },
+                                },
+                            }}
+                        />
+                    )}
+                </Paper>
             </Box>
         </Box>
     );

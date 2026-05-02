@@ -57,6 +57,10 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
   const [newsDetails, setnewsDetails] = useState([]);
   const [selectedMenu, setSelectedMenu] = useState(null);
   const isActive = (path) => location.pathname.includes(path);
+  // Strict match for Fee & Finance — avoids substring collision with /dashboardmenu/feedback
+  const isFeeActive =
+    location.pathname === '/dashboardmenu/fee' ||
+    location.pathname.startsWith('/dashboardmenu/fee/');
   const communicationActivePaths = useSelector(selectCommunicationActivePaths)
   const myProjectsActivePaths = useSelector(selectMyProjectsActivePaths)
   const isCommunicationPathActive = () => communicationActivePaths.some(path => isActive(path));
@@ -582,15 +586,15 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
                     paddingTop: '2px',
                     paddingBottom: '2px',
                     borderRadius: '5px',
-                    boxShadow: isActive('/dashboardmenu/fee') ? '1px 1px 2px 0.5px rgba(0, 0, 0, 0.4)' : 'inherit',
+                    boxShadow: isFeeActive ? '1px 1px 2px 0.5px rgba(0, 0, 0, 0.4)' : 'inherit',
                     width: '100%',
-                    backgroundColor: isActive('/dashboardmenu/fee') ? websiteSettings.mainColor : 'inherit',
-                    color: isActive('/dashboardmenu/fee') ? websiteSettings.textColor : '#000',
+                    backgroundColor: isFeeActive ? websiteSettings.mainColor : 'inherit',
+                    color: isFeeActive ? websiteSettings.textColor : '#000',
                     position: 'relative',
                     '&:hover': { backgroundColor: 'none' },
                     cursor: "pointer",
                     '&:hover': {
-                      backgroundColor: !isActive('/dashboardmenu/fee') ? websiteSettings.lightColor : 'none',
+                      backgroundColor: !isFeeActive ? websiteSettings.lightColor : 'none',
                     }
                   }}
                 >
@@ -598,7 +602,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
                     <Box
                       sx={{
                         width: '5px',
-                        backgroundColor: isActive('/dashboardmenu/fee') ? websiteSettings.darkColor : 'inherit',
+                        backgroundColor: isFeeActive ? websiteSettings.darkColor : 'inherit',
                         height: '100%',
                         position: 'absolute',
                         left: 0,
@@ -609,11 +613,11 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
                     />
                   )}
                   <ListItemIcon sx={{ display: "flex", justifyContent: "center", alignItems: "center", }}>
-                    <AssuredWorkloadIcon style={{ color: isActive('/dashboardmenu/fee') ? websiteSettings.textColor : 'rgba(0, 0, 0, 0.7)', }} />
+                    <AssuredWorkloadIcon style={{ color: isFeeActive ? websiteSettings.textColor : 'rgba(0, 0, 0, 0.7)', }} />
                   </ListItemIcon>
                   {isExpanded && (
                     <ListItemText>
-                      <Typography className="activeSidebarText" sx={{ color: isActive('/dashboardmenu/fee') ? websiteSettings.textColor : '#000' }}>
+                      <Typography className="activeSidebarText" sx={{ color: isFeeActive ? websiteSettings.textColor : '#000' }}>
                         Fee & Finance
                       </Typography>
                     </ListItemText>

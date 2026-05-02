@@ -30,7 +30,7 @@ export default function AccessControlPage() {
 
     const items = [
         { color: "#A749CC", icon: Groups2Icon, text: "Users", bgColor: "#FBF9FC", iconBgColor: "#F7F0F9", path: 'users', intimation: newsIntimation },
-        { color: "#ED9146", icon: AutoStoriesIcon, text: "Academics", bgColor: "#FCFBF9", iconBgColor: "#FBF4EF", path: 'academics', intimation: messageIntimation },
+        // { color: "#ED9146", icon: AutoStoriesIcon, text: "Academics", bgColor: "#FCFBF9", iconBgColor: "#FBF4EF", path: 'academics', intimation: messageIntimation },
         // { color: "#7DC353", icon: CircularsIcon, text: "Circulars", bgColor: "#F9FBF7", iconBgColor: "#F2F8EE", path: 'circulars', intimation: circularIntimation },
         // { color: "#E10052", icon: HomeWorkIcon, text: "Homework", bgColor: "#FCF8F9", iconBgColor: "#FBEBF1", path: 'homework', intimation: homeworkIntimation },
     ];

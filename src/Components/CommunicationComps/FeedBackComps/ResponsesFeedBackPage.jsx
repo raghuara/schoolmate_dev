@@ -73,12 +73,20 @@ const parseMultiSelectAnswer = (value) => {
     return [str];
 };
 
-// Build a student row keyed by rollNumber with answers by questionId
+// Build a student row keyed by rollNumber with answers by questionId.
+// Backend sends:
+//   - multiple-choice questions → `answers: ["Grammar", "Speaking"]` (array, even when single)
+//   - ratings / open-ended       → `answer: "..."` (scalar) and `answers: null`
+// We keep both shapes possible in the map; `parseMultiSelectAnswer` + `ResponseCell` handle either.
 const normalizeStudents = (students = []) =>
     (students || []).map((s) => {
         const answers = {};
         (s.answers || []).forEach((a) => {
-            answers[a.questionId] = a.answer;
+            if (Array.isArray(a.answers) && a.answers.length > 0) {
+                answers[a.questionId] = a.answers;
+            } else {
+                answers[a.questionId] = a.answer;
+            }
         });
         return {
             rollNumber: s.rollNumber,
