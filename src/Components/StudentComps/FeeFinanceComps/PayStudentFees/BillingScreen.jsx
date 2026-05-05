@@ -691,6 +691,7 @@ export default function BillingScreen() {
       const paymentMethods = {
         totalPaidAmount: totalPaidAmount,
         paymentOption: selectedPaymentMethod.toUpperCase(),
+        paidFrom: 'website',
         paidDate: dayjs().format('YYYY-MM-DD')
       };
 

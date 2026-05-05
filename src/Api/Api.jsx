@@ -211,6 +211,10 @@ const updateStudentgeneralhealthInformation = `${studentManagement}updateStudent
 const FindStudentManagementDetails = `${studentManagement}FindStudentManagementDetails`;
 const GetStudentsInformation = `${studentManagement}GetStudentsInformation`;
 const postSiblingMapping = `${baseApiurl}GradeValueFetch/postSiblingMapping`;
+const PostPromoteStudents = `${baseApiurl}studentPromotion/PostPromoteStudents`;
+const FetchPromotableStudents = `${baseApiurl}studentPromotion/FetchPromotableStudents`;
+const FetchPromotedStudents = `${baseApiurl}studentPromotion/FetchPromotedStudents`;
+const UpdatePromotedStudents = `${baseApiurl}studentPromotion/UpdatePromotedStudents`;
 
 // Staff Information 
 const staffManagement = `${baseApiurl}staffManagement/`;
@@ -793,5 +797,9 @@ export {
     postworkingcalendar,
     GetWorkingcalendar,
     UpdateleaveTypeByID,
-    DeleteleaveTypeByID
+    DeleteleaveTypeByID,
+    PostPromoteStudents,
+    FetchPromotableStudents,
+    FetchPromotedStudents,
+    UpdatePromotedStudents
 }

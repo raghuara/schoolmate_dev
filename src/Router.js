@@ -88,6 +88,7 @@ import ExportAttendancePage from "./Components/CommunicationComps/AttendanceComp
 import HomeworkApprovalPage from "./Components/Approvals/ApprovalPages/HomeworkApprovalPage";
 import ApprovalStatusHomeworkPage from "./Components/MyProjects/ApprovalStatusComps/CommunicationStatusComps/ApprovalStatusHomework";
 import AccessControlPage from "./Components/AccessControlComps/AccessControlPage";
+import StudentPromotionPage from "./Components/AccessControlComps/StudentPromotionPage";
 import UsersPage from "./Components/AccessControlComps/UsersPage";
 import UserActivityPage from "./Components/AccessControlComps/UsersComps/UserActivityPage";
 import PasswordManagementPage from "./Components/AccessControlComps/UsersComps/PasswordManagementPage";
@@ -398,6 +399,8 @@ export default function RouterPage() {
                 <Route path="access/users" element={<UsersPage />} />
                 <Route path="access/useractivity" element={<UserActivityPage />} />
                 <Route path="access/password" element={<PasswordManagementPage />} />
+
+                <Route path="access/student-promotion" element={<StudentPromotionPage />} />
 
                 <Route path="access/academics" element={<AcademicsPage />} />
                 <Route path="access/class-section" element={<ClassSectionManagementPage />} />

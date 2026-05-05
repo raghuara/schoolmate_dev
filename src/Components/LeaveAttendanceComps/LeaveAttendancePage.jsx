@@ -25,6 +25,13 @@ import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import PersonIcon from '@mui/icons-material/Person';
 import DownloadIcon from '@mui/icons-material/Download';
 import CloseIcon from '@mui/icons-material/Close';
+import SpaceDashboardOutlinedIcon from '@mui/icons-material/SpaceDashboardOutlined';
+import HowToRegOutlinedIcon from '@mui/icons-material/HowToRegOutlined';
+import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
+import ListAltOutlinedIcon from '@mui/icons-material/ListAltOutlined';
+import EventNoteOutlinedIcon from '@mui/icons-material/EventNoteOutlined';
+import FactCheckOutlinedIcon from '@mui/icons-material/FactCheckOutlined';
+import InsertChartOutlinedIcon from '@mui/icons-material/InsertChartOutlined';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import axios from 'axios';
@@ -40,6 +47,12 @@ import ApplyLeavePage from './ApplyLeavePage';
 
 
 const token = "123";
+
+// ─── Theme ──────────────────────────────────────────────────────────────────
+const PRIMARY = '#059669';
+const PRIMARY_LIGHT = '#ECFDF5';
+const PRIMARY_DARK = '#047857';
+const PRIMARY_BORDER = '#A7F3D0';
 
 // ─── Config ─────────────────────────────────────────────────────────────────
 const SCHOOL_START_HOUR = 9;      // 9:00 AM
@@ -136,16 +149,22 @@ const USER_TYPE_CONFIG = {
 };
 
 const ROLE_CONFIG = {
-    'Teaching Staff':     { color: '#7C3AED', bg: '#EDE9FE' },
-    'Non Teaching Staff': { color: '#0891B2', bg: '#E0F7FA' },
-    'Supporting Staff':   { color: '#EA580C', bg: '#FFF7ED' },
+    'Teaching Staff':     { color: '#6D28D9', bg: '#F5F3FF', border: '#DDD6FE' },
+    'Non Teaching Staff': { color: '#0E7490', bg: '#ECFEFF', border: '#A5F3FC' },
+    'Supporting Staff':   { color: '#C2410C', bg: '#FFF7ED', border: '#FED7AA' },
 };
 
 const STATUS_STYLE = {
-    Present:   { color: '#16A34A', bg: '#DCFCE7', border: '#86EFAC' },
-    Late:      { color: '#EA580C', bg: '#FFF7ED', border: '#FDBA74' },
-    'On Leave':{ color: '#2563EB', bg: '#DBEAFE', border: '#93C5FD' },
-    Absent:    { color: '#DC2626', bg: '#FEE2E2', border: '#FCA5A5' },
+    Present:   { color: '#047857', bg: '#ECFDF5', border: '#A7F3D0' },
+    Late:      { color: '#B45309', bg: '#FFFBEB', border: '#FDE68A' },
+    'On Leave':{ color: '#1D4ED8', bg: '#EFF6FF', border: '#BFDBFE' },
+    Absent:    { color: '#B91C1C', bg: '#FEF2F2', border: '#FECACA' },
+};
+
+const AVATAR_PALETTE = ['#0E7490', '#6D28D9', '#C2410C', '#047857', '#1D4ED8', '#BE185D', '#A16207', '#0F766E'];
+const avatarColorFor = (name = '') => {
+    const code = (name.charCodeAt(0) || 0) + (name.charCodeAt(1) || 0);
+    return AVATAR_PALETTE[code % AVATAR_PALETTE.length];
 };
 
 const VERIFY_MODE_ICON = (mode = '') => {
@@ -294,31 +313,42 @@ export default function LeaveAttendancePage() {
         const attendanceRate = totalStaff > 0 ? Math.round((presentCount / totalStaff) * 100) : 0;
 
         const kpiCards = [
-            { label: 'Present',    value: presentCount,       sub: `/${totalStaff}`, color: '#16A34A', bg: '#F0FDF4', icon: CheckCircleIcon },
-            { label: 'Absent',     value: cards.totalAbsent  ?? 0,                   color: '#DC2626', bg: '#FEF2F2', icon: CancelIcon },
-            { label: 'Late',       value: cards.lateArrivals ?? 0,                   color: '#EA580C', bg: '#FFF7ED', icon: AccessTimeIcon },
-            { label: 'On Leave',   value: cards.onLeave      ?? 0,                   color: '#2563EB', bg: '#EFF6FF', icon: EventIcon },
+            { label: 'Present',    value: presentCount,       sub: `/${totalStaff}`, color: '#059669', bg: '#ECFDF5', border: '#A7F3D0', icon: CheckCircleIcon },
+            { label: 'Absent',     value: cards.totalAbsent  ?? 0,                   color: '#DC2626', bg: '#FEF2F2', border: '#FECACA', icon: CancelIcon },
+            { label: 'Late',       value: cards.lateArrivals ?? 0,                   color: '#D97706', bg: '#FFFBEB', border: '#FDE68A', icon: AccessTimeIcon },
+            { label: 'On Leave',   value: cards.onLeave      ?? 0,                   color: '#2563EB', bg: '#EFF6FF', border: '#BFDBFE', icon: EventIcon },
         ];
 
         return (
             <Box>
                 {/* Biometric Device Status Banner */}
+                {(() => {
+                    const DEVICE_BG = deviceStatus.connected ? '#EEF2FF' : '#FEF2F2';
+                    const DEVICE_BORDER = deviceStatus.connected ? '#C7D2FE' : '#FECACA';
+                    const DEVICE_ACCENT = deviceStatus.connected ? '#4338CA' : '#DC2626';
+                    const DEVICE_ACCENT_DARK = deviceStatus.connected ? '#3730A3' : '#B91C1C';
+                    const DEVICE_ACCENT_SOFT = deviceStatus.connected ? '#6366F1' : '#DC2626';
+                    return (
                 <Paper elevation={0} sx={{
-                    mb: 2, p: 1.5, border: '1px solid #E5E7EB', borderRadius: '10px',
-                    background: 'linear-gradient(135deg, #FFFBEB 0%, #FFFFFF 60%)',
+                    mb: 2, p: 1.5,
+                    border: `1px solid ${DEVICE_BORDER}`,
+                    borderRadius: '12px',
+                    bgcolor: DEVICE_BG,
                 }}>
                     <Grid container alignItems="center" spacing={2}>
                         <Grid size={{ xs: 12, md: 7 }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                <Avatar sx={{
-                                    bgcolor: deviceStatus.connected ? '#DCFCE7' : '#FEE2E2',
-                                    width: 42, height: 42,
+                                <Box sx={{
+                                    width: 42, height: 42, borderRadius: '10px',
+                                    bgcolor: '#fff',
+                                    border: `1px solid ${DEVICE_BORDER}`,
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 }}>
-                                    <DevicesIcon sx={{ color: deviceStatus.connected ? '#16A34A' : '#DC2626' }} />
-                                </Avatar>
-                                <Box sx={{ flex: 1 }}>
+                                    <DevicesIcon sx={{ color: DEVICE_ACCENT, fontSize: 22 }} />
+                                </Box>
+                                <Box sx={{ flex: 1, minWidth: 0 }}>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        <Typography sx={{ fontSize: '14px', fontWeight: 700, color: '#111827' }}>
+                                        <Typography sx={{ fontSize: '14px', fontWeight: 700, color: '#111827' }} noWrap>
                                             {deviceStatus.deviceName}
                                         </Typography>
                                         <Chip
@@ -327,13 +357,14 @@ export default function LeaveAttendancePage() {
                                             label={deviceStatus.connected ? 'Online' : 'Offline'}
                                             sx={{
                                                 height: 20, fontSize: '10px', fontWeight: 700,
-                                                bgcolor: deviceStatus.connected ? '#DCFCE7' : '#FEE2E2',
-                                                color: deviceStatus.connected ? '#16A34A' : '#DC2626',
+                                                bgcolor: '#fff',
+                                                color: DEVICE_ACCENT_DARK,
+                                                border: `1px solid ${DEVICE_BORDER}`,
                                                 '& .MuiChip-icon': { color: 'inherit' },
                                             }}
                                         />
                                     </Box>
-                                    <Typography sx={{ fontSize: '11px', color: '#6B7280' }}>
+                                    <Typography sx={{ fontSize: '11px', color: '#4B5563', mt: 0.2 }}>
                                         IP {deviceStatus.deviceIp} · Last sync {deviceStatus.lastSyncAt ? toHHmm(deviceStatus.lastSyncAt) : '—'}
                                         {deviceStatus.pendingPunches > 0 && ` · ${deviceStatus.pendingPunches} pending punches`}
                                     </Typography>
@@ -344,12 +375,20 @@ export default function LeaveAttendancePage() {
                             <Button
                                 size="small"
                                 variant="outlined"
-                                startIcon={<EditNoteIcon />}
+                                startIcon={<EditNoteIcon sx={{ color: DEVICE_ACCENT }} />}
                                 onClick={handleManualEntry}
                                 sx={{
-                                    textTransform: 'none', fontSize: '12px', fontWeight: 600, borderRadius: '8px',
-                                    borderColor: '#D1D5DB', color: '#374151',
-                                    '&:hover': { borderColor: '#9CA3AF', bgcolor: '#F9FAFB' },
+                                    textTransform: 'none', fontSize: '12px', fontWeight: 700, borderRadius: '8px',
+                                    border: `1px solid ${DEVICE_BORDER}`,
+                                    bgcolor: '#fff',
+                                    color: DEVICE_ACCENT_DARK,
+                                    px: 1.5,
+                                    boxShadow: `0 1px 2px ${DEVICE_ACCENT_SOFT}1A`,
+                                    '&:hover': {
+                                        border: `1px solid ${DEVICE_ACCENT_SOFT}`,
+                                        bgcolor: DEVICE_BG,
+                                        boxShadow: `0 2px 6px ${DEVICE_ACCENT_SOFT}33`,
+                                    },
                                 }}
                             >
                                 Manual Entry
@@ -361,9 +400,9 @@ export default function LeaveAttendancePage() {
                                 onClick={handleFetchBiometric}
                                 disabled={isSyncing}
                                 sx={{
-                                    textTransform: 'none', fontSize: '12px', fontWeight: 600, borderRadius: '8px',
-                                    bgcolor: '#111827', boxShadow: 'none',
-                                    '&:hover': { bgcolor: '#000', boxShadow: 'none' },
+                                    textTransform: 'none', fontSize: '12px', fontWeight: 700, borderRadius: '8px',
+                                    bgcolor: DEVICE_ACCENT_SOFT, boxShadow: `0 2px 6px ${DEVICE_ACCENT_SOFT}33`,
+                                    '&:hover': { bgcolor: DEVICE_ACCENT_DARK, boxShadow: `0 4px 12px ${DEVICE_ACCENT_SOFT}55` },
                                 }}
                             >
                                 {isSyncing ? 'Syncing...' : 'Sync Biometric'}
@@ -371,6 +410,8 @@ export default function LeaveAttendancePage() {
                         </Grid>
                     </Grid>
                 </Paper>
+                    );
+                })()}
 
                 <Grid container spacing={2}>
                     {/* Main Column */}
@@ -382,28 +423,34 @@ export default function LeaveAttendancePage() {
                                 return (
                                     <Grid size={{ xs: 12, sm: 6, md: 3 }} key={card.label}>
                                         <Card sx={{
-                                            border: `1px solid ${card.color}33`,
-                                            borderRadius: '10px',
+                                            border: `1px solid ${card.border}`,
+                                            borderRadius: '12px',
                                             boxShadow: 'none',
-                                            bgcolor: '#fff',
+                                            bgcolor: card.bg,
                                             height: '100%',
+                                            position: 'relative',
+                                            overflow: 'hidden',
                                             transition: 'transform 0.15s, box-shadow 0.15s',
-                                            '&:hover': { transform: 'translateY(-2px)', boxShadow: `0 4px 12px ${card.color}20` },
+                                            '&:hover': { transform: 'translateY(-2px)', boxShadow: `0 6px 16px ${card.color}22` },
                                         }}>
                                             <CardContent sx={{ py: 1.8, '&:last-child': { pb: 1.8 } }}>
                                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                                     <Box>
-                                                        <Typography sx={{ fontSize: '11px', color: '#6B7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                                        <Typography sx={{ fontSize: '11px', color: card.color, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>
                                                             {card.label}
                                                         </Typography>
-                                                        <Typography sx={{ fontSize: '26px', fontWeight: 800, color: '#111827', lineHeight: 1.2, mt: 0.5 }}>
+                                                        <Typography sx={{ fontSize: '28px', fontWeight: 800, color: '#111827', lineHeight: 1.2, mt: 0.5 }}>
                                                             {card.value}
                                                             {card.sub && <Typography component="span" sx={{ fontSize: '14px', color: '#9CA3AF', fontWeight: 600 }}>{card.sub}</Typography>}
                                                         </Typography>
                                                     </Box>
-                                                    <Avatar sx={{ bgcolor: card.bg, width: 36, height: 36 }}>
+                                                    <Box sx={{
+                                                        width: 38, height: 38, borderRadius: '10px',
+                                                        bgcolor: '#fff', border: `1px solid ${card.border}`,
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    }}>
                                                         <Icon sx={{ color: card.color, fontSize: 20 }} />
-                                                    </Avatar>
+                                                    </Box>
                                                 </Box>
                                             </CardContent>
                                         </Card>
@@ -413,7 +460,7 @@ export default function LeaveAttendancePage() {
                         </Grid>
 
                         {/* Today's Attendance */}
-                        <Card sx={{ border: '1px solid #E5E7EB', borderRadius: '10px', boxShadow: 'none' }}>
+                        <Card sx={{ border: '1px solid #E5E7EB', borderRadius: '12px', boxShadow: 'none', bgcolor: '#fff' }}>
                             <CardContent sx={{ pb: '12px !important' }}>
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5, flexWrap: 'wrap', gap: 1 }}>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
@@ -453,79 +500,102 @@ export default function LeaveAttendancePage() {
 
                                 {isLoading ? (
                                     <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}>
-                                        <CircularProgress size={28} sx={{ color: '#F97316' }} />
+                                        <CircularProgress size={28} sx={{ color: PRIMARY }} />
                                     </Box>
                                 ) : (
-                                    <TableContainer>
+                                    <TableContainer sx={{ borderRadius: '10px', overflow: 'hidden', border: '1px solid #E5E7EB' }}>
                                         <Table size="small">
                                             <TableHead>
-                                                <TableRow sx={{ bgcolor: '#F9FAFB' }}>
+                                                <TableRow sx={{
+                                                    bgcolor: PRIMARY_LIGHT,
+                                                    borderBottom: `1px solid ${PRIMARY_BORDER}`,
+                                                }}>
                                                     {['S.No', 'Staff Member', 'Role', 'Source', 'Check-In', 'Check-Out', 'Status'].map(h => (
-                                                        <TableCell key={h} sx={{ fontWeight: 700, fontSize: '10px', color: '#6B7280', textTransform: 'uppercase', whiteSpace: 'nowrap', letterSpacing: 0.4 }}>{h}</TableCell>
+                                                        <TableCell key={h} sx={{
+                                                            fontWeight: 700, fontSize: '10px', color: PRIMARY_DARK,
+                                                            textTransform: 'uppercase', whiteSpace: 'nowrap',
+                                                            letterSpacing: 0.6, py: 1.3, borderBottom: 'none',
+                                                        }}>{h}</TableCell>
                                                     ))}
                                                 </TableRow>
                                             </TableHead>
                                             <TableBody>
                                                 {todaysAttendance.length === 0 ? (
                                                     <TableRow>
-                                                        <TableCell colSpan={7} align="center" sx={{ py: 4, color: '#9CA3AF', fontSize: '13px' }}>
+                                                        <TableCell colSpan={7} align="center" sx={{ py: 5, color: '#9CA3AF', fontSize: '13px', borderBottom: 'none' }}>
                                                             No attendance records yet today
                                                         </TableCell>
                                                     </TableRow>
                                                 ) : todaysAttendance.slice(0, 8).map((emp, idx) => {
                                                     const roleLabel = mapRole(emp.role);
                                                     const statusLabel = mapStatus(emp.status, emp.attendance);
-                                                    const roleConf = ROLE_CONFIG[roleLabel] || { color: '#6B7280', bg: '#F3F4F6' };
+                                                    const roleConf = ROLE_CONFIG[roleLabel] || { color: '#6B7280', bg: '#F3F4F6', border: '#E5E7EB' };
                                                     const statConf = STATUS_STYLE[statusLabel] || STATUS_STYLE.Absent;
                                                     const isBiometric = (emp.source || '').toLowerCase() === 'biometric';
                                                     const showTime = statusLabel === 'Present' || statusLabel === 'Late';
+                                                    const avColor = avatarColorFor(emp.name || '');
 
                                                     return (
-                                                        <TableRow key={emp.rollNumber || idx} sx={{ '&:hover': { bgcolor: '#F9FAFB' }, borderBottom: '1px solid #F3F4F6' }}>
-                                                            <TableCell sx={{ width: 40 }}>
+                                                        <TableRow key={emp.rollNumber || idx} sx={{
+                                                            '&:hover': { bgcolor: PRIMARY_LIGHT },
+                                                            borderBottom: '1px solid #F3F4F6',
+                                                            transition: 'background-color 0.15s',
+                                                        }}>
+                                                            <TableCell sx={{ width: 40, borderBottom: '1px solid #F3F4F6' }}>
                                                                 <Typography sx={{ fontSize: '12px', color: '#9CA3AF', fontWeight: 500 }}>{idx + 1}</Typography>
                                                             </TableCell>
-                                                            <TableCell>
+                                                            <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
                                                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
-                                                                    <Avatar sx={{ width: 32, height: 32, bgcolor: '#3457D5', fontSize: '11px', fontWeight: 700 }}>
+                                                                    <Avatar sx={{
+                                                                        width: 32, height: 32,
+                                                                        bgcolor: `${avColor}15`,
+                                                                        color: avColor,
+                                                                        fontSize: '11px', fontWeight: 700,
+                                                                        border: `1px solid ${avColor}33`,
+                                                                    }}>
                                                                         {getInitials(emp.name)}
                                                                     </Avatar>
                                                                     <Box>
                                                                         <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>{emp.name}</Typography>
-                                                                        <Typography sx={{ fontSize: '10px', color: '#9CA3AF' }}>{emp.rollNumber}</Typography>
+                                                                        <Typography sx={{ fontSize: '10px', color: '#9CA3AF', fontWeight: 500 }}>{emp.rollNumber}</Typography>
                                                                     </Box>
                                                                 </Box>
                                                             </TableCell>
-                                                            <TableCell>
+                                                            <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
                                                                 <Chip label={roleLabel} size="small"
-                                                                    sx={{ bgcolor: roleConf.bg, color: roleConf.color, fontWeight: 600, fontSize: '10px', height: 20 }} />
+                                                                    sx={{
+                                                                        bgcolor: roleConf.bg, color: roleConf.color,
+                                                                        border: `1px solid ${roleConf.border}`,
+                                                                        fontWeight: 600, fontSize: '10px', height: 22,
+                                                                    }} />
                                                             </TableCell>
-                                                            <TableCell>
+                                                            <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
                                                                 <Tooltip title={isBiometric ? `Biometric · ${VERIFY_MODE_LABEL(emp.verifyMode || '')}` : 'Manual Entry'} arrow>
                                                                     <Chip
                                                                         size="small"
                                                                         icon={isBiometric ? VERIFY_MODE_ICON(emp.verifyMode || '') : <EditNoteIcon sx={{ fontSize: 14 }} />}
                                                                         label={isBiometric ? 'Biometric' : 'Manual'}
                                                                         sx={{
-                                                                            height: 22, fontSize: '10px', fontWeight: 700,
-                                                                            bgcolor: isBiometric ? '#EEF2FF' : '#F3F4F6',
-                                                                            color: isBiometric ? '#4F46E5' : '#374151',
+                                                                            height: 22, fontSize: '10px', fontWeight: 600,
+                                                                            bgcolor: isBiometric ? '#EEF2FF' : '#F9FAFB',
+                                                                            color: isBiometric ? '#4338CA' : '#4B5563',
+                                                                            border: `1px solid ${isBiometric ? '#C7D2FE' : '#E5E7EB'}`,
                                                                             '& .MuiChip-icon': { color: 'inherit', ml: '6px' },
                                                                         }}
                                                                     />
                                                                 </Tooltip>
                                                             </TableCell>
-                                                            <TableCell>
+                                                            <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
                                                                 {showTime && emp.loginTime ? (
                                                                     <Typography sx={{ fontSize: '12px', fontWeight: 600, color: '#111827' }}>{emp.loginTime}</Typography>
                                                                 ) : <Typography sx={{ fontSize: '12px', color: '#D1D5DB' }}>—</Typography>}
                                                             </TableCell>
-                                                            <TableCell>
+                                                            <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
                                                                 {showTime && emp.logoutTime ? (
                                                                     <Typography sx={{ fontSize: '12px', fontWeight: 600, color: '#111827' }}>{emp.logoutTime}</Typography>
                                                                 ) : <Typography sx={{ fontSize: '12px', color: '#D1D5DB' }}>—</Typography>}
                                                             </TableCell>
-                                                            <TableCell>
+                                                            <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
                                                                 <Chip label={statusLabel} size="small"
                                                                     sx={{
                                                                         bgcolor: statConf.bg, color: statConf.color,
@@ -544,7 +614,7 @@ export default function LeaveAttendancePage() {
                                 {todaysAttendance.length > 0 && (
                                     <Box sx={{ display: 'flex', justifyContent: 'center', mt: 1.5 }}>
                                         <Button onClick={() => setTabValue(2)}
-                                            sx={{ textTransform: 'none', fontSize: '12px', fontWeight: 700, color: '#F97316', '&:hover': { bgcolor: '#FFF7ED' } }}>
+                                            sx={{ textTransform: 'none', fontSize: '12px', fontWeight: 700, color: PRIMARY_DARK, '&:hover': { bgcolor: PRIMARY_LIGHT } }}>
                                             View All Records →
                                         </Button>
                                     </Box>
@@ -556,31 +626,44 @@ export default function LeaveAttendancePage() {
                     {/* Right Panel */}
                     <Grid size={{ xs: 12, lg: 3 }}>
                         {/* Attendance Rate */}
-                        <Card sx={{ border: '1px solid #E5E7EB', borderRadius: '10px', boxShadow: 'none', mb: 2 }}>
+                        <Card sx={{
+                            border: `1px solid ${PRIMARY_BORDER}`,
+                            borderRadius: '12px', boxShadow: 'none', mb: 2,
+                            bgcolor: PRIMARY_LIGHT,
+                        }}>
                             <CardContent>
-                                <Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#111827', mb: 1.5 }}>
-                                    Attendance Rate
-                                </Typography>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                                    <Box sx={{
+                                        width: 28, height: 28, borderRadius: '8px',
+                                        bgcolor: '#fff', border: `1px solid ${PRIMARY_BORDER}`,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    }}>
+                                        <CheckCircleIcon sx={{ color: PRIMARY, fontSize: 16 }} />
+                                    </Box>
+                                    <Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>
+                                        Attendance Rate
+                                    </Typography>
+                                </Box>
                                 <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mb: 1 }}>
-                                    <Typography sx={{ fontSize: '32px', fontWeight: 800, color: '#16A34A', lineHeight: 1 }}>
+                                    <Typography sx={{ fontSize: '34px', fontWeight: 800, color: PRIMARY_DARK, lineHeight: 1 }}>
                                         {attendanceRate}%
                                     </Typography>
-                                    <Typography sx={{ fontSize: '11px', color: '#9CA3AF' }}>today</Typography>
+                                    <Typography sx={{ fontSize: '11px', color: '#6B7280', fontWeight: 600 }}>today</Typography>
                                 </Box>
                                 <LinearProgress variant="determinate" value={attendanceRate}
                                     sx={{
-                                        height: 6, borderRadius: 3, bgcolor: '#F3F4F6',
-                                        '& .MuiLinearProgress-bar': { bgcolor: '#16A34A', borderRadius: 3 },
+                                        height: 6, borderRadius: 3, bgcolor: '#fff',
+                                        '& .MuiLinearProgress-bar': { bgcolor: PRIMARY, borderRadius: 3 },
                                     }}
                                 />
 
-                                <Divider sx={{ my: 1.8 }} />
+                                <Divider sx={{ my: 1.8, borderColor: PRIMARY_BORDER }} />
 
                                 <Stack spacing={1}>
                                     {[
-                                        { label: 'Present',  value: presentCount,            color: '#16A34A' },
+                                        { label: 'Present',  value: presentCount,            color: '#059669' },
                                         { label: 'Absent',   value: cards.totalAbsent  ?? 0, color: '#DC2626' },
-                                        { label: 'Late',     value: cards.lateArrivals ?? 0, color: '#EA580C' },
+                                        { label: 'Late',     value: cards.lateArrivals ?? 0, color: '#D97706' },
                                         { label: 'On Leave', value: cards.onLeave      ?? 0, color: '#2563EB' },
                                     ].map(item => (
                                         <Box key={item.label} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -595,68 +678,72 @@ export default function LeaveAttendancePage() {
                             </CardContent>
                         </Card>
 
-                        {/* Biometric Quick Panel */}
-                        <Card sx={{ border: '1px solid #E5E7EB', borderRadius: '10px', boxShadow: 'none', mb: 2, bgcolor: '#0F172A', color: '#fff' }}>
-                            <CardContent>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                                    <FingerprintIcon sx={{ color: '#FDBA74', fontSize: 20 }} />
-                                    <Typography sx={{ fontSize: '13px', fontWeight: 700 }}>Biometric Sync</Typography>
+                        {/* Leave Center quick links */}
+                        <Card sx={{ border: '1px solid #E5E7EB', borderRadius: '12px', boxShadow: 'none', bgcolor: '#fff' }}>
+                            <CardContent sx={{ pb: '12px !important' }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.2 }}>
+                                    <Box sx={{
+                                        width: 28, height: 28, borderRadius: '8px',
+                                        bgcolor: PRIMARY_LIGHT, border: `1px solid ${PRIMARY_BORDER}`,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    }}>
+                                        <EventIcon sx={{ color: PRIMARY, fontSize: 16 }} />
+                                    </Box>
+                                    <Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>
+                                        Leave Center
+                                    </Typography>
                                 </Box>
-                                <Typography sx={{ fontSize: '11px', color: '#94A3B8', mb: 1.5 }}>
-                                    Pull latest punch records from the device and create attendance entries automatically.
-                                </Typography>
-                                <Box sx={{ display: 'flex', gap: 1, flexDirection: 'column' }}>
-                                    <Button
-                                        fullWidth
-                                        variant="contained"
-                                        startIcon={isSyncing ? <CircularProgress size={14} sx={{ color: '#111827' }} /> : <SyncIcon />}
-                                        disabled={isSyncing}
-                                        onClick={handleFetchBiometric}
-                                        sx={{
-                                            textTransform: 'none', fontSize: '12px', fontWeight: 700,
-                                            bgcolor: '#F97316', color: '#fff', borderRadius: '8px', boxShadow: 'none',
-                                            '&:hover': { bgcolor: '#EA580C', boxShadow: 'none' },
-                                        }}
-                                    >
-                                        {isSyncing ? 'Syncing...' : 'Sync Now'}
-                                    </Button>
-                                    <Button
-                                        fullWidth
-                                        variant="text"
-                                        onClick={handleManualEntry}
-                                        sx={{
-                                            textTransform: 'none', fontSize: '12px', fontWeight: 600,
-                                            color: '#CBD5E1', '&:hover': { bgcolor: '#1E293B' },
-                                        }}
-                                    >
-                                        Add Manual Entry
-                                    </Button>
-                                </Box>
-                            </CardContent>
-                        </Card>
 
-                        {/* Leave Requests quick link */}
-                        {(userType === "superadmin" || userType === "admin") && (
-                            <Card sx={{ border: '1px solid #E5E7EB', borderRadius: '10px', boxShadow: 'none' }}>
-                                <CardContent sx={{ pb: '12px !important' }}>
-                                    <Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#111827', mb: 0.5 }}>
-                                        Leave Requests
+                                {/* Apply Leave row */}
+                                <Box sx={{
+                                    p: 1.2, borderRadius: '10px',
+                                    bgcolor: PRIMARY_LIGHT, border: `1px solid ${PRIMARY_BORDER}`,
+                                    mb: 1,
+                                }}>
+                                    <Typography sx={{ fontSize: '12px', fontWeight: 700, color: PRIMARY_DARK, mb: 0.2 }}>
+                                        Apply for Leave
                                     </Typography>
-                                    <Typography sx={{ fontSize: '11px', color: '#6B7280', mb: 1 }}>
-                                        View and approve pending leave requests.
+                                    <Typography sx={{ fontSize: '10.5px', color: '#4B5563', mb: 1 }}>
+                                        Submit a new leave request with dates and reason.
                                     </Typography>
-                                    <Button fullWidth variant="outlined"
+                                    <Button fullWidth variant="contained"
                                         onClick={() => setTabValue(4)}
                                         sx={{
-                                            textTransform: 'none', fontSize: '12px', fontWeight: 600,
-                                            borderColor: '#E5E7EB', color: '#374151', borderRadius: '8px',
-                                            '&:hover': { borderColor: '#9CA3AF', bgcolor: '#F9FAFB' },
+                                            textTransform: 'none', fontSize: '12px', fontWeight: 700,
+                                            bgcolor: PRIMARY, color: '#fff', borderRadius: '8px',
+                                            boxShadow: `0 2px 6px ${PRIMARY}33`,
+                                            '&:hover': { bgcolor: PRIMARY_DARK, boxShadow: `0 4px 12px ${PRIMARY}55` },
                                         }}>
-                                        Go to Leave Approval
+                                        Go to Apply Leave
                                     </Button>
-                                </CardContent>
-                            </Card>
-                        )}
+                                </Box>
+
+                                {/* Approval row — admin only */}
+                                {(userType === "superadmin" || userType === "admin") && (
+                                    <Box sx={{
+                                        p: 1.2, borderRadius: '10px',
+                                        bgcolor: '#EFF6FF', border: '1px solid #BFDBFE',
+                                    }}>
+                                        <Typography sx={{ fontSize: '12px', fontWeight: 700, color: '#1D4ED8', mb: 0.2 }}>
+                                            Leave Requests
+                                        </Typography>
+                                        <Typography sx={{ fontSize: '10.5px', color: '#4B5563', mb: 1 }}>
+                                            View and approve pending leave requests.
+                                        </Typography>
+                                        <Button fullWidth variant="outlined"
+                                            onClick={() => setTabValue(5)}
+                                            sx={{
+                                                textTransform: 'none', fontSize: '12px', fontWeight: 700,
+                                                borderColor: '#BFDBFE', color: '#1D4ED8', borderRadius: '8px',
+                                                bgcolor: '#fff',
+                                                '&:hover': { borderColor: '#2563EB', bgcolor: '#EFF6FF' },
+                                            }}>
+                                            Go to Leave Approval
+                                        </Button>
+                                    </Box>
+                                )}
+                            </CardContent>
+                        </Card>
                     </Grid>
                 </Grid>
             </Box>
@@ -799,7 +886,11 @@ export default function LeaveAttendancePage() {
                     Cancel
                 </Button>
                 <Button variant="contained" onClick={handleConfirmSync} disabled={syncPreview.length === 0}
-                    sx={{ textTransform: 'none', fontSize: '13px', fontWeight: 700, bgcolor: '#F97316', borderRadius: '8px', boxShadow: 'none', '&:hover': { bgcolor: '#EA580C', boxShadow: 'none' } }}>
+                    sx={{
+                        textTransform: 'none', fontSize: '13px', fontWeight: 700,
+                        bgcolor: PRIMARY, borderRadius: '8px', boxShadow: `0 2px 6px ${PRIMARY}33`,
+                        '&:hover': { bgcolor: PRIMARY_DARK, boxShadow: `0 4px 12px ${PRIMARY}55` },
+                    }}>
                     Save {syncPreview.length} Records
                 </Button>
             </DialogActions>
@@ -815,7 +906,7 @@ export default function LeaveAttendancePage() {
                 p: 2,
                 height: '86vh',
                 overflow: 'hidden',
-                bgcolor: '#FAFAFA',
+                bgcolor: '#F9FAFB',
                 display: 'flex',
                 flexDirection: 'column',
             }}>
@@ -823,9 +914,16 @@ export default function LeaveAttendancePage() {
                 <Box sx={{ flexShrink: 0 }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5, flexWrap: 'wrap', gap: 1 }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <IconButton onClick={() => navigate(-1)} sx={{ width: 35, height: 35 }}>
-                                <ArrowBackIcon sx={{ fontSize: 20, color: '#000' }} />
+                            <IconButton onClick={() => navigate(-1)} sx={{ width: 32, height: 32 }}>
+                                <ArrowBackIcon sx={{ fontSize: 18, color: '#000' }} />
                             </IconButton>
+                            <Box sx={{
+                                width: 36, height: 36, borderRadius: '10px',
+                                bgcolor: PRIMARY_LIGHT, border: `1px solid ${PRIMARY_BORDER}`,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}>
+                                <EventIcon sx={{ color: PRIMARY, fontSize: 20 }} />
+                            </Box>
                             <Box>
                                 <Typography sx={{ fontSize: '20px', fontWeight: 700, color: '#111827', lineHeight: 1.1 }}>
                                     Leave & Attendance
@@ -844,9 +942,10 @@ export default function LeaveAttendancePage() {
                                     variant="contained"
                                     sx={{
                                         textTransform: 'none', borderRadius: '50px',
-                                        bgcolor: '#111827', color: '#fff',
-                                        fontSize: '13px', fontWeight: 600, px: 2.5, boxShadow: 'none',
-                                        '&:hover': { bgcolor: '#000', boxShadow: 'none' },
+                                        bgcolor: PRIMARY, color: '#fff',
+                                        fontSize: '13px', fontWeight: 700, px: 2.5,
+                                        boxShadow: `0 2px 6px ${PRIMARY}33`,
+                                        '&:hover': { bgcolor: PRIMARY_DARK, boxShadow: `0 4px 12px ${PRIMARY}55` },
                                     }}
                                 >
                                     Mark Attendance
@@ -887,26 +986,28 @@ export default function LeaveAttendancePage() {
                                 variant="scrollable"
                                 scrollButtons="auto"
                                 sx={{
-                                    minHeight: 40,
+                                    minHeight: 44,
                                     '& .MuiTab-root': {
                                         textTransform: 'none', fontSize: '13px',
                                         fontWeight: 600, color: '#6B7280',
-                                        minHeight: 40, px: 2.2, py: 1,
+                                        minHeight: 44, px: 2, py: 1,
+                                        gap: 0.6,
+                                        '& .MuiSvgIcon-root': { fontSize: 18 },
                                     },
-                                    '& .Mui-selected': { color: '#F97316 !important' },
+                                    '& .Mui-selected': { color: `${PRIMARY_DARK} !important` },
                                     '& .MuiTabs-indicator': {
-                                        backgroundColor: '#F97316', height: 2,
+                                        backgroundColor: PRIMARY, height: 2.5,
                                         borderRadius: '2px 2px 0 0',
                                     },
                                 }}
                             >
-                                <Tab label="Dashboard" />
-                                <Tab label="Add Attendance" />
-                                <Tab label="Overview" />
-                                <Tab label="Leave Management" />
-                                <Tab label="Apply Leave" />
-                                {userType !== "staff" && <Tab label="Leave Approval" />}
-                                <Tab label="Reports" />
+                                <Tab icon={<SpaceDashboardOutlinedIcon />} iconPosition="start" label="Dashboard" />
+                                <Tab icon={<HowToRegOutlinedIcon />} iconPosition="start" label="Add Attendance" />
+                                <Tab icon={<VisibilityOutlinedIcon />} iconPosition="start" label="Overview" />
+                                <Tab icon={<ListAltOutlinedIcon />} iconPosition="start" label="Leave Management" />
+                                <Tab icon={<EventNoteOutlinedIcon />} iconPosition="start" label="Apply Leave" />
+                                {userType !== "staff" && <Tab icon={<FactCheckOutlinedIcon />} iconPosition="start" label="Leave Approval" />}
+                                <Tab icon={<InsertChartOutlinedIcon />} iconPosition="start" label="Reports" />
                             </Tabs>
                         </Box>
                     )}

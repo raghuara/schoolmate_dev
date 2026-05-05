@@ -23,7 +23,6 @@ export default function AcademicsPage() {
     const websiteSettings = useSelector(selectWebsiteSettings);
     const token = "123"
 
-    
     const items = [
         { color: "#1976D2", icon: ClassIcon, text: "Class & Section Management", bgColor: "#F5F9FF", iconBgColor: "#E3F0FD", path: '/dashboardmenu/access/class-section', intimation: false },
         { color: "#A749CC", icon: ArticleIcon, text: "Exam Management", bgColor: "#FBF9FC", iconBgColor: "#F7F0F9", path: '/dashboardmenu/access/exam', intimation: newsIntimation },

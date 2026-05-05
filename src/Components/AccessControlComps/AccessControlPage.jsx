@@ -6,13 +6,13 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { useEffect, useState } from "react";
 import NewsIcon from "../../Images/Icons/newspaper-check.png";
 import MessagesIcon from "../../Images/Icons/message.png";
-import CircularsIcon from "../../Images/Icons/circulars.png";
 import HomeWorkIcon from "../../Images/Icons/class-homework 1.png";
 import { Link, Navigate } from "react-router-dom";
 import { ApprovalStatusCircularFetch, ApprovalStatusHomeWorkFetch, ApprovalStatusMessageFetch, ApprovalStatusNewsFetch } from "../../Api/Api";
 import axios from "axios";
 import Groups2Icon from '@mui/icons-material/Groups2';
 import AutoStoriesIcon from '@mui/icons-material/AutoStories';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 
 
 export default function AccessControlPage() {
@@ -30,8 +30,8 @@ export default function AccessControlPage() {
 
     const items = [
         { color: "#A749CC", icon: Groups2Icon, text: "Users", bgColor: "#FBF9FC", iconBgColor: "#F7F0F9", path: 'users', intimation: newsIntimation },
-        // { color: "#ED9146", icon: AutoStoriesIcon, text: "Academics", bgColor: "#FCFBF9", iconBgColor: "#FBF4EF", path: 'academics', intimation: messageIntimation },
-        // { color: "#7DC353", icon: CircularsIcon, text: "Circulars", bgColor: "#F9FBF7", iconBgColor: "#F2F8EE", path: 'circulars', intimation: circularIntimation },
+        { color: "#ED9146", icon: AutoStoriesIcon, text: "Academics", bgColor: "#FCFBF9", iconBgColor: "#FBF4EF", path: 'academics', intimation: messageIntimation },
+        { color: "#7DC353", icon: TrendingUpIcon, text: "Student Promotion", bgColor: "#F9FBF7", iconBgColor: "#F2F8EE", path: 'student-promotion', intimation: circularIntimation },
         // { color: "#E10052", icon: HomeWorkIcon, text: "Homework", bgColor: "#FCF8F9", iconBgColor: "#FBEBF1", path: 'homework', intimation: homeworkIntimation },
     ];
 

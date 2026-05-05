@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback, memo } from 'react';
 import {
     Box, Card, CardContent, Grid, Typography, Button, Chip,
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
@@ -28,6 +28,12 @@ import SnackBar from '../SnackBar';
 const today = new Date().toISOString().split('T')[0];
 const token = "123";
 
+// ─── Theme ───────────────────────────────────────────────────────────────────
+const PRIMARY = '#059669';
+const PRIMARY_LIGHT = '#ECFDF5';
+const PRIMARY_DARK = '#047857';
+const PRIMARY_BORDER = '#A7F3D0';
+
 // ─── Time / status logic ─────────────────────────────────────────────────────
 const SCHOOL_START_HOUR = 9;       // 9:00 AM expected
 const LATE_THRESHOLD_MIN = 15;     // > 9:15 → Late
@@ -35,23 +41,29 @@ const DEFAULT_CHECK_OUT = '17:00'; // 5:00 PM default for bulk fill
 
 // ─── Display maps ────────────────────────────────────────────────────────────
 const USER_TYPE_CONFIG = {
-    'Teacher':     { color: '#059669', bg: '#F0FDF4' },
-    'Staff':       { color: '#0891B2', bg: '#F0F9FA' },
+    'Teacher':     { color: '#047857', bg: '#ECFDF5' },
+    'Staff':       { color: '#0E7490', bg: '#ECFEFF' },
     'Admin':       { color: '#1D4ED8', bg: '#EFF6FF' },
-    'Super Admin': { color: '#7C3AED', bg: '#F5F3FF' },
+    'Super Admin': { color: '#6D28D9', bg: '#F5F3FF' },
 };
 
 const ROLE_CONFIG = {
-    'Teaching Staff':     { color: '#6D28D9', bg: '#EDE9FE' },
-    'Non Teaching Staff': { color: '#0891B2', bg: '#F0F9FA' },
-    'Supporting Staff':   { color: '#EA580C', bg: '#FFF7ED' },
+    'Teaching Staff':     { color: '#6D28D9', bg: '#F5F3FF', border: '#DDD6FE' },
+    'Non Teaching Staff': { color: '#0E7490', bg: '#ECFEFF', border: '#A5F3FC' },
+    'Supporting Staff':   { color: '#C2410C', bg: '#FFF7ED', border: '#FED7AA' },
 };
 
 const STATUS_STYLE = {
-    'Present':  { color: '#16A34A', bg: '#DCFCE7', border: '#86EFAC' },
-    'Absent':   { color: '#DC2626', bg: '#FEE2E2', border: '#FCA5A5' },
-    'Late':     { color: '#EA580C', bg: '#FFEDD5', border: '#FDBA74' },
-    'On Leave': { color: '#2563EB', bg: '#DBEAFE', border: '#93C5FD' },
+    'Present':  { color: '#047857', bg: '#ECFDF5', border: '#A7F3D0' },
+    'Absent':   { color: '#B91C1C', bg: '#FEF2F2', border: '#FECACA' },
+    'Late':     { color: '#B45309', bg: '#FFFBEB', border: '#FDE68A' },
+    'On Leave': { color: '#1D4ED8', bg: '#EFF6FF', border: '#BFDBFE' },
+};
+
+const AVATAR_PALETTE = ['#0E7490', '#6D28D9', '#C2410C', '#047857', '#1D4ED8', '#BE185D', '#A16207', '#0F766E'];
+const avatarColorFor = (name = '') => {
+    const code = (name.charCodeAt(0) || 0) + (name.charCodeAt(1) || 0);
+    return AVATAR_PALETTE[code % AVATAR_PALETTE.length];
 };
 
 const USER_TYPE_DISPLAY = {
@@ -126,6 +138,195 @@ const computeWorkingHours = (checkIn, checkOut) => {
     const m = diff % 60;
     return { hours: h, minutes: m, label: `${h}h ${m}m`, totalMinutes: diff };
 };
+
+// ─── Memoized status pill ────────────────────────────────────────────────────
+const StatusPill = memo(function StatusPill({ value, selected, onClick }) {
+    const s = STATUS_STYLE[value];
+    return (
+        <Box
+            onClick={onClick}
+            sx={{
+                px: 1.1, py: '3px', borderRadius: '50px', cursor: 'pointer',
+                border: `1px solid ${selected ? s.color : '#E5E7EB'}`,
+                bgcolor: selected ? s.bg : '#fff',
+                transition: 'all 0.15s',
+                '&:hover': { borderColor: s.color, bgcolor: s.bg },
+            }}
+        >
+            <Typography sx={{
+                fontSize: '10.5px', fontWeight: selected ? 700 : 600,
+                color: selected ? s.color : '#6B7280', whiteSpace: 'nowrap',
+            }}>
+                {value}
+            </Typography>
+        </Box>
+    );
+});
+
+// ─── Memoized time cell ──────────────────────────────────────────────────────
+const TimeCell = memo(function TimeCell({
+    id, value, mark, onChange, icon, activeColor, mode, sameTimeEnabled,
+}) {
+    const needs = mark === 'Present' || mark === 'Late';
+    if (!needs) {
+        return (
+            <Typography sx={{
+                fontSize: '11px', fontStyle: 'italic', fontWeight: 500,
+                color: mark === 'Absent' ? '#DC2626' : '#2563EB',
+            }}>
+                {mark === 'On Leave' ? 'On Leave' : '—'}
+            </Typography>
+        );
+    }
+    const disabled = sameTimeEnabled;
+    const isEmpty = !value;
+    return (
+        <Tooltip
+            title={disabled ? 'Controlled by "Same time for all" — disable toggle to edit individually' : ''}
+            placement="top" arrow disableHoverListener={!disabled}
+        >
+            <span>
+                <TextField
+                    type="time"
+                    size="small"
+                    value={value}
+                    disabled={disabled}
+                    onChange={(e) => onChange(id, e.target.value)}
+                    slotProps={{
+                        input: {
+                            startAdornment: (
+                                <InputAdornment position="start">
+                                    {icon}
+                                </InputAdornment>
+                            ),
+                        },
+                    }}
+                    sx={{
+                        width: 125,
+                        '& .MuiOutlinedInput-root': {
+                            fontSize: '12px', fontWeight: 600, height: 32, bgcolor: '#fff',
+                            '& fieldset': {
+                                borderColor: isEmpty && mode === 'in' ? '#FCA5A5' : '#E5E7EB',
+                                borderWidth: 1,
+                            },
+                            '&:hover fieldset': { borderColor: activeColor },
+                            '&.Mui-focused fieldset': { borderColor: activeColor, borderWidth: 1.5 },
+                            '&.Mui-disabled': {
+                                bgcolor: '#F9FAFB',
+                                '& input': { color: '#6B7280', WebkitTextFillColor: '#6B7280' },
+                            },
+                        },
+                    }}
+                />
+            </span>
+        </Tooltip>
+    );
+});
+
+// ─── Memoized staff row ──────────────────────────────────────────────────────
+const StaffRow = memo(function StaffRow({
+    staff, idx, mark, inT, outT, note, sameTimeEnabled,
+    onMarkChange, onCheckInChange, onCheckOutChange, onOpenNotes,
+}) {
+    const work = useMemo(() => computeWorkingHours(inT, outT), [inT, outT]);
+    const roleConf = ROLE_CONFIG[staff.role] || { color: '#6B7280', bg: '#F3F4F6', border: '#E5E7EB' };
+    const avColor = avatarColorFor(staff.name || '');
+    const needsTime = mark === 'Present' || mark === 'Late';
+
+    const checkInIcon = useMemo(() => <AccessTimeIcon sx={{ fontSize: 14, color: PRIMARY }} />, []);
+    const checkOutIcon = useMemo(() => <LogoutIcon sx={{ fontSize: 14, color: '#1D4ED8' }} />, []);
+
+    return (
+        <TableRow
+            sx={{
+                '&:hover': { bgcolor: PRIMARY_LIGHT },
+                '& td': { borderBottom: '1px solid #F3F4F6' },
+                transition: 'background-color 0.15s',
+            }}
+        >
+            <TableCell>
+                <Typography sx={{ fontSize: '12px', color: '#9CA3AF', fontWeight: 500 }}>{idx + 1}</Typography>
+            </TableCell>
+            <TableCell>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.1 }}>
+                    <Avatar src={staff.filePath || undefined}
+                        sx={{
+                            width: 32, height: 32,
+                            bgcolor: `${avColor}15`,
+                            color: avColor,
+                            fontSize: '11px', fontWeight: 700,
+                            border: `1px solid ${avColor}33`,
+                        }}>
+                        {staff.avatar}
+                    </Avatar>
+                    <Box>
+                        <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>{staff.name}</Typography>
+                        <Typography sx={{ fontSize: '10px', color: '#9CA3AF', fontWeight: 500 }}>{staff.rollNumber}</Typography>
+                    </Box>
+                </Box>
+            </TableCell>
+            <TableCell>
+                <Chip label={staff.role} size="small"
+                    sx={{
+                        bgcolor: roleConf.bg, color: roleConf.color,
+                        border: `1px solid ${roleConf.border}`,
+                        fontWeight: 600, fontSize: '10px', height: 22,
+                    }} />
+            </TableCell>
+            <TableCell>
+                <Box sx={{ display: 'flex', gap: 0.6, flexWrap: 'wrap' }}>
+                    {STATUS_OPTIONS.map(opt => (
+                        <StatusPill
+                            key={opt}
+                            value={opt}
+                            selected={mark === opt}
+                            onClick={() => onMarkChange(staff.id, opt)}
+                        />
+                    ))}
+                </Box>
+            </TableCell>
+            <TableCell>
+                <TimeCell
+                    id={staff.id} value={inT} mark={mark} onChange={onCheckInChange}
+                    icon={checkInIcon} activeColor={PRIMARY} mode="in" sameTimeEnabled={sameTimeEnabled}
+                />
+            </TableCell>
+            <TableCell>
+                <TimeCell
+                    id={staff.id} value={outT} mark={mark} onChange={onCheckOutChange}
+                    icon={checkOutIcon} activeColor="#1D4ED8" mode="out" sameTimeEnabled={sameTimeEnabled}
+                />
+            </TableCell>
+            <TableCell>
+                {needsTime && work ? (
+                    <Chip size="small" label={work.label}
+                        sx={{
+                            bgcolor: PRIMARY_LIGHT, color: PRIMARY_DARK,
+                            border: `1px solid ${PRIMARY_BORDER}`,
+                            fontWeight: 700, fontSize: '11px', height: 22,
+                        }} />
+                ) : (
+                    <Typography sx={{ fontSize: '11px', color: '#D1D5DB' }}>—</Typography>
+                )}
+            </TableCell>
+            <TableCell align="center">
+                <Tooltip title={note ? note : 'Add note'} placement="top" arrow>
+                    <IconButton size="small"
+                        onClick={(e) => onOpenNotes(e, staff.id)}
+                        sx={{
+                            color: note ? PRIMARY_DARK : '#9CA3AF',
+                            bgcolor: note ? PRIMARY_LIGHT : 'transparent',
+                            border: note ? `1px solid ${PRIMARY_BORDER}` : '1px solid transparent',
+                            '&:hover': { bgcolor: PRIMARY_LIGHT, color: PRIMARY_DARK, border: `1px solid ${PRIMARY_BORDER}` },
+                        }}
+                    >
+                        <StickyNote2Icon sx={{ fontSize: 16 }} />
+                    </IconButton>
+                </Tooltip>
+            </TableCell>
+        </TableRow>
+    );
+});
 
 // ─── Component ───────────────────────────────────────────────────────────────
 export default function AddStaffAttendancePage() {
@@ -316,32 +517,43 @@ export default function AddStaffAttendancePage() {
     const isCurrentTypeAdded = isAttendanceAddedMap[userTypeFilter] || false;
 
     // ─── Handlers ────────────────────────────────────────────────────────────
-    const handleMarkChange = (id, newMark) => {
-        setAttendanceMarks(prev => ({ ...prev, [id]: newMark }));
+    const handleMarkChange = useCallback((id, newMark) => {
+        setAttendanceMarks(prev => (prev[id] === newMark ? prev : { ...prev, [id]: newMark }));
         if (newMark === 'Absent' || newMark === 'On Leave') {
-            setCheckInTimes(prev => ({ ...prev, [id]: '' }));
-            setCheckOutTimes(prev => ({ ...prev, [id]: '' }));
+            setCheckInTimes(prev => (prev[id] ? { ...prev, [id]: '' } : prev));
+            setCheckOutTimes(prev => (prev[id] ? { ...prev, [id]: '' } : prev));
         }
-    };
+    }, []);
 
-    const handleCheckInChange = (id, value) => {
+    const handleCheckInChange = useCallback((id, value) => {
         setCheckInTimes(prev => ({ ...prev, [id]: value }));
-        // Auto-suggest Late if currently marked Present and time is late
-        if (attendanceMarks[id] === 'Present' && isLateTime(value)) {
-            setAttendanceMarks(prev => ({ ...prev, [id]: 'Late' }));
-        } else if (attendanceMarks[id] === 'Late' && value && !isLateTime(value)) {
-            setAttendanceMarks(prev => ({ ...prev, [id]: 'Present' }));
-        }
-    };
+        // Auto-flip Present↔Late based on the new time, but only if it would actually change.
+        setAttendanceMarks(prev => {
+            const cur = prev[id];
+            if (cur === 'Present' && isLateTime(value)) return { ...prev, [id]: 'Late' };
+            if (cur === 'Late' && value && !isLateTime(value)) return { ...prev, [id]: 'Present' };
+            return prev;
+        });
+    }, []);
 
-    const handleCheckOutChange = (id, value) => {
-        const checkIn = checkInTimes[id];
+    // Keep a ref of the latest check-in times so the check-out validator can read it
+    // without forcing handleCheckOutChange to depend on state (which would invalidate memo).
+    const checkInTimesRef = useRef(checkInTimes);
+    useEffect(() => { checkInTimesRef.current = checkInTimes; }, [checkInTimes]);
+
+    const handleCheckOutChange = useCallback((id, value) => {
+        const checkIn = checkInTimesRef.current[id];
         if (checkIn && parseHHmm(value) !== null && parseHHmm(value) <= parseHHmm(checkIn)) {
             showSnack('Check-out must be after check-in', false);
             return;
         }
         setCheckOutTimes(prev => ({ ...prev, [id]: value }));
-    };
+    }, []);
+
+    const handleOpenNotes = useCallback((e, id) => {
+        setNotesAnchor(e.currentTarget);
+        setNotesTargetId(id);
+    }, []);
 
     const applyGlobalCheckIn = (time) => {
         setGlobalCheckIn(time);
@@ -424,7 +636,6 @@ export default function AddStaffAttendancePage() {
         }
     };
 
-    const openNotesPopover = (e, id) => { setNotesAnchor(e.currentTarget); setNotesTargetId(id); };
     const closeNotesPopover = () => { setNotesAnchor(null); setNotesTargetId(null); };
 
     const handleSaveAttendance = async () => {
@@ -483,88 +694,6 @@ export default function AddStaffAttendancePage() {
         }
     };
 
-    // ─── Render helpers ──────────────────────────────────────────────────────
-    const statusPill = (value, selected, onClick) => {
-        const s = STATUS_STYLE[value];
-        return (
-            <Box
-                key={value}
-                onClick={onClick}
-                sx={{
-                    px: 1.1, py: '3px', borderRadius: '50px', cursor: 'pointer',
-                    border: `1px solid ${selected ? s.color : '#E5E7EB'}`,
-                    bgcolor: selected ? s.bg : '#fff',
-                    transition: 'all 0.15s',
-                    '&:hover': { borderColor: s.color, bgcolor: s.bg },
-                }}
-            >
-                <Typography sx={{
-                    fontSize: '10.5px', fontWeight: selected ? 700 : 600,
-                    color: selected ? s.color : '#6B7280', whiteSpace: 'nowrap',
-                }}>
-                    {value}
-                </Typography>
-            </Box>
-        );
-    };
-
-    const renderTimeCell = (id, value, onChange, placeholder, icon, activeColor, mode) => {
-        if (!needsTime(id)) {
-            const mark = attendanceMarks[id];
-            return (
-                <Typography sx={{
-                    fontSize: '11px', fontStyle: 'italic', fontWeight: 500,
-                    color: mark === 'Absent' ? '#DC2626' : '#2563EB',
-                }}>
-                    {mark === 'Absent' ? '—' : (mark === 'On Leave' ? 'On Leave' : '—')}
-                </Typography>
-            );
-        }
-        const disabled = sameTimeEnabled;
-        const isEmpty = !value;
-        return (
-            <Tooltip
-                title={disabled ? 'Controlled by "Same time for all" — disable toggle to edit individually' : ''}
-                placement="top" arrow disableHoverListener={!disabled}
-            >
-                <span>
-                    <TextField
-                        type="time"
-                        size="small"
-                        value={value}
-                        disabled={disabled}
-                        onChange={(e) => onChange(id, e.target.value)}
-                        slotProps={{
-                            input: {
-                                startAdornment: (
-                                    <InputAdornment position="start">
-                                        {icon}
-                                    </InputAdornment>
-                                ),
-                            },
-                        }}
-                        sx={{
-                            width: 125,
-                            '& .MuiOutlinedInput-root': {
-                                fontSize: '12px', fontWeight: 600, height: 32, bgcolor: '#fff',
-                                '& fieldset': {
-                                    borderColor: isEmpty && mode === 'in' ? '#FCA5A5' : '#E5E7EB',
-                                    borderWidth: 1,
-                                },
-                                '&:hover fieldset': { borderColor: activeColor },
-                                '&.Mui-focused fieldset': { borderColor: activeColor, borderWidth: 1.5 },
-                                '&.Mui-disabled': {
-                                    bgcolor: '#F9FAFB',
-                                    '& input': { color: '#6B7280', WebkitTextFillColor: '#6B7280' },
-                                },
-                            },
-                        }}
-                    />
-                </span>
-            </Tooltip>
-        );
-    };
-
     // ─── UI ──────────────────────────────────────────────────────────────────
     return (
         <Box>
@@ -576,9 +705,13 @@ export default function AddStaffAttendancePage() {
                 mb: 2, pb: 1.5, borderBottom: '1px solid #F3F4F6', flexWrap: 'wrap', gap: 1,
             }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
-                    <Avatar sx={{ bgcolor: '#F0FDF4', width: 38, height: 38 }}>
-                        <PeopleIcon sx={{ color: '#16A34A' }} />
-                    </Avatar>
+                    <Box sx={{
+                        width: 38, height: 38, borderRadius: '10px',
+                        bgcolor: PRIMARY_LIGHT, border: `1px solid ${PRIMARY_BORDER}`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                        <PeopleIcon sx={{ color: PRIMARY, fontSize: 20 }} />
+                    </Box>
                     <Box>
                         <Typography sx={{ fontSize: '15px', fontWeight: 700, color: '#111827' }}>
                             Mark Staff Attendance
@@ -591,9 +724,10 @@ export default function AddStaffAttendancePage() {
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Box sx={{
                         display: 'flex', alignItems: 'center', gap: 0.6,
-                        bgcolor: '#fff', border: '1px solid #D1D5DB', borderRadius: '8px', px: 1.3, py: 0.3,
+                        bgcolor: '#fff', border: `1px solid ${PRIMARY_BORDER}`,
+                        borderRadius: '10px', px: 1.3, py: 0.3,
                     }}>
-                        <EventIcon sx={{ fontSize: 16, color: '#6B7280' }} />
+                        <EventIcon sx={{ fontSize: 16, color: PRIMARY }} />
                         <TextField
                             type="date"
                             size="small"
@@ -604,7 +738,7 @@ export default function AddStaffAttendancePage() {
                             slotProps={{
                                 input: {
                                     disableUnderline: true,
-                                    style: { fontSize: '12px', fontWeight: 600, color: '#111827' },
+                                    style: { fontSize: '12px', fontWeight: 600, color: PRIMARY_DARK },
                                 },
                             }}
                         />
@@ -613,37 +747,58 @@ export default function AddStaffAttendancePage() {
             </Box>
 
             {isCurrentTypeAdded && (
-                <Alert
-                    icon={<CheckCircleIcon sx={{ fontSize: 18 }} />}
-                    severity="info"
-                    sx={{ mb: 2, fontSize: '12px', borderRadius: '8px', py: 0.5, '& .MuiAlert-message': { fontSize: '12px' } }}
-                >
-                    Attendance already marked for <strong>{userTypeFilter}</strong> on this date — edits will update the existing record.
-                </Alert>
+                <Box sx={{
+                    mb: 2, px: 1.5, py: 1, borderRadius: '10px',
+                    bgcolor: PRIMARY_LIGHT, border: `1px solid ${PRIMARY_BORDER}`,
+                    display: 'flex', alignItems: 'center', gap: 1,
+                }}>
+                    <CheckCircleIcon sx={{ fontSize: 18, color: PRIMARY }} />
+                    <Typography sx={{ fontSize: '12px', color: PRIMARY_DARK, fontWeight: 500 }}>
+                        Attendance already marked for <strong>{userTypeFilter}</strong> on this date — edits will update the existing record.
+                    </Typography>
+                </Box>
             )}
 
             {/* Counters */}
             <Grid container spacing={1.5} sx={{ mb: 2 }}>
                 {[
-                    { label: 'Present',  count: counts.present,  ...STATUS_STYLE.Present },
-                    { label: 'Late',     count: counts.late,     ...STATUS_STYLE.Late },
-                    { label: 'Absent',   count: counts.absent,   ...STATUS_STYLE.Absent },
-                    { label: 'On Leave', count: counts.onLeave,  ...STATUS_STYLE['On Leave'] },
-                ].map((item) => (
-                    <Grid size={{ xs: 6, sm: 3 }} key={item.label}>
-                        <Card sx={{ boxShadow: 'none', border: `1px solid ${item.color}33`, borderRadius: '10px', bgcolor: '#fff' }}>
-                            <CardContent sx={{ py: '12px !important', px: 2 }}>
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <Box>
-                                        <Typography sx={{ fontSize: '10px', color: '#6B7280', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4 }}>{item.label}</Typography>
-                                        <Typography sx={{ fontSize: '22px', fontWeight: 800, color: '#111827' }}>{item.count}</Typography>
+                    { label: 'Present',  count: counts.present, icon: CheckCircleIcon, ...STATUS_STYLE.Present },
+                    { label: 'Late',     count: counts.late,    icon: AccessTimeIcon,  ...STATUS_STYLE.Late },
+                    { label: 'Absent',   count: counts.absent,  icon: ClearAllIcon,    ...STATUS_STYLE.Absent },
+                    { label: 'On Leave', count: counts.onLeave, icon: EventIcon,       ...STATUS_STYLE['On Leave'] },
+                ].map((item) => {
+                    const Icon = item.icon;
+                    return (
+                        <Grid size={{ xs: 6, sm: 3 }} key={item.label}>
+                            <Card sx={{
+                                boxShadow: 'none', border: `1px solid ${item.border}`,
+                                borderRadius: '12px', bgcolor: item.bg,
+                                transition: 'transform 0.15s, box-shadow 0.15s',
+                                '&:hover': { transform: 'translateY(-2px)', boxShadow: `0 6px 16px ${item.color}22` },
+                            }}>
+                                <CardContent sx={{ py: '14px !important', px: 2 }}>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                        <Box>
+                                            <Typography sx={{ fontSize: '10px', color: item.color, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                                {item.label}
+                                            </Typography>
+                                            <Typography sx={{ fontSize: '24px', fontWeight: 800, color: '#111827', lineHeight: 1.2, mt: 0.3 }}>
+                                                {item.count}
+                                            </Typography>
+                                        </Box>
+                                        <Box sx={{
+                                            width: 32, height: 32, borderRadius: '8px',
+                                            bgcolor: '#fff', border: `1px solid ${item.border}`,
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        }}>
+                                            <Icon sx={{ color: item.color, fontSize: 18 }} />
+                                        </Box>
                                     </Box>
-                                    <Box sx={{ width: 8, height: 32, bgcolor: item.color, borderRadius: 2 }} />
-                                </Box>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-                ))}
+                                </CardContent>
+                            </Card>
+                        </Grid>
+                    );
+                })}
             </Grid>
 
             {/* Filters row */}
@@ -713,11 +868,11 @@ export default function AddStaffAttendancePage() {
                     ))}
                     <Divider />
                     <MenuItem onClick={handleFillCurrentTime} sx={{ fontSize: '13px', fontWeight: 600 }}>
-                        <FlashOnIcon sx={{ fontSize: 16, color: '#F97316', mr: 1 }} />
+                        <FlashOnIcon sx={{ fontSize: 16, color: PRIMARY, mr: 1 }} />
                         Fill current time (check-in)
                     </MenuItem>
                     <MenuItem onClick={handleFillDefaultCheckOut} sx={{ fontSize: '13px', fontWeight: 600 }}>
-                        <LogoutIcon sx={{ fontSize: 16, color: '#2563EB', mr: 1 }} />
+                        <LogoutIcon sx={{ fontSize: 16, color: '#1D4ED8', mr: 1 }} />
                         Fill default check-out (5:00 PM)
                     </MenuItem>
                 </Menu>
@@ -731,8 +886,8 @@ export default function AddStaffAttendancePage() {
             <Box sx={{
                 display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5,
                 px: 1.5, py: 1,
-                bgcolor: sameTimeEnabled ? '#F0FDF4' : '#F9FAFB',
-                border: `1px solid ${sameTimeEnabled ? '#86EFAC' : '#E5E7EB'}`,
+                bgcolor: sameTimeEnabled ? PRIMARY_LIGHT : '#F9FAFB',
+                border: `1px solid ${sameTimeEnabled ? PRIMARY_BORDER : '#E5E7EB'}`,
                 borderRadius: '10px',
                 transition: 'all 0.2s',
                 flexWrap: 'wrap',
@@ -743,11 +898,11 @@ export default function AddStaffAttendancePage() {
                         onChange={(e) => handleSameTimeToggle(e.target.checked)}
                         size="small"
                         sx={{
-                            '& .MuiSwitch-switchBase.Mui-checked': { color: '#16A34A' },
-                            '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#16A34A' },
+                            '& .MuiSwitch-switchBase.Mui-checked': { color: PRIMARY },
+                            '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: PRIMARY },
                         }}
                     />
-                    <Typography sx={{ fontSize: '12px', fontWeight: 600, color: sameTimeEnabled ? '#16A34A' : '#374151' }}>
+                    <Typography sx={{ fontSize: '12px', fontWeight: 600, color: sameTimeEnabled ? PRIMARY_DARK : '#374151' }}>
                         Same time for all
                     </Typography>
                     <Tooltip title="Sets one check-in + check-out for every Present/Late member at once" arrow placement="top">
@@ -761,14 +916,14 @@ export default function AddStaffAttendancePage() {
                         <TextField
                             type="time" size="small" value={globalCheckIn}
                             onChange={(e) => applyGlobalCheckIn(e.target.value)}
-                            slotProps={{ input: { startAdornment: <InputAdornment position="start"><AccessTimeIcon sx={{ fontSize: 14, color: '#16A34A' }} /></InputAdornment> } }}
+                            slotProps={{ input: { startAdornment: <InputAdornment position="start"><AccessTimeIcon sx={{ fontSize: 14, color: PRIMARY }} /></InputAdornment> } }}
                             sx={{ width: 140, '& .MuiOutlinedInput-root': { height: 32, fontSize: '12px', fontWeight: 600, bgcolor: '#fff' } }}
                         />
                         <Typography sx={{ fontSize: '11px', fontWeight: 600, color: '#6B7280' }}>Check-Out:</Typography>
                         <TextField
                             type="time" size="small" value={globalCheckOut}
                             onChange={(e) => applyGlobalCheckOut(e.target.value)}
-                            slotProps={{ input: { startAdornment: <InputAdornment position="start"><LogoutIcon sx={{ fontSize: 14, color: '#2563EB' }} /></InputAdornment> } }}
+                            slotProps={{ input: { startAdornment: <InputAdornment position="start"><LogoutIcon sx={{ fontSize: 14, color: '#1D4ED8' }} /></InputAdornment> } }}
                             sx={{ width: 140, '& .MuiOutlinedInput-root': { height: 32, fontSize: '12px', fontWeight: 600, bgcolor: '#fff' } }}
                         />
                     </Box>
@@ -776,24 +931,31 @@ export default function AddStaffAttendancePage() {
 
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, ml: 'auto' }}>
                     <Button size="small" startIcon={<FlashOnIcon sx={{ fontSize: 14 }} />} onClick={handleFillCurrentTime}
-                        sx={{ textTransform: 'none', fontSize: '11px', fontWeight: 600, color: '#F97316', '&:hover': { bgcolor: '#FFF7ED' } }}>
+                        sx={{ textTransform: 'none', fontSize: '11px', fontWeight: 700, color: PRIMARY_DARK, '&:hover': { bgcolor: PRIMARY_LIGHT } }}>
                         Use Current Time
                     </Button>
                 </Box>
             </Box>
 
             {/* Table */}
-            <Card sx={{ boxShadow: 'none', border: '1px solid #E5E7EB', borderRadius: '10px', bgcolor: '#fff', overflow: 'hidden' }}>
+            <Card sx={{ boxShadow: 'none', border: '1px solid #E5E7EB', borderRadius: '12px', bgcolor: '#fff', overflow: 'hidden' }}>
                 {loading ? (
                     <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 6 }}>
-                        <CircularProgress size={28} sx={{ color: '#16A34A' }} />
+                        <CircularProgress size={28} sx={{ color: PRIMARY }} />
                         <Typography sx={{ ml: 2, fontSize: '13px', color: '#6B7280' }}>Loading staff list...</Typography>
                     </Box>
                 ) : (
                     <TableContainer sx={{ maxHeight: '52vh' }}>
                         <Table size="small" stickyHeader>
                             <TableHead>
-                                <TableRow sx={{ '& th': { bgcolor: '#F9FAFB', fontWeight: 700, fontSize: '10px', color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.4, borderBottom: '1px solid #E5E7EB' } }}>
+                                <TableRow sx={{
+                                    '& th': {
+                                        bgcolor: PRIMARY_LIGHT,
+                                        fontWeight: 700, fontSize: '10px', color: PRIMARY_DARK,
+                                        textTransform: 'uppercase', letterSpacing: 0.6,
+                                        borderBottom: `1px solid ${PRIMARY_BORDER}`, py: 1.3,
+                                    },
+                                }}>
                                     <TableCell sx={{ width: 42 }}>#</TableCell>
                                     <TableCell>Staff Member</TableCell>
                                     <TableCell>Role</TableCell>
@@ -813,83 +975,22 @@ export default function AddStaffAttendancePage() {
                                             </Typography>
                                         </TableCell>
                                     </TableRow>
-                                ) : filteredStaff.map((staff, idx) => {
-                                    const mark   = attendanceMarks[staff.id] || 'Present';
-                                    const inT    = checkInTimes[staff.id]    || '';
-                                    const outT   = checkOutTimes[staff.id]   || '';
-                                    const note   = rowNotes[staff.id]        || '';
-                                    const work   = computeWorkingHours(inT, outT);
-                                    const roleConf = ROLE_CONFIG[staff.role] || { color: '#6B7280', bg: '#F3F4F6' };
-
-                                    return (
-                                        <TableRow key={staff.id}
-                                            sx={{ '&:hover': { bgcolor: '#FAFBFD' }, '& td': { borderBottom: '1px solid #F3F4F6' } }}
-                                        >
-                                            <TableCell>
-                                                <Typography sx={{ fontSize: '12px', color: '#9CA3AF', fontWeight: 500 }}>{idx + 1}</Typography>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.1 }}>
-                                                    <Avatar src={staff.filePath || undefined}
-                                                        sx={{ width: 32, height: 32, bgcolor: '#3457D5', fontSize: '11px', fontWeight: 700 }}>
-                                                        {staff.avatar}
-                                                    </Avatar>
-                                                    <Box>
-                                                        <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>{staff.name}</Typography>
-                                                        <Typography sx={{ fontSize: '10px', color: '#9CA3AF' }}>{staff.rollNumber}</Typography>
-                                                    </Box>
-                                                </Box>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Chip label={staff.role} size="small"
-                                                    sx={{ bgcolor: roleConf.bg, color: roleConf.color, fontWeight: 600, fontSize: '10px', height: 20 }} />
-                                            </TableCell>
-                                            <TableCell>
-                                                <Box sx={{ display: 'flex', gap: 0.6, flexWrap: 'wrap' }}>
-                                                    {STATUS_OPTIONS.map(opt =>
-                                                        statusPill(opt, mark === opt, () => handleMarkChange(staff.id, opt))
-                                                    )}
-                                                </Box>
-                                            </TableCell>
-                                            <TableCell>
-                                                {renderTimeCell(
-                                                    staff.id, inT, handleCheckInChange, 'HH:MM',
-                                                    <AccessTimeIcon sx={{ fontSize: 14, color: '#16A34A' }} />,
-                                                    '#16A34A', 'in'
-                                                )}
-                                            </TableCell>
-                                            <TableCell>
-                                                {renderTimeCell(
-                                                    staff.id, outT, handleCheckOutChange, 'HH:MM',
-                                                    <LogoutIcon sx={{ fontSize: 14, color: '#2563EB' }} />,
-                                                    '#2563EB', 'out'
-                                                )}
-                                            </TableCell>
-                                            <TableCell>
-                                                {needsTime(staff.id) && work ? (
-                                                    <Chip size="small" label={work.label}
-                                                        sx={{ bgcolor: '#F3F4F6', color: '#111827', fontWeight: 700, fontSize: '11px', height: 22 }} />
-                                                ) : (
-                                                    <Typography sx={{ fontSize: '11px', color: '#D1D5DB' }}>—</Typography>
-                                                )}
-                                            </TableCell>
-                                            <TableCell align="center">
-                                                <Tooltip title={note ? note : 'Add note'} placement="top" arrow>
-                                                    <IconButton size="small"
-                                                        onClick={(e) => openNotesPopover(e, staff.id)}
-                                                        sx={{
-                                                            color: note ? '#F97316' : '#9CA3AF',
-                                                            bgcolor: note ? '#FFF7ED' : 'transparent',
-                                                            '&:hover': { bgcolor: '#FFF7ED', color: '#F97316' },
-                                                        }}
-                                                    >
-                                                        <StickyNote2Icon sx={{ fontSize: 16 }} />
-                                                    </IconButton>
-                                                </Tooltip>
-                                            </TableCell>
-                                        </TableRow>
-                                    );
-                                })}
+                                ) : filteredStaff.map((staff, idx) => (
+                                    <StaffRow
+                                        key={staff.id}
+                                        staff={staff}
+                                        idx={idx}
+                                        mark={attendanceMarks[staff.id] || 'Present'}
+                                        inT={checkInTimes[staff.id] || ''}
+                                        outT={checkOutTimes[staff.id] || ''}
+                                        note={rowNotes[staff.id] || ''}
+                                        sameTimeEnabled={sameTimeEnabled}
+                                        onMarkChange={handleMarkChange}
+                                        onCheckInChange={handleCheckInChange}
+                                        onCheckOutChange={handleCheckOutChange}
+                                        onOpenNotes={handleOpenNotes}
+                                    />
+                                ))}
                             </TableBody>
                         </Table>
                     </TableContainer>
@@ -899,18 +1000,19 @@ export default function AddStaffAttendancePage() {
                 {!loading && (
                     <Box sx={{
                         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                        px: 2, py: 1.2, borderTop: '1px solid #F3F4F6', bgcolor: '#FAFBFD',
+                        px: 2, py: 1.2, borderTop: '1px solid #E5E7EB', bgcolor: '#F9FAFB',
+                        flexWrap: 'wrap', gap: 1,
                     }}>
-                        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
                             <Typography sx={{ fontSize: '12px', color: '#6B7280' }}>
                                 <strong style={{ color: '#111827' }}>{filteredStaff.length}</strong> staff
                             </Typography>
                             <Divider orientation="vertical" flexItem />
                             <Typography sx={{ fontSize: '11px', color: '#6B7280' }}>
-                                Present <strong style={{ color: '#16A34A' }}>{counts.present}</strong>
-                                {' · '}Late <strong style={{ color: '#EA580C' }}>{counts.late}</strong>
-                                {' · '}Absent <strong style={{ color: '#DC2626' }}>{counts.absent}</strong>
-                                {' · '}Leave <strong style={{ color: '#2563EB' }}>{counts.onLeave}</strong>
+                                Present <strong style={{ color: STATUS_STYLE.Present.color }}>{counts.present}</strong>
+                                {' · '}Late <strong style={{ color: STATUS_STYLE.Late.color }}>{counts.late}</strong>
+                                {' · '}Absent <strong style={{ color: STATUS_STYLE.Absent.color }}>{counts.absent}</strong>
+                                {' · '}Leave <strong style={{ color: STATUS_STYLE['On Leave'].color }}>{counts.onLeave}</strong>
                             </Typography>
                         </Box>
                         <Button
@@ -920,9 +1022,13 @@ export default function AddStaffAttendancePage() {
                             disabled={staffList.length === 0}
                             sx={{
                                 textTransform: 'none', fontSize: '13px', fontWeight: 700,
-                                bgcolor: isCurrentTypeAdded ? '#2563EB' : '#16A34A',
-                                borderRadius: '8px', px: 3, boxShadow: 'none',
-                                '&:hover': { bgcolor: isCurrentTypeAdded ? '#1D4ED8' : '#15803D', boxShadow: 'none' },
+                                bgcolor: isCurrentTypeAdded ? '#1D4ED8' : PRIMARY,
+                                borderRadius: '8px', px: 3,
+                                boxShadow: `0 2px 6px ${isCurrentTypeAdded ? '#1D4ED8' : PRIMARY}33`,
+                                '&:hover': {
+                                    bgcolor: isCurrentTypeAdded ? '#1E40AF' : PRIMARY_DARK,
+                                    boxShadow: `0 4px 12px ${isCurrentTypeAdded ? '#1D4ED8' : PRIMARY}55`,
+                                },
                             }}
                         >
                             {isCurrentTypeAdded ? 'Update Attendance' : 'Save Attendance'}
@@ -941,19 +1047,32 @@ export default function AddStaffAttendancePage() {
                 slotProps={{ paper: { sx: { borderRadius: '10px', border: '1px solid #E5E7EB', boxShadow: '0 8px 24px rgba(0,0,0,0.08)', mt: 0.5 } } }}
             >
                 <Paper sx={{ p: 1.5, width: 280 }}>
-                    <Typography sx={{ fontSize: '12px', fontWeight: 700, color: '#111827', mb: 0.8 }}>
-                        Add Note
-                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, mb: 0.8 }}>
+                        <StickyNote2Icon sx={{ fontSize: 14, color: PRIMARY }} />
+                        <Typography sx={{ fontSize: '12px', fontWeight: 700, color: '#111827' }}>
+                            Add Note
+                        </Typography>
+                    </Box>
                     <TextField
                         multiline minRows={3} fullWidth size="small"
                         placeholder="Remarks for this day (optional)"
                         value={notesTargetId ? (rowNotes[notesTargetId] || '') : ''}
                         onChange={(e) => setRowNotes(prev => ({ ...prev, [notesTargetId]: e.target.value }))}
-                        sx={{ '& .MuiOutlinedInput-root': { fontSize: '12px', borderRadius: '8px' } }}
+                        sx={{
+                            '& .MuiOutlinedInput-root': {
+                                fontSize: '12px', borderRadius: '8px',
+                                '&.Mui-focused fieldset': { borderColor: PRIMARY },
+                            },
+                        }}
                     />
                     <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
-                        <Button size="small" onClick={closeNotesPopover}
-                            sx={{ textTransform: 'none', fontSize: '12px', fontWeight: 600, color: '#111827' }}>
+                        <Button size="small" variant="contained" onClick={closeNotesPopover}
+                            sx={{
+                                textTransform: 'none', fontSize: '12px', fontWeight: 700,
+                                bgcolor: PRIMARY, borderRadius: '8px', px: 2,
+                                boxShadow: 'none',
+                                '&:hover': { bgcolor: PRIMARY_DARK, boxShadow: 'none' },
+                            }}>
                             Done
                         </Button>
                     </Box>
