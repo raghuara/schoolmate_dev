@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Box, Stepper, Step, StepLabel, Switch, Typography, IconButton, useMediaQuery, Grid, Button, FormLabel, RadioGroup, FormControlLabel, Radio, FormControl, Accordion, AccordionSummary, AccordionDetails, TextField, FormGroup, Checkbox, Autocomplete, Paper, Popper, InputAdornment, Dialog, TextareaAutosize, DialogContent, DialogActions, Popover, Tooltip } from "@mui/material";
+import { Box, Stepper, Step, StepLabel, Switch, Typography, IconButton, useMediaQuery, Grid, Button, FormLabel, RadioGroup, FormControlLabel, Radio, FormControl, Accordion, AccordionSummary, AccordionDetails, TextField, FormGroup, Checkbox, Autocomplete, Paper, Popper, InputAdornment, Dialog, TextareaAutosize, DialogContent, DialogActions, Popover, Tooltip, CircularProgress } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useTheme } from "@mui/material/styles";
@@ -24,6 +24,26 @@ import RemoveIcon from '@mui/icons-material/Remove';
 import KeyboardIcon from "@mui/icons-material/Keyboard";
 import TamilKeyboard from "../../Tools/TamilKeyBoardLayout";
 import { useRef } from "react";
+
+// Compact Tamil-translate icon: small "A→அ" sized to match a regular icon button.
+const TamilTranslateIcon = () => (
+    <Box
+        component="span"
+        sx={{
+            display: 'inline-flex',
+            alignItems: 'baseline',
+            gap: '1px',
+            lineHeight: 1,
+            whiteSpace: 'nowrap',
+            color: 'inherit',
+            fontFamily: "'Noto Sans Tamil', 'Latha', sans-serif",
+        }}
+    >
+        <Box component="span" sx={{ fontSize: 9, fontWeight: 700 }}>A</Box>
+        <Box component="span" sx={{ fontSize: 8, opacity: 0.55 }}>→</Box>
+        <Box component="span" sx={{ fontSize: 13, fontWeight: 700 }}>அ</Box>
+    </Box>
+);
 
 const steps = [
     "Student Academic Info",
@@ -81,6 +101,54 @@ export default function EdeitStudentInfoPage() {
     const [isNewStudent, setIsNewStudent] = useState(false);
     const [isFeeStructureCreated, setIsFeeStructureCreated] = useState(false);
     const [studentNameTamil, setStudentNameTamil] = useState("");
+
+    // Tracks which field is mid-translation (null = idle). String key like 'student', 'father', `sibling-${id}`.
+    const [translatingField, setTranslatingField] = useState(null);
+
+    // Translates an English string to Tamil via Google's public translate endpoint.
+    // Returns the translated text, or null on failure.
+    const translateEnglishToTamil = async (text) => {
+        const trimmed = (text || "").trim();
+        if (!trimmed) return null;
+        const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=ta&dt=t&q=${encodeURIComponent(trimmed)}`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`Translate failed (${res.status})`);
+        const data = await res.json();
+        // Response shape: [[[ "தமிழ் சொற்றொடர்", "english phrase", ... ], ...], ...]
+        const segments = Array.isArray(data?.[0]) ? data[0] : [];
+        const translated = segments.map(seg => seg?.[0] || "").join("").trim();
+        return translated || null;
+    };
+
+    const showSnack = (msg, success) => {
+        setMessage(msg);
+        setOpen(true);
+        setColor(success);
+        setStatus(success);
+    };
+
+    // Generic translate-to-Tamil handler. Pass a unique key, the English value, and a setter for the Tamil field.
+    const handleTranslateField = async (fieldKey, englishValue, applyTamil) => {
+        if (!englishValue || !englishValue.trim()) {
+            showSnack("Enter the English name first.", false);
+            return;
+        }
+        setTranslatingField(fieldKey);
+        try {
+            const tamil = await translateEnglishToTamil(englishValue);
+            if (tamil) {
+                applyTamil(tamil);
+                showSnack("Translated to Tamil.", true);
+            } else {
+                showSnack("Could not translate the name. Try again.", false);
+            }
+        } catch (err) {
+            console.error("Tamil translate failed:", err);
+            showSnack("Translation service unavailable. Please type manually.", false);
+        } finally {
+            setTranslatingField(null);
+        }
+    };
     const [dateOfBirth, setDateOfBirth] = useState(null);
     const [gender, setGender] = useState("");
     const [religion, setReligion] = useState("");
@@ -99,6 +167,17 @@ export default function EdeitStudentInfoPage() {
 
     const [value, setValue] = useState("");
     const [anchorEl, setAnchorEl] = useState(null);
+
+    // Tracks which Tamil field's keyboard is open. String key: 'student' | 'father' | 'mother' | 'guardian' | `sibling-${id}`.
+    const [tamilKeyboardKey, setTamilKeyboardKey] = useState(null);
+    const openTamilKeyboard = (e, key) => {
+        setAnchorEl(e.currentTarget);
+        setTamilKeyboardKey(key);
+    };
+    const closeTamilKeyboard = () => {
+        setAnchorEl(null);
+        setTamilKeyboardKey(null);
+    };
 
     useEffect(() => {
         if (inputRef.current) {
@@ -313,6 +392,31 @@ export default function EdeitStudentInfoPage() {
                 : sibling
         ));
     };
+
+    // Resolve the active keyboard key to the latest { value, setValue } each render
+    // so the on-screen keyboard always sees the current Tamil text.
+    const resolveTamilTarget = () => {
+        if (!tamilKeyboardKey) return null;
+        switch (tamilKeyboardKey) {
+            case 'student':  return { value: studentNameTamil,  setValue: setStudentNameTamil };
+            case 'father':   return { value: fatherNameTamil,   setValue: setFatherNameTamil };
+            case 'mother':   return { value: motherNameTamil,   setValue: setMotherNameTamil };
+            case 'guardian': return { value: guardianNameTamil, setValue: setGuardianNameTamil };
+            default: {
+                if (tamilKeyboardKey.startsWith('sibling-')) {
+                    const id = tamilKeyboardKey.slice('sibling-'.length);
+                    const sib = siblings.find(s => String(s.id) === id);
+                    if (!sib) return null;
+                    return {
+                        value: sib.siblingNameInTamil || '',
+                        setValue: (v) => handleChange(sib.id, "siblingNameInTamil", v),
+                    };
+                }
+                return null;
+            }
+        }
+    };
+    const tamilKeyboardTarget = resolveTamilTarget();
 
     const prepareSiblingData = () => {
         return siblings.map((sibling, index) => ({
@@ -1477,7 +1581,7 @@ export default function EdeitStudentInfoPage() {
                             <AccordionDetails>
                                 <Grid container columnSpacing={3} pb={1}>
                                     <Grid size={{ xs: 12, sm: 6, md: 3, lg: 2.4 }} sx={{ display: "flex", justifyContent: "center", pt: 1 }} >
-                                        <Box >
+                                        <Box sx={{ width: "100%", px: 1 }}>
                                             <Typography sx={{ fontSize: "12px" }} component="span">Student Name In English<span style={{ color: "#ff0000", fontSize: "16px" }}>*</span></Typography><br />
                                             <TextField
 
@@ -1492,19 +1596,39 @@ export default function EdeitStudentInfoPage() {
                                                     maxLength: 25,
                                                     pattern: "[A-Za-z ]*"
                                                 }}
-                                                sx={{ mt: 0.5 }}
+                                                InputProps={{
+                                                    endAdornment: (
+                                                        <InputAdornment position="end">
+                                                            <Tooltip title="Translate to Tamil" arrow>
+                                                                <span>
+                                                                    <IconButton
+                                                                        size="small"
+                                                                        onClick={() => handleTranslateField('student', studentNameEnglish, setStudentNameTamil)}
+                                                                        disabled={!studentNameEnglish.trim() || translatingField === 'student'}
+                                                                        sx={{ color: "#1976d2", width: 28, height: 28 }}
+                                                                    >
+                                                                        {translatingField === 'student'
+                                                                            ? <CircularProgress size={14} />
+                                                                            : <TamilTranslateIcon />}
+                                                                    </IconButton>
+                                                                </span>
+                                                            </Tooltip>
+                                                        </InputAdornment>
+                                                    ),
+                                                }}
+                                                sx={{ mt: 0.5, width: "100%" }}
                                             />
 
                                         </Box>
                                     </Grid>
                                     <Grid size={{ xs: 12, sm: 6, md: 3, lg: 2.4 }} sx={{ display: "flex", justifyContent: "center", pt: 1 }} >
-                                        <Box >
+                                        <Box sx={{ width: "100%", px: 1 }}>
                                             <Typography sx={{ fontSize: "12px" }} component="span">Student Name In Tamil</Typography><br />
                                             <TextField
                                                 size="small"
                                                 value={studentNameTamil}
                                                 onChange={(e) => {
-                                                    const inputValue = e.target.value.replace(/[^A-Za-z\s]/g, "").slice(0, 25);
+                                                    const inputValue = e.target.value.slice(0, 25);
                                                     setStudentNameTamil(inputValue);
                                                 }}
                                                 inputRef={inputRef}
@@ -1518,23 +1642,20 @@ export default function EdeitStudentInfoPage() {
                                                 InputProps={{
                                                     endAdornment: (
                                                         <InputAdornment position="end">
-                                                            <IconButton onClick={(e) => setAnchorEl(e.currentTarget)}>
-                                                                <KeyboardIcon />
-                                                            </IconButton>
+                                                            <Tooltip title="Tamil keyboard" arrow>
+                                                                <IconButton
+                                                                    onClick={(e) => openTamilKeyboard(e, 'student')}
+                                                                    size="small"
+                                                                    sx={{ width: 28, height: 28 }}
+                                                                >
+                                                                    <KeyboardIcon fontSize="small" />
+                                                                </IconButton>
+                                                            </Tooltip>
                                                         </InputAdornment>
                                                     )
                                                 }}
-                                                sx={{ mt: 0.7, width:"100%" }}
+                                                sx={{ mt: 0.5, width: "100%" }}
                                             />
-
-                                            <Popover
-                                                open={Boolean(anchorEl)}
-                                                anchorEl={anchorEl}
-                                                onClose={() => setAnchorEl(null)}
-                                                anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
-                                            >
-                                                <TamilKeyboard value={studentNameTamil} setValue={setStudentNameTamil}  inputRef={inputRef} />
-                                            </Popover>
                                         </Box>
                                     </Grid>
                                     <Grid size={{ xs: 12, sm: 6, md: 3, lg: 2.4 }} sx={{ display: "flex", justifyContent: "center", pt: 1 }} >
@@ -2488,7 +2609,7 @@ export default function EdeitStudentInfoPage() {
                                     </Box>
                                     <Grid container pb={2.5} sx={{ borderBottom: "1px dotted black" }}>
                                         <Grid size={{ xs: 12, sm: 6, md: 3, lg: 2.4 }} sx={{ display: "flex", justifyContent: "center", pt: 1 }} >
-                                            <Box >
+                                            <Box sx={{ width: "100%", px: 1 }}>
                                                 <Typography sx={{ fontSize: "12px" }} component="span">Father’s Name In English<span style={{ color: "#ff0000", fontSize: "16px" }}>*</span></Typography><br />
                                                 <TextField
 
@@ -2503,12 +2624,32 @@ export default function EdeitStudentInfoPage() {
                                                         maxLength: 25,
                                                         pattern: "[A-Za-z ]*"
                                                     }}
-                                                    sx={{ mt: 0.5 }}
+                                                    InputProps={{
+                                                        endAdornment: (
+                                                            <InputAdornment position="end">
+                                                                <Tooltip title="Translate to Tamil" arrow>
+                                                                    <span>
+                                                                        <IconButton
+                                                                            size="small"
+                                                                            onClick={() => handleTranslateField('father', fatherNameEnglish, setFatherNameTamil)}
+                                                                            disabled={!fatherNameEnglish.trim() || translatingField === 'father'}
+                                                                            sx={{ color: "#1976d2", width: 28, height: 28 }}
+                                                                        >
+                                                                            {translatingField === 'father'
+                                                                                ? <CircularProgress size={14} />
+                                                                                : <TamilTranslateIcon />}
+                                                                        </IconButton>
+                                                                    </span>
+                                                                </Tooltip>
+                                                            </InputAdornment>
+                                                        ),
+                                                    }}
+                                                    sx={{ mt: 0.5, width: "100%" }}
                                                 />
                                             </Box>
                                         </Grid>
                                         <Grid size={{ xs: 12, sm: 6, md: 3, lg: 2.4 }} sx={{ display: "flex", justifyContent: "center", pt: 1 }} >
-                                            <Box >
+                                            <Box sx={{ width: "100%", px: 1 }}>
                                                 <Typography sx={{ fontSize: "12px" }} component="span">Father’s Name In Tamil<span style={{ color: "#ff0000", fontSize: "16px" }}>*</span></Typography><br />
                                                 <TextField
 
@@ -2516,14 +2657,26 @@ export default function EdeitStudentInfoPage() {
                                                     size="small"
                                                     value={fatherNameTamil}
                                                     onChange={(e) => {
-                                                        const inputValue = e.target.value.replace(/[^A-Za-z\s]/g, "").slice(0, 25);
+                                                        const inputValue = e.target.value.slice(0, 25);
                                                         setFatherNameTamil(inputValue);
                                                     }}
-                                                    inputProps={{
-                                                        maxLength: 25,
-                                                        pattern: "[A-Za-z ]*"
+                                                    inputProps={{ maxLength: 25 }}
+                                                    InputProps={{
+                                                        endAdornment: (
+                                                            <InputAdornment position="end">
+                                                                <Tooltip title="Tamil keyboard" arrow>
+                                                                    <IconButton
+                                                                        onClick={(e) => openTamilKeyboard(e, 'father')}
+                                                                        size="small"
+                                                                        sx={{ width: 28, height: 28 }}
+                                                                    >
+                                                                        <KeyboardIcon fontSize="small" />
+                                                                    </IconButton>
+                                                                </Tooltip>
+                                                            </InputAdornment>
+                                                        ),
                                                     }}
-                                                    sx={{ mt: 0.5 }}
+                                                    sx={{ mt: 0.5, width: "100%" }}
                                                 />
                                             </Box>
                                         </Grid>
@@ -2852,7 +3005,7 @@ export default function EdeitStudentInfoPage() {
                                     </Box>
                                     <Grid container pb={1} >
                                         <Grid size={{ xs: 12, sm: 6, md: 3, lg: 2.4 }} sx={{ display: "flex", justifyContent: "center", pt: 1 }} >
-                                            <Box >
+                                            <Box sx={{ width: "100%", px: 1 }}>
                                                 <Typography sx={{ fontSize: "12px" }} component="span">Mother's Name In English<span style={{ color: "#ff0000", fontSize: "16px" }}>*</span></Typography><br />
                                                 <TextField
 
@@ -2867,12 +3020,32 @@ export default function EdeitStudentInfoPage() {
                                                         maxLength: 25,
                                                         pattern: "[A-Za-z ]*"
                                                     }}
-                                                    sx={{ mt: 0.5 }}
+                                                    InputProps={{
+                                                        endAdornment: (
+                                                            <InputAdornment position="end">
+                                                                <Tooltip title="Translate to Tamil" arrow>
+                                                                    <span>
+                                                                        <IconButton
+                                                                            size="small"
+                                                                            onClick={() => handleTranslateField('mother', motherNameEnglish, setMotherNameTamil)}
+                                                                            disabled={!motherNameEnglish.trim() || translatingField === 'mother'}
+                                                                            sx={{ color: "#1976d2", width: 28, height: 28 }}
+                                                                        >
+                                                                            {translatingField === 'mother'
+                                                                                ? <CircularProgress size={14} />
+                                                                                : <TamilTranslateIcon />}
+                                                                        </IconButton>
+                                                                    </span>
+                                                                </Tooltip>
+                                                            </InputAdornment>
+                                                        ),
+                                                    }}
+                                                    sx={{ mt: 0.5, width: "100%" }}
                                                 />
                                             </Box>
                                         </Grid>
                                         <Grid size={{ xs: 12, sm: 6, md: 3, lg: 2.4 }} sx={{ display: "flex", justifyContent: "center", pt: 1 }} >
-                                            <Box >
+                                            <Box sx={{ width: "100%", px: 1 }}>
                                                 <Typography sx={{ fontSize: "12px" }} component="span">Mother's Name In Tamil<span style={{ color: "#ff0000", fontSize: "16px" }}>*</span></Typography><br />
                                                 <TextField
 
@@ -2880,14 +3053,26 @@ export default function EdeitStudentInfoPage() {
                                                     size="small"
                                                     value={motherNameTamil}
                                                     onChange={(e) => {
-                                                        const inputValue = e.target.value.replace(/[^A-Za-z\s]/g, "").slice(0, 25);
+                                                        const inputValue = e.target.value.slice(0, 25);
                                                         setMotherNameTamil(inputValue);
                                                     }}
-                                                    inputProps={{
-                                                        maxLength: 25,
-                                                        pattern: "[A-Za-z ]*"
+                                                    inputProps={{ maxLength: 25 }}
+                                                    InputProps={{
+                                                        endAdornment: (
+                                                            <InputAdornment position="end">
+                                                                <Tooltip title="Tamil keyboard" arrow>
+                                                                    <IconButton
+                                                                        onClick={(e) => openTamilKeyboard(e, 'mother')}
+                                                                        size="small"
+                                                                        sx={{ width: 28, height: 28 }}
+                                                                    >
+                                                                        <KeyboardIcon fontSize="small" />
+                                                                    </IconButton>
+                                                                </Tooltip>
+                                                            </InputAdornment>
+                                                        ),
                                                     }}
-                                                    sx={{ mt: 0.5 }}
+                                                    sx={{ mt: 0.5, width: "100%" }}
                                                 />
                                             </Box>
                                         </Grid>
@@ -3236,7 +3421,7 @@ export default function EdeitStudentInfoPage() {
                                 <AccordionDetails>
                                     <Grid container pb={1}>
                                         <Grid size={{ xs: 12, sm: 6, md: 3, lg: 2.4 }} sx={{ display: "flex", justifyContent: "center", pt: 1 }} >
-                                            <Box >
+                                            <Box sx={{ width: "100%", px: 1 }}>
                                                 <Typography sx={{ fontSize: "12px" }} component="span">Guardian Name In English<span style={{ color: "#ff0000", fontSize: "16px" }}>*</span></Typography><br />
                                                 <TextField
 
@@ -3251,12 +3436,32 @@ export default function EdeitStudentInfoPage() {
                                                         maxLength: 25,
                                                         pattern: "[A-Za-z ]*"
                                                     }}
-                                                    sx={{ mt: 0.5 }}
+                                                    InputProps={{
+                                                        endAdornment: (
+                                                            <InputAdornment position="end">
+                                                                <Tooltip title="Translate to Tamil" arrow>
+                                                                    <span>
+                                                                        <IconButton
+                                                                            size="small"
+                                                                            onClick={() => handleTranslateField('guardian', guardianNameEnglish, setGuardianNameTamil)}
+                                                                            disabled={!guardianNameEnglish.trim() || translatingField === 'guardian'}
+                                                                            sx={{ color: "#1976d2", width: 28, height: 28 }}
+                                                                        >
+                                                                            {translatingField === 'guardian'
+                                                                                ? <CircularProgress size={14} />
+                                                                                : <TamilTranslateIcon />}
+                                                                        </IconButton>
+                                                                    </span>
+                                                                </Tooltip>
+                                                            </InputAdornment>
+                                                        ),
+                                                    }}
+                                                    sx={{ mt: 0.5, width: "100%" }}
                                                 />
                                             </Box>
                                         </Grid>
                                         <Grid size={{ xs: 12, sm: 6, md: 3, lg: 2.4 }} sx={{ display: "flex", justifyContent: "center", pt: 1 }} >
-                                            <Box >
+                                            <Box sx={{ width: "100%", px: 1 }}>
                                                 <Typography sx={{ fontSize: "12px" }} component="span">Guardian Name In Tamil<span style={{ color: "#ff0000", fontSize: "16px" }}>*</span></Typography><br />
                                                 <TextField
 
@@ -3264,14 +3469,26 @@ export default function EdeitStudentInfoPage() {
                                                     size="small"
                                                     value={guardianNameTamil}
                                                     onChange={(e) => {
-                                                        const inputValue = e.target.value.replace(/[^A-Za-z\s]/g, "").slice(0, 25);
+                                                        const inputValue = e.target.value.slice(0, 25);
                                                         setGuardianNameTamil(inputValue);
                                                     }}
-                                                    inputProps={{
-                                                        maxLength: 25,
-                                                        pattern: "[A-Za-z ]*"
+                                                    inputProps={{ maxLength: 25 }}
+                                                    InputProps={{
+                                                        endAdornment: (
+                                                            <InputAdornment position="end">
+                                                                <Tooltip title="Tamil keyboard" arrow>
+                                                                    <IconButton
+                                                                        onClick={(e) => openTamilKeyboard(e, 'guardian')}
+                                                                        size="small"
+                                                                        sx={{ width: 28, height: 28 }}
+                                                                    >
+                                                                        <KeyboardIcon fontSize="small" />
+                                                                    </IconButton>
+                                                                </Tooltip>
+                                                            </InputAdornment>
+                                                        ),
                                                     }}
-                                                    sx={{ mt: 0.5 }}
+                                                    sx={{ mt: 0.5, width: "100%" }}
                                                 />
                                             </Box>
                                         </Grid>
@@ -3688,6 +3905,30 @@ export default function EdeitStudentInfoPage() {
                                                                         );
                                                                     }
                                                                 }}
+                                                                InputProps={{
+                                                                    endAdornment: (
+                                                                        <InputAdornment position="end">
+                                                                            <Tooltip title="Translate to Tamil" arrow>
+                                                                                <span>
+                                                                                    <IconButton
+                                                                                        size="small"
+                                                                                        onClick={() => handleTranslateField(
+                                                                                            `sibling-${sibling.id}`,
+                                                                                            sibling.siblingNameInEnglish,
+                                                                                            (tamil) => handleChange(sibling.id, "siblingNameInTamil", tamil)
+                                                                                        )}
+                                                                                        disabled={!sibling.siblingNameInEnglish?.trim() || translatingField === `sibling-${sibling.id}`}
+                                                                                        sx={{ color: "#1976d2" }}
+                                                                                    >
+                                                                                        {translatingField === `sibling-${sibling.id}`
+                                                                                            ? <CircularProgress size={16} />
+                                                                                            : <TamilTranslateIcon />}
+                                                                                    </IconButton>
+                                                                                </span>
+                                                                            </Tooltip>
+                                                                        </InputAdornment>
+                                                                    ),
+                                                                }}
                                                                 error={Boolean(sibling.nameError)}
                                                                 helperText={sibling.nameError}
                                                             />
@@ -3703,10 +3944,20 @@ export default function EdeitStudentInfoPage() {
                                                                 fullWidth
                                                                 value={sibling.siblingNameInTamil}
                                                                 onChange={(e) => {
-                                                                    const inputValue = e.target.value;
-                                                                    if (/^[A-Za-z\s]{0,25}$/.test(inputValue)) {
-                                                                        handleChange(sibling.id, "siblingNameInTamil", inputValue);
-                                                                    }
+                                                                    const inputValue = e.target.value.slice(0, 25);
+                                                                    handleChange(sibling.id, "siblingNameInTamil", inputValue);
+                                                                }}
+                                                                inputProps={{ maxLength: 25 }}
+                                                                InputProps={{
+                                                                    endAdornment: (
+                                                                        <InputAdornment position="end">
+                                                                            <Tooltip title="Tamil keyboard" arrow>
+                                                                                <IconButton onClick={(e) => openTamilKeyboard(e, `sibling-${sibling.id}`)} size="small">
+                                                                                    <KeyboardIcon fontSize="small" />
+                                                                                </IconButton>
+                                                                            </Tooltip>
+                                                                        </InputAdornment>
+                                                                    ),
                                                                 }}
                                                                 sx={{ mt: 0.5 }}
                                                             />
