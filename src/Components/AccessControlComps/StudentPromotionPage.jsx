@@ -30,7 +30,7 @@ import SnackBar from '../SnackBar';
 
 const TOKEN = '123';
 
-// Promote = green emerald, Edit = indigo (clearly different from Promote)
+// Promote = emerald green, Edit = indigo (clearly different).
 const PROMOTE_THEME = { main: '#16A34A', light: '#F0FDF4', dark: '#15803D', border: '#A7F3D0' };
 const EDIT_THEME    = { main: '#4F46E5', light: '#EEF2FF', dark: '#3730A3', border: '#C7D2FE' };
 
@@ -310,11 +310,6 @@ export default function StudentPromotionPage() {
         if (!sourceKey) { showSnack('Pick a source class first.', false); return false; }
         if (destinations.length === 0) { showSnack('Add at least one destination class.', false); return false; }
         if (assignedCount === 0) { showSnack('Assign at least one student to a destination.', false); return false; }
-        // Over-capacity is a warning, not a block — admin may know more than the system.
-        const overflow = destinations.find(d => distributionCounts[d.key] > d.capacity);
-        if (overflow) {
-            showSnack(`Warning: ${overflow.classLabel} ${overflow.section} will exceed its capacity of ${overflow.capacity}.`, false);
-        }
         return true;
     };
 
@@ -626,22 +621,21 @@ export default function StudentPromotionPage() {
                                     ) : (
                                         destinations.map((d) => {
                                             const filled = distributionCounts[d.key] || 0;
-                                            const overflow = filled > d.capacity;
                                             return (
                                                 <Box key={d.key} sx={{
                                                     p: 1.2, borderRadius: '8px',
                                                     bgcolor: '#fff',
-                                                    border: `1.5px solid ${overflow ? '#FECACA' : T.border}`,
+                                                    border: `1.5px solid ${T.border}`,
                                                     display: 'flex', alignItems: 'center', gap: 1,
                                                 }}>
                                                     <Box sx={{
                                                         width: 32, height: 32, borderRadius: '8px',
-                                                        bgcolor: overflow ? '#FEF2F2' : T.light,
-                                                        border: `1px solid ${overflow ? '#FECACA' : T.border}`,
+                                                        bgcolor: T.light,
+                                                        border: `1px solid ${T.border}`,
                                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                         flexShrink: 0,
                                                     }}>
-                                                        <Typography sx={{ fontSize: 11, fontWeight: 800, color: overflow ? '#DC2626' : T.main }}>
+                                                        <Typography sx={{ fontSize: 11, fontWeight: 800, color: T.main }}>
                                                             {d.section}
                                                         </Typography>
                                                     </Box>
@@ -650,7 +644,7 @@ export default function StudentPromotionPage() {
                                                             {d.classLabel} {d.section}
                                                         </Typography>
                                                         <Typography sx={{ fontSize: 11, color: '#6B7280' }}>
-                                                            {filled} of {d.capacity} {overflow ? '⚠ over capacity' : 'assigned'}
+                                                            {filled} student{filled !== 1 ? 's' : ''} assigned
                                                         </Typography>
                                                     </Box>
                                                     <Tooltip title="Remove this destination">
@@ -957,7 +951,6 @@ export default function StudentPromotionPage() {
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.8 }}>
                         {destinations.filter(d => distributionCounts[d.key] > 0).map(d => {
                             const filled = distributionCounts[d.key];
-                            const overflow = filled > d.capacity;
                             return (
                                 <Box key={d.key} sx={{
                                     display: 'flex', alignItems: 'center', gap: 1,
@@ -982,29 +975,17 @@ export default function StudentPromotionPage() {
                                         </Typography>
                                     </Box>
                                     <Box sx={{ textAlign: 'right' }}>
-                                        <Typography sx={{ fontSize: 18, fontWeight: 800, color: overflow ? '#DC2626' : T.dark, lineHeight: 1 }}>
+                                        <Typography sx={{ fontSize: 18, fontWeight: 800, color: T.dark, lineHeight: 1 }}>
                                             {filled}
                                         </Typography>
                                         <Typography sx={{ fontSize: 10, color: '#6B7280' }}>
-                                            of {d.capacity}{overflow && ' (over!)'}
+                                            student{filled !== 1 ? 's' : ''}
                                         </Typography>
                                     </Box>
                                 </Box>
                             );
                         })}
                     </Box>
-                    {destinations.some(d => distributionCounts[d.key] > d.capacity) && (
-                        <Box sx={{
-                            mt: 1.5, p: 1, borderRadius: '6px',
-                            bgcolor: '#FEF2F2', border: '1px solid #FECACA',
-                            display: 'flex', alignItems: 'flex-start', gap: 0.8,
-                        }}>
-                            <WarningAmberIcon sx={{ fontSize: 16, color: '#DC2626', mt: 0.2, flexShrink: 0 }} />
-                            <Typography sx={{ fontSize: 11, color: '#991B1B' }}>
-                                One or more destinations exceed the listed capacity. You can still proceed, but the receiving class may need additional sections.
-                            </Typography>
-                        </Box>
-                    )}
                 </DialogContent>
                 <DialogActions sx={{ px: 2.5, py: 1.5, gap: 1 }}>
                     <Button

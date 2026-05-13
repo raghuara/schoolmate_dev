@@ -160,7 +160,7 @@ export default function OverviewTab({ selectedYear }) {
             {/* Advanced Revenue Chart + Right Panel */}
             <Grid container spacing={3} sx={{ mb: 3 }}>
                 <Grid size={{ xs: 12, sm: 12, md: 12, lg: 8 }}>
-                    <AdvancedRevenueChart />
+                    <AdvancedRevenueChart selectedYear={selectedYear} />
                 </Grid>
 
                 {/* Financial Highlights */}

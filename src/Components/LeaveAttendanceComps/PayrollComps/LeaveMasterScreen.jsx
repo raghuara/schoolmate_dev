@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
     Box, Typography, Button, Grid, IconButton, Divider,
     TextField, Switch, Autocomplete, Tooltip,
     Dialog, CircularProgress, Chip,
+    FormControl, InputLabel, Select, MenuItem, InputAdornment,
+    Tabs, Tab,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
@@ -24,8 +26,11 @@ import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import axios from 'axios';
 import SnackBar from '../../SnackBar';
+import { selectWebsiteSettings } from '../../../Redux/Slices/websiteSettingsSlice';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import RestartAltIcon from '@mui/icons-material/RestartAlt';
+import LockIcon from '@mui/icons-material/Lock';
 import dayjs from 'dayjs';
 import { postleavepolicy, GetLeavePolicy, postleavetypes, GetleaveTypes, postworkingcalendar, GetWorkingcalendar, UpdateleaveTypeByID, DeleteleaveTypeByID } from '../../../Api/Api';
 
@@ -38,31 +43,31 @@ const PAYOUT_FREQUENCIES = ['Monthly', 'Quarterly', 'Half-Yearly', 'Yearly'];
 // ── Backend enum mappers ────────────────────────────────────────────────────
 // Translate UI-friendly labels to the canonical strings the API expects.
 const FREQUENCY_TO_API = {
-    'Monthly':     'Monthly',
-    'Quarterly':   'Quarterly',
+    'Monthly': 'Monthly',
+    'Quarterly': 'Quarterly',
     'Half-Yearly': 'HalfYearly',
-    'Yearly':      'Yearly',
+    'Yearly': 'Yearly',
 };
 
 const DEDUCTION_APPLIED_TO_API = {
-    'Same Month':  'SameMonth',
-    'Next Month':  'NextMonth',
-    'Quarterly':   'Quarterly',
+    'Same Month': 'SameMonth',
+    'Next Month': 'NextMonth',
+    'Quarterly': 'Quarterly',
     'Half-Yearly': 'HalfYearly',
-    'Yearly':      'Yearly',
+    'Yearly': 'Yearly',
 };
 
 const DEDUCTION_FORMULA_TO_API = {
-    'gross_by_working_days':  'GrossWorkingDays',
+    'gross_by_working_days': 'GrossWorkingDays',
     'gross_by_calendar_days': 'GrossCalendarDays',
-    'gross_by_fixed_days':    'GrossFixed30',
+    'gross_by_fixed_days': 'GrossFixed30',
 };
 
 // Leave-type unused-action enum (per Add Leave Type API).
 const UNUSED_ACTION_TO_API = {
-    'encash':         'Encash',
-    'carry_forward':  'CarryForward',
-    'lapse':          'Lapse',
+    'encash': 'Encash',
+    'carry_forward': 'CarryForward',
+    'lapse': 'Lapse',
 };
 
 // ── Working-calendar API helpers ────────────────────────────────────────────
@@ -71,14 +76,14 @@ const WC_DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 // Internal type → API type
 const DAY_TYPE_TO_API = {
-    working:   'Working',
-    holiday:   'Holiday',
+    working: 'Working',
+    holiday: 'Holiday',
     mandatory: 'Mandatory',
 };
 // API type → internal type
 const DAY_TYPE_FROM_API = {
-    Working:   'working',
-    Holiday:   'holiday',
+    Working: 'working',
+    Holiday: 'holiday',
     Mandatory: 'mandatory',
 };
 
@@ -139,24 +144,24 @@ const LEAVE_COLORS = [
 ];
 
 const LP_ALLOCATION_PERIODS = [
-    { key: 'Monthly',     label: 'Monthly',     months: 1 },
-    { key: 'Quarterly',   label: 'Quarterly',   months: 3 },
+    { key: 'Monthly', label: 'Monthly', months: 1 },
+    { key: 'Quarterly', label: 'Quarterly', months: 3 },
     { key: 'Half-Yearly', label: 'Half-Yearly', months: 6 },
-    { key: 'Yearly',      label: 'Yearly',      months: 12 },
+    { key: 'Yearly', label: 'Yearly', months: 12 },
 ];
 
 const UNUSED_ACTIONS = [
-    { key: 'encash',        label: 'Encash',        desc: 'Credited to salary',   color: '#059669' },
+    { key: 'encash', label: 'Encash', desc: 'Credited to salary', color: '#059669' },
     { key: 'carry_forward', label: 'Carry Forward', desc: 'Added to next period', color: '#2563EB' },
-    { key: 'lapse',         label: 'Lapse',         desc: 'Lost at period end',   color: '#DC2626' },
+    { key: 'lapse', label: 'Lapse', desc: 'Lost at period end', color: '#DC2626' },
 ];
 
 const ENCASH_TIMINGS = ['End of Period', 'End of Quarter', 'End of Half-Year', 'End of Year'];
 
 const ENCASH_FORMULAS = [
-    { key: 'gross_by_working_days',  label: 'Gross / Working Days',  hint: 'Salary ÷ working days of the month' },
+    { key: 'gross_by_working_days', label: 'Gross / Working Days', hint: 'Salary ÷ working days of the month' },
     { key: 'gross_by_calendar_days', label: 'Gross / Calendar Days', hint: 'Salary ÷ total days in the month' },
-    { key: 'gross_by_fixed_days',    label: 'Gross / Fixed 30',      hint: 'Salary ÷ 30 (fixed)' },
+    { key: 'gross_by_fixed_days', label: 'Gross / Fixed 30', hint: 'Salary ÷ 30 (fixed)' },
 ];
 
 const emptyLeaveForm = {
@@ -211,6 +216,81 @@ const getPeriodLabel = (period) => {
     if (period === 'Half-Yearly') return 'half-year';
     return 'year';
 };
+
+// ── Initial config for the 6 Policy Setup sections ─────────────────────────
+// Used as the seed for useState and as the reset target for "Clear All".
+const INITIAL_CONFIG = {
+    // Attendance Bonus
+    attendanceBonusEnabled: false,
+    attendanceBonusAmount: '',
+    minWorkingDaysForBonus: 15,
+    mustJoinFirstDay: true,
+    mandatoryDayAttendanceRequired: true,
+    leaveDeductionStillApplies: true,
+
+    // Punctuality Bonus
+    punctualityBonusEnabled: false,
+    punctualityBonusAmount: '',
+    lateArrivalThresholdMinutes: 15,
+    emergencyLatesPerMonth: 1,
+    latePenaltyAmount: '',
+    uninformedLeaveDisqualifies: true,
+    informedLeaveLateBalanceEnabled: false,
+    informedLeaveLateRatio: '1:1',
+
+    // Leave Deduction
+    deductionAppliesToPaidLeave: true,
+    paidLeaveDeductionAppliedOn: 'Same Month',
+    paidLeaveCarryForward: false,
+    paidLeaveDaysPerMonth: 1,
+
+    // Bonus Payout
+    bonusCalculationFrequency: 'Monthly',
+    bonusCreditFrequency: 'Quarterly',
+
+    // Salary Deduction Formula
+    deductionFormula: 'gross_by_working_days',
+
+    // Shift Timing & Work Hours
+    shiftStartTime: '08:00',
+    shiftEndTime: '16:00',
+    gracePeriodMinutes: 10,
+    lunchBreakMinutes: 60,
+    shortBreakMinutes: 15,
+
+    // Default Working Days (0=Sun, 1=Mon … 6=Sat)
+    defaultWorkingDays: [1, 2, 3, 4, 5, 6],
+};
+
+// ── Academic year helpers (India: Apr–Mar) ─────────────────────────────────
+// Returns current academic year + the past 2 (3 options total). No future years.
+const buildAcademicYears = () => {
+    const today = new Date();
+    const startYear = today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1;
+    return [-2, -1, 0]
+        .map((i) => {
+            const y = startYear + i;
+            return `${y}-${y + 1}`;
+        })
+        .reverse(); // newest first
+};
+
+const getCurrentAcademicYear = () => {
+    const today = new Date();
+    const start = today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1;
+    return `${start}-${start + 1}`;
+};
+
+// ── Month helpers ─────────────────────────────────────────────────────────
+const MONTH_NAMES = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+];
+const MONTH_NAMES_SHORT = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+];
+const computeEndMonth = (startMonth) => ((startMonth - 1 + 11) % 12) + 1;
 
 // ── Section wrapper ────────────────────────────────────────────────────────
 const Section = ({ icon: Icon, title, subtitle, color, children }) => (
@@ -304,14 +384,24 @@ const AmountField = ({ label, value, onChange, prefix = '₹', helperText, disab
 );
 
 // ── Number field ───────────────────────────────────────────────────────────
-const NumberField = ({ label, value, onChange, suffix, helperText, min = 0 }) => (
+const NumberField = ({ label, value, onChange, suffix, helperText, min = 0, disabled = false, infoTooltip }) => (
     <Box>
-        <Typography sx={{ fontSize: '12px', fontWeight: 600, color: '#555', mb: 0.5 }}>{label}</Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+            <Typography sx={{ fontSize: '12px', fontWeight: 600, color: disabled ? '#9CA3AF' : '#555' }}>
+                {label}
+            </Typography>
+            {infoTooltip && (
+                <Tooltip title={infoTooltip} arrow placement="top">
+                    <InfoOutlinedIcon sx={{ fontSize: 14, color: '#6366F1', cursor: 'help' }} />
+                </Tooltip>
+            )}
+        </Box>
         <TextField
             fullWidth
             size="small"
             type="number"
             value={value}
+            disabled={disabled}
             onChange={(e) => onChange(Math.max(min, parseInt(e.target.value) || 0))}
             slotProps={{
                 input: {
@@ -321,19 +411,78 @@ const NumberField = ({ label, value, onChange, suffix, helperText, min = 0 }) =>
                     inputProps: { min, step: 1 }
                 }
             }}
+            sx={{
+                '& .MuiOutlinedInput-root': { fontSize: '13px', borderRadius: '6px', height: 36 },
+                '& .MuiInputBase-input.Mui-disabled': { WebkitTextFillColor: '#374151', fontWeight: 600 },
+                '& .MuiOutlinedInput-root.Mui-disabled': { bgcolor: '#F9FAFB' },
+            }}
+        />
+        {helperText && <Typography sx={{ fontSize: '10px', color: '#9CA3AF', mt: 0.3 }}>{helperText}</Typography>}
+    </Box>
+);
+
+// ── Time field (HH:MM 24-hour) ────────────────────────────────────────────
+const TimeField = ({ label, value, onChange, helperText }) => (
+    <Box>
+        <Typography sx={{ fontSize: '12px', fontWeight: 600, color: '#555', mb: 0.5 }}>{label}</Typography>
+        <TextField
+            fullWidth
+            size="small"
+            type="time"
+            value={value || ''}
+            onChange={(e) => onChange(e.target.value)}
+            slotProps={{ input: { inputProps: { step: 60 } } }}
             sx={{ '& .MuiOutlinedInput-root': { fontSize: '13px', borderRadius: '6px', height: 36 } }}
         />
         {helperText && <Typography sx={{ fontSize: '10px', color: '#9CA3AF', mt: 0.3 }}>{helperText}</Typography>}
     </Box>
 );
 
+// ── Helpers for shift timing math ─────────────────────────────────────────
+const parseTimeToMinutes = (t) => {
+    if (!t || typeof t !== 'string') return null;
+    const [h, m] = t.split(':').map(Number);
+    if (Number.isNaN(h) || Number.isNaN(m)) return null;
+    return h * 60 + m;
+};
+
+const formatTime12 = (t) => {
+    const mins = parseTimeToMinutes(t);
+    if (mins == null) return '—';
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    const h12 = h % 12 === 0 ? 12 : h % 12;
+    return `${h12}:${String(m).padStart(2, '0')} ${ampm}`;
+};
+
+const formatHrs = (totalMinutes) => {
+    if (totalMinutes == null || Number.isNaN(totalMinutes)) return '0h';
+    const h = Math.floor(totalMinutes / 60);
+    const m = totalMinutes % 60;
+    if (h === 0) return `${m}m`;
+    if (m === 0) return `${h}h`;
+    return `${h}h ${m}m`;
+};
+
 // ════════════════════════════════════════════════════════════════════════════
 export default function LeaveMasterScreen() {
     const navigate = useNavigate();
     const isExpanded = useSelector((state) => state.sidebar.isExpanded);
     const authUser = useSelector((state) => state.auth);
+    const websiteSettings = useSelector(selectWebsiteSettings);
     const [isSavingMaster, setIsSavingMaster] = useState(false);
     const [isLoadingMaster, setIsLoadingMaster] = useState(false);
+
+    // ── Academic Year filter (header-level scope) ───────────────────────────
+    const academicYears = useMemo(() => buildAcademicYears(), []);
+    const [academicYear, setAcademicYear] = useState(getCurrentAcademicYear);
+
+    // ── Header tabs (split content into 3 logical groups, each with its own save flow) ──
+    // 0 → "Policy Setup":     sections that share one POST (handleSave)
+    // 1 → "Leave Types":      per-leave-type CRUD (handleSavePolicy)
+    // 2 → "Working Calendar": per-month save (handleSaveMonth)
+    const [activeTab, setActiveTab] = useState(0);
 
     const [open, setOpen] = useState(false);
     const [status, setStatus] = useState(false);
@@ -344,58 +493,52 @@ export default function LeaveMasterScreen() {
     };
 
     // ── Master state ───────────────────────────────────────────────────────
-    const [config, setConfig] = useState({
-        // Attendance Bonus
-        attendanceBonusEnabled: false,
-        attendanceBonusAmount: '',
-        minWorkingDaysForBonus: 15,
-        mustJoinFirstDay: true,
-        mandatoryDayAttendanceRequired: true,
-        leaveDeductionStillApplies: true,
-
-        // Punctuality Bonus
-        punctualityBonusEnabled: false,
-        punctualityBonusAmount: '',
-        lateArrivalThresholdMinutes: 15,
-        emergencyLatesPerMonth: 1,
-        latePenaltyAmount: '',
-        uninformedLeaveDisqualifies: true,
-        informedLeaveLateBalanceEnabled: false,
-        informedLeaveLateRatio: '1:1',
-
-        // Leave Deduction
-        deductionAppliesToPaidLeave: true,
-        paidLeaveDeductionAppliedOn: 'Same Month',
-        paidLeaveCarryForward: false,
-        paidLeaveDaysPerMonth: 1,
-
-        // Bonus Payout
-        bonusCalculationFrequency: 'Monthly',
-        bonusCreditFrequency: 'Quarterly',
-
-        // Salary Deduction Formula
-        deductionFormula: 'gross_by_working_days',
-
-        // Default Working Days (0=Sun, 1=Mon ... 6=Sat)
-        defaultWorkingDays: [1, 2, 3, 4, 5, 6], // Mon-Sat by default
-    });
+    const [config, setConfig] = useState({ ...INITIAL_CONFIG });
 
     const update = (key, value) => setConfig(prev => ({ ...prev, [key]: value }));
 
-    // ── Policy Applicability Period (Academic Year) ────────────────────────
-    // User picks a "from" month (current month + up to 23 months ahead).
-    // The "to" month is auto-calculated as start + 11 months (12-month total span).
-    const policyPeriodOptions = React.useMemo(() => {
-        const start = dayjs().startOf('month');
-        return Array.from({ length: 24 }, (_, i) => start.add(i, 'month'));
-    }, []);
+    // Reset all 6 Policy Setup sections back to their default values.
+    const handleClearAll = () => {
+        setConfig({ ...INITIAL_CONFIG });
+        setStartMonth(4); // April — typical academic year start
+        setAutoRenew(true);
+        setHasExistingPolicy(false);
+        showSnack('All policy fields reset to defaults', true);
+    };
 
-    const [policyStart, setPolicyStart] = useState(() => dayjs().startOf('month'));
-    const [policyAutoRenew, setPolicyAutoRenew] = useState(true);
-    const policyEnd = policyStart.add(11, 'month').endOf('month');
-    const policyDurationDays = policyEnd.diff(policyStart, 'day') + 1;
-    const nextCycleStart = policyEnd.add(1, 'day');
-    const nextCycleEnd = nextCycleStart.add(11, 'month').endOf('month');
+    // Grace Period drives Late Arrival Threshold — they're the same concept.
+    // When Grace Period has a value (> 0), it auto-syncs to Late Arrival Threshold and
+    // locks that field. The user can only change the threshold via Grace Period.
+    useEffect(() => {
+        const grace = Number(config.gracePeriodMinutes) || 0;
+        if (grace > 0 && grace !== Number(config.lateArrivalThresholdMinutes)) {
+            setConfig(prev => ({ ...prev, lateArrivalThresholdMinutes: grace }));
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [config.gracePeriodMinutes]);
+
+    // ── Policy Applicability Period (start month within academic year) ─────
+    // User picks just the start month (1-12). End month is auto-calculated as
+    // 11 months later (wrapping). Years come from the academic year in the header.
+    const [startMonth, setStartMonth] = useState(4); // April (default academic-year start)
+    const [autoRenew, setAutoRenew]   = useState(true); // roll policy over into the next academic year
+
+    // Tracks whether a policy already exists on the server for the selected academic year.
+    // Drives: button label ("Save" → "Update") and the 20-day edit-window lock.
+    const [hasExistingPolicy, setHasExistingPolicy] = useState(false);
+
+    // Auto-renew prompt: shown when a previous-year policy exists with autoRenew=false,
+    // we're inside the cycle-start month's first 20 days, and the current year has no policy yet.
+    const [renewDialog, setRenewDialog] = useState({ open: false, prevPolicy: null, prevAY: null });
+    const closeRenewDialog = () => setRenewDialog({ open: false, prevPolicy: null, prevAY: null });
+    const endMonth = computeEndMonth(startMonth);
+    const [acadStartYearStr, acadEndYearStr] = academicYear.split('-');
+    const acadStartYear = parseInt(acadStartYearStr, 10);
+    const acadEndYear = parseInt(acadEndYearStr, 10);
+    // If the cycle wraps past December, end month is in the next calendar year.
+    const cycleStartYear = acadStartYear;
+    const cycleEndYear = endMonth < startMonth ? acadEndYear : acadStartYear;
+    const cycleLabel = `${MONTH_NAMES_SHORT[startMonth - 1]} ${cycleStartYear} → ${MONTH_NAMES_SHORT[endMonth - 1]} ${cycleEndYear}`;
 
     // ── Working Calendar State ─────────────────────────────────────────────
     const [calendarMonth, setCalendarMonth] = useState(dayjs());
@@ -416,6 +559,19 @@ export default function LeaveMasterScreen() {
     // Navigation is allowed back to the current month (so users can view it) but not into past months.
     const currentMonth = dayjs().startOf('month');
     const maxMonth = currentMonth.add(11, 'month');
+
+    // Badge for the "Working Calendar" tab — true when NEXT month's calendar isn't
+    // saved yet. Workflow: while in current month, the admin should plan ahead and
+    // save next month's working days before it begins.
+    const nextMonthKey = useMemo(
+        () => dayjs().add(1, 'month').startOf('month').format('YYYY-MM'),
+        [],
+    );
+    const nextMonthLabel = useMemo(
+        () => dayjs().add(1, 'month').format('MMMM YYYY'),
+        [],
+    );
+    const isNextMonthMissing = !savedMonths[nextMonthKey];
     const canGoPrev = calendarMonth.isAfter(currentMonth, 'month');
     const canGoNext = calendarMonth.isBefore(maxMonth, 'month');
     const calendarMonthKey = calendarMonth.format('YYYY-MM');
@@ -529,7 +685,7 @@ export default function LeaveMasterScreen() {
         }
 
         const body = {
-            year:  calendarMonth.year(),
+            year: calendarMonth.year(),
             month: calendarMonth.month() + 1,        // dayjs month is 0-indexed
             weekPattern: buildMonthWeekPattern(calendarMonth),
             overrides: buildMonthOverrides(calendarMonth),
@@ -677,12 +833,16 @@ export default function LeaveMasterScreen() {
     // their previously saved policy when they open the screen.
     const applyFetchedPolicy = (d) => {
         if (!d) return;
+        setHasExistingPolicy(true);
 
-        // Applicability period
-        const start = parseApiDate(d.policyApplicabilityPeriod?.startDate);
-        if (start) setPolicyStart(start.startOf('month'));
+        // Academic year (header filter scope)
+        if (d.academicYear) setAcademicYear(d.academicYear);
+
+        // Applicability period — new shape: { startMonth, endMonth, autoRenew, cycleLabel }
+        const sm = Number(d.policyApplicabilityPeriod?.startMonth);
+        if (sm >= 1 && sm <= 12) setStartMonth(sm);
         if (typeof d.policyApplicabilityPeriod?.autoRenew === 'boolean') {
-            setPolicyAutoRenew(d.policyApplicabilityPeriod.autoRenew);
+            setAutoRenew(d.policyApplicabilityPeriod.autoRenew);
         }
 
         // Bonus / punctuality / deduction / payout — fold into config
@@ -690,48 +850,185 @@ export default function LeaveMasterScreen() {
             ...prev,
 
             // Attendance Bonus
-            attendanceBonusEnabled:           !!d.attendanceBonus?.enabled,
-            attendanceBonusAmount:            d.attendanceBonus?.amount != null ? String(d.attendanceBonus.amount) : '',
-            minWorkingDaysForBonus:           Number(d.attendanceBonus?.minWorkingDays) || 0,
-            mustJoinFirstDay:                 !!d.attendanceBonus?.mustJoinFirstDay,
-            mandatoryDayAttendanceRequired:   !!d.attendanceBonus?.mandatoryDayRequired,
-            leaveDeductionStillApplies:       !!d.attendanceBonus?.salaryDeductStillApplies,
+            attendanceBonusEnabled: !!d.attendanceBonus?.enabled,
+            attendanceBonusAmount: d.attendanceBonus?.amount != null ? String(d.attendanceBonus.amount) : '',
+            minWorkingDaysForBonus: Number(d.attendanceBonus?.minWorkingDays) || 0,
+            mustJoinFirstDay: !!d.attendanceBonus?.mustJoinFirstDay,
+            mandatoryDayAttendanceRequired: !!d.attendanceBonus?.mandatoryDayRequired,
+            leaveDeductionStillApplies: !!d.attendanceBonus?.salaryDeductStillApplies,
 
             // Punctuality
-            punctualityBonusEnabled:          !!d.punctuality?.enabled,
-            punctualityBonusAmount:           d.punctuality?.bonusAmount != null ? String(d.punctuality.bonusAmount) : '',
-            lateArrivalThresholdMinutes:      Number(d.punctuality?.lateThresholdMinutes) || 15,
-            emergencyLatesPerMonth:           Number(d.punctuality?.emergencyLatesAllowed) || 1,
-            latePenaltyAmount:                d.punctuality?.latePenaltyAmount != null ? String(d.punctuality.latePenaltyAmount) : '',
-            uninformedLeaveDisqualifies:      !!d.punctuality?.uninformedLeaveDisqualifies,
-            informedLeaveLateBalanceEnabled:  !!d.punctuality?.informedLeavePlusLateBalance,
-            informedLeaveLateRatio:           d.punctuality?.balanceRatio || '1:1',
+            punctualityBonusEnabled: !!d.punctuality?.enabled,
+            punctualityBonusAmount: d.punctuality?.bonusAmount != null ? String(d.punctuality.bonusAmount) : '',
+            lateArrivalThresholdMinutes: Number(d.punctuality?.lateThresholdMinutes) || 15,
+            emergencyLatesPerMonth: Number(d.punctuality?.emergencyLatesAllowed) || 1,
+            latePenaltyAmount: d.punctuality?.latePenaltyAmount != null ? String(d.punctuality.latePenaltyAmount) : '',
+            uninformedLeaveDisqualifies: !!d.punctuality?.uninformedLeaveDisqualifies,
+            informedLeaveLateBalanceEnabled: !!d.punctuality?.informedLeavePlusLateBalance,
+            informedLeaveLateRatio: d.punctuality?.balanceRatio || '1:1',
 
             // Leave Salary Deduction
-            deductionAppliesToPaidLeave:      !!d.leaveSalaryDeduction?.appliesToPaidLeave,
-            paidLeaveDeductionAppliedOn:      DEDUCTION_APPLIED_FROM_API[d.leaveSalaryDeduction?.deductionAppliedWhen] || 'Same Month',
-            deductionFormula:                 DEDUCTION_FORMULA_FROM_API[d.leaveSalaryDeduction?.formula] || 'gross_by_working_days',
+            deductionAppliesToPaidLeave: !!d.leaveSalaryDeduction?.appliesToPaidLeave,
+            paidLeaveDeductionAppliedOn: DEDUCTION_APPLIED_FROM_API[d.leaveSalaryDeduction?.deductionAppliedWhen] || 'Same Month',
+            deductionFormula: DEDUCTION_FORMULA_FROM_API[d.leaveSalaryDeduction?.formula] || 'gross_by_working_days',
 
             // Bonus Payout
-            bonusCalculationFrequency:        FREQUENCY_FROM_API[d.bonusPayout?.calcFrequency] || 'Monthly',
-            bonusCreditFrequency:             FREQUENCY_FROM_API[d.bonusPayout?.creditFrequency] || 'Quarterly',
+            bonusCalculationFrequency: FREQUENCY_FROM_API[d.bonusPayout?.calcFrequency] || 'Monthly',
+            bonusCreditFrequency: FREQUENCY_FROM_API[d.bonusPayout?.creditFrequency] || 'Quarterly',
+
+            // Shift Timing & Work Hours
+            // API uses startTime / endTime inside shiftTiming
+            shiftStartTime: d.shiftTiming?.startTime || d.shiftTiming?.shiftStartTime || prev.shiftStartTime,
+            shiftEndTime:   d.shiftTiming?.endTime   || d.shiftTiming?.shiftEndTime   || prev.shiftEndTime,
+            gracePeriodMinutes: Number(d.shiftTiming?.gracePeriodMinutes) || 0,
+            lunchBreakMinutes: Number(d.shiftTiming?.lunchBreakMinutes) || 0,
+            shortBreakMinutes: Number(d.shiftTiming?.shortBreakMinutes) || 0,
         }));
     };
 
-    const fetchLeavePolicy = async () => {
+    // Apply a previous-year policy to the current form state (no save). Used by both
+    // the auto-renew path and the "Restore Previous" choice in the prompt dialog.
+    const applyPolicyAsTemplate = (prevPolicy, targetAY) => {
+        if (!prevPolicy) return;
+        applyFetchedPolicy({ ...prevPolicy, academicYear: targetAY });
+    };
+
+    // Build a POST payload from a previous-year policy response, retargeted at `targetAY`.
+    const buildPayloadFromPolicy = (prev, targetAY) => ({
+        academicYear: targetAY,
+        policyApplicabilityPeriod: {
+            startMonth: Number(prev.policyApplicabilityPeriod?.startMonth) || 4,
+            endMonth:   Number(prev.policyApplicabilityPeriod?.endMonth)   || 3,
+            autoRenew:  !!prev.policyApplicabilityPeriod?.autoRenew,
+        },
+        shiftTiming: {
+            startTime: prev.shiftTiming?.startTime || '08:00',
+            endTime:   prev.shiftTiming?.endTime   || '16:00',
+            gracePeriodMinutes: Number(prev.shiftTiming?.gracePeriodMinutes) || 0,
+            lunchBreakMinutes:  Number(prev.shiftTiming?.lunchBreakMinutes)  || 0,
+            shortBreakMinutes:  Number(prev.shiftTiming?.shortBreakMinutes)  || 0,
+        },
+        attendanceBonus:     prev.attendanceBonus     || {},
+        punctuality:         prev.punctuality         || {},
+        leaveSalaryDeduction: prev.leaveSalaryDeduction || {},
+        bonusPayout:         prev.bonusPayout         || {},
+        updatedByRollNumber: authUser?.rollNumber || '',
+    });
+
+    // Silently POST a renewed policy for the new academic year.
+    const autoRenewPolicy = async (prevPolicy, targetAY) => {
+        try {
+            const payload = buildPayloadFromPolicy(prevPolicy, targetAY);
+            const res = await axios.post(postleavepolicy, payload, {
+                headers: { Authorization: `Bearer ${TOKEN}` },
+            });
+            if (res?.data?.error === false) {
+                applyPolicyAsTemplate(prevPolicy, targetAY);
+                showSnack(`Policy auto-renewed from ${prevPolicy.academicYear} for ${targetAY}`, true);
+            } else {
+                showSnack(res?.data?.message || 'Auto-renew failed — please save manually', false);
+            }
+        } catch (err) {
+            console.error('Auto-renew POST failed:', err);
+            showSnack('Auto-renew failed — please save manually', false);
+        }
+    };
+
+    // Check & handle the auto-renew window for an empty current-year policy.
+    // Conditions checked here:
+    //   1) The selected academic year IS the current academic year (no past/future).
+    //   2) We're within the FIRST 20 DAYS of the previous policy's cycle start month.
+    //   3) A previous-year policy exists.
+    // Behaviour:
+    //   • If previous policy had autoRenew=true → silently POST it for the new year.
+    //   • Otherwise → open a dialog asking the user to Restore or Create New.
+    const checkAutoRenewWindow = async (ay) => {
+        const today = dayjs();
+        const currentAY = getCurrentAcademicYear();
+        if (ay !== currentAY) return;
+
+        const [ysStr] = ay.split('-');
+        const ys = parseInt(ysStr, 10);
+        if (!Number.isFinite(ys)) return;
+        const prevAY = `${ys - 1}-${ys}`;
+
+        try {
+            const res = await axios.get(GetLeavePolicy, {
+                params: { academicYear: prevAY },
+                headers: { Authorization: `Bearer ${TOKEN}` },
+            });
+            if (!res?.data || res.data.error !== false || !res.data.data) return;
+
+            const prevPolicy = res.data.data;
+            const prevStartMonth = Number(prevPolicy.policyApplicabilityPeriod?.startMonth);
+            if (!(prevStartMonth >= 1 && prevStartMonth <= 12)) return;
+
+            // Within the first 20 days of the previous-policy's cycle start month?
+            const todayMonth = today.month() + 1;
+            const todayDay = today.date();
+            const inWindow = todayMonth === prevStartMonth && todayDay <= 20;
+            if (!inWindow) return;
+
+            const prevAutoRenew = !!prevPolicy.policyApplicabilityPeriod?.autoRenew;
+            if (prevAutoRenew) {
+                await autoRenewPolicy(prevPolicy, ay);
+            } else {
+                setRenewDialog({ open: true, prevPolicy, prevAY });
+            }
+        } catch (err) {
+            // 404 / network error fetching previous year → silently skip.
+            if (err?.response?.status !== 404) {
+                console.warn('checkAutoRenewWindow failed:', err);
+            }
+        }
+    };
+
+    // Restore previous year's policy into the form (no auto-save — user reviews).
+    const handleRestorePrev = () => {
+        if (renewDialog.prevPolicy) {
+            applyPolicyAsTemplate(renewDialog.prevPolicy, academicYear);
+            showSnack(`Restored policy from ${renewDialog.prevAY}. Review and save.`, true);
+        }
+        closeRenewDialog();
+    };
+
+    // Discard the prompt and let the user start from a clean slate.
+    const handleCreateNewPolicy = () => {
+        setConfig({ ...INITIAL_CONFIG });
+        setStartMonth(4);
+        setAutoRenew(true);
+        closeRenewDialog();
+    };
+
+    const fetchLeavePolicy = async (year) => {
+        const ay = year || academicYear;
+        if (!ay) return;
         setIsLoadingMaster(true);
         try {
             const res = await axios.get(GetLeavePolicy, {
+                params: { academicYear: ay },
                 headers: { Authorization: `Bearer ${TOKEN}` },
             });
             // Standard envelope: { error: false, data: {...} } when a policy exists.
             if (res?.data && res.data.error === false && res.data.data) {
                 applyFetchedPolicy(res.data.data);
+            } else {
+                // No saved policy for this academic year — reset + check auto-renew window.
+                setConfig({ ...INITIAL_CONFIG });
+                setStartMonth(4);
+                setAutoRenew(true);
+                setHasExistingPolicy(false);
+                checkAutoRenewWindow(ay);
             }
-            // Otherwise: no saved policy yet — keep defaults silently. First-time setup.
         } catch (err) {
-            // 404 = no policy saved yet → silent. Anything else → user-visible error.
-            if (err?.response?.status !== 404) {
+            // 404 = no policy saved yet for this year → silent reset + auto-renew check.
+            if (err?.response?.status === 404) {
+                setConfig({ ...INITIAL_CONFIG });
+                setStartMonth(4);
+                setAutoRenew(true);
+                setHasExistingPolicy(false);
+                checkAutoRenewWindow(ay);
+            } else {
                 console.error('GetLeavePolicy failed:', err);
                 showSnack('Failed to load existing leave policy', false);
             }
@@ -740,15 +1037,27 @@ export default function LeaveMasterScreen() {
         }
     };
 
-    useEffect(() => { fetchLeavePolicy(); }, []);
+    // Refetch whenever the academic year changes (header dropdown drives reload).
+    useEffect(() => {
+        fetchLeavePolicy(academicYear);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [academicYear]);
 
     // Builds the API payload up to (and including) "Bonus Payout Schedule".
     // Working Calendar + Leave Policy Management have their own endpoints/save flows.
     const buildLeavePolicyPayload = () => ({
+        academicYear,
         policyApplicabilityPeriod: {
-            startDate: policyStart.format('YYYY-MM-DD'),  // e.g. "2026-05-01"
-            endDate: policyEnd.format('YYYY-MM-DD'),      // e.g. "2027-04-30"
-            autoRenew: !!policyAutoRenew,
+            startMonth: Number(startMonth),
+            endMonth:   Number(endMonth),
+            autoRenew:  !!autoRenew,
+        },
+        shiftTiming: {
+            startTime: config.shiftStartTime || '',
+            endTime:   config.shiftEndTime   || '',
+            gracePeriodMinutes: Number(config.gracePeriodMinutes) || 0,
+            lunchBreakMinutes:  Number(config.lunchBreakMinutes)  || 0,
+            shortBreakMinutes:  Number(config.shortBreakMinutes)  || 0,
         },
         attendanceBonus: {
             enabled: !!config.attendanceBonusEnabled,
@@ -785,8 +1094,12 @@ export default function LeaveMasterScreen() {
             showSnack('Cannot save: no logged-in user found.', false);
             return false;
         }
-        if (!policyStart || !policyEnd) {
-            showSnack('Please choose the policy applicability period first.', false);
+        if (!startMonth || startMonth < 1 || startMonth > 12) {
+            showSnack('Please choose a valid start month for the policy.', false);
+            return false;
+        }
+        if (!academicYear) {
+            showSnack('Please choose the academic year first.', false);
             return false;
         }
         // Cross-field sanity: if attendance bonus is enabled, amount must be > 0
@@ -811,11 +1124,13 @@ export default function LeaveMasterScreen() {
             });
             if (res?.data && res.data.error === false) {
                 showSnack(res.data.message || 'Leave policy saved successfully', true);
+                setHasExistingPolicy(true);
             } else if (res?.data && res.data.error) {
                 showSnack(res.data.message || 'Failed to save leave policy', false);
             } else {
                 // Backend doesn't follow the standard envelope — assume HTTP 2xx = success.
                 showSnack('Leave policy saved successfully', true);
+                setHasExistingPolicy(true);
             }
         } catch (err) {
             console.error('postleavepolicy failed:', err);
@@ -876,20 +1191,23 @@ export default function LeaveMasterScreen() {
         return Object.keys(e).length === 0;
     };
 
-    const fetchLeavePolicies = async () => {
+    const fetchLeavePolicies = async (year) => {
+        const ay = year || academicYear;
+        if (!ay) return;
         setIsLoadingPolicies(true);
         try {
             const res = await axios.get(GetleaveTypes, {
+                params: { academicYear: ay },
                 headers: { Authorization: `Bearer ${TOKEN}` },
             });
             if (res?.data && res.data.error === false && res.data.data) {
                 const d = res.data.data;
                 const summary = d.summary || {};
                 setPolicyStats({
-                    totalLeaveTypes:      Number(summary.totalTypes)    || 0,
-                    totalDaysPerMonth:    Number(summary.daysPerMonth)  || 0,
-                    onDemandUnlimited:    Number(summary.onDemand)      || 0,
-                    encashableLeaveTypes: Number(summary.encashable)    || 0,
+                    totalLeaveTypes: Number(summary.totalTypes) || 0,
+                    totalDaysPerMonth: Number(summary.daysPerMonth) || 0,
+                    onDemandUnlimited: Number(summary.onDemand) || 0,
+                    encashableLeaveTypes: Number(summary.encashable) || 0,
                 });
                 setPolicies((d.items || []).map(lt => ({
                     id: lt.id,
@@ -910,6 +1228,7 @@ export default function LeaveMasterScreen() {
                     encashmentFormula: 'gross_by_working_days',
                     documentHint: '',
                     // Audit metadata (available for future display)
+                    academicYear: lt.academicYear || ay,
                     isActive: lt.isActive !== false,
                     monthlyEquivalent: Number(lt.monthlyEquivalent) || 0,
                     createdBy: lt.createdBy || null,
@@ -918,12 +1237,20 @@ export default function LeaveMasterScreen() {
                     updatedOn: lt.updatedOn || null,
                 })));
             } else if (res?.data && res.data.error) {
-                showSnack(res.data.message || 'Failed to load leave types', false);
+                // Treat error responses for an unset year as "no data" rather than an error toast.
+                setPolicies([]);
+                setPolicyStats({ totalLeaveTypes: 0, totalDaysPerMonth: 0, onDemandUnlimited: 0, encashableLeaveTypes: 0 });
+            } else {
+                // No data block → no leave types for this academic year yet.
+                setPolicies([]);
+                setPolicyStats({ totalLeaveTypes: 0, totalDaysPerMonth: 0, onDemandUnlimited: 0, encashableLeaveTypes: 0 });
             }
-            // No data block → first-time setup, just keep empty list silently.
         } catch (err) {
-            // 404 = nothing saved yet → silent. Other errors → user-visible.
-            if (err?.response?.status !== 404) {
+            // 404 = nothing saved yet → silent reset. Other errors → user-visible.
+            if (err?.response?.status === 404) {
+                setPolicies([]);
+                setPolicyStats({ totalLeaveTypes: 0, totalDaysPerMonth: 0, onDemandUnlimited: 0, encashableLeaveTypes: 0 });
+            } else {
                 console.error('GetleaveTypes failed:', err);
                 showSnack('Failed to load leave types', false);
             }
@@ -932,7 +1259,11 @@ export default function LeaveMasterScreen() {
         }
     };
 
-    useEffect(() => { fetchLeavePolicies(); }, []);
+    // Refetch leave types whenever the academic year scope changes.
+    useEffect(() => {
+        fetchLeavePolicies(academicYear);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [academicYear]);
 
     const handleAddPolicy = () => {
         setEditingPolicy(null);
@@ -1017,6 +1348,7 @@ export default function LeaveMasterScreen() {
         const advanceUsage = isMonthly || !!policyForm.advanceUsageAllowed;
 
         const body = {
+            academicYear,
             name: policyForm.name.trim(),
             shortCode: policyForm.shortCode.trim().toUpperCase(),
             colorTag: policyForm.color,
@@ -1087,72 +1419,152 @@ export default function LeaveMasterScreen() {
                     overflow: 'hidden',
                     py: 0.7,
                 }}>
-                    <Grid container sx={{ alignItems: 'center' }}>
-                        <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }} sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Grid container sx={{ alignItems: 'center' }} spacing={1}>
+                        {/* Left: Back + Title */}
+                        <Grid size={{ xs: 6, md: 3 }} sx={{ display: 'flex', alignItems: 'center' }}>
                             <IconButton onClick={() => navigate(-1)} sx={{ width: '27px', height: '27px', mt: '2px' }}>
                                 <ArrowBackIcon sx={{ fontSize: 20, color: '#000' }} />
                             </IconButton>
-                            <Box sx={{ ml: 1 }}>
-                                <Typography sx={{ fontWeight: '600', fontSize: '18px' }}>Leave Policy Master</Typography>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
-                                    <Typography sx={{ fontSize: '11px', color: '#888' }}>
-                                        Configure attendance bonus, punctuality, deductions & payout rules
+                            <Box sx={{ ml: 1, minWidth: 0 }}>
+                                <Typography sx={{ fontWeight: 600, fontSize: '17px', lineHeight: 1.1 }} noWrap>
+                                    Leave Policy Master
+                                </Typography>
+                                {isLoadingMaster ? (
+                                    <Box sx={{
+                                        display: 'inline-flex', alignItems: 'center', gap: 0.4,
+                                        px: 0.8, py: 0.1, mt: 0.2, borderRadius: '20px',
+                                        bgcolor: PRIMARY_LIGHT, border: `1px solid ${PRIMARY}40`,
+                                    }}>
+                                        <CircularProgress size={9} sx={{ color: PRIMARY }} />
+                                        <Typography sx={{ fontSize: 9, fontWeight: 700, color: PRIMARY_DARK }}>
+                                            Loading…
+                                        </Typography>
+                                    </Box>
+                                ) : (
+                                    <Typography sx={{ fontSize: 11, color: '#888' }} noWrap>
+                                        Configure rules, leave types & calendar
                                     </Typography>
-                                    {isLoadingMaster && (
-                                        <Box sx={{
-                                            display: 'inline-flex', alignItems: 'center', gap: 0.4,
-                                            px: 0.8, py: 0.2, borderRadius: '20px',
-                                            bgcolor: PRIMARY_LIGHT, border: `1px solid ${PRIMARY}40`,
-                                        }}>
-                                            <CircularProgress size={9} sx={{ color: PRIMARY }} />
-                                            <Typography sx={{ fontSize: 9, fontWeight: 700, color: PRIMARY_DARK }}>
-                                                Loading…
-                                            </Typography>
-                                        </Box>
-                                    )}
-                                </Box>
+                                )}
                             </Box>
                         </Grid>
-                        <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }} sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                            <Button
-                                variant="contained"
-                                disabled={isSavingMaster || isLoadingMaster}
-                                startIcon={
-                                    isSavingMaster
-                                        ? <CircularProgress size={14} sx={{ color: '#fff' }} />
-                                        : <SaveIcon sx={{ fontSize: 18 }} />
-                                }
-                                onClick={handleSave}
+
+                        {/* Center: Section tabs */}
+                        <Grid size={{ xs: 12, md: 6 }} sx={{
+                            display: 'flex', justifyContent: 'center',
+                            order: { xs: 3, md: 2 },
+                            mt: { xs: 1, md: 0 },
+                        }}>
+                            <Tabs
+                                value={activeTab}
+                                onChange={(_, v) => setActiveTab(v)}
+                                variant="scrollable"
+                                scrollButtons="auto"
+                                slotProps={{ indicator: { sx: { display: 'none' } } }}
                                 sx={{
-                                    textTransform: 'none',
-                                    bgcolor: PRIMARY,
-                                    color: '#fff',
-                                    borderRadius: '8px',
-                                    fontSize: 13,
-                                    fontWeight: 600,
-                                    letterSpacing: 0.2,
-                                    px: 2.5,
-                                    height: 36,
-                                    boxShadow: `0 2px 6px ${PRIMARY}33`,
-                                    transition: 'transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease',
-                                    '&:hover': {
-                                        bgcolor: PRIMARY_DARK,
-                                        boxShadow: `0 4px 12px ${PRIMARY}55`,
-                                        transform: 'translateY(-1px)',
+                                    bgcolor: '#fff',
+                                    minHeight: 36,
+                                    borderRadius: '50px',
+                                    border: '1px solid rgba(0,0,0,0.08)',
+                                    boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                                    overflow: 'visible',
+                                    '& .MuiTabs-scroller': { overflow: 'visible !important' },
+                                    '& .MuiTabs-flexContainer': { gap: 0.3 },
+                                    '& .MuiTab-root': {
+                                        textTransform: 'none',
+                                        fontSize: '12.5px',
+                                        color: '#555',
+                                        fontWeight: 700,
+                                        minWidth: 0,
+                                        minHeight: 30, height: 30,
+                                        px: 2,
+                                        m: 0.4,
+                                        borderRadius: '50px',
+                                        transition: 'all 0.2s',
+                                        overflow: 'visible',
                                     },
-                                    '&:active': {
-                                        transform: 'translateY(0)',
-                                        boxShadow: `0 1px 4px ${PRIMARY}33`,
+                                    '& .Mui-selected': {
+                                        color: `${websiteSettings.textColor} !important`,
+                                        bgcolor: websiteSettings.mainColor,
+                                        boxShadow: '1px 1px 2px 0.5px rgba(0, 0, 0, 0.2)',
+                                        border: '1px solid rgba(0,0,0,0.1)',
                                     },
-                                    '&.Mui-disabled': {
-                                        bgcolor: '#A7F3D0',
-                                        color: '#fff',
-                                        boxShadow: 'none',
-                                    },
+                                    '& .MuiTabScrollButton-root': { width: 28 },
                                 }}
                             >
-                                {isSavingMaster ? 'Saving...' : 'Save Policy'}
-                            </Button>
+                                <Tab label="Policy Setup" />
+                                <Tab label="Leave Types" />
+                                <Tab
+                                    label={
+                                        <Box sx={{ position: 'relative', display: 'inline-flex', alignItems: 'center', pr: isNextMonthMissing ? 1.2 : 0 }}>
+                                            Working Calendar
+                                            {isNextMonthMissing && (
+                                                <Tooltip
+                                                    arrow
+                                                    title={`Save the working calendar for ${nextMonthLabel} before it begins — plan ahead.`}
+                                                >
+                                                    <Box sx={{
+                                                        position: 'absolute',
+                                                        top: -7, right: -12,
+                                                        width: 17, height: 17, borderRadius: '50%',
+                                                        bgcolor: '#DC2626', color: '#fff',
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                        boxShadow: '0 0 0 2px #fff, 0 2px 5px rgba(220,38,38,0.55)',
+                                                        zIndex: 2,
+                                                        animation: 'wcPulse 1.8s infinite',
+                                                        '@keyframes wcPulse': {
+                                                            '0%, 100%': { transform: 'scale(1)',    boxShadow: '0 0 0 2px #fff, 0 2px 5px rgba(220,38,38,0.55)' },
+                                                            '50%':      { transform: 'scale(1.18)', boxShadow: '0 0 0 2px #fff, 0 0 0 5px rgba(220,38,38,0.22), 0 3px 8px rgba(220,38,38,0.6)' },
+                                                        },
+                                                    }}>
+                                                        <InfoOutlinedIcon sx={{ fontSize: 12 }} />
+                                                    </Box>
+                                                </Tooltip>
+                                            )}
+                                        </Box>
+                                    }
+                                />
+                            </Tabs>
+                        </Grid>
+
+                        {/* Right: Academic year selector (Autocomplete) */}
+                        <Grid size={{ xs: 6, md: 3 }} sx={{
+                            display: 'flex', justifyContent: 'flex-end', alignItems: 'center',
+                            order: { xs: 2, md: 3 },
+                        }}>
+                            <Autocomplete
+                                size="small"
+                                disableClearable
+                                options={academicYears}
+                                value={academicYear}
+                                onChange={(_, v) => v && setAcademicYear(v)}
+                                isOptionEqualToValue={(o, v) => o === v}
+                                sx={{ width: 170 }}
+                                renderInput={(params) => (
+                                    <TextField
+                                        {...params}
+                                        placeholder="Academic Year"
+                                        slotProps={{
+                                            input: {
+                                                ...params.InputProps,
+                                                startAdornment: (
+                                                    <InputAdornment position="start" sx={{ ml: 0.5 }}>
+                                                        <CalendarMonthIcon sx={{ fontSize: 15, color: PRIMARY }} />
+                                                    </InputAdornment>
+                                                ),
+                                            },
+                                        }}
+                                        sx={{
+                                            '& .MuiOutlinedInput-root': {
+                                                height: 34, fontSize: 12.5, borderRadius: '8px',
+                                                bgcolor: '#fff', fontWeight: 700, color: PRIMARY_DARK,
+                                                '& fieldset': { borderColor: `${PRIMARY}30` },
+                                                '&:hover fieldset': { borderColor: PRIMARY },
+                                                '&.Mui-focused fieldset': { borderColor: PRIMARY },
+                                            },
+                                        }}
+                                    />
+                                )}
+                            />
                         </Grid>
                     </Grid>
                 </Box>
@@ -1160,9 +1572,11 @@ export default function LeaveMasterScreen() {
                 {/* Content */}
                 <Box sx={{ px: 2, pt: '75px', pb: 4 }}>
 
+                    {/* ─── TAB 0: POLICY SETUP ─── */}
+                    {activeTab === 0 && (<>
                     {/* ═══ Section 0: Policy Applicability Period ═══ */}
                     <Section icon={CalendarMonthIcon} title="Policy Applicability Period" color="#7C3AED"
-                        subtitle="Select the month from which this leave policy starts. It will run for 12 months — the end month is calculated automatically.">
+                        subtitle="Pick the start month — the policy runs for 12 months. The year comes from the Academic Year selected in the header.">
 
                         <Box sx={{
                             display: 'flex',
@@ -1171,51 +1585,45 @@ export default function LeaveMasterScreen() {
                             gap: 2,
                             flexWrap: 'wrap',
                         }}>
-                            {/* From month — editable */}
+                            {/* Start month — editable */}
                             <Box sx={{ flex: 1, minWidth: 220 }}>
                                 <Typography sx={{ fontSize: '12px', fontWeight: 600, color: '#555', mb: 0.5 }}>
-                                    Starts From <span style={{ color: '#DC2626' }}>*</span>
+                                    Starts In <span style={{ color: '#DC2626' }}>*</span>
                                 </Typography>
                                 <Autocomplete
                                     size="small"
-                                    options={policyPeriodOptions}
-                                    value={policyStart}
-                                    onChange={(_, v) => v && setPolicyStart(v.startOf('month'))}
                                     disableClearable
-                                    getOptionLabel={(opt) => opt ? opt.format('MMMM YYYY') : ''}
-                                    isOptionEqualToValue={(o, v) => o.isSame(v, 'month')}
+                                    options={MONTH_NAMES.map((_, i) => i + 1)}
+                                    value={startMonth}
+                                    onChange={(_, v) => v && setStartMonth(v)}
+                                    getOptionLabel={(m) => MONTH_NAMES[m - 1] || ''}
+                                    isOptionEqualToValue={(o, v) => o === v}
                                     renderInput={(params) => (
                                         <TextField {...params} placeholder="Select start month"
                                             sx={{ '& .MuiOutlinedInput-root': { borderRadius: '6px', fontSize: 14, height: 40 } }}
                                         />
                                     )}
-                                    renderOption={(props, opt) => {
-                                        const isCurrent = opt.isSame(dayjs(), 'month');
-                                        return (
-                                            <Box component="li" {...props} key={opt.format('YYYY-MM')}
-                                                sx={{ display: 'flex', justifyContent: 'space-between !important', fontSize: 13 }}>
-                                                <Typography sx={{ fontSize: 13, fontWeight: isCurrent ? 700 : 500 }}>
-                                                    {opt.format('MMMM YYYY')}
-                                                </Typography>
-                                                {isCurrent && (
-                                                    <Chip label="This month" size="small"
-                                                        sx={{ height: 18, fontSize: 10, fontWeight: 600, bgcolor: '#F5F3FF', color: '#7C3AED', border: '1px solid #DDD6FE', ml: 1 }} />
-                                                )}
-                                            </Box>
-                                        );
-                                    }}
+                                    renderOption={(props, m) => (
+                                        <Box component="li" {...props} key={m}
+                                            sx={{ display: 'flex', justifyContent: 'space-between !important', fontSize: 13 }}>
+                                            <Typography sx={{ fontSize: 13, fontWeight: m === startMonth ? 700 : 500 }}>
+                                                {MONTH_NAMES[m - 1]}
+                                            </Typography>
+                                            <Typography sx={{ fontSize: 10.5, color: '#9CA3AF', ml: 1 }}>
+                                                (Current Year)
+                                            </Typography>
+                                        </Box>
+                                    )}
                                 />
                                 <Typography sx={{ fontSize: 10, color: '#9CA3AF', mt: 0.5 }}>
-                                    Pick any month from now up to 24 months ahead
+                                    {MONTH_NAMES[startMonth - 1]} <strong style={{ color: '#7C3AED' }}>(Current Year — {cycleStartYear})</strong>
                                 </Typography>
                             </Box>
 
                             {/* Arrow */}
                             <Box sx={{
                                 display: { xs: 'none', sm: 'flex' },
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                pb: 3,
+                                alignItems: 'center', justifyContent: 'center', pb: 3,
                             }}>
                                 <Box sx={{
                                     width: 32, height: 32, borderRadius: '50%',
@@ -1226,30 +1634,25 @@ export default function LeaveMasterScreen() {
                                 </Box>
                             </Box>
 
-                            {/* To month — read-only, auto-calculated */}
+                            {/* End month — read-only, auto-calculated */}
                             <Box sx={{ flex: 1, minWidth: 220 }}>
                                 <Typography sx={{ fontSize: '12px', fontWeight: 600, color: '#555', mb: 0.5 }}>
-                                    Ends On <span style={{ fontSize: 10, color: '#9CA3AF', fontWeight: 500 }}>(auto-calculated)</span>
+                                    Ends In <span style={{ fontSize: 10, color: '#9CA3AF', fontWeight: 500 }}>(auto-calculated)</span>
                                 </Typography>
                                 <Box sx={{
-                                    height: 40,
-                                    px: 1.5,
-                                    borderRadius: '6px',
-                                    border: '1px solid #DDD6FE',
-                                    bgcolor: '#F5F3FF',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'space-between',
-                                    gap: 1,
+                                    height: 40, px: 1.5, borderRadius: '6px',
+                                    border: '1px solid #DDD6FE', bgcolor: '#F5F3FF',
+                                    display: 'flex', alignItems: 'center',
+                                    justifyContent: 'space-between', gap: 1,
                                 }}>
                                     <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#5B21B6' }}>
-                                        {policyEnd.format('MMMM YYYY')}
+                                        {MONTH_NAMES[endMonth - 1]}
                                     </Typography>
                                     <Chip label="12 months" size="small"
                                         sx={{ height: 20, fontSize: 10, fontWeight: 700, bgcolor: '#fff', color: '#7C3AED', border: '1px solid #DDD6FE' }} />
                                 </Box>
                                 <Typography sx={{ fontSize: 10, color: '#9CA3AF', mt: 0.5 }}>
-                                    Always 12 months from the start month — last day of the month
+                                    {MONTH_NAMES[endMonth - 1]} <strong style={{ color: '#7C3AED' }}>({cycleEndYear === cycleStartYear ? 'Current Year' : 'Next Year'} — {cycleEndYear})</strong>
                                 </Typography>
                             </Box>
                         </Box>
@@ -1257,47 +1660,201 @@ export default function LeaveMasterScreen() {
                         {/* Auto-renew toggle */}
                         <Box sx={{ mt: 2 }}>
                             <ToggleRow
-                                label="Auto-renew for the next 12-month cycle"
+                                label="Auto-renew for the next academic year"
                                 description={
-                                    policyAutoRenew
-                                        ? `When this cycle ends on ${policyEnd.format('D MMM YYYY')}, the same policy will continue automatically for ${nextCycleStart.format('D MMM YYYY')} – ${nextCycleEnd.format('D MMM YYYY')} and onward, until you change it.`
-                                        : 'Policy applies only to the cycle above. After it ends, set up a new cycle manually.'
+                                    autoRenew
+                                        ? `When ${MONTH_NAMES[startMonth - 1]} comes around in the next academic year, this same policy will be cloned automatically — no manual setup needed.`
+                                        : 'The next academic year will start with a blank slate. You will be asked to either restore this year\'s data or create from scratch.'
                                 }
-                                checked={policyAutoRenew}
-                                onChange={setPolicyAutoRenew}
+                                checked={autoRenew}
+                                onChange={setAutoRenew}
                             />
                         </Box>
 
-                        {/* Summary banner — text adapts to auto-renew state */}
+                        {/* Summary banner */}
                         <Box sx={{
-                            mt: 2,
-                            p: 1.5,
-                            borderRadius: '8px',
-                            bgcolor: '#F5F3FF',
-                            border: '1px solid #DDD6FE',
-                            display: 'flex',
-                            alignItems: 'flex-start',
-                            gap: 1,
+                            mt: 2, p: 1.5, borderRadius: '8px',
+                            bgcolor: '#F5F3FF', border: '1px solid #DDD6FE',
+                            display: 'flex', alignItems: 'flex-start', gap: 1,
                         }}>
                             <InfoOutlinedIcon sx={{ fontSize: 16, color: '#7C3AED', mt: 0.2, flexShrink: 0 }} />
                             <Typography sx={{ fontSize: 11, color: '#5B21B6', lineHeight: 1.7 }}>
-                                {policyAutoRenew ? (
-                                    <>
-                                        Policy starts on <strong>{policyStart.format('D MMM YYYY')}</strong>. The first cycle runs for{' '}
-                                        <strong>12 months</strong> and ends on <strong>{policyEnd.format('D MMM YYYY')}</strong> ({policyDurationDays} days).
-                                        Because <strong>auto-renew is on</strong>, the same rules will keep applying for every subsequent 12-month cycle
-                                        — you don't need to recreate the policy each year. You can update or stop it any time.
-                                    </>
-                                ) : (
-                                    <>
-                                        Policy is valid from <strong>{policyStart.format('D MMM YYYY')}</strong> to{' '}
-                                        <strong>{policyEnd.format('D MMM YYYY')}</strong> — <strong>{policyDurationDays} days</strong> total.
-                                        It will <strong>not roll over</strong> automatically; create a new cycle when this one ends.
-                                    </>
-                                )}
+                                Policy cycle: <strong>{cycleLabel}</strong> — runs for <strong>12 months</strong> within academic year <strong>{academicYear}</strong>.
+                                {autoRenew
+                                    ? <> Auto-renew is <strong>ON</strong> — the rules will roll forward to the next academic year automatically.</>
+                                    : <> Auto-renew is <strong>OFF</strong> — you'll be prompted to renew or recreate when the next cycle starts.</>}
                             </Typography>
                         </Box>
                     </Section>
+
+                    {/* ═══ Section: Shift Timing & Work Hours ═══ */}
+                    {(() => {
+                        const startMins = parseTimeToMinutes(config.shiftStartTime);
+                        const endMins = parseTimeToMinutes(config.shiftEndTime);
+                        let shiftMinutes = 0;
+                        if (startMins != null && endMins != null) {
+                            shiftMinutes = endMins - startMins;
+                            if (shiftMinutes < 0) shiftMinutes += 24 * 60;
+                        }
+                        const totalBreakMinutes =
+                            (Number(config.lunchBreakMinutes) || 0) +
+                            (Number(config.shortBreakMinutes) || 0);
+                        const effectiveMinutes = Math.max(0, shiftMinutes - totalBreakMinutes);
+                        const lateAfter = startMins != null
+                            ? (startMins + (Number(config.gracePeriodMinutes) || 0)) % (24 * 60)
+                            : null;
+                        const lateAfterStr = lateAfter != null
+                            ? formatTime12(`${String(Math.floor(lateAfter / 60)).padStart(2, '0')}:${String(lateAfter % 60).padStart(2, '0')}`)
+                            : '—';
+                        const breakExceedsShift = totalBreakMinutes > shiftMinutes && shiftMinutes > 0;
+
+                        return (
+                            <Section icon={AccessTimeIcon} title="Shift Timing & Work Hours" color="#0891B2"
+                                subtitle="Standard shift schedule for all staff — defines what counts as on-time, breaks, and effective working hours">
+
+                                <Grid container spacing={2}>
+                                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2.4 }}>
+                                        <TimeField
+                                            label="Shift Start Time"
+                                            value={config.shiftStartTime}
+                                            onChange={(v) => update('shiftStartTime', v)}
+                                            helperText={`Begins at ${formatTime12(config.shiftStartTime)}`}
+                                        />
+                                    </Grid>
+                                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2.4 }}>
+                                        <TimeField
+                                            label="Shift End Time"
+                                            value={config.shiftEndTime}
+                                            onChange={(v) => update('shiftEndTime', v)}
+                                            helperText={`Ends at ${formatTime12(config.shiftEndTime)}`}
+                                        />
+                                    </Grid>
+                                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2.4 }}>
+                                        <NumberField
+                                            label="Grace Period"
+                                            value={config.gracePeriodMinutes}
+                                            onChange={(v) => update('gracePeriodMinutes', v)}
+                                            suffix="minutes"
+                                            helperText={`Late after ${lateAfterStr}`}
+                                        />
+                                    </Grid>
+                                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2.4 }}>
+                                        <NumberField
+                                            label="Lunch Break"
+                                            value={config.lunchBreakMinutes}
+                                            onChange={(v) => update('lunchBreakMinutes', v)}
+                                            suffix="minutes"
+                                            helperText="Excluded from working hours"
+                                        />
+                                    </Grid>
+                                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2.4 }}>
+                                        <NumberField
+                                            label="Short / Tea Break"
+                                            value={config.shortBreakMinutes}
+                                            onChange={(v) => update('shortBreakMinutes', v)}
+                                            suffix="minutes"
+                                            helperText="Combined short breaks per day"
+                                        />
+                                    </Grid>
+                                </Grid>
+
+                                {/* Computed Summary Cards */}
+                                <Grid container spacing={1.5} sx={{ mt: 1.5 }}>
+                                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+                                        <Box sx={{
+                                            p: 1.5, borderRadius: '8px',
+                                            bgcolor: '#F0F9FA', border: '1px solid #BAE6FD',
+                                        }}>
+                                            <Typography sx={{ fontSize: '10px', color: '#0E7490', fontWeight: 700, letterSpacing: '0.4px', mb: 0.3 }}>
+                                                TOTAL SHIFT HOURS
+                                            </Typography>
+                                            <Typography sx={{ fontSize: '18px', fontWeight: 800, color: '#0891B2', lineHeight: 1.2 }}>
+                                                {formatHrs(shiftMinutes)}
+                                            </Typography>
+                                            <Typography sx={{ fontSize: '10px', color: '#64748B' }}>
+                                                {formatTime12(config.shiftStartTime)} → {formatTime12(config.shiftEndTime)}
+                                            </Typography>
+                                        </Box>
+                                    </Grid>
+                                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+                                        <Box sx={{
+                                            p: 1.5, borderRadius: '8px',
+                                            bgcolor: '#FFF7ED', border: '1px solid #FED7AA',
+                                        }}>
+                                            <Typography sx={{ fontSize: '10px', color: '#9A3412', fontWeight: 700, letterSpacing: '0.4px', mb: 0.3 }}>
+                                                TOTAL BREAK TIME
+                                            </Typography>
+                                            <Typography sx={{ fontSize: '18px', fontWeight: 800, color: '#EA580C', lineHeight: 1.2 }}>
+                                                {formatHrs(totalBreakMinutes)}
+                                            </Typography>
+                                            <Typography sx={{ fontSize: '10px', color: '#64748B' }}>
+                                                Lunch {config.lunchBreakMinutes || 0}m + Short {config.shortBreakMinutes || 0}m
+                                            </Typography>
+                                        </Box>
+                                    </Grid>
+                                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+                                        <Box sx={{
+                                            p: 1.5, borderRadius: '8px',
+                                            bgcolor: '#F0FDF4', border: '1px solid #A7F3D0',
+                                        }}>
+                                            <Typography sx={{ fontSize: '10px', color: '#065F46', fontWeight: 700, letterSpacing: '0.4px', mb: 0.3 }}>
+                                                EFFECTIVE LOGIN HOURS
+                                            </Typography>
+                                            <Typography sx={{ fontSize: '18px', fontWeight: 800, color: '#059669', lineHeight: 1.2 }}>
+                                                {formatHrs(effectiveMinutes)}
+                                            </Typography>
+                                            <Typography sx={{ fontSize: '10px', color: '#64748B' }}>
+                                                Shift − Breaks
+                                            </Typography>
+                                        </Box>
+                                    </Grid>
+                                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+                                        <Box sx={{
+                                            p: 1.5, borderRadius: '8px',
+                                            bgcolor: '#FEF3C7', border: '1px solid #FDE68A',
+                                        }}>
+                                            <Typography sx={{ fontSize: '10px', color: '#92400E', fontWeight: 700, letterSpacing: '0.4px', mb: 0.3 }}>
+                                                LATE MARK AFTER
+                                            </Typography>
+                                            <Typography sx={{ fontSize: '18px', fontWeight: 800, color: '#D97706', lineHeight: 1.2 }}>
+                                                {lateAfterStr}
+                                            </Typography>
+                                            <Typography sx={{ fontSize: '10px', color: '#64748B' }}>
+                                                Grace: {config.gracePeriodMinutes || 0} min
+                                            </Typography>
+                                        </Box>
+                                    </Grid>
+                                </Grid>
+
+                                {/* Validation warning if break > shift */}
+                                {breakExceedsShift && (
+                                    <Box sx={{
+                                        mt: 2, p: 1.2, borderRadius: '8px',
+                                        bgcolor: '#FEF2F2', border: '1px solid #FECACA',
+                                        display: 'flex', alignItems: 'center', gap: 1,
+                                    }}>
+                                        <WarningAmberIcon sx={{ fontSize: 16, color: '#DC2626', flexShrink: 0 }} />
+                                        <Typography sx={{ fontSize: '11px', color: '#991B1B' }}>
+                                            Total break time exceeds shift duration. Please review.
+                                        </Typography>
+                                    </Box>
+                                )}
+
+                                {/* Info banner */}
+                                <Box sx={{
+                                    mt: 2, p: 1.5, borderRadius: '8px',
+                                    bgcolor: '#F0F9FA', border: '1px solid #BAE6FD',
+                                    display: 'flex', alignItems: 'flex-start', gap: 1,
+                                }}>
+                                    <InfoOutlinedIcon sx={{ fontSize: 16, color: '#0891B2', mt: 0.2, flexShrink: 0 }} />
+                                    <Typography sx={{ fontSize: '11px', color: '#0E7490', lineHeight: 1.7 }}>
+                                        Standard working day runs from <strong>{formatTime12(config.shiftStartTime)}</strong> to <strong>{formatTime12(config.shiftEndTime)}</strong> — a total of <strong>{formatHrs(shiftMinutes)}</strong> with <strong>{formatHrs(effectiveMinutes)}</strong> of effective login time after breaks.
+                                        Staff arriving after <strong>{lateAfterStr}</strong> will be flagged as <strong>late</strong>. Use the Punctuality section below to set the late penalty and emergency allowance.
+                                    </Typography>
+                                </Box>
+                            </Section>
+                        );
+                    })()}
 
                     {/* ═══ Section 1: Attendance Bonus ═══ */}
                     <Section icon={CalendarMonthIcon} title="Attendance Bonus" color="#2563EB"
@@ -1383,13 +1940,24 @@ export default function LeaveMasterScreen() {
                                         />
                                     </Grid>
                                     <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
-                                        <NumberField
-                                            label="Late Arrival Threshold"
-                                            value={config.lateArrivalThresholdMinutes}
-                                            onChange={(v) => update('lateArrivalThresholdMinutes', v)}
-                                            suffix="minutes"
-                                            helperText="Arrival after this duration is marked late"
-                                        />
+                                        {(() => {
+                                            const graceLinked = Number(config.gracePeriodMinutes) > 0;
+                                            return (
+                                                <NumberField
+                                                    label="Late Arrival Threshold"
+                                                    value={config.lateArrivalThresholdMinutes}
+                                                    onChange={(v) => update('lateArrivalThresholdMinutes', v)}
+                                                    suffix="minutes"
+                                                    disabled={graceLinked}
+                                                    helperText={graceLinked
+                                                        ? `Synced from Grace Period (${config.gracePeriodMinutes} min)`
+                                                        : 'Arrival after this duration is marked late'}
+                                                    infoTooltip={graceLinked
+                                                        ? 'This value is linked to the Grace Period field in “Shift Timing & Work Hours”. To change it, update the Grace Period field there.'
+                                                        : undefined}
+                                                />
+                                            );
+                                        })()}
                                     </Grid>
                                     <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
                                         <NumberField
@@ -1608,7 +2176,152 @@ export default function LeaveMasterScreen() {
                             </Typography>
                         </Box>
                     </Section>
+                    {/* ═══ Clear All + Save/Update Policy — action buttons for Sections 0 → Bonus Payout ═══
+                         Edit window: updates are only allowed within the first 20 days of the
+                         cycle start month. Initial creation is always allowed. */}
+                    {(() => {
+                        const today = dayjs();
+                        const todayMonth = today.month() + 1;
+                        const todayDay = today.date();
+                        const inEditWindow = todayMonth === Number(startMonth) && todayDay <= 20;
+                        // Existing policies can only be updated inside the 20-day window.
+                        // Brand-new policies (no existing record yet) can be saved any time.
+                        const updateLocked = hasExistingPolicy && !inEditWindow;
+                        const isUpdate = hasExistingPolicy;
+                        const buttonLabel = isUpdate ? 'Update Policy' : 'Save Policy';
+                        const buttonLoadingLabel = isUpdate ? 'Updating…' : 'Saving…';
+                        const startMonthName = MONTH_NAMES[startMonth - 1];
 
+                        // When does the next window open? Same month next year if we've already passed
+                        // this year's window, or this year's start month if it hasn't arrived yet.
+                        const thisYearStart = today.month(startMonth - 1).date(1).startOf('day');
+                        const nextWindowOpens =
+                            today.isBefore(thisYearStart) ? thisYearStart
+                            : todayDay <= 20 && todayMonth === Number(startMonth) ? thisYearStart
+                            : thisYearStart.add(1, 'year');
+
+                        return (
+                            <Box sx={{ py: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5 }}>
+                                {/* Lock notice — only when the button is locked */}
+                                {updateLocked && (
+                                    <Box sx={{
+                                        width: '100%', maxWidth: 640,
+                                        p: 1.4, borderRadius: '10px',
+                                        bgcolor: '#FEF3C7', border: '1px solid #FDE68A',
+                                        display: 'flex', alignItems: 'flex-start', gap: 1,
+                                    }}>
+                                        <LockIcon sx={{ fontSize: 18, color: '#D97706', mt: 0.2, flexShrink: 0 }} />
+                                        <Box>
+                                            <Typography sx={{ fontSize: 12, fontWeight: 800, color: '#92400E', letterSpacing: 0.2 }}>
+                                                EDITING LOCKED
+                                            </Typography>
+                                            <Typography sx={{ fontSize: 11.5, color: '#92400E', mt: 0.3, lineHeight: 1.55 }}>
+                                                You can only update this policy within the first <strong>20 days</strong> of{' '}
+                                                <strong>{startMonthName}</strong>. The next edit window opens on{' '}
+                                                <strong>{nextWindowOpens.format('D MMMM YYYY')}</strong>.
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+                                )}
+
+                                {/* Window-active hint — green note when inside the window for an existing policy */}
+                                {hasExistingPolicy && inEditWindow && (
+                                    <Box sx={{
+                                        width: '100%', maxWidth: 640,
+                                        p: 1.2, borderRadius: '10px',
+                                        bgcolor: PRIMARY_LIGHT, border: `1px solid ${PRIMARY}30`,
+                                        display: 'flex', alignItems: 'center', gap: 1,
+                                    }}>
+                                        <InfoOutlinedIcon sx={{ fontSize: 16, color: PRIMARY, flexShrink: 0 }} />
+                                        <Typography sx={{ fontSize: 11.5, color: PRIMARY_DARK, lineHeight: 1.55 }}>
+                                            Edit window is <strong>open</strong> — you have until{' '}
+                                            <strong>{thisYearStart.date(20).format('D MMMM YYYY')}</strong> to update this year's policy.
+                                        </Typography>
+                                    </Box>
+                                )}
+
+                                {/* Action buttons */}
+                                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+                                    <Button
+                                        onClick={handleClearAll}
+                                        disabled={isSavingMaster || isLoadingMaster}
+                                        startIcon={<RestartAltIcon sx={{ fontSize: 18 }} />}
+                                        sx={{
+                                            borderRadius: '999px', textTransform: 'none',
+                                            fontSize: 13, fontWeight: 700,
+                                            color: '#374151', bgcolor: '#fff',
+                                            border: '1px solid #E5E7EB',
+                                            px: 2.5, height: 38, minWidth: 120,
+                                            boxShadow: '0 2px 6px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)',
+                                            transition: 'transform 0.2s, box-shadow 0.2s, border-color 0.2s',
+                                            '&:hover': {
+                                                bgcolor: '#F9FAFB', borderColor: '#D1D5DB',
+                                                boxShadow: '0 4px 10px rgba(0,0,0,0.08)',
+                                                transform: 'translateY(-1px)',
+                                            },
+                                            '&:active': { transform: 'translateY(0)' },
+                                            '&.Mui-disabled': {
+                                                bgcolor: '#F9FAFB', color: '#9CA3AF',
+                                                border: '1px solid #E5E7EB', boxShadow: 'none',
+                                            },
+                                        }}
+                                    >
+                                        Clear All
+                                    </Button>
+
+                                    <Tooltip
+                                        arrow
+                                        title={updateLocked
+                                            ? `Updates open in the first 20 days of ${startMonthName}. Next window: ${nextWindowOpens.format('D MMM YYYY')}.`
+                                            : ''}
+                                    >
+                                        <Box sx={{ display: 'inline-flex' }}>
+                                            <Button
+                                                onClick={handleSave}
+                                                disabled={isSavingMaster || isLoadingMaster || updateLocked}
+                                                startIcon={
+                                                    isSavingMaster
+                                                        ? <CircularProgress size={14} sx={{ color: '#fff' }} />
+                                                        : updateLocked
+                                                            ? <LockIcon sx={{ fontSize: 16 }} />
+                                                            : <SaveIcon sx={{ fontSize: 18 }} />
+                                                }
+                                                sx={{
+                                                    borderRadius: '999px', textTransform: 'none',
+                                                    fontSize: 13, fontWeight: 700,
+                                                    color: '#fff',
+                                                    background: `linear-gradient(90deg, ${PRIMARY} 0%, ${PRIMARY_DARK} 100%)`,
+                                                    px: 3, height: 38, minWidth: 150,
+                                                    boxShadow: `0 4px 12px ${PRIMARY}40, inset 0 1px 0 rgba(255,255,255,0.2)`,
+                                                    transition: 'transform 0.2s, box-shadow 0.2s, filter 0.2s',
+                                                    '&:hover': {
+                                                        filter: 'brightness(1.06)',
+                                                        boxShadow: `0 8px 20px ${PRIMARY}55, inset 0 1px 0 rgba(255,255,255,0.2)`,
+                                                        transform: 'translateY(-1px)',
+                                                    },
+                                                    '&:active': {
+                                                        transform: 'translateY(0)',
+                                                        boxShadow: `0 3px 10px ${PRIMARY}35`,
+                                                    },
+                                                    '&.Mui-disabled': {
+                                                        background: '#E5E7EB', color: '#9CA3AF',
+                                                        boxShadow: 'none',
+                                                    },
+                                                }}
+                                            >
+                                                {isSavingMaster ? buttonLoadingLabel : buttonLabel}
+                                            </Button>
+                                        </Box>
+                                    </Tooltip>
+                                </Box>
+                            </Box>
+                        );
+                    })()}
+                    </>)}
+                    {/* ─── END TAB 0 ─── */}
+
+                    {/* ─── TAB 1: LEAVE TYPES ─── */}
+                    {activeTab === 1 && (<>
                     {/* ═══ Section 5: Leave Policy & Allocation (merged) ═══ */}
                     <Section icon={PolicyIcon} title="Leave Policy & Allocation" color={PRIMARY}
                         subtitle="Create each leave type with its own allocation period, accrual, end-of-period action, and deduction rule">
@@ -1620,10 +2333,10 @@ export default function LeaveMasterScreen() {
                         }}>
                             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                                 {[
-                                    { label: 'Total Types',  value: policyStats.totalLeaveTypes,       color: '#0891B2' },
+                                    { label: 'Total Types', value: policyStats.totalLeaveTypes, color: '#0891B2' },
                                     { label: 'Days / Month', value: `${policyStats.totalDaysPerMonth}d`, color: '#22C55E' },
-                                    { label: 'On-Demand',    value: policyStats.onDemandUnlimited,     color: '#F97316' },
-                                    { label: 'Encashable',   value: policyStats.encashableLeaveTypes,  color: '#E91E63' },
+                                    { label: 'On-Demand', value: policyStats.onDemandUnlimited, color: '#F97316' },
+                                    { label: 'Encashable', value: policyStats.encashableLeaveTypes, color: '#E91E63' },
                                 ].map((s, i) => (
                                     <Box key={i} sx={{
                                         px: 1.5, py: 0.5, borderRadius: '20px',
@@ -1845,7 +2558,11 @@ export default function LeaveMasterScreen() {
                             </Box>
                         )}
                     </Section>
+                    </>)}
+                    {/* ─── END TAB 1 ─── */}
 
+                    {/* ─── TAB 2: WORKING CALENDAR ─── */}
+                    {activeTab === 2 && (<>
                     {/* ═══ Section 6: Working Calendar ═══ */}
                     <Section icon={CalendarMonthIcon} title="Working Calendar" color="#0D9488"
                         subtitle="Define default working days and customize each month — click a date to cycle: Working → Holiday → Mandatory">
@@ -1949,9 +2666,9 @@ export default function LeaveMasterScreen() {
                                     } else if (isMonthSaved && isMonthDirty) {
                                         pill = { label: 'Modified', color: '#0891B2', bg: '#ECFEFF', border: '#A5F3FC' };
                                     } else if (isMonthSaved) {
-                                        pill = { label: 'Saved',    color: '#16A34A', bg: '#F0FDF4', border: '#A7F3D0' };
+                                        pill = { label: 'Saved', color: '#16A34A', bg: '#F0FDF4', border: '#A7F3D0' };
                                     } else {
-                                        pill = { label: 'Unsaved',  color: '#F59E0B', bg: '#FFFBEB', border: '#FDE68A' };
+                                        pill = { label: 'Unsaved', color: '#F59E0B', bg: '#FFFBEB', border: '#FDE68A' };
                                     }
                                     return (
                                         <Typography sx={{
@@ -2024,9 +2741,9 @@ export default function LeaveMasterScreen() {
                                                 },
                                                 '&.Mui-disabled': {
                                                     bgcolor: (isMonthSaved && !isMonthDirty && !isReadOnlyMonth) ? '#D1FAE5' : '#F3F4F6',
-                                                    color:   (isMonthSaved && !isMonthDirty && !isReadOnlyMonth) ? '#047857' : '#9CA3AF',
+                                                    color: (isMonthSaved && !isMonthDirty && !isReadOnlyMonth) ? '#047857' : '#9CA3AF',
                                                     boxShadow: 'none',
-                                                    border:  (isMonthSaved && !isMonthDirty && !isReadOnlyMonth) ? '1px solid #A7F3D0' : '1px solid #E5E7EB',
+                                                    border: (isMonthSaved && !isMonthDirty && !isReadOnlyMonth) ? '1px solid #A7F3D0' : '1px solid #E5E7EB',
                                                 },
                                             }}
                                         >
@@ -2162,10 +2879,93 @@ export default function LeaveMasterScreen() {
                             </Box>
                         </Box>
                     </Section>
-
+                    </>)}
+                    {/* ─── END TAB 2 ─── */}
 
                 </Box>
             </Box>
+
+            {/* ── Auto-renew prompt — empty new-year + within first 20 days ──── */}
+            <Dialog
+                open={renewDialog.open}
+                onClose={closeRenewDialog}
+                maxWidth="xs"
+                fullWidth
+                PaperProps={{ sx: { borderRadius: '12px', overflow: 'hidden' } }}
+            >
+                <Box sx={{
+                    px: 3, py: 2,
+                    background: `linear-gradient(135deg, ${PRIMARY_LIGHT} 0%, #fff 60%)`,
+                    borderBottom: `1px solid ${PRIMARY}25`,
+                    display: 'flex', alignItems: 'center', gap: 1.2,
+                }}>
+                    <Box sx={{
+                        width: 38, height: 38, borderRadius: '10px',
+                        bgcolor: '#fff', border: `1px solid ${PRIMARY}30`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                        <CalendarMonthIcon sx={{ color: PRIMARY, fontSize: 22 }} />
+                    </Box>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography sx={{ fontSize: 15, fontWeight: 800, color: '#0F172A', lineHeight: 1.1 }}>
+                            New Academic Year Detected
+                        </Typography>
+                        <Typography sx={{ fontSize: 11, color: '#6B7280', mt: 0.2 }}>
+                            No policy yet for <strong>{academicYear}</strong>
+                        </Typography>
+                    </Box>
+                    <IconButton size="small" onClick={closeRenewDialog} sx={{ width: 28, height: 28 }}>
+                        <CloseIcon sx={{ fontSize: 18 }} />
+                    </IconButton>
+                </Box>
+                <Box sx={{ px: 3, py: 2 }}>
+                    <Typography sx={{ fontSize: 12.5, color: '#374151', lineHeight: 1.6, mb: 2 }}>
+                        We found a saved policy from <strong>{renewDialog.prevAY}</strong>.
+                        Would you like to restore it for the new academic year, or start from scratch?
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                        <Button
+                            onClick={handleRestorePrev}
+                            startIcon={<ArrowForwardIcon sx={{ fontSize: 16 }} />}
+                            sx={{
+                                textTransform: 'none', justifyContent: 'flex-start',
+                                px: 1.6, py: 1.2, borderRadius: '10px',
+                                border: `1px solid ${PRIMARY}30`,
+                                bgcolor: PRIMARY_LIGHT,
+                                color: PRIMARY_DARK,
+                                fontSize: 13, fontWeight: 700,
+                                '&:hover': { bgcolor: '#DCFCE7', borderColor: PRIMARY },
+                            }}
+                        >
+                            <Box sx={{ textAlign: 'left' }}>
+                                <Box>Restore Previous Year ({renewDialog.prevAY})</Box>
+                                <Box sx={{ fontSize: 10.5, fontWeight: 500, color: '#6B7280', mt: 0.2 }}>
+                                    Loads last year's data into the form — review then save
+                                </Box>
+                            </Box>
+                        </Button>
+                        <Button
+                            onClick={handleCreateNewPolicy}
+                            startIcon={<AddIcon sx={{ fontSize: 16 }} />}
+                            sx={{
+                                textTransform: 'none', justifyContent: 'flex-start',
+                                px: 1.6, py: 1.2, borderRadius: '10px',
+                                border: '1px solid #E5E7EB', bgcolor: '#fff',
+                                color: '#374151',
+                                fontSize: 13, fontWeight: 700,
+                                '&:hover': { bgcolor: '#F9FAFB', borderColor: '#D1D5DB' },
+                            }}
+                        >
+                            <Box sx={{ textAlign: 'left' }}>
+                                <Box>Create New From Scratch</Box>
+                                <Box sx={{ fontSize: 10.5, fontWeight: 500, color: '#9CA3AF', mt: 0.2 }}>
+                                    Starts with defaults — fill in fresh values
+                                </Box>
+                            </Box>
+                        </Button>
+                    </Box>
+                </Box>
+            </Dialog>
 
             {/* ── Leave Type Add/Edit Dialog ────────────────────────────────── */}
             <Dialog

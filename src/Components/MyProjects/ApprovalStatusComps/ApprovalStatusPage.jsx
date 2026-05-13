@@ -1,6 +1,7 @@
 import { Box, Button, Grid, IconButton, Tab, Tabs, Typography } from "@mui/material";
 import { useSelector } from "react-redux";
 import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlice";
+import { selectVersion } from "../../../Redux/Slices/versionSlice";
 import Loader from "../../Loader";
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { useEffect, useState } from "react";
@@ -23,6 +24,7 @@ export default function ApprovalStatusPage() {
     const userType = user.userType;
     const userName = user.name;
     const websiteSettings = useSelector(selectWebsiteSettings);
+    const version = useSelector(selectVersion);
     const token = "123";
     const navigate = useNavigate();
     const location = useLocation();
@@ -32,6 +34,14 @@ export default function ApprovalStatusPage() {
             ? location.state.tabIndex
             : 0
     );
+
+    const tabs = [
+        ...(version.LITE ? [{ id: 'communication', label: 'Communication' }] : []),
+        ...(version.PRO ? [{ id: 'fee', label: 'Fee', sx: { width: "100px" } }] : []),
+        { id: 'inventory', label: 'Inventory' },
+        { id: 'assets', label: 'Assets' },
+    ];
+    const activeTabId = tabs[value]?.id;
 
     useEffect(() => {
         if (location.state?.tabIndex !== undefined) {
@@ -133,17 +143,16 @@ export default function ApprovalStatusPage() {
                                 },
                             }}
                         >
-                            <Tab label="Communication" />
-                            <Tab sx={{ width: "100px" }} label="Fee" />
-                            <Tab label="Inventory" />
-                            <Tab label="Assets" />
+                            {tabs.map((t) => (
+                                <Tab key={t.id} label={t.label} sx={t.sx} />
+                            ))}
                         </Tabs>
                     </Grid>
                 </Grid>
             </Box>
             <Box>
                 <Box sx={{ mt: 1 }}>
-                    <Box hidden={value !== 0}>
+                    <Box hidden={activeTabId !== 'communication'}>
                         <Box sx={{ display: "flex", justifyContent: "center", height: "70vh", overflowY: "auto" }}>
                             <Grid container spacing={2} sx={{ width: "100%", p: 2 }}>
                                 {items.map((item, index) => {
@@ -261,7 +270,7 @@ export default function ApprovalStatusPage() {
                             </Grid>
                         </Box>
                     </Box>
-                    <Box hidden={value !== 1}>
+                    <Box hidden={activeTabId !== 'fee'}>
                         <Box sx={{ display: "flex", justifyContent: "center", height: "70vh", overflowY: "auto" }}>
                             <Grid container spacing={2} sx={{ width: "100%", p: 2 }}>
                                 {items1.map((item, index) => {

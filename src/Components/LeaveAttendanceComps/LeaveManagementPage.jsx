@@ -1,35 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import {
-    Box,
-    Card,
-    CardContent,
-    Grid,
-    Typography,
-    IconButton,
-    Button,
-    Chip,
-    CircularProgress,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
-    Avatar,
-    Divider,
-    Select,
-    MenuItem,
-    Tabs,
-    Tab,
-    TextField,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
-    FormControl,
-    InputLabel,
-    Checkbox,
-    FormControlLabel,
+    Box, Card, CardContent, Grid, Typography, IconButton, Button, Chip,
+    CircularProgress, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+    Avatar, TextField, InputAdornment, Menu, MenuItem, Tooltip,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AddIcon from '@mui/icons-material/Add';
@@ -38,80 +11,118 @@ import PendingIcon from '@mui/icons-material/Pending';
 import CancelIcon from '@mui/icons-material/Cancel';
 import EventIcon from '@mui/icons-material/Event';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
-import FilterListIcon from '@mui/icons-material/FilterList';
-import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
-import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import SearchIcon from '@mui/icons-material/Search';
+import CloseIcon from '@mui/icons-material/Close';
+import CategoryOutlinedIcon from '@mui/icons-material/CategoryOutlined';
+import CircleIcon from '@mui/icons-material/Circle';
+import CheckIcon from '@mui/icons-material/Check';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
+import FactCheckOutlinedIcon from '@mui/icons-material/FactCheckOutlined';
+import ListAltOutlinedIcon from '@mui/icons-material/ListAltOutlined';
+import EventNoteOutlinedIcon from '@mui/icons-material/EventNoteOutlined';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import dayjs from 'dayjs';
-import { postLeaveRequest, getLeaveDashboard } from '../../Api/Api';
+import { getLeaveDashboard, GetleaveTypes } from '../../Api/Api';
 import SnackBar from '../SnackBar';
 import { useSelector } from 'react-redux';
-
+import ApplyLeavePage from './ApplyLeavePage';
+import ApprovalWorkflowPage from './ApprovalWorkflowPage';
 
 const token = "123";
 
-// Format "YYYY-MM-DD" → "DD-MM-YYYY" for API
-const formatDateForApi = (dateStr) => {
-    if (!dateStr) return '';
-    const [y, m, d] = dateStr.split('-');
-    return `${d}-${m}-${y}`;
-};
-
-// ─── Working Calendar (sourced from Leave Policy Master) ────────────────────
-// TODO: replace with API fetch — same data the HR sets in Working Calendar section.
-// Fallback defaults: Mon–Sat working, Sunday off, a couple of mock mandatory dates.
-const DEFAULT_WORKING_DOW = [1, 2, 3, 4, 5, 6];                       // 0=Sun
-const MOCK_HOLIDAY_OVERRIDES = new Set();                             // YYYY-MM-DD strings
-const MOCK_MANDATORY_DAYS = new Set([
-    dayjs().date(15).format('YYYY-MM-DD'),                            // 15th of current month
-    dayjs().add(1, 'month').date(1).format('YYYY-MM-DD'),             // 1st of next month
-]);
-
-const getDayType = (date) => {
-    const key = date.format('YYYY-MM-DD');
-    if (MOCK_MANDATORY_DAYS.has(key)) return 'mandatory';
-    if (MOCK_HOLIDAY_OVERRIDES.has(key)) return 'holiday';
-    return DEFAULT_WORKING_DOW.includes(date.day()) ? 'working' : 'holiday';
-};
-
-const DAY_TYPE_STYLE = {
-    working:   { bg: '#F0FDF4', color: '#16A34A', border: '#A7F3D0', tag: '' },
-    holiday:   { bg: '#FEF2F2', color: '#DC2626', border: '#FECACA', tag: 'OFF' },
-    mandatory: { bg: '#FFF7ED', color: '#EA580C', border: '#FED7AA', tag: 'MWD' },
-};
-
-const DOW_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const PRIMARY = '#059669';        // emerald — same as Leave Policy Master
+// ─── Theme (matches other Leave & Attendance tabs) ─────────────────────────
+const PRIMARY = '#059669';
 const PRIMARY_LIGHT = '#ECFDF5';
 const PRIMARY_DARK = '#047857';
+const PRIMARY_BORDER = '#A7F3D0';
 
-export default function LeaveManagementPage({ isEmbedded = false, onGoToApprovalWorkflow, onGoToApplyLeave }) {
+// ─── Style maps ─────────────────────────────────────────────────────────────
+const STATUS_STYLE = {
+    Approved: { color: '#047857', bg: '#ECFDF5', border: '#A7F3D0', icon: CheckCircleIcon },
+    Pending:  { color: '#B45309', bg: '#FFFBEB', border: '#FDE68A', icon: PendingIcon },
+    Rejected: { color: '#B91C1C', bg: '#FEF2F2', border: '#FECACA', icon: CancelIcon },
+};
+
+const LEAVE_TYPE_STYLE = {
+    'Sick Leave':      { color: '#DC2626', bg: '#FEF2F2', border: '#FECACA' },
+    'Casual Leave':    { color: '#2563EB', bg: '#EFF6FF', border: '#BFDBFE' },
+    'Planned Leave':   { color: '#16A34A', bg: '#F0FDF4', border: '#A7F3D0' },
+    'Emergency Leave': { color: '#EA580C', bg: '#FFF7ED', border: '#FED7AA' },
+};
+
+const AVATAR_PALETTE = ['#0E7490', '#6D28D9', '#C2410C', '#047857', '#1D4ED8', '#BE185D', '#A16207', '#0F766E'];
+const avatarColorFor = (name = '') => {
+    const code = (name.charCodeAt(0) || 0) + (name.charCodeAt(1) || 0);
+    return AVATAR_PALETTE[code % AVATAR_PALETTE.length];
+};
+
+const getInitials = (name = '') =>
+    name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+
+// ─── Period label helpers (handles both UI labels & API enum values) ───────
+const PERIOD_LABEL = {
+    'Monthly':     'month',
+    'Quarterly':   'quarter',
+    'Half-Yearly': 'half-year',
+    'HalfYearly':  'half-year',
+    'Yearly':      'year',
+};
+
+const periodToLabel = (p) => PERIOD_LABEL[p] || 'year';
+
+const formatAllocation = (lt) => {
+    const days = Number(lt?.daysPerPeriod) || 0;
+    if (days === 0) return { value: 'On Demand', unit: '' };
+    const period = periodToLabel(lt?.allocationPeriod);
+    return { value: `${days} ${days === 1 ? 'day' : 'days'}`, unit: `/ ${period}` };
+};
+
+// ─── Sub-tab definitions ────────────────────────────────────────────────────
+const SUB_TABS = [
+    { key: 'allLeaves',       label: 'All Leaves',  color: '#374151', icon: null },
+    { key: 'pendingApproval', label: 'Pending',     color: '#B45309', icon: PendingIcon },
+    { key: 'approved',        label: 'Approved',    color: '#047857', icon: CheckCircleIcon },
+    { key: 'rejected',        label: 'Rejected',    color: '#B91C1C', icon: CancelIcon },
+];
+
+export default function LeaveManagementPage({
+    isEmbedded = false,
+    initialSubView = 'applications',  // 'applications' | 'apply' | 'approval'
+    onSubViewChange,
+}) {
     const navigate = useNavigate();
-    const [tabValue, setTabValue] = useState(2); // Leave Management tab (updated to tab 2)
-    const [leaveTab, setLeaveTab] = useState(0); // All Leaves tab
-    const [filterStatus, setFilterStatus] = useState("All Status");
-    const [filterType, setFilterType] = useState("All Types");
-    const [filterDept, setFilterDept] = useState("All Dept");
-    const [isLoading, setIsLoading] = useState(false);
-
     const user = useSelector((state) => state.auth);
-    const rollNumber = user.rollNumber
-    const userType = user.userType
-    const userName = user.name
+    const userType = user.userType;
+    const isAdmin = userType === 'superadmin' || userType === 'admin';
+
+    // ─── Sub-view (Applications / Apply Leave / Leave Approval) ──────────────
+    const [subView, setSubViewState] = useState(initialSubView);
+    // Sync from parent when the parent updates the requested initial view
+    useEffect(() => {
+        if (initialSubView && initialSubView !== subView) setSubViewState(initialSubView);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [initialSubView]);
+    const setSubView = (v) => {
+        setSubViewState(v);
+        if (onSubViewChange) onSubViewChange(v);
+    };
+    // Non-admins should never land on approval, even if parent requests it
+    const effectiveSubView = !isAdmin && subView === 'approval' ? 'applications' : subView;
+
+    // ─── State ──────────────────────────────────────────────────────────────
+    const [leaveTab, setLeaveTab] = useState(0);
+    const [search, setSearch] = useState('');
+    const [typeFilter, setTypeFilter] = useState('all');
+    const [typeMenuAnchor, setTypeMenuAnchor] = useState(null);
+
+    // SnackBar
     const [open, setOpen] = useState(false);
     const [status, setStatus] = useState(false);
     const [color, setColor] = useState(false);
     const [message, setMessage] = useState('');
 
-    const showSnack = (msg, success) => {
-        setMessage(msg); setOpen(true); setColor(success); setStatus(success);
-    };
-
-    // Dashboard data from API
+    // API data
     const [dashboardData, setDashboardData] = useState({
         cards: { totalLeavesThisMonth: 0, approved: 0, pending: 0, rejected: 0, approvedPercentOfTotal: 0 },
         leaveBalance: [],
@@ -119,6 +130,11 @@ export default function LeaveManagementPage({ isEmbedded = false, onGoToApproval
     });
     const [isFetching, setIsFetching] = useState(false);
 
+    // Available leave types (from Leave Master config)
+    const [availableLeaveTypes, setAvailableLeaveTypes] = useState([]);
+    const [isFetchingLeaveTypes, setIsFetchingLeaveTypes] = useState(false);
+
+    // ─── Fetch ──────────────────────────────────────────────────────────────
     const fetchDashboard = async () => {
         setIsFetching(true);
         try {
@@ -139,566 +155,793 @@ export default function LeaveManagementPage({ isEmbedded = false, onGoToApproval
         }
     };
 
+    const fetchLeaveTypes = async () => {
+        setIsFetchingLeaveTypes(true);
+        try {
+            const res = await axios.get(GetleaveTypes, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            // Tolerate common envelope shapes: { data: [...] }, { leaveTypes: [...] }, or plain array.
+            const body = res?.data;
+            const list = Array.isArray(body) ? body
+                : Array.isArray(body?.data) ? body.data
+                : Array.isArray(body?.leaveTypes) ? body.leaveTypes
+                : [];
+            setAvailableLeaveTypes(list);
+        } catch (error) {
+            console.error('Error fetching leave types:', error);
+            setAvailableLeaveTypes([]);
+        } finally {
+            setIsFetchingLeaveTypes(false);
+        }
+    };
+
     useEffect(() => {
         fetchDashboard();
+        fetchLeaveTypes();
     }, []);
 
-    const handleTabChange = (event, newValue) => {
-        switch(newValue) {
-            case 0:
-                navigate('/dashboardmenu/Leave'); // Attendance Dashboard
-                break;
-            case 1:
-                navigate('/dashboardmenu/Leave/staff-attendance-overview'); // Staff Attendance Overview
-                break;
-            case 2:
-                setTabValue(2); // Leave Management (current page)
-                break;
-            case 3:
-                navigate('/dashboardmenu/Leave/approval-workflow'); // Approval Workflow
-                break;
-            case 4:
-                navigate('/dashboardmenu/Leave/reports'); // Reports
-                break;
-            default:
-                setTabValue(2);
-                break;
-        }
-    };
-
-    const handleLeaveTabChange = (event, newValue) => {
-        setLeaveTab(newValue);
-    };
-
-    const handleApplyLeave = () => {
-        if (onGoToApplyLeave) {
-            onGoToApplyLeave();
-        }
-    };
-
-    const getStatusChip = (status) => {
-        const config = {
-            Approved: { bg: '#DCFCE7', color: '#22C55E', icon: CheckCircleIcon },
-            Pending:  { bg: '#FEF3C7', color: '#F59E0B', icon: PendingIcon },
-            Rejected: { bg: '#FFEBEE', color: '#DC2626', icon: CancelIcon },
-        };
-
-        const { bg, color, icon: Icon } = config[status] || config.Pending;
-
-        return (
-            <Chip
-                label={status}
-                size="small"
-                icon={<Icon />}
-                sx={{
-                    bgcolor: bg,
-                    color: color,
-                    fontWeight: '600',
-                    fontSize: '11px',
-                    '& .MuiChip-icon': {
-                        fontSize: 14,
-                        color: 'inherit'
-                    }
-                }}
-            />
-        );
-    };
-
-    const getLeaveTypeChip = (leaveType) => {
-        const colors = {
-            "Sick Leave": { bg: '#FEE2E2', color: '#DC2626' },
-            "Casual Leave": { bg: '#DBEAFE', color: '#3B82F6' },
-            "Planned Leave": { bg: '#DCFCE7', color: '#22C55E' },
-            "Emergency Leave": { bg: '#FED7AA', color: '#F97316' }
-        };
-
-        const { bg, color } = colors[leaveType] || { bg: '#F3F4F6', color: '#666' };
-
-        return (
-            <Chip
-                label={leaveType}
-                size="small"
-                sx={{
-                    bgcolor: bg,
-                    color: color,
-                    fontWeight: '600',
-                    fontSize: '11px'
-                }}
-            />
-        );
-    };
-
-    // Derive active table data from leaveTab selection
-    const TAB_KEYS = ['allLeaves', 'pendingApproval', 'approved', 'rejected'];
-    const activeLeaves = dashboardData.applications[TAB_KEYS[leaveTab]] || [];
+    // ─── Derived data ───────────────────────────────────────────────────────
     const stats = dashboardData.cards;
+    const subTabKey = SUB_TABS[leaveTab].key;
+    const rawLeaves = dashboardData.applications[subTabKey] || [];
 
-    // Initials helper for avatar
-    const getInitials = (name = '') =>
-        name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+    const q = search.trim().toLowerCase();
+    const filteredLeaves = rawLeaves.filter(l => {
+        const matchSearch = !q
+            || (l.name || '').toLowerCase().includes(q)
+            || String(l.forRollNumber || '').toLowerCase().includes(q)
+            || (l.reason || '').toLowerCase().includes(q);
+        const matchType = typeFilter === 'all' || l.leaveType === typeFilter;
+        return matchSearch && matchType;
+    });
 
+    const searchActive = q.length > 0;
+    const typeActive = typeFilter !== 'all';
+    const anyFilterActive = searchActive || typeActive;
+    const activeTypeColor = (LEAVE_TYPE_STYLE[typeFilter]?.color) || '#6B7280';
 
+    // Per-status counts (from allLeaves, so the sub-tab badges show absolute counts)
+    const allLeavesArr = dashboardData.applications.allLeaves || [];
+    const subTabCounts = {
+        allLeaves:       allLeavesArr.length,
+        pendingApproval: (dashboardData.applications.pendingApproval || []).length,
+        approved:        (dashboardData.applications.approved || []).length,
+        rejected:        (dashboardData.applications.rejected || []).length,
+    };
+
+    // Distinct leave types found in data (so the dropdown stays honest)
+    const typeOptions = (() => {
+        const set = new Set(allLeavesArr.map(l => l.leaveType).filter(Boolean));
+        return [{ key: 'all', label: 'All Types' }, ...Array.from(set).map(t => ({ key: t, label: t }))];
+    })();
+
+    const typeCounts = allLeavesArr.reduce((acc, l) => {
+        if (l.leaveType) acc[l.leaveType] = (acc[l.leaveType] || 0) + 1;
+        return acc;
+    }, {});
+
+    const clearFilters = () => { setSearch(''); setTypeFilter('all'); };
+
+    // Sub-view switchers — local; no longer dependent on parent callbacks
+    const handleApplyLeave = () => setSubView('apply');
+    const handleApproveLeaves = () => setSubView('approval');
+    const goBackToApplications = () => setSubView('applications');
+
+    // ─── KPI cards ──────────────────────────────────────────────────────────
+    const kpiCards = [
+        { label: 'Total Leaves', value: stats.totalLeavesThisMonth ?? 0, sub: 'This Month',                              color: '#2563EB', bg: '#EFF6FF', border: '#BFDBFE', icon: EventIcon },
+        { label: 'Approved',     value: stats.approved ?? 0,             sub: `${stats.approvedPercentOfTotal ?? 0}% of total`, color: PRIMARY,   bg: PRIMARY_LIGHT, border: PRIMARY_BORDER, icon: CheckCircleIcon },
+        { label: 'Pending',      value: stats.pending ?? 0,              sub: 'Needs Review',                            color: '#D97706', bg: '#FFFBEB', border: '#FDE68A', icon: PendingIcon },
+        { label: 'Rejected',     value: stats.rejected ?? 0,             sub: 'Declined',                                color: '#DC2626', bg: '#FEF2F2', border: '#FECACA', icon: CancelIcon },
+    ];
+
+    // ─── Status & leave-type chip renderers ────────────────────────────────
+    const renderStatusChip = (s) => {
+        const cfg = STATUS_STYLE[s] || STATUS_STYLE.Pending;
+        const Icon = cfg.icon;
+        return (
+            <Chip
+                size="small" label={s}
+                icon={<Icon sx={{ fontSize: '12px !important' }} />}
+                sx={{
+                    bgcolor: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}`,
+                    fontWeight: 700, fontSize: '10.5px', height: 22,
+                    '& .MuiChip-icon': { color: 'inherit', ml: '6px' },
+                }}
+            />
+        );
+    };
+
+    const renderLeaveTypeChip = (lt) => {
+        const cfg = LEAVE_TYPE_STYLE[lt] || { color: '#374151', bg: '#F3F4F6', border: '#E5E7EB' };
+        return (
+            <Chip
+                size="small" label={lt}
+                sx={{
+                    bgcolor: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}`,
+                    fontWeight: 600, fontSize: '10.5px', height: 22,
+                }}
+            />
+        );
+    };
+
+    // ────────────────────────────────────────────────────────────────────────
     return (
         <>
-        <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
-        <Box sx={{
-            border: isEmbedded ? 'none' : '1px solid #ccc',
-            borderRadius: isEmbedded ? '0' : '20px',
-            p: isEmbedded ? 0 : 2,
-            height: isEmbedded ? 'auto' : '86vh',
-            overflow: 'auto',
-            bgcolor: '#FAFAFA'
-        }}>
-            {/* Header - Hidden when embedded */}
-            {!isEmbedded && (
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <IconButton onClick={() => navigate(-1)} sx={{ width: '35px', height: '35px' }}>
-                        <ArrowBackIcon sx={{ fontSize: 20, color: '#000' }} />
-                    </IconButton>
-                    <Box>
-                        <Typography sx={{ fontSize: '24px', fontWeight: '700', color: '#1a1a1a' }}>
-                            Leave Management
-                        </Typography>
-                        <Typography sx={{ fontSize: '13px', color: '#666', mt: 0.5 }}>
-                            Manage staff leave applications and approvals
-                        </Typography>
-                    </Box>
-                </Box>
-                <Box sx={{ display: 'flex', gap: 2 }}>
-                    <Button
-                        startIcon={<AddIcon />}
-                        variant="contained"
-                        onClick={handleApplyLeave}
-                        sx={{
-                            textTransform: 'none',
-                            borderRadius: '50px',
-                            bgcolor: '#22C55E',
-                            color: '#fff',
-                            fontSize: '13px',
-                            fontWeight: '600',
-                            px: 2.5,
-                            '&:hover': {
-                                bgcolor: '#16A34A'
-                            }
-                        }}
-                    >
-                        Apply Leave
-                    </Button>
-                    <Button
-                        startIcon={<FileDownloadIcon />}
-                        variant="outlined"
-                        sx={{
-                            textTransform: 'none',
-                            borderRadius: '50px',
-                            border: '1px solid #333',
-                            color: '#333',
-                            fontSize: '13px',
-                            fontWeight: '600',
-                            px: 2.5,
-                            '&:hover': {
-                                border: '1px solid #000',
-                                bgcolor: '#F5F5F5'
-                            }
-                        }}
-                    >
-                        Export
-                    </Button>
-                </Box>
-            </Box>
-            )}
+            <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
 
-            {/* Tabs - Hidden when embedded */}
-            {!isEmbedded && (
-            <Box sx={{ borderBottom: '1px solid #E8E8E8', mb: 2 }}>
-                <Tabs
-                    value={tabValue}
-                    onChange={handleTabChange}
-                    sx={{
-                        '& .MuiTab-root': {
-                            textTransform: 'none',
-                            fontSize: '13px',
-                            fontWeight: '600',
-                            color: '#666',
-                            minHeight: '40px',
-                            px: 2
-                        },
-                        '& .Mui-selected': {
-                            color: '#F97316 !important'
-                        },
-                        '& .MuiTabs-indicator': {
-                            backgroundColor: '#F97316',
-                            height: '3px'
-                        }
-                    }}
-                >
-                    <Tab label="Attendance Dashboard" />
-                    <Tab label="Staff Attendance Overview" />
-                    <Tab label="Leave Management" />
-                    <Tab label="Approval Workflow" />
-                    <Tab label="Reports" />
-                </Tabs>
-            </Box>
-            )}
-
-            <Grid container spacing={2}>
-                {/* Main Content */}
-                <Grid size={{ xs: 12, lg: 9 }}>
-                    {/* Statistics Cards */}
-                    {userType !== "teacher" && (
-                    <Grid container spacing={2} sx={{ mb: 3 }}>
-                        <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
-                            <Card sx={{
-                                border: '1px solid #E8E8E8',
-                                borderRadius: '4px',
-                                boxShadow: 'none',
-                                bgcolor: '#fff'
+            <Box sx={{
+                border: isEmbedded ? 'none' : '1px solid #E5E7EB',
+                borderRadius: isEmbedded ? '0' : '20px',
+                p: isEmbedded ? 0 : 2,
+                height: isEmbedded ? 'auto' : '86vh',
+                overflow: isEmbedded ? 'visible' : 'auto',
+                bgcolor: isEmbedded ? 'transparent' : '#F9FAFB',
+            }}>
+                {/* Standalone Header */}
+                {!isEmbedded && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <IconButton onClick={() => navigate(-1)} sx={{ width: 32, height: 32 }}>
+                                <ArrowBackIcon sx={{ fontSize: 18, color: '#000' }} />
+                            </IconButton>
+                            <Box sx={{
+                                width: 36, height: 36, borderRadius: '10px',
+                                bgcolor: PRIMARY_LIGHT, border: `1px solid ${PRIMARY_BORDER}`,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
                             }}>
-                                <CardContent>
-                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                        <Box>
-                                            <Typography sx={{ fontSize: '11px', color: '#666', mb: 0.5 }}>
-                                                Total Leaves
-                                            </Typography>
-                                            <Typography sx={{ fontSize: '28px', fontWeight: '700', color: '#1a1a1a' }}>
-                                                {stats.totalLeavesThisMonth}
-                                            </Typography>
-                                            <Typography sx={{ fontSize: '10px', color: '#999', mt: 0.5 }}>
-                                                This Month
-                                            </Typography>
-                                        </Box>
-                                        <Avatar sx={{ bgcolor: '#EFF6FF', width: 40, height: 40 }}>
-                                            <EventIcon sx={{ color: '#3B82F6', fontSize: 24 }} />
-                                        </Avatar>
-                                    </Box>
-                                </CardContent>
-                            </Card>
-                        </Grid>
-
-                        <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
-                            <Card sx={{
-                                border: '1px solid #22C55E',
-                                borderRadius: '4px',
-                                boxShadow: 'none',
-                                bgcolor: '#F0FDF4'
-                            }}>
-                                <CardContent>
-                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                        <Box>
-                                            <Typography sx={{ fontSize: '11px', color: '#666', mb: 0.5 }}>
-                                                Approved
-                                            </Typography>
-                                            <Typography sx={{ fontSize: '28px', fontWeight: '700', color: '#1a1a1a' }}>
-                                                {stats.approved}
-                                            </Typography>
-                                            <Typography sx={{ fontSize: '10px', color: '#22C55E', fontWeight: '600', mt: 0.5 }}>
-                                                {stats.approvedPercentOfTotal ?? 0}% of total
-                                            </Typography>
-                                        </Box>
-                                        <Avatar sx={{ bgcolor: '#DCFCE7', width: 40, height: 40 }}>
-                                            <CheckCircleIcon sx={{ color: '#22C55E', fontSize: 24 }} />
-                                        </Avatar>
-                                    </Box>
-                                </CardContent>
-                            </Card>
-                        </Grid>
-
-                        <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
-                            <Card sx={{
-                                border: '1px solid #F97316',
-                                borderRadius: '4px',
-                                boxShadow: 'none',
-                                bgcolor: '#FFF7ED'
-                            }}>
-                                <CardContent>
-                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                        <Box>
-                                            <Typography sx={{ fontSize: '11px', color: '#666', mb: 0.5 }}>
-                                                Pending
-                                            </Typography>
-                                            <Typography sx={{ fontSize: '28px', fontWeight: '700', color: '#1a1a1a' }}>
-                                                {stats.pending}
-                                            </Typography>
-                                            <Typography sx={{ fontSize: '10px', color: '#F97316', fontWeight: '600', mt: 0.5 }}>
-                                                Needs Review
-                                            </Typography>
-                                        </Box>
-                                        <Avatar sx={{ bgcolor: '#FED7AA', width: 40, height: 40 }}>
-                                            <PendingIcon sx={{ color: '#F97316', fontSize: 24 }} />
-                                        </Avatar>
-                                    </Box>
-                                </CardContent>
-                            </Card>
-                        </Grid>
-
-                        <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
-                            <Card sx={{
-                                border: '1px solid #DC2626',
-                                borderRadius: '4px',
-                                boxShadow: 'none',
-                                bgcolor: '#FEF2F2'
-                            }}>
-                                <CardContent>
-                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                        <Box>
-                                            <Typography sx={{ fontSize: '11px', color: '#666', mb: 0.5 }}>
-                                                Rejected
-                                            </Typography>
-                                            <Typography sx={{ fontSize: '28px', fontWeight: '700', color: '#1a1a1a' }}>
-                                                {stats.rejected}
-                                            </Typography>
-                                            <Typography sx={{ fontSize: '10px', color: '#DC2626', fontWeight: '600', mt: 0.5 }}>
-                                                Declined
-                                            </Typography>
-                                        </Box>
-                                        <Avatar sx={{ bgcolor: '#FEE2E2', width: 40, height: 40 }}>
-                                            <CancelIcon sx={{ color: '#DC2626', fontSize: 24 }} />
-                                        </Avatar>
-                                    </Box>
-                                </CardContent>
-                            </Card>
-                        </Grid>
-                    </Grid>
-                    )}
-
-                    {/* Leave Applications Table */}
-                    <Card sx={{ border: '1px solid #E8E8E8', borderRadius: '4px', boxShadow: 'none' }}>
-                        <CardContent>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                                <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#1a1a1a' }}>
-                                    Leave Applications
+                                <EventIcon sx={{ color: PRIMARY, fontSize: 20 }} />
+                            </Box>
+                            <Box>
+                                <Typography sx={{ fontSize: '20px', fontWeight: 700, color: '#111827', lineHeight: 1.1 }}>
+                                    Leave Management
+                                </Typography>
+                                <Typography sx={{ fontSize: '11px', color: '#6B7280', fontWeight: 500 }}>
+                                    Manage staff leave applications and approvals
                                 </Typography>
                             </Box>
-
-                            {/* Sub Tabs */}
-                            <Tabs
-                                value={leaveTab}
-                                onChange={handleLeaveTabChange}
+                        </Box>
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                            <Button startIcon={<AddIcon />} variant="contained" onClick={handleApplyLeave}
                                 sx={{
-                                    mb: 2,
-                                    minHeight: '36px',
-                                    '& .MuiTab-root': {
-                                        textTransform: 'none',
-                                        fontSize: '12px',
-                                        fontWeight: '600',
-                                        color: '#666',
-                                        minHeight: '36px',
-                                        px: 2
-                                    },
-                                    '& .Mui-selected': {
-                                        color: '#F97316 !important'
-                                    },
-                                    '& .MuiTabs-indicator': {
-                                        backgroundColor: '#F97316',
-                                        height: '2px'
-                                    }
-                                }}
-                            >
-                                <Tab label="All Leaves" />
-                                <Tab label="Pending Approval" />
-                                <Tab label="Approved" />
-                                <Tab label="Rejected" />
-                            </Tabs>
+                                    textTransform: 'none', borderRadius: '50px',
+                                    bgcolor: PRIMARY, color: '#fff', fontSize: '13px', fontWeight: 700, px: 2.5,
+                                    boxShadow: `0 2px 6px ${PRIMARY}33`,
+                                    '&:hover': { bgcolor: PRIMARY_DARK, boxShadow: `0 4px 12px ${PRIMARY}55` },
+                                }}>
+                                Apply Leave
+                            </Button>
+                            <Button startIcon={<FileDownloadIcon />} variant="outlined"
+                                sx={{
+                                    textTransform: 'none', borderRadius: '50px',
+                                    border: '1px solid #E5E7EB', color: '#374151',
+                                    fontSize: '13px', fontWeight: 600, px: 2.5,
+                                    '&:hover': { borderColor: '#D1D5DB', bgcolor: '#F9FAFB' },
+                                }}>
+                                Export
+                            </Button>
+                        </Box>
+                    </Box>
+                )}
 
-
-                            <TableContainer>
-                                <Table>
-                                    <TableHead>
-                                        <TableRow sx={{ bgcolor: '#F9FAFB' }}>
-                                            <TableCell sx={{ fontWeight: '600', fontSize: '11px', color: '#666', textTransform: 'uppercase' }}>
-                                                Staff Member
-                                            </TableCell>
-                                            <TableCell sx={{ fontWeight: '600', fontSize: '11px', color: '#666', textTransform: 'uppercase' }}>
-                                                Leave Type
-                                            </TableCell>
-                                            <TableCell sx={{ fontWeight: '600', fontSize: '11px', color: '#666', textTransform: 'uppercase' }}>
-                                                Duration
-                                            </TableCell>
-                                            <TableCell sx={{ fontWeight: '600', fontSize: '11px', color: '#666', textTransform: 'uppercase' }}>
-                                                Days
-                                            </TableCell>
-                                            <TableCell sx={{ fontWeight: '600', fontSize: '11px', color: '#666', textTransform: 'uppercase' }}>
-                                                Reason
-                                            </TableCell>
-                                            <TableCell sx={{ fontWeight: '600', fontSize: '11px', color: '#666', textTransform: 'uppercase' }}>
-                                                Status
-                                            </TableCell>
-                                        </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {isFetching ? (
-                                            <TableRow>
-                                                <TableCell colSpan={6} sx={{ textAlign: 'center', py: 4 }}>
-                                                    <CircularProgress size={28} sx={{ color: '#F97316' }} />
-                                                </TableCell>
-                                            </TableRow>
-                                        ) : activeLeaves.length === 0 ? (
-                                            <TableRow>
-                                                <TableCell colSpan={6} sx={{ textAlign: 'center', py: 4, color: '#999', fontSize: '13px' }}>
-                                                    No leave applications found
-                                                </TableCell>
-                                            </TableRow>
-                                        ) : activeLeaves.map((leave) => (
-                                            <TableRow
-                                                key={leave.leaveApplicationId}
-                                                sx={{
-                                                    '&:hover': { bgcolor: '#F9FAFB' },
-                                                    borderBottom: '1px solid #E8E8E8'
-                                                }}
-                                            >
-                                                <TableCell>
-                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                                        <Avatar sx={{ width: 36, height: 36, bgcolor: '#1976d2', fontSize: '13px' }}>
-                                                            {getInitials(leave.name)}
-                                                        </Avatar>
-                                                        <Box>
-                                                            <Typography sx={{ fontSize: '13px', fontWeight: '600', color: '#1a1a1a' }}>
-                                                                {leave.name}
-                                                            </Typography>
-                                                            <Typography sx={{ fontSize: '11px', color: '#999' }}>
-                                                                {leave.forRollNumber}
-                                                            </Typography>
-                                                        </Box>
-                                                    </Box>
-                                                </TableCell>
-                                                <TableCell>
-                                                    {getLeaveTypeChip(leave.leaveType)}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Typography sx={{ fontSize: '12px', color: '#666' }}>
-                                                        {leave.fromDate}
-                                                    </Typography>
-                                                    <Typography sx={{ fontSize: '11px', color: '#999' }}>
-                                                        to {leave.toDate}
-                                                    </Typography>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Typography sx={{ fontSize: '13px', fontWeight: '600', color: '#1a1a1a' }}>
-                                                        {leave.days} {leave.days > 1 ? 'days' : 'day'}
-                                                    </Typography>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Typography sx={{ fontSize: '12px', color: '#666', maxWidth: '200px' }}>
-                                                        {leave.reason}
-                                                    </Typography>
-                                                </TableCell>
-                                                <TableCell>
-                                                    {getStatusChip(leave.status)}
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </TableContainer>
-                        </CardContent>
-                    </Card>
-                </Grid>
-
-                {/* Right Side Panel */}
-                <Grid size={{ xs: 12, lg: 3 }}>
-                    {/* Leave Balance */}
-                    {userType !== "teacher" && (
-                    <Card sx={{ border: '1px solid #E8E8E8', borderRadius: '4px', boxShadow: 'none', mb: 2 }}>
-                        <CardContent>
-                            <Typography sx={{ fontSize: '14px', fontWeight: '600', color: '#1a1a1a', mb: 2 }}>
-                                Leave Balance
-                            </Typography>
-
-                            {dashboardData.leaveBalance.length === 0 ? (
-                                <Typography sx={{ fontSize: '12px', color: '#999', textAlign: 'center', py: 2 }}>
-                                    No balance data
-                                </Typography>
-                            ) : dashboardData.leaveBalance.map((lb, i) => {
-                                const usedPct = lb.totalDays > 0 ? (lb.usedDays / lb.totalDays) * 100 : 0;
-                                const isLow = usedPct >= 80;
-                                const bgColor = isLow ? '#FFF7ED' : '#F0FDF4';
-                                const borderColor = isLow ? '#FED7AA' : '#DCFCE7';
-                                const textColor = isLow ? '#F97316' : '#22C55E';
+                {/* ─── Sub-view switcher: Applications / Apply Leave / Approval ─── */}
+                {(() => {
+                    const SUB_VIEWS = [
+                        { key: 'applications', label: 'Applications', icon: ListAltOutlinedIcon,    color: PRIMARY },
+                        { key: 'apply',        label: 'Apply Leave',  icon: EventNoteOutlinedIcon, color: '#059669' },
+                        ...(isAdmin ? [
+                            { key: 'approval', label: 'Leave Approval', icon: FactCheckOutlinedIcon, color: '#2563EB' },
+                        ] : []),
+                    ];
+                    return (
+                        <Box sx={{
+                            display: 'flex', gap: 0.6, mb: 2,
+                            p: 0.4, borderRadius: '10px',
+                            bgcolor: '#F3F4F6', border: '1px solid #E5E7EB',
+                            width: 'fit-content', flexWrap: 'wrap',
+                        }}>
+                            {SUB_VIEWS.map((v) => {
+                                const Icon = v.icon;
+                                const active = effectiveSubView === v.key;
                                 return (
                                     <Box
-                                        key={i}
-                                        sx={{ mb: i < dashboardData.leaveBalance.length - 1 ? 2 : 0, p: 1.5, borderRadius: '8px', bgcolor: bgColor, border: `1px solid ${borderColor}` }}
+                                        key={v.key}
+                                        onClick={() => setSubView(v.key)}
+                                        sx={{
+                                            px: 1.6, py: 0.7, borderRadius: '8px', cursor: 'pointer',
+                                            display: 'flex', alignItems: 'center', gap: 0.8,
+                                            transition: 'all 0.15s',
+                                            bgcolor: active ? '#fff' : 'transparent',
+                                            boxShadow: active ? '0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)' : 'none',
+                                            '&:hover': { bgcolor: active ? '#fff' : 'rgba(255,255,255,0.55)' },
+                                        }}
                                     >
-                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                                            <Typography sx={{ fontSize: '11px', color: '#666' }}>
-                                                {lb.leaveType}
-                                            </Typography>
-                                            <Typography sx={{ fontSize: '10px', color: '#999' }}>
-                                                Used: {lb.usedDays}d
-                                            </Typography>
-                                        </Box>
-                                        <Typography sx={{ fontSize: '20px', fontWeight: '700', color: textColor }}>
-                                            {lb.remainingDays}
-                                            <Typography component="span" sx={{ fontSize: '13px', color: '#999' }}>
-                                                {' '}/ {lb.totalDays} days
-                                            </Typography>
+                                        <Icon sx={{ fontSize: 16, color: active ? v.color : '#9CA3AF' }} />
+                                        <Typography sx={{
+                                            fontSize: '12.5px',
+                                            fontWeight: active ? 700 : 600,
+                                            color: active ? v.color : '#6B7280',
+                                        }}>
+                                            {v.label}
                                         </Typography>
-                                        {/* Progress bar */}
-                                        <Box sx={{ mt: 1, height: 4, borderRadius: 2, bgcolor: '#E5E7EB', overflow: 'hidden' }}>
-                                            <Box sx={{ height: '100%', width: `${usedPct}%`, bgcolor: textColor, borderRadius: 2, transition: '0.4s' }} />
-                                        </Box>
                                     </Box>
                                 );
                             })}
-                        </CardContent>
-                    </Card>
-                    )}
+                        </Box>
+                    );
+                })()}
 
-                    {/* Quick Actions */}
-                    <Card sx={{ border: '1px solid #E8E8E8', borderRadius: '4px', boxShadow: 'none' }}>
-                        <CardContent>
-                            <Typography sx={{ fontSize: '14px', fontWeight: '600', color: '#1a1a1a', mb: 2 }}>
-                                Quick Actions
-                            </Typography>
+                {/* ─── Apply Leave sub-view ─── */}
+                {effectiveSubView === 'apply' && (
+                    <ApplyLeavePage
+                        onSuccess={goBackToApplications}
+                        onCancel={goBackToApplications}
+                    />
+                )}
 
-                            <Button
-                                fullWidth
-                                startIcon={<AddIcon />}
-                                variant="contained"
-                                onClick={handleApplyLeave}
-                                sx={{
-                                    textTransform: 'none',
-                                    fontSize: '13px',
-                                    fontWeight: '600',
-                                    bgcolor: '#22C55E',
-                                    color: '#fff',
-                                    borderRadius: '4px',
-                                    mb: 1.5,
-                                    '&:hover': {
-                                        bgcolor: '#16A34A'
-                                    }
-                                }}
-                            >
-                                Apply Leave
-                            </Button>
+                {/* ─── Leave Approval sub-view (admin only) ─── */}
+                {effectiveSubView === 'approval' && isAdmin && (
+                    <ApprovalWorkflowPage isEmbedded={true} />
+                )}
 
-                            {(userType === "superadmin" || userType === "admin") && (
-                                <Button
-                                    fullWidth
-                                    variant="outlined"
-                                    onClick={onGoToApprovalWorkflow || (() => handleTabChange(null, 3))}
-                                    sx={{
-                                        textTransform: 'none',
-                                        fontSize: '13px',
-                                        fontWeight: '600',
-                                        color: '#F97316',
-                                        borderColor: '#F97316',
-                                        borderRadius: '4px',
-                                        '&:hover': {
-                                            borderColor: '#EA580C',
-                                            bgcolor: '#FFF7ED'
-                                        }
-                                    }}
-                                >
-                                    Approve Leaves
-                                </Button>
-                            )}
-                        </CardContent>
-                    </Card>
+                {/* ─── Applications sub-view (default) ─── */}
+                {effectiveSubView === 'applications' && (
+                <Grid container spacing={2}>
+                    {/* ─── Main Column ─── */}
+                    <Grid size={{ xs: 12, lg: 9 }}>
+                        {/* KPI Cards (hidden for teacher) */}
+                        {userType !== 'teacher' && (
+                            <Grid container spacing={2} sx={{ mb: 2 }}>
+                                {kpiCards.map((card) => {
+                                    const Icon = card.icon;
+                                    return (
+                                        <Grid size={{ xs: 12, sm: 6, md: 3 }} key={card.label}>
+                                            <Card sx={{
+                                                border: `1px solid ${card.border}`,
+                                                borderRadius: '12px', boxShadow: 'none',
+                                                bgcolor: card.bg, height: '100%',
+                                                transition: 'transform 0.15s, box-shadow 0.15s',
+                                                '&:hover': { transform: 'translateY(-2px)', boxShadow: `0 6px 16px ${card.color}22` },
+                                            }}>
+                                                <CardContent sx={{ py: 1.8, '&:last-child': { pb: 1.8 } }}>
+                                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                                        <Box>
+                                                            <Typography sx={{ fontSize: '11px', color: card.color, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                                                {card.label}
+                                                            </Typography>
+                                                            <Typography sx={{ fontSize: '28px', fontWeight: 800, color: '#111827', lineHeight: 1.2, mt: 0.5 }}>
+                                                                {card.value}
+                                                            </Typography>
+                                                            <Typography sx={{ fontSize: '10px', color: card.color, fontWeight: 600, mt: 0.4 }}>
+                                                                {card.sub}
+                                                            </Typography>
+                                                        </Box>
+                                                        <Box sx={{
+                                                            width: 38, height: 38, borderRadius: '10px',
+                                                            bgcolor: '#fff', border: `1px solid ${card.border}`,
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                        }}>
+                                                            <Icon sx={{ color: card.color, fontSize: 20 }} />
+                                                        </Box>
+                                                    </Box>
+                                                </CardContent>
+                                            </Card>
+                                        </Grid>
+                                    );
+                                })}
+                            </Grid>
+                        )}
+
+                        {/* Applications Card */}
+                        <Card sx={{ border: '1px solid #E5E7EB', borderRadius: '12px', boxShadow: 'none', bgcolor: '#fff' }}>
+                            <CardContent sx={{ pb: '12px !important' }}>
+                                {/* Title row */}
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5, flexWrap: 'wrap', gap: 1 }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
+                                        <Typography sx={{ fontSize: '15px', fontWeight: 700, color: '#111827' }}>
+                                            Leave Applications
+                                        </Typography>
+                                        <Chip
+                                            label={`${rawLeaves.length} total`}
+                                            size="small"
+                                            sx={{ bgcolor: '#F3F4F6', color: '#374151', fontWeight: 600, fontSize: '11px', height: 20 }}
+                                        />
+                                    </Box>
+                                </Box>
+
+                                {/* Sub-tabs as segmented pill control */}
+                                <Box sx={{
+                                    display: 'flex', gap: 0.6, mb: 1.5,
+                                    p: 0.4, borderRadius: '10px',
+                                    bgcolor: '#F3F4F6', border: '1px solid #E5E7EB',
+                                    width: 'fit-content', flexWrap: 'wrap',
+                                }}>
+                                    {SUB_TABS.map((t, idx) => {
+                                        const Icon = t.icon;
+                                        const active = leaveTab === idx;
+                                        const count = subTabCounts[t.key] || 0;
+                                        return (
+                                            <Box
+                                                key={t.key}
+                                                onClick={() => setLeaveTab(idx)}
+                                                sx={{
+                                                    px: 1.4, py: 0.6, borderRadius: '8px', cursor: 'pointer',
+                                                    display: 'flex', alignItems: 'center', gap: 0.7,
+                                                    transition: 'all 0.15s',
+                                                    bgcolor: active ? '#fff' : 'transparent',
+                                                    boxShadow: active ? '0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)' : 'none',
+                                                    '&:hover': { bgcolor: active ? '#fff' : 'rgba(255,255,255,0.55)' },
+                                                }}
+                                            >
+                                                {Icon && <Icon sx={{ fontSize: 14, color: active ? t.color : '#9CA3AF' }} />}
+                                                <Typography sx={{
+                                                    fontSize: '12px',
+                                                    fontWeight: active ? 700 : 600,
+                                                    color: active ? t.color : '#6B7280',
+                                                }}>
+                                                    {t.label}
+                                                </Typography>
+                                                <Box sx={{
+                                                    px: 0.7, py: 0.05, borderRadius: '8px', minWidth: 18, textAlign: 'center',
+                                                    bgcolor: active ? `${t.color}15` : '#fff',
+                                                    border: `1px solid ${active ? `${t.color}30` : '#E5E7EB'}`,
+                                                }}>
+                                                    <Typography sx={{ fontSize: '10px', fontWeight: 800, color: active ? t.color : '#9CA3AF' }}>
+                                                        {count}
+                                                    </Typography>
+                                                </Box>
+                                            </Box>
+                                        );
+                                    })}
+                                </Box>
+
+                                {/* Filter toolbar */}
+                                <Box sx={{
+                                    p: 1.2, mb: 1.5, borderRadius: '10px',
+                                    border: '1px solid #E5E7EB', bgcolor: '#FAFAFA',
+                                    display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center',
+                                }}>
+                                    {/* Search */}
+                                    <TextField
+                                        size="small"
+                                        placeholder="Search name, roll no, or reason..."
+                                        value={search}
+                                        onChange={(e) => setSearch(e.target.value)}
+                                        slotProps={{
+                                            input: {
+                                                startAdornment: (
+                                                    <InputAdornment position="start">
+                                                        <SearchIcon sx={{ fontSize: 16, color: searchActive ? PRIMARY : '#9CA3AF' }} />
+                                                    </InputAdornment>
+                                                ),
+                                                endAdornment: searchActive ? (
+                                                    <InputAdornment position="end">
+                                                        <IconButton size="small" onClick={() => setSearch('')} sx={{ p: 0.3 }}>
+                                                            <CloseIcon sx={{ fontSize: 14, color: '#9CA3AF' }} />
+                                                        </IconButton>
+                                                    </InputAdornment>
+                                                ) : null,
+                                            },
+                                        }}
+                                        sx={{
+                                            flex: 1, minWidth: 220, maxWidth: 320,
+                                            '& .MuiOutlinedInput-root': {
+                                                height: 34, fontSize: '12.5px', borderRadius: '8px',
+                                                bgcolor: searchActive ? PRIMARY_LIGHT : '#fff',
+                                                '& fieldset': { borderColor: searchActive ? PRIMARY_BORDER : '#E5E7EB' },
+                                                '&:hover fieldset': { borderColor: '#D1D5DB' },
+                                                '&.Mui-focused fieldset': { borderColor: PRIMARY },
+                                            },
+                                        }}
+                                    />
+
+                                    {/* Type dropdown button */}
+                                    <Button
+                                        onClick={(e) => setTypeMenuAnchor(e.currentTarget)}
+                                        startIcon={<CategoryOutlinedIcon sx={{ fontSize: 16 }} />}
+                                        endIcon={<KeyboardArrowDownIcon sx={{ fontSize: 16 }} />}
+                                        sx={{
+                                            textTransform: 'none', fontSize: '12.5px', fontWeight: 600,
+                                            height: 34, borderRadius: '8px', px: 1.5,
+                                            color: typeActive ? '#fff' : '#374151',
+                                            bgcolor: typeActive ? activeTypeColor : '#fff',
+                                            border: `1px solid ${typeActive ? activeTypeColor : '#E5E7EB'}`,
+                                            '&:hover': {
+                                                bgcolor: typeActive ? activeTypeColor : '#F9FAFB',
+                                                filter: typeActive ? 'brightness(0.95)' : 'none',
+                                            },
+                                        }}
+                                    >
+                                        {typeActive ? typeFilter : 'Leave Type'}
+                                    </Button>
+                                    <Menu
+                                        anchorEl={typeMenuAnchor}
+                                        open={Boolean(typeMenuAnchor)}
+                                        onClose={() => setTypeMenuAnchor(null)}
+                                        slotProps={{
+                                            paper: {
+                                                sx: {
+                                                    mt: 0.6, borderRadius: '10px',
+                                                    border: '1px solid #E5E7EB',
+                                                    boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
+                                                    minWidth: 220,
+                                                },
+                                            },
+                                        }}
+                                    >
+                                        {typeOptions.map((opt) => {
+                                            const isActive = typeFilter === opt.key;
+                                            const cfg = LEAVE_TYPE_STYLE[opt.key] || { color: '#6B7280' };
+                                            const count = opt.key === 'all' ? allLeavesArr.length : (typeCounts[opt.key] || 0);
+                                            return (
+                                                <MenuItem
+                                                    key={opt.key}
+                                                    onClick={() => { setTypeFilter(opt.key); setTypeMenuAnchor(null); }}
+                                                    sx={{
+                                                        py: 0.8, px: 1.2, gap: 1,
+                                                        bgcolor: isActive ? `${cfg.color}10` : 'transparent',
+                                                        '&:hover': { bgcolor: `${cfg.color}15` },
+                                                    }}
+                                                >
+                                                    <CircleIcon sx={{ fontSize: 9, color: cfg.color, flexShrink: 0 }} />
+                                                    <Typography sx={{
+                                                        fontSize: '13px',
+                                                        fontWeight: isActive ? 700 : 500,
+                                                        color: isActive ? cfg.color : '#374151', flex: 1,
+                                                    }}>
+                                                        {opt.label}
+                                                    </Typography>
+                                                    <Box sx={{
+                                                        px: 0.7, py: 0.1, borderRadius: '6px',
+                                                        bgcolor: isActive ? '#fff' : '#F3F4F6',
+                                                        border: `1px solid ${isActive ? `${cfg.color}30` : '#E5E7EB'}`,
+                                                    }}>
+                                                        <Typography sx={{ fontSize: '10.5px', fontWeight: 700, color: isActive ? cfg.color : '#6B7280' }}>
+                                                            {count}
+                                                        </Typography>
+                                                    </Box>
+                                                    {isActive && <CheckIcon sx={{ fontSize: 15, color: cfg.color, ml: 0.4 }} />}
+                                                </MenuItem>
+                                            );
+                                        })}
+                                    </Menu>
+
+                                    {/* Clear filters */}
+                                    {anyFilterActive && (
+                                        <Button
+                                            size="small"
+                                            startIcon={<RestartAltIcon sx={{ fontSize: 15 }} />}
+                                            onClick={clearFilters}
+                                            sx={{
+                                                textTransform: 'none', fontSize: '12px', fontWeight: 600,
+                                                height: 34, borderRadius: '8px', px: 1.2,
+                                                color: '#DC2626',
+                                                '&:hover': { bgcolor: '#FEF2F2' },
+                                            }}
+                                        >
+                                            Clear
+                                        </Button>
+                                    )}
+
+                                    {/* Result count */}
+                                    <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.6 }}>
+                                        <Typography sx={{ fontSize: '11.5px', color: '#6B7280' }}>Showing</Typography>
+                                        <Typography sx={{ fontSize: '13px', fontWeight: 800, color: anyFilterActive ? PRIMARY_DARK : '#111827' }}>
+                                            {filteredLeaves.length}
+                                        </Typography>
+                                        <Typography sx={{ fontSize: '11.5px', color: '#6B7280' }}>
+                                            of {rawLeaves.length}
+                                        </Typography>
+                                    </Box>
+                                </Box>
+
+                                {/* Table */}
+                                <TableContainer sx={{ borderRadius: '10px', overflow: 'hidden', border: '1px solid #E5E7EB' }}>
+                                    <Table size="small">
+                                        <TableHead>
+                                            <TableRow sx={{ bgcolor: PRIMARY_LIGHT, borderBottom: `1px solid ${PRIMARY_BORDER}` }}>
+                                                {['Staff Member', 'Leave Type', 'Duration', 'Days', 'Reason', 'Status'].map(h => (
+                                                    <TableCell key={h} sx={{
+                                                        fontWeight: 700, fontSize: '10px', color: PRIMARY_DARK,
+                                                        textTransform: 'uppercase', whiteSpace: 'nowrap',
+                                                        letterSpacing: 0.6, py: 1.3, borderBottom: 'none',
+                                                    }}>{h}</TableCell>
+                                                ))}
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {isFetching ? (
+                                                <TableRow>
+                                                    <TableCell colSpan={6} sx={{ textAlign: 'center', py: 5, borderBottom: 'none' }}>
+                                                        <CircularProgress size={28} sx={{ color: PRIMARY }} />
+                                                    </TableCell>
+                                                </TableRow>
+                                            ) : filteredLeaves.length === 0 ? (
+                                                <TableRow>
+                                                    <TableCell colSpan={6} sx={{ textAlign: 'center', py: 5, borderBottom: 'none' }}>
+                                                        <Typography sx={{ fontSize: '13px', color: '#9CA3AF', fontWeight: 600 }}>
+                                                            {rawLeaves.length === 0 ? 'No leave applications found' : 'No leaves match your filters'}
+                                                        </Typography>
+                                                        <Typography sx={{ fontSize: '11px', color: '#9CA3AF', mt: 0.5 }}>
+                                                            {rawLeaves.length === 0 ? 'When applications are submitted, they will appear here.' : 'Try changing or clearing your filters above.'}
+                                                        </Typography>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ) : filteredLeaves.map((leave, idx) => {
+                                                const avColor = avatarColorFor(leave.name || '');
+                                                return (
+                                                    <TableRow
+                                                        key={leave.leaveApplicationId || idx}
+                                                        sx={{
+                                                            '&:hover': { bgcolor: PRIMARY_LIGHT },
+                                                            borderBottom: '1px solid #F3F4F6',
+                                                            transition: 'background-color 0.15s',
+                                                        }}
+                                                    >
+                                                        <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
+                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
+                                                                <Avatar sx={{
+                                                                    width: 34, height: 34,
+                                                                    bgcolor: `${avColor}15`, color: avColor,
+                                                                    fontSize: '11px', fontWeight: 700,
+                                                                    border: `1px solid ${avColor}33`,
+                                                                }}>
+                                                                    {getInitials(leave.name)}
+                                                                </Avatar>
+                                                                <Box>
+                                                                    <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>
+                                                                        {leave.name}
+                                                                    </Typography>
+                                                                    <Typography sx={{ fontSize: '10px', color: '#9CA3AF', fontWeight: 500, fontFamily: 'monospace' }}>
+                                                                        {leave.forRollNumber}
+                                                                    </Typography>
+                                                                </Box>
+                                                            </Box>
+                                                        </TableCell>
+                                                        <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
+                                                            {renderLeaveTypeChip(leave.leaveType)}
+                                                        </TableCell>
+                                                        <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
+                                                            <Typography sx={{ fontSize: '12px', fontWeight: 600, color: '#374151' }}>
+                                                                {leave.fromDate}
+                                                            </Typography>
+                                                            <Typography sx={{ fontSize: '10.5px', color: '#9CA3AF' }}>
+                                                                to {leave.toDate}
+                                                            </Typography>
+                                                        </TableCell>
+                                                        <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
+                                                            <Box sx={{
+                                                                display: 'inline-flex', alignItems: 'center', gap: 0.4,
+                                                                px: 0.8, py: 0.2, borderRadius: '6px',
+                                                                bgcolor: '#EEF2FF', border: '1px solid #C7D2FE',
+                                                            }}>
+                                                                <Typography sx={{ fontSize: '12px', fontWeight: 800, color: '#4338CA', fontFamily: 'monospace' }}>
+                                                                    {leave.days}
+                                                                </Typography>
+                                                                <Typography sx={{ fontSize: '10px', color: '#4338CA', fontWeight: 600 }}>
+                                                                    {leave.days > 1 ? 'days' : 'day'}
+                                                                </Typography>
+                                                            </Box>
+                                                        </TableCell>
+                                                        <TableCell sx={{ borderBottom: '1px solid #F3F4F6', maxWidth: 220 }}>
+                                                            <Tooltip title={leave.reason || ''} arrow placement="top">
+                                                                <Typography sx={{
+                                                                    fontSize: '12px', color: '#4B5563',
+                                                                    overflow: 'hidden', textOverflow: 'ellipsis',
+                                                                    whiteSpace: 'nowrap', maxWidth: 220,
+                                                                }}>
+                                                                    {leave.reason || '—'}
+                                                                </Typography>
+                                                            </Tooltip>
+                                                        </TableCell>
+                                                        <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
+                                                            {renderStatusChip(leave.status)}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                );
+                                            })}
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
+                            </CardContent>
+                        </Card>
+                    </Grid>
+
+                    {/* ─── Right Side Panel ─── */}
+                    <Grid size={{ xs: 12, lg: 3 }}>
+                        {/* Available Leave Types (from Leave Master config) */}
+                        <Card sx={{
+                            border: '1px solid #E5E7EB', borderRadius: '12px',
+                            boxShadow: 'none', bgcolor: '#fff', mb: 2,
+                        }}>
+                            <CardContent sx={{ pb: '12px !important' }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.4 }}>
+                                    <Box sx={{
+                                        width: 28, height: 28, borderRadius: '8px',
+                                        bgcolor: PRIMARY_LIGHT, border: `1px solid ${PRIMARY_BORDER}`,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    }}>
+                                        <EventIcon sx={{ color: PRIMARY, fontSize: 16 }} />
+                                    </Box>
+                                    <Box sx={{ flex: 1 }}>
+                                        <Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#111827', lineHeight: 1.1 }}>
+                                            Available Leave Types
+                                        </Typography>
+                                        <Typography sx={{ fontSize: '10.5px', color: '#6B7280', mt: 0.1 }}>
+                                            Configured in Leave Master
+                                        </Typography>
+                                    </Box>
+                                    {availableLeaveTypes.length > 0 && (
+                                        <Chip
+                                            label={availableLeaveTypes.length}
+                                            size="small"
+                                            sx={{
+                                                height: 20, minWidth: 22, fontSize: '11px', fontWeight: 800,
+                                                bgcolor: PRIMARY_LIGHT, color: PRIMARY_DARK,
+                                                border: `1px solid ${PRIMARY_BORDER}`,
+                                            }}
+                                        />
+                                    )}
+                                </Box>
+
+                                {isFetchingLeaveTypes ? (
+                                    <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+                                        <CircularProgress size={22} sx={{ color: PRIMARY }} />
+                                    </Box>
+                                ) : availableLeaveTypes.length === 0 ? (
+                                    <Box sx={{ py: 2.5, textAlign: 'center' }}>
+                                        <Typography sx={{ fontSize: '12px', color: '#9CA3AF', fontWeight: 600 }}>
+                                            No leave types configured
+                                        </Typography>
+                                        <Typography sx={{ fontSize: '10.5px', color: '#9CA3AF', mt: 0.3 }}>
+                                            Create them from the Leave Master screen.
+                                        </Typography>
+                                    </Box>
+                                ) : (
+                                    <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 0.7 }}>
+                                        {availableLeaveTypes.map((lt, i) => {
+                                            const color = lt.color || PRIMARY;
+                                            const shortCode = (lt.shortCode || lt.name || '?').slice(0, 3).toUpperCase();
+                                            const alloc = formatAllocation(lt);
+                                            const onDemand = (Number(lt.daysPerPeriod) || 0) === 0;
+                                            return (
+                                                <Box
+                                                    key={lt.id || lt._id || i}
+                                                    sx={{
+                                                        p: 1, borderRadius: '10px',
+                                                        bgcolor: '#FAFAFA', border: '1px solid #E5E7EB',
+                                                        display: 'flex', alignItems: 'center', gap: 1,
+                                                        transition: 'all 0.15s',
+                                                        '&:hover': {
+                                                            bgcolor: `${color}08`,
+                                                            borderColor: `${color}40`,
+                                                        },
+                                                    }}
+                                                >
+                                                    {/* Short-code badge */}
+                                                    <Box sx={{
+                                                        minWidth: 36, height: 30, borderRadius: '8px', px: 0.7,
+                                                        bgcolor: `${color}15`, border: `1px solid ${color}40`,
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                        flexShrink: 0,
+                                                    }}>
+                                                        <Typography sx={{
+                                                            fontSize: '10.5px', fontWeight: 800,
+                                                            color, letterSpacing: 0.4, fontFamily: 'monospace',
+                                                        }}>
+                                                            {shortCode}
+                                                        </Typography>
+                                                    </Box>
+                                                    {/* Name + allocation */}
+                                                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                                                        <Typography sx={{
+                                                            fontSize: '12px', fontWeight: 700, color: '#111827',
+                                                            lineHeight: 1.15,
+                                                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                                        }}>
+                                                            {lt.name || '—'}
+                                                        </Typography>
+                                                        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.4, mt: 0.1 }}>
+                                                            <Typography sx={{
+                                                                fontSize: onDemand ? '10.5px' : '12px',
+                                                                fontWeight: 800,
+                                                                color: onDemand ? '#9CA3AF' : color,
+                                                                fontFamily: onDemand ? 'inherit' : 'monospace',
+                                                            }}>
+                                                                {alloc.value}
+                                                            </Typography>
+                                                            {alloc.unit && (
+                                                                <Typography sx={{ fontSize: '10px', color: '#6B7280', fontWeight: 600 }}>
+                                                                    {alloc.unit}
+                                                                </Typography>
+                                                            )}
+                                                        </Box>
+                                                    </Box>
+                                                </Box>
+                                            );
+                                        })}
+                                    </Box>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        {/* Quick Actions */}
+                        <Card sx={{
+                            border: '1px solid #E5E7EB', borderRadius: '12px',
+                            boxShadow: 'none', bgcolor: '#fff',
+                        }}>
+                            <CardContent sx={{ pb: '12px !important' }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.2 }}>
+                                    <Box sx={{
+                                        width: 28, height: 28, borderRadius: '8px',
+                                        bgcolor: '#EEF2FF', border: '1px solid #C7D2FE',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    }}>
+                                        <AddIcon sx={{ color: '#4338CA', fontSize: 16 }} />
+                                    </Box>
+                                    <Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>
+                                        Quick Actions
+                                    </Typography>
+                                </Box>
+
+                                <Box sx={{
+                                    p: 1.2, mb: 1, borderRadius: '10px',
+                                    bgcolor: PRIMARY_LIGHT, border: `1px solid ${PRIMARY_BORDER}`,
+                                }}>
+                                    <Typography sx={{ fontSize: '12px', fontWeight: 700, color: PRIMARY_DARK, mb: 0.2 }}>
+                                        Apply for Leave
+                                    </Typography>
+                                    <Typography sx={{ fontSize: '10.5px', color: '#4B5563', mb: 1 }}>
+                                        Submit a new leave request with dates and reason.
+                                    </Typography>
+                                    <Button
+                                        fullWidth variant="contained"
+                                        startIcon={<AddIcon sx={{ fontSize: 16 }} />}
+                                        onClick={handleApplyLeave}
+                                        sx={{
+                                            textTransform: 'none', fontSize: '12px', fontWeight: 700,
+                                            bgcolor: PRIMARY, color: '#fff', borderRadius: '8px',
+                                            boxShadow: `0 2px 6px ${PRIMARY}33`,
+                                            '&:hover': { bgcolor: PRIMARY_DARK, boxShadow: `0 4px 12px ${PRIMARY}55` },
+                                        }}
+                                    >
+                                        Apply Leave
+                                    </Button>
+                                </Box>
+
+                                {(userType === 'superadmin' || userType === 'admin') && (
+                                    <Box sx={{
+                                        p: 1.2, borderRadius: '10px',
+                                        bgcolor: '#EFF6FF', border: '1px solid #BFDBFE',
+                                    }}>
+                                        <Typography sx={{ fontSize: '12px', fontWeight: 700, color: '#1D4ED8', mb: 0.2 }}>
+                                            Approve Leaves
+                                        </Typography>
+                                        <Typography sx={{ fontSize: '10.5px', color: '#4B5563', mb: 1 }}>
+                                            View and approve pending leave requests.
+                                        </Typography>
+                                        <Button
+                                            fullWidth variant="outlined"
+                                            startIcon={<FactCheckOutlinedIcon sx={{ fontSize: 16 }} />}
+                                            onClick={handleApproveLeaves}
+                                            sx={{
+                                                textTransform: 'none', fontSize: '12px', fontWeight: 700,
+                                                borderColor: '#BFDBFE', color: '#1D4ED8', borderRadius: '8px',
+                                                bgcolor: '#fff',
+                                                '&:hover': { borderColor: '#2563EB', bgcolor: '#EFF6FF' },
+                                            }}
+                                        >
+                                            Go to Approvals
+                                        </Button>
+                                    </Box>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </Grid>
                 </Grid>
-            </Grid>
-
-        </Box>
+                )}
+            </Box>
         </>
     );
 }

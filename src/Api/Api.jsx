@@ -215,8 +215,10 @@ const PostPromoteStudents = `${baseApiurl}studentPromotion/PostPromoteStudents`;
 const FetchPromotableStudents = `${baseApiurl}studentPromotion/FetchPromotableStudents`;
 const FetchPromotedStudents = `${baseApiurl}studentPromotion/FetchPromotedStudents`;
 const UpdatePromotedStudents = `${baseApiurl}studentPromotion/UpdatePromotedStudents`;
+const IssueStudentTC = `${baseApiurl}studentPromotion/IssueStudentTC`;
+const DiscontinueStudent = `${baseApiurl}studentPromotion/DiscontinueStudent`;
 
-// Staff Information 
+// Staff Information
 const staffManagement = `${baseApiurl}staffManagement/`;
 const GetStaffInformation = `${staffManagement}GetStaffInformation`;
 const postStaffInformation = `${staffManagement}postStaffInformation`;
@@ -296,6 +298,8 @@ const classWiseCollection = `${finance}classWiseCollection`;
 const defaulters = `${finance}defaulters`;
 const feeReport = `${finance}feeReport`;
 const sendFeeReminder = `${baseApiurl}finance/sendFeeReminder/`;
+const getLastFeeReminder = `${baseApiurl}finance/getLastFeeReminder/`;
+const monthlyCollectionByCategory = `${baseApiurl}finance/monthlyCollectionByCategory/`;
 
 // Expense 
 const postFund = `${baseApiurl}postFund`;
@@ -447,6 +451,9 @@ const findVehicleSafetyComplianceDetails = `${transportManagement}findVehicleSaf
 const GetUsersBaseDetails = `${baseApiurl}Dashboard/GetUsersBaseDetails`;
 const LoginList = `${baseApiurl}Dashboard/LoginList`;
 const getAllExams = `${baseApiurl}GradeValueFetch/getAllExams`;
+
+const PostStudentExit = `${baseApiurl}studentExit/PostStudentExit`;
+const FetchExitHistory = `${baseApiurl}studentExit/FetchExitHistory`;
 
 // Class & Section Management
 const postGrade = `${baseApiurl}GradeValueFetch/postGrade`;
@@ -785,6 +792,8 @@ export {
     GetConcessionLog,
     getUserConcessionDetails,
     sendFeeReminder,
+    getLastFeeReminder,
+    monthlyCollectionByCategory,
     findingGradeWithSubject,
     postNewFeedback,
     deleteNewFeedbackByTitleId,
@@ -801,5 +810,9 @@ export {
     PostPromoteStudents,
     FetchPromotableStudents,
     FetchPromotedStudents,
-    UpdatePromotedStudents
+    UpdatePromotedStudents,
+    IssueStudentTC,
+    DiscontinueStudent,
+    PostStudentExit,
+    FetchExitHistory
 }

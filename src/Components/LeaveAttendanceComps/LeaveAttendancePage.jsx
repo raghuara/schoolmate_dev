@@ -29,9 +29,16 @@ import SpaceDashboardOutlinedIcon from '@mui/icons-material/SpaceDashboardOutlin
 import HowToRegOutlinedIcon from '@mui/icons-material/HowToRegOutlined';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import ListAltOutlinedIcon from '@mui/icons-material/ListAltOutlined';
-import EventNoteOutlinedIcon from '@mui/icons-material/EventNoteOutlined';
 import FactCheckOutlinedIcon from '@mui/icons-material/FactCheckOutlined';
 import InsertChartOutlinedIcon from '@mui/icons-material/InsertChartOutlined';
+import LocalCafeIcon from '@mui/icons-material/LocalCafe';
+import TimerOutlinedIcon from '@mui/icons-material/TimerOutlined';
+import TodayIcon from '@mui/icons-material/Today';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import PeopleAltOutlinedIcon from '@mui/icons-material/PeopleAltOutlined';
+import CircleIcon from '@mui/icons-material/Circle';
+import CheckIcon from '@mui/icons-material/Check';
+import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import axios from 'axios';
@@ -40,10 +47,8 @@ import SnackBar from '../SnackBar';
 
 import StaffAttendanceOverviewPage from './StaffAttendanceOverviewPage';
 import LeaveManagementPage from './LeaveManagementPage';
-import ApprovalWorkflowPage from './ApprovalWorkflowPage';
 import AttendanceReportsPage from './AttendanceReportsPage';
 import AddStaffAttendancePage from './AddStaffAttendancePage';
-import ApplyLeavePage from './ApplyLeavePage';
 
 
 const token = "123";
@@ -93,6 +98,25 @@ const getInitials = (name = '') =>
 
 const capitalize = (str = '') =>
     str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+
+// ─── Time / duration helpers (for personal attendance ticker) ──────────────
+const formatDuration = (ms) => {
+    if (!Number.isFinite(ms) || ms < 0) ms = 0;
+    const totalSeconds = Math.floor(ms / 1000);
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = totalSeconds % 60;
+    return {
+        h, m, s,
+        hhmmss: `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`,
+        short: h > 0 ? `${h}h ${m}m` : `${m}m`,
+    };
+};
+
+const formatTimeOfDay = (date) => {
+    if (!date) return '—';
+    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+};
 
 // ─── Biometric data normalizer ──────────────────────────────────────────────
 /**
@@ -193,6 +217,14 @@ export default function LeaveAttendancePage() {
     const userType = user.userType;
 
     const [tabValue, setTabValue] = useState(0);
+    // Sub-view of the Leave Management tab — controlled by quick-nav clicks here
+    const [leaveSubView, setLeaveSubView] = useState('applications');
+
+    // Helper for dashboard navigation that jumps into Leave Management at a specific sub-view
+    const goToLeaveManagement = (subView = 'applications') => {
+        setLeaveSubView(subView);
+        setTabValue(4);
+    };
 
     // SnackBar
     const [snackOpen, setSnackOpen] = useState(false);
@@ -225,6 +257,57 @@ export default function LeaveAttendancePage() {
 
     // Mark Attendance menu
     const [markMenuAnchor, setMarkMenuAnchor] = useState(null);
+
+    // Today's Attendance tab filters
+    const [todayAttSearch, setTodayAttSearch] = useState('');
+    const [todayAttRoleFilter, setTodayAttRoleFilter] = useState('all');
+    const [todayAttStatusFilter, setTodayAttStatusFilter] = useState('all');
+    const [todayRoleMenuAnchor, setTodayRoleMenuAnchor] = useState(null);
+    const [todayStatusMenuAnchor, setTodayStatusMenuAnchor] = useState(null);
+
+    const clearTodayFilters = () => {
+        setTodayAttSearch('');
+        setTodayAttRoleFilter('all');
+        setTodayAttStatusFilter('all');
+    };
+
+    // ─── Personal attendance (read-only display) ────────────────────────────
+    // All punch / break / logout events are captured by the biometric device.
+    // This screen ONLY visualises them — no actions are exposed to the user.
+    // Dummy values below will be replaced by backend payload when wired.
+    const [loginTime] = useState(() => {
+        const t = new Date();
+        t.setHours(9, 15, 0, 0);
+        return t;
+    });
+    const [currentTime, setCurrentTime] = useState(new Date());
+
+    // Dummy completed breaks — replace with device-synced data.
+    const [breaks] = useState(() => {
+        const mkTime = (h, m) => {
+            const d = new Date();
+            d.setHours(h, m, 0, 0);
+            return d;
+        };
+        return [
+            { start: mkTime(11, 0),  end: mkTime(11, 15) }, // morning tea
+            { start: mkTime(13, 0),  end: mkTime(13, 30) }, // lunch
+        ];
+    });
+
+    // Live ticker — increments the "logged in for" counter every second.
+    useEffect(() => {
+        const id = setInterval(() => setCurrentTime(new Date()), 1000);
+        return () => clearInterval(id);
+    }, []);
+
+    const loggedInMs = currentTime - loginTime;
+    const totalBreakMs = breaks.reduce((sum, b) => sum + (b.end - b.start), 0);
+    const netWorkMs = loggedInMs - totalBreakMs;
+
+    const loggedInDur = formatDuration(loggedInMs);
+    const breakDur = formatDuration(totalBreakMs);
+    const netWorkDur = formatDuration(netWorkMs);
 
     const fetchDashboard = async (dateStr) => {
         setIsLoading(true);
@@ -321,97 +404,153 @@ export default function LeaveAttendancePage() {
 
         return (
             <Box>
-                {/* Biometric Device Status Banner */}
-                {(() => {
-                    const DEVICE_BG = deviceStatus.connected ? '#EEF2FF' : '#FEF2F2';
-                    const DEVICE_BORDER = deviceStatus.connected ? '#C7D2FE' : '#FECACA';
-                    const DEVICE_ACCENT = deviceStatus.connected ? '#4338CA' : '#DC2626';
-                    const DEVICE_ACCENT_DARK = deviceStatus.connected ? '#3730A3' : '#B91C1C';
-                    const DEVICE_ACCENT_SOFT = deviceStatus.connected ? '#6366F1' : '#DC2626';
-                    return (
+                {/* ─── My Attendance Today (personal ticker + break tracking) ─── */}
                 <Paper elevation={0} sx={{
-                    mb: 2, p: 1.5,
-                    border: `1px solid ${DEVICE_BORDER}`,
+                    mb: 2,
                     borderRadius: '12px',
-                    bgcolor: DEVICE_BG,
+                    border: `1px solid ${PRIMARY_BORDER}`,
+                    bgcolor: '#fff',
+                    overflow: 'hidden',
+                    background: `linear-gradient(135deg, ${PRIMARY_LIGHT} 0%, #fff 55%)`,
                 }}>
-                    <Grid container alignItems="center" spacing={2}>
-                        <Grid size={{ xs: 12, md: 7 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                <Box sx={{
-                                    width: 42, height: 42, borderRadius: '10px',
-                                    bgcolor: '#fff',
-                                    border: `1px solid ${DEVICE_BORDER}`,
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                }}>
-                                    <DevicesIcon sx={{ color: DEVICE_ACCENT, fontSize: 22 }} />
-                                </Box>
-                                <Box sx={{ flex: 1, minWidth: 0 }}>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        <Typography sx={{ fontSize: '14px', fontWeight: 700, color: '#111827' }} noWrap>
-                                            {deviceStatus.deviceName}
-                                        </Typography>
-                                        <Chip
-                                            size="small"
-                                            icon={<WifiTetheringIcon sx={{ fontSize: '12px !important' }} />}
-                                            label={deviceStatus.connected ? 'Online' : 'Offline'}
-                                            sx={{
-                                                height: 20, fontSize: '10px', fontWeight: 700,
-                                                bgcolor: '#fff',
-                                                color: DEVICE_ACCENT_DARK,
-                                                border: `1px solid ${DEVICE_BORDER}`,
-                                                '& .MuiChip-icon': { color: 'inherit' },
-                                            }}
-                                        />
+                    <Box sx={{ p: 1.8 }}>
+                        <Grid container spacing={1.5} alignItems="center">
+                            {/* Left: avatar + live ticker */}
+                            <Grid size={{ xs: 12, md: 4 }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                    <Box sx={{ position: 'relative' }}>
+                                        <Avatar sx={{
+                                            width: 52, height: 52,
+                                            bgcolor: '#fff',
+                                            color: PRIMARY_DARK,
+                                            fontWeight: 800,
+                                            fontSize: '16px',
+                                            border: `2px solid ${PRIMARY_BORDER}`,
+                                        }}>
+                                            {getInitials(user.name || 'You')}
+                                        </Avatar>
+                                        {/* Active status pulse dot */}
+                                        <Box sx={{
+                                            position: 'absolute',
+                                            bottom: -2, right: -2,
+                                            width: 14, height: 14, borderRadius: '50%',
+                                            bgcolor: '#22C55E',
+                                            border: '2px solid #fff',
+                                            boxShadow: `0 0 0 4px #DCFCE7`,
+                                            animation: 'pulse 1.6s infinite',
+                                            '@keyframes pulse': {
+                                                '0%, 100%': { transform: 'scale(1)', opacity: 1 },
+                                                '50%': { transform: 'scale(1.12)', opacity: 0.85 },
+                                            },
+                                        }} />
                                     </Box>
-                                    <Typography sx={{ fontSize: '11px', color: '#4B5563', mt: 0.2 }}>
-                                        IP {deviceStatus.deviceIp} · Last sync {deviceStatus.lastSyncAt ? toHHmm(deviceStatus.lastSyncAt) : '—'}
-                                        {deviceStatus.pendingPunches > 0 && ` · ${deviceStatus.pendingPunches} pending punches`}
+                                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                                        <Typography sx={{
+                                            fontSize: '10px', color: PRIMARY_DARK, fontWeight: 700,
+                                            textTransform: 'uppercase', letterSpacing: 0.6,
+                                        }}>
+                                            Logged In For
+                                        </Typography>
+                                        <Typography sx={{
+                                            fontSize: '26px', fontWeight: 800, color: PRIMARY_DARK,
+                                            fontFamily: 'monospace', lineHeight: 1.05, letterSpacing: 1,
+                                        }}>
+                                            {loggedInDur.hhmmss}
+                                        </Typography>
+                                        <Typography sx={{ fontSize: '10.5px', color: '#4B5563', mt: 0.2 }}>
+                                            Since <strong>{formatTimeOfDay(loginTime)}</strong> · Punches synced from device
+                                        </Typography>
+                                    </Box>
+                                </Box>
+                            </Grid>
+
+                            {/* Right: mini stats (fills the space left by the action buttons) */}
+                            <Grid size={{ xs: 12, md: 8 }}>
+                                <Grid container spacing={1}>
+                                    {[
+                                        { label: 'Login',      value: formatTimeOfDay(loginTime),                                                color: '#059669', icon: CheckCircleIcon,    bg: '#ECFDF5', border: '#A7F3D0' },
+                                        { label: 'Break Time', value: breakDur.h > 0 ? `${breakDur.h}h ${breakDur.m}m` : `${breakDur.m}m`,        color: '#D97706', icon: LocalCafeIcon,      bg: '#FFFBEB', border: '#FDE68A' },
+                                        { label: 'Net Hours',  value: netWorkDur.h > 0 ? `${netWorkDur.h}h ${netWorkDur.m}m` : `${netWorkDur.m}m`, color: '#4338CA', icon: TimerOutlinedIcon,  bg: '#EEF2FF', border: '#C7D2FE' },
+                                    ].map((s) => {
+                                        const SIcon = s.icon;
+                                        return (
+                                            <Grid size={4} key={s.label}>
+                                                <Box sx={{
+                                                    p: 1, borderRadius: '10px',
+                                                    bgcolor: s.bg, border: `1px solid ${s.border}`,
+                                                    display: 'flex', alignItems: 'center', gap: 0.8,
+                                                }}>
+                                                    <Box sx={{
+                                                        width: 28, height: 28, borderRadius: '8px',
+                                                        bgcolor: '#fff', border: `1px solid ${s.border}`,
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                        flexShrink: 0,
+                                                    }}>
+                                                        <SIcon sx={{ fontSize: 16, color: s.color }} />
+                                                    </Box>
+                                                    <Box sx={{ minWidth: 0 }}>
+                                                        <Typography sx={{
+                                                            fontSize: '9.5px', color: s.color, fontWeight: 700,
+                                                            textTransform: 'uppercase', letterSpacing: 0.4, lineHeight: 1.1,
+                                                        }}>
+                                                            {s.label}
+                                                        </Typography>
+                                                        <Typography sx={{
+                                                            fontSize: '13px', fontWeight: 700, color: '#111827',
+                                                            lineHeight: 1.1, mt: 0.2,
+                                                        }} noWrap>
+                                                            {s.value}
+                                                        </Typography>
+                                                    </Box>
+                                                </Box>
+                                            </Grid>
+                                        );
+                                    })}
+                                </Grid>
+                            </Grid>
+
+                        </Grid>
+
+                        {/* Today's breaks chips */}
+                        {breaks.length > 0 && (
+                            <Box sx={{ mt: 1.5, pt: 1.2, borderTop: `1px dashed ${PRIMARY_BORDER}` }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.6, flexWrap: 'wrap' }}>
+                                    <Typography sx={{
+                                        fontSize: '10px', color: '#6B7280', fontWeight: 700,
+                                        textTransform: 'uppercase', letterSpacing: 0.5,
+                                    }}>
+                                        Today's Breaks
                                     </Typography>
+                                    <Chip
+                                        label={`${breaks.length} · ${breakDur.h > 0 ? `${breakDur.h}h ` : ''}${breakDur.m}m total`}
+                                        size="small"
+                                        sx={{ height: 18, fontSize: '9.5px', fontWeight: 700, bgcolor: '#F3F4F6', color: '#374151' }}
+                                    />
+                                </Box>
+                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.6 }}>
+                                    {breaks.map((b, idx) => {
+                                        const dur = formatDuration(b.end - b.start);
+                                        return (
+                                            <Chip
+                                                key={idx}
+                                                icon={<LocalCafeIcon sx={{ fontSize: '12px !important' }} />}
+                                                label={`${formatTimeOfDay(b.start)} → ${formatTimeOfDay(b.end)} · ${dur.h > 0 ? `${dur.h}h ` : ''}${dur.m}m`}
+                                                size="small"
+                                                sx={{
+                                                    height: 22, fontSize: '10.5px', fontWeight: 600,
+                                                    bgcolor: '#FFFBEB', color: '#92400E',
+                                                    border: '1px solid #FDE68A',
+                                                    '& .MuiChip-icon': { color: '#D97706', ml: '6px' },
+                                                }}
+                                            />
+                                        );
+                                    })}
                                 </Box>
                             </Box>
-                        </Grid>
-                        <Grid size={{ xs: 12, md: 5 }} sx={{ display: 'flex', justifyContent: { xs: 'flex-start', md: 'flex-end' }, gap: 1 }}>
-                            <Button
-                                size="small"
-                                variant="outlined"
-                                startIcon={<EditNoteIcon sx={{ color: DEVICE_ACCENT }} />}
-                                onClick={handleManualEntry}
-                                sx={{
-                                    textTransform: 'none', fontSize: '12px', fontWeight: 700, borderRadius: '8px',
-                                    border: `1px solid ${DEVICE_BORDER}`,
-                                    bgcolor: '#fff',
-                                    color: DEVICE_ACCENT_DARK,
-                                    px: 1.5,
-                                    boxShadow: `0 1px 2px ${DEVICE_ACCENT_SOFT}1A`,
-                                    '&:hover': {
-                                        border: `1px solid ${DEVICE_ACCENT_SOFT}`,
-                                        bgcolor: DEVICE_BG,
-                                        boxShadow: `0 2px 6px ${DEVICE_ACCENT_SOFT}33`,
-                                    },
-                                }}
-                            >
-                                Manual Entry
-                            </Button>
-                            <Button
-                                size="small"
-                                variant="contained"
-                                startIcon={isSyncing ? <CircularProgress size={14} sx={{ color: '#fff' }} /> : <SyncIcon />}
-                                onClick={handleFetchBiometric}
-                                disabled={isSyncing}
-                                sx={{
-                                    textTransform: 'none', fontSize: '12px', fontWeight: 700, borderRadius: '8px',
-                                    bgcolor: DEVICE_ACCENT_SOFT, boxShadow: `0 2px 6px ${DEVICE_ACCENT_SOFT}33`,
-                                    '&:hover': { bgcolor: DEVICE_ACCENT_DARK, boxShadow: `0 4px 12px ${DEVICE_ACCENT_SOFT}55` },
-                                }}
-                            >
-                                {isSyncing ? 'Syncing...' : 'Sync Biometric'}
-                            </Button>
-                        </Grid>
-                    </Grid>
+                        )}
+                    </Box>
                 </Paper>
-                    );
-                })()}
+
 
                 <Grid container spacing={2}>
                     {/* Main Column */}
@@ -626,58 +765,7 @@ export default function LeaveAttendancePage() {
                     {/* Right Panel */}
                     <Grid size={{ xs: 12, lg: 3 }}>
                         {/* Attendance Rate */}
-                        <Card sx={{
-                            border: `1px solid ${PRIMARY_BORDER}`,
-                            borderRadius: '12px', boxShadow: 'none', mb: 2,
-                            bgcolor: PRIMARY_LIGHT,
-                        }}>
-                            <CardContent>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-                                    <Box sx={{
-                                        width: 28, height: 28, borderRadius: '8px',
-                                        bgcolor: '#fff', border: `1px solid ${PRIMARY_BORDER}`,
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    }}>
-                                        <CheckCircleIcon sx={{ color: PRIMARY, fontSize: 16 }} />
-                                    </Box>
-                                    <Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>
-                                        Attendance Rate
-                                    </Typography>
-                                </Box>
-                                <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mb: 1 }}>
-                                    <Typography sx={{ fontSize: '34px', fontWeight: 800, color: PRIMARY_DARK, lineHeight: 1 }}>
-                                        {attendanceRate}%
-                                    </Typography>
-                                    <Typography sx={{ fontSize: '11px', color: '#6B7280', fontWeight: 600 }}>today</Typography>
-                                </Box>
-                                <LinearProgress variant="determinate" value={attendanceRate}
-                                    sx={{
-                                        height: 6, borderRadius: 3, bgcolor: '#fff',
-                                        '& .MuiLinearProgress-bar': { bgcolor: PRIMARY, borderRadius: 3 },
-                                    }}
-                                />
-
-                                <Divider sx={{ my: 1.8, borderColor: PRIMARY_BORDER }} />
-
-                                <Stack spacing={1}>
-                                    {[
-                                        { label: 'Present',  value: presentCount,            color: '#059669' },
-                                        { label: 'Absent',   value: cards.totalAbsent  ?? 0, color: '#DC2626' },
-                                        { label: 'Late',     value: cards.lateArrivals ?? 0, color: '#D97706' },
-                                        { label: 'On Leave', value: cards.onLeave      ?? 0, color: '#2563EB' },
-                                    ].map(item => (
-                                        <Box key={item.label} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                <Box sx={{ width: 8, height: 8, bgcolor: item.color, borderRadius: '50%' }} />
-                                                <Typography sx={{ fontSize: '12px', color: '#374151', fontWeight: 500 }}>{item.label}</Typography>
-                                            </Box>
-                                            <Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>{item.value}</Typography>
-                                        </Box>
-                                    ))}
-                                </Stack>
-                            </CardContent>
-                        </Card>
-
+                      
                         {/* Leave Center quick links */}
                         <Card sx={{ border: '1px solid #E5E7EB', borderRadius: '12px', boxShadow: 'none', bgcolor: '#fff' }}>
                             <CardContent sx={{ pb: '12px !important' }}>
@@ -707,7 +795,7 @@ export default function LeaveAttendancePage() {
                                         Submit a new leave request with dates and reason.
                                     </Typography>
                                     <Button fullWidth variant="contained"
-                                        onClick={() => setTabValue(4)}
+                                        onClick={() => goToLeaveManagement('apply')}
                                         sx={{
                                             textTransform: 'none', fontSize: '12px', fontWeight: 700,
                                             bgcolor: PRIMARY, color: '#fff', borderRadius: '8px',
@@ -718,30 +806,82 @@ export default function LeaveAttendancePage() {
                                     </Button>
                                 </Box>
 
-                                {/* Approval row — admin only */}
-                                {(userType === "superadmin" || userType === "admin") && (
+                            </CardContent>
+                        </Card>
+
+                        {/* ─── Quick Navigation card ─── */}
+                        <Card sx={{ mt: 2, border: '1px solid #E5E7EB', borderRadius: '12px', boxShadow: 'none', bgcolor: '#fff' }}>
+                            <CardContent sx={{ pb: '12px !important' }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.2 }}>
                                     <Box sx={{
-                                        p: 1.2, borderRadius: '10px',
-                                        bgcolor: '#EFF6FF', border: '1px solid #BFDBFE',
+                                        width: 28, height: 28, borderRadius: '8px',
+                                        bgcolor: '#EEF2FF', border: '1px solid #C7D2FE',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
                                     }}>
-                                        <Typography sx={{ fontSize: '12px', fontWeight: 700, color: '#1D4ED8', mb: 0.2 }}>
-                                            Leave Requests
-                                        </Typography>
-                                        <Typography sx={{ fontSize: '10.5px', color: '#4B5563', mb: 1 }}>
-                                            View and approve pending leave requests.
-                                        </Typography>
-                                        <Button fullWidth variant="outlined"
-                                            onClick={() => setTabValue(5)}
-                                            sx={{
-                                                textTransform: 'none', fontSize: '12px', fontWeight: 700,
-                                                borderColor: '#BFDBFE', color: '#1D4ED8', borderRadius: '8px',
-                                                bgcolor: '#fff',
-                                                '&:hover': { borderColor: '#2563EB', bgcolor: '#EFF6FF' },
-                                            }}>
-                                            Go to Leave Approval
-                                        </Button>
+                                        <SpaceDashboardOutlinedIcon sx={{ color: '#4338CA', fontSize: 16 }} />
                                     </Box>
-                                )}
+                                    <Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>
+                                        Quick Navigation
+                                    </Typography>
+                                </Box>
+
+                                <Stack spacing={0.8}>
+                                    {[
+                                        { label: "Today's Attendance", desc: 'Logins of all staff today',  icon: TodayIcon,                  color: '#0891B2', bg: '#E0F7FA', border: '#A5F3FC', target: 2 },
+                                        { label: 'Overview',            desc: 'Monthly attendance trends', icon: VisibilityOutlinedIcon,    color: '#7C3AED', bg: '#F5F3FF', border: '#DDD6FE', target: 3 },
+                                        { label: 'Leave Management',    desc: 'View your leave history',   icon: ListAltOutlinedIcon,       color: '#059669', bg: '#ECFDF5', border: '#A7F3D0', target: 4, subView: 'applications' },
+                                        ...(userType === 'superadmin' || userType === 'admin' ? [
+                                            { label: 'Leave Approval',  desc: 'Approve pending requests',  icon: FactCheckOutlinedIcon,     color: '#2563EB', bg: '#EFF6FF', border: '#BFDBFE', target: 4, subView: 'approval' },
+                                        ] : []),
+                                        { label: 'Reports',             desc: 'Attendance & leave reports',icon: InsertChartOutlinedIcon,   color: '#DC2626', bg: '#FEF2F2', border: '#FECACA', target: 5 },
+                                    ].map((item) => {
+                                        const Icon = item.icon;
+                                        return (
+                                            <Box
+                                                key={item.label}
+                                                onClick={() => {
+                                                    if (item.subView) setLeaveSubView(item.subView);
+                                                    setTabValue(item.target);
+                                                }}
+                                                sx={{
+                                                    p: 1, borderRadius: '10px',
+                                                    border: '1px solid #E5E7EB',
+                                                    bgcolor: '#fff',
+                                                    display: 'flex', alignItems: 'center', gap: 1,
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.15s',
+                                                    '&:hover': {
+                                                        bgcolor: item.bg,
+                                                        borderColor: item.border,
+                                                        transform: 'translateX(2px)',
+                                                        '& .arrowIcon': { opacity: 1, transform: 'translateX(2px)' },
+                                                    },
+                                                }}
+                                            >
+                                                <Box sx={{
+                                                    width: 30, height: 30, borderRadius: '8px',
+                                                    bgcolor: item.bg, border: `1px solid ${item.border}`,
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    flexShrink: 0,
+                                                }}>
+                                                    <Icon sx={{ color: item.color, fontSize: 16 }} />
+                                                </Box>
+                                                <Box sx={{ flex: 1, minWidth: 0 }}>
+                                                    <Typography sx={{ fontSize: '12px', fontWeight: 700, color: '#111827', lineHeight: 1.1 }}>
+                                                        {item.label}
+                                                    </Typography>
+                                                    <Typography sx={{ fontSize: '10px', color: '#6B7280', mt: 0.2 }} noWrap>
+                                                        {item.desc}
+                                                    </Typography>
+                                                </Box>
+                                                <ArrowForwardIcon className="arrowIcon" sx={{
+                                                    fontSize: 14, color: item.color,
+                                                    opacity: 0, transition: 'all 0.2s',
+                                                }} />
+                                            </Box>
+                                        );
+                                    })}
+                                </Stack>
                             </CardContent>
                         </Card>
                     </Grid>
@@ -750,48 +890,554 @@ export default function LeaveAttendancePage() {
         );
     };
 
+    // ─── Today's Attendance (full-page view of all staff today) ───────────
+    const renderTodaysAttendance = () => {
+        const { todaysAttendance } = dashboardData;
+
+        // Helper: compute worked hours from HH:mm strings
+        const computeWorkedHours = (loginStr, logoutStr) => {
+            if (!loginStr || !logoutStr) return null;
+            const [lh, lm] = loginStr.split(':').map(Number);
+            const [oh, om] = logoutStr.split(':').map(Number);
+            if (Number.isNaN(lh) || Number.isNaN(oh)) return null;
+            let mins = (oh * 60 + om) - (lh * 60 + lm);
+            if (mins < 0) mins += 24 * 60;
+            const h = Math.floor(mins / 60);
+            const m = mins % 60;
+            return h > 0 ? `${h}h ${m}m` : `${m}m`;
+        };
+
+        // Filter
+        const q = todayAttSearch.trim().toLowerCase();
+        const filtered = todaysAttendance.filter((emp) => {
+            const roleLabel = mapRole(emp.role);
+            const statusLabel = mapStatus(emp.status, emp.attendance);
+            const matchesSearch = !q
+                || (emp.name || '').toLowerCase().includes(q)
+                || String(emp.rollNumber || '').toLowerCase().includes(q);
+            const matchesRole = todayAttRoleFilter === 'all' || roleLabel === todayAttRoleFilter;
+            const matchesStatus = todayAttStatusFilter === 'all' || statusLabel === todayAttStatusFilter;
+            return matchesSearch && matchesRole && matchesStatus;
+        });
+
+        // Stats over filtered set
+        const stats = {
+            total:   filtered.length,
+            present: filtered.filter(e => mapStatus(e.status, e.attendance) === 'Present').length,
+            late:    filtered.filter(e => mapStatus(e.status, e.attendance) === 'Late').length,
+            onLeave: filtered.filter(e => mapStatus(e.status, e.attendance) === 'On Leave').length,
+            absent:  filtered.filter(e => mapStatus(e.status, e.attendance) === 'Absent').length,
+        };
+
+        return (
+            <Box>
+                {/* Header strip */}
+                <Paper elevation={0} sx={{
+                    p: 1.8, mb: 2, borderRadius: '12px',
+                    border: `1px solid ${PRIMARY_BORDER}`,
+                    background: `linear-gradient(135deg, ${PRIMARY_LIGHT} 0%, #fff 60%)`,
+                }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5, flexWrap: 'wrap' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                            <Box sx={{
+                                width: 42, height: 42, borderRadius: '10px',
+                                bgcolor: '#fff', border: `1px solid ${PRIMARY_BORDER}`,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}>
+                                <TodayIcon sx={{ color: PRIMARY, fontSize: 22 }} />
+                            </Box>
+                            <Box>
+                                <Typography sx={{ fontSize: '16px', fontWeight: 800, color: '#111827', lineHeight: 1.1 }}>
+                                    Today's Staff Attendance
+                                </Typography>
+                                <Typography sx={{ fontSize: '11px', color: '#4B5563', mt: 0.2 }}>
+                                    {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
+                                    {' · '}
+                                    Login times for each staff member
+                                </Typography>
+                            </Box>
+                        </Box>
+                        <Button
+                            size="small"
+                            startIcon={<DownloadIcon sx={{ fontSize: 16 }} />}
+                            sx={{
+                                textTransform: 'none', fontSize: '12px', fontWeight: 700,
+                                color: PRIMARY_DARK, bgcolor: '#fff',
+                                border: `1px solid ${PRIMARY_BORDER}`, borderRadius: '8px',
+                                px: 1.5, height: 32,
+                                '&:hover': { bgcolor: PRIMARY_LIGHT, borderColor: PRIMARY },
+                            }}
+                        >
+                            Export
+                        </Button>
+                    </Box>
+
+                    {/* Summary chips */}
+                    <Box sx={{ display: 'flex', gap: 0.8, mt: 1.5, flexWrap: 'wrap' }}>
+                        {[
+                            { label: 'Total',    value: stats.total,    color: '#374151', bg: '#F3F4F6', border: '#E5E7EB' },
+                            { label: 'Present',  value: stats.present,  color: '#047857', bg: '#ECFDF5', border: '#A7F3D0' },
+                            { label: 'Late',     value: stats.late,     color: '#B45309', bg: '#FFFBEB', border: '#FDE68A' },
+                            { label: 'On Leave', value: stats.onLeave,  color: '#1D4ED8', bg: '#EFF6FF', border: '#BFDBFE' },
+                            { label: 'Absent',   value: stats.absent,   color: '#B91C1C', bg: '#FEF2F2', border: '#FECACA' },
+                        ].map(s => (
+                            <Chip
+                                key={s.label}
+                                label={
+                                    <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.6 }}>
+                                        <Typography sx={{ fontSize: '10px', color: s.color, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4 }}>{s.label}</Typography>
+                                        <Typography sx={{ fontSize: '13px', color: s.color, fontWeight: 800 }}>{s.value}</Typography>
+                                    </Box>
+                                }
+                                sx={{
+                                    bgcolor: s.bg, border: `1px solid ${s.border}`,
+                                    height: 26, px: 0.6, borderRadius: '8px',
+                                    '& .MuiChip-label': { px: 0.6 },
+                                }}
+                            />
+                        ))}
+                    </Box>
+                </Paper>
+
+                {/* Filters toolbar — search + dropdowns + active filter indicators */}
+                {(() => {
+                    // Per-role / per-status counts (computed over unfiltered set so dropdowns are honest)
+                    const roleCounts = todaysAttendance.reduce((acc, e) => {
+                        const r = mapRole(e.role); acc[r] = (acc[r] || 0) + 1; return acc;
+                    }, {});
+                    const statusCounts = todaysAttendance.reduce((acc, e) => {
+                        const s = mapStatus(e.status, e.attendance); acc[s] = (acc[s] || 0) + 1; return acc;
+                    }, {});
+
+                    const roleItems = [
+                        { key: 'all',                  label: 'All Roles',          color: '#6B7280' },
+                        { key: 'Teaching Staff',       label: 'Teaching Staff',     color: '#6D28D9' },
+                        { key: 'Non Teaching Staff',   label: 'Non Teaching Staff', color: '#0E7490' },
+                        { key: 'Supporting Staff',     label: 'Supporting Staff',   color: '#C2410C' },
+                    ];
+                    const statusItems = [
+                        { key: 'all',       label: 'All Status', color: '#6B7280' },
+                        { key: 'Present',   label: 'Present',    color: STATUS_STYLE.Present.color },
+                        { key: 'Late',      label: 'Late',       color: STATUS_STYLE.Late.color },
+                        { key: 'On Leave',  label: 'On Leave',   color: STATUS_STYLE['On Leave'].color },
+                        { key: 'Absent',    label: 'Absent',     color: STATUS_STYLE.Absent.color },
+                    ];
+
+                    const roleActive = todayAttRoleFilter !== 'all';
+                    const statusActive = todayAttStatusFilter !== 'all';
+                    const searchActive = todayAttSearch.trim().length > 0;
+                    const anyActive = roleActive || statusActive || searchActive;
+
+                    const activeRoleColor = roleItems.find(r => r.key === todayAttRoleFilter)?.color || '#6B7280';
+                    const activeStatusColor = statusItems.find(s => s.key === todayAttStatusFilter)?.color || '#6B7280';
+
+                    const filterButtonSx = (isActive, accent) => ({
+                        textTransform: 'none', fontSize: '12.5px', fontWeight: 600,
+                        height: 34, borderRadius: '8px', px: 1.5, gap: 0.4,
+                        color: isActive ? '#fff' : '#374151',
+                        bgcolor: isActive ? accent : '#fff',
+                        border: `1px solid ${isActive ? accent : '#E5E7EB'}`,
+                        boxShadow: isActive ? `0 1px 3px ${accent}33` : 'none',
+                        '&:hover': {
+                            bgcolor: isActive ? accent : '#F9FAFB',
+                            borderColor: isActive ? accent : '#D1D5DB',
+                            filter: isActive ? 'brightness(0.95)' : 'none',
+                        },
+                    });
+
+                    const renderFilterMenu = (anchor, setAnchor, items, currentKey, onPick, getCount, totalCount) => (
+                        <Menu
+                            anchorEl={anchor}
+                            open={Boolean(anchor)}
+                            onClose={() => setAnchor(null)}
+                            slotProps={{
+                                paper: {
+                                    sx: {
+                                        mt: 0.6, borderRadius: '10px',
+                                        border: '1px solid #E5E7EB',
+                                        boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
+                                        minWidth: 220,
+                                    },
+                                },
+                            }}
+                        >
+                            {items.map((opt) => {
+                                const isActive = currentKey === opt.key;
+                                const count = opt.key === 'all' ? totalCount : (getCount[opt.key] || 0);
+                                return (
+                                    <MenuItem
+                                        key={opt.key}
+                                        onClick={() => { onPick(opt.key); setAnchor(null); }}
+                                        sx={{
+                                            py: 0.8, px: 1.2, gap: 1,
+                                            bgcolor: isActive ? `${opt.color}10` : 'transparent',
+                                            '&:hover': { bgcolor: `${opt.color}15` },
+                                        }}
+                                    >
+                                        <CircleIcon sx={{ fontSize: 9, color: opt.color, flexShrink: 0 }} />
+                                        <Typography sx={{
+                                            fontSize: '13px', fontWeight: isActive ? 700 : 500,
+                                            color: isActive ? opt.color : '#374151', flex: 1,
+                                        }}>
+                                            {opt.label}
+                                        </Typography>
+                                        <Box sx={{
+                                            px: 0.7, py: 0.1, borderRadius: '6px',
+                                            bgcolor: isActive ? '#fff' : '#F3F4F6',
+                                            border: `1px solid ${isActive ? `${opt.color}30` : '#E5E7EB'}`,
+                                        }}>
+                                            <Typography sx={{ fontSize: '10.5px', fontWeight: 700, color: isActive ? opt.color : '#6B7280' }}>
+                                                {count}
+                                            </Typography>
+                                        </Box>
+                                        {isActive && <CheckIcon sx={{ fontSize: 15, color: opt.color, ml: 0.4 }} />}
+                                    </MenuItem>
+                                );
+                            })}
+                        </Menu>
+                    );
+
+                    return (
+                        <Card sx={{ border: '1px solid #E5E7EB', borderRadius: '12px', boxShadow: 'none', bgcolor: '#fff', mb: 2 }}>
+                            <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
+                                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+                                    {/* Search */}
+                                    <TextField
+                                        size="small"
+                                        placeholder="Search by name or roll no..."
+                                        value={todayAttSearch}
+                                        onChange={(e) => setTodayAttSearch(e.target.value)}
+                                        slotProps={{
+                                            input: {
+                                                startAdornment: (
+                                                    <InputAdornment position="start">
+                                                        <SearchIcon sx={{ fontSize: 16, color: searchActive ? PRIMARY : '#9CA3AF' }} />
+                                                    </InputAdornment>
+                                                ),
+                                                endAdornment: searchActive ? (
+                                                    <InputAdornment position="end">
+                                                        <IconButton size="small" onClick={() => setTodayAttSearch('')} sx={{ p: 0.3 }}>
+                                                            <CloseIcon sx={{ fontSize: 14, color: '#9CA3AF' }} />
+                                                        </IconButton>
+                                                    </InputAdornment>
+                                                ) : null,
+                                            },
+                                        }}
+                                        sx={{
+                                            flex: 1, minWidth: 220, maxWidth: 320,
+                                            '& .MuiOutlinedInput-root': {
+                                                height: 34, fontSize: '12.5px', borderRadius: '8px',
+                                                bgcolor: searchActive ? PRIMARY_LIGHT : '#F9FAFB',
+                                                '& fieldset': { borderColor: searchActive ? PRIMARY_BORDER : '#E5E7EB' },
+                                                '&:hover fieldset': { borderColor: '#D1D5DB' },
+                                                '&.Mui-focused fieldset': { borderColor: PRIMARY },
+                                            },
+                                        }}
+                                    />
+
+                                    {/* Vertical divider */}
+                                    <Box sx={{ width: '1px', height: 24, bgcolor: '#E5E7EB' }} />
+
+                                    {/* Role filter button */}
+                                    <Button
+                                        onClick={(e) => setTodayRoleMenuAnchor(e.currentTarget)}
+                                        startIcon={<PeopleAltOutlinedIcon sx={{ fontSize: 16 }} />}
+                                        endIcon={<KeyboardArrowDownIcon sx={{ fontSize: 16 }} />}
+                                        sx={filterButtonSx(roleActive, activeRoleColor)}
+                                    >
+                                        {roleActive ? todayAttRoleFilter : 'Role'}
+                                    </Button>
+                                    {renderFilterMenu(
+                                        todayRoleMenuAnchor, setTodayRoleMenuAnchor,
+                                        roleItems, todayAttRoleFilter, setTodayAttRoleFilter,
+                                        roleCounts, todaysAttendance.length,
+                                    )}
+
+                                    {/* Status filter button */}
+                                    <Button
+                                        onClick={(e) => setTodayStatusMenuAnchor(e.currentTarget)}
+                                        startIcon={<CircleIcon sx={{ fontSize: 10, color: statusActive ? '#fff' : activeStatusColor }} />}
+                                        endIcon={<KeyboardArrowDownIcon sx={{ fontSize: 16 }} />}
+                                        sx={filterButtonSx(statusActive, activeStatusColor)}
+                                    >
+                                        {statusActive ? todayAttStatusFilter : 'Status'}
+                                    </Button>
+                                    {renderFilterMenu(
+                                        todayStatusMenuAnchor, setTodayStatusMenuAnchor,
+                                        statusItems, todayAttStatusFilter, setTodayAttStatusFilter,
+                                        statusCounts, todaysAttendance.length,
+                                    )}
+
+                                    {/* Clear filters — only when something is active */}
+                                    {anyActive && (
+                                        <Button
+                                            size="small"
+                                            startIcon={<RestartAltIcon sx={{ fontSize: 15 }} />}
+                                            onClick={clearTodayFilters}
+                                            sx={{
+                                                textTransform: 'none', fontSize: '12px', fontWeight: 600,
+                                                height: 34, borderRadius: '8px', px: 1.2,
+                                                color: '#DC2626',
+                                                '&:hover': { bgcolor: '#FEF2F2' },
+                                            }}
+                                        >
+                                            Clear
+                                        </Button>
+                                    )}
+
+                                    {/* Result count — pushed to the right */}
+                                    <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.6 }}>
+                                        <Typography sx={{ fontSize: '11.5px', color: '#6B7280' }}>
+                                            Showing
+                                        </Typography>
+                                        <Typography sx={{ fontSize: '13px', fontWeight: 800, color: anyActive ? PRIMARY_DARK : '#111827' }}>
+                                            {filtered.length}
+                                        </Typography>
+                                        <Typography sx={{ fontSize: '11.5px', color: '#6B7280' }}>
+                                            of {todaysAttendance.length} records
+                                        </Typography>
+                                    </Box>
+                                </Box>
+
+                                {/* Active filter pills row — only when active */}
+                                {anyActive && (
+                                    <Box sx={{
+                                        mt: 1.2, pt: 1.2, borderTop: '1px dashed #E5E7EB',
+                                        display: 'flex', alignItems: 'center', gap: 0.7, flexWrap: 'wrap',
+                                    }}>
+                                        <Typography sx={{ fontSize: '10.5px', color: '#9CA3AF', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                            Active filters:
+                                        </Typography>
+                                        {searchActive && (
+                                            <Chip
+                                                size="small"
+                                                icon={<SearchIcon sx={{ fontSize: '12px !important' }} />}
+                                                label={`"${todayAttSearch}"`}
+                                                onDelete={() => setTodayAttSearch('')}
+                                                deleteIcon={<CloseIcon sx={{ fontSize: '13px !important' }} />}
+                                                sx={{
+                                                    height: 22, fontSize: '11px', fontWeight: 600,
+                                                    bgcolor: PRIMARY_LIGHT, color: PRIMARY_DARK,
+                                                    border: `1px solid ${PRIMARY_BORDER}`,
+                                                    '& .MuiChip-icon': { color: 'inherit', ml: '6px' },
+                                                    '& .MuiChip-deleteIcon': { color: 'inherit', '&:hover': { color: PRIMARY_DARK } },
+                                                }}
+                                            />
+                                        )}
+                                        {roleActive && (
+                                            <Chip
+                                                size="small"
+                                                icon={<PeopleAltOutlinedIcon sx={{ fontSize: '12px !important' }} />}
+                                                label={`Role: ${todayAttRoleFilter}`}
+                                                onDelete={() => setTodayAttRoleFilter('all')}
+                                                deleteIcon={<CloseIcon sx={{ fontSize: '13px !important' }} />}
+                                                sx={{
+                                                    height: 22, fontSize: '11px', fontWeight: 600,
+                                                    bgcolor: `${activeRoleColor}15`, color: activeRoleColor,
+                                                    border: `1px solid ${activeRoleColor}40`,
+                                                    '& .MuiChip-icon': { color: 'inherit', ml: '6px' },
+                                                    '& .MuiChip-deleteIcon': { color: 'inherit' },
+                                                }}
+                                            />
+                                        )}
+                                        {statusActive && (
+                                            <Chip
+                                                size="small"
+                                                icon={<CircleIcon sx={{ fontSize: '9px !important' }} />}
+                                                label={`Status: ${todayAttStatusFilter}`}
+                                                onDelete={() => setTodayAttStatusFilter('all')}
+                                                deleteIcon={<CloseIcon sx={{ fontSize: '13px !important' }} />}
+                                                sx={{
+                                                    height: 22, fontSize: '11px', fontWeight: 600,
+                                                    bgcolor: `${activeStatusColor}15`, color: activeStatusColor,
+                                                    border: `1px solid ${activeStatusColor}40`,
+                                                    '& .MuiChip-icon': { color: 'inherit', ml: '6px' },
+                                                    '& .MuiChip-deleteIcon': { color: 'inherit' },
+                                                }}
+                                            />
+                                        )}
+                                    </Box>
+                                )}
+                            </CardContent>
+                        </Card>
+                    );
+                })()}
+
+                {/* Table */}
+                <Card sx={{ border: '1px solid #E5E7EB', borderRadius: '12px', boxShadow: 'none', bgcolor: '#fff' }}>
+                    <CardContent sx={{ pb: '12px !important' }}>
+                        {isLoading ? (
+                            <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+                                <CircularProgress size={32} sx={{ color: PRIMARY }} />
+                            </Box>
+                        ) : filtered.length === 0 ? (
+                            <Box sx={{ py: 6, textAlign: 'center' }}>
+                                <Typography sx={{ fontSize: '13px', color: '#9CA3AF', fontWeight: 600 }}>
+                                    No attendance records match your filters.
+                                </Typography>
+                                <Typography sx={{ fontSize: '11px', color: '#9CA3AF', mt: 0.5 }}>
+                                    Try changing or clearing your filters above.
+                                </Typography>
+                            </Box>
+                        ) : (
+                            <TableContainer sx={{ borderRadius: '10px', overflow: 'hidden', border: '1px solid #E5E7EB' }}>
+                                <Table size="small">
+                                    <TableHead>
+                                        <TableRow sx={{ bgcolor: PRIMARY_LIGHT, borderBottom: `1px solid ${PRIMARY_BORDER}` }}>
+                                            {['S.No', 'Staff Member', 'Role', 'Source', 'Login Time', 'Logout Time', 'Hours', 'Status'].map(h => (
+                                                <TableCell key={h} sx={{
+                                                    fontWeight: 700, fontSize: '10px', color: PRIMARY_DARK,
+                                                    textTransform: 'uppercase', whiteSpace: 'nowrap',
+                                                    letterSpacing: 0.6, py: 1.3, borderBottom: 'none',
+                                                }}>{h}</TableCell>
+                                            ))}
+                                        </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                        {filtered.map((emp, idx) => {
+                                            const roleLabel = mapRole(emp.role);
+                                            const statusLabel = mapStatus(emp.status, emp.attendance);
+                                            const roleConf = ROLE_CONFIG[roleLabel] || { color: '#6B7280', bg: '#F3F4F6', border: '#E5E7EB' };
+                                            const statConf = STATUS_STYLE[statusLabel] || STATUS_STYLE.Absent;
+                                            const isBiometric = (emp.source || '').toLowerCase() === 'biometric';
+                                            const showTime = statusLabel === 'Present' || statusLabel === 'Late';
+                                            const worked = showTime ? computeWorkedHours(emp.loginTime, emp.logoutTime) : null;
+                                            const avColor = avatarColorFor(emp.name || '');
+
+                                            return (
+                                                <TableRow key={emp.rollNumber || idx} sx={{
+                                                    '&:hover': { bgcolor: PRIMARY_LIGHT },
+                                                    borderBottom: '1px solid #F3F4F6',
+                                                    transition: 'background-color 0.15s',
+                                                }}>
+                                                    <TableCell sx={{ width: 50, borderBottom: '1px solid #F3F4F6' }}>
+                                                        <Typography sx={{ fontSize: '12px', color: '#9CA3AF', fontWeight: 500 }}>{idx + 1}</Typography>
+                                                    </TableCell>
+                                                    <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
+                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
+                                                            <Avatar sx={{
+                                                                width: 34, height: 34,
+                                                                bgcolor: `${avColor}15`, color: avColor,
+                                                                fontSize: '11px', fontWeight: 700,
+                                                                border: `1px solid ${avColor}33`,
+                                                            }}>
+                                                                {getInitials(emp.name)}
+                                                            </Avatar>
+                                                            <Box>
+                                                                <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>{emp.name}</Typography>
+                                                                <Typography sx={{ fontSize: '10px', color: '#9CA3AF', fontWeight: 500, fontFamily: 'monospace' }}>
+                                                                    {emp.rollNumber}
+                                                                </Typography>
+                                                            </Box>
+                                                        </Box>
+                                                    </TableCell>
+                                                    <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
+                                                        <Chip label={roleLabel} size="small"
+                                                            sx={{
+                                                                bgcolor: roleConf.bg, color: roleConf.color,
+                                                                border: `1px solid ${roleConf.border}`,
+                                                                fontWeight: 600, fontSize: '10px', height: 22,
+                                                            }} />
+                                                    </TableCell>
+                                                    <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
+                                                        <Tooltip title={isBiometric ? `Biometric · ${VERIFY_MODE_LABEL(emp.verifyMode || '')}` : 'Manual Entry'} arrow>
+                                                            <Chip
+                                                                size="small"
+                                                                icon={isBiometric ? VERIFY_MODE_ICON(emp.verifyMode || '') : <EditNoteIcon sx={{ fontSize: 14 }} />}
+                                                                label={isBiometric ? 'Biometric' : 'Manual'}
+                                                                sx={{
+                                                                    height: 22, fontSize: '10px', fontWeight: 600,
+                                                                    bgcolor: isBiometric ? '#EEF2FF' : '#F9FAFB',
+                                                                    color: isBiometric ? '#4338CA' : '#4B5563',
+                                                                    border: `1px solid ${isBiometric ? '#C7D2FE' : '#E5E7EB'}`,
+                                                                    '& .MuiChip-icon': { color: 'inherit', ml: '6px' },
+                                                                }}
+                                                            />
+                                                        </Tooltip>
+                                                    </TableCell>
+                                                    <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
+                                                        {showTime && emp.loginTime ? (
+                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
+                                                                <AccessTimeIcon sx={{ fontSize: 13, color: '#059669' }} />
+                                                                <Typography sx={{ fontSize: '12px', fontWeight: 700, color: '#111827', fontFamily: 'monospace' }}>
+                                                                    {emp.loginTime}
+                                                                </Typography>
+                                                            </Box>
+                                                        ) : <Typography sx={{ fontSize: '12px', color: '#D1D5DB' }}>—</Typography>}
+                                                    </TableCell>
+                                                    <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
+                                                        {showTime && emp.logoutTime ? (
+                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
+                                                                <AccessTimeIcon sx={{ fontSize: 13, color: '#DC2626' }} />
+                                                                <Typography sx={{ fontSize: '12px', fontWeight: 700, color: '#111827', fontFamily: 'monospace' }}>
+                                                                    {emp.logoutTime}
+                                                                </Typography>
+                                                            </Box>
+                                                        ) : showTime ? (
+                                                            <Chip label="Active" size="small"
+                                                                sx={{
+                                                                    height: 20, fontSize: '10px', fontWeight: 700,
+                                                                    bgcolor: '#ECFDF5', color: '#047857',
+                                                                    border: '1px solid #A7F3D0',
+                                                                }}
+                                                            />
+                                                        ) : (
+                                                            <Typography sx={{ fontSize: '12px', color: '#D1D5DB' }}>—</Typography>
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
+                                                        {worked ? (
+                                                            <Typography sx={{ fontSize: '12px', fontWeight: 700, color: '#4338CA', fontFamily: 'monospace' }}>
+                                                                {worked}
+                                                            </Typography>
+                                                        ) : (
+                                                            <Typography sx={{ fontSize: '12px', color: '#D1D5DB' }}>—</Typography>
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
+                                                        <Chip label={statusLabel} size="small"
+                                                            sx={{
+                                                                bgcolor: statConf.bg, color: statConf.color,
+                                                                fontWeight: 700, fontSize: '10px', height: 22,
+                                                                border: `1px solid ${statConf.border}`,
+                                                            }} />
+                                                    </TableCell>
+                                                </TableRow>
+                                            );
+                                        })}
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+                        )}
+                    </CardContent>
+                </Card>
+            </Box>
+        );
+    };
+
     const renderTabContent = () => {
         if (userType === "teacher") {
-            // Teachers see only Leave Management + Apply Leave (single embedded view)
+            // Teachers see Leave Management (with Apply Leave sub-tab inside)
             return <LeaveManagementPage
                 isEmbedded={true}
-                onGoToApplyLeave={() => setTabValue(4)}
+                initialSubView={leaveSubView}
+                onSubViewChange={setLeaveSubView}
             />;
         }
 
-        if (userType === "staff") {
-            switch (tabValue) {
-                case 0: return renderDashboard();
-                case 1: return <AddStaffAttendancePage />;
-                case 2: return <StaffAttendanceOverviewPage isEmbedded={true} />;
-                case 3: return <LeaveManagementPage
-                    isEmbedded={true}
-                    onGoToApplyLeave={() => setTabValue(4)}
-                />;
-                case 4: return <ApplyLeavePage
-                    onSuccess={() => setTabValue(3)}
-                    onCancel={() => setTabValue(3)}
-                />;
-                case 5: return <AttendanceReportsPage isEmbedded={true} />;
-                default: return renderDashboard();
-            }
-        }
-
+        // Staff and admin now share the same tab layout —
+        // Apply Leave and Leave Approval are rendered inside Leave Management.
         switch (tabValue) {
             case 0: return renderDashboard();
             case 1: return <AddStaffAttendancePage />;
-            case 2: return <StaffAttendanceOverviewPage isEmbedded={true} />;
-            case 3: return <LeaveManagementPage
+            case 2: return renderTodaysAttendance();
+            case 3: return <StaffAttendanceOverviewPage isEmbedded={true} />;
+            case 4: return <LeaveManagementPage
                 isEmbedded={true}
-                onGoToApprovalWorkflow={() => setTabValue(5)}
-                onGoToApplyLeave={() => setTabValue(4)}
+                initialSubView={leaveSubView}
+                onSubViewChange={setLeaveSubView}
             />;
-            case 4: return <ApplyLeavePage
-                onSuccess={() => setTabValue(3)}
-                onCancel={() => setTabValue(3)}
-            />;
-            case 5: return <ApprovalWorkflowPage isEmbedded={true} />;
-            case 6: return <AttendanceReportsPage isEmbedded={true} />;
+            case 5: return <AttendanceReportsPage isEmbedded={true} />;
             default: return renderDashboard();
         }
     };
@@ -1003,10 +1649,9 @@ export default function LeaveAttendancePage() {
                             >
                                 <Tab icon={<SpaceDashboardOutlinedIcon />} iconPosition="start" label="Dashboard" />
                                 <Tab icon={<HowToRegOutlinedIcon />} iconPosition="start" label="Add Attendance" />
+                                <Tab icon={<TodayIcon />} iconPosition="start" label="Today's Attendance" />
                                 <Tab icon={<VisibilityOutlinedIcon />} iconPosition="start" label="Overview" />
                                 <Tab icon={<ListAltOutlinedIcon />} iconPosition="start" label="Leave Management" />
-                                <Tab icon={<EventNoteOutlinedIcon />} iconPosition="start" label="Apply Leave" />
-                                {userType !== "staff" && <Tab icon={<FactCheckOutlinedIcon />} iconPosition="start" label="Leave Approval" />}
                                 <Tab icon={<InsertChartOutlinedIcon />} iconPosition="start" label="Reports" />
                             </Tabs>
                         </Box>

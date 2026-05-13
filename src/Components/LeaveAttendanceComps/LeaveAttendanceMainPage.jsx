@@ -29,6 +29,16 @@ import AddStaffAttendancePage from './AddStaffAttendancePage';
 // Module cards configuration
 const moduleCards = [
     {
+        color: "#059669",
+        icon: PolicyIcon,
+        text: "Leave Policy Master",
+        description: "Configure leave types, attendance bonus & deduction rules",
+        bgColor: "#ECFDF5",
+        iconBgColor: "#0596691A",
+        moduleIndex: 2,
+        disabled: false,
+    },
+    {
         color: "#F97316",
         icon: EventNoteIcon,
         text: "Leave & Attendance",
@@ -48,16 +58,7 @@ const moduleCards = [
         moduleIndex: 1,
         disabled: false,
     },
-    {
-        color: "#059669",
-        icon: PolicyIcon,
-        text: "Leave Policy Master",
-        description: "Configure leave types, attendance bonus & deduction rules",
-        bgColor: "#ECFDF5",
-        iconBgColor: "#0596691A",
-        moduleIndex: 2,
-        disabled: false,
-    },
+    
 ];
 
 export default function LeaveAttendanceMainPage() {
@@ -198,7 +199,7 @@ export default function LeaveAttendanceMainPage() {
                                             boxShadow: "0 2px 6px rgba(0, 0, 0, 0.08)",
                                             border: "1px solid rgba(0, 0, 0, 0.06)",
                                             width: "100%",
-                                            minHeight: "115px",
+                                            minHeight: "105px",
                                             borderRadius: "8px",
                                             cursor: item.disabled ? "not-allowed" : "pointer",
                                             opacity: item.disabled ? 0.6 : 1,
@@ -253,11 +254,7 @@ export default function LeaveAttendanceMainPage() {
                                                 <Typography sx={{ fontWeight: 700, fontSize: 15, color: "#1a1a1a", lineHeight: 1.3 }}>
                                                     {item.text}
                                                 </Typography>
-                                                {item.description && (
-                                                    <Typography sx={{ fontSize: 11.5, color: "#666", lineHeight: 1.5, mt: 0.5 }}>
-                                                        {item.description}
-                                                    </Typography>
-                                                )}
+                                            
                                             </Box>
                                             <ArrowForwardIcon className="arrowIcon" sx={{
                                                 opacity: 0,

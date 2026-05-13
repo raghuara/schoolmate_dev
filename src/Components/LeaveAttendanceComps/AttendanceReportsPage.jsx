@@ -1,25 +1,29 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     Box, Card, CardContent, Grid, Typography, IconButton, Button,
-    Chip, Divider, Select, MenuItem, TextField, Table, TableBody,
-    TableCell, TableContainer, TableHead, TableRow,
+    Chip, TextField, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
     Dialog, DialogTitle, DialogContent, DialogActions,
-    FormControl, InputLabel, LinearProgress, CircularProgress,
+    LinearProgress, CircularProgress, Avatar, Menu, MenuItem,
+    InputAdornment, Tooltip,
 } from '@mui/material';
-import Tooltip from '@mui/material/Tooltip';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
-
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import EventBusyIcon from '@mui/icons-material/EventBusy';
-import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import CloseIcon from '@mui/icons-material/Close';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import PersonIcon from '@mui/icons-material/Person';
-import FilterListIcon from '@mui/icons-material/FilterList';
 import SearchIcon from '@mui/icons-material/Search';
+import PeopleAltOutlinedIcon from '@mui/icons-material/PeopleAltOutlined';
+import CircleIcon from '@mui/icons-material/Circle';
+import CheckIcon from '@mui/icons-material/Check';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import RestartAltIcon from '@mui/icons-material/RestartAlt';
+import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
+import InsertChartOutlinedIcon from '@mui/icons-material/InsertChartOutlined';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import axios from 'axios';
@@ -28,30 +32,36 @@ import SnackBar from '../SnackBar';
 
 const token = "123";
 
-const STATUS_CONFIG = {
-    Present: { bg: '#DCFCE7', color: '#16A34A', dot: '#16A34A', Icon: CheckCircleIcon },
-    Late:    { bg: '#FEF3C7', color: '#D97706', dot: '#D97706', Icon: AccessTimeIcon  },
-    Absent:  { bg: '#FEE2E2', color: '#DC2626', dot: '#DC2626', Icon: CancelIcon      },
-    Leave:   { bg: '#EDE9FE', color: '#7C3AED', dot: '#7C3AED', Icon: EventBusyIcon   },
+// ─── Theme (matches other Leave & Attendance tabs) ─────────────────────────
+const PRIMARY = '#059669';
+const PRIMARY_LIGHT = '#ECFDF5';
+const PRIMARY_DARK = '#047857';
+const PRIMARY_BORDER = '#A7F3D0';
+
+// ─── Status / category config ──────────────────────────────────────────────
+const STATUS_STYLE = {
+    Present: { color: '#047857', bg: '#ECFDF5', border: '#A7F3D0', icon: CheckCircleIcon },
+    Late:    { color: '#B45309', bg: '#FFFBEB', border: '#FDE68A', icon: AccessTimeIcon  },
+    Absent:  { color: '#B91C1C', bg: '#FEF2F2', border: '#FECACA', icon: CancelIcon      },
+    Leave:   { color: '#5B21B6', bg: '#F5F3FF', border: '#DDD6FE', icon: EventBusyIcon   },
 };
 
-const CATEGORY_CONFIG = {
-    'Teaching Staff':     { bg: '#DCFCE7', color: '#16A34A' },
-    'Non Teaching Staff': { bg: '#DBEAFE', color: '#2563EB' },
-    'Supporting Staff':   { bg: '#FFF7ED', color: '#EA580C' },
+const CATEGORY_STYLE = {
+    'Teaching Staff':     { color: '#6D28D9', bg: '#F5F3FF', border: '#DDD6FE' },
+    'Non Teaching Staff': { color: '#0E7490', bg: '#ECFEFF', border: '#A5F3FC' },
+    'Supporting Staff':   { color: '#C2410C', bg: '#FFF7ED', border: '#FED7AA' },
 };
 
-// "YYYY-MM-DD" (input value) → "DD-MM-YYYY" (API)
+// ─── Helpers ───────────────────────────────────────────────────────────────
+const pad = (n) => String(n).padStart(2, '0');
+const isoFromDate = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const getTodayInput = () => isoFromDate(new Date());
 const inputToApi = (str) => {
     if (!str) return '';
     const [y, m, d] = str.split('-');
     return `${d}-${m}-${y}`;
 };
 
-// Today as "YYYY-MM-DD" for input
-const getTodayInput = () => new Date().toISOString().split('T')[0];
-
-// Map API category value → display label
 const mapCategory = (cat = '') => {
     const c = cat.toLowerCase();
     if (c === 'teaching')    return 'Teaching Staff';
@@ -60,7 +70,6 @@ const mapCategory = (cat = '') => {
     return cat;
 };
 
-// Map display label → API category value
 const mapCategoryToApi = (display) => {
     if (display === 'Teaching Staff')     return 'teaching';
     if (display === 'Non Teaching Staff') return 'nonteaching';
@@ -68,57 +77,88 @@ const mapCategoryToApi = (display) => {
     return '';
 };
 
-// Normalize any status value (case-insensitive) → STATUS_CONFIG key, or '' for not marked
 const normalizeStatus = (status = '') => {
-    const s = status.toLowerCase().trim();
+    const s = String(status).toLowerCase().trim();
     if (s === 'present') return 'Present';
     if (s === 'late') return 'Late';
     if (s === 'absent') return 'Absent';
     if (s === 'leave' || s === 'on leave' || s === 'onleave') return 'Leave';
-    return ''; // empty / unrecognized → not marked yet
+    return '';
 };
 
-const BORDER  = '1px solid #F0D0D8';
-const HEAD_BG = '#FDE8EC';
-
-const headCell = {
-    border: BORDER, fontWeight: '700', fontSize: '12px', color: '#9B2335',
-    textAlign: 'center', py: 1.5, px: 1.5, whiteSpace: 'nowrap', bgcolor: HEAD_BG,
+// Avatar color
+const AVATAR_PALETTE = ['#0E7490', '#6D28D9', '#C2410C', '#047857', '#1D4ED8', '#BE185D', '#A16207', '#0F766E'];
+const avatarColorFor = (name = '') => {
+    const code = (name.charCodeAt(0) || 0) + (name.charCodeAt(1) || 0);
+    return AVATAR_PALETTE[code % AVATAR_PALETTE.length];
 };
-const bodyCell = {
-    border: BORDER, fontSize: '13px', color: '#1a1a1a',
-    textAlign: 'center', py: 1.4, px: 1.5,
+
+const getInitials = (name = '') =>
+    name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+
+// ─── Date presets (improvement) ────────────────────────────────────────────
+const buildPresets = () => {
+    const today = new Date();
+    const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const todayIso = isoFromDate(today);
+
+    const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+
+    const sevenAgo = new Date(today); sevenAgo.setDate(today.getDate() - 6);
+
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    const monthEnd   = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+    const thirtyAgo = new Date(today); thirtyAgo.setDate(today.getDate() - 29);
+
+    const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    const lastMonthEnd   = new Date(today.getFullYear(), today.getMonth(), 0);
+
+    return [
+        { key: 'today',     label: 'Today',          from: todayIso,                       to: todayIso },
+        { key: 'yesterday', label: 'Yesterday',      from: isoFromDate(yesterday),         to: isoFromDate(yesterday) },
+        { key: 'last7',     label: 'Last 7 Days',    from: isoFromDate(sevenAgo),          to: todayIso },
+        { key: 'thisMonth', label: 'This Month',     from: isoFromDate(monthStart),        to: isoFromDate(monthEnd) },
+        { key: 'last30',    label: 'Last 30 Days',   from: isoFromDate(thirtyAgo),         to: todayIso },
+        { key: 'lastMonth', label: 'Last Month',     from: isoFromDate(lastMonthStart),    to: isoFromDate(lastMonthEnd) },
+    ];
 };
 
 export default function AttendanceReportsPage({ isEmbedded = false }) {
     const navigate = useNavigate();
 
-    // Filters
-    const [todayActive,    setTodayActive]    = useState(false);
-    const [fromDate,       setFromDate]       = useState(getTodayInput());
-    const [toDate,         setToDate]         = useState(getTodayInput());
-    const [categoryFilter, setCategoryFilter] = useState('All');
-    const [statusFilter,   setStatusFilter]   = useState('All');
-    const [staffSearch,    setStaffSearch]    = useState('');
+    // ── Filters ────────────────────────────────────────────────────────────
+    const [fromDate, setFromDate] = useState(getTodayInput);
+    const [toDate, setToDate]     = useState(getTodayInput);
+    const [activePreset, setActivePreset] = useState('today');
+    const [categoryFilter, setCategoryFilter] = useState('all');
+    const [statusFilter, setStatusFilter]     = useState('all');
+    const [staffSearch, setStaffSearch]       = useState('');
 
-    // API data
-    const [cards,     setCards]     = useState({ totalStaff: 0, presentDays: 0, lateArrivals: 0, absentDays: 0, leaveDays: 0 });
-    const [summary,   setSummary]   = useState([]);
+    // Menu anchors
+    const [categoryAnchor, setCategoryAnchor] = useState(null);
+    const [statusAnchor, setStatusAnchor]     = useState(null);
+
+    // ── API data ───────────────────────────────────────────────────────────
+    const [cards, setCards] = useState({ totalStaff: 0, presentDays: 0, lateArrivals: 0, absentDays: 0, leaveDays: 0 });
+    const [summary, setSummary] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
 
-    // Full report dialog: { open, data, isLoading }
+    // Full report dialog
     const [reportDialog, setReportDialog] = useState({ open: false, data: null, isLoading: false });
 
     // SnackBar
-    const [snackOpen,    setSnackOpen]    = useState(false);
-    const [snackStatus,  setSnackStatus]  = useState(false);
-    const [snackColor,   setSnackColor]   = useState(false);
+    const [snackOpen, setSnackOpen]       = useState(false);
+    const [snackStatus, setSnackStatus]   = useState(false);
+    const [snackColor, setSnackColor]     = useState(false);
     const [snackMessage, setSnackMessage] = useState('');
     const showSnack = (msg, success) => {
         setSnackMessage(msg); setSnackOpen(true); setSnackColor(success); setSnackStatus(success);
     };
 
-    // ── Fetch summary ──────────────────────────────────────────────────────────
+    const presets = buildPresets();
+
+    // ── Fetch summary ──────────────────────────────────────────────────────
     const fetchReports = useCallback(async () => {
         setIsLoading(true);
         try {
@@ -126,8 +166,8 @@ export default function AttendanceReportsPage({ isEmbedded = false }) {
                 params: {
                     FromDate:         inputToApi(fromDate),
                     ToDate:           inputToApi(toDate),
-                    Category:         mapCategoryToApi(categoryFilter),
-                    AttendanceStatus: statusFilter !== 'All' ? statusFilter : '',
+                    Category:         mapCategoryToApi(categoryFilter === 'all' ? '' : categoryFilter),
+                    AttendanceStatus: statusFilter !== 'all' ? statusFilter : '',
                 },
                 headers: { Authorization: `Bearer ${token}` },
             });
@@ -147,7 +187,7 @@ export default function AttendanceReportsPage({ isEmbedded = false }) {
 
     useEffect(() => { fetchReports(); }, [fetchReports]);
 
-    // ── Fetch full report (on View button click) ───────────────────────────────
+    // ── Full report ────────────────────────────────────────────────────────
     const fetchFullReport = async (staffId) => {
         setReportDialog({ open: true, data: null, isLoading: true });
         try {
@@ -174,35 +214,42 @@ export default function AttendanceReportsPage({ isEmbedded = false }) {
 
     const closeDialog = () => setReportDialog({ open: false, data: null, isLoading: false });
 
-    // ── Date helpers ───────────────────────────────────────────────────────────
-    const activateToday = () => {
-        const today = getTodayInput();
-        setTodayActive(true);
-        setFromDate(today);
-        setToDate(today);
+    // ── Filter helpers ─────────────────────────────────────────────────────
+    const applyPreset = (key) => {
+        const p = presets.find(x => x.key === key);
+        if (!p) return;
+        setFromDate(p.from);
+        setToDate(p.to);
+        setActivePreset(key);
     };
-    const handleFromChange = (val) => { setFromDate(val); setTodayActive(false); };
-    const handleToChange   = (val) => { setToDate(val);   setTodayActive(false); };
 
-    const handleClearFilters = () => {
-        const today = getTodayInput();
-        setTodayActive(false);
-        setFromDate(today);
-        setToDate(today);
-        setCategoryFilter('All');
-        setStatusFilter('All');
+    const handleFromChange = (val) => { setFromDate(val); setActivePreset(null); };
+    const handleToChange   = (val) => { setToDate(val);   setActivePreset(null); };
+
+    const clearAllFilters = () => {
+        applyPreset('today');
+        setCategoryFilter('all');
+        setStatusFilter('all');
         setStaffSearch('');
     };
 
     // Client-side search on fetched summary
     const filteredSummary = staffSearch.trim()
         ? summary.filter(row =>
-            row.staffMember.toLowerCase().includes(staffSearch.toLowerCase()) ||
-            row.staffId.toLowerCase().includes(staffSearch.toLowerCase())
+            (row.staffMember || '').toLowerCase().includes(staffSearch.toLowerCase()) ||
+            String(row.staffId || '').toLowerCase().includes(staffSearch.toLowerCase())
           )
         : summary;
 
-    // ── Export helpers ─────────────────────────────────────────────────────────
+    const searchActive = staffSearch.trim().length > 0;
+    const categoryActive = categoryFilter !== 'all';
+    const statusActive   = statusFilter   !== 'all';
+    const anyFilterActive = searchActive || categoryActive || statusActive;
+
+    const activeCategoryColor = (CATEGORY_STYLE[categoryFilter]?.color) || '#6B7280';
+    const activeStatusColor   = (STATUS_STYLE[statusFilter]?.color)   || '#6B7280';
+
+    // ── Export ─────────────────────────────────────────────────────────────
     const handleExportSummary = () => {
         const headers = ['S.No', 'Staff Name', 'Staff ID', 'Category', 'Working Days', 'Present', 'Late', 'Absent', 'Leave', 'Attendance %'];
         const rows = filteredSummary.map((row, idx) => [
@@ -225,550 +272,776 @@ export default function AttendanceReportsPage({ isEmbedded = false }) {
         ws['!cols'] = [{ wch: 18 }, { wch: 8 }, { wch: 10 }, { wch: 14 }];
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'Daily Log');
-        XLSX.writeFile(wb, `${data.name?.replace(/\s+/g, '_')}_Attendance_Log.xlsx`);
+        XLSX.writeFile(wb, `${(data.name || 'Staff').replace(/\s+/g, '_')}_Attendance_Log.xlsx`);
     };
 
-    // ── Sub-components ─────────────────────────────────────────────────────────
+    // ── Sub-renderers ──────────────────────────────────────────────────────
     const categoryChip = (cat) => {
         const label = mapCategory(cat);
-        const cfg = CATEGORY_CONFIG[label] || { bg: '#F3F4F6', color: '#666' };
+        const cfg = CATEGORY_STYLE[label] || { bg: '#F3F4F6', color: '#374151', border: '#E5E7EB' };
         return (
             <Chip label={label} size="small" sx={{
-                bgcolor: cfg.bg, color: cfg.color, fontWeight: '600',
-                fontSize: '10px', borderRadius: '5px', height: 20,
+                bgcolor: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}`,
+                fontWeight: 600, fontSize: '10px', height: 22,
             }} />
         );
     };
 
-    const RateCell = ({ rate }) => (
-        <Box sx={{ minWidth: 80 }}>
-            <Typography sx={{ fontSize: '13px', fontWeight: '700', color: rate >= 90 ? '#16A34A' : rate >= 70 ? '#D97706' : '#DC2626', mb: 0.5 }}>
-                {rate}%
-            </Typography>
-            <LinearProgress variant="determinate" value={rate} sx={{
-                height: 5, borderRadius: 3, bgcolor: '#F0F0F0',
-                '& .MuiLinearProgress-bar': {
-                    bgcolor: rate >= 90 ? '#16A34A' : rate >= 70 ? '#D97706' : '#DC2626',
-                    borderRadius: 3,
+    const renderRateBar = (rate = 0) => {
+        const color = rate >= 90 ? PRIMARY : rate >= 70 ? '#D97706' : '#DC2626';
+        return (
+            <Box sx={{ minWidth: 76 }}>
+                <Typography sx={{ fontSize: '13px', fontWeight: 800, color, mb: 0.4, fontFamily: 'monospace' }}>
+                    {rate}%
+                </Typography>
+                <LinearProgress variant="determinate" value={Math.min(100, rate)} sx={{
+                    height: 5, borderRadius: 3, bgcolor: '#F3F4F6',
+                    '& .MuiLinearProgress-bar': { bgcolor: color, borderRadius: 3 },
+                }} />
+            </Box>
+        );
+    };
+
+    const filterButtonSx = (isActive, accent) => ({
+        textTransform: 'none', fontSize: '12.5px', fontWeight: 600,
+        height: 34, borderRadius: '8px', px: 1.5,
+        color: isActive ? '#fff' : '#374151',
+        bgcolor: isActive ? accent : '#fff',
+        border: `1px solid ${isActive ? accent : '#E5E7EB'}`,
+        boxShadow: isActive ? `0 1px 3px ${accent}33` : 'none',
+        '&:hover': {
+            bgcolor: isActive ? accent : '#F9FAFB',
+            filter: isActive ? 'brightness(0.95)' : 'none',
+        },
+    });
+
+    const renderFilterMenu = (anchor, setAnchor, items, currentKey, onPick, getColor) => (
+        <Menu
+            anchorEl={anchor}
+            open={Boolean(anchor)}
+            onClose={() => setAnchor(null)}
+            slotProps={{
+                paper: {
+                    sx: {
+                        mt: 0.6, borderRadius: '10px',
+                        border: '1px solid #E5E7EB',
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
+                        minWidth: 220,
+                    },
                 },
-            }} />
-        </Box>
+            }}
+        >
+            {items.map((opt) => {
+                const isActive = currentKey === opt.key;
+                const color = opt.key === 'all' ? '#6B7280' : (getColor(opt.key) || '#6B7280');
+                return (
+                    <MenuItem
+                        key={opt.key}
+                        onClick={() => { onPick(opt.key); setAnchor(null); }}
+                        sx={{
+                            py: 0.8, px: 1.2, gap: 1,
+                            bgcolor: isActive ? `${color}10` : 'transparent',
+                            '&:hover': { bgcolor: `${color}15` },
+                        }}
+                    >
+                        <CircleIcon sx={{ fontSize: 9, color, flexShrink: 0 }} />
+                        <Typography sx={{
+                            fontSize: '13px',
+                            fontWeight: isActive ? 700 : 500,
+                            color: isActive ? color : '#374151', flex: 1,
+                        }}>
+                            {opt.label}
+                        </Typography>
+                        {isActive && <CheckIcon sx={{ fontSize: 15, color, ml: 0.4 }} />}
+                    </MenuItem>
+                );
+            })}
+        </Menu>
     );
 
-    const { data: fullData } = reportDialog;
+    const categoryItems = [
+        { key: 'all', label: 'All Categories' },
+        ...Object.keys(CATEGORY_STYLE).map(k => ({ key: k, label: k })),
+    ];
+    const statusItems = [
+        { key: 'all', label: 'All Status' },
+        ...Object.keys(STATUS_STYLE).map(k => ({ key: k, label: k })),
+    ];
 
-    // ── Render ─────────────────────────────────────────────────────────────────
+    // ── KPI cards data ─────────────────────────────────────────────────────
+    const kpiCards = [
+        { label: 'Total Staff',   value: cards.totalStaff   ?? 0, sub: 'In scope',       color: '#2563EB', bg: '#EFF6FF', border: '#BFDBFE', icon: PersonIcon },
+        { label: 'Present Days',  value: cards.presentDays  ?? 0, sub: 'On-time + late', color: PRIMARY,   bg: PRIMARY_LIGHT, border: PRIMARY_BORDER, icon: CheckCircleIcon },
+        { label: 'Late Arrivals', value: cards.lateArrivals ?? 0, sub: 'Crossed grace',  color: '#D97706', bg: '#FFFBEB', border: '#FDE68A', icon: AccessTimeIcon },
+        { label: 'Absent Days',   value: cards.absentDays   ?? 0, sub: 'No-show',        color: '#DC2626', bg: '#FEF2F2', border: '#FECACA', icon: CancelIcon },
+        { label: 'Leave Days',    value: cards.leaveDays    ?? 0, sub: 'Approved leave', color: '#7C3AED', bg: '#F5F3FF', border: '#DDD6FE', icon: EventBusyIcon },
+    ];
+
+    const { data: fullData } = reportDialog;
+    const fullRate = fullData?.attendancePercent ?? 0;
+    const fullRateColor = fullRate >= 90 ? PRIMARY : fullRate >= 70 ? '#D97706' : '#DC2626';
+
     return (
         <>
-        <SnackBar open={snackOpen} color={snackColor} setOpen={setSnackOpen} status={snackStatus} message={snackMessage} />
-        <Box sx={{
-            border: isEmbedded ? 'none' : '1px solid #ccc',
-            borderRadius: isEmbedded ? '0' : '20px',
-            p: isEmbedded ? 1 : 2,
-            bgcolor: '#F8F9FB',
-            height: isEmbedded ? 'auto' : '86vh',
-            overflow: 'auto',
-        }}>
-            {!isEmbedded && (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
-                    <IconButton onClick={() => navigate(-1)} sx={{ width: 35, height: 35 }}>
-                        <ArrowBackIcon sx={{ fontSize: 20 }} />
-                    </IconButton>
-                    <Box>
-                        <Typography sx={{ fontSize: '22px', fontWeight: '700', color: '#1a1a1a' }}>Attendance Reports</Typography>
-                        <Typography sx={{ fontSize: '13px', color: '#888' }}>Analyse and export staff attendance data</Typography>
-                    </Box>
-                </Box>
-            )}
+            <SnackBar open={snackOpen} color={snackColor} setOpen={setSnackOpen} status={snackStatus} message={snackMessage} />
 
-            {/* ── Filters Card ─────────────────────────────────────────────── */}
-            <Card sx={{ border: '1px solid #E0E4EA', borderRadius: '6px', boxShadow: 'none', mb: 2.5, bgcolor: '#fff' }}>
-                <CardContent sx={{ pb: '16px !important' }}>
-                    {/* Date Range */}
-                    <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1.5, mb: 2 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
-                            <CalendarTodayIcon sx={{ fontSize: 15, color: '#888' }} />
-                            <Typography sx={{ fontSize: '12px', fontWeight: '700', color: '#555', whiteSpace: 'nowrap' }}>Date Range:</Typography>
-                        </Box>
-                        <Chip
-                            label="Today"
-                            onClick={activateToday}
-                            sx={{
-                                fontSize: '12px', fontWeight: '600', cursor: 'pointer',
-                                bgcolor: todayActive ? '#F97316' : '#F3F4F6',
-                                color:  todayActive ? '#fff'    : '#555',
-                                border: `1.5px solid ${todayActive ? '#F97316' : 'transparent'}`,
-                                '&:hover': { bgcolor: todayActive ? '#EA580C' : '#E8E8E8' },
-                                transition: '0.15s',
-                            }}
-                        />
-                        <TextField
-                            type="date" size="small" label="From"
-                            value={fromDate}
-                            onChange={e => handleFromChange(e.target.value)}
-                            slotProps={{ inputLabel: { shrink: true } }}
-                            sx={{ width: 155, '& .MuiOutlinedInput-root': { borderRadius: '8px', fontSize: '12px' } }}
-                        />
-                        <TextField
-                            type="date" size="small" label="To"
-                            value={toDate}
-                            onChange={e => handleToChange(e.target.value)}
-                            slotProps={{ inputLabel: { shrink: true } }}
-                            sx={{ width: 155, '& .MuiOutlinedInput-root': { borderRadius: '8px', fontSize: '12px' } }}
-                        />
-                    </Box>
-
-                    <Divider sx={{ mb: 2 }} />
-
-                    {/* Filter Dropdowns */}
-                    <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, mr: 0.5 }}>
-                            <FilterListIcon sx={{ fontSize: 15, color: '#888' }} />
-                            <Typography sx={{ fontSize: '12px', fontWeight: '700', color: '#555' }}>Filters:</Typography>
-                        </Box>
-                        <TextField
-                            size="small"
-                            placeholder="Search by name or ID..."
-                            value={staffSearch}
-                            onChange={e => setStaffSearch(e.target.value)}
-                            slotProps={{
-                                input: {
-                                    startAdornment: (
-                                        <Box sx={{ display: 'flex', alignItems: 'center', mr: 0.5 }}>
-                                            <SearchIcon sx={{ fontSize: 16, color: staffSearch ? '#9B2335' : '#aaa' }} />
-                                        </Box>
-                                    ),
-                                    endAdornment: staffSearch ? (
-                                        <IconButton size="small" onClick={() => setStaffSearch('')} sx={{ p: 0.3 }}>
-                                            <CloseIcon sx={{ fontSize: 14, color: '#aaa' }} />
-                                        </IconButton>
-                                    ) : null,
-                                }
-                            }}
-                            sx={{
-                                minWidth: 220,
-                                '& .MuiOutlinedInput-root': {
-                                    borderRadius: '8px', fontSize: '13px',
-                                    '&.Mui-focused fieldset': { borderColor: '#9B2335' },
-                                },
-                            }}
-                        />
-                        <FormControl size="small" sx={{ minWidth: 175 }}>
-                            <InputLabel sx={{ fontSize: '13px' }}>Staff Category</InputLabel>
-                            <Select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} label="Staff Category" sx={{ borderRadius: '8px', fontSize: '13px' }}>
-                                <MenuItem value="All">All Categories</MenuItem>
-                                {Object.keys(CATEGORY_CONFIG).map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
-                            </Select>
-                        </FormControl>
-                        <FormControl size="small" sx={{ minWidth: 165 }}>
-                            <InputLabel sx={{ fontSize: '13px' }}>Attendance Status</InputLabel>
-                            <Select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} label="Attendance Status" sx={{ borderRadius: '8px', fontSize: '13px' }}>
-                                <MenuItem value="All">All Status</MenuItem>
-                                {Object.keys(STATUS_CONFIG).map(s => (
-                                    <MenuItem key={s} value={s}>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                            <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: STATUS_CONFIG[s].dot }} />{s}
-                                        </Box>
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
-                        <Button size="small" onClick={handleClearFilters} sx={{
-                            textTransform: 'none', fontSize: '12px', fontWeight: '600',
-                            borderRadius: '8px', color: '#888', border: '1px solid #ddd',
-                            '&:hover': { borderColor: '#bbb', bgcolor: '#F9FAFB' },
+            <Box sx={{
+                border: isEmbedded ? 'none' : '1px solid #E5E7EB',
+                borderRadius: isEmbedded ? '0' : '20px',
+                p: isEmbedded ? 0 : 2,
+                bgcolor: isEmbedded ? 'transparent' : '#F9FAFB',
+                height: isEmbedded ? 'auto' : '86vh',
+                overflow: isEmbedded ? 'visible' : 'auto',
+            }}>
+                {/* Standalone Header */}
+                {!isEmbedded && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                        <IconButton onClick={() => navigate(-1)} sx={{ width: 32, height: 32 }}>
+                            <ArrowBackIcon sx={{ fontSize: 18, color: '#000' }} />
+                        </IconButton>
+                        <Box sx={{
+                            width: 36, height: 36, borderRadius: '10px',
+                            bgcolor: PRIMARY_LIGHT, border: `1px solid ${PRIMARY_BORDER}`,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
                         }}>
-                            Clear Filters
-                        </Button>
-                    </Box>
-                </CardContent>
-            </Card>
-
-            {/* ── KPI Cards ────────────────────────────────────────────────── */}
-            <Grid container spacing={2} sx={{ mb: 2.5 }}>
-                {[
-                    { label: 'Total Staff',   value: cards.totalStaff   ?? 0, color: '#1976D2', bg: '#EFF6FF', iconBg: '#DBEAFE', Icon: PersonIcon      },
-                    { label: 'Present Days',  value: cards.presentDays  ?? 0, color: '#16A34A', bg: '#F0FDF4', iconBg: '#DCFCE7', Icon: CheckCircleIcon  },
-                    { label: 'Late Arrivals', value: cards.lateArrivals ?? 0, color: '#D97706', bg: '#FFFBEB', iconBg: '#FEF3C7', Icon: AccessTimeIcon   },
-                    { label: 'Absent Days',   value: cards.absentDays   ?? 0, color: '#DC2626', bg: '#FEF2F2', iconBg: '#FEE2E2', Icon: CancelIcon       },
-                    { label: 'Leave Days',    value: cards.leaveDays    ?? 0, color: '#7C3AED', bg: '#FAF5FF', iconBg: '#EDE9FE', Icon: EventBusyIcon    },
-                ].map(c => (
-                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2.4 }} key={c.label}>
-                        <Card sx={{ borderLeft: `4px solid ${c.color}`, border: `1px solid ${c.color}35`, borderRadius: '6px', boxShadow: 'none', bgcolor: c.bg }}>
-                            <CardContent sx={{ py: '14px !important', px: '16px !important' }}>
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <Box>
-                                        <Typography sx={{ fontSize: '10px', fontWeight: '700', color: '#888', textTransform: 'uppercase', letterSpacing: '0.6px', mb: 0.4 }}>{c.label}</Typography>
-                                        <Typography sx={{ fontSize: '30px', fontWeight: '800', color: '#1a1a1a', lineHeight: 1.1 }}>{c.value}</Typography>
-                                    </Box>
-                                    <Box sx={{ width: 42, height: 42, borderRadius: '6px', bgcolor: c.iconBg, border: `1px solid ${c.color}25`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        <c.Icon sx={{ color: c.color, fontSize: 22 }} />
-                                    </Box>
-                                </Box>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-                ))}
-            </Grid>
-
-            {/* ── Summary Table ─────────────────────────────────────────────── */}
-            <Card sx={{ border: '1px solid #E0E4EA', borderRadius: '6px', boxShadow: 'none', bgcolor: '#fff' }}>
-                <Box sx={{ px: 2.5, py: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
-                    <Box>
-                        <Typography sx={{ fontSize: '16px', fontWeight: '700', color: '#1a1a1a' }}>Staff Attendance Summary</Typography>
-                        <Typography sx={{ fontSize: '12px', color: '#888', mt: 0.3 }}>
-                            {filteredSummary.length} staff &nbsp;·&nbsp; {inputToApi(fromDate)} — {inputToApi(toDate)}
-                        </Typography>
-                    </Box>
-                    <Button size="small" variant="outlined" startIcon={<FileDownloadIcon />}
-                        onClick={handleExportSummary}
-                        disabled={filteredSummary.length === 0 || isLoading}
-                        sx={{ textTransform: 'none', fontSize: '12px', fontWeight: '600', borderRadius: '8px', color: '#16A34A', borderColor: '#16A34A40', bgcolor: '#F0FDF4', '&:hover': { borderColor: '#16A34A' } }}>
-                        Excel
-                    </Button>
-                </Box>
-
-                <Divider />
-
-                <TableContainer>
-                    <Table>
-                        <TableHead>
-                            <TableRow>
-                                <TableCell sx={{ ...headCell, textAlign: 'center' }}>S.No</TableCell>
-                                <TableCell sx={{ ...headCell, textAlign: 'left', minWidth: 200 }}>Staff Member</TableCell>
-                                <TableCell sx={headCell}>Staff ID</TableCell>
-                                <TableCell sx={headCell}>Category</TableCell>
-                                <TableCell sx={headCell}>Working Days</TableCell>
-                                <TableCell sx={{ ...headCell, color: '#16A34A' }}>Present</TableCell>
-                                <TableCell sx={{ ...headCell, color: '#D97706' }}>Late</TableCell>
-                                <TableCell sx={{ ...headCell, color: '#DC2626' }}>Absent</TableCell>
-                                <TableCell sx={{ ...headCell, color: '#7C3AED' }}>Leave</TableCell>
-                                <TableCell sx={{ ...headCell, minWidth: 110 }}>Attendance %</TableCell>
-                                <TableCell sx={headCell}>Full Report</TableCell>
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {isLoading ? (
-                                <TableRow>
-                                    <TableCell colSpan={11} align="center" sx={{ py: 6, border: BORDER }}>
-                                        <CircularProgress size={30} sx={{ color: '#9B2335' }} />
-                                    </TableCell>
-                                </TableRow>
-                            ) : filteredSummary.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={11} align="center" sx={{ py: 7, border: BORDER }}>
-                                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-                                            <Box sx={{ width: 60, height: 60, borderRadius: '50%', bgcolor: '#FDE8EC', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                <AssessmentIcon sx={{ fontSize: 30, color: '#F0A0B0' }} />
-                                            </Box>
-                                            <Typography sx={{ fontSize: '14px', fontWeight: '600', color: '#555' }}>No records found</Typography>
-                                            <Typography sx={{ fontSize: '12px', color: '#aaa' }}>Adjust the date range or filters to see data</Typography>
-                                        </Box>
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                filteredSummary.map((row, idx) => (
-                                    <TableRow key={row.staffId} sx={{
-                                        bgcolor: idx % 2 === 0 ? '#fff' : '#FDF5F7',
-                                        '&:hover': { bgcolor: '#FDE8EC55' },
-                                        transition: '0.12s',
-                                    }}>
-                                        <TableCell sx={{ ...bodyCell, color: '#aaa', fontWeight: '600' }}>{row.sNo ?? idx + 1}</TableCell>
-
-                                        <TableCell sx={{ ...bodyCell, textAlign: 'left' }}>
-                                            <Typography sx={{ fontSize: '13px', fontWeight: '600', color: '#1a1a1a', whiteSpace: 'nowrap' }}>
-                                                {row.staffMember}
-                                            </Typography>
-                                        </TableCell>
-
-                                        <TableCell sx={{ ...bodyCell, color: '#666', fontSize: '12px' }}>{row.staffId}</TableCell>
-
-                                        <TableCell sx={bodyCell}>{categoryChip(row.category)}</TableCell>
-
-                                        <TableCell sx={bodyCell}>
-                                            <Typography sx={{ fontSize: '15px', fontWeight: '800', color: '#1a1a1a' }}>{row.workingDays}</Typography>
-                                            <Typography sx={{ fontSize: '10px', color: '#aaa' }}>days</Typography>
-                                        </TableCell>
-
-                                        <TableCell sx={bodyCell}>
-                                            <Typography sx={{ fontSize: '16px', fontWeight: '800', color: '#16A34A', lineHeight: 1.1 }}>{row.present}</Typography>
-                                            <Typography sx={{ fontSize: '9px', color: '#aaa', mt: 0.2 }}>days</Typography>
-                                        </TableCell>
-
-                                        <TableCell sx={bodyCell}>
-                                            <Typography sx={{ fontSize: '16px', fontWeight: '800', color: row.late > 0 ? '#D97706' : '#ccc', lineHeight: 1.1 }}>{row.late}</Typography>
-                                            <Typography sx={{ fontSize: '9px', color: '#aaa', mt: 0.2 }}>days</Typography>
-                                        </TableCell>
-
-                                        <TableCell sx={bodyCell}>
-                                            <Typography sx={{ fontSize: '16px', fontWeight: '800', color: row.absent > 0 ? '#DC2626' : '#ccc', lineHeight: 1.1 }}>{row.absent}</Typography>
-                                            <Typography sx={{ fontSize: '9px', color: '#aaa', mt: 0.2 }}>days</Typography>
-                                        </TableCell>
-
-                                        <TableCell sx={bodyCell}>
-                                            <Typography sx={{ fontSize: '16px', fontWeight: '800', color: row.leave > 0 ? '#7C3AED' : '#ccc', lineHeight: 1.1 }}>{row.leave}</Typography>
-                                            <Typography sx={{ fontSize: '9px', color: '#aaa', mt: 0.2 }}>days</Typography>
-                                        </TableCell>
-
-                                        <TableCell sx={bodyCell}>
-                                            <RateCell rate={row.attendancePercent ?? 0} />
-                                        </TableCell>
-
-                                        <TableCell sx={bodyCell}>
-                                            <Button
-                                                size="small"
-                                                variant="outlined"
-                                                startIcon={<PersonIcon sx={{ fontSize: '13px !important' }} />}
-                                                onClick={() => fetchFullReport(row.staffId)}
-                                                sx={{
-                                                    textTransform: 'none', fontSize: '11px', fontWeight: '600',
-                                                    borderRadius: '6px', color: '#9B2335', borderColor: '#F0D0D8',
-                                                    bgcolor: '#FDE8EC', whiteSpace: 'nowrap',
-                                                    '&:hover': { borderColor: '#9B2335', bgcolor: '#F9C8D2' },
-                                                }}
-                                            >
-                                                View
-                                            </Button>
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
-                </TableContainer>
-
-                {filteredSummary.length > 0 && !isLoading && (
-                    <Box sx={{ px: 2.5, py: 1.5, borderTop: `1px solid ${BORDER}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, bgcolor: HEAD_BG }}>
-                        <Typography sx={{ fontSize: '12px', color: '#9B2335', fontWeight: '600' }}>
-                            {filteredSummary.length} staff member{filteredSummary.length !== 1 ? 's' : ''}
-                        </Typography>
-                        <Box sx={{ display: 'flex', gap: 2.5 }}>
-                            {[
-                                { label: 'Present', val: cards.presentDays  ?? 0, color: '#16A34A' },
-                                { label: 'Late',    val: cards.lateArrivals ?? 0, color: '#D97706' },
-                                { label: 'Absent',  val: cards.absentDays   ?? 0, color: '#DC2626' },
-                                { label: 'Leave',   val: cards.leaveDays    ?? 0, color: '#7C3AED' },
-                            ].map(s => (
-                                <Box key={s.label} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                    <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: s.color }} />
-                                    <Typography sx={{ fontSize: '11px', color: '#666' }}>
-                                        {s.label}: <strong style={{ color: s.color }}>{s.val}</strong>
-                                    </Typography>
-                                </Box>
-                            ))}
+                            <InsertChartOutlinedIcon sx={{ color: PRIMARY, fontSize: 20 }} />
+                        </Box>
+                        <Box>
+                            <Typography sx={{ fontSize: '20px', fontWeight: 700, color: '#111827', lineHeight: 1.1 }}>
+                                Attendance Reports
+                            </Typography>
+                            <Typography sx={{ fontSize: '11px', color: '#6B7280', fontWeight: 500 }}>
+                                Analyse and export staff attendance data
+                            </Typography>
                         </Box>
                     </Box>
                 )}
-            </Card>
 
-            {/* ── Full Report Dialog ────────────────────────────────────────── */}
-            <Dialog open={reportDialog.open} onClose={closeDialog} maxWidth="md" fullWidth
-                PaperProps={{ sx: { borderRadius: '8px', overflow: 'hidden', boxShadow: '0 8px 32px rgba(155,35,53,0.12)' } }}>
-
-                {reportDialog.isLoading ? (
-                    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 10 }}>
-                        <CircularProgress size={36} sx={{ color: '#9B2335' }} />
-                    </Box>
-                ) : fullData && (
-                    <>
-                        {/* Dialog Header */}
-                        <DialogTitle sx={{ p: 0 }}>
-                            <Box sx={{ bgcolor: '#fff', borderBottom: BORDER }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 3, pt: 2.5, pb: 2 }}>
-                                    <Box>
-                                        <Typography sx={{ fontSize: '17px', fontWeight: '700', color: '#1a1a1a', lineHeight: 1.2 }}>
-                                            {fullData.name}
-                                        </Typography>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, mt: 0.5, flexWrap: 'wrap' }}>
-                                            <Typography sx={{ fontSize: '11px', color: '#888' }}>{fullData.staffId}</Typography>
-                                            {fullData.department && (
-                                                <>
-                                                    <Box sx={{ width: 3, height: 3, borderRadius: '50%', bgcolor: '#ddd' }} />
-                                                    <Typography sx={{ fontSize: '11px', color: '#888' }}>{fullData.department}</Typography>
-                                                </>
-                                            )}
-                                            <Box sx={{ width: 3, height: 3, borderRadius: '50%', bgcolor: '#ddd' }} />
-                                            {categoryChip(fullData.category)}
-                                        </Box>
-                                    </Box>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        <Box sx={{ textAlign: 'right', mr: 0.5 }}>
-                                            <Typography sx={{ fontSize: '9px', fontWeight: '700', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Report Period</Typography>
-                                            <Typography sx={{ fontSize: '11px', fontWeight: '600', color: '#555', whiteSpace: 'nowrap' }}>
-                                                {fullData.reportFromDate} — {fullData.reportToDate}
-                                            </Typography>
-                                        </Box>
-                                        <IconButton onClick={closeDialog} size="small"
-                                            sx={{ color: '#999', border: '1px solid #E8E8E8', borderRadius: '6px', '&:hover': { bgcolor: HEAD_BG, color: '#9B2335', borderColor: BORDER } }}>
-                                            <CloseIcon sx={{ fontSize: 18 }} />
-                                        </IconButton>
-                                    </Box>
-                                </Box>
-
-                                {/* Attendance Rate Bar */}
-                                <Box sx={{ px: 3, pb: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
-                                    <Typography sx={{ fontSize: '11px', fontWeight: '700', color: '#888', whiteSpace: 'nowrap' }}>Attendance Rate</Typography>
-                                    <Box sx={{ flex: 1 }}>
-                                        <LinearProgress variant="determinate" value={fullData.attendancePercent ?? 0} sx={{
-                                            height: 8, borderRadius: 4, bgcolor: '#F0F0F0',
-                                            '& .MuiLinearProgress-bar': {
-                                                bgcolor: (fullData.attendancePercent ?? 0) >= 90 ? '#16A34A' : (fullData.attendancePercent ?? 0) >= 70 ? '#D97706' : '#DC2626',
-                                                borderRadius: 4,
-                                            },
-                                        }} />
-                                    </Box>
-                                    <Typography sx={{
-                                        fontSize: '13px', fontWeight: '800', minWidth: 38, textAlign: 'right',
-                                        color: (fullData.attendancePercent ?? 0) >= 90 ? '#16A34A' : (fullData.attendancePercent ?? 0) >= 70 ? '#D97706' : '#DC2626',
-                                    }}>
-                                        {fullData.attendancePercent ?? 0}%
-                                    </Typography>
-                                </Box>
+                {/* ─── Filter toolbar ───────────────────────────────────────── */}
+                <Card sx={{ border: '1px solid #E5E7EB', borderRadius: '12px', boxShadow: 'none', bgcolor: '#fff', mb: 2 }}>
+                    <CardContent sx={{ pb: '14px !important' }}>
+                        {/* Date presets row */}
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, mb: 1.5, flexWrap: 'wrap' }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                <CalendarMonthIcon sx={{ fontSize: 16, color: PRIMARY }} />
+                                <Typography sx={{ fontSize: '11.5px', fontWeight: 700, color: '#374151', mr: 0.5 }}>
+                                    Date Range:
+                                </Typography>
                             </Box>
-                        </DialogTitle>
+                            {presets.map(p => {
+                                const active = activePreset === p.key;
+                                return (
+                                    <Chip
+                                        key={p.key}
+                                        label={p.label}
+                                        size="small"
+                                        onClick={() => applyPreset(p.key)}
+                                        sx={{
+                                            height: 26, fontSize: '11.5px', fontWeight: 600,
+                                            borderRadius: '8px', cursor: 'pointer',
+                                            bgcolor: active ? PRIMARY : '#fff',
+                                            color: active ? '#fff' : '#374151',
+                                            border: `1px solid ${active ? PRIMARY : '#E5E7EB'}`,
+                                            '&:hover': { bgcolor: active ? PRIMARY_DARK : '#F9FAFB' },
+                                        }}
+                                    />
+                                );
+                            })}
+                            <Box sx={{ flex: 1 }} />
+                            <TextField
+                                type="date" size="small" label="From"
+                                value={fromDate}
+                                onChange={e => handleFromChange(e.target.value)}
+                                slotProps={{ inputLabel: { shrink: true } }}
+                                sx={{
+                                    width: 150,
+                                    '& .MuiOutlinedInput-root': {
+                                        height: 34, fontSize: '12px', borderRadius: '8px',
+                                        '&.Mui-focused fieldset': { borderColor: PRIMARY },
+                                    },
+                                }}
+                            />
+                            <TextField
+                                type="date" size="small" label="To"
+                                value={toDate}
+                                onChange={e => handleToChange(e.target.value)}
+                                slotProps={{ inputLabel: { shrink: true } }}
+                                sx={{
+                                    width: 150,
+                                    '& .MuiOutlinedInput-root': {
+                                        height: 34, fontSize: '12px', borderRadius: '8px',
+                                        '&.Mui-focused fieldset': { borderColor: PRIMARY },
+                                    },
+                                }}
+                            />
+                        </Box>
 
-                        <DialogContent sx={{ p: 0, bgcolor: '#F8F9FB' }}>
-                            {/* Stats Strip */}
-                            <Box sx={{ display: 'flex', borderBottom: BORDER, bgcolor: '#fff' }}>
-                                {[
-                                    { label: 'Working Days', value: fullData.workingDays, color: '#1976D2' },
-                                    { label: 'Present',      value: fullData.present,     color: '#16A34A' },
-                                    { label: 'Late',         value: fullData.late,        color: '#D97706' },
-                                    { label: 'Absent',       value: fullData.absent,      color: '#DC2626' },
-                                    { label: 'Leave',        value: fullData.leave,       color: '#7C3AED' },
-                                ].map((s, i, arr) => (
-                                    <Box key={s.label} sx={{
-                                        flex: 1, textAlign: 'center', py: 1.8,
-                                        borderRight: i < arr.length - 1 ? BORDER : 'none',
-                                        borderTop: `3px solid ${s.color}`,
-                                    }}>
-                                        <Typography sx={{ fontSize: '22px', fontWeight: '800', color: s.color, lineHeight: 1 }}>{s.value ?? 0}</Typography>
-                                        <Typography sx={{ fontSize: '10px', fontWeight: '600', color: '#aaa', mt: 0.4, textTransform: 'uppercase', letterSpacing: '0.4px' }}>{s.label}</Typography>
-                                    </Box>
-                                ))}
+                        {/* Search + dropdowns + clear + counter */}
+                        <Box sx={{
+                            p: 1.2, borderRadius: '10px',
+                            border: '1px solid #E5E7EB', bgcolor: '#FAFAFA',
+                            display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center',
+                        }}>
+                            <TextField
+                                size="small"
+                                placeholder="Search by name or staff ID..."
+                                value={staffSearch}
+                                onChange={(e) => setStaffSearch(e.target.value)}
+                                slotProps={{
+                                    input: {
+                                        startAdornment: (
+                                            <InputAdornment position="start">
+                                                <SearchIcon sx={{ fontSize: 16, color: searchActive ? PRIMARY : '#9CA3AF' }} />
+                                            </InputAdornment>
+                                        ),
+                                        endAdornment: searchActive ? (
+                                            <InputAdornment position="end">
+                                                <IconButton size="small" onClick={() => setStaffSearch('')} sx={{ p: 0.3 }}>
+                                                    <CloseIcon sx={{ fontSize: 14, color: '#9CA3AF' }} />
+                                                </IconButton>
+                                            </InputAdornment>
+                                        ) : null,
+                                    },
+                                }}
+                                sx={{
+                                    flex: 1, minWidth: 220, maxWidth: 300,
+                                    '& .MuiOutlinedInput-root': {
+                                        height: 34, fontSize: '12.5px', borderRadius: '8px',
+                                        bgcolor: searchActive ? PRIMARY_LIGHT : '#fff',
+                                        '& fieldset': { borderColor: searchActive ? PRIMARY_BORDER : '#E5E7EB' },
+                                        '&:hover fieldset': { borderColor: '#D1D5DB' },
+                                        '&.Mui-focused fieldset': { borderColor: PRIMARY },
+                                    },
+                                }}
+                            />
+
+                            <Button
+                                onClick={(e) => setCategoryAnchor(e.currentTarget)}
+                                startIcon={<PeopleAltOutlinedIcon sx={{ fontSize: 16 }} />}
+                                endIcon={<KeyboardArrowDownIcon sx={{ fontSize: 16 }} />}
+                                sx={filterButtonSx(categoryActive, activeCategoryColor)}
+                            >
+                                {categoryActive ? categoryFilter : 'Category'}
+                            </Button>
+                            {renderFilterMenu(
+                                categoryAnchor, setCategoryAnchor,
+                                categoryItems, categoryFilter, setCategoryFilter,
+                                (k) => CATEGORY_STYLE[k]?.color,
+                            )}
+
+                            <Button
+                                onClick={(e) => setStatusAnchor(e.currentTarget)}
+                                startIcon={<CircleIcon sx={{ fontSize: 10, color: statusActive ? '#fff' : activeStatusColor }} />}
+                                endIcon={<KeyboardArrowDownIcon sx={{ fontSize: 16 }} />}
+                                sx={filterButtonSx(statusActive, activeStatusColor)}
+                            >
+                                {statusActive ? statusFilter : 'Status'}
+                            </Button>
+                            {renderFilterMenu(
+                                statusAnchor, setStatusAnchor,
+                                statusItems, statusFilter, setStatusFilter,
+                                (k) => STATUS_STYLE[k]?.color,
+                            )}
+
+                            {anyFilterActive && (
+                                <Button
+                                    size="small"
+                                    startIcon={<RestartAltIcon sx={{ fontSize: 15 }} />}
+                                    onClick={clearAllFilters}
+                                    sx={{
+                                        textTransform: 'none', fontSize: '12px', fontWeight: 600,
+                                        height: 34, borderRadius: '8px', px: 1.2,
+                                        color: '#DC2626',
+                                        '&:hover': { bgcolor: '#FEF2F2' },
+                                    }}
+                                >
+                                    Clear
+                                </Button>
+                            )}
+
+                            <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.6 }}>
+                                <Typography sx={{ fontSize: '11.5px', color: '#6B7280' }}>Showing</Typography>
+                                <Typography sx={{ fontSize: '13px', fontWeight: 800, color: anyFilterActive ? PRIMARY_DARK : '#111827' }}>
+                                    {filteredSummary.length}
+                                </Typography>
+                                <Typography sx={{ fontSize: '11.5px', color: '#6B7280' }}>
+                                    of {summary.length} staff
+                                </Typography>
                             </Box>
+                        </Box>
+                    </CardContent>
+                </Card>
 
-                            <Box sx={{ p: 2.5 }}>
-                                {/* Attendance Calendar */}
-                                {fullData.calendar?.length > 0 && (
-                                    <Box sx={{ mb: 2.5, bgcolor: '#fff', border: BORDER, borderRadius: '6px', overflow: 'hidden' }}>
-                                        <Box sx={{ px: 2, py: 1.2, bgcolor: HEAD_BG, borderBottom: BORDER, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                            <Typography sx={{ fontSize: '12px', fontWeight: '700', color: '#9B2335' }}>Attendance Calendar</Typography>
-                                            <Box sx={{ display: 'flex', gap: 1.5 }}>
-                                                {Object.entries(STATUS_CONFIG).map(([s, cfg]) => (
-                                                    <Box key={s} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                                        <Box sx={{ width: 8, height: 8, borderRadius: '2px', bgcolor: cfg.bg, border: `1px solid ${cfg.color}50` }} />
-                                                        <Typography sx={{ fontSize: '10px', color: '#888', fontWeight: '500' }}>{s}</Typography>
-                                                    </Box>
-                                                ))}
+                {/* ─── KPI Cards ─────────────────────────────────────────────── */}
+                <Grid container spacing={2} sx={{ mb: 2 }}>
+                    {kpiCards.map((c) => {
+                        const Icon = c.icon;
+                        return (
+                            <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2.4 }} key={c.label}>
+                                <Card sx={{
+                                    border: `1px solid ${c.border}`,
+                                    borderRadius: '12px', boxShadow: 'none',
+                                    bgcolor: c.bg, height: '100%',
+                                    transition: 'transform 0.15s, box-shadow 0.15s',
+                                    '&:hover': { transform: 'translateY(-2px)', boxShadow: `0 6px 16px ${c.color}22` },
+                                }}>
+                                    <CardContent sx={{ py: 1.8, '&:last-child': { pb: 1.8 } }}>
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                            <Box>
+                                                <Typography sx={{ fontSize: '11px', color: c.color, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                                    {c.label}
+                                                </Typography>
+                                                <Typography sx={{ fontSize: '28px', fontWeight: 800, color: '#111827', lineHeight: 1.2, mt: 0.5 }}>
+                                                    {c.value}
+                                                </Typography>
+                                                <Typography sx={{ fontSize: '10px', color: c.color, fontWeight: 600, mt: 0.4 }}>
+                                                    {c.sub}
+                                                </Typography>
+                                            </Box>
+                                            <Box sx={{
+                                                width: 38, height: 38, borderRadius: '10px',
+                                                bgcolor: '#fff', border: `1px solid ${c.border}`,
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            }}>
+                                                <Icon sx={{ color: c.color, fontSize: 20 }} />
                                             </Box>
                                         </Box>
-                                        <Box sx={{ p: 2, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                                            {fullData.calendar.map((cal, i) => {
-                                                const statusKey = normalizeStatus(cal.status);
-                                                const cfg = STATUS_CONFIG[statusKey] || { bg: '#F3F4F6', color: '#bbb' };
-                                                return (
-                                                    <Tooltip key={i}
-                                                        title={`${cal.dayName} ${cal.dayNumber} · ${statusKey || 'Not Marked'}`}
-                                                        placement="top" arrow
-                                                        slotProps={{ tooltip: { sx: { fontSize: '11px', bgcolor: '#333', borderRadius: '4px' } } }}>
-                                                        <Box sx={{
-                                                            width: 52, height: 52, borderRadius: '6px',
-                                                            bgcolor: cfg.bg, border: `1.5px solid ${cfg.color}40`,
-                                                            display: 'flex', flexDirection: 'column',
-                                                            alignItems: 'center', justifyContent: 'center', cursor: 'default',
-                                                        }}>
-                                                            <Typography sx={{ fontSize: '15px', fontWeight: '800', color: cfg.color, lineHeight: 1 }}>
-                                                                {cal.dayNumber}
-                                                            </Typography>
-                                                            <Typography sx={{ fontSize: '9px', fontWeight: '600', color: cfg.color, opacity: 0.7, mt: 0.3 }}>
-                                                                {cal.dayName}
-                                                            </Typography>
-                                                        </Box>
-                                                    </Tooltip>
-                                                );
-                                            })}
-                                        </Box>
-                                    </Box>
-                                )}
+                                    </CardContent>
+                                </Card>
+                            </Grid>
+                        );
+                    })}
+                </Grid>
 
-                                {/* Daily Log Table */}
-                                <Box sx={{ bgcolor: '#fff', border: BORDER, borderRadius: '6px', overflow: 'hidden' }}>
-                                    <Box sx={{ px: 2, py: 1.2, bgcolor: HEAD_BG, borderBottom: BORDER }}>
-                                        <Typography sx={{ fontSize: '12px', fontWeight: '700', color: '#9B2335' }}>Daily Log</Typography>
-                                    </Box>
-                                    <TableContainer>
-                                        <Table size="small">
-                                            <TableHead>
-                                                <TableRow>
-                                                    {['Date', 'Day', 'Status', 'Login Time'].map(h => (
-                                                        <TableCell key={h} sx={{ ...headCell, fontSize: '11px' }}>{h}</TableCell>
-                                                    ))}
-                                                </TableRow>
-                                            </TableHead>
-                                            <TableBody>
-                                                {(!fullData.dailyLog || fullData.dailyLog.length === 0) ? (
-                                                    <TableRow>
-                                                        <TableCell colSpan={4} align="center" sx={{ py: 4, border: BORDER }}>
-                                                            <Typography sx={{ fontSize: '13px', color: '#aaa' }}>No records for this period</Typography>
-                                                        </TableCell>
-                                                    </TableRow>
-                                                ) : fullData.dailyLog.map((rec, idx) => {
-                                                    const normStatus = normalizeStatus(rec.status);
-                                                    const cfg = STATUS_CONFIG[normStatus] || { dot: '#ddd', color: '#bbb' };
-                                                    return (
-                                                        <TableRow key={idx} sx={{
-                                                            bgcolor: normStatus === 'Absent' ? '#FFF5F5' : normStatus === 'Leave' ? '#FAF7FF' : idx % 2 === 0 ? '#fff' : '#FDFBFB',
-                                                            '&:hover': { bgcolor: '#FDE8EC44' },
-                                                        }}>
-                                                            <TableCell sx={{ ...bodyCell, fontWeight: '600', whiteSpace: 'nowrap', color: '#333' }}>{rec.date}</TableCell>
-                                                            <TableCell sx={{ ...bodyCell, color: '#888', fontWeight: '500' }}>{rec.day}</TableCell>
-                                                            <TableCell sx={bodyCell}>
-                                                                {normStatus ? (
-                                                                    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.7, bgcolor: `${cfg.dot}15`, border: `1px solid ${cfg.dot}30`, borderRadius: '4px', px: 1, py: 0.3 }}>
-                                                                        <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: cfg.dot, flexShrink: 0 }} />
-                                                                        <Typography sx={{ fontSize: '11px', fontWeight: '700', color: cfg.color }}>{normStatus}</Typography>
-                                                                    </Box>
-                                                                ) : (
-                                                                    <Typography sx={{ fontSize: '13px', color: '#bbb', fontWeight: '500' }}>—</Typography>
-                                                                )}
-                                                            </TableCell>
-                                                            <TableCell sx={{ ...bodyCell, color: normStatus === 'Late' ? '#D97706' : '#555', fontWeight: normStatus === 'Late' ? '700' : '400', whiteSpace: 'nowrap' }}>
-                                                                {rec.loginTime || '—'}
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    );
-                                                })}
-                                            </TableBody>
-                                        </Table>
-                                    </TableContainer>
+                {/* ─── Summary Table ─────────────────────────────────────────── */}
+                <Card sx={{ border: '1px solid #E5E7EB', borderRadius: '12px', boxShadow: 'none', bgcolor: '#fff' }}>
+                    <CardContent sx={{ pb: '12px !important' }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5, flexWrap: 'wrap', gap: 1 }}>
+                            <Box>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
+                                    <Typography sx={{ fontSize: '15px', fontWeight: 700, color: '#111827' }}>
+                                        Staff Attendance Summary
+                                    </Typography>
+                                    <Chip
+                                        label={`${filteredSummary.length} staff`}
+                                        size="small"
+                                        sx={{ bgcolor: '#F3F4F6', color: '#374151', fontWeight: 600, fontSize: '11px', height: 20 }}
+                                    />
                                 </Box>
+                                <Typography sx={{ fontSize: '11px', color: '#6B7280', mt: 0.2 }}>
+                                    {inputToApi(fromDate)} → {inputToApi(toDate)}
+                                </Typography>
                             </Box>
-                        </DialogContent>
-
-                        <DialogActions sx={{ px: 2.5, py: 1.8, borderTop: BORDER, bgcolor: '#fff', display: 'flex', justifyContent: 'space-between' }}>
-                            <Button variant="outlined" startIcon={<FileDownloadIcon />}
-                                onClick={handleExportFullReport}
+                            <Button
+                                size="small"
+                                variant="contained"
+                                startIcon={<FileDownloadIcon sx={{ fontSize: 16 }} />}
+                                onClick={handleExportSummary}
+                                disabled={filteredSummary.length === 0 || isLoading}
                                 sx={{
-                                    textTransform: 'none', fontSize: '12px', fontWeight: '600',
-                                    borderRadius: '6px', color: '#16A34A', borderColor: '#BBF7D0',
-                                    bgcolor: '#F0FDF4', '&:hover': { borderColor: '#16A34A', bgcolor: '#DCFCE7' },
-                                }}>
+                                    textTransform: 'none', fontSize: '12.5px', fontWeight: 700,
+                                    bgcolor: PRIMARY, color: '#fff',
+                                    borderRadius: '8px', px: 1.8, height: 34,
+                                    boxShadow: `0 2px 6px ${PRIMARY}33`,
+                                    '&:hover': { bgcolor: PRIMARY_DARK, boxShadow: `0 4px 12px ${PRIMARY}55` },
+                                    '&.Mui-disabled': { bgcolor: '#E5E7EB', color: '#9CA3AF', boxShadow: 'none' },
+                                }}
+                            >
                                 Export Excel
                             </Button>
-                            <Button onClick={closeDialog} variant="outlined"
-                                sx={{
-                                    textTransform: 'none', fontSize: '12px', fontWeight: '600',
-                                    borderRadius: '6px', color: '#9B2335', borderColor: '#F0D0D8',
-                                    bgcolor: HEAD_BG, '&:hover': { borderColor: '#9B2335', bgcolor: '#F9C8D2' },
+                        </Box>
+
+                        <TableContainer sx={{ borderRadius: '10px', overflow: 'hidden', border: '1px solid #E5E7EB' }}>
+                            <Table size="small">
+                                <TableHead>
+                                    <TableRow sx={{ bgcolor: PRIMARY_LIGHT, borderBottom: `1px solid ${PRIMARY_BORDER}` }}>
+                                        {['S.No', 'Staff Member', 'Category', 'Working', 'Present', 'Late', 'Absent', 'Leave', 'Attendance %', 'Action'].map(h => (
+                                            <TableCell key={h} sx={{
+                                                fontWeight: 700, fontSize: '10px', color: PRIMARY_DARK,
+                                                textTransform: 'uppercase', whiteSpace: 'nowrap',
+                                                letterSpacing: 0.6, py: 1.3, borderBottom: 'none',
+                                            }}>{h}</TableCell>
+                                        ))}
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {isLoading ? (
+                                        <TableRow>
+                                            <TableCell colSpan={10} align="center" sx={{ py: 6, borderBottom: 'none' }}>
+                                                <CircularProgress size={28} sx={{ color: PRIMARY }} />
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : filteredSummary.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={10} align="center" sx={{ py: 6, borderBottom: 'none' }}>
+                                                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.6 }}>
+                                                    <Box sx={{ width: 48, height: 48, borderRadius: '50%', bgcolor: PRIMARY_LIGHT, border: `1px solid ${PRIMARY_BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                        <AssessmentIcon sx={{ fontSize: 24, color: PRIMARY }} />
+                                                    </Box>
+                                                    <Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#374151' }}>
+                                                        No records found
+                                                    </Typography>
+                                                    <Typography sx={{ fontSize: '11px', color: '#9CA3AF' }}>
+                                                        Adjust the date range or filters to see data
+                                                    </Typography>
+                                                </Box>
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : filteredSummary.map((row, idx) => {
+                                        const avColor = avatarColorFor(row.staffMember || '');
+                                        return (
+                                            <TableRow key={row.staffId || idx} sx={{
+                                                '&:hover': { bgcolor: PRIMARY_LIGHT },
+                                                borderBottom: '1px solid #F3F4F6',
+                                                transition: 'background-color 0.15s',
+                                            }}>
+                                                <TableCell sx={{ borderBottom: '1px solid #F3F4F6', width: 50 }}>
+                                                    <Typography sx={{ fontSize: '12px', color: '#9CA3AF', fontWeight: 500 }}>
+                                                        {row.sNo ?? idx + 1}
+                                                    </Typography>
+                                                </TableCell>
+                                                <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
+                                                        <Avatar sx={{
+                                                            width: 34, height: 34,
+                                                            bgcolor: `${avColor}15`, color: avColor,
+                                                            fontSize: '11px', fontWeight: 700,
+                                                            border: `1px solid ${avColor}33`,
+                                                        }}>
+                                                            {getInitials(row.staffMember)}
+                                                        </Avatar>
+                                                        <Box>
+                                                            <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>
+                                                                {row.staffMember}
+                                                            </Typography>
+                                                            <Typography sx={{ fontSize: '10px', color: '#9CA3AF', fontWeight: 500, fontFamily: 'monospace' }}>
+                                                                {row.staffId}
+                                                            </Typography>
+                                                        </Box>
+                                                    </Box>
+                                                </TableCell>
+                                                <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
+                                                    {categoryChip(row.category)}
+                                                </TableCell>
+                                                <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
+                                                    <Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>
+                                                        {row.workingDays}
+                                                    </Typography>
+                                                </TableCell>
+                                                {[
+                                                    { v: row.present, color: PRIMARY },
+                                                    { v: row.late,    color: '#D97706' },
+                                                    { v: row.absent,  color: '#DC2626' },
+                                                    { v: row.leave,   color: '#7C3AED' },
+                                                ].map((cell, i) => (
+                                                    <TableCell key={i} sx={{ borderBottom: '1px solid #F3F4F6' }}>
+                                                        <Typography sx={{
+                                                            fontSize: '13px',
+                                                            fontWeight: 800,
+                                                            color: cell.v > 0 ? cell.color : '#D1D5DB',
+                                                            fontFamily: 'monospace',
+                                                        }}>
+                                                            {cell.v ?? 0}
+                                                        </Typography>
+                                                    </TableCell>
+                                                ))}
+                                                <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
+                                                    {renderRateBar(row.attendancePercent ?? 0)}
+                                                </TableCell>
+                                                <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
+                                                    <Button
+                                                        size="small"
+                                                        variant="outlined"
+                                                        startIcon={<VisibilityOutlinedIcon sx={{ fontSize: '13px !important' }} />}
+                                                        onClick={() => fetchFullReport(row.staffId)}
+                                                        sx={{
+                                                            textTransform: 'none', fontSize: '11px', fontWeight: 700,
+                                                            borderRadius: '6px',
+                                                            color: PRIMARY_DARK,
+                                                            borderColor: PRIMARY_BORDER,
+                                                            bgcolor: PRIMARY_LIGHT,
+                                                            '&:hover': { borderColor: PRIMARY, bgcolor: '#DCFCE7' },
+                                                        }}
+                                                    >
+                                                        View
+                                                    </Button>
+                                                </TableCell>
+                                            </TableRow>
+                                        );
+                                    })}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+                    </CardContent>
+                </Card>
+
+                {/* ─── Full Report Dialog ───────────────────────────────────── */}
+                <Dialog open={reportDialog.open} onClose={closeDialog} maxWidth="md" fullWidth
+                    PaperProps={{ sx: { borderRadius: '14px', overflow: 'hidden' } }}>
+                    {reportDialog.isLoading ? (
+                        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 10 }}>
+                            <CircularProgress size={36} sx={{ color: PRIMARY }} />
+                        </Box>
+                    ) : fullData && (
+                        <>
+                            <DialogTitle sx={{ p: 0 }}>
+                                <Box sx={{
+                                    background: `linear-gradient(135deg, ${PRIMARY_LIGHT} 0%, #fff 60%)`,
+                                    borderBottom: `1px solid ${PRIMARY_BORDER}`,
+                                    px: 3, pt: 2.2, pb: 2,
                                 }}>
-                                Close
-                            </Button>
-                        </DialogActions>
-                    </>
-                )}
-            </Dialog>
-        </Box>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1.5 }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1, minWidth: 0 }}>
+                                            <Avatar sx={{
+                                                width: 48, height: 48,
+                                                bgcolor: `${avatarColorFor(fullData.name || '')}15`,
+                                                color: avatarColorFor(fullData.name || ''),
+                                                fontWeight: 800, fontSize: '15px',
+                                                border: `1px solid ${avatarColorFor(fullData.name || '')}33`,
+                                            }}>
+                                                {getInitials(fullData.name)}
+                                            </Avatar>
+                                            <Box sx={{ minWidth: 0 }}>
+                                                <Typography sx={{ fontSize: '17px', fontWeight: 800, color: '#111827', lineHeight: 1.15 }} noWrap>
+                                                    {fullData.name}
+                                                </Typography>
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, mt: 0.4, flexWrap: 'wrap' }}>
+                                                    <Typography sx={{ fontSize: '11px', color: '#6B7280', fontFamily: 'monospace', fontWeight: 600 }}>
+                                                        {fullData.staffId}
+                                                    </Typography>
+                                                    {fullData.department && (
+                                                        <>
+                                                            <Box sx={{ width: 3, height: 3, borderRadius: '50%', bgcolor: '#D1D5DB' }} />
+                                                            <Typography sx={{ fontSize: '11px', color: '#6B7280' }}>{fullData.department}</Typography>
+                                                        </>
+                                                    )}
+                                                    <Box sx={{ width: 3, height: 3, borderRadius: '50%', bgcolor: '#D1D5DB' }} />
+                                                    {categoryChip(fullData.category)}
+                                                </Box>
+                                            </Box>
+                                        </Box>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
+                                            <Box sx={{ textAlign: 'right' }}>
+                                                <Typography sx={{ fontSize: '9px', fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                                    Report Period
+                                                </Typography>
+                                                <Typography sx={{ fontSize: '11px', fontWeight: 700, color: '#374151', whiteSpace: 'nowrap' }}>
+                                                    {fullData.reportFromDate} → {fullData.reportToDate}
+                                                </Typography>
+                                            </Box>
+                                            <IconButton onClick={closeDialog} size="small"
+                                                sx={{ bgcolor: '#fff', border: '1px solid #E5E7EB', borderRadius: '8px',
+                                                      '&:hover': { bgcolor: '#F9FAFB', borderColor: '#D1D5DB' } }}>
+                                                <CloseIcon sx={{ fontSize: 18, color: '#6B7280' }} />
+                                            </IconButton>
+                                        </Box>
+                                    </Box>
+
+                                    {/* Attendance Rate Bar */}
+                                    <Box sx={{ mt: 1.6, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                        <Typography sx={{ fontSize: '11px', fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.4, whiteSpace: 'nowrap' }}>
+                                            Attendance Rate
+                                        </Typography>
+                                        <Box sx={{ flex: 1 }}>
+                                            <LinearProgress variant="determinate" value={Math.min(100, fullRate)} sx={{
+                                                height: 8, borderRadius: 4, bgcolor: '#fff',
+                                                '& .MuiLinearProgress-bar': { bgcolor: fullRateColor, borderRadius: 4 },
+                                            }} />
+                                        </Box>
+                                        <Typography sx={{
+                                            fontSize: '15px', fontWeight: 800, color: fullRateColor,
+                                            minWidth: 50, textAlign: 'right', fontFamily: 'monospace',
+                                        }}>
+                                            {fullRate}%
+                                        </Typography>
+                                    </Box>
+                                </Box>
+                            </DialogTitle>
+
+                            <DialogContent sx={{ p: 0, bgcolor: '#F9FAFB' }}>
+                                {/* Stats strip */}
+                                <Box sx={{ display: 'flex', borderBottom: '1px solid #E5E7EB', bgcolor: '#fff' }}>
+                                    {[
+                                        { label: 'Working',  value: fullData.workingDays, color: '#2563EB' },
+                                        { label: 'Present',  value: fullData.present,     color: PRIMARY   },
+                                        { label: 'Late',     value: fullData.late,        color: '#D97706' },
+                                        { label: 'Absent',   value: fullData.absent,      color: '#DC2626' },
+                                        { label: 'Leave',    value: fullData.leave,       color: '#7C3AED' },
+                                    ].map((s, i, arr) => (
+                                        <Box key={s.label} sx={{
+                                            flex: 1, textAlign: 'center', py: 1.8,
+                                            borderRight: i < arr.length - 1 ? '1px solid #F3F4F6' : 'none',
+                                            borderTop: `3px solid ${s.color}`,
+                                        }}>
+                                            <Typography sx={{ fontSize: '22px', fontWeight: 800, color: s.color, lineHeight: 1, fontFamily: 'monospace' }}>
+                                                {s.value ?? 0}
+                                            </Typography>
+                                            <Typography sx={{ fontSize: '10px', fontWeight: 700, color: '#9CA3AF', mt: 0.4, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+                                                {s.label}
+                                            </Typography>
+                                        </Box>
+                                    ))}
+                                </Box>
+
+                                <Box sx={{ p: 2.2 }}>
+                                    {/* Calendar */}
+                                    {fullData.calendar?.length > 0 && (
+                                        <Card sx={{ mb: 2, border: '1px solid #E5E7EB', borderRadius: '12px', boxShadow: 'none', bgcolor: '#fff' }}>
+                                            <Box sx={{
+                                                px: 2, py: 1.2, bgcolor: PRIMARY_LIGHT,
+                                                borderBottom: `1px solid ${PRIMARY_BORDER}`,
+                                                display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1,
+                                            }}>
+                                                <Typography sx={{ fontSize: '12px', fontWeight: 700, color: PRIMARY_DARK }}>
+                                                    Attendance Calendar
+                                                </Typography>
+                                                <Box sx={{ display: 'flex', gap: 1.2, flexWrap: 'wrap' }}>
+                                                    {Object.entries(STATUS_STYLE).map(([s, cfg]) => (
+                                                        <Box key={s} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                            <Box sx={{ width: 8, height: 8, borderRadius: '2px', bgcolor: cfg.bg, border: `1px solid ${cfg.color}50` }} />
+                                                            <Typography sx={{ fontSize: '10px', color: '#6B7280', fontWeight: 600 }}>{s}</Typography>
+                                                        </Box>
+                                                    ))}
+                                                </Box>
+                                            </Box>
+                                            <Box sx={{ p: 1.5, display: 'flex', flexWrap: 'wrap', gap: 0.8 }}>
+                                                {fullData.calendar.map((cal, i) => {
+                                                    const key = normalizeStatus(cal.status);
+                                                    const cfg = STATUS_STYLE[key] || { bg: '#F3F4F6', color: '#D1D5DB', border: '#E5E7EB' };
+                                                    return (
+                                                        <Tooltip key={i}
+                                                            title={`${cal.dayName} ${cal.dayNumber} · ${key || 'Not Marked'}`}
+                                                            placement="top" arrow>
+                                                            <Box sx={{
+                                                                width: 48, height: 48, borderRadius: '8px',
+                                                                bgcolor: cfg.bg, border: `1.5px solid ${cfg.border || `${cfg.color}40`}`,
+                                                                display: 'flex', flexDirection: 'column',
+                                                                alignItems: 'center', justifyContent: 'center', cursor: 'default',
+                                                            }}>
+                                                                <Typography sx={{ fontSize: '14px', fontWeight: 800, color: cfg.color, lineHeight: 1, fontFamily: 'monospace' }}>
+                                                                    {cal.dayNumber}
+                                                                </Typography>
+                                                                <Typography sx={{ fontSize: '9px', fontWeight: 700, color: cfg.color, opacity: 0.75, mt: 0.25 }}>
+                                                                    {cal.dayName}
+                                                                </Typography>
+                                                            </Box>
+                                                        </Tooltip>
+                                                    );
+                                                })}
+                                            </Box>
+                                        </Card>
+                                    )}
+
+                                    {/* Daily Log */}
+                                    <Card sx={{ border: '1px solid #E5E7EB', borderRadius: '12px', boxShadow: 'none', bgcolor: '#fff' }}>
+                                        <Box sx={{
+                                            px: 2, py: 1.2, bgcolor: PRIMARY_LIGHT,
+                                            borderBottom: `1px solid ${PRIMARY_BORDER}`,
+                                        }}>
+                                            <Typography sx={{ fontSize: '12px', fontWeight: 700, color: PRIMARY_DARK }}>
+                                                Daily Log
+                                            </Typography>
+                                        </Box>
+                                        <TableContainer sx={{ maxHeight: 320 }}>
+                                            <Table size="small" stickyHeader>
+                                                <TableHead>
+                                                    <TableRow>
+                                                        {['Date', 'Day', 'Status', 'Login Time'].map(h => (
+                                                            <TableCell key={h} sx={{
+                                                                fontWeight: 700, fontSize: '10px', color: '#6B7280',
+                                                                textTransform: 'uppercase', letterSpacing: 0.4,
+                                                                bgcolor: '#F9FAFB', borderBottom: '1px solid #E5E7EB',
+                                                            }}>{h}</TableCell>
+                                                        ))}
+                                                    </TableRow>
+                                                </TableHead>
+                                                <TableBody>
+                                                    {(!fullData.dailyLog || fullData.dailyLog.length === 0) ? (
+                                                        <TableRow>
+                                                            <TableCell colSpan={4} align="center" sx={{ py: 4, borderBottom: 'none' }}>
+                                                                <Typography sx={{ fontSize: '13px', color: '#9CA3AF' }}>
+                                                                    No records for this period
+                                                                </Typography>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ) : fullData.dailyLog.map((rec, idx) => {
+                                                        const key = normalizeStatus(rec.status);
+                                                        const cfg = STATUS_STYLE[key] || { color: '#9CA3AF', bg: '#F3F4F6', border: '#E5E7EB' };
+                                                        return (
+                                                            <TableRow key={idx} sx={{ '&:hover': { bgcolor: PRIMARY_LIGHT } }}>
+                                                                <TableCell sx={{ fontSize: '12px', fontWeight: 600, color: '#1F2937', borderBottom: '1px solid #F3F4F6', whiteSpace: 'nowrap' }}>
+                                                                    {rec.date}
+                                                                </TableCell>
+                                                                <TableCell sx={{ fontSize: '12px', color: '#6B7280', borderBottom: '1px solid #F3F4F6' }}>
+                                                                    {rec.day}
+                                                                </TableCell>
+                                                                <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
+                                                                    {key ? (
+                                                                        <Chip
+                                                                            size="small" label={key}
+                                                                            icon={React.createElement(cfg.icon, { sx: { fontSize: '12px !important' } })}
+                                                                            sx={{
+                                                                                bgcolor: cfg.bg, color: cfg.color,
+                                                                                border: `1px solid ${cfg.border || `${cfg.color}40`}`,
+                                                                                fontWeight: 700, fontSize: '10.5px', height: 22,
+                                                                                '& .MuiChip-icon': { color: 'inherit', ml: '6px' },
+                                                                            }}
+                                                                        />
+                                                                    ) : (
+                                                                        <Typography sx={{ fontSize: '12px', color: '#D1D5DB' }}>—</Typography>
+                                                                    )}
+                                                                </TableCell>
+                                                                <TableCell sx={{
+                                                                    fontSize: '12px',
+                                                                    color: key === 'Late' ? '#D97706' : '#374151',
+                                                                    fontWeight: key === 'Late' ? 800 : 500,
+                                                                    fontFamily: 'monospace',
+                                                                    borderBottom: '1px solid #F3F4F6',
+                                                                }}>
+                                                                    {rec.loginTime || '—'}
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        );
+                                                    })}
+                                                </TableBody>
+                                            </Table>
+                                        </TableContainer>
+                                    </Card>
+                                </Box>
+                            </DialogContent>
+
+                            <DialogActions sx={{ px: 2.5, py: 1.5, borderTop: '1px solid #E5E7EB', bgcolor: '#fff', display: 'flex', justifyContent: 'space-between' }}>
+                                <Button
+                                    variant="outlined"
+                                    startIcon={<FileDownloadIcon sx={{ fontSize: 16 }} />}
+                                    onClick={handleExportFullReport}
+                                    disabled={!fullData?.dailyLog?.length}
+                                    sx={{
+                                        textTransform: 'none', fontSize: '12.5px', fontWeight: 700,
+                                        borderRadius: '8px',
+                                        color: PRIMARY_DARK, borderColor: PRIMARY_BORDER,
+                                        bgcolor: PRIMARY_LIGHT,
+                                        '&:hover': { borderColor: PRIMARY, bgcolor: '#DCFCE7' },
+                                    }}
+                                >
+                                    Export Excel
+                                </Button>
+                                <Button
+                                    onClick={closeDialog}
+                                    sx={{
+                                        textTransform: 'none', fontSize: '12.5px', fontWeight: 700,
+                                        color: '#374151', borderRadius: '8px',
+                                        border: '1px solid #E5E7EB', px: 2, height: 34,
+                                        '&:hover': { bgcolor: '#F9FAFB' },
+                                    }}
+                                >
+                                    Close
+                                </Button>
+                            </DialogActions>
+                        </>
+                    )}
+                </Dialog>
+            </Box>
         </>
     );
 }

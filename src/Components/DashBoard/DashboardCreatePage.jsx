@@ -234,7 +234,7 @@ export default function CreateDashboardPage() {
                         md: 6,
                         lg: 6
                     }}>
-                    <Box sx={{ backgroundColor: "#fbfbfb", py: 2, borderRadius: "7px", mt: 4.5, height: "75.6vh", overflowY: "auto", position: "relative" }}>
+                    <Box sx={{ backgroundColor: "#fbfbfb",border:"1px solid #ccc", py: 2, borderRadius: "7px", mt: 4.5, height: "75.6vh", overflowY: "auto", position: "relative" }}>
                         <Grid container spacing={2} sx={{ px: 2 }}>
                             <Grid
                                 size={{
@@ -314,23 +314,8 @@ export default function CreateDashboardPage() {
                         </Grid>
 
                         <Box sx={{ mt: 3, }}>
-                            <Grid container spacing={2} sx={{ position: "absolute", bottom: "10px", px: 2 }}>
-                                <Grid
-                                    size={{
-                                        xs: 6,
-                                        sm: 6,
-                                        md: 6,
-                                        lg: 5
-                                    }}>
-                                </Grid>
-                                <Grid
-                                    size={{
-                                        xs: 6,
-                                        sm: 6,
-                                        md: 6,
-                                        lg: 2.3
-                                    }}>
-                                </Grid>
+                            <Grid container spacing={2} sx={{ position: "absolute", bottom: "10px", px: 2, width:"100%",display:"flex", justifyContent:"end",  }}>
+                             
                                 <Grid
                                     size={{
                                         xs: 6,
@@ -478,14 +463,14 @@ export default function CreateDashboardPage() {
                     </Box>
                 </Dialog>
                 <Grid
-                    sx={{ py: 2, mt: 6.5 }}
+                    sx={{ py: 2, pr:2, mt: 6.5 }}
                     size={{
                         xs: 12,
                         sm: 12,
                         md: 6,
                         lg: 6
                     }}>
-                    <Box sx={{ backgroundColor: "#fbfbfb", p: 2, borderRadius: "6px", height: "75.6vh", overflowY: "auto" }}>
+                    <Box sx={{ backgroundColor: "#fbfbfb", p: 2, borderRadius: "6px", height: "75.6vh", overflowY: "auto", border:"1px solid #ccc", }}>
                         <Typography sx={{ fontSize: "14px", color: "rgba(0,0,0,0.7)" }}>Dashboard Sliders</Typography>
                         <hr style={{ border: "0.5px solid #CFCFCF" }} />
 

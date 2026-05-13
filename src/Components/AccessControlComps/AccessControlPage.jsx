@@ -13,6 +13,7 @@ import axios from "axios";
 import Groups2Icon from '@mui/icons-material/Groups2';
 import AutoStoriesIcon from '@mui/icons-material/AutoStories';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import SchoolIcon from '@mui/icons-material/School';
 
 
 export default function AccessControlPage() {
@@ -30,8 +31,12 @@ export default function AccessControlPage() {
 
     const items = [
         { color: "#A749CC", icon: Groups2Icon, text: "Users", bgColor: "#FBF9FC", iconBgColor: "#F7F0F9", path: 'users', intimation: newsIntimation },
-        { color: "#ED9146", icon: AutoStoriesIcon, text: "Academics", bgColor: "#FCFBF9", iconBgColor: "#FBF4EF", path: 'academics', intimation: messageIntimation },
-        { color: "#7DC353", icon: TrendingUpIcon, text: "Student Promotion", bgColor: "#F9FBF7", iconBgColor: "#F2F8EE", path: 'student-promotion', intimation: circularIntimation },
+        // Academics + Student Promotion + Issue TC are restricted to superadmin only
+        ...(userType === "superadmin" ? [
+            { color: "#ED9146", icon: AutoStoriesIcon, text: "Academics", bgColor: "#FCFBF9", iconBgColor: "#FBF4EF", path: 'academics', intimation: messageIntimation },
+            { color: "#7DC353", icon: TrendingUpIcon, text: "Student Promotion", bgColor: "#F9FBF7", iconBgColor: "#F2F8EE", path: 'student-promotion', intimation: circularIntimation },
+            { color: "#D97706", icon: SchoolIcon, text: "Issue TC", bgColor: "#FFFCF5", iconBgColor: "#FFF8E5", path: 'issue-tc', intimation: false },
+        ] : []),
         // { color: "#E10052", icon: HomeWorkIcon, text: "Homework", bgColor: "#FCF8F9", iconBgColor: "#FBEBF1", path: 'homework', intimation: homeworkIntimation },
     ];
 
@@ -125,7 +130,7 @@ export default function AccessControlPage() {
                                                                 borderBottomLeftRadius: '5px',
                                                             }}
                                                         />
-                                                    </Grid>
+                                                    </Grid>  
                                                     <Grid
                                                         sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}
                                                         size={{
