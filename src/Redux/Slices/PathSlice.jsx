@@ -2,6 +2,7 @@ import { createSlice } from '@reduxjs/toolkit';
 
 const initialState = {
     communicationActivePaths: [
+        '/dashboardmenu/com-dashboard',
         '/dashboardmenu/news',
         '/dashboardmenu/messages',
         '/dashboardmenu/circulars',

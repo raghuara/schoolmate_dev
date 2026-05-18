@@ -1,0 +1,373 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+    Box, Card, CardContent, Grid, Typography, Chip, CircularProgress,
+    Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+    Tooltip, TextField, InputAdornment, IconButton,
+} from '@mui/material';
+import SearchIcon from '@mui/icons-material/Search';
+import CloseIcon from '@mui/icons-material/Close';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import PendingIcon from '@mui/icons-material/Pending';
+import CancelIcon from '@mui/icons-material/Cancel';
+import HistoryToggleOffIcon from '@mui/icons-material/HistoryToggleOff';
+import InboxIcon from '@mui/icons-material/Inbox';
+import axios from 'axios';
+import { useSelector } from 'react-redux';
+import { leaveApprovalStatusCheck } from '../../Api/Api';
+
+const token = '123';
+const PRIMARY = '#059669';
+const PRIMARY_LIGHT = '#ECFDF5';
+const PRIMARY_DARK = '#047857';
+const PRIMARY_BORDER = '#A7F3D0';
+
+// API uses "Requested" for the pending state; we display it as "Pending".
+const STATUS_META = {
+    Requested: { label: 'Pending',  color: '#B45309', bg: '#FFFBEB', border: '#FDE68A', icon: PendingIcon },
+    Pending:   { label: 'Pending',  color: '#B45309', bg: '#FFFBEB', border: '#FDE68A', icon: PendingIcon },
+    Approved:  { label: 'Approved', color: '#047857', bg: '#ECFDF5', border: '#A7F3D0', icon: CheckCircleIcon },
+    Declined:  { label: 'Rejected', color: '#B91C1C', bg: '#FEF2F2', border: '#FECACA', icon: CancelIcon },
+    Rejected:  { label: 'Rejected', color: '#B91C1C', bg: '#FEF2F2', border: '#FECACA', icon: CancelIcon },
+};
+
+const LEAVE_TYPE_STYLE = {
+    'Sick Leave':      { color: '#DC2626', bg: '#FEF2F2', border: '#FECACA' },
+    'Casual Leave':    { color: '#2563EB', bg: '#EFF6FF', border: '#BFDBFE' },
+    'Planned Leave':   { color: '#16A34A', bg: '#F0FDF4', border: '#A7F3D0' },
+    'Emergency Leave': { color: '#EA580C', bg: '#FFF7ED', border: '#FED7AA' },
+    'Medical Leave':   { color: '#DC2626', bg: '#FEF2F2', border: '#FECACA' },
+};
+
+const normaliseStatus = (s) => STATUS_META[s]?.label || s || 'Pending';
+
+export default function MyLeaveStatusPage() {
+    const user = useSelector((state) => state.auth);
+    const rollNumber = user?.rollNumber;
+
+    const [leaves, setLeaves] = useState([]);
+    const [isFetching, setIsFetching] = useState(false);
+    const [search, setSearch] = useState('');
+    const [statusFilter, setStatusFilter] = useState('all'); // all | Pending | Approved | Rejected
+
+    const fetchMyLeaves = async () => {
+        if (!rollNumber) return;
+        setIsFetching(true);
+        try {
+            const res = await axios.get(leaveApprovalStatusCheck, {
+                params: { RollNumber: rollNumber },
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const list = res?.data?.leaves || res?.data?.data || [];
+            setLeaves(Array.isArray(list) ? list : []);
+        } catch (err) {
+            console.error('Fetch my leave status failed:', err);
+            setLeaves([]);
+        } finally {
+            setIsFetching(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchMyLeaves();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [rollNumber]);
+
+    // Sort newest-first when an applied date exists.
+    const sorted = useMemo(() => (
+        [...leaves].sort((a, b) => {
+            const ad = a.appliedOn || a.createdOn || a.fromDate || '';
+            const bd = b.appliedOn || b.createdOn || b.fromDate || '';
+            return String(bd).localeCompare(String(ad));
+        })
+    ), [leaves]);
+
+    const counts = useMemo(() => {
+        const acc = { total: sorted.length, Pending: 0, Approved: 0, Rejected: 0 };
+        sorted.forEach(l => { acc[normaliseStatus(l.status)] = (acc[normaliseStatus(l.status)] || 0) + 1; });
+        return acc;
+    }, [sorted]);
+
+    const q = search.trim().toLowerCase();
+    const filtered = sorted.filter(l => {
+        const status = normaliseStatus(l.status);
+        if (statusFilter !== 'all' && status !== statusFilter) return false;
+        if (!q) return true;
+        return (
+            (l.leaveType || '').toLowerCase().includes(q)
+            || (l.reason || '').toLowerCase().includes(q)
+            || (l.fromDate || '').toLowerCase().includes(q)
+            || (l.toDate || '').toLowerCase().includes(q)
+        );
+    });
+
+    const statCards = [
+        { key: 'all',      label: 'Total',    value: counts.total,    color: '#374151', bg: '#fff',       border: '#E5E7EB' },
+        { key: 'Pending',  label: 'Pending',  value: counts.Pending,  color: '#D97706', bg: '#FFFBEB',    border: '#FDE68A', icon: PendingIcon },
+        { key: 'Approved', label: 'Approved', value: counts.Approved, color: PRIMARY,   bg: PRIMARY_LIGHT, border: PRIMARY_BORDER, icon: CheckCircleIcon },
+        { key: 'Rejected', label: 'Rejected', value: counts.Rejected, color: '#DC2626', bg: '#FEF2F2',    border: '#FECACA', icon: CancelIcon },
+    ];
+
+    const renderStatusChip = (s) => {
+        const cfg = STATUS_META[s] || STATUS_META.Pending;
+        const Icon = cfg.icon;
+        return (
+            <Chip
+                size="small" label={cfg.label}
+                icon={<Icon sx={{ fontSize: '12px !important' }} />}
+                sx={{
+                    bgcolor: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}`,
+                    fontWeight: 700, fontSize: '10.5px', height: 22,
+                    '& .MuiChip-icon': { color: 'inherit', ml: '6px' },
+                }}
+            />
+        );
+    };
+
+    const renderLeaveTypeChip = (lt) => {
+        const cfg = LEAVE_TYPE_STYLE[lt] || { color: '#374151', bg: '#F3F4F6', border: '#E5E7EB' };
+        return (
+            <Chip
+                size="small" label={lt || '—'}
+                sx={{
+                    bgcolor: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}`,
+                    fontWeight: 600, fontSize: '10.5px', height: 22,
+                }}
+            />
+        );
+    };
+
+    return (
+        <Box>
+            {/* Header strip */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                <Box sx={{
+                    width: 32, height: 32, borderRadius: '8px',
+                    bgcolor: PRIMARY_LIGHT, border: `1px solid ${PRIMARY_BORDER}`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                    <HistoryToggleOffIcon sx={{ color: PRIMARY, fontSize: 18 }} />
+                </Box>
+                <Box>
+                    <Typography sx={{ fontSize: 15, fontWeight: 700, color: '#111827', lineHeight: 1.2 }}>
+                        My Leave Requests
+                    </Typography>
+                    <Typography sx={{ fontSize: 11, color: '#6B7280' }}>
+                        Track the status of leave applications you have submitted.
+                    </Typography>
+                </Box>
+            </Box>
+
+            {/* KPI strip with click-to-filter */}
+            <Grid container spacing={1.5} sx={{ mb: 2 }}>
+                {statCards.map(card => {
+                    const Icon = card.icon;
+                    const active = statusFilter === card.key;
+                    return (
+                        <Grid size={{ xs: 6, sm: 3 }} key={card.label}>
+                            <Card
+                                onClick={() => setStatusFilter(card.key)}
+                                sx={{
+                                    cursor: 'pointer', borderRadius: '12px', boxShadow: 'none',
+                                    border: `1px solid ${active ? card.color : card.border}`,
+                                    bgcolor: card.bg,
+                                    transition: 'transform 0.15s, box-shadow 0.15s',
+                                    '&:hover': { transform: 'translateY(-2px)', boxShadow: `0 6px 16px ${card.color}22` },
+                                }}
+                            >
+                                <CardContent sx={{ py: 1.4, '&:last-child': { pb: 1.4 } }}>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                        <Box>
+                                            <Typography sx={{
+                                                fontSize: 11, color: card.color, fontWeight: 700,
+                                                textTransform: 'uppercase', letterSpacing: 0.4,
+                                            }}>
+                                                {card.label}
+                                            </Typography>
+                                            <Typography sx={{
+                                                fontSize: 24, fontWeight: 800, color: '#111827',
+                                                lineHeight: 1.2, mt: 0.4,
+                                            }}>
+                                                {card.value}
+                                            </Typography>
+                                        </Box>
+                                        {Icon && (
+                                            <Box sx={{
+                                                width: 32, height: 32, borderRadius: '8px',
+                                                bgcolor: '#fff', border: `1px solid ${card.border}`,
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            }}>
+                                                <Icon sx={{ color: card.color, fontSize: 16 }} />
+                                            </Box>
+                                        )}
+                                    </Box>
+                                </CardContent>
+                            </Card>
+                        </Grid>
+                    );
+                })}
+            </Grid>
+
+            {/* Toolbar + table */}
+            <Card sx={{ border: '1px solid #E5E7EB', borderRadius: '12px', boxShadow: 'none', bgcolor: '#fff' }}>
+                <CardContent sx={{ pb: '12px !important' }}>
+                    <Box sx={{
+                        display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center',
+                        p: 1.2, mb: 1.5, borderRadius: '10px',
+                        border: '1px solid #E5E7EB', bgcolor: '#FAFAFA',
+                    }}>
+                        <TextField
+                            size="small"
+                            placeholder="Search by type, reason or date..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            slotProps={{
+                                input: {
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <SearchIcon sx={{ fontSize: 16, color: '#9CA3AF' }} />
+                                        </InputAdornment>
+                                    ),
+                                    endAdornment: search ? (
+                                        <InputAdornment position="end">
+                                            <IconButton size="small" onClick={() => setSearch('')} sx={{ p: 0.3 }}>
+                                                <CloseIcon sx={{ fontSize: 14, color: '#9CA3AF' }} />
+                                            </IconButton>
+                                        </InputAdornment>
+                                    ) : null,
+                                },
+                            }}
+                            sx={{
+                                flex: 1, minWidth: 220, maxWidth: 360,
+                                '& .MuiOutlinedInput-root': {
+                                    height: 34, fontSize: 12.5, borderRadius: '8px', bgcolor: '#fff',
+                                    '& fieldset': { borderColor: '#E5E7EB' },
+                                    '&:hover fieldset': { borderColor: '#D1D5DB' },
+                                    '&.Mui-focused fieldset': { borderColor: PRIMARY },
+                                },
+                            }}
+                        />
+                        <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.6 }}>
+                            <Typography sx={{ fontSize: 11.5, color: '#6B7280' }}>Showing</Typography>
+                            <Typography sx={{ fontSize: 13, fontWeight: 800, color: PRIMARY_DARK }}>
+                                {filtered.length}
+                            </Typography>
+                            <Typography sx={{ fontSize: 11.5, color: '#6B7280' }}>of {sorted.length}</Typography>
+                        </Box>
+                    </Box>
+
+                    <TableContainer sx={{ borderRadius: '10px', overflow: 'hidden', border: '1px solid #E5E7EB' }}>
+                        <Table size="small">
+                            <TableHead>
+                                <TableRow sx={{ bgcolor: PRIMARY_LIGHT, borderBottom: `1px solid ${PRIMARY_BORDER}` }}>
+                                    {['Leave Type', 'From', 'To', 'Days', 'Reason', 'Applied On', 'Status'].map(h => (
+                                        <TableCell key={h} sx={{
+                                            fontWeight: 700, fontSize: 10, color: PRIMARY_DARK,
+                                            textTransform: 'uppercase', whiteSpace: 'nowrap',
+                                            letterSpacing: 0.6, py: 1.3, borderBottom: 'none',
+                                        }}>{h}</TableCell>
+                                    ))}
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {isFetching ? (
+                                    <TableRow>
+                                        <TableCell colSpan={7} sx={{ textAlign: 'center', py: 5, borderBottom: 'none' }}>
+                                            <CircularProgress size={26} sx={{ color: PRIMARY }} />
+                                        </TableCell>
+                                    </TableRow>
+                                ) : filtered.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={7} sx={{ textAlign: 'center', py: 5, borderBottom: 'none' }}>
+                                            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.8 }}>
+                                                <Box sx={{
+                                                    width: 48, height: 48, borderRadius: '50%',
+                                                    bgcolor: PRIMARY_LIGHT,
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                }}>
+                                                    <InboxIcon sx={{ fontSize: 24, color: PRIMARY }} />
+                                                </Box>
+                                                <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#374151' }}>
+                                                    {sorted.length === 0 ? 'No leave requests yet' : 'No requests match your filters'}
+                                                </Typography>
+                                                <Typography sx={{ fontSize: 11, color: '#9CA3AF' }}>
+                                                    {sorted.length === 0
+                                                        ? 'When you submit a leave application it will appear here with its current status.'
+                                                        : 'Try clearing the filters above.'}
+                                                </Typography>
+                                            </Box>
+                                        </TableCell>
+                                    </TableRow>
+                                ) : filtered.map((l, idx) => (
+                                    <TableRow
+                                        key={l.leaveApplicationId || idx}
+                                        sx={{
+                                            '&:hover': { bgcolor: PRIMARY_LIGHT },
+                                            transition: 'background-color 0.15s',
+                                        }}
+                                    >
+                                        <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
+                                            {renderLeaveTypeChip(l.leaveType)}
+                                        </TableCell>
+                                        <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
+                                            <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>
+                                                {l.fromDate || '—'}
+                                            </Typography>
+                                        </TableCell>
+                                        <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
+                                            <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>
+                                                {l.toDate || '—'}
+                                            </Typography>
+                                        </TableCell>
+                                        <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
+                                            <Box sx={{
+                                                display: 'inline-flex', alignItems: 'center', gap: 0.4,
+                                                px: 0.8, py: 0.2, borderRadius: '6px',
+                                                bgcolor: '#EEF2FF', border: '1px solid #C7D2FE',
+                                            }}>
+                                                <Typography sx={{ fontSize: 12, fontWeight: 800, color: '#4338CA', fontFamily: 'monospace' }}>
+                                                    {l.days ?? l.duration ?? '—'}
+                                                </Typography>
+                                                <Typography sx={{ fontSize: 10, color: '#4338CA', fontWeight: 600 }}>
+                                                    {(l.days ?? l.duration ?? 0) > 1 ? 'days' : 'day'}
+                                                </Typography>
+                                            </Box>
+                                        </TableCell>
+                                        <TableCell sx={{ borderBottom: '1px solid #F3F4F6', maxWidth: 220 }}>
+                                            <Tooltip title={l.reason || ''} arrow placement="top">
+                                                <Typography sx={{
+                                                    fontSize: 12, color: '#4B5563',
+                                                    overflow: 'hidden', textOverflow: 'ellipsis',
+                                                    whiteSpace: 'nowrap', maxWidth: 220,
+                                                }}>
+                                                    {l.reason || '—'}
+                                                </Typography>
+                                            </Tooltip>
+                                        </TableCell>
+                                        <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
+                                            <Typography sx={{ fontSize: 11.5, color: '#6B7280' }}>
+                                                {l.appliedOn || l.createdOn || '—'}
+                                            </Typography>
+                                        </TableCell>
+                                        <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
+                                            {renderStatusChip(l.status)}
+                                            {(l.status === 'Declined' || l.status === 'Rejected') && l.rejectionReason && (
+                                                <Tooltip title={`Reason: ${l.rejectionReason}`} arrow placement="top">
+                                                    <Typography sx={{
+                                                        fontSize: 10, color: '#B91C1C', mt: 0.4, fontWeight: 600,
+                                                        textDecoration: 'underline dotted', cursor: 'help',
+                                                    }}>
+                                                        Why rejected?
+                                                    </Typography>
+                                                </Tooltip>
+                                            )}
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
+                </CardContent>
+            </Card>
+        </Box>
+    );
+}

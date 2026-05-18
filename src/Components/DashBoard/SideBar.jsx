@@ -482,7 +482,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
 
           {/* Communication Tab */}
           {version.LITE && (
-            <ListItem onClick={() => handleMenuClick('communication', 'news', 'news')} sx={{ borderRadius: 2, px: 3, paddingTop: '3px', paddingBottom: '3px' }}>
+            <ListItem onClick={() => handleMenuClick('communication', 'com-dashboard', 'com-dashboard')} sx={{ borderRadius: 2, px: 3, paddingTop: '3px', paddingBottom: '3px' }}>
               <CustomTooltip title={isExpanded ? "" : "Communication"} arrow placement="right-start">
                 <Box
                   sx={{

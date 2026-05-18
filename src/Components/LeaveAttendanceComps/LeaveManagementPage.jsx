@@ -21,6 +21,7 @@ import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import FactCheckOutlinedIcon from '@mui/icons-material/FactCheckOutlined';
 import ListAltOutlinedIcon from '@mui/icons-material/ListAltOutlined';
 import EventNoteOutlinedIcon from '@mui/icons-material/EventNoteOutlined';
+import HistoryToggleOffIcon from '@mui/icons-material/HistoryToggleOff';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { getLeaveDashboard, GetleaveTypes } from '../../Api/Api';
@@ -28,6 +29,7 @@ import SnackBar from '../SnackBar';
 import { useSelector } from 'react-redux';
 import ApplyLeavePage from './ApplyLeavePage';
 import ApprovalWorkflowPage from './ApprovalWorkflowPage';
+import MyLeaveStatusPage from './MyLeaveStatusPage';
 
 const token = "123";
 
@@ -330,6 +332,7 @@ export default function LeaveManagementPage({
                     const SUB_VIEWS = [
                         { key: 'applications', label: 'Applications', icon: ListAltOutlinedIcon,    color: PRIMARY },
                         { key: 'apply',        label: 'Apply Leave',  icon: EventNoteOutlinedIcon, color: '#059669' },
+                        { key: 'myStatus',     label: 'My Requests',  icon: HistoryToggleOffIcon,  color: '#7C3AED' },
                         ...(isAdmin ? [
                             { key: 'approval', label: 'Leave Approval', icon: FactCheckOutlinedIcon, color: '#2563EB' },
                         ] : []),
@@ -378,6 +381,11 @@ export default function LeaveManagementPage({
                         onSuccess={goBackToApplications}
                         onCancel={goBackToApplications}
                     />
+                )}
+
+                {/* ─── My Requests sub-view (logged-in user's own leave status) ─── */}
+                {effectiveSubView === 'myStatus' && (
+                    <MyLeaveStatusPage />
                 )}
 
                 {/* ─── Leave Approval sub-view (admin only) ─── */}

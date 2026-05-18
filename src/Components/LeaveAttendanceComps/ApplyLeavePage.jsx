@@ -13,11 +13,10 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import SendIcon from '@mui/icons-material/Send';
 import CloseIcon from '@mui/icons-material/Close';
-import MonetizationOnIcon from '@mui/icons-material/MonetizationOn';
 import dayjs from 'dayjs';
 import axios from 'axios';
 import { useSelector } from 'react-redux';
-import { postLeaveRequest } from '../../Api/Api';
+import { postLeaveRequest, GetEmployeeLeaveBalance } from '../../Api/Api';
 import SnackBar from '../SnackBar';
 
 const token = '123';
@@ -69,76 +68,21 @@ const LEAVE_TYPE_RULES = {
     'Unpaid Leave':     { standaloneOnly: false, requiresDocument: false, documentHint: '',                                                          maxPerMonth: 0 },
 };
 
-// ─── Mock leave balance — replace with API call once backend is ready ───────
-// TODO: GET /api/leave/balance?rollNumber=<id>  → returns { asOf, types: [...] }
-// Each type comes from Leave Policy Master, with the current cycle's used/pending/remaining.
-const buildMockLeaveBalance = () => ({
-    asOf: dayjs().format('D MMM YYYY'),
-    types: [
-        {
-            id: 1,
-            name: 'Sick Leave',
-            shortCode: 'SL',
-            color: '#EF4444',
-            allocationPeriod: 'Yearly',
-            periodLabel: `${dayjs().month(3).startOf('month').format('MMM YYYY')} – ${dayjs().month(3).startOf('month').add(11, 'month').endOf('month').format('MMM YYYY')}`,
-            allocated: 6,
-            used: 2,
-            pending: 1,
-            remaining: 3,
-            allocationHint: '6 days / year',
-            unusedAction: 'lapse',
-        },
-        {
-            id: 2,
-            name: 'Casual Leave',
-            shortCode: 'CL',
-            color: '#3B82F6',
-            allocationPeriod: 'Monthly',
-            periodLabel: dayjs().format('MMMM YYYY'),
-            allocated: 1,
-            used: 0,
-            pending: 0,
-            remaining: 1,
-            allocationHint: '1 day / month',
-            unusedAction: 'carry_forward',
-        },
-        {
-            id: 3,
-            name: 'Earned Leave',
-            shortCode: 'EL',
-            color: '#10B981',
-            allocationPeriod: 'Quarterly',
-            periodLabel: 'This quarter',
-            allocated: 3,
-            used: 1,
-            pending: 0,
-            remaining: 2,
-            allocationHint: '3 days / quarter',
-            unusedAction: 'encash',
-        },
-        {
-            id: 4,
-            name: 'Emergency Leave',
-            shortCode: 'EM',
-            color: '#F59E0B',
-            allocationPeriod: 'Yearly',
-            periodLabel: `${dayjs().month(3).startOf('month').format('MMM YYYY')} – ${dayjs().month(3).startOf('month').add(11, 'month').endOf('month').format('MMM YYYY')}`,
-            allocated: 2,
-            used: 0,
-            pending: 0,
-            remaining: 2,
-            allocationHint: '2 days / year',
-            unusedAction: 'lapse',
-        },
-    ],
-});
-
-const UNUSED_ACTION_LABEL = {
-    encash: 'Unused → Encashed',
-    carry_forward: 'Unused → Carried forward',
-    lapse: 'Unused → Lapses',
+// Current academic year (Apr–Mar window). Before April we're still in the previous year's cycle.
+const getCurrentAcademicYear = () => {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = today.getMonth() + 1;
+    return m >= 4 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
 };
+
+// Stable colour for each leave type based on its id.
+const LEAVE_TYPE_PALETTE = ['#EF4444', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#06B6D4', '#EC4899', '#84CC16'];
+const colorForLeaveType = (id) => LEAVE_TYPE_PALETTE[Math.abs(Number(id) || 0) % LEAVE_TYPE_PALETTE.length];
+
+// Cheap short-code: take the first letter of each word (max 3).
+const shortCodeFor = (name = '') =>
+    name.split(/\s+/).filter(Boolean).map(w => w[0]).join('').slice(0, 3).toUpperCase() || '–';
 
 // ─── Numbered step header (matches Leave Policy Master pattern) ─────────────
 const StepHeader = ({ number, title, hint }) => (
@@ -190,16 +134,93 @@ export default function ApplyLeavePage({ onSuccess, onCancel }) {
 
     // Leave balance drawer
     const [balanceOpen, setBalanceOpen] = useState(false);
-    // TODO: replace with API fetch — leave balance for the logged-in user.
-    const leaveBalance = useMemo(() => buildMockLeaveBalance(), []);
-    const balanceTotals = useMemo(() => {
-        return leaveBalance.types.reduce((acc, t) => ({
+    const [balanceLoading, setBalanceLoading] = useState(false);
+    const [balanceTypes, setBalanceTypes] = useState([]);
+    const [balanceAsOf, setBalanceAsOf] = useState(dayjs().format('D MMM YYYY'));
+    const academicYear = useMemo(() => getCurrentAcademicYear(), []);
+
+    // Fetch the logged-in user's leave balance for the current academic year.
+    // The API returns one row per leave type already allocated for them.
+    const fetchLeaveBalance = async () => {
+        if (!rollNumber) return;
+        setBalanceLoading(true);
+        try {
+            const res = await axios.get(GetEmployeeLeaveBalance, {
+                params: { academicYear, rollNumber },
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const list = Array.isArray(res?.data?.data) ? res.data.data : [];
+            setBalanceTypes(list.map(d => ({
+                id: d.id,
+                leaveTypeId: d.leaveTypeId,
+                name: d.leaveTypeName || 'Leave',
+                shortCode: shortCodeFor(d.leaveTypeName),
+                color: colorForLeaveType(d.leaveTypeId),
+                academicYear: d.academicYear,
+                allocated: Number(d.allocated) || 0,
+                used: Number(d.used) || 0,
+                remaining: Number(d.remaining) || 0,
+                usedThisMonth: Number(d.usedThisMonth) || 0,
+                usedThisQuarter: Number(d.usedThisQuarter) || 0,
+                usedThisHalfYear: Number(d.usedThisHalfYear) || 0,
+                usedThisYear: Number(d.usedThisYear) || 0,
+            })));
+            setBalanceAsOf(dayjs().format('D MMM YYYY'));
+        } catch (err) {
+            console.error('GetEmployeeLeaveBalance failed:', err);
+            setBalanceTypes([]);
+        } finally {
+            setBalanceLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchLeaveBalance();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [rollNumber, academicYear]);
+
+    const balanceTotals = useMemo(() => (
+        balanceTypes.reduce((acc, t) => ({
             allocated: acc.allocated + t.allocated,
             used: acc.used + t.used,
-            pending: acc.pending + t.pending,
             remaining: acc.remaining + t.remaining,
-        }), { allocated: 0, used: 0, pending: 0, remaining: 0 });
-    }, [leaveBalance]);
+        }), { allocated: 0, used: 0, remaining: 0 })
+    ), [balanceTypes]);
+
+    // Hardcoded "Others (Loss of Pay)" — always available as a fallback when an
+    // employee has exhausted their allocated balance but still needs to take leave.
+    // Marked unpaid so the backend can deduct salary accordingly.
+    const LOSS_OF_PAY_OPTION = {
+        value: 'Loss of Pay',
+        label: 'Others',
+        sublabel: 'Loss of Pay',
+        leaveTypeId: null,
+        remaining: null,
+        allocated: null,
+        color: '#6B7280',
+        isUnpaid: true,
+    };
+
+    // Dropdown options = allocated types from API balance + "Others (LOP)" always last.
+    const leaveTypeOptions = useMemo(() => {
+        const fromApi = balanceTypes.map(t => ({
+            value: t.name,
+            label: t.name,
+            sublabel: `${t.remaining} of ${t.allocated} left`,
+            leaveTypeId: t.leaveTypeId,
+            remaining: t.remaining,
+            allocated: t.allocated,
+            color: t.color,
+            isUnpaid: false,
+        }));
+        return [...fromApi, LOSS_OF_PAY_OPTION];
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [balanceTypes]);
+
+    const selectedLeaveOption = useMemo(
+        () => leaveTypeOptions.find(o => o.value === form.leaveType) || null,
+        [leaveTypeOptions, form.leaveType]
+    );
 
     // SnackBar
     const [snackOpen, setSnackOpen] = useState(false);
@@ -339,6 +360,21 @@ export default function ApplyLeavePage({ onSuccess, onCancel }) {
         return { totalDays, working, mandatory, holiday, mandatoryDates, leaveDays: working + mandatory };
     }, [selectedStart, selectedEnd]);
 
+    // Balance check — leaveDays selected must not exceed remaining for paid
+    // leave types. "Others (Loss of Pay)" always passes.
+    const balanceCheck = useMemo(() => {
+        if (!selectedLeaveOption || selectedLeaveOption.isUnpaid) return null;
+        if (!rangeBreakdown) return null;
+        const requested = rangeBreakdown.leaveDays;
+        const remaining = selectedLeaveOption.remaining;
+        return {
+            ok: requested <= remaining,
+            requested,
+            remaining,
+            shortfall: Math.max(0, requested - remaining),
+        };
+    }, [selectedLeaveOption, rangeBreakdown]);
+
     const isPickerDayInRange = (date) => {
         if (!selectedStart) return false;
         const end = selectedEnd || selectedStart;
@@ -378,6 +414,13 @@ export default function ApplyLeavePage({ onSuccess, onCancel }) {
             showSnack(`${form.leaveType} requires a supporting document. Please upload at least one file.`, false);
             return;
         }
+        if (balanceCheck && !balanceCheck.ok) {
+            showSnack(
+                `Only ${balanceCheck.remaining} day(s) of ${form.leaveType} remaining. Reduce the range or pick "Others (Loss of Pay)".`,
+                false
+            );
+            return;
+        }
 
         const startStr = selectedStart.format('YYYY-MM-DD');
         const endStr = (selectedEnd || selectedStart).format('YYYY-MM-DD');
@@ -388,6 +431,9 @@ export default function ApplyLeavePage({ onSuccess, onCancel }) {
             toDate: formatDateForApi(endStr),
             duration: rangeBreakdown ? rangeBreakdown.leaveDays : 1,
             leaveType: form.leaveType,
+            leaveTypeId: selectedLeaveOption?.leaveTypeId ?? null,
+            isLossOfPay: !!selectedLeaveOption?.isUnpaid,
+            academicYear,
             reason: form.reason.trim(),
             remarks: form.reason.trim(),
             mandatoryDays: rangeBreakdown?.mandatoryDates?.map(d => d.format('YYYY-MM-DD')) || [],
@@ -420,7 +466,8 @@ export default function ApplyLeavePage({ onSuccess, onCancel }) {
         || (rangeBreakdown && rangeBreakdown.mandatory > 0 && !mandatoryAck)
         || (standaloneCheck && !standaloneCheck.ok)
         || (monthlyCapCheck && !monthlyCapCheck.ok)
-        || (activeRules.requiresDocument && uploadedFiles.length === 0);
+        || (activeRules.requiresDocument && uploadedFiles.length === 0)
+        || (balanceCheck && !balanceCheck.ok);
 
     return (
         <>
@@ -477,20 +524,120 @@ export default function ApplyLeavePage({ onSuccess, onCancel }) {
                                         if (!next?.requiresDocument) setUploadedFiles([]);
                                     }}
                                     label="Leave Type"
+                                    renderValue={(selected) => {
+                                        if (!selected) return '';
+                                        const opt = leaveTypeOptions.find(o => o.value === selected);
+                                        return opt ? (opt.isUnpaid ? `${opt.label} (Loss of Pay)` : opt.label) : selected;
+                                    }}
                                     sx={{
                                         fontSize: 13,
                                         '& .MuiOutlinedInput-notchedOutline': { borderColor: '#E5E7EB' },
                                     }}
                                 >
-                                    <MenuItem value="Sick Leave">Sick Leave</MenuItem>
-                                    <MenuItem value="Casual Leave">Casual Leave</MenuItem>
-                                    <MenuItem value="Emergency Leave">Emergency Leave</MenuItem>
-                                    <MenuItem value="Maternity Leave">Maternity Leave</MenuItem>
-                                    <MenuItem value="Paternity Leave">Paternity Leave</MenuItem>
-                                    <MenuItem value="Annual Leave">Annual Leave</MenuItem>
-                                    <MenuItem value="Unpaid Leave">Unpaid Leave</MenuItem>
+                                    {balanceLoading && (
+                                        <MenuItem disabled value="">
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                <CircularProgress size={14} sx={{ color: PRIMARY }} />
+                                                <Typography sx={{ fontSize: 12, color: '#6B7280' }}>
+                                                    Loading your leave balance...
+                                                </Typography>
+                                            </Box>
+                                        </MenuItem>
+                                    )}
+                                    {leaveTypeOptions.map(opt => {
+                                        const exhausted = !opt.isUnpaid && opt.remaining === 0;
+                                        return (
+                                            <MenuItem
+                                                key={opt.value}
+                                                value={opt.value}
+                                                disabled={exhausted}
+                                                sx={{
+                                                    py: 0.8, px: 1.4,
+                                                    '&.Mui-disabled': { opacity: 0.55 },
+                                                }}
+                                            >
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+                                                    <Box sx={{
+                                                        width: 9, height: 9, borderRadius: '50%',
+                                                        bgcolor: opt.color, flexShrink: 0,
+                                                    }} />
+                                                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                                                        <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#111', lineHeight: 1.2 }} noWrap>
+                                                            {opt.isUnpaid ? `${opt.label} (Loss of Pay)` : opt.label}
+                                                        </Typography>
+                                                        {!opt.isUnpaid && (
+                                                            <Typography sx={{ fontSize: 10, color: '#9CA3AF', mt: 0.1 }} noWrap>
+                                                                {opt.sublabel}
+                                                            </Typography>
+                                                        )}
+                                                        {opt.isUnpaid && (
+                                                            <Typography sx={{ fontSize: 10, color: '#9CA3AF', mt: 0.1 }} noWrap>
+                                                                Use this when balance is exhausted — unpaid
+                                                            </Typography>
+                                                        )}
+                                                    </Box>
+                                                    <Chip
+                                                        size="small"
+                                                        label={
+                                                            opt.isUnpaid ? 'LOP'
+                                                                : exhausted ? 'Exhausted'
+                                                                : `${opt.remaining} left`
+                                                        }
+                                                        sx={{
+                                                            height: 20, fontSize: 10, fontWeight: 800,
+                                                            bgcolor: opt.isUnpaid ? '#FEF3C7'
+                                                                : exhausted ? '#FEF2F2'
+                                                                : `${opt.color}15`,
+                                                            color: opt.isUnpaid ? '#B45309'
+                                                                : exhausted ? '#DC2626'
+                                                                : opt.color,
+                                                            border: `1px solid ${
+                                                                opt.isUnpaid ? '#FDE68A'
+                                                                : exhausted ? '#FECACA'
+                                                                : `${opt.color}40`
+                                                            }`,
+                                                        }}
+                                                    />
+                                                </Box>
+                                            </MenuItem>
+                                        );
+                                    })}
                                 </Select>
                             </FormControl>
+
+                            {/* Live balance banner — appears after a type is chosen */}
+                            {selectedLeaveOption && !selectedLeaveOption.isUnpaid && balanceCheck && !balanceCheck.ok && (
+                                <Box sx={{
+                                    mb: 1.5, p: 1, borderRadius: '6px',
+                                    bgcolor: '#FEF2F2', border: '1px solid #FECACA',
+                                    display: 'flex', alignItems: 'flex-start', gap: 0.8,
+                                }}>
+                                    <WarningAmberIcon sx={{ fontSize: 16, color: '#DC2626', mt: 0.2, flexShrink: 0 }} />
+                                    <Box sx={{ flex: 1 }}>
+                                        <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#991B1B', mb: 0.2 }}>
+                                            Balance exceeded — short by {balanceCheck.shortfall} day(s)
+                                        </Typography>
+                                        <Typography sx={{ fontSize: 10, color: '#991B1B', lineHeight: 1.5 }}>
+                                            You requested {balanceCheck.requested} day(s) but only {balanceCheck.remaining} of
+                                            {' '}{selectedLeaveOption.label} remain. Reduce the range, or pick
+                                            {' '}<strong>Others (Loss of Pay)</strong> to continue.
+                                        </Typography>
+                                    </Box>
+                                </Box>
+                            )}
+                            {selectedLeaveOption?.isUnpaid && (
+                                <Box sx={{
+                                    mb: 1.5, p: 1, borderRadius: '6px',
+                                    bgcolor: '#FEF3C7', border: '1px solid #FDE68A',
+                                    display: 'flex', alignItems: 'flex-start', gap: 0.8,
+                                }}>
+                                    <InfoOutlinedIcon sx={{ fontSize: 14, color: '#B45309', mt: 0.2, flexShrink: 0 }} />
+                                    <Typography sx={{ fontSize: 11, color: '#92400E', lineHeight: 1.5 }}>
+                                        This leave will be marked as <strong>Loss of Pay</strong> — salary for the leave days
+                                        will be deducted. Use this only when your paid balance is exhausted.
+                                    </Typography>
+                                </Box>
+                            )}
 
                             {/* Live metric tiles — Selected Range + Duration */}
                             <Grid container spacing={1}>
@@ -1038,7 +1185,7 @@ export default function ApplyLeavePage({ onSuccess, onCancel }) {
                                 My Leave Balance
                             </Typography>
                             <Typography sx={{ fontSize: 11, color: '#5B7A6E' }} noWrap>
-                                {(user?.name || rollNumber || 'You')} · As of {leaveBalance.asOf}
+                                {(user?.name || rollNumber || 'You')} · AY {academicYear} · As of {balanceAsOf}
                             </Typography>
                         </Box>
                     </Box>
@@ -1056,10 +1203,9 @@ export default function ApplyLeavePage({ onSuccess, onCancel }) {
                         {[
                             { label: 'Allocated', value: balanceTotals.allocated, color: '#374151', bg: '#fff' },
                             { label: 'Used',      value: balanceTotals.used,      color: '#DC2626', bg: '#FEF2F2' },
-                            { label: 'Pending',   value: balanceTotals.pending,   color: '#F59E0B', bg: '#FFFBEB' },
                             { label: 'Remaining', value: balanceTotals.remaining, color: PRIMARY,   bg: PRIMARY_LIGHT },
                         ].map(s => (
-                            <Grid key={s.label} size={{ xs: 3 }}>
+                            <Grid key={s.label} size={{ xs: 4 }}>
                                 <Box sx={{
                                     py: 1, px: 0.5, borderRadius: '8px',
                                     border: '1px solid #E5E7EB',
@@ -1080,8 +1226,21 @@ export default function ApplyLeavePage({ onSuccess, onCancel }) {
 
                 {/* Per-type cards (scrollable) */}
                 <Box sx={{ flex: 1, overflowY: 'auto', p: 2, display: 'flex', flexDirection: 'column', gap: 1.2 }}>
-                    {leaveBalance.types.map(t => {
-                        const usedPct = t.allocated > 0 ? Math.min(100, Math.round(((t.used + t.pending) / t.allocated) * 100)) : 0;
+                    {balanceLoading ? (
+                        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                            <CircularProgress size={26} sx={{ color: PRIMARY }} />
+                        </Box>
+                    ) : balanceTypes.length === 0 ? (
+                        <Box sx={{ textAlign: 'center', py: 4 }}>
+                            <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>
+                                No leave balance found
+                            </Typography>
+                            <Typography sx={{ fontSize: 11, color: '#9CA3AF', mt: 0.4 }}>
+                                Your HR admin has not allocated any leave for {academicYear} yet.
+                            </Typography>
+                        </Box>
+                    ) : balanceTypes.map(t => {
+                        const usedPct = t.allocated > 0 ? Math.min(100, Math.round((t.used / t.allocated) * 100)) : 0;
                         const isLow = t.remaining <= 1 && t.allocated > 0;
                         return (
                             <Box key={t.id} sx={{
@@ -1108,7 +1267,7 @@ export default function ApplyLeavePage({ onSuccess, onCancel }) {
                                             {t.name}
                                         </Typography>
                                         <Typography sx={{ fontSize: 10, color: '#6B7280' }} noWrap>
-                                            {t.allocationPeriod} · {t.periodLabel}
+                                            Academic Year · {t.academicYear}
                                         </Typography>
                                     </Box>
                                     {isLow && (
@@ -1120,8 +1279,8 @@ export default function ApplyLeavePage({ onSuccess, onCancel }) {
                                 {/* Stats row */}
                                 <Box sx={{ display: 'flex', gap: 1, mb: 1.2 }}>
                                     {[
+                                        { label: 'Allocated', value: t.allocated, color: '#374151' },
                                         { label: 'Used',      value: t.used,      color: '#DC2626' },
-                                        { label: 'Pending',   value: t.pending,   color: '#F59E0B' },
                                         { label: 'Remaining', value: t.remaining, color: t.color, big: true },
                                     ].map(s => (
                                         <Box key={s.label} sx={{
@@ -1162,7 +1321,7 @@ export default function ApplyLeavePage({ onSuccess, onCancel }) {
                                     />
                                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.4 }}>
                                         <Typography sx={{ fontSize: 10, color: '#6B7280' }}>
-                                            {t.used + t.pending} of {t.allocated} used
+                                            {t.used} of {t.allocated} used
                                         </Typography>
                                         <Typography sx={{ fontSize: 10, color: t.color, fontWeight: 700 }}>
                                             {usedPct}%
@@ -1170,18 +1329,14 @@ export default function ApplyLeavePage({ onSuccess, onCancel }) {
                                     </Box>
                                 </Box>
 
-                                {/* Footer chips */}
+                                {/* Footer breakdown chips */}
                                 <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                                    <Chip size="small" label={t.allocationHint}
+                                    <Chip size="small" label={`This month: ${t.usedThisMonth}`}
                                         sx={{ height: 18, fontSize: 9, fontWeight: 700, bgcolor: '#F3F4F6', color: '#374151' }} />
-                                    {t.unusedAction === 'encash' && (
-                                        <Chip size="small" icon={<MonetizationOnIcon sx={{ fontSize: '12px !important' }} />} label="Encashable"
-                                            sx={{ height: 18, fontSize: 9, fontWeight: 700, bgcolor: '#F5F3FF', color: '#7C3AED', '& .MuiChip-icon': { color: 'inherit', ml: '4px' } }} />
-                                    )}
-                                    {t.unusedAction !== 'encash' && (
-                                        <Chip size="small" label={UNUSED_ACTION_LABEL[t.unusedAction]}
-                                            sx={{ height: 18, fontSize: 9, fontWeight: 700, bgcolor: '#FAFAFA', color: '#6B7280', border: '1px solid #E5E7EB' }} />
-                                    )}
+                                    <Chip size="small" label={`This quarter: ${t.usedThisQuarter}`}
+                                        sx={{ height: 18, fontSize: 9, fontWeight: 700, bgcolor: '#F3F4F6', color: '#374151' }} />
+                                    <Chip size="small" label={`Half-year: ${t.usedThisHalfYear}`}
+                                        sx={{ height: 18, fontSize: 9, fontWeight: 700, bgcolor: '#F3F4F6', color: '#374151' }} />
                                 </Box>
                             </Box>
                         );

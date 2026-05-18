@@ -323,6 +323,13 @@ const expenceDashboard = `${baseApiurl}expenceDashboard`;
 
 
 // Leave & Attendance 
+
+// Biomatric 
+const biometrics = `${baseApiurl}biometrics/`;
+const SyncStatus = `${biometrics}SyncStatus/`;
+const TriggerManualSync = `${biometrics}TriggerManualSync/`;
+
+
 const attendance = `${baseApiurl}attendance/`;
 const postAttendanceTeachers = `${attendance}postAttendanceTeachers`;
 const getAttendanceTeacherBefor = `${attendance}getAttendanceTeacherBefor`;
@@ -356,6 +363,7 @@ const postworkingcalendar = `${leavePolicy}postworkingcalendar`;
 const GetWorkingcalendar = `${leavePolicy}GetWorkingcalendar`;
 const UpdateleaveTypeByID = `${leavePolicy}UpdateleaveTypeByID`;
 const DeleteleaveTypeByID = `${leavePolicy}DeleteleaveTypeByID`;
+const GetEmployeeLeaveBalance = `${leavePolicy}GetEmployeeLeaveBalance`;
 
 
 const postPFConfiguration = `${payRoll}postPFConfiguration`;
@@ -807,6 +815,7 @@ export {
     GetWorkingcalendar,
     UpdateleaveTypeByID,
     DeleteleaveTypeByID,
+    GetEmployeeLeaveBalance,
     PostPromoteStudents,
     FetchPromotableStudents,
     FetchPromotedStudents,
@@ -814,5 +823,7 @@ export {
     IssueStudentTC,
     DiscontinueStudent,
     PostStudentExit,
-    FetchExitHistory
+    FetchExitHistory,
+    SyncStatus,
+    TriggerManualSync
 }

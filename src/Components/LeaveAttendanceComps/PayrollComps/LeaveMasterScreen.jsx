@@ -577,10 +577,13 @@ export default function LeaveMasterScreen() {
     const calendarMonthKey = calendarMonth.format('YYYY-MM');
     const isMonthSaved = !!savedMonths[calendarMonthKey];
     const isMonthDirty = !!dirtyMonths[calendarMonthKey];
-    // The button can save when there are pending edits OR no record exists yet.
-    const canSaveMonth = isMonthDirty || !isMonthSaved;
-    // True when an existing record will be updated (vs. brand-new save).
-    const isMonthUpdate = isMonthSaved && isMonthDirty;
+    // The button is enabled for every upcoming month. Once a month has been saved
+    // the button transforms into "Update" — clicking it re-POSTs the current state,
+    // and the backend treats the request as a replace.
+    const canSaveMonth = isMonthDirty || !isMonthSaved || isMonthSaved;
+    // True whenever a saved record already exists — the same POST endpoint is reused
+    // to overwrite it, so we just relabel the button.
+    const isMonthUpdate = isMonthSaved;
     const isCurrentMonth = calendarMonth.isSame(currentMonth, 'month');
     const isPastMonth = calendarMonth.isBefore(currentMonth, 'month');
     const isReadOnlyMonth = isCurrentMonth || isPastMonth;
@@ -603,7 +606,7 @@ export default function LeaveMasterScreen() {
     };
 
     const cycleDayType = (date) => {
-        if (isReadOnlyMonth) return; // Can't edit current or past months
+        if (isReadOnlyMonth) return; 
         const key = date.format('YYYY-MM-DD');
         const current = getDayType(date);
         const cycle = { working: 'holiday', holiday: 'mandatory', mandatory: 'working' };
@@ -685,6 +688,7 @@ export default function LeaveMasterScreen() {
         }
 
         const body = {
+            academicYear,
             year: calendarMonth.year(),
             month: calendarMonth.month() + 1,        // dayjs month is 0-indexed
             weekPattern: buildMonthWeekPattern(calendarMonth),
@@ -751,7 +755,7 @@ export default function LeaveMasterScreen() {
         setIsLoadingCalendar(true);
         try {
             const res = await axios.get(GetWorkingcalendar, {
-                params: { year, month },
+                params: { academicYear, year, month },
                 headers: { Authorization: `Bearer ${TOKEN}` },
             });
 
@@ -804,11 +808,54 @@ export default function LeaveMasterScreen() {
         }
     };
 
-    // Refetch whenever the user navigates to a different month.
+    // Refetch whenever the user navigates to a different month OR switches
+    // the academic year in the header.
     useEffect(() => {
         fetchWorkingCalendar(calendarMonth);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [calendarMonthKey]);
+    }, [calendarMonthKey, academicYear]);
+
+    // Silent probe for the "next month is missing" badge on the Working Calendar tab.
+    // The visible calendar may be sitting on the current month, so without this probe
+    // we would never learn whether next month already has a saved record on the
+    // server. We hit the same GET endpoint, but ONLY toggle the savedMonths flag —
+    // no defaultWorkingDays / overrides / dirty state mutations.
+    const probeNextMonthBadge = async () => {
+        try {
+            const probeMonth = dayjs().add(1, 'month').startOf('month');
+            const res = await axios.get(GetWorkingcalendar, {
+                params: {
+                    academicYear,
+                    year: probeMonth.year(),
+                    month: probeMonth.month() + 1,
+                },
+                headers: { Authorization: `Bearer ${TOKEN}` },
+            });
+            const d = res?.data?.data;
+            const hasWeekPattern = !!(d && d.weekPattern && Object.keys(d.weekPattern).length > 0);
+            const hasOverrides = !!(d && Array.isArray(d.overrides) && d.overrides.length > 0);
+            const hasRecord = res?.data?.error === false && (hasWeekPattern || hasOverrides);
+            setSavedMonths(prev => {
+                const next = { ...prev };
+                if (hasRecord) next[nextMonthKey] = true;
+                else delete next[nextMonthKey];
+                return next;
+            });
+        } catch (err) {
+            // 404 / network errors → treat as "not saved yet" so the badge stays visible.
+            if (err?.response?.status === 404) {
+                setSavedMonths(prev => { const n = { ...prev }; delete n[nextMonthKey]; return n; });
+            }
+            // Any other failure is intentionally swallowed — the badge is informational.
+        }
+    };
+
+    // Run the probe on mount and whenever the academic year switches, so the
+    // intimation chip stays in sync regardless of which month is currently visible.
+    useEffect(() => {
+        probeNextMonthBadge();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [academicYear]);
 
     const calendarDays = getDaysInMonth();
     const calendarStats = {
@@ -1343,10 +1390,6 @@ export default function LeaveMasterScreen() {
             return;
         }
 
-        const isMonthly = policyForm.allocationPeriod === 'Monthly';
-        // Monthly policies always have advanceUsage = true (irrelevant — it's just one month).
-        const advanceUsage = isMonthly || !!policyForm.advanceUsageAllowed;
-
         const body = {
             academicYear,
             name: policyForm.name.trim(),
@@ -1356,7 +1399,6 @@ export default function LeaveMasterScreen() {
             allocationPeriod: FREQUENCY_TO_API[policyForm.allocationPeriod] || 'Yearly',
             numberOfDays: Number(policyForm.daysPerPeriod) || 0,
             maxDaysPerMonth: Number(policyForm.maxPerMonth) || 0,
-            advanceUsageAllowed: advanceUsage,
             unusedAction: UNUSED_ACTION_TO_API[policyForm.unusedLeaveAction] || 'Lapse',
             deductSalaryForExtra: !!policyForm.extraLeaveDeducted,
             standaloneOnly: !!policyForm.standaloneOnly,
@@ -2712,8 +2754,8 @@ export default function LeaveMasterScreen() {
                                             startIcon={
                                                 isSavingMonth
                                                     ? <CircularProgress size={14} sx={{ color: '#fff' }} />
-                                                    : (isMonthSaved && !isMonthDirty && !isReadOnlyMonth)
-                                                        ? <CheckCircleIcon sx={{ fontSize: 16 }} />
+                                                    : isMonthUpdate
+                                                        ? <EditIcon sx={{ fontSize: 16 }} />
                                                         : <SaveIcon sx={{ fontSize: 16 }} />
                                             }
                                             disabled={isReadOnlyMonth || isSavingMonth || !canSaveMonth}
@@ -2753,9 +2795,7 @@ export default function LeaveMasterScreen() {
                                                     ? (isMonthUpdate ? 'Updating…' : 'Saving…')
                                                     : isMonthUpdate
                                                         ? `Update ${calendarMonth.format('MMM YYYY')}`
-                                                        : (isMonthSaved && !isMonthDirty)
-                                                            ? `${calendarMonth.format('MMM YYYY')} Saved`
-                                                            : `Save ${calendarMonth.format('MMM YYYY')}`}
+                                                        : `Save ${calendarMonth.format('MMM YYYY')}`}
                                         </Button>
                                     </span>
                                 </Tooltip>
@@ -3103,7 +3143,18 @@ export default function LeaveMasterScreen() {
                                 <TextField
                                     fullWidth size="small" type="number"
                                     value={policyForm.daysPerPeriod}
-                                    onChange={e => ffPolicy('daysPerPeriod', Math.max(0, parseInt(e.target.value) || 0))}
+                                    onChange={e => {
+                                        const newDays = Math.max(0, parseInt(e.target.value) || 0);
+                                        // If maxPerMonth now exceeds the new total, clamp it down too.
+                                        setPolicyForm(prev => ({
+                                            ...prev,
+                                            daysPerPeriod: newDays,
+                                            maxPerMonth: (newDays > 0 && Number(prev.maxPerMonth) > newDays)
+                                                ? newDays
+                                                : prev.maxPerMonth,
+                                        }));
+                                        setPolicyErrors(prev => ({ ...prev, daysPerPeriod: undefined, maxPerMonth: undefined }));
+                                    }}
                                     error={!!policyErrors.daysPerPeriod}
                                     helperText={
                                         policyErrors.daysPerPeriod
@@ -3144,17 +3195,28 @@ export default function LeaveMasterScreen() {
                                     <TextField
                                         fullWidth size="small" type="number"
                                         value={policyForm.maxPerMonth}
-                                        onChange={e => ffPolicy('maxPerMonth', Math.max(0, parseInt(e.target.value) || 0))}
+                                        onChange={e => {
+                                            const raw = Math.max(0, parseInt(e.target.value) || 0);
+                                            const totalDays = Number(policyForm.daysPerPeriod) || 0;
+                                            // Hard clamp: monthly cap can never exceed the total allocation.
+                                            // (If total = 0 / on-demand, allow any non-negative value up to 31.)
+                                            const clamped = totalDays > 0 ? Math.min(raw, totalDays, 31) : Math.min(raw, 31);
+                                            ffPolicy('maxPerMonth', clamped);
+                                            // Clear any stale validation error on this field as soon as the user fixes it.
+                                            if (policyErrors.maxPerMonth) {
+                                                setPolicyErrors(prev => ({ ...prev, maxPerMonth: undefined }));
+                                            }
+                                        }}
                                         error={!!policyErrors.maxPerMonth}
                                         helperText={
                                             policyErrors.maxPerMonth
                                             || (Number(policyForm.maxPerMonth) > 0
-                                                ? `At most ${policyForm.maxPerMonth} day(s) usable in any single month`
-                                                : 'Set 0 to allow using all allocated days in one month')
+                                                ? `At most ${policyForm.maxPerMonth} day(s) usable in any single month (max allowed: ${Number(policyForm.daysPerPeriod) || 31})`
+                                                : `Set 0 to allow using all allocated days in one month (max allowed: ${Number(policyForm.daysPerPeriod) || 31})`)
                                         }
-                                        slotProps={{ input: { inputProps: { min: 0, max: 31, step: 1 } } }}
+                                        slotProps={{ input: { inputProps: { min: 0, max: Number(policyForm.daysPerPeriod) > 0 ? Math.min(Number(policyForm.daysPerPeriod), 31) : 31, step: 1 } } }}
                                         sx={{ '& .MuiOutlinedInput-root': { borderRadius: '5px', fontSize: 14 }, '& .MuiFormHelperText-root': { fontSize: 10, ml: 0 } }}
-                                    />
+                                    />   
                                 </Grid>
                                 <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
                                     <Box sx={{
@@ -3171,22 +3233,6 @@ export default function LeaveMasterScreen() {
                                     </Box>
                                 </Grid>
                             </Grid>
-                        )}
-
-                        {/* Availability toggle — only meaningful for periods longer than a month */}
-                        {policyForm.allocationPeriod !== 'Monthly' && !isOnDemandPolicy(policyForm) && (
-                            <Box sx={{ mt: 2 }}>
-                                <ToggleRow
-                                    label="Available from day 1 of the period"
-                                    description={
-                                        policyForm.advanceUsageAllowed
-                                            ? `Lump sum — all ${policyForm.daysPerPeriod} day(s) are usable from the first day of the ${getPeriodLabel(policyForm.allocationPeriod)} (e.g. 6 sick leaves available immediately).`
-                                            : `Accrued — only days earned so far are usable (≈ ${getMonthlyEquivalent(policyForm).toFixed(2)} day(s) added each month). Pool resets at end of period.`
-                                    }
-                                    checked={policyForm.advanceUsageAllowed}
-                                    onChange={(v) => ffPolicy('advanceUsageAllowed', v)}
-                                />
-                            </Box>
                         )}
 
                         {/* Inline summary of the chosen rule */}

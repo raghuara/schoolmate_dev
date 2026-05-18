@@ -4,7 +4,7 @@ import {
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
     Avatar, Divider, Tabs, Tab, CircularProgress, Tooltip, Menu, MenuItem,
     Dialog, DialogTitle, DialogContent, DialogActions, TextField, InputAdornment,
-    Stack, LinearProgress, Paper, ListItemIcon, ListItemText,
+    Stack, LinearProgress, Paper, ListItemIcon, ListItemText, Backdrop, Autocomplete,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -39,10 +39,15 @@ import PeopleAltOutlinedIcon from '@mui/icons-material/PeopleAltOutlined';
 import CircleIcon from '@mui/icons-material/Circle';
 import CheckIcon from '@mui/icons-material/Check';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
+import LaptopMacIcon from '@mui/icons-material/LaptopMac';
+import WifiOffIcon from '@mui/icons-material/WifiOff';
+import CloudSyncIcon from '@mui/icons-material/CloudSync';
+import HistoryToggleOffIcon from '@mui/icons-material/HistoryToggleOff';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import axios from 'axios';
-import { getAttendanceDashboard } from '../../Api/Api';
+import { getAttendanceDashboard, SyncStatus, TriggerManualSync } from '../../Api/Api';
 import SnackBar from '../SnackBar';
 
 import StaffAttendanceOverviewPage from './StaffAttendanceOverviewPage';
@@ -117,6 +122,43 @@ const formatTimeOfDay = (date) => {
     if (!date) return '—';
     return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 };
+
+const formatRelativeTime = (isoOrDate) => {
+    if (!isoOrDate) return '—';
+    const d = isoOrDate instanceof Date ? isoOrDate : new Date(isoOrDate);
+    if (Number.isNaN(d.getTime())) return '—';
+    const diffMs = Date.now() - d.getTime();
+    if (diffMs < 0) return 'just now';
+    const sec = Math.floor(diffMs / 1000);
+    if (sec < 30) return 'just now';
+    if (sec < 60) return `${sec}s ago`;
+    const min = Math.floor(sec / 60);
+    if (min < 60) return `${min}m ago`;
+    const hr = Math.floor(min / 60);
+    if (hr < 24) return `${hr}h ago`;
+    const days = Math.floor(hr / 24);
+    if (days < 7) return `${days}d ago`;
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+};
+
+const formatHHMMSS = (totalSec) => {
+    if (!Number.isFinite(totalSec) || totalSec < 0) return '00:00';
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+};
+
+// ─── Biometric sync constants ──────────────────────────────────────────────
+const SYNC_COOLDOWN_MS    = 5 * 60 * 1000; // 5 min between manual triggers
+const SYNC_TIMEOUT_MS     = 90 * 1000;     // 1.5 min safety timeout on the loader
+const POLL_INTERVAL_IDLE  = 10 * 1000;     // poll SyncStatus every 10s when idle
+const POLL_INTERVAL_BUSY  = 4 * 1000;      // poll every 4s while a sync is running
+
+// ─── Idle redirect constants ──────────────────────────────────────────────
+// If the user stays on this page without any input for N minutes, we route
+// them back to the dashboard so the SyncStatus polling stops generating load.
+const IDLE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes of inactivity
+const IDLE_EVENTS = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'wheel'];
 
 // ─── Biometric data normalizer ──────────────────────────────────────────────
 /**
@@ -215,6 +257,9 @@ export default function LeaveAttendancePage() {
     const user = useSelector((state) => state.auth);
     const rollNumber = user.rollNumber;
     const userType = user.userType;
+    // SyncStatus polling is admin-only — staff/teachers don't need this live data,
+    // and excluding them sharply reduces backend traffic.
+    const isAdminUser = userType === 'superadmin' || userType === 'admin';
 
     const [tabValue, setTabValue] = useState(0);
     // Sub-view of the Leave Management tab — controlled by quick-nav clicks here
@@ -243,20 +288,37 @@ export default function LeaveAttendancePage() {
     });
     const [isLoading, setIsLoading] = useState(false);
 
-    // Biometric device state
-    const [deviceStatus, setDeviceStatus] = useState({
-        connected: true,
-        deviceName: 'Main Entrance Terminal',
-        deviceIp: '192.168.1.200',
-        lastSyncAt: null,
-        pendingPunches: 0,
-    });
+    // ─── Biometric Sync State ──────────────────────────────────────────────
+    // Full latest response from the SyncStatus endpoint (or null if not loaded).
+    const [syncStatus, setSyncStatus] = useState(null);
+    // True while the blocking sync overlay is visible. Driven by isPending + manual trigger.
     const [isSyncing, setIsSyncing] = useState(false);
-    const [syncPreviewOpen, setSyncPreviewOpen] = useState(false);
-    const [syncPreview, setSyncPreview] = useState([]);
+    // Local timestamp when the user triggered the sync — used to enforce the safety timeout.
+    const [syncStartedAt, setSyncStartedAt] = useState(null);
+    // Manual-sync date picker
+    const [manualSyncOpen, setManualSyncOpen] = useState(false);
+    const [manualSyncDate, setManualSyncDate] = useState(() => {
+        const d = new Date();
+        d.setDate(d.getDate() - 1); // default to yesterday — most common case
+        return d.toISOString().split('T')[0];
+    });
+    const [isTriggering, setIsTriggering] = useState(false);
+    // 1Hz tick to refresh cooldown timer / "X seconds ago" labels
+    const [, setCooldownTick] = useState(0);
 
-    // Mark Attendance menu
-    const [markMenuAnchor, setMarkMenuAnchor] = useState(null);
+    const pollIntervalRef = useRef(null);
+    const syncTimeoutRef = useRef(null);
+
+    // Academic year selector — matches Create School Fee page behaviour.
+    // Defaults to the current academic year; options span previous two years + current.
+    const currentYear = new Date().getFullYear();
+    const currentAcademicYear = `${currentYear}-${currentYear + 1}`;
+    const academicYears = [
+        `${currentYear - 2}-${currentYear - 1}`,
+        `${currentYear - 1}-${currentYear}`,
+        `${currentYear}-${currentYear + 1}`,
+    ];
+    const [selectedAcademicYear, setSelectedAcademicYear] = useState(currentAcademicYear);
 
     // Today's Attendance tab filters
     const [todayAttSearch, setTodayAttSearch] = useState('');
@@ -338,54 +400,156 @@ export default function LeaveAttendancePage() {
     const handleTabChange = (_e, newValue) => setTabValue(newValue);
 
     // ─── Biometric Sync ────────────────────────────────────────────────────
-    const handleFetchBiometric = async () => {
-        setIsSyncing(true);
+    // Stop the loader: cleans up the safety timeout + flips isSyncing off.
+    const stopSyncLoader = () => {
+        setIsSyncing(false);
+        setSyncStartedAt(null);
+        if (syncTimeoutRef.current) {
+            clearTimeout(syncTimeoutRef.current);
+            syncTimeoutRef.current = null;
+        }
+    };
+
+    // GET SyncStatus — pulls latest status of the biometric worker + device.
+    const fetchSyncStatus = async () => {
         try {
-            // TODO: replace with real device fetch API
-            // const res = await axios.get('/api/biometric/fetch', { params: { deviceIp: deviceStatus.deviceIp, date: formatDateForApi(new Date()) } });
-            // const records = normalizeBiometricData(res.data, rollNumber);
+            const res = await axios.get(SyncStatus, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (res?.data && !res.data.error) {
+                setSyncStatus(res.data);
+                // If we were waiting for a sync to finish and the backend says it's done,
+                // close the loader + refresh dashboard so the new punches show.
+                if (isSyncing && res.data.isPending === false) {
+                    stopSyncLoader();
+                    fetchDashboard(formatDateForApi(new Date()));
+                    showSnack('Sync completed — attendance data refreshed', true);
+                }
+            }
+        } catch (err) {
+            console.error('SyncStatus fetch failed:', err);
+        }
+    };
 
-            // Demo: use a mock empty shape so the preview dialog opens
-            const mockAcsData = { AcsEvent: { InfoList: [] } };
-            const records = normalizeBiometricData(mockAcsData, rollNumber);
-
-            setSyncPreview(records);
-            setSyncPreviewOpen(true);
-            setDeviceStatus(prev => ({ ...prev, pendingPunches: records.length }));
-        } catch (error) {
-            console.error('Biometric fetch failed', error);
-            showSnack('Failed to fetch biometric data', false);
+    // POST TriggerManualSync — kicks off a sync from the chosen "from date"
+    // through to today. The user only picks the FROM date; the TO date is
+    // always the current date so we catch everything missed up to now.
+    const handleTriggerManualSync = async () => {
+        if (!manualSyncDate) {
+            showSnack('Please pick a from-date to sync', false);
+            return;
+        }
+        const todayIso = new Date().toISOString().split('T')[0];
+        setIsTriggering(true);
+        try {
+            const res = await axios.post(TriggerManualSync, null, {
+                params: { fromDate: manualSyncDate, toDate: todayIso },
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (res?.data && res.data.error) {
+                showSnack(res.data.message || 'Failed to trigger sync', false);
+            } else {
+                // Open the blocking loader. The polling watcher will close it when isPending=false.
+                setManualSyncOpen(false);
+                setIsSyncing(true);
+                setSyncStartedAt(Date.now());
+                showSnack('Sync started — fetching previous punches from device…', true);
+                // Safety timeout: force-close after 90s even if backend never flips isPending.
+                if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
+                syncTimeoutRef.current = setTimeout(() => {
+                    stopSyncLoader();
+                    fetchDashboard(formatDateForApi(new Date()));
+                    showSnack('Sync still running in the background — refreshing now', true);
+                }, SYNC_TIMEOUT_MS);
+                // Trigger an immediate status fetch so the UI reflects the new lastTriggeredAt.
+                fetchSyncStatus();
+            }
+        } catch (err) {
+            console.error('TriggerManualSync failed:', err);
+            const msg = err?.response?.data?.message || 'Failed to trigger sync';
+            showSnack(msg, false);
         } finally {
-            setIsSyncing(false);
+            setIsTriggering(false);
         }
     };
 
-    const handleConfirmSync = async () => {
-        try {
-            // TODO: POST syncPreview to save endpoint
-            // await axios.post('/api/attendance/bulkSync', { records: syncPreview, markedBy: rollNumber });
-            setDeviceStatus(prev => ({ ...prev, lastSyncAt: new Date(), pendingPunches: 0 }));
-            setSyncPreviewOpen(false);
-            showSnack(`Synced ${syncPreview.length} biometric records successfully`, true);
-            fetchDashboard(formatDateForApi(new Date()));
-        } catch (error) {
-            console.error('Sync save failed', error);
-            showSnack('Failed to save biometric records', false);
-        }
-    };
+    // Initial fetch + polling — admin/superadmin only.
+    // Non-admin users never trigger SyncStatus calls. This is the main load reduction.
+    useEffect(() => {
+        if (!isAdminUser) return;
+        fetchSyncStatus();
+        return () => {
+            if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+            if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isAdminUser]);
 
-    const openMarkMenu = (e) => setMarkMenuAnchor(e.currentTarget);
-    const closeMarkMenu = () => setMarkMenuAnchor(null);
+    useEffect(() => {
+        if (!isAdminUser) return;
+        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+        const interval = isSyncing ? POLL_INTERVAL_BUSY : POLL_INTERVAL_IDLE;
+        pollIntervalRef.current = setInterval(fetchSyncStatus, interval);
+        return () => clearInterval(pollIntervalRef.current);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isSyncing, isAdminUser]);
 
-    const handleManualEntry = () => {
-        closeMarkMenu();
-        setTabValue(1);
-    };
+    // ─── Idle redirect ─────────────────────────────────────────────────────
+    // If the user doesn't touch the page for IDLE_TIMEOUT_MS we route them
+    // away to /dashboardmenu/dashboard, which unmounts this component and
+    // tears down the SyncStatus polling. Saves backend load when people
+    // leave a tab open in the corner of their screen all day.
+    useEffect(() => {
+        // Don't bother running idle detection for users who don't poll anything.
+        if (!isAdminUser) return;
 
-    const handleBiometricSync = () => {
-        closeMarkMenu();
-        handleFetchBiometric();
-    };
+        let idleTimer = null;
+        const resetIdle = () => {
+            if (idleTimer) clearTimeout(idleTimer);
+            idleTimer = setTimeout(() => {
+                // Don't yank an admin away mid-sync — they need to wait it out.
+                if (isSyncing) {
+                    resetIdle(); // give them another full window
+                    return;
+                }
+                navigate('/dashboardmenu/dashboard');
+            }, IDLE_TIMEOUT_MS);
+        };
+
+        IDLE_EVENTS.forEach((evt) => window.addEventListener(evt, resetIdle, { passive: true }));
+        resetIdle(); // start the timer
+
+        return () => {
+            if (idleTimer) clearTimeout(idleTimer);
+            IDLE_EVENTS.forEach((evt) => window.removeEventListener(evt, resetIdle));
+        };
+    }, [isAdminUser, isSyncing, navigate]);
+
+    // 1Hz tick to refresh cooldown / "X seconds ago" labels (only when needed).
+    useEffect(() => {
+        const lastTrig = syncStatus?.lastTriggeredAt ? new Date(syncStatus.lastTriggeredAt).getTime() : 0;
+        const cooldownEnds = lastTrig + SYNC_COOLDOWN_MS;
+        const inCooldown = cooldownEnds > Date.now();
+        if (!inCooldown && !isSyncing) return;
+        const id = setInterval(() => setCooldownTick(t => t + 1), 1000);
+        return () => clearInterval(id);
+    }, [syncStatus, isSyncing]);
+
+    // Derived sync values
+    const lastTrigTs = syncStatus?.lastTriggeredAt ? new Date(syncStatus.lastTriggeredAt).getTime() : 0;
+    const cooldownEndsAt = lastTrigTs + SYNC_COOLDOWN_MS;
+    const cooldownLeftSec = Math.max(0, Math.ceil((cooldownEndsAt - Date.now()) / 1000));
+    const inCooldown = cooldownLeftSec > 0;
+    const elapsedSec = syncStartedAt ? Math.floor((Date.now() - syncStartedAt) / 1000) : 0;
+    const isWorkerAlive = !!syncStatus?.isWorkerAlive;
+    const isDeviceReachable = !!syncStatus?.isDeviceReachable;
+    // Both devices must be online before a manual sync can be triggered.
+    const devicesOnline = isWorkerAlive && isDeviceReachable;
+    const offlineDeviceLabel = !isWorkerAlive && !isDeviceReachable
+        ? 'Worker PC and Biometric device'
+        : !isWorkerAlive ? 'Worker PC' : !isDeviceReachable ? 'Biometric device' : '';
+    const canTrigger = !isSyncing && !inCooldown && devicesOnline;
+
 
     // ─── Dashboard render ──────────────────────────────────────────────────
     const renderDashboard = () => {
@@ -404,6 +568,175 @@ export default function LeaveAttendancePage() {
 
         return (
             <Box>
+                {/* ─── Biometric Device Status + Manual Sync (admin/superadmin only) ─── */}
+                {isAdminUser && (
+                <Paper elevation={0} sx={{
+                    mb: 2, borderRadius: '12px',
+                    border: '1px solid #E5E7EB', bgcolor: '#fff',
+                    overflow: 'hidden',
+                }}>
+                    <Box sx={{ p: 1.8 }}>
+                        <Grid container spacing={1.5} alignItems="center">
+                            {/* Worker (laptop) card */}
+                            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                                <Box sx={{
+                                    p: 1.2, borderRadius: '10px',
+                                    border: `1px solid ${isWorkerAlive ? '#A7F3D0' : '#FECACA'}`,
+                                    bgcolor: isWorkerAlive ? '#ECFDF5' : '#FEF2F2',
+                                    display: 'flex', alignItems: 'center', gap: 1.2,
+                                }}>
+                                    <Box sx={{
+                                        width: 38, height: 38, borderRadius: '10px', flexShrink: 0,
+                                        bgcolor: '#fff', border: `1px solid ${isWorkerAlive ? '#A7F3D0' : '#FECACA'}`,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    }}>
+                                        <LaptopMacIcon sx={{ fontSize: 20, color: isWorkerAlive ? '#047857' : '#B91C1C' }} />
+                                    </Box>
+                                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
+                                            <Typography sx={{ fontSize: 13, fontWeight: 800, color: '#111827', lineHeight: 1.1 }} noWrap>
+                                                Sync Worker (PC)
+                                            </Typography>
+                                            <Chip
+                                                size="small"
+                                                icon={isWorkerAlive
+                                                    ? <CircleIcon sx={{ fontSize: '8px !important' }} />
+                                                    : <CircleIcon sx={{ fontSize: '8px !important' }} />}
+                                                label={isWorkerAlive ? 'Online' : 'Offline'}
+                                                sx={{
+                                                    height: 18, fontSize: 9.5, fontWeight: 800,
+                                                    bgcolor: '#fff',
+                                                    color: isWorkerAlive ? '#047857' : '#B91C1C',
+                                                    border: `1px solid ${isWorkerAlive ? '#A7F3D0' : '#FECACA'}`,
+                                                    '& .MuiChip-icon': { color: 'inherit', ml: '4px' },
+                                                }}
+                                            />
+                                        </Box>
+                                        <Typography sx={{ fontSize: 10.5, color: '#4B5563', mt: 0.3 }} noWrap>
+                                            Last heartbeat:{' '}
+                                            <strong>{formatRelativeTime(syncStatus?.lastHeartbeatAt)}</strong>
+                                        </Typography>
+                                    </Box>
+                                </Box>
+                            </Grid>
+
+                            {/* Biometric device card */}
+                            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                                <Box sx={{
+                                    p: 1.2, borderRadius: '10px',
+                                    border: `1px solid ${isDeviceReachable ? '#A7F3D0' : '#FECACA'}`,
+                                    bgcolor: isDeviceReachable ? '#ECFDF5' : '#FEF2F2',
+                                    display: 'flex', alignItems: 'center', gap: 1.2,
+                                }}>
+                                    <Box sx={{
+                                        width: 38, height: 38, borderRadius: '10px', flexShrink: 0,
+                                        bgcolor: '#fff', border: `1px solid ${isDeviceReachable ? '#A7F3D0' : '#FECACA'}`,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    }}>
+                                        {isDeviceReachable
+                                            ? <FingerprintIcon sx={{ fontSize: 20, color: '#047857' }} />
+                                            : <WifiOffIcon sx={{ fontSize: 20, color: '#B91C1C' }} />}
+                                    </Box>
+                                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
+                                            <Typography sx={{ fontSize: 13, fontWeight: 800, color: '#111827', lineHeight: 1.1 }} noWrap>
+                                                Biometric Reachability
+                                            </Typography>
+                                            <Chip
+                                                size="small"
+                                                icon={<CircleIcon sx={{ fontSize: '8px !important' }} />}
+                                                label={isDeviceReachable ? 'Reachable' : 'Unreachable'}
+                                                sx={{
+                                                    height: 18, fontSize: 9.5, fontWeight: 800,
+                                                    bgcolor: '#fff',
+                                                    color: isDeviceReachable ? '#047857' : '#B91C1C',
+                                                    border: `1px solid ${isDeviceReachable ? '#A7F3D0' : '#FECACA'}`,
+                                                    '& .MuiChip-icon': { color: 'inherit', ml: '4px' },
+                                                }}
+                                            />
+                                        </Box>
+                                        <Tooltip arrow title={syncStatus?.lastDeviceError || ''}>
+                                            <Typography sx={{ fontSize: 10.5, color: '#4B5563', mt: 0.3 }} noWrap>
+                                                Last contact:{' '}
+                                                <strong>{formatRelativeTime(syncStatus?.lastDeviceContactAt)}</strong>
+                                            </Typography>
+                                        </Tooltip>
+                                    </Box>
+                                </Box>
+                            </Grid>
+
+                            {/* Sync action */}
+                            <Grid size={{ xs: 12, md: 4 }}>
+                                <Box sx={{
+                                    display: 'flex', flexDirection: 'column',
+                                    gap: 0.5, alignItems: { xs: 'stretch', md: 'flex-end' },
+                                }}>
+                                    {userType !== 'teacher' && (
+                                        <Tooltip
+                                            arrow
+                                            title={
+                                                isSyncing ? 'A sync is currently running'
+                                                : !devicesOnline ? `${offlineDeviceLabel} is offline — both must be online to sync`
+                                                : inCooldown ? `Cooldown — try again in ${formatHHMMSS(cooldownLeftSec)}`
+                                                : 'Manually sync past punches from the biometric device'
+                                            }
+                                        >
+                                            <Box sx={{ display: 'inline-flex', width: '100%', justifyContent: { md: 'flex-end' } }}>
+                                                <Button
+                                                    onClick={() => setManualSyncOpen(true)}
+                                                    disabled={!canTrigger}
+                                                    startIcon={
+                                                        isSyncing
+                                                            ? <CircularProgress size={14} sx={{ color: '#fff' }} />
+                                                            : !devicesOnline
+                                                                ? <WifiOffIcon sx={{ fontSize: 18 }} />
+                                                                : <CloudSyncIcon sx={{ fontSize: 18 }} />
+                                                    }
+                                                    sx={{
+                                                        textTransform: 'none',
+                                                        bgcolor: '#4338CA', color: '#fff',
+                                                        borderRadius: '10px',
+                                                        fontSize: 13, fontWeight: 700,
+                                                        px: 2.5, height: 38,
+                                                        boxShadow: '0 4px 12px rgba(67,56,202,0.35)',
+                                                        '&:hover': {
+                                                            bgcolor: '#3730A3',
+                                                            boxShadow: '0 6px 16px rgba(67,56,202,0.5)',
+                                                        },
+                                                        '&.Mui-disabled': {
+                                                            bgcolor: '#E5E7EB', color: '#9CA3AF', boxShadow: 'none',
+                                                        },
+                                                    }}
+                                                >
+                                                    {isSyncing
+                                                        ? 'Syncing…'
+                                                        : !devicesOnline
+                                                            ? 'Device Offline'
+                                                            : inCooldown
+                                                                ? `Cooldown ${formatHHMMSS(cooldownLeftSec)}`
+                                                                : 'Sync Last Data'}
+                                                </Button>
+                                            </Box>
+                                        </Tooltip>
+                                    )}
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: '#6B7280', flexWrap: 'wrap', justifyContent: { md: 'flex-end' } }}>
+                                        <HistoryToggleOffIcon sx={{ fontSize: 13, color: '#9CA3AF' }} />
+                                        <Typography sx={{ fontSize: 10.5 }}>
+                                            Last triggered:{' '}
+                                            <strong style={{ color: '#374151' }}>
+                                                {syncStatus?.lastTriggeredAt
+                                                    ? formatRelativeTime(syncStatus.lastTriggeredAt)
+                                                    : 'never'}
+                                            </strong>
+                                        </Typography>
+                                    </Box>
+                                </Box>
+                            </Grid>
+                        </Grid>
+                    </Box>
+                </Paper>
+                )}
+
                 {/* ─── My Attendance Today (personal ticker + break tracking) ─── */}
                 <Paper elevation={0} sx={{
                     mb: 2,
@@ -1442,106 +1775,257 @@ export default function LeaveAttendancePage() {
         }
     };
 
-    // ─── Biometric Sync Preview Dialog ─────────────────────────────────────
-    const renderSyncPreviewDialog = () => (
-        <Dialog open={syncPreviewOpen} onClose={() => setSyncPreviewOpen(false)} maxWidth="md" fullWidth
-            slotProps={{ paper: { sx: { borderRadius: '14px' } } }}>
-            <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
-                    <Avatar sx={{ bgcolor: '#EEF2FF', width: 36, height: 36 }}>
-                        <FingerprintIcon sx={{ color: '#4F46E5' }} />
-                    </Avatar>
-                    <Box>
-                        <Typography sx={{ fontSize: '15px', fontWeight: 700, color: '#111827' }}>
-                            Biometric Sync Preview
-                        </Typography>
-                        <Typography sx={{ fontSize: '11px', color: '#6B7280' }}>
-                            Review records fetched from {deviceStatus.deviceName} before saving
-                        </Typography>
-                    </Box>
+    // ─── Manual Sync Date-Picker Dialog ────────────────────────────────────
+    const todayStr = new Date().toISOString().split('T')[0];
+    const renderManualSyncDialog = () => (
+        <Dialog
+            open={manualSyncOpen}
+            onClose={() => !isTriggering && setManualSyncOpen(false)}
+            maxWidth="xs" fullWidth
+            slotProps={{ paper: { sx: { borderRadius: '14px' } } }}
+        >
+            <Box sx={{
+                px: 3, py: 2,
+                background: 'linear-gradient(135deg, #EEF2FF 0%, #fff 60%)',
+                borderBottom: '1px solid #C7D2FE',
+                display: 'flex', alignItems: 'center', gap: 1.2,
+            }}>
+                <Box sx={{
+                    width: 38, height: 38, borderRadius: '10px',
+                    bgcolor: '#fff', border: '1px solid #C7D2FE',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                    <CloudSyncIcon sx={{ color: '#4338CA', fontSize: 22 }} />
                 </Box>
-                <IconButton onClick={() => setSyncPreviewOpen(false)} size="small">
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography sx={{ fontSize: 15, fontWeight: 800, color: '#0F172A', lineHeight: 1.1 }}>
+                        Sync Past Punches
+                    </Typography>
+                    <Typography sx={{ fontSize: 11, color: '#6B7280', mt: 0.2 }}>
+                        Fetch missed punches from the biometric device
+                    </Typography>
+                </Box>
+                <IconButton size="small" onClick={() => setManualSyncOpen(false)} disabled={isTriggering}>
                     <CloseIcon sx={{ fontSize: 18 }} />
                 </IconButton>
-            </DialogTitle>
-            <Divider />
-            <DialogContent sx={{ p: 0 }}>
-                {syncPreview.length === 0 ? (
-                    <Box sx={{ py: 6, textAlign: 'center' }}>
-                        <Typography sx={{ fontSize: '13px', color: '#9CA3AF' }}>
-                            No punches received from device yet.
+            </Box>
+            <DialogContent sx={{ p: 3 }}>
+                <Typography sx={{ fontSize: 12.5, color: '#374151', lineHeight: 1.55, mb: 2 }}>
+                    Pick the <strong>From Date</strong> — the day you want to start syncing from.
+                    All punches from that date <strong>up to today</strong> will be fetched.
+                    Use this when the Worker PC was off and punches weren't captured automatically.
+                </Typography>
+                <TextField
+                    fullWidth
+                    type="date"
+                    label="From Date"
+                    value={manualSyncDate}
+                    onChange={(e) => setManualSyncDate(e.target.value)}
+                    slotProps={{
+                        inputLabel: { shrink: true },
+                        htmlInput: { max: todayStr },
+                    }}
+                    sx={{
+                        '& .MuiOutlinedInput-root': {
+                            borderRadius: '8px', fontSize: 13,
+                            '&.Mui-focused fieldset': { borderColor: '#4338CA' },
+                        },
+                    }}
+                />
+
+                {/* Live range preview — "May 11, 2026  →  May 13, 2026 (today)" */}
+                {manualSyncDate && (
+                    <Box sx={{
+                        mt: 1.5, p: 1.2, borderRadius: '8px',
+                        bgcolor: '#EEF2FF', border: '1px solid #C7D2FE',
+                        display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'center', flexWrap: 'wrap',
+                    }}>
+                        <Typography sx={{ fontSize: 11.5, color: '#4338CA', fontWeight: 700, fontFamily: 'monospace' }}>
+                            {new Date(manualSyncDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                         </Typography>
-                        <Typography sx={{ fontSize: '11px', color: '#9CA3AF', mt: 0.5 }}>
-                            (Once the device endpoint is wired up, records will appear here.)
+                        <ArrowForwardIcon sx={{ fontSize: 14, color: '#4338CA' }} />
+                        <Typography sx={{ fontSize: 11.5, color: '#4338CA', fontWeight: 700, fontFamily: 'monospace' }}>
+                            {new Date(todayStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </Typography>
+                        <Chip
+                            label="today"
+                            size="small"
+                            sx={{
+                                height: 17, fontSize: 9.5, fontWeight: 800,
+                                bgcolor: '#4338CA', color: '#fff', ml: 0.4,
+                            }}
+                        />
+                    </Box>
+                )}
+                {/* Device-offline warning — blocks the Start button */}
+                {!devicesOnline && (
+                    <Box sx={{
+                        mt: 2, p: 1.2, borderRadius: '8px',
+                        bgcolor: '#FEF2F2', border: '1px solid #FECACA',
+                        display: 'flex', alignItems: 'flex-start', gap: 1,
+                    }}>
+                        <WifiOffIcon sx={{ fontSize: 16, color: '#DC2626', mt: 0.2, flexShrink: 0 }} />
+                        <Typography sx={{ fontSize: 10.5, color: '#991B1B', lineHeight: 1.55 }}>
+                            <strong>{offlineDeviceLabel}</strong>{' '}
+                            {offlineDeviceLabel.includes('and') ? 'are' : 'is'} <strong>offline</strong>.
+                            Sync cannot start until both the Worker PC and Biometric Device are reachable.
                         </Typography>
                     </Box>
-                ) : (
-                    <TableContainer sx={{ maxHeight: 420 }}>
-                        <Table size="small" stickyHeader>
-                            <TableHead>
-                                <TableRow>
-                                    {['Employee', 'Verify Mode', 'Check-In', 'Check-Out', 'Punches', 'Status'].map(h => (
-                                        <TableCell key={h} sx={{ fontWeight: 700, fontSize: '10px', color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.4, bgcolor: '#F9FAFB' }}>{h}</TableCell>
-                                    ))}
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {syncPreview.map((r) => {
-                                    const statusLabel = capitalize(r.status);
-                                    const statConf = STATUS_STYLE[statusLabel] || STATUS_STYLE.Present;
-                                    return (
-                                        <TableRow key={r.rollNumber}>
-                                            <TableCell>
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                    <Avatar sx={{ width: 30, height: 30, bgcolor: '#4F46E5', fontSize: '11px', fontWeight: 700 }}>
-                                                        {getInitials(r.name)}
-                                                    </Avatar>
-                                                    <Box>
-                                                        <Typography sx={{ fontSize: '12px', fontWeight: 600, color: '#111827' }}>{r.name}</Typography>
-                                                        <Typography sx={{ fontSize: '10px', color: '#9CA3AF' }}>Emp #{r.employeeNoString}</Typography>
-                                                    </Box>
-                                                </Box>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Chip
-                                                    size="small"
-                                                    icon={VERIFY_MODE_ICON(r.verifyMode)}
-                                                    label={VERIFY_MODE_LABEL(r.verifyMode)}
-                                                    sx={{ height: 22, fontSize: '10px', fontWeight: 700, bgcolor: '#EEF2FF', color: '#4F46E5', '& .MuiChip-icon': { color: 'inherit' } }}
-                                                />
-                                            </TableCell>
-                                            <TableCell><Typography sx={{ fontSize: '12px', fontWeight: 600 }}>{r.loginTime}</Typography></TableCell>
-                                            <TableCell><Typography sx={{ fontSize: '12px', fontWeight: 600 }}>{r.logoutTime || '—'}</Typography></TableCell>
-                                            <TableCell><Typography sx={{ fontSize: '12px', color: '#6B7280' }}>{r.punchCount}</Typography></TableCell>
-                                            <TableCell>
-                                                <Chip label={statusLabel} size="small"
-                                                    sx={{ bgcolor: statConf.bg, color: statConf.color, fontWeight: 700, fontSize: '10px', height: 22, border: `1px solid ${statConf.border}` }} />
-                                            </TableCell>
-                                        </TableRow>
-                                    );
-                                })}
-                            </TableBody>
-                        </Table>
-                    </TableContainer>
                 )}
+
+                <Box sx={{
+                    mt: 2, p: 1.2, borderRadius: '8px',
+                    bgcolor: '#FEF3C7', border: '1px solid #FDE68A',
+                    display: 'flex', alignItems: 'flex-start', gap: 1,
+                }}>
+                    <ErrorOutlineIcon sx={{ fontSize: 16, color: '#D97706', mt: 0.2, flexShrink: 0 }} />
+                    <Typography sx={{ fontSize: 10.5, color: '#92400E', lineHeight: 1.55 }}>
+                        After triggering, the sync runs for up to <strong>1.5 minutes</strong>.
+                        You'll be blocked from leaving the page during that time.
+                        Cooldown of <strong>5 minutes</strong> between triggers.
+                    </Typography>
+                </Box>
             </DialogContent>
-            <Divider />
-            <DialogActions sx={{ p: 2 }}>
-                <Button onClick={() => setSyncPreviewOpen(false)}
-                    sx={{ textTransform: 'none', fontSize: '13px', color: '#6B7280', fontWeight: 600 }}>
+            <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
+                <Button
+                    onClick={() => setManualSyncOpen(false)}
+                    disabled={isTriggering}
+                    sx={{
+                        textTransform: 'none', borderRadius: '8px',
+                        color: '#374151', fontSize: 12.5, fontWeight: 600,
+                        border: '1px solid #E5E7EB', px: 2, height: 36,
+                        '&:hover': { bgcolor: '#F9FAFB' },
+                    }}
+                >
                     Cancel
                 </Button>
-                <Button variant="contained" onClick={handleConfirmSync} disabled={syncPreview.length === 0}
-                    sx={{
-                        textTransform: 'none', fontSize: '13px', fontWeight: 700,
-                        bgcolor: PRIMARY, borderRadius: '8px', boxShadow: `0 2px 6px ${PRIMARY}33`,
-                        '&:hover': { bgcolor: PRIMARY_DARK, boxShadow: `0 4px 12px ${PRIMARY}55` },
-                    }}>
-                    Save {syncPreview.length} Records
-                </Button>
+                <Tooltip
+                    arrow
+                    title={!devicesOnline
+                        ? `${offlineDeviceLabel} is offline`
+                        : inCooldown ? `Cooldown — try again in ${formatHHMMSS(cooldownLeftSec)}`
+                        : ''}
+                >
+                    <Box sx={{ display: 'inline-flex' }}>
+                        <Button
+                            onClick={handleTriggerManualSync}
+                            disabled={isTriggering || !manualSyncDate || inCooldown || !devicesOnline}
+                            startIcon={
+                                isTriggering
+                                    ? <CircularProgress size={14} sx={{ color: '#fff' }} />
+                                    : !devicesOnline
+                                        ? <WifiOffIcon sx={{ fontSize: 16 }} />
+                                        : <CloudSyncIcon sx={{ fontSize: 16 }} />
+                            }
+                            sx={{
+                                textTransform: 'none', borderRadius: '8px',
+                                bgcolor: '#4338CA', color: '#fff',
+                                fontSize: 13, fontWeight: 700, px: 2.5, height: 36,
+                                boxShadow: '0 4px 12px rgba(67,56,202,0.35)',
+                                '&:hover': { bgcolor: '#3730A3', boxShadow: '0 6px 16px rgba(67,56,202,0.5)' },
+                                '&.Mui-disabled': { bgcolor: '#C7D2FE', color: '#fff', boxShadow: 'none' },
+                            }}
+                        >
+                            {isTriggering
+                                ? 'Starting…'
+                                : !devicesOnline
+                                    ? 'Device Offline'
+                                    : 'Start Sync'}
+                        </Button>
+                    </Box>
+                </Tooltip>
             </DialogActions>
         </Dialog>
     );
+
+    // ─── Blocking Sync Overlay (Backdrop) ──────────────────────────────────
+    const renderSyncOverlay = () => {
+        const safetyPct = Math.min(100, (elapsedSec / 90) * 100);
+        return (
+            <Backdrop
+                open={isSyncing}
+                sx={{
+                    zIndex: (t) => t.zIndex.modal + 1,
+                    bgcolor: 'rgba(15,23,42,0.7)',
+                    backdropFilter: 'blur(4px)',
+                }}
+            >
+                <Box sx={{
+                    width: { xs: '90%', sm: 420 },
+                    bgcolor: '#fff', borderRadius: '16px',
+                    p: 3, textAlign: 'center',
+                    boxShadow: '0 24px 60px rgba(0,0,0,0.3)',
+                }}>
+                    {/* Pulsing icon */}
+                    <Box sx={{
+                        width: 72, height: 72, borderRadius: '50%', mx: 'auto', mb: 1.5,
+                        bgcolor: '#EEF2FF', border: '2px solid #C7D2FE',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        animation: 'syncPulse 1.6s infinite ease-in-out',
+                        '@keyframes syncPulse': {
+                            '0%, 100%': { transform: 'scale(1)', boxShadow: '0 0 0 0 rgba(67,56,202,0.4)' },
+                            '50%':      { transform: 'scale(1.08)', boxShadow: '0 0 0 14px rgba(67,56,202,0)' },
+                        },
+                    }}>
+                        <CloudSyncIcon sx={{
+                            color: '#4338CA', fontSize: 36,
+                            animation: 'spin 2s linear infinite',
+                            '@keyframes spin': { from: { transform: 'rotate(0)' }, to: { transform: 'rotate(360deg)' } },
+                        }} />
+                    </Box>
+                    <Typography sx={{ fontSize: 17, fontWeight: 800, color: '#0F172A' }}>
+                        Syncing Previous Data from Biometric
+                    </Typography>
+                    <Typography sx={{ fontSize: 12, color: '#6B7280', mt: 0.6, lineHeight: 1.55 }}>
+                        Fetching punches from <strong>{manualSyncDate}</strong> · Estimated time <strong>~1.5 min</strong>
+                        <br />Please do not navigate away or close the page.
+                    </Typography>
+
+                    {/* Progress bar (counts toward 1.5 min) */}
+                    <Box sx={{ mt: 2.5, mb: 1 }}>
+                        <LinearProgress
+                            variant="determinate"
+                            value={safetyPct}
+                            sx={{
+                                height: 8, borderRadius: 4, bgcolor: '#EEF2FF',
+                                '& .MuiLinearProgress-bar': {
+                                    bgcolor: '#4338CA', borderRadius: 4,
+                                    transition: 'transform 1s linear',
+                                },
+                            }}
+                        />
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.6 }}>
+                            <Typography sx={{ fontSize: 10.5, color: '#6B7280', fontFamily: 'monospace', fontWeight: 700 }}>
+                                Elapsed: {formatHHMMSS(elapsedSec)}
+                            </Typography>
+                            <Typography sx={{ fontSize: 10.5, color: '#6B7280', fontFamily: 'monospace', fontWeight: 700 }}>
+                                Max: 01:30
+                            </Typography>
+                        </Box>
+                    </Box>
+
+                    {/* Live status of device while we wait */}
+                    <Box sx={{
+                        mt: 2, p: 1.2, borderRadius: '10px',
+                        bgcolor: '#F9FAFB', border: '1px solid #E5E7EB',
+                        display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'center',
+                    }}>
+                        <Box sx={{
+                            width: 8, height: 8, borderRadius: '50%',
+                            bgcolor: isDeviceReachable ? '#22C55E' : '#DC2626',
+                            boxShadow: isDeviceReachable
+                                ? '0 0 0 3px rgba(34,197,94,0.2)'
+                                : '0 0 0 3px rgba(220,38,38,0.2)',
+                        }} />
+                        <Typography sx={{ fontSize: 11, color: '#374151', fontWeight: 600 }}>
+                            Device {isDeviceReachable ? 'reachable' : 'unreachable'} ·
+                            Worker {isWorkerAlive ? 'alive' : 'offline'}
+                        </Typography>
+                    </Box>
+                </Box>
+            </Backdrop>
+        );
+    };
 
     return (
         <>
@@ -1580,11 +2064,10 @@ export default function LeaveAttendancePage() {
                             </Box>
                         </Box>
                         {userType !== "teacher" && (
-                            <Box sx={{ display: 'flex', gap: 1 }}>
+                            <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
                                 <Button
-                                    onClick={openMarkMenu}
+                                    onClick={() => setTabValue(1)}
                                     startIcon={<AddIcon />}
-                                    endIcon={<KeyboardArrowDownIcon />}
                                     variant="contained"
                                     sx={{
                                         textTransform: 'none', borderRadius: '50px',
@@ -1596,28 +2079,31 @@ export default function LeaveAttendancePage() {
                                 >
                                     Mark Attendance
                                 </Button>
-                                <Menu
-                                    anchorEl={markMenuAnchor}
-                                    open={Boolean(markMenuAnchor)}
-                                    onClose={closeMarkMenu}
-                                    slotProps={{ paper: { sx: { borderRadius: '10px', border: '1px solid #E5E7EB', minWidth: 220, mt: 0.5, boxShadow: '0 8px 24px rgba(0,0,0,0.08)' } } }}
-                                >
-                                    <MenuItem onClick={handleManualEntry} sx={{ fontSize: '13px', py: 1 }}>
-                                        <ListItemIcon><EditNoteIcon sx={{ color: '#374151' }} /></ListItemIcon>
-                                        <ListItemText
-                                            primary={<Typography sx={{ fontSize: '13px', fontWeight: 600 }}>Manual Entry</Typography>}
-                                            secondary={<Typography sx={{ fontSize: '10px', color: '#6B7280' }}>Mark attendance by hand</Typography>}
+                                <Autocomplete
+                                    size="small"
+                                    options={academicYears}
+                                    sx={{ width: '170px' }}
+                                    value={selectedAcademicYear}
+                                    onChange={(e, newValue) => setSelectedAcademicYear(newValue)}
+                                    renderInput={(params) => (
+                                        <TextField
+                                            placeholder="Select Academic Year"
+                                            {...params}
+                                            variant="outlined"
+                                            sx={{
+                                                '& .MuiOutlinedInput-root': {
+                                                    borderRadius: '5px',
+                                                    fontSize: 14,
+                                                    height: 35,
+                                                },
+                                                '& .MuiOutlinedInput-input': {
+                                                    textAlign: 'center',
+                                                    fontWeight: '600',
+                                                },
+                                            }}
                                         />
-                                    </MenuItem>
-                                    <Divider sx={{ my: 0.5 }} />
-                                    <MenuItem onClick={handleBiometricSync} sx={{ fontSize: '13px', py: 1 }}>
-                                        <ListItemIcon><FingerprintIcon sx={{ color: '#4F46E5' }} /></ListItemIcon>
-                                        <ListItemText
-                                            primary={<Typography sx={{ fontSize: '13px', fontWeight: 600 }}>Biometric Sync</Typography>}
-                                            secondary={<Typography sx={{ fontSize: '10px', color: '#6B7280' }}>Pull punches from device</Typography>}
-                                        />
-                                    </MenuItem>
-                                </Menu>
+                                    )}
+                                />
                             </Box>
                         )}
                     </Box>
@@ -1671,7 +2157,8 @@ export default function LeaveAttendancePage() {
                 </Box>
             </Box>
 
-            {renderSyncPreviewDialog()}
+            {renderManualSyncDialog()}
+            {renderSyncOverlay()}
         </>
     );
 }

@@ -155,6 +155,7 @@ import QuestionPaperGeneratorPage from "./Components/QuestionPaperGenerator/Ques
 import ViewProfilePage from "./Components/DashBoard/ViewProfilePage";
 import CreatedEcaFees from "./Components/StudentComps/FeeFinanceComps/FeesStructure/CreatedEcaFees";
 import CreatedExtraFees from "./Components/StudentComps/FeeFinanceComps/FeesStructure/CreatedExtraFees";
+import CommunicationDashboard from "./Components/CommunicationComps/CommunicationDashboard";
 
 
 export default function RouterPage() {
@@ -204,6 +205,7 @@ export default function RouterPage() {
                 {/* --------------------------------------------------------------------------------------------------- */}
 
                 {/* Communication */}
+                <Route path="com-dashboard" element={<CommunicationDashboard />} />
                 <Route path="news" element={<NewsPage />} />
                 <Route path="messages" element={<MessagesPage />} />
                 <Route path="circulars" element={<CircularsPage />} />

@@ -15,6 +15,7 @@ function SubMenuPage({active}) {
     const userName = user.name
 
     const communicationMenuItems = [
+        { path: '/dashboardmenu/com-dashboard', label: 'Dashboard' },
         { path: '/dashboardmenu/news', label: 'News' },
         { path: '/dashboardmenu/messages', label: 'Messages' },
         { path: '/dashboardmenu/circulars', label: 'Circulars'},
@@ -88,13 +89,13 @@ function SubMenuPage({active}) {
             }}
         >
             <List sx={{ width: '100%' }}>
-                <Typography sx={{ fontWeight: "600", pl: 3, fontSize: "16px" }}>
+                {/* <Typography sx={{ fontWeight: "600", pl: 3, fontSize: "16px" }}>
                     Communication
-                </Typography>
+                </Typography> */}
 
                 {/* Render Menu Items */}
                 {menuItems.map(({ path, label, count }) => (
-                    <ListItem key={path} onClick={() => handleMenuClick(label.toLowerCase().replace(/\s+/g, ''))} sx={{
+                    <ListItem key={path} onClick={() => handleMenuClick(path.replace('/dashboardmenu/', ''))} sx={{
                         borderRadius: 2, paddingTop: '5px',
                         paddingBottom: '5px',
                     }}>
