@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
-    Box, Typography, Button, Grid, IconButton, Divider,
-    Card, CardContent, Chip, Table, TableBody, TableCell, TableHead, TableRow,
-    TextField, InputAdornment, Dialog, DialogTitle, DialogContent, DialogActions,
-    Avatar, CircularProgress
+    Box, Typography, Button, Grid, IconButton,
+    Card, CardContent, Chip, Table, TableBody, TableCell, TableContainer,
+    TableHead, TableRow, TextField, InputAdornment, Dialog,
+    DialogContent, DialogActions, Avatar, CircularProgress, Paper, Tooltip,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DownloadIcon from '@mui/icons-material/Download';
@@ -12,20 +12,44 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import EditIcon from '@mui/icons-material/Edit';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import SearchIcon from '@mui/icons-material/Search';
+import CloseIcon from '@mui/icons-material/Close';
+import RestartAltIcon from '@mui/icons-material/RestartAlt';
+import PeopleAltOutlinedIcon from '@mui/icons-material/PeopleAltOutlined';
+import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
+import PaidOutlinedIcon from '@mui/icons-material/PaidOutlined';
+import SaveOutlinedIcon from '@mui/icons-material/SaveOutlined';
+import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
+import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined';
 import { useNavigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
+import { selectWebsiteSettings } from '../../../Redux/Slices/websiteSettingsSlice';
 import * as XLSX from 'xlsx';
 import axios from 'axios';
 import SnackBar from '../../SnackBar';
 import { employeeBankDetailsDashboard, updateEmployeeBankDetailsByRollnumber } from '../../../Api/Api';
 
-const PRIMARY = '#00ACC1';
-const PRIMARY_LIGHT = '#E0F7FA';
-const PRIMARY_DARK = '#0097A7';
-const CARD_RADIUS = '12px';
+// ─── Theme (matches Salary Structures / LeaveAttendancePage) ───────────────
+const PRIMARY = '#059669';
+const PRIMARY_LIGHT = '#ECFDF5';
+const PRIMARY_DARK = '#047857';
+const PRIMARY_BORDER = '#A7F3D0';
+
+const AVATAR_PALETTE = ['#0E7490', '#6D28D9', '#C2410C', '#047857', '#1D4ED8', '#BE185D', '#A16207', '#0F766E'];
+const avatarColorFor = (name = '') => {
+    const code = (name.charCodeAt(0) || 0) + (name.charCodeAt(1) || 0);
+    return AVATAR_PALETTE[code % AVATAR_PALETTE.length];
+};
+
+const getInitials = (name = '') =>
+    name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+
+const formatINR = (n) => `₹${Number(n || 0).toLocaleString('en-IN')}`;
 
 export default function BankReports() {
     const navigate = useNavigate();
     const token = "123";
+    const isExpanded = useSelector((state) => state.sidebar.isExpanded);
+    const websiteSettings = useSelector(selectWebsiteSettings);
 
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -83,14 +107,27 @@ export default function BankReports() {
         fetchBankDashboard();
     }, []);
 
-    const filteredData = employeeData.filter(emp =>
-        emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        emp.rollNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (emp.bankName && emp.bankName.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
-
     const hasBankDetails = (emp) =>
         emp.bankName && emp.accountNumber && emp.ifsc && emp.branch;
+
+    const filteredData = useMemo(() => {
+        const q = searchTerm.trim().toLowerCase();
+        if (!q) return employeeData;
+        return employeeData.filter(emp =>
+            (emp.name || '').toLowerCase().includes(q) ||
+            (emp.rollNumber || '').toLowerCase().includes(q) ||
+            (emp.bankName || '').toLowerCase().includes(q)
+        );
+    }, [employeeData, searchTerm]);
+
+    const pendingAccounts = useMemo(
+        () => employeeData.filter(e => !hasBankDetails(e)).length,
+        [employeeData],
+    );
+
+    const coverage = stats.totalAccounts > 0
+        ? Math.round((stats.verifiedAccounts / stats.totalAccounts) * 100)
+        : 0;
 
     const handleOpenBankDialog = (employee) => {
         const addMode = !hasBankDetails(employee);
@@ -164,309 +201,720 @@ export default function BankReports() {
         showSnack('Bank details exported successfully!', true);
     };
 
+    // Field styling — matches SalaryStructures
+    const fieldSx = {
+        '& .MuiOutlinedInput-root': {
+            borderRadius: '10px',
+            fontSize: '13px',
+            bgcolor: '#F9FAFB',
+            '&:hover': { bgcolor: '#fff' },
+            '&.Mui-focused': { bgcolor: '#fff' },
+            '& fieldset': { borderColor: '#E5E7EB' },
+            '&.Mui-focused fieldset': { borderColor: PRIMARY, borderWidth: '1.5px' },
+        },
+        '& .MuiInputLabel-root.Mui-focused': { color: PRIMARY },
+    };
+
+    const kpiCards = [
+        {
+            label: 'Total Employees',
+            value: stats.totalEmployees,
+            sub: 'on payroll',
+            color: '#059669', bg: '#ECFDF5', border: '#A7F3D0',
+            icon: PeopleAltOutlinedIcon,
+        },
+        {
+            label: 'Verified Accounts',
+            value: `${coverage}%`,
+            sub: `${stats.verifiedAccounts} of ${stats.totalAccounts}`,
+            color: '#2563EB', bg: '#EFF6FF', border: '#BFDBFE',
+            icon: CheckCircleIcon,
+        },
+        {
+            label: 'Pending Setup',
+            value: pendingAccounts,
+            sub: 'awaiting bank info',
+            color: '#D97706', bg: '#FFFBEB', border: '#FDE68A',
+            icon: HourglassEmptyIcon,
+        },
+        {
+            label: 'Total Net Payout',
+            value: formatINR(stats.totalNetSalary),
+            sub: 'monthly disbursement',
+            color: '#7C3AED', bg: '#F5F3FF', border: '#DDD6FE',
+            icon: PaidOutlinedIcon,
+        },
+    ];
+
+    const searchActive = searchTerm.trim().length > 0;
+
     return (
         <>
-        <SnackBar open={snackOpen} color={snackColor} setOpen={setSnackOpen} status={snackStatus} message={snackMessage} />
-        <Box sx={{
-            height: '86vh',
-            display: 'flex',
-            flexDirection: 'column',
-            bgcolor: '#FAFAFA',
-            borderRadius: '20px',
-            border: '1px solid #E8E8E8',
-            overflow: 'hidden'
-        }}>
-            {/* Header */}
+            <SnackBar open={snackOpen} color={snackColor} setOpen={setSnackOpen} status={snackStatus} message={snackMessage} />
+
             <Box sx={{
-                bgcolor: '#fff',
-                borderBottom: '2px solid #F1F5F9',
-                px: 3,
-                py: 2,
                 display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center'
+                flexDirection: 'column',
+                bgcolor: '#F9FAFB',
+                borderRadius: '16px',
+                border: '1px solid #E5E7EB',
+                overflow: 'hidden',
+                minHeight: '88vh',
             }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <IconButton
-                        onClick={() => navigate(-1)}
-                        sx={{
-                            width: '40px',
-                            height: '40px',
-                            bgcolor: '#F8FAFC',
-                            border: '1px solid #E2E8F0',
-                            borderRadius: '10px',
-                            '&:hover': { bgcolor: PRIMARY_LIGHT, borderColor: PRIMARY }
-                        }}
-                    >
-                        <ArrowBackIcon sx={{ fontSize: 20 }} />
-                    </IconButton>
-                    <Box>
-                        <Typography sx={{ fontSize: '18px', fontWeight: '800', color: '#1a1a1a' }}>
-                            Employee Bank Details
-                        </Typography>
-                        <Typography sx={{ fontSize: '12px', color: '#94A3B8', mt: 0.3 }}>
-                            Manage employee bank account information
-                        </Typography>
+                {/* ─── Header ─────────────────────────────────────────────── */}
+                <Box sx={{
+                    position: "fixed",
+                    top: "60px",
+                    left: isExpanded ? "260px" : "80px",
+                    right: 0,
+                    backgroundColor: "#f2f2f2",
+                    px: 2,
+                    py: 1,
+                    borderBottom: "1px solid #ddd",
+                    borderTop: "1px solid #ddd",
+                    zIndex: 1200,
+                    transition: "left 0.3s ease-in-out",
+                    overflow: 'hidden',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: 1.5,
+                }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <IconButton
+                            onClick={() => navigate(-1)}
+                            sx={{
+                                width: 38, height: 38,
+                                bgcolor: '#F9FAFB',
+                                border: '1px solid #E5E7EB',
+                                borderRadius: '10px',
+                                '&:hover': { bgcolor: PRIMARY_LIGHT, borderColor: PRIMARY_BORDER },
+                            }}
+                        >
+                            <ArrowBackIcon sx={{ fontSize: 18, color: '#374151' }} />
+                        </IconButton>
+                        <Box sx={{
+                            width: 38, height: 38, borderRadius: '10px',
+                            bgcolor: PRIMARY_LIGHT, border: `1px solid ${PRIMARY_BORDER}`,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}>
+                            <AccountBalanceIcon sx={{ color: PRIMARY, fontSize: 20 }} />
+                        </Box>
+                        <Box>
+                            <Typography sx={{ fontSize: '16px', fontWeight: 800, color: '#111827', lineHeight: 1.1 }}>
+                                Employee Bank Details
+                            </Typography>
+                            <Typography sx={{ fontSize: '11.5px', color: '#6B7280', mt: 0.3 }}>
+                                Manage payroll bank accounts and disbursement information
+                            </Typography>
+                        </Box>
+                    </Box>
+
+                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+                        {/* Search field — pill style, in header */}
+                        <TextField
+                            fullWidth
+                            variant="outlined"
+                            placeholder="Search by name, roll no, or bank..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            slotProps={{
+                                input: {
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <SearchIcon sx={{ fontSize: 18, color: searchActive ? PRIMARY : '#9CA3AF' }} />
+                                        </InputAdornment>
+                                    ),
+                                    endAdornment: searchActive ? (
+                                        <InputAdornment position="end">
+                                            <IconButton size="small" onClick={() => setSearchTerm('')} sx={{ p: 0.3 }}>
+                                                <CloseIcon sx={{ fontSize: 14, color: '#9CA3AF' }} />
+                                            </IconButton>
+                                        </InputAdornment>
+                                    ) : null,
+                                    sx: {
+                                        padding: '0 12px',
+                                        borderRadius: '50px',
+                                        height: '32px',
+                                        fontSize: '12px',
+                                    },
+                                },
+                            }}
+                            sx={{
+                                width: { xs: '100%', sm: 260 },
+                                '& .MuiOutlinedInput-root': {
+                                    minHeight: '32px',
+                                    paddingRight: '3px',
+                                    backgroundColor: '#fff',
+                                },
+                                '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                    borderColor: websiteSettings.mainColor,
+                                },
+                            }}
+                        />
+                        <Button
+                            variant="contained"
+                            disableElevation
+                            startIcon={<DownloadIcon sx={{ fontSize: 18 }} />}
+                            onClick={handleExportBankData}
+                            sx={{
+                                textTransform: 'none',
+                                bgcolor: '#0F172A',
+                                color: '#fff',
+                                borderRadius: '30px',
+                                fontSize: '12.5px',
+                                fontWeight: 700,
+                                px: 2.4, height: 34,
+                                boxShadow: 'none',
+                                border: '1.5px solid #0F172A',
+                                '&:hover': {
+                                    bgcolor: '#1E293B',
+                                    borderColor: '#1E293B',
+                                    boxShadow: 'none',
+                                },
+                            }}
+                        >
+                            Export Data
+                        </Button>
                     </Box>
                 </Box>
-                <Button
-                    variant="outlined"
-                    startIcon={<DownloadIcon />}
-                    onClick={handleExportBankData}
-                    sx={{
-                        textTransform: 'none',
-                        borderColor: PRIMARY,
-                        color: PRIMARY,
-                        borderRadius: '10px',
-                        fontSize: '13px',
-                        fontWeight: '700',
-                        '&:hover': { borderColor: PRIMARY_DARK, bgcolor: PRIMARY_LIGHT }
-                    }}
-                >
-                    Export Data
-                </Button>
-            </Box>
 
-            <Divider />
+                {/* ─── Body ───────────────────────────────────────────────── */}
+                <Box sx={{ flex: 1, pt: "70px", pb: 2, px: 2 }}>
 
-            <Box sx={{ flex: 1, overflow: 'auto', p: 2.5 }}>
-                {isLoading ? (
-                    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60%' }}>
-                        <CircularProgress sx={{ color: PRIMARY }} />
-                    </Box>
-                ) : (
-                    <>
-                        {/* Statistics Cards */}
-                        <Grid container spacing={2} sx={{ mb: 3 }}>
-                            <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
-                                <Card sx={{
-                                    border: '1px solid #00ACC130',
-                                    borderRadius: CARD_RADIUS,
-                                    bgcolor: PRIMARY_LIGHT,
-                                    boxShadow: 'none'
-                                }}>
-                                    <CardContent sx={{ p: 2.5 }}>
-                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                            <Box>
-                                                <Typography sx={{ fontSize: '12px', color: PRIMARY, fontWeight: 600, mb: 1 }}>
-                                                    Total Net Salary
-                                                </Typography>
-                                                <Typography sx={{ fontSize: '20px', fontWeight: 700, color: '#1a1a1a' }}>
-                                                    ₹{(stats.totalNetSalary / 100000).toFixed(2)}L
-                                                </Typography>
+                    {/* KPI Cards */}
+                    <Grid container spacing={2} sx={{ mb: 2 }}>
+                        {kpiCards.map((card) => {
+                            const Icon = card.icon;
+                            return (
+                                <Grid size={{ xs: 12, sm: 6, md: 3 }} key={card.label}>
+                                    <Card sx={{
+                                        border: `1px solid ${card.border}`,
+                                        borderRadius: '7px',
+                                        boxShadow: 'none',
+                                        bgcolor: card.bg,
+                                        height: '100%',
+                                        transition: 'transform 0.15s, box-shadow 0.15s',
+                                        '&:hover': {
+                                            transform: 'translateY(-2px)',
+                                            boxShadow: `0 6px 16px ${card.color}22`,
+                                        },
+                                    }}>
+                                        <CardContent sx={{ py: 1.8, '&:last-child': { pb: 1.8 } }}>
+                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                                <Box sx={{ minWidth: 0, flex: 1 }}>
+                                                    <Typography sx={{
+                                                        fontSize: '11px', color: card.color, fontWeight: 700,
+                                                        textTransform: 'uppercase', letterSpacing: 0.5,
+                                                    }}>
+                                                        {card.label}
+                                                    </Typography>
+                                                    <Typography sx={{
+                                                        fontSize: '24px', fontWeight: 800, color: '#111827',
+                                                        lineHeight: 1.2, mt: 0.5,
+                                                    }} noWrap>
+                                                        {card.value}
+                                                    </Typography>
+                                                    <Typography sx={{
+                                                        fontSize: '10.5px', color: '#6B7280', fontWeight: 600, mt: 0.4,
+                                                    }} noWrap>
+                                                        {card.sub}
+                                                    </Typography>
+                                                </Box>
+                                                <Box sx={{
+                                                    width: 38, height: 38, borderRadius: '10px',
+                                                    bgcolor: '#fff', border: `1px solid ${card.border}`,
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    flexShrink: 0, ml: 1,
+                                                }}>
+                                                    <Icon sx={{ color: card.color, fontSize: 20 }} />
+                                                </Box>
                                             </Box>
-                                            <AccountBalanceIcon sx={{ fontSize: 32, color: PRIMARY, opacity: 0.6 }} />
-                                        </Box>
-                                    </CardContent>
-                                </Card>
-                            </Grid>
-                            <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
-                                <Card sx={{
-                                    border: '1px solid #10B98130',
-                                    borderRadius: CARD_RADIUS,
-                                    bgcolor: '#ECFDF5',
-                                    boxShadow: 'none'
-                                }}>
-                                    <CardContent sx={{ p: 2.5 }}>
-                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                            <Box>
-                                                <Typography sx={{ fontSize: '12px', color: '#10B981', fontWeight: 600, mb: 1 }}>
-                                                    Verified Accounts
-                                                </Typography>
-                                                <Typography sx={{ fontSize: '20px', fontWeight: 700, color: '#1a1a1a' }}>
-                                                    {stats.verifiedAccounts}/{stats.totalAccounts}
-                                                </Typography>
-                                            </Box>
-                                            <CheckCircleIcon sx={{ fontSize: 32, color: '#10B981', opacity: 0.6 }} />
-                                        </Box>
-                                    </CardContent>
-                                </Card>
-                            </Grid>
-                        </Grid>
+                                        </CardContent>
+                                    </Card>
+                                </Grid>
+                            );
+                        })}
+                    </Grid>
 
-                        {/* Search Bar */}
-                        <Box sx={{ mb: 2.5 }}>
-                            <TextField
-                                fullWidth
-                                placeholder="Search by name, roll number, or bank name..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                size="small"
-                                slotProps={{
-                                    input: {
-                                        startAdornment: (
-                                            <InputAdornment position="start">
-                                                <SearchIcon sx={{ fontSize: 20, color: '#94A3B8' }} />
-                                            </InputAdornment>
-                                        ),
-                                    }
-                                }}
-                            />
-                        </Box>
-
-                        {/* Employee Bank Details Table */}
-                        <Card sx={{
-                            border: '1px solid #E8E8E8',
-                            borderRadius: CARD_RADIUS,
-                            boxShadow: 'none'
+                    {/* Employee Bank Details Table */}
+                    <Card sx={{ border: '1px solid #E5E7EB', borderRadius: '7px', boxShadow: 'none', bgcolor: '#fff' }}>
+                        <Box sx={{
+                            px: 2, py: 1.5,
+                            borderBottom: '1px solid #E5E7EB',
+                            bgcolor: '#fff',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: 1.5,
+                            flexWrap: 'wrap',
                         }}>
-                            <Box sx={{
-                                p: 2.5,
-                                borderBottom: '2px solid #F1F5F9',
-                                bgcolor: '#FAFAFA',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 1.5
-                            }}>
-                                <AccountBalanceIcon sx={{ fontSize: 20, color: PRIMARY }} />
-                                <Typography sx={{ fontSize: '15px', fontWeight: '700', color: '#1a1a1a' }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Box sx={{
+                                    width: 28, height: 28, borderRadius: '8px',
+                                    bgcolor: PRIMARY_LIGHT, border: `1px solid ${PRIMARY_BORDER}`,
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                }}>
+                                    <AccountBalanceIcon sx={{ fontSize: 16, color: PRIMARY }} />
+                                </Box>
+                                <Typography sx={{ fontSize: '14px', fontWeight: 700, color: '#111827' }}>
                                     Employee Bank Account Details
                                 </Typography>
                                 <Chip
-                                    label={`${filteredData.length} Employees`}
+                                    label={`${employeeData.length} employees`}
                                     size="small"
                                     sx={{
-                                        bgcolor: PRIMARY,
-                                        color: '#fff',
-                                        fontWeight: 600,
-                                        ml: 'auto'
+                                        bgcolor: '#F3F4F6', color: '#374151',
+                                        fontWeight: 600, fontSize: '11px', height: 20,
                                     }}
                                 />
                             </Box>
-                            <Box sx={{ overflowX: 'auto', maxHeight: '42vh', overflowY: 'auto' }}>
-                                <Table stickyHeader>
-                                    <TableHead>
-                                        <TableRow sx={{ bgcolor: '#F8FAFC' }}>
-                                            <TableCell sx={{ fontWeight: 700, fontSize: '12px', color: '#64748B' }}>Employee</TableCell>
-                                            <TableCell sx={{ fontWeight: 700, fontSize: '12px', color: '#64748B' }}>Net Salary</TableCell>
-                                            <TableCell sx={{ fontWeight: 700, fontSize: '12px', color: '#64748B' }}>Bank Name</TableCell>
-                                            <TableCell sx={{ fontWeight: 700, fontSize: '12px', color: '#64748B' }}>Account Number</TableCell>
-                                            <TableCell sx={{ fontWeight: 700, fontSize: '12px', color: '#64748B' }}>IFSC Code</TableCell>
-                                            <TableCell sx={{ fontWeight: 700, fontSize: '12px', color: '#64748B' }}>Branch</TableCell>
-                                            <TableCell sx={{ fontWeight: 700, fontSize: '12px', color: '#64748B' }}>Actions</TableCell>
+
+                            {searchActive && (
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
+                                    <Typography sx={{ fontSize: '11.5px', color: '#6B7280' }}>
+                                        Showing
+                                    </Typography>
+                                    <Typography sx={{ fontSize: '13px', fontWeight: 800, color: PRIMARY_DARK }}>
+                                        {filteredData.length}
+                                    </Typography>
+                                    <Typography sx={{ fontSize: '11.5px', color: '#6B7280' }}>
+                                        of {employeeData.length}
+                                    </Typography>
+                                    <Button
+                                        size="small"
+                                        startIcon={<RestartAltIcon sx={{ fontSize: 14 }} />}
+                                        onClick={() => setSearchTerm('')}
+                                        sx={{
+                                            textTransform: 'none', fontSize: '11.5px', fontWeight: 600,
+                                            ml: 0.8, height: 26, borderRadius: '7px', px: 1,
+                                            color: '#DC2626',
+                                            '&:hover': { bgcolor: '#FEF2F2' },
+                                        }}
+                                    >
+                                        Clear
+                                    </Button>
+                                </Box>
+                            )}
+                        </Box>
+
+                        <TableContainer sx={{ }}>
+                            <Table stickyHeader size="small">
+                                <TableHead>
+                                    <TableRow sx={{ bgcolor: PRIMARY_LIGHT }}>
+                                        {[
+                                            'S.No', 'Employee', 'Net Salary', 'Bank Name',
+                                            'Account Number', 'IFSC Code', 'Branch', 'Status', 'Actions',
+                                        ].map((header) => (
+                                            <TableCell
+                                                key={header}
+                                                sx={{
+                                                    fontWeight: 700, fontSize: '10px',
+                                                    color: PRIMARY_DARK,
+                                                    bgcolor: PRIMARY_LIGHT,
+                                                    textTransform: 'uppercase', letterSpacing: 0.6,
+                                                    whiteSpace: 'nowrap', py: 1.3,
+                                                    borderBottom: `1px solid ${PRIMARY_BORDER}`,
+                                                }}
+                                            >
+                                                {header}
+                                            </TableCell>
+                                        ))}
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {isLoading ? (
+                                        <TableRow>
+                                            <TableCell colSpan={9} align="center" sx={{ py: 6, borderBottom: 'none' }}>
+                                                <CircularProgress size={28} sx={{ color: PRIMARY }} />
+                                                <Typography sx={{ fontSize: '12px', color: '#9CA3AF', mt: 1.2 }}>
+                                                    Loading bank details…
+                                                </Typography>
+                                            </TableCell>
                                         </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {filteredData.map((emp) => (
+                                    ) : filteredData.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={9} align="center" sx={{ py: 6, borderBottom: 'none' }}>
+                                                <Box sx={{
+                                                    width: 56, height: 56, borderRadius: '50%',
+                                                    bgcolor: '#F3F4F6', mx: 'auto', mb: 1.2,
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                }}>
+                                                    <AccountBalanceIcon sx={{ fontSize: 28, color: '#9CA3AF' }} />
+                                                </Box>
+                                                <Typography sx={{ fontSize: '13px', color: '#6B7280', fontWeight: 600 }}>
+                                                    {searchActive ? `No results for "${searchTerm}"` : 'No employee records yet'}
+                                                </Typography>
+                                                <Typography sx={{ fontSize: '11.5px', color: '#9CA3AF', mt: 0.4 }}>
+                                                    {searchActive ? 'Try a different search term' : 'Employees will appear here once added to payroll'}
+                                                </Typography>
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : filteredData.map((emp, idx) => {
+                                        const avColor = avatarColorFor(emp.name || '');
+                                        const verified = hasBankDetails(emp);
+
+                                        return (
                                             <TableRow
                                                 key={emp.id}
-                                                sx={{ '&:hover': { bgcolor: '#F8FAFC' } }}
+                                                sx={{
+                                                    '&:hover': { bgcolor: PRIMARY_LIGHT },
+                                                    borderBottom: '1px solid #F3F4F6',
+                                                    transition: 'background-color 0.15s',
+                                                }}
                                             >
-                                                <TableCell>
-                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                                <TableCell sx={{ width: 50, borderBottom: '1px solid #F3F4F6', py: 1.2 }}>
+                                                    <Typography sx={{ fontSize: '12px', color: '#9CA3AF', fontWeight: 500 }}>
+                                                        {idx + 1}
+                                                    </Typography>
+                                                </TableCell>
+                                                <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.2 }}>
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
                                                         <Avatar sx={{
-                                                            width: 36,
-                                                            height: 36,
-                                                            bgcolor: PRIMARY_LIGHT,
-                                                            color: PRIMARY,
-                                                            fontSize: '14px'
+                                                            width: 32, height: 32,
+                                                            bgcolor: `${avColor}15`,
+                                                            color: avColor,
+                                                            fontSize: '11px', fontWeight: 700,
+                                                            border: `1px solid ${avColor}33`,
                                                         }}>
-                                                            {emp.name.charAt(0)}
+                                                            {getInitials(emp.name || '?')}
                                                         </Avatar>
-                                                        <Box>
-                                                            <Typography sx={{ fontSize: '13px', fontWeight: 600 }}>
-                                                                {emp.name}
+                                                        <Box sx={{ minWidth: 0 }}>
+                                                            <Typography sx={{
+                                                                fontSize: '13px', fontWeight: 600,
+                                                                color: '#111827', whiteSpace: 'nowrap',
+                                                            }}>
+                                                                {emp.name || '—'}
                                                             </Typography>
-                                                            <Typography sx={{ fontSize: '11px', color: '#94A3B8' }}>
-                                                                {emp.rollNumber} • {emp.designation}
+                                                            <Typography sx={{ fontSize: '10px', color: '#9CA3AF', fontWeight: 500 }}>
+                                                                {emp.rollNumber}{emp.designation ? ` · ${emp.designation}` : ''}
                                                             </Typography>
                                                         </Box>
                                                     </Box>
                                                 </TableCell>
-                                                <TableCell sx={{ fontSize: '14px', fontWeight: 700, color: '#2563EB' }}>
-                                                    ₹{emp.netSalary.toLocaleString()}
+                                                <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.2 }}>
+                                                    <Box sx={{
+                                                        display: 'inline-flex', alignItems: 'center', gap: 0.5,
+                                                        px: 1, py: 0.4, borderRadius: '8px',
+                                                        bgcolor: PRIMARY_LIGHT, border: `1px solid ${PRIMARY_BORDER}`,
+                                                    }}>
+                                                        <Typography sx={{ fontSize: '13px', fontWeight: 800, color: PRIMARY_DARK }}>
+                                                            {formatINR(emp.netSalary)}
+                                                        </Typography>
+                                                    </Box>
                                                 </TableCell>
-                                                <TableCell sx={{ fontSize: '13px', fontWeight: 600 }}>
-                                                    {emp.bankName || <Typography sx={{ fontSize: '12px', color: '#CBD5E1' }}>Not added</Typography>}
+                                                <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.2 }}>
+                                                    {emp.bankName ? (
+                                                        <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>
+                                                            {emp.bankName}
+                                                        </Typography>
+                                                    ) : (
+                                                        <Typography sx={{ fontSize: '12px', color: '#CBD5E1', fontStyle: 'italic' }}>
+                                                            Not added
+                                                        </Typography>
+                                                    )}
                                                 </TableCell>
-                                                <TableCell sx={{ fontSize: '13px', fontFamily: 'monospace' }}>
-                                                    {emp.accountNumber || <Typography sx={{ fontSize: '12px', color: '#CBD5E1' }}>—</Typography>}
+                                                <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.2 }}>
+                                                    {emp.accountNumber ? (
+                                                        <Typography sx={{ fontSize: '12.5px', fontFamily: 'monospace', fontWeight: 600, color: '#374151' }}>
+                                                            {emp.accountNumber}
+                                                        </Typography>
+                                                    ) : (
+                                                        <Typography sx={{ fontSize: '12px', color: '#CBD5E1' }}>—</Typography>
+                                                    )}
                                                 </TableCell>
-                                                <TableCell sx={{ fontSize: '13px', fontFamily: 'monospace', fontWeight: 600 }}>
-                                                    {emp.ifsc || <Typography sx={{ fontSize: '12px', color: '#CBD5E1' }}>—</Typography>}
+                                                <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.2 }}>
+                                                    {emp.ifsc ? (
+                                                        <Chip
+                                                            label={emp.ifsc}
+                                                            size="small"
+                                                            sx={{
+                                                                bgcolor: '#EFF6FF', color: '#1D4ED8',
+                                                                border: '1px solid #BFDBFE',
+                                                                fontWeight: 700, fontSize: '10.5px', height: 22,
+                                                                fontFamily: 'monospace',
+                                                            }}
+                                                        />
+                                                    ) : (
+                                                        <Typography sx={{ fontSize: '12px', color: '#CBD5E1' }}>—</Typography>
+                                                    )}
                                                 </TableCell>
-                                                <TableCell sx={{ fontSize: '12px', color: '#64748B' }}>
-                                                    {emp.branch || <Typography sx={{ fontSize: '12px', color: '#CBD5E1' }}>—</Typography>}
+                                                <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.2 }}>
+                                                    {emp.branch ? (
+                                                        <Typography sx={{ fontSize: '12.5px', color: '#374151', fontWeight: 500 }}>
+                                                            {emp.branch}
+                                                        </Typography>
+                                                    ) : (
+                                                        <Typography sx={{ fontSize: '12px', color: '#CBD5E1' }}>—</Typography>
+                                                    )}
                                                 </TableCell>
-                                                <TableCell>
-                                                    <IconButton
+                                                <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.2 }}>
+                                                    <Chip
                                                         size="small"
-                                                        onClick={() => handleOpenBankDialog(emp)}
-                                                        sx={{ color: hasBankDetails(emp) ? PRIMARY : '#10B981' }}
-                                                        title={hasBankDetails(emp) ? 'Edit bank details' : 'Add bank details'}
-                                                    >
-                                                        {hasBankDetails(emp)
-                                                            ? <EditIcon sx={{ fontSize: 18 }} />
-                                                            : <AddCircleOutlineIcon sx={{ fontSize: 18 }} />
-                                                        }
-                                                    </IconButton>
+                                                        icon={verified
+                                                            ? <CheckCircleIcon sx={{ fontSize: '12px !important' }} />
+                                                            : <HourglassEmptyIcon sx={{ fontSize: '12px !important' }} />}
+                                                        label={verified ? 'Verified' : 'Pending'}
+                                                        sx={{
+                                                            height: 22, fontSize: '10.5px', fontWeight: 700,
+                                                            bgcolor: verified ? '#ECFDF5' : '#FFFBEB',
+                                                            color: verified ? '#047857' : '#B45309',
+                                                            border: `1px solid ${verified ? '#A7F3D0' : '#FDE68A'}`,
+                                                            '& .MuiChip-icon': { color: 'inherit', ml: '6px' },
+                                                        }}
+                                                    />
+                                                </TableCell>
+                                                <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.2 }}>
+                                                    <Tooltip arrow title={verified ? 'Edit bank details' : 'Add bank details'}>
+                                                        <IconButton
+                                                            size="small"
+                                                            onClick={() => handleOpenBankDialog(emp)}
+                                                            sx={{
+                                                                bgcolor: verified ? '#EFF6FF' : '#ECFDF5',
+                                                                borderRadius: '8px',
+                                                                border: `1px solid ${verified ? '#BFDBFE' : '#A7F3D0'}`,
+                                                                '&:hover': { bgcolor: verified ? '#DBEAFE' : '#D1FAE5' },
+                                                            }}
+                                                        >
+                                                            {verified
+                                                                ? <EditIcon sx={{ fontSize: 14, color: '#2563EB' }} />
+                                                                : <AddCircleOutlineIcon sx={{ fontSize: 14, color: PRIMARY }} />}
+                                                        </IconButton>
+                                                    </Tooltip>
                                                 </TableCell>
                                             </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </Box>
-                        </Card>
-                    </>
-                )}
+                                        );
+                                    })}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+                    </Card>
+                </Box>
             </Box>
 
-            {/* Edit Bank Details Dialog */}
+            {/* ─── Add / Edit Bank Details Dialog ───────────────────────── */}
             <Dialog
                 open={openDialog}
                 onClose={() => setOpenDialog(false)}
                 maxWidth="sm"
                 fullWidth
+                slotProps={{
+                    paper: {
+                        sx: { borderRadius: '7px', overflow: 'hidden' },
+                    },
+                }}
             >
-                <DialogTitle>
-                    <Typography sx={{ fontSize: '18px', fontWeight: 700 }}>
-                        {isAddMode ? 'Add Bank Account Details' : 'Edit Bank Account Details'}
-                    </Typography>
+                {/* Dialog header */}
+                <Box sx={{
+                    px: 2.5, py: 2,
+                    background: `linear-gradient(135deg, ${PRIMARY_LIGHT} 0%, #fff 70%)`,
+                    borderBottom: `1px solid ${PRIMARY_BORDER}`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5,
+                }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Box sx={{
+                            width: 40, height: 40, borderRadius: '10px',
+                            bgcolor: '#fff', border: `1px solid ${PRIMARY_BORDER}`,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}>
+                            {isAddMode
+                                ? <AddCircleOutlineIcon sx={{ color: PRIMARY, fontSize: 20 }} />
+                                : <EditIcon sx={{ color: PRIMARY, fontSize: 20 }} />}
+                        </Box>
+                        <Box>
+                            <Typography sx={{ fontSize: '16px', fontWeight: 800, color: '#111827', lineHeight: 1.1 }}>
+                                {isAddMode ? 'Add Bank Account Details' : 'Edit Bank Account Details'}
+                            </Typography>
+                            <Typography sx={{ fontSize: '11.5px', color: '#6B7280', mt: 0.3 }}>
+                                {isAddMode
+                                    ? 'Set up payroll bank account for this employee'
+                                    : 'Update the bank account information used for salary disbursement'}
+                            </Typography>
+                        </Box>
+                    </Box>
+                    <IconButton
+                        onClick={() => setOpenDialog(false)}
+                        sx={{
+                            width: 32, height: 32, borderRadius: '8px',
+                            bgcolor: '#fff', border: '1px solid #E5E7EB',
+                            '&:hover': { bgcolor: '#F9FAFB' },
+                        }}
+                    >
+                        <CloseIcon sx={{ fontSize: 16, color: '#6B7280' }} />
+                    </IconButton>
+                </Box>
+
+                <DialogContent sx={{ p: 2.5, bgcolor: '#F9FAFB' }}>
+                    {/* Section: Employee */}
                     {selectedEmployee && (
-                        <Typography sx={{ fontSize: '13px', color: '#64748B', mt: 0.5 }}>
-                            {selectedEmployee.name} ({selectedEmployee.rollNumber})
-                        </Typography>
+                        <Box sx={{
+                            p: 2, mb: 2,
+                            bgcolor: '#fff', borderRadius: '7px',
+                            border: '1px solid #E5E7EB',
+                        }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                                <Box sx={{
+                                    width: 24, height: 24, borderRadius: '6px',
+                                    bgcolor: '#EFF6FF', border: '1px solid #BFDBFE',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                }}>
+                                    <BadgeOutlinedIcon sx={{ fontSize: 14, color: '#2563EB' }} />
+                                </Box>
+                                <Typography sx={{
+                                    fontSize: '11px', fontWeight: 700, color: '#374151',
+                                    textTransform: 'uppercase', letterSpacing: 0.6,
+                                }}>
+                                    Employee
+                                </Typography>
+                            </Box>
+
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                <Avatar sx={{
+                                    width: 44, height: 44,
+                                    bgcolor: `${avatarColorFor(selectedEmployee.name)}15`,
+                                    color: avatarColorFor(selectedEmployee.name),
+                                    fontSize: '14px', fontWeight: 800,
+                                    border: `1px solid ${avatarColorFor(selectedEmployee.name)}33`,
+                                }}>
+                                    {getInitials(selectedEmployee.name)}
+                                </Avatar>
+                                <Box sx={{ flex: 1, minWidth: 0 }}>
+                                    <Typography sx={{ fontSize: '14px', fontWeight: 700, color: '#111827' }}>
+                                        {selectedEmployee.name}
+                                    </Typography>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, mt: 0.3, flexWrap: 'wrap' }}>
+                                        <Chip
+                                            label={selectedEmployee.rollNumber}
+                                            size="small"
+                                            sx={{
+                                                bgcolor: '#F3F4F6', color: '#374151',
+                                                fontWeight: 600, fontSize: '10.5px', height: 20,
+                                                border: '1px solid #E5E7EB',
+                                            }}
+                                        />
+                                        {selectedEmployee.designation && (
+                                            <Typography sx={{ fontSize: '11px', color: '#6B7280' }}>
+                                                {selectedEmployee.designation}
+                                            </Typography>
+                                        )}
+                                    </Box>
+                                </Box>
+                                {selectedEmployee.netSalary != null && (
+                                    <Box sx={{
+                                        textAlign: 'right',
+                                        px: 1.2, py: 0.6, borderRadius: '8px',
+                                        bgcolor: PRIMARY_LIGHT, border: `1px solid ${PRIMARY_BORDER}`,
+                                    }}>
+                                        <Typography sx={{ fontSize: '9.5px', color: PRIMARY_DARK, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                            Net Salary
+                                        </Typography>
+                                        <Typography sx={{ fontSize: '14px', fontWeight: 800, color: PRIMARY_DARK }}>
+                                            {formatINR(selectedEmployee.netSalary)}
+                                        </Typography>
+                                    </Box>
+                                )}
+                            </Box>
+                        </Box>
                     )}
-                </DialogTitle>
-                <DialogContent>
-                    <Box sx={{ pt: 2 }}>
-                        <TextField
-                            fullWidth
-                            label="Bank Name"
-                            value={bankDetails.bankName}
-                            onChange={(e) => setBankDetails({ ...bankDetails, bankName: e.target.value })}
-                            sx={{ mb: 2.5 }}
-                        />
-                        <TextField
-                            fullWidth
-                            label="Account Number"
-                            value={bankDetails.accountNumber}
-                            onChange={(e) => setBankDetails({ ...bankDetails, accountNumber: e.target.value })}
-                            sx={{ mb: 2.5 }}
-                        />
-                        <TextField
-                            fullWidth
-                            label="IFSC Code"
-                            value={bankDetails.ifscCode}
-                            onChange={(e) => setBankDetails({ ...bankDetails, ifscCode: e.target.value })}
-                            sx={{ mb: 2.5 }}
-                        />
-                        <TextField
-                            fullWidth
-                            label="Branch Name"
-                            value={bankDetails.branchName}
-                            onChange={(e) => setBankDetails({ ...bankDetails, branchName: e.target.value })}
-                        />
+
+                    {/* Section: Bank Details */}
+                    <Box sx={{
+                        p: 2,
+                        bgcolor: '#fff', borderRadius: '7px',
+                        border: '1px solid #E5E7EB',
+                    }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                            <Box sx={{
+                                width: 24, height: 24, borderRadius: '6px',
+                                bgcolor: PRIMARY_LIGHT, border: `1px solid ${PRIMARY_BORDER}`,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}>
+                                <AccountBalanceIcon sx={{ fontSize: 14, color: PRIMARY }} />
+                            </Box>
+                            <Typography sx={{
+                                fontSize: '11px', fontWeight: 700, color: '#374151',
+                                textTransform: 'uppercase', letterSpacing: 0.6,
+                            }}>
+                                Bank Account Information
+                            </Typography>
+                        </Box>
+
+                        <Grid container spacing={2}>
+                            <Grid size={{ xs: 12, sm: 6 }}>
+                                <TextField
+                                    fullWidth
+                                    size="small"
+                                    label="Bank Name *"
+                                    value={bankDetails.bankName}
+                                    onChange={(e) => setBankDetails({ ...bankDetails, bankName: e.target.value })}
+                                    slotProps={{ inputLabel: { shrink: true } }}
+                                    sx={fieldSx}
+                                />
+                            </Grid>
+                            <Grid size={{ xs: 12, sm: 6 }}>
+                                <TextField
+                                    fullWidth
+                                    size="small"
+                                    label="Branch Name *"
+                                    value={bankDetails.branchName}
+                                    onChange={(e) => setBankDetails({ ...bankDetails, branchName: e.target.value })}
+                                    slotProps={{ inputLabel: { shrink: true } }}
+                                    sx={fieldSx}
+                                />
+                            </Grid>
+                            <Grid size={{ xs: 12, sm: 7 }}>
+                                <TextField
+                                    fullWidth
+                                    size="small"
+                                    label="Account Number *"
+                                    value={bankDetails.accountNumber}
+                                    onChange={(e) => setBankDetails({ ...bankDetails, accountNumber: e.target.value })}
+                                    slotProps={{ inputLabel: { shrink: true } }}
+                                    sx={{
+                                        ...fieldSx,
+                                        '& .MuiOutlinedInput-input': { fontFamily: 'monospace', letterSpacing: 0.5 },
+                                    }}
+                                />
+                            </Grid>
+                            <Grid size={{ xs: 12, sm: 5 }}>
+                                <TextField
+                                    fullWidth
+                                    size="small"
+                                    label="IFSC Code *"
+                                    value={bankDetails.ifscCode}
+                                    onChange={(e) => setBankDetails({ ...bankDetails, ifscCode: e.target.value.toUpperCase() })}
+                                    slotProps={{ inputLabel: { shrink: true } }}
+                                    sx={{
+                                        ...fieldSx,
+                                        '& .MuiOutlinedInput-input': { fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: 0.5 },
+                                    }}
+                                />
+                            </Grid>
+                        </Grid>
+
+                        <Box sx={{
+                            mt: 2, p: 1.2, borderRadius: '7px',
+                            bgcolor: '#FFFBEB', border: '1px solid #FDE68A',
+                            display: 'flex', alignItems: 'flex-start', gap: 1,
+                        }}>
+                            <AccountBalanceWalletIcon sx={{ fontSize: 16, color: '#B45309', mt: 0.1 }} />
+                            <Typography sx={{ fontSize: '11px', color: '#92400E', lineHeight: 1.4 }}>
+                                Double-check the account number and IFSC code before saving. Incorrect details can delay or misdirect salary disbursement.
+                            </Typography>
+                        </Box>
                     </Box>
                 </DialogContent>
-                <DialogActions sx={{ px: 3, pb: 3 }}>
+
+                <DialogActions sx={{ px: 2.5, py: 1.8, borderTop: '1px solid #E5E7EB', bgcolor: '#fff' }}>
                     <Button
                         onClick={() => setOpenDialog(false)}
                         disabled={isSaving}
                         sx={{
-                            textTransform: 'none',
-                            color: '#64748B',
-                            fontWeight: 600
+                            textTransform: 'none', fontSize: '13px', fontWeight: 600,
+                            color: '#374151', borderRadius: '10px',
+                            border: '1px solid #E5E7EB', px: 2, height: 38,
+                            '&:hover': { bgcolor: '#F9FAFB' },
                         }}
                     >
                         Cancel
@@ -475,19 +923,22 @@ export default function BankReports() {
                         variant="contained"
                         onClick={handleSaveBankDetails}
                         disabled={isSaving}
+                        startIcon={isSaving
+                            ? <CircularProgress size={14} sx={{ color: '#fff' }} />
+                            : <SaveOutlinedIcon sx={{ fontSize: 18 }} />}
                         sx={{
-                            textTransform: 'none',
-                            bgcolor: PRIMARY,
-                            fontWeight: 700,
-                            '&:hover': { bgcolor: PRIMARY_DARK },
-                            minWidth: '120px'
+                            textTransform: 'none', fontSize: '13px', fontWeight: 700,
+                            bgcolor: PRIMARY, color: '#fff', borderRadius: '10px',
+                            px: 2.5, height: 38,
+                            boxShadow: `0 2px 6px ${PRIMARY}33`,
+                            '&:hover': { bgcolor: PRIMARY_DARK, boxShadow: `0 4px 12px ${PRIMARY}55` },
+                            '&.Mui-disabled': { bgcolor: '#E5E7EB', color: '#9CA3AF' },
                         }}
                     >
-                        {isSaving ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : isAddMode ? 'Add Details' : 'Save Changes'}
+                        {isSaving ? 'Saving…' : isAddMode ? 'Add Details' : 'Save Changes'}
                     </Button>
                 </DialogActions>
             </Dialog>
-        </Box>
         </>
     );
 }

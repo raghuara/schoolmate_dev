@@ -40,6 +40,8 @@ import {
     Tooltip as RTooltip, BarChart, Bar, Cell, PieChart, Pie,
 } from 'recharts';
 import * as XLSX from 'xlsx';
+import axios from 'axios';
+import { fetchDashboard } from '../../Api/Api';
 
 // ─── Theme ────────────────────────────────────────────────────────────────
 const PRIMARY = '#059669';
@@ -150,57 +152,52 @@ const RingGauge = ({ value = 0, color = PRIMARY, size = 64, stroke = 7 }) => {
     );
 };
 
-// ─── Mock data generator ──────────────────────────────────────────────────
-// TODO: Replace with API call. Expected shape:
-//   { kpis: { news: { total, approved, pending, rejected }, ... },
-//     activity: [ { id, type, title, createdBy, role, createdOn, status }, ... ] }
-const NAMES = ['Aarav Sharma', 'Priya Iyer', 'Rohan Kapoor', 'Saanvi Patel', 'Vikram Nair', 'Diya Reddy', 'Aditya Joshi', 'Meera Singh', 'Kabir Mehta', 'Ananya Roy'];
-const ROLES = ['Super Admin', 'Admin', 'Staff', 'Teacher'];
-const STATUSES = ['Approved', 'Pending', 'Rejected'];
+// ─── API plumbing ─────────────────────────────────────────────────────────
+const TOKEN = '123';
 
-const buildMockData = () => {
-    const kpis = {};
-    KPI_KEYS.forEach(k => {
-        const total = Math.floor(Math.random() * 200) + 50;
-        if (NO_APPROVAL_MODULES.has(k)) {
-            kpis[k] = { total, approved: 0, pending: 0, rejected: 0 };
-        } else {
-            const approved = Math.floor(total * (0.6 + Math.random() * 0.25));
-            const rejected = Math.floor((total - approved) * (0.2 + Math.random() * 0.2));
-            const pending = total - approved - rejected;
-            kpis[k] = { total, approved, pending, rejected };
-        }
-    });
+// Preset key → API filterType string
+const FILTER_TYPE_MAP = {
+    last7:     'Last 7 Days',
+    last15:    'Last 15 Days',
+    last30:    'Last 30 Days',
+    thisMonth: 'This Month',
+    all:       'All Time',
+    custom:    'CustomRange',
+};
 
-    const activity = [];
-    const now = Date.now();
-    for (let i = 0; i < 120; i++) {
-        const type = ACTIVITY_TYPES[Math.floor(Math.random() * ACTIVITY_TYPES.length)];
-        const daysAgo = Math.floor(Math.random() * 90);
-        const hours = Math.floor(Math.random() * 24);
-        const minutes = Math.floor(Math.random() * 60);
-        const ts = new Date(now - daysAgo * 86400000 - hours * 3600000 - minutes * 60000);
-        const titles = {
-            news:           ['Annual Day Highlights', 'Sports Meet Winners', 'New Library Wing', 'Founders Day Recap', 'Inter-school Quiz'],
-            messages:       ['Parent-Teacher Meet', 'Holiday List Update', 'Bus Route Change', 'Fee Reminder', 'Exam Hall Allocation'],
-            circulars:      ['Uniform Code', 'Code of Conduct', 'Mid-term Schedule', 'Holiday Notice', 'Independence Day'],
-            consentforms:   ['Field Trip — Zoo', 'Science Fair Permission', 'Annual Picnic', 'Photography Consent', 'Medical Form'],
-            homework:       ['Math — Algebra Ch. 4', 'Science — Lab Report', 'English — Essay', 'History — Timeline', 'Geography — Map Work'],
-            studymaterials: ['NCERT Chapter Notes', 'Practice Worksheets', 'Reference Videos', 'Sample Papers', 'Revision Sheets'],
-            feedback:       ['Cafeteria Survey', 'Transport Feedback', 'Library Suggestion', 'Teacher Evaluation', 'Facility Review'],
-        };
-        const titleList = titles[type] || ['Untitled'];
-        activity.push({
-            id: i + 1, type,
-            title: titleList[Math.floor(Math.random() * titleList.length)],
-            createdBy: NAMES[Math.floor(Math.random() * NAMES.length)],
-            role: ROLES[Math.floor(Math.random() * ROLES.length)],
-            createdOn: ts.toISOString(),
-            status: STATUSES[Math.floor(Math.random() * STATUSES.length)],
-        });
-    }
-    activity.sort((a, b) => new Date(b.createdOn) - new Date(a.createdOn));
-    return { kpis, activity };
+// API module title → internal KPI_KEY
+const TITLE_TO_KEY = {
+    'News':            'news',
+    'Messages':        'messages',
+    'Circulars':       'circulars',
+    'Consent Forms':   'consentforms',
+    'Homework':        'homework',
+    'Study Materials': 'studymaterials',
+    'Feedback':        'feedback',
+    'School Calendar': 'schoolcalendar',
+    'Events':          'events',
+};
+
+// Normalize a status string from API ("approved" / "Approved" / "APPROVED") → "Approved"
+const normalizeStatus = (s) => {
+    if (!s) return 'Pending';
+    const v = String(s).toLowerCase();
+    if (v.startsWith('approve')) return 'Approved';
+    if (v.startsWith('reject'))  return 'Rejected';
+    return 'Pending';
+};
+
+const STATUS_COLOR = {
+    Approved: '#16A34A',
+    Pending:  '#D97706',
+    Rejected: '#DC2626',
+};
+
+// Empty kpis object — used as a baseline so missing modules render as zeros.
+const emptyKpis = () => {
+    const k = {};
+    KPI_KEYS.forEach(key => { k[key] = { total: 0, approved: 0, pending: 0, rejected: 0 }; });
+    return k;
 };
 
 const ROWS_PER_PAGE = 10;
@@ -222,16 +219,116 @@ export default function CommunicationDashboard() {
     const [dateAnchor, setDateAnchor] = useState(null);
     const isExpanded = useSelector((state) => state.sidebar.isExpanded);
     const [isLoading, setIsLoading] = useState(false);
-    const [data, setData] = useState({ kpis: {}, activity: [] });
 
+    // Shape mirrors API response sections so we render exactly what the backend computed.
+    const [data, setData] = useState({
+        kpis: emptyKpis(),
+        activity: [],
+        trend: { data: [], peak: null },
+        pie: [],
+        pieTotal: 0,
+        moduleBar: [],
+    });
+
+    // ─── Fetch dashboard whenever the filter window changes ───────────────
     useEffect(() => {
+        let cancelled = false;
+        const params = { filterType: FILTER_TYPE_MAP[activePreset] || 'Last 30 Days' };
+        // Send dates only when we actually have a defined range
+        if (fromDate) params.fromDate = fromDate;
+        if (toDate)   params.toDate   = toDate;
+
         setIsLoading(true);
-        const t = setTimeout(() => {
-            setData(buildMockData());
-            setIsLoading(false);
-        }, 350);
-        return () => clearTimeout(t);
-    }, []);
+        axios
+            .get(fetchDashboard, {
+                params,
+                headers: { Authorization: `Bearer ${TOKEN}` },
+            })
+            .then((res) => {
+                if (cancelled) return;
+                const payload = res?.data || {};
+                if (payload.success === false) {
+                    setData({ kpis: emptyKpis(), activity: [], trend: { data: [], peak: null }, pie: [], pieTotal: 0, moduleBar: [] });
+                    return;
+                }
+
+                // ── Module KPI cards
+                const kpis = emptyKpis();
+                (payload.data || []).forEach((m) => {
+                    const key = TITLE_TO_KEY[m.title];
+                    if (key) {
+                        kpis[key] = {
+                            total: Number(m.total)    || 0,
+                            approved: Number(m.approved) || 0,
+                            pending:  Number(m.pending)  || 0,
+                            rejected: Number(m.rejected) || 0,
+                        };
+                    }
+                });
+
+                // ── Activity trend (area chart)
+                const trendApi = payload.activityTrend || {};
+                const trend = {
+                    data: (trendApi.data || []).map(d => ({
+                        date: d.date,
+                        label: d.label || (d.date ? new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''),
+                        count: Number(d.count) || 0,
+                    })),
+                    peak: trendApi.peak
+                        ? { ...trendApi.peak, count: Number(trendApi.peak.count) || 0 }
+                        : null,
+                };
+
+                // ── Status distribution (pie chart)
+                const statusApi = payload.statusDistribution || {};
+                const pie = (statusApi.data || []).map(s => ({
+                    name: s.status,
+                    value: Number(s.count) || 0,
+                    color: STATUS_COLOR[s.status] || '#6B7280',
+                }));
+                const pieTotal = Number(statusApi.total) || pie.reduce((sum, p) => sum + p.value, 0);
+
+                // ── Module-wise comparison (bar chart)
+                const moduleBar = (payload.moduleWiseComparison?.data || []).map(m => {
+                    const key = TITLE_TO_KEY[m.module];
+                    const cfg = key ? FEATURE_CONFIG[key] : null;
+                    return {
+                        name: m.module,
+                        color: cfg?.color || '#6B7280',
+                        Approved: Number(m.approved) || 0,
+                        Pending:  Number(m.pending)  || 0,
+                        Rejected: Number(m.rejected) || 0,
+                    };
+                });
+
+                // ── Recent activity table rows
+                const activity = (payload.recentActivity?.data || []).map((r, i) => {
+                    const moduleTitle = r.module || r.type || r.title || '';
+                    const typeKey = TITLE_TO_KEY[moduleTitle]
+                        || String(r.type || '').toLowerCase().replace(/\s+/g, '');
+                    return {
+                        id: r.id ?? `${r.rollNumber || 'a'}-${i}`,
+                        type: typeKey,
+                        title: r.activityTitle || r.title || r.headline || '—',
+                        createdBy: r.createdBy || r.name || r.creatorName || '—',
+                        role: r.role || r.userType || '—',
+                        createdOn: r.createdOn || r.createdAt || r.dateTime || r.date || '',
+                        status: normalizeStatus(r.status),
+                    };
+                });
+
+                setData({ kpis, activity, trend, pie, pieTotal, moduleBar });
+            })
+            .catch(() => {
+                if (cancelled) return;
+                setData({ kpis: emptyKpis(), activity: [], trend: { data: [], peak: null }, pie: [], pieTotal: 0, moduleBar: [] });
+            })
+            .finally(() => {
+                if (!cancelled) setIsLoading(false);
+            });
+
+        return () => { cancelled = true; };
+    }, [activePreset, fromDate, toDate]);
 
     const applyPreset = (key) => {
         const p = presets.find(x => x.key === key);
@@ -270,21 +367,19 @@ export default function CommunicationDashboard() {
         return { ...acc, approvedPct, pendingPct, rejectedPct };
     }, [kpis]);
 
+    // Activity rows already come from the API filtered by date range.
+    // Apply client-side type + search filters on top of that response.
     const filteredActivity = useMemo(() => {
-        const fromTs = fromDate ? new Date(`${fromDate}T00:00:00`).getTime() : -Infinity;
-        const toTs   = toDate   ? new Date(`${toDate}T23:59:59`).getTime()   :  Infinity;
         const q = search.trim().toLowerCase();
         return data.activity.filter(a => {
-            const ts = new Date(a.createdOn).getTime();
-            const inRange = ts >= fromTs && ts <= toTs;
             const matchesType = activityTypeFilter === 'all' || a.type === activityTypeFilter;
             const matchesSearch = !q
                 || (a.title || '').toLowerCase().includes(q)
                 || (a.createdBy || '').toLowerCase().includes(q)
                 || (a.role || '').toLowerCase().includes(q);
-            return inRange && matchesType && matchesSearch;
+            return matchesType && matchesSearch;
         });
-    }, [data.activity, fromDate, toDate, activityTypeFilter, search]);
+    }, [data.activity, activityTypeFilter, search]);
 
     const totalPages = Math.max(1, Math.ceil(filteredActivity.length / ROWS_PER_PAGE));
     const pageRows = useMemo(
@@ -295,68 +390,12 @@ export default function CommunicationDashboard() {
     const anyFilterActive =
         activePreset !== 'last30' || search.trim().length > 0 || activityTypeFilter !== 'all';
 
-    // ── Activity trend (daily counts over current date range) ──────────────
-    const trendData = useMemo(() => {
-        if (!fromDate || !toDate) {
-            // For "All Time" — use a fixed last 14-day window
-            const today = new Date();
-            const start = new Date(today); start.setDate(today.getDate() - 13);
-            const buckets = {};
-            for (let d = new Date(start); d <= today; d.setDate(d.getDate() + 1)) {
-                buckets[isoFromDate(d)] = 0;
-            }
-            data.activity.forEach(a => {
-                const key = a.createdOn.slice(0, 10);
-                if (key in buckets) buckets[key] += 1;
-            });
-            return Object.entries(buckets).map(([date, count]) => ({
-                date, count,
-                label: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-            }));
-        }
-        const start = new Date(`${fromDate}T00:00:00`);
-        const end   = new Date(`${toDate}T00:00:00`);
-        const buckets = {};
-        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-            buckets[isoFromDate(d)] = 0;
-        }
-        filteredActivity.forEach(a => {
-            const key = a.createdOn.slice(0, 10);
-            if (key in buckets) buckets[key] += 1;
-        });
-        return Object.entries(buckets).map(([date, count]) => ({
-            date, count,
-            label: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        }));
-    }, [filteredActivity, fromDate, toDate, data.activity]);
-
-    const trendPeakDay = useMemo(() => {
-        if (!trendData.length) return null;
-        return trendData.reduce((max, d) => (d.count > max.count ? d : max), trendData[0]);
-    }, [trendData]);
-
-    // ── Module bar chart data (Approved / Pending / Rejected per module) ──
-    const moduleBarData = useMemo(() => (
-        ACTIVITY_TYPES.map(k => {
-            const x = kpis[k] || { approved: 0, pending: 0, rejected: 0 };
-            return {
-                name: FEATURE_CONFIG[k].label,
-                color: FEATURE_CONFIG[k].color,
-                Approved: x.approved,
-                Pending:  x.pending,
-                Rejected: x.rejected,
-            };
-        })
-    ), [kpis]);
-
-    // ── Pie chart: overall status distribution ────────────────────────────
-    const pieData = useMemo(() => [
-        { name: 'Approved', value: heroSummary.approved, color: '#16A34A' },
-        { name: 'Pending',  value: heroSummary.pending,  color: '#D97706' },
-        { name: 'Rejected', value: heroSummary.rejected, color: '#DC2626' },
-    ], [heroSummary]);
-
-    const pieTotal = pieData.reduce((s, x) => s + x.value, 0);
+    // Chart data is provided pre-computed by the API.
+    const trendData    = data.trend.data;
+    const trendPeakDay = data.trend.peak;
+    const moduleBarData = data.moduleBar;
+    const pieData      = data.pie;
+    const pieTotal     = data.pieTotal;
 
     // ── Exports ────────────────────────────────────────────────────────────
     const handleExportExcel = () => {

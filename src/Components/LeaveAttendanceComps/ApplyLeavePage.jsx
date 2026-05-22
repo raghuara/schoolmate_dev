@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import {
     Box, Grid, Typography, IconButton, Button, Chip, TextField, Select, MenuItem,
     FormControl, InputLabel, CircularProgress, Checkbox, FormControlLabel, Divider,
@@ -16,7 +16,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import dayjs from 'dayjs';
 import axios from 'axios';
 import { useSelector } from 'react-redux';
-import { postLeaveRequest, GetEmployeeLeaveBalance } from '../../Api/Api';
+import { postLeaveRequest, GetEmployeeLeaveBalance, GetWorkingcalendar, GetleaveTypes } from '../../Api/Api';
 import SnackBar from '../SnackBar';
 
 const token = '123';
@@ -24,20 +24,24 @@ const PRIMARY = '#059669';
 const PRIMARY_LIGHT = '#ECFDF5';
 const PRIMARY_DARK = '#047857';
 
-// ─── Working Calendar (sourced from Leave Policy Master) ────────────────────
-// TODO: replace with API fetch — same data HR sets in the Working Calendar section.
-const DEFAULT_WORKING_DOW = [1, 2, 3, 4, 5, 6];                       // 0=Sun
-const MOCK_HOLIDAY_OVERRIDES = new Set();                             // YYYY-MM-DD strings
-const MOCK_MANDATORY_DAYS = new Set([
-    dayjs().date(15).format('YYYY-MM-DD'),
-    dayjs().add(1, 'month').date(1).format('YYYY-MM-DD'),
-]);
+// ─── Working Calendar (sourced from Leave Policy Master via GetWorkingcalendar) ─
+// Fallback when no record exists yet: Mon–Sat working, Sunday off.
+const DEFAULT_WORKING_DOW = [1, 2, 3, 4, 5, 6]; // 0 = Sun, 6 = Sat
 
-const getDayType = (date) => {
-    const key = date.format('YYYY-MM-DD');
-    if (MOCK_MANDATORY_DAYS.has(key)) return 'mandatory';
-    if (MOCK_HOLIDAY_OVERRIDES.has(key)) return 'holiday';
-    return DEFAULT_WORKING_DOW.includes(date.day()) ? 'working' : 'holiday';
+// API day-of-week labels match the Working Calendar response.
+const WC_DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+// { Sun: 'Working' | 'Holiday' | 'Mandatory', ... } → array of working dow indexes.
+// Both Working and Mandatory count as working days (Mandatory is just a working
+// day that needs prior approval to take leave on).
+const parseWeekPattern = (pattern) => {
+    if (!pattern || typeof pattern !== 'object') return null;
+    const result = [];
+    WC_DAY_LABELS.forEach((label, idx) => {
+        const v = pattern[label];
+        if (v === 'Working' || v === 'Mandatory') result.push(idx);
+    });
+    return result;
 };
 
 const DAY_TYPE_STYLE = {
@@ -59,13 +63,13 @@ const formatDateForApi = (dateStr) => {
 // For now we mirror the policy fields HR sets in Leave Policy Master.
 // `maxPerMonth` (0 = no cap) caps how many days of this type can be taken in a single month.
 const LEAVE_TYPE_RULES = {
-    'Sick Leave':       { standaloneOnly: false, requiresDocument: true,  documentHint: 'Upload a medical certificate signed by a registered doctor', maxPerMonth: 3 },
-    'Casual Leave':     { standaloneOnly: true,  requiresDocument: false, documentHint: '',                                                          maxPerMonth: 0 },
-    'Emergency Leave':  { standaloneOnly: false, requiresDocument: false, documentHint: '',                                                          maxPerMonth: 0 },
-    'Maternity Leave':  { standaloneOnly: false, requiresDocument: true,  documentHint: 'Upload medical / hospital documents',                       maxPerMonth: 0 },
-    'Paternity Leave':  { standaloneOnly: false, requiresDocument: true,  documentHint: 'Upload birth certificate or hospital document',             maxPerMonth: 0 },
-    'Annual Leave':     { standaloneOnly: false, requiresDocument: false, documentHint: '',                                                          maxPerMonth: 0 },
-    'Unpaid Leave':     { standaloneOnly: false, requiresDocument: false, documentHint: '',                                                          maxPerMonth: 0 },
+    'Sick Leave':       { blockContinuousLeave: false, requiresDocument: true,  documentHint: 'Upload a medical certificate signed by a registered doctor', maxPerMonth: 3 },
+    'Casual Leave':     { blockContinuousLeave: true,  requiresDocument: false, documentHint: '',                                                          maxPerMonth: 0 },
+    'Emergency Leave':  { blockContinuousLeave: false, requiresDocument: false, documentHint: '',                                                          maxPerMonth: 0 },
+    'Maternity Leave':  { blockContinuousLeave: false, requiresDocument: true,  documentHint: 'Upload medical / hospital documents',                       maxPerMonth: 0 },
+    'Paternity Leave':  { blockContinuousLeave: false, requiresDocument: true,  documentHint: 'Upload birth certificate or hospital document',             maxPerMonth: 0 },
+    'Annual Leave':     { blockContinuousLeave: false, requiresDocument: false, documentHint: '',                                                          maxPerMonth: 0 },
+    'Unpaid Leave':     { blockContinuousLeave: false, requiresDocument: false, documentHint: '',                                                          maxPerMonth: 0 },
 };
 
 // Current academic year (Apr–Mar window). Before April we're still in the previous year's cycle.
@@ -83,6 +87,44 @@ const colorForLeaveType = (id) => LEAVE_TYPE_PALETTE[Math.abs(Number(id) || 0) %
 // Cheap short-code: take the first letter of each word (max 3).
 const shortCodeFor = (name = '') =>
     name.split(/\s+/).filter(Boolean).map(w => w[0]).join('').slice(0, 3).toUpperCase() || '–';
+
+// Shorten a period label so it fits inside compact grid cells.
+//   Quarterly: "Q1 of AY 2026-2027 (Jun 2026-Aug 2026)" → "Q1"
+//   Monthly:   "Jun 2026" → "Jun"
+//   Yearly:    "AY 2026-2027" → "AY"
+const shortenPeriodLabel = (label = '', period = 'Yearly') => {
+    if (period === 'Quarterly') {
+        const m = label.match(/^Q\d/);
+        return m ? m[0] : label.slice(0, 4);
+    }
+    if (period === 'Monthly') {
+        return label.split(' ')[0] || label;
+    }
+    return label;
+};
+
+// One-line period range used as tooltip / sub-label.
+const periodSubLabel = (label = '', period = 'Yearly') => {
+    if (period === 'Quarterly') {
+        const m = label.match(/\(([^)]+)\)/);
+        return m ? m[1] : label;
+    }
+    return label;
+};
+
+const STATUS_PILL = {
+    current:  { color: '#EA580C', bg: '#FFF7ED', border: '#FED7AA', text: 'Current' },
+    past:     { color: '#6B7280', bg: '#F3F4F6', border: '#E5E7EB', text: 'Past'    },
+    lapsed:   { color: '#B91C1C', bg: '#FEF2F2', border: '#FECACA', text: 'Lapsed'  },
+    upcoming: { color: '#1D4ED8', bg: '#EFF6FF', border: '#BFDBFE', text: 'Upcoming'},
+};
+
+const getPeriodStatus = (p) => {
+    if (p.lapsed) return 'lapsed';
+    if (p.isCurrentPeriod) return 'current';
+    if (p.isPastPeriod) return 'past';
+    return 'upcoming';
+};
 
 // ─── Numbered step header (matches Leave Policy Master pattern) ─────────────
 const StepHeader = ({ number, title, hint }) => (
@@ -114,6 +156,10 @@ export default function ApplyLeavePage({ onSuccess, onCancel }) {
     const [form, setForm] = useState({
         leaveType: '',
         reason: '',
+        remarks: '',
+        contact: '',
+        emergencyContact: '',
+        isHalfDay: false,
     });
     const updateForm = (key, value) => setForm(prev => ({ ...prev, [key]: value }));
 
@@ -124,13 +170,51 @@ export default function ApplyLeavePage({ onSuccess, onCancel }) {
     const [mandatoryAck, setMandatoryAck] = useState(false);
     const [uploadedFiles, setUploadedFiles] = useState([]);
 
-    // Active policy rules for the chosen leave type
-    const activeRules = LEAVE_TYPE_RULES[form.leaveType] || { standaloneOnly: false, requiresDocument: false, documentHint: '' };
+    // Leave type rules from the API (hydrated by an effect lower in the file).
+    // Declared here so `activeRules` below can safely read it during the same render.
+    //   key   = leaveTypeName
+    //   value = { blockContinuousLeave, requiresDocument, documentHint, maxPerMonth }
+    const [leaveTypeRules, setLeaveTypeRules] = useState({});
+
+    // Active policy rules for the chosen leave type — API first, hardcoded
+    // hints as fallback so the document upload-hint text stays helpful.
+    const activeRules = useMemo(() => {
+        const apiRule = leaveTypeRules[form.leaveType];
+        const local  = LEAVE_TYPE_RULES[form.leaveType];
+        if (apiRule) {
+            return {
+                ...apiRule,
+                // Keep our richer document hint copy when the API doesn't supply one.
+                documentHint: apiRule.documentHint || local?.documentHint || '',
+            };
+        }
+        return local || {
+            blockContinuousLeave: false,
+            requiresDocument: false,
+            documentHint: '',
+            maxPerMonth: 0,
+        };
+    }, [leaveTypeRules, form.leaveType]);
 
     const today = useMemo(() => dayjs().startOf('day'), []);
     const maxPickerMonth = useMemo(() => today.startOf('month').add(11, 'month'), [today]);
     const canPickerPrev = pickerMonth.isAfter(today.startOf('month'), 'month');
     const canPickerNext = pickerMonth.isBefore(maxPickerMonth, 'month');
+
+    // ─── Working Calendar state (sourced from GetWorkingcalendar) ──────────
+    // Keyed by YYYY-MM so each month can carry its own weekPattern + overrides.
+    //   workingDow[YYYY-MM] = [0..6]           — which DOW are working that month
+    //   holidays[YYYY-MM]   = Set<YYYY-MM-DD>  — explicit holiday override dates
+    //   mandatory[YYYY-MM]  = Set<YYYY-MM-DD>  — explicit mandatory override dates
+    // `loadedMonthsRef` is a ref (not state) so we can guard re-fetches without
+    // triggering renders or having to add ourselves to the effect dep array.
+    const [workingCalendar, setWorkingCalendar] = useState({
+        workingDow: {},
+        holidays:   {},
+        mandatory:  {},
+    });
+    const [isCalendarLoading, setIsCalendarLoading] = useState(false);
+    const loadedMonthsRef = useRef(new Set());
 
     // Leave balance drawer
     const [balanceOpen, setBalanceOpen] = useState(false);
@@ -140,7 +224,11 @@ export default function ApplyLeavePage({ onSuccess, onCancel }) {
     const academicYear = useMemo(() => getCurrentAcademicYear(), []);
 
     // Fetch the logged-in user's leave balance for the current academic year.
-    // The API returns one row per leave type already allocated for them.
+    // API returns `leaves[]` — each leave has top-level `remaining` plus a
+    // `perPeriod` block with `allocationPeriod` (Quarterly/Monthly/Yearly) and
+    // a `data[]` array breaking the year into periods. We derive allocated/used
+    // by summing across the periods so the UI can show both yearly totals
+    // and the per-period breakdown.
     const fetchLeaveBalance = async () => {
         if (!rollNumber) return;
         setBalanceLoading(true);
@@ -149,22 +237,59 @@ export default function ApplyLeavePage({ onSuccess, onCancel }) {
                 params: { academicYear, rollNumber },
                 headers: { Authorization: `Bearer ${token}` },
             });
-            const list = Array.isArray(res?.data?.data) ? res.data.data : [];
-            setBalanceTypes(list.map(d => ({
-                id: d.id,
-                leaveTypeId: d.leaveTypeId,
-                name: d.leaveTypeName || 'Leave',
-                shortCode: shortCodeFor(d.leaveTypeName),
-                color: colorForLeaveType(d.leaveTypeId),
-                academicYear: d.academicYear,
-                allocated: Number(d.allocated) || 0,
-                used: Number(d.used) || 0,
-                remaining: Number(d.remaining) || 0,
-                usedThisMonth: Number(d.usedThisMonth) || 0,
-                usedThisQuarter: Number(d.usedThisQuarter) || 0,
-                usedThisHalfYear: Number(d.usedThisHalfYear) || 0,
-                usedThisYear: Number(d.usedThisYear) || 0,
-            })));
+            if (res?.data?.error) {
+                setBalanceTypes([]);
+                return;
+            }
+            // API has shipped under two field names — tolerate both so we
+            // don't silently render an empty drawer when the contract shifts.
+            const list = Array.isArray(res?.data?.data)
+                ? res.data.data
+                : Array.isArray(res?.data?.leaves)
+                    ? res.data.leaves
+                    : [];
+            setBalanceTypes(list.map(d => {
+                const periods = (d.perPeriod?.data || []).map(p => ({
+                    index: p.index,
+                    label: p.label || '',
+                    cap: Number(p.cap) || 0,
+                    approved: Number(p.approved) || 0,
+                    pending: Number(p.pending) || 0,
+                    remaining: Number(p.remaining) || 0,
+                    isCurrentPeriod: !!p.isCurrentPeriod,
+                    isPastPeriod: !!p.isPastPeriod,
+                    lapsed: !!p.lapsed,
+                }));
+                const allocated = periods.reduce((s, p) => s + p.cap, 0);
+                const approved  = periods.reduce((s, p) => s + p.approved, 0);
+                const pending   = periods.reduce((s, p) => s + p.pending, 0);
+                // "Used" reflects fully-consumed (approved) days. Pending sits
+                // separately so the UI can surface it without misleading the user.
+                const used = approved;
+                // Total remaining across all periods (sum of per-period remaining)
+                // — NOT the API's top-level `remaining` which only reflects the
+                // current/active period and would make the card-level math wrong.
+                const remaining = periods.length > 0
+                    ? periods.reduce((s, p) => s + p.remaining, 0)
+                    : (Number(d.remaining) || 0);
+                const currentPeriod = periods.find(p => p.isCurrentPeriod) || null;
+                return {
+                    id: d.id,
+                    leaveTypeId: d.leaveTypeId,
+                    name: d.leaveTypeName || 'Leave',
+                    shortCode: shortCodeFor(d.leaveTypeName),
+                    color: colorForLeaveType(d.leaveTypeId),
+                    academicYear: d.academicYear,
+                    allocationPeriod: d.allocationPeriod || d.perPeriod?.allocationPeriod || 'Yearly',
+                    perPeriodCap: Number(d.perPeriod?.cap) || 0,
+                    periods,
+                    allocated,
+                    used,
+                    pending,
+                    remaining,
+                    currentPeriod,
+                };
+            }));
             setBalanceAsOf(dayjs().format('D MMM YYYY'));
         } catch (err) {
             console.error('GetEmployeeLeaveBalance failed:', err);
@@ -179,13 +304,48 @@ export default function ApplyLeavePage({ onSuccess, onCancel }) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [rollNumber, academicYear]);
 
-    const balanceTotals = useMemo(() => (
-        balanceTypes.reduce((acc, t) => ({
-            allocated: acc.allocated + t.allocated,
-            used: acc.used + t.used,
-            remaining: acc.remaining + t.remaining,
-        }), { allocated: 0, used: 0, remaining: 0 })
-    ), [balanceTypes]);
+    // ─── Leave Type Rules fetch (hydrates the state declared above) ───────
+    // GET /GetleaveTypes?academicYear=<year>
+    //   blockContinuousLeave — when true, off-days INSIDE the chosen range also
+    //                          count as leave days. Drives the duration math
+    //                          (Fri→Mon over a Sat/Sun off calendar = 4 days).
+    //   requiresDocument     — force a supporting-document upload
+    //   maxPerMonth          — per-month cap (0 = no cap)
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await axios.get(GetleaveTypes, {
+                    params: { academicYear },
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                if (cancelled) return;
+                if (res?.data?.error) {
+                    setLeaveTypeRules({});
+                    return;
+                }
+                const items = res?.data?.data?.items
+                    || res?.data?.data
+                    || res?.data?.items
+                    || [];
+                const map = {};
+                items.forEach(lt => {
+                    if (!lt?.name) return;
+                    map[lt.name] = {
+                        blockContinuousLeave:  !!lt.BlockContinuousLeave,
+                        requiresDocument:      !!lt.requireSupportingDocument,
+                        documentHint:          '',
+                        maxPerMonth:           Number(lt.maxDaysPerMonth) || 0,
+                    };
+                });
+                setLeaveTypeRules(map);
+            } catch (err) {
+                console.error('GetleaveTypes failed:', err);
+                if (!cancelled) setLeaveTypeRules({});
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [academicYear]);
 
     // Hardcoded "Others (Loss of Pay)" — always available as a fallback when an
     // employee has exhausted their allocated balance but still needs to take leave.
@@ -235,7 +395,10 @@ export default function ApplyLeavePage({ onSuccess, onCancel }) {
 
     // Reset everything (used by Reset and after successful submit)
     const resetAll = () => {
-        setForm({ leaveType: '', reason: '' });
+        setForm({
+            leaveType: '', reason: '', remarks: '',
+            contact: '', emergencyContact: '', isHalfDay: false,
+        });
         setSelectedStart(null);
         setSelectedEnd(null);
         setMandatoryAck(false);
@@ -243,24 +406,108 @@ export default function ApplyLeavePage({ onSuccess, onCancel }) {
         setPickerMonth(dayjs().startOf('month'));
     };
 
-    // ── Standalone-leave check (no sandwich with off-days) ─────────────────
-    // Reads the policy flag for the chosen leave type and verifies that the day
-    // immediately before the start AND the day immediately after the end of the
-    // selection are both regular working days (not holidays / weekends / mandatory).
-    const standaloneCheck = useMemo(() => {
-        if (!activeRules.standaloneOnly || !selectedStart) return null;
-        const end = selectedEnd || selectedStart;
-        const dayBefore = selectedStart.subtract(1, 'day');
-        const dayAfter = end.add(1, 'day');
-        const isPlainWorking = (d) => getDayType(d) === 'working';
+    // ─── Working Calendar fetcher ──────────────────────────────────────────
+    // GET /GetWorkingcalendar?academicYear=YYYY-YYYY&year=YYYY&month=M
+    // Response: { error, data: { weekPattern: { Sun:'Working'|... }, overrides: [{ dayDate, dayType }] } }
+    // We cache by YYYY-MM in a ref so navigating back to the same month never
+    // refetches.  Missing records (404 / { error: true }) fall back to the
+    // default Mon-Sat working week.
+    const fetchWorkingCalendar = useCallback(async (month) => {
+        const key = month.format('YYYY-MM');
+        if (loadedMonthsRef.current.has(key)) return;
+        // Optimistically mark loaded so concurrent picker clicks don't double-fetch.
+        loadedMonthsRef.current.add(key);
+        setIsCalendarLoading(true);
+        try {
+            const res = await axios.get(GetWorkingcalendar, {
+                params: { academicYear, year: month.year(), month: month.month() + 1 },
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const d = res?.data?.data;
+            const hasRecord = res?.data?.error === false && d && (
+                (d.weekPattern && Object.keys(d.weekPattern).length > 0) ||
+                (Array.isArray(d.overrides) && d.overrides.length > 0)
+            );
+            setWorkingCalendar(prev => {
+                const next = {
+                    workingDow: { ...prev.workingDow },
+                    holidays:   { ...prev.holidays },
+                    mandatory:  { ...prev.mandatory },
+                };
+                if (hasRecord) {
+                    const parsed = parseWeekPattern(d.weekPattern);
+                    next.workingDow[key] = parsed && parsed.length > 0 ? parsed : DEFAULT_WORKING_DOW;
+                    const hols = new Set();
+                    const mand = new Set();
+                    (d.overrides || []).forEach(o => {
+                        if (!o.dayDate) return;
+                        if (o.dayType === 'Holiday')   hols.add(o.dayDate);
+                        if (o.dayType === 'Mandatory') mand.add(o.dayDate);
+                        // 'Working' overrides override a default holiday DOW — we
+                        // simply add them as mandatory-free working days by
+                        // *not* placing them in either set (the dow check
+                        // alone won't catch them, but `Working` overrides on
+                        // a weekend are rare and handled below).
+                        if (o.dayType === 'Working') {
+                            hols.delete(o.dayDate);
+                            mand.delete(o.dayDate);
+                        }
+                    });
+                    next.holidays[key]  = hols;
+                    next.mandatory[key] = mand;
+                } else {
+                    // No record yet — fall back to defaults for this month.
+                    next.workingDow[key] = DEFAULT_WORKING_DOW;
+                    next.holidays[key]   = new Set();
+                    next.mandatory[key]  = new Set();
+                }
+                return next;
+            });
+        } catch (err) {
+            // Allow retry on real network errors (404 is treated as "no record"
+            // by the catch path too — there's no penalty to retrying).
+            if (err?.response?.status !== 404) {
+                loadedMonthsRef.current.delete(key);
+            } else {
+                // 404 — no record yet for this month. Seed defaults so getDayType
+                // doesn't keep waiting on an empty entry.
+                setWorkingCalendar(prev => ({
+                    workingDow: { ...prev.workingDow, [key]: DEFAULT_WORKING_DOW },
+                    holidays:   { ...prev.holidays,   [key]: new Set() },
+                    mandatory:  { ...prev.mandatory,  [key]: new Set() },
+                }));
+            }
+        } finally {
+            setIsCalendarLoading(false);
+        }
+    }, [academicYear]);
 
-        const beforeOk = isPlainWorking(dayBefore);
-        const afterOk = isPlainWorking(dayAfter);
-        const violations = [];
-        if (!beforeOk) violations.push({ side: 'before', date: dayBefore, type: getDayType(dayBefore) });
-        if (!afterOk) violations.push({ side: 'after', date: dayAfter, type: getDayType(dayAfter) });
-        return { ok: beforeOk && afterOk, violations };
-    }, [activeRules.standaloneOnly, selectedStart, selectedEnd]);
+    // Resolve a date's working/holiday/mandatory type from the cached calendar.
+    // Falls back to the default Mon-Sat working week when the month hasn't
+    // loaded yet, so the picker remains usable while the request is in flight.
+    // Working-day "Working" override on a default-holiday DOW: we surface it as
+    // mandatory so it shows up as a non-default working day in the legend.
+    const getDayType = useCallback((date) => {
+        const monthKey = date.format('YYYY-MM');
+        const dateKey  = date.format('YYYY-MM-DD');
+        const mandSet  = workingCalendar.mandatory[monthKey];
+        const holSet   = workingCalendar.holidays[monthKey];
+        const dow      = workingCalendar.workingDow[monthKey] || DEFAULT_WORKING_DOW;
+
+        if (mandSet && mandSet.has(dateKey)) return 'mandatory';
+        if (holSet && holSet.has(dateKey))   return 'holiday';
+        return dow.includes(date.day()) ? 'working' : 'holiday';
+    }, [workingCalendar]);
+
+    // Fetch the visible month plus next month (so navigating right feels instant).
+    useEffect(() => {
+        fetchWorkingCalendar(pickerMonth);
+        const nextMonth = pickerMonth.add(1, 'month');
+        // `isSameOrBefore` is a dayjs plugin and isn't loaded — invert isAfter instead.
+        if (!nextMonth.isAfter(maxPickerMonth, 'month')) {
+            fetchWorkingCalendar(nextMonth);
+        }
+    }, [pickerMonth, fetchWorkingCalendar, maxPickerMonth]);
 
     // ── Monthly-cap check ──────────────────────────────────────────────────
     // For policies with maxPerMonth > 0, count working+mandatory days per calendar
@@ -283,7 +530,7 @@ export default function ApplyLeavePage({ onSuccess, onCancel }) {
             .filter(([, n]) => n > cap)
             .map(([k, n]) => ({ month: k, monthLabel: dayjs(k + '-01').format('MMMM YYYY'), used: n, cap }));
         return { ok: offenders.length === 0, cap, offenders };
-    }, [activeRules.maxPerMonth, selectedStart, selectedEnd]);
+    }, [activeRules.maxPerMonth, selectedStart, selectedEnd, getDayType]);
 
     // ── Document upload handlers ──────────────────────────────────────────
     const MAX_FILE_MB = 5;
@@ -323,6 +570,16 @@ export default function ApplyLeavePage({ onSuccess, onCancel }) {
         if (date.isBefore(today, 'day')) return;
         if (getDayType(date) === 'holiday') return;
 
+        // Half-day mode: lock selection to a single day. Each click replaces
+        // the previous pick — no range, no end-date — so the user can't
+        // accidentally apply for multiple half-days in one go.
+        if (form.isHalfDay) {
+            setSelectedStart(date);
+            setSelectedEnd(date);
+            setMandatoryAck(false);
+            return;
+        }
+
         if (!selectedStart || (selectedStart && selectedEnd)) {
             setSelectedStart(date);
             setSelectedEnd(null);
@@ -350,15 +607,31 @@ export default function ApplyLeavePage({ onSuccess, onCancel }) {
         const totalDays = end.diff(selectedStart, 'day') + 1;
         let working = 0, mandatory = 0, holiday = 0;
         const mandatoryDates = [];
+        const holidayDates = [];
         for (let i = 0; i < totalDays; i++) {
             const d = selectedStart.add(i, 'day');
             const t = getDayType(d);
             if (t === 'working') working++;
             else if (t === 'mandatory') { mandatory++; mandatoryDates.push(d); }
-            else holiday++;
+            else { holiday++; holidayDates.push(d); }
         }
-        return { totalDays, working, mandatory, holiday, mandatoryDates, leaveDays: working + mandatory };
-    }, [selectedStart, selectedEnd]);
+        // When the leave type has BlockContinuousLeave=true, off-days INSIDE
+        // the selected range are *also* counted toward leave (treated as
+        // continuous leave so users can't game weekends/holidays into a
+        // shorter deduction).
+        // Example: Fri → Mon on a Sat/Sun-off calendar:
+        //   • BlockContinuousLeave=false → leaveDays = 2 (Fri + Mon)
+        //   • BlockContinuousLeave=true  → leaveDays = 4 (Fri + Sat + Sun + Mon)
+        const continuousMode = !!activeRules?.blockContinuousLeave;
+        const leaveDays = continuousMode
+            ? totalDays
+            : working + mandatory;
+        return {
+            totalDays, working, mandatory, holiday, mandatoryDates, holidayDates,
+            leaveDays,
+            continuousMode,
+        };
+    }, [selectedStart, selectedEnd, getDayType, activeRules?.blockContinuousLeave]);
 
     // Balance check — leaveDays selected must not exceed remaining for paid
     // leave types. "Others (Loss of Pay)" always passes.
@@ -388,21 +661,42 @@ export default function ApplyLeavePage({ onSuccess, onCancel }) {
         return false;
     };
 
+    // Cheap E.164-lite check: digits only (allow spaces, +, -), 10–15 digits.
+    const isValidPhone = (raw = '') => {
+        const digits = String(raw).replace(/\D/g, '');
+        return digits.length >= 10 && digits.length <= 15;
+    };
+
     const handleSubmit = async () => {
         if (!form.leaveType || !selectedStart || !form.reason.trim()) {
             showSnack('Please fill all required fields', false);
+            return;
+        }
+        if (!form.contact.trim() || !isValidPhone(form.contact)) {
+            showSnack('Please enter a valid contact number (10-15 digits).', false);
+            return;
+        }
+        if (form.emergencyContact.trim() && !isValidPhone(form.emergencyContact)) {
+            showSnack('Emergency contact number is not valid.', false);
             return;
         }
         if (rangeBreakdown && rangeBreakdown.leaveDays === 0) {
             showSnack('Selected range has no working days — leave does not need to be applied.', false);
             return;
         }
+        if (form.isHalfDay) {
+            // Calendar already enforces this, but double-check before posting.
+            if (selectedEnd && !selectedEnd.isSame(selectedStart, 'day')) {
+                showSnack('Half-day leave must be on a single day.', false);
+                return;
+            }
+            if (rangeBreakdown && rangeBreakdown.leaveDays > 1) {
+                showSnack('Half-day leave must be on a single day.', false);
+                return;
+            }
+        }
         if (rangeBreakdown && rangeBreakdown.mandatory > 0 && !mandatoryAck) {
             showSnack(`Your leave includes ${rangeBreakdown.mandatory} Mandatory Working Day(s). Please confirm prior approval.`, false);
-            return;
-        }
-        if (standaloneCheck && !standaloneCheck.ok) {
-            showSnack(`${form.leaveType} must be standalone — cannot be adjacent to off-days or other leaves.`, false);
             return;
         }
         if (monthlyCapCheck && !monthlyCapCheck.ok) {
@@ -423,27 +717,44 @@ export default function ApplyLeavePage({ onSuccess, onCancel }) {
         }
 
         const startStr = selectedStart.format('YYYY-MM-DD');
-        const endStr = (selectedEnd || selectedStart).format('YYYY-MM-DD');
+        const endStr = form.isHalfDay
+            ? startStr
+            : (selectedEnd || selectedStart).format('YYYY-MM-DD');
 
-        const payload = {
-            forRollNumber: rollNumber,
-            fromDate: formatDateForApi(startStr),
-            toDate: formatDateForApi(endStr),
-            duration: rangeBreakdown ? rangeBreakdown.leaveDays : 1,
-            leaveType: form.leaveType,
-            leaveTypeId: selectedLeaveOption?.leaveTypeId ?? null,
-            isLossOfPay: !!selectedLeaveOption?.isUnpaid,
-            academicYear,
-            reason: form.reason.trim(),
-            remarks: form.reason.trim(),
-            mandatoryDays: rangeBreakdown?.mandatoryDates?.map(d => d.format('YYYY-MM-DD')) || [],
-            holidaysSkipped: rangeBreakdown?.holiday || 0,
-        };
+        // ─── Build multipart/form-data exactly per API contract ───────────
+        const fd = new FormData();
+        // Force the canonical "Loss of Pay" label whenever the user picked the
+        // hard-coded "Others (Loss of Pay)" option, regardless of what the form
+        // field happens to hold locally.
+        const leaveTypeForApi = selectedLeaveOption?.isUnpaid
+            ? 'Loss of Pay'
+            : form.leaveType;
+
+        fd.append('ForRollNumber',    String(rollNumber || ''));
+        fd.append('AcademicYear',     academicYear);
+        fd.append('LeaveTypeId',      String(selectedLeaveOption?.leaveTypeId ?? ''));
+        fd.append('LeaveType',        leaveTypeForApi);
+        fd.append('FromDate',         formatDateForApi(startStr));   // DD-MM-YYYY
+        fd.append('ToDate',           formatDateForApi(endStr));     // DD-MM-YYYY
+        fd.append('IsHalfDay',        form.isHalfDay ? 'true' : 'false');
+        fd.append('Reason',           form.reason.trim());
+        fd.append('Contact',          form.contact.trim());
+        fd.append('EmergencyContact', form.emergencyContact.trim());
+        fd.append('Remarks',          form.remarks.trim());
+        // Optional file — only the first uploaded document is sent. Add more
+        // appends here if/when the backend accepts multiple files.
+        if (uploadedFiles.length > 0 && uploadedFiles[0].file) {
+            fd.append('SupportingDocumentFile', uploadedFiles[0].file, uploadedFiles[0].name);
+        }
 
         setIsSubmitting(true);
         try {
-            await axios.post(postLeaveRequest, payload, {
-                headers: { Authorization: `Bearer ${token}` },
+            await axios.post(postLeaveRequest, fd, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    // Let axios set the multipart boundary itself.
+                    'Content-Type': 'multipart/form-data',
+                },
             });
             showSnack('Leave application submitted successfully', true);
             resetAll();
@@ -451,7 +762,8 @@ export default function ApplyLeavePage({ onSuccess, onCancel }) {
             setTimeout(() => onSuccess?.(), 800);
         } catch (err) {
             console.error('Submit leave failed', err);
-            showSnack('Failed to submit leave. Please try again.', false);
+            const msg = err?.response?.data?.message || 'Failed to submit leave. Please try again.';
+            showSnack(msg, false);
         } finally {
             setIsSubmitting(false);
         }
@@ -462,9 +774,12 @@ export default function ApplyLeavePage({ onSuccess, onCancel }) {
         || !form.leaveType
         || !selectedStart
         || !form.reason.trim()
+        || !form.contact.trim()
+        || !isValidPhone(form.contact)
+        || (form.emergencyContact.trim() && !isValidPhone(form.emergencyContact))
         || (rangeBreakdown && rangeBreakdown.leaveDays === 0)
+        || (form.isHalfDay && selectedEnd && !selectedEnd.isSame(selectedStart, 'day'))
         || (rangeBreakdown && rangeBreakdown.mandatory > 0 && !mandatoryAck)
-        || (standaloneCheck && !standaloneCheck.ok)
         || (monthlyCapCheck && !monthlyCapCheck.ok)
         || (activeRules.requiresDocument && uploadedFiles.length === 0)
         || (balanceCheck && !balanceCheck.ok);
@@ -518,9 +833,11 @@ export default function ApplyLeavePage({ onSuccess, onCancel }) {
                                 <Select
                                     value={form.leaveType}
                                     onChange={(e) => {
-                                        updateForm('leaveType', e.target.value);
-                                        // Reset documents when switching to a type that may not need them
-                                        const next = LEAVE_TYPE_RULES[e.target.value];
+                                        const newType = e.target.value;
+                                        updateForm('leaveType', newType);
+                                        // Reset documents when switching to a type that doesn't need them.
+                                        // Prefer the API-driven rules, fall back to the hardcoded map.
+                                        const next = leaveTypeRules[newType] || LEAVE_TYPE_RULES[newType];
                                         if (!next?.requiresDocument) setUploadedFiles([]);
                                     }}
                                     label="Leave Type"
@@ -639,6 +956,64 @@ export default function ApplyLeavePage({ onSuccess, onCancel }) {
                                 </Box>
                             )}
 
+                            {/* Continuous-leave info — surfaced as soon as a type is chosen */}
+                            {form.leaveType && activeRules?.blockContinuousLeave && (
+                                <Box sx={{
+                                    mb: 1.5, p: 1, borderRadius: '6px',
+                                    bgcolor: '#FFF7ED', border: '1px solid #FED7AA',
+                                    display: 'flex', alignItems: 'flex-start', gap: 0.8,
+                                }}>
+                                    <InfoOutlinedIcon sx={{ fontSize: 14, color: '#C2410C', mt: 0.2, flexShrink: 0 }} />
+                                    <Typography sx={{ fontSize: 11, color: '#9A3412', lineHeight: 1.5 }}>
+                                        <strong>{form.leaveType}</strong> is treated as <strong>continuous leave</strong>.
+                                        Any weekends or holidays that fall inside your selected range will also
+                                        count against your balance (or be deducted as LOP if balance is exhausted).
+                                    </Typography>
+                                </Box>
+                            )}
+
+                            {/* Half-Day toggle — sits with the rest of the Leave Details */}
+                            <Box sx={{
+                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                px: 1.2, py: 0.6, mb: 1.5,
+                                borderRadius: '8px',
+                                bgcolor: form.isHalfDay ? PRIMARY_LIGHT : '#F9FAFB',
+                                border: `1px solid ${form.isHalfDay ? '#A7F3D0' : '#E5E7EB'}`,
+                                transition: 'all 0.15s',
+                            }}>
+                                <Box sx={{ minWidth: 0 }}>
+                                    <Typography sx={{ fontSize: 12, fontWeight: 700, color: form.isHalfDay ? PRIMARY_DARK : '#374151' }}>
+                                        Half-Day Leave
+                                    </Typography>
+                                    <Typography sx={{ fontSize: 10, color: '#6B7280' }} noWrap>
+                                        Apply for a single half-day instead of full day(s).
+                                    </Typography>
+                                </Box>
+                                <FormControlLabel
+                                    control={
+                                        <Checkbox
+                                            checked={form.isHalfDay}
+                                            onChange={(e) => {
+                                                const v = e.target.checked;
+                                                updateForm('isHalfDay', v);
+                                                if (v && selectedStart) {
+                                                    // Collapse any multi-day range to the start date so the
+                                                    // calendar visually reflects the single-day constraint.
+                                                    setSelectedEnd(selectedStart);
+                                                    setMandatoryAck(false);
+                                                }
+                                            }}
+                                            sx={{
+                                                p: 0.4,
+                                                '&.Mui-checked': { color: PRIMARY },
+                                            }}
+                                        />
+                                    }
+                                    label=""
+                                    sx={{ m: 0 }}
+                                />
+                            </Box>
+
                             {/* Live metric tiles — Selected Range + Duration */}
                             <Grid container spacing={1}>
                                 <Grid size={{ xs: 7 }}>
@@ -682,35 +1057,92 @@ export default function ApplyLeavePage({ onSuccess, onCancel }) {
                                                 day(s)
                                             </Typography>
                                         </Box>
+                                        {rangeBreakdown?.continuousMode && rangeBreakdown.holiday > 0 && (
+                                            <Typography sx={{ fontSize: 9, fontWeight: 600, color: '#FED7AA', mt: 0.2, lineHeight: 1.1 }} noWrap>
+                                                incl. {rangeBreakdown.holiday} off-day{rangeBreakdown.holiday === 1 ? '' : 's'}
+                                            </Typography>
+                                        )}
                                     </Box>
                                 </Grid>
                             </Grid>
                         </Box>
 
-                        {/* Reason card — fills remaining height when no upload card; otherwise stacks naturally */}
+                        {/* Reason + contact card — fills remaining height when no upload card; otherwise stacks naturally */}
                         <Box sx={{
                             p: 2, borderRadius: '10px', bgcolor: '#fff', border: '1px solid #E5E7EB',
                             mb: activeRules.requiresDocument ? 1.5 : 0,
                             flex: activeRules.requiresDocument ? 'none' : 1,
                             display: 'flex', flexDirection: 'column',
                         }}>
-                            <StepHeader number={2} title="Reason for Leave" />
+                            <StepHeader number={2} title="Reason & Contact" />
+
                             <TextField
                                 fullWidth
                                 required
                                 multiline
-                                minRows={activeRules.requiresDocument ? 3 : 5}
+                                minRows={3}
                                 placeholder="Briefly describe the reason for your leave request..."
                                 value={form.reason}
                                 onChange={(e) => updateForm('reason', e.target.value)}
+                                label="Reason"
+                                size="small"
+                                slotProps={{ inputLabel: { shrink: true } }}
                                 sx={{
-                                    flex: activeRules.requiresDocument ? 'none' : 1,
+                                    mb: 1.2,
                                     '& .MuiOutlinedInput-root': {
-                                        height: activeRules.requiresDocument ? 'auto' : '100%',
                                         alignItems: 'flex-start',
                                         fontSize: 13,
                                     },
                                     '& .MuiOutlinedInput-notchedOutline': { borderColor: '#E5E7EB' },
+                                    '& .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: PRIMARY },
+                                }}
+                            />
+
+                            <Grid container spacing={1} sx={{ mb: 1.2 }}>
+                                <Grid size={{ xs: 12, sm: 6 }}>
+                                    <TextField
+                                        fullWidth
+                                        required
+                                        size="small"
+                                        label="Contact Number"
+                                        placeholder="98xxxxxxxx"
+                                        value={form.contact}
+                                        onChange={(e) => updateForm('contact', e.target.value.replace(/[^\d+\s-]/g, ''))}
+                                        slotProps={{ inputLabel: { shrink: true }, htmlInput: { maxLength: 15 } }}
+                                        sx={{
+                                            '& .MuiOutlinedInput-root': { fontSize: 13 },
+                                            '& .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: PRIMARY },
+                                        }}
+                                    />
+                                </Grid>
+                                <Grid size={{ xs: 12, sm: 6 }}>
+                                    <TextField
+                                        fullWidth
+                                        size="small"
+                                        label="Emergency Contact"
+                                        placeholder="Optional"
+                                        value={form.emergencyContact}
+                                        onChange={(e) => updateForm('emergencyContact', e.target.value.replace(/[^\d+\s-]/g, ''))}
+                                        slotProps={{ inputLabel: { shrink: true }, htmlInput: { maxLength: 15 } }}
+                                        sx={{
+                                            '& .MuiOutlinedInput-root': { fontSize: 13 },
+                                            '& .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: PRIMARY },
+                                        }}
+                                    />
+                                </Grid>
+                            </Grid>
+
+                            <TextField
+                                fullWidth
+                                size="small"
+                                label="Remarks (optional)"
+                                placeholder="e.g. Will resume on 24th"
+                                value={form.remarks}
+                                onChange={(e) => updateForm('remarks', e.target.value)}
+                                slotProps={{ inputLabel: { shrink: true } }}
+                                sx={{
+                                    '& .MuiOutlinedInput-root': { fontSize: 13 },
+                                    '& .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: PRIMARY },
                                 }}
                             />
                         </Box>
@@ -839,9 +1271,14 @@ export default function ApplyLeavePage({ onSuccess, onCancel }) {
                                             sx={{ width: 24, height: 24, '&.Mui-disabled': { opacity: 0.3 } }}>
                                             <ChevronLeftIcon sx={{ fontSize: 16 }} />
                                         </IconButton>
-                                        <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#111', minWidth: 110, textAlign: 'center' }}>
-                                            {pickerMonth.format('MMMM YYYY')}
-                                        </Typography>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, minWidth: 110, justifyContent: 'center' }}>
+                                            <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#111' }}>
+                                                {pickerMonth.format('MMMM YYYY')}
+                                            </Typography>
+                                            {isCalendarLoading && (
+                                                <CircularProgress size={11} thickness={5} sx={{ color: PRIMARY }} />
+                                            )}
+                                        </Box>
                                         <IconButton size="small" disabled={!canPickerNext}
                                             onClick={() => canPickerNext && setPickerMonth(prev => prev.add(1, 'month'))}
                                             sx={{ width: 24, height: 24, '&.Mui-disabled': { opacity: 0.3 } }}>
@@ -1029,39 +1466,19 @@ export default function ApplyLeavePage({ onSuccess, onCancel }) {
                                 </Box>
                             )}
 
-                            {/* Standalone-only rule hint (when type requires it but no dates picked yet) */}
-                            {activeRules.standaloneOnly && !selectedStart && (
+                            {/* Continuous-leave hint (only relevant once a range is picked) */}
+                            {activeRules.blockContinuousLeave && !selectedStart && (
                                 <Box sx={{
                                     mt: 1, p: 1, borderRadius: '6px',
-                                    bgcolor: '#FEF3C7', border: '1px solid #FDE68A',
+                                    bgcolor: '#FFF7ED', border: '1px solid #FED7AA',
                                     display: 'flex', alignItems: 'flex-start', gap: 0.8,
                                 }}>
-                                    <InfoOutlinedIcon sx={{ fontSize: 14, color: '#B45309', mt: 0.2, flexShrink: 0 }} />
-                                    <Typography sx={{ fontSize: 11, color: '#92400E', lineHeight: 1.5 }}>
-                                        <strong>{form.leaveType}</strong> must be standalone — pick a date where both the day before and the day after are working days (no Friday/Monday next to weekends).
+                                    <InfoOutlinedIcon sx={{ fontSize: 14, color: '#C2410C', mt: 0.2, flexShrink: 0 }} />
+                                    <Typography sx={{ fontSize: 11, color: '#9A3412', lineHeight: 1.5 }}>
+                                        <strong>{form.leaveType}</strong> is treated as <strong>continuous leave</strong>.
+                                        If your range includes weekends or holidays, those off-days will also be counted
+                                        toward your leave balance (e.g. Fri → Mon over a Sat/Sun weekend = 4 days, not 2).
                                     </Typography>
-                                </Box>
-                            )}
-
-                            {/* Standalone violation — when picked dates break the rule */}
-                            {standaloneCheck && !standaloneCheck.ok && (
-                                <Box sx={{
-                                    mt: 1, p: 1, borderRadius: '6px',
-                                    bgcolor: '#FEF2F2', border: '1px solid #FECACA',
-                                    display: 'flex', alignItems: 'flex-start', gap: 0.8,
-                                }}>
-                                    <WarningAmberIcon sx={{ fontSize: 16, color: '#DC2626', mt: 0.2, flexShrink: 0 }} />
-                                    <Box sx={{ flex: 1 }}>
-                                        <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#991B1B', mb: 0.2 }}>
-                                            {form.leaveType} cannot be combined with off-days
-                                        </Typography>
-                                        <Typography sx={{ fontSize: 10, color: '#991B1B', lineHeight: 1.5 }}>
-                                            {standaloneCheck.violations.map(v => (
-                                                `The day ${v.side === 'before' ? 'before your start' : 'after your end'} (${v.date.format('ddd, D MMM')}) is a ${v.type === 'holiday' ? 'holiday' : 'mandatory day'}.`
-                                            )).join(' ')}
-                                            {' '}Pick dates surrounded by regular working days, or change the leave type.
-                                        </Typography>
-                                    </Box>
                                 </Box>
                             )}
 
@@ -1076,6 +1493,31 @@ export default function ApplyLeavePage({ onSuccess, onCancel }) {
                                     <Typography sx={{ fontSize: 11, color: '#155E75', lineHeight: 1.5 }}>
                                         <strong>{form.leaveType}</strong> is capped at <strong>{activeRules.maxPerMonth} day(s) per month</strong>. You can take more across the year, but not more than this in any single month.
                                     </Typography>
+                                </Box>
+                            )}
+
+                            {/* Continuous-leave: off-day breakdown when the rule
+                                actually catches days inside the selection */}
+                            {rangeBreakdown?.continuousMode && rangeBreakdown.holiday > 0 && (
+                                <Box sx={{
+                                    mt: 1, p: 1, borderRadius: '6px',
+                                    bgcolor: '#FFF7ED', border: '1px solid #FED7AA',
+                                    display: 'flex', alignItems: 'flex-start', gap: 0.8,
+                                }}>
+                                    <InfoOutlinedIcon sx={{ fontSize: 14, color: '#C2410C', mt: 0.2, flexShrink: 0 }} />
+                                    <Box sx={{ flex: 1 }}>
+                                        <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#9A3412', mb: 0.2 }}>
+                                            Continuous leave — {rangeBreakdown.holiday} off-day{rangeBreakdown.holiday === 1 ? '' : 's'} will also be counted
+                                        </Typography>
+                                        <Typography sx={{ fontSize: 10, color: '#9A3412', lineHeight: 1.5 }}>
+                                            Your selection has {rangeBreakdown.working} working day{rangeBreakdown.working === 1 ? '' : 's'}
+                                            {rangeBreakdown.mandatory > 0 ? ` + ${rangeBreakdown.mandatory} mandatory` : ''}
+                                            {' + '}{rangeBreakdown.holiday} off-day{rangeBreakdown.holiday === 1 ? '' : 's'} (weekend / holiday)
+                                            {' = '}<strong>{rangeBreakdown.leaveDays} total day{rangeBreakdown.leaveDays === 1 ? '' : 's'}</strong>.
+                                            Because <strong>{form.leaveType}</strong> is continuous leave, the off-day{rangeBreakdown.holiday === 1 ? '' : 's'} inside the range
+                                            {rangeBreakdown.holiday === 1 ? ' is' : ' are'} also deducted from your balance (or treated as LOP).
+                                        </Typography>
+                                    </Box>
                                 </Box>
                             )}
 
@@ -1194,36 +1636,6 @@ export default function ApplyLeavePage({ onSuccess, onCancel }) {
                     </IconButton>
                 </Box>
 
-                {/* Aggregate summary */}
-                <Box sx={{ p: 2, bgcolor: '#FAFAFA', borderBottom: '1px solid #E5E7EB' }}>
-                    <Typography sx={{ fontSize: 10, color: '#6B7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, mb: 1 }}>
-                        Across all leave types
-                    </Typography>
-                    <Grid container spacing={1}>
-                        {[
-                            { label: 'Allocated', value: balanceTotals.allocated, color: '#374151', bg: '#fff' },
-                            { label: 'Used',      value: balanceTotals.used,      color: '#DC2626', bg: '#FEF2F2' },
-                            { label: 'Remaining', value: balanceTotals.remaining, color: PRIMARY,   bg: PRIMARY_LIGHT },
-                        ].map(s => (
-                            <Grid key={s.label} size={{ xs: 4 }}>
-                                <Box sx={{
-                                    py: 1, px: 0.5, borderRadius: '8px',
-                                    border: '1px solid #E5E7EB',
-                                    bgcolor: s.bg,
-                                    textAlign: 'center',
-                                }}>
-                                    <Typography sx={{ fontSize: 18, fontWeight: 800, color: s.color, lineHeight: 1 }}>
-                                        {s.value}
-                                    </Typography>
-                                    <Typography sx={{ fontSize: 10, fontWeight: 600, color: '#6B7280', mt: 0.4, textTransform: 'uppercase', letterSpacing: 0.3 }}>
-                                        {s.label}
-                                    </Typography>
-                                </Box>
-                            </Grid>
-                        ))}
-                    </Grid>
-                </Box>
-
                 {/* Per-type cards (scrollable) */}
                 <Box sx={{ flex: 1, overflowY: 'auto', p: 2, display: 'flex', flexDirection: 'column', gap: 1.2 }}>
                     {balanceLoading ? (
@@ -1263,11 +1675,23 @@ export default function ApplyLeavePage({ onSuccess, onCancel }) {
                                         </Typography>
                                     </Box>
                                     <Box sx={{ minWidth: 0, flex: 1 }}>
-                                        <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#111' }} noWrap>
-                                            {t.name}
-                                        </Typography>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                            <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#111' }} noWrap>
+                                                {t.name}
+                                            </Typography>
+                                            <Chip
+                                                size="small"
+                                                label={t.allocationPeriod}
+                                                sx={{
+                                                    height: 16, fontSize: 9, fontWeight: 700,
+                                                    bgcolor: '#F3F4F6', color: '#374151',
+                                                    border: '1px solid #E5E7EB',
+                                                }}
+                                            />
+                                        </Box>
                                         <Typography sx={{ fontSize: 10, color: '#6B7280' }} noWrap>
-                                            Academic Year · {t.academicYear}
+                                            AY {t.academicYear}
+                                            {t.currentPeriod && ` · ${shortenPeriodLabel(t.currentPeriod.label, t.allocationPeriod)} active`}
                                         </Typography>
                                     </Box>
                                     {isLow && (
@@ -1329,15 +1753,149 @@ export default function ApplyLeavePage({ onSuccess, onCancel }) {
                                     </Box>
                                 </Box>
 
-                                {/* Footer breakdown chips */}
-                                <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                                    <Chip size="small" label={`This month: ${t.usedThisMonth}`}
-                                        sx={{ height: 18, fontSize: 9, fontWeight: 700, bgcolor: '#F3F4F6', color: '#374151' }} />
-                                    <Chip size="small" label={`This quarter: ${t.usedThisQuarter}`}
-                                        sx={{ height: 18, fontSize: 9, fontWeight: 700, bgcolor: '#F3F4F6', color: '#374151' }} />
-                                    <Chip size="small" label={`Half-year: ${t.usedThisHalfYear}`}
-                                        sx={{ height: 18, fontSize: 9, fontWeight: 700, bgcolor: '#F3F4F6', color: '#374151' }} />
-                                </Box>
+                                {/* Per-period breakdown */}
+                                {t.periods.length > 0 && (
+                                    <Box sx={{
+                                        mt: 1.2, p: 1, borderRadius: '8px',
+                                        bgcolor: '#FAFBFD', border: '1px solid #E5E7EB',
+                                    }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.8, flexWrap: 'wrap', gap: 0.5 }}>
+                                            <Typography sx={{ fontSize: 10, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.4 }}>
+                                                {t.allocationPeriod} Breakdown
+                                            </Typography>
+                                            <Chip
+                                                size="small"
+                                                label={`${t.perPeriodCap} / period`}
+                                                sx={{
+                                                    height: 16, fontSize: 9, fontWeight: 700,
+                                                    bgcolor: `${t.color}15`, color: t.color,
+                                                    border: `1px solid ${t.color}33`,
+                                                }}
+                                            />
+                                        </Box>
+                                        <Box sx={{
+                                            display: 'grid',
+                                            gridTemplateColumns: t.allocationPeriod === 'Monthly'
+                                                ? 'repeat(4, minmax(0, 1fr))'
+                                                : t.allocationPeriod === 'Quarterly'
+                                                    ? 'repeat(2, minmax(0, 1fr))'
+                                                    : '1fr',
+                                            gap: 0.6,
+                                        }}>
+                                            {t.periods.map(p => {
+                                                const status = getPeriodStatus(p);
+                                                const pill = STATUS_PILL[status];
+                                                const periodPct = p.cap > 0
+                                                    ? Math.min(100, Math.round((p.approved / p.cap) * 100))
+                                                    : 0;
+                                                return (
+                                                    <Box
+                                                        key={p.index}
+                                                        title={periodSubLabel(p.label, t.allocationPeriod)}
+                                                        sx={{
+                                                            p: 0.7, borderRadius: '6px',
+                                                            bgcolor: p.isCurrentPeriod ? pill.bg : '#fff',
+                                                            border: `1px solid ${p.isCurrentPeriod ? pill.border : '#E5E7EB'}`,
+                                                            opacity: status === 'lapsed' ? 0.7 : 1,
+                                                            minWidth: 0,
+                                                        }}
+                                                    >
+                                                        {/* Top line: period label · status dot */}
+                                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 0.3, mb: 0.3 }}>
+                                                            <Typography sx={{ fontSize: 10.5, fontWeight: 800, color: '#111' }} noWrap>
+                                                                {shortenPeriodLabel(p.label, t.allocationPeriod)}
+                                                            </Typography>
+                                                            <Box sx={{
+                                                                width: 6, height: 6, borderRadius: '50%',
+                                                                bgcolor: pill.color, flexShrink: 0,
+                                                            }} />
+                                                        </Box>
+
+                                                        {/* Compact remaining / cap pair */}
+                                                        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.3 }}>
+                                                            <Typography sx={{
+                                                                fontSize: 14, fontWeight: 800,
+                                                                color: p.remaining === 0 ? '#DC2626' : t.color,
+                                                                lineHeight: 1,
+                                                            }}>
+                                                                {p.remaining}
+                                                            </Typography>
+                                                            <Typography sx={{ fontSize: 10, color: '#9CA3AF', fontWeight: 600 }}>
+                                                                / {p.cap}
+                                                            </Typography>
+                                                        </Box>
+
+                                                        {/* Subtle activity footer */}
+                                                        {(p.approved > 0 || p.pending > 0) ? (
+                                                            <Typography sx={{ fontSize: 8.5, color: '#6B7280', mt: 0.2, fontWeight: 600 }} noWrap>
+                                                                {p.approved > 0 && `${p.approved} used`}
+                                                                {p.approved > 0 && p.pending > 0 && ' · '}
+                                                                {p.pending > 0 && `${p.pending} pending`}
+                                                            </Typography>
+                                                        ) : p.remaining === 0 && p.lapsed ? (
+                                                            <Typography sx={{ fontSize: 8.5, color: '#9CA3AF', fontWeight: 600, fontStyle: 'italic', mt: 0.2 }} noWrap>
+                                                                Lapsed
+                                                            </Typography>
+                                                        ) : null}
+
+                                                        {/* Progress bar — only when there's something to show */}
+                                                        {p.cap > 0 && (p.approved > 0 || p.isCurrentPeriod) && (
+                                                            <LinearProgress
+                                                                variant="determinate"
+                                                                value={periodPct}
+                                                                sx={{
+                                                                    height: 3, borderRadius: 2, mt: 0.4,
+                                                                    bgcolor: '#F3F4F6',
+                                                                    '& .MuiLinearProgress-bar': { bgcolor: t.color, borderRadius: 2 },
+                                                                }}
+                                                            />
+                                                        )}
+                                                    </Box>
+                                                );
+                                            })}
+                                        </Box>
+
+                                        {/* Status legend (compact) */}
+                                        <Box sx={{ display: 'flex', gap: 0.8, mt: 0.7, flexWrap: 'wrap' }}>
+                                            {t.currentPeriod && (
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
+                                                    <Box sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: STATUS_PILL.current.color }} />
+                                                    <Typography sx={{ fontSize: 9, color: '#6B7280', fontWeight: 600 }}>Current</Typography>
+                                                </Box>
+                                            )}
+                                            {t.periods.some(p => p.isPastPeriod && !p.lapsed) && (
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
+                                                    <Box sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: STATUS_PILL.past.color }} />
+                                                    <Typography sx={{ fontSize: 9, color: '#6B7280', fontWeight: 600 }}>Past</Typography>
+                                                </Box>
+                                            )}
+                                            {t.periods.some(p => p.lapsed) && (
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
+                                                    <Box sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: STATUS_PILL.lapsed.color }} />
+                                                    <Typography sx={{ fontSize: 9, color: '#6B7280', fontWeight: 600 }}>Lapsed</Typography>
+                                                </Box>
+                                            )}
+                                            {t.periods.some(p => !p.isPastPeriod && !p.isCurrentPeriod && !p.lapsed) && (
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
+                                                    <Box sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: STATUS_PILL.upcoming.color }} />
+                                                    <Typography sx={{ fontSize: 9, color: '#6B7280', fontWeight: 600 }}>Upcoming</Typography>
+                                                </Box>
+                                            )}
+                                            {t.pending > 0 && (
+                                                <Chip
+                                                    size="small"
+                                                    label={`${t.pending} pending overall`}
+                                                    sx={{
+                                                        height: 16, fontSize: 9, fontWeight: 700,
+                                                        bgcolor: '#FFFBEB', color: '#B45309',
+                                                        border: '1px solid #FDE68A',
+                                                        ml: 'auto',
+                                                    }}
+                                                />
+                                            )}
+                                        </Box>
+                                    </Box>
+                                )}
                             </Box>
                         );
                     })}

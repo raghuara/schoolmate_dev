@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
-    Box, Typography, TextField, Button, Grid, IconButton, Divider,
+    Box, Typography, TextField, Button, Grid, IconButton,
     Card, CardContent, Switch, InputAdornment, Chip, Tab, Tabs,
-    Table, TableBody, TableCell, TableHead, TableRow, Avatar,
-    Dialog, DialogTitle, DialogContent, DialogActions
+    Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Avatar,
+    Dialog, DialogContent, DialogActions, CircularProgress, Tooltip, Paper,
 } from '@mui/material';
 import axios from 'axios';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -15,10 +15,14 @@ import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import EditIcon from '@mui/icons-material/Edit';
 import SearchIcon from '@mui/icons-material/Search';
-import PeopleIcon from '@mui/icons-material/People';
+import CloseIcon from '@mui/icons-material/Close';
+import RestartAltIcon from '@mui/icons-material/RestartAlt';
+import PeopleAltOutlinedIcon from '@mui/icons-material/PeopleAltOutlined';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
+import { selectWebsiteSettings } from '../../../Redux/Slices/websiteSettingsSlice';
 import SnackBar from '../../SnackBar';
 import {
     employeeComplianceDashboard, postPFConfiguration, postESIConfiguration,
@@ -27,16 +31,30 @@ import {
 } from '../../../Api/Api';
 import * as XLSX from 'xlsx';
 
-const PRIMARY = '#2563EB';
-const PRIMARY_LIGHT = '#EFF6FF';
-const PRIMARY_DARK = '#1D4ED8';
-const CARD_RADIUS = '12px';
+// ─── Theme (matches Salary Structures / Bank Reports) ──────────────────────
+const PRIMARY = '#059669';
+const PRIMARY_LIGHT = '#ECFDF5';
+const PRIMARY_DARK = '#047857';
+const PRIMARY_BORDER = '#A7F3D0';
+
+const AVATAR_PALETTE = ['#0E7490', '#6D28D9', '#C2410C', '#047857', '#1D4ED8', '#BE185D', '#A16207', '#0F766E'];
+const avatarColorFor = (name = '') => {
+    const code = (name.charCodeAt(0) || 0) + (name.charCodeAt(1) || 0);
+    return AVATAR_PALETTE[code % AVATAR_PALETTE.length];
+};
+
+const getInitials = (name = '') =>
+    name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+
+const formatINR = (n) => `₹${Number(n || 0).toLocaleString('en-IN')}`;
 
 export default function ComplianceSettings() {
     const navigate = useNavigate();
     const token = "123";
     const user = useSelector((state) => state.auth);
     const rollNumber = user.rollNumber;
+    const isExpanded = useSelector((state) => state.sidebar.isExpanded);
+    const websiteSettings = useSelector(selectWebsiteSettings);
     const [activeTab, setActiveTab] = useState(0);
 
     const [snackOpen, setSnackOpen] = useState(false);
@@ -192,11 +210,17 @@ export default function ComplianceSettings() {
         }
     };
 
-    const filteredEmployees = employeeData.filter(emp =>
-        emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        emp.employeeId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        emp.designation.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const filteredEmployees = useMemo(() => {
+        const q = searchQuery.trim().toLowerCase();
+        if (!q) return employeeData;
+        return employeeData.filter(emp =>
+            (emp.name || '').toLowerCase().includes(q) ||
+            (emp.employeeId || '').toLowerCase().includes(q) ||
+            (emp.designation || '').toLowerCase().includes(q)
+        );
+    }, [employeeData, searchQuery]);
+
+    const searchActive = searchQuery.trim().length > 0;
 
     const handleEditEmployee = (employee) => {
         setSelectedEmployee(employee);
@@ -279,12 +303,13 @@ export default function ComplianceSettings() {
 
     const fieldSx = {
         '& .MuiOutlinedInput-root': {
-            borderRadius: '12px',
+            borderRadius: '10px',
             fontSize: '13px',
-            bgcolor: '#FAFAFA',
+            bgcolor: '#F9FAFB',
             '&:hover': { bgcolor: '#fff' },
             '&.Mui-focused': { bgcolor: '#fff' },
-            '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: PRIMARY, borderWidth: '2px' },
+            '& fieldset': { borderColor: '#E5E7EB' },
+            '&.Mui-focused fieldset': { borderColor: PRIMARY, borderWidth: '1.5px' },
         },
         '& .MuiInputLabel-root.Mui-focused': { color: PRIMARY },
     };
@@ -417,135 +442,145 @@ export default function ComplianceSettings() {
         showSnack('Settings saved successfully!', true);
     };
 
-    const SectionCard = ({ icon: Icon, title, subtitle, children }) => (
+    // ─── Reusable section card (for config tabs) ───────────────────────────
+    const SectionCard = ({ icon: Icon, title, subtitle, accent = PRIMARY, accentLight = PRIMARY_LIGHT, accentBorder = PRIMARY_BORDER, children }) => (
         <Card sx={{
-            border: '1px solid #E8E8E8',
-            borderRadius: CARD_RADIUS,
+            border: '1px solid #E5E7EB',
+            borderRadius: '7px',
             boxShadow: 'none',
-            mb: 3
+            mb: 2,
+            bgcolor: '#fff',
         }}>
             <Box sx={{
-                p: 2.5,
-                borderBottom: '2px solid #F1F5F9',
-                bgcolor: '#FAFAFA',
+                px: 2, py: 1.5,
+                borderBottom: '1px solid #E5E7EB',
+                bgcolor: '#fff',
                 display: 'flex',
                 alignItems: 'center',
-                gap: 1.5
+                gap: 1.2,
             }}>
                 <Box sx={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: '10px',
-                    bgcolor: PRIMARY_LIGHT,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    border: `1px solid ${PRIMARY}30`
+                    width: 32, height: 32, borderRadius: '8px',
+                    bgcolor: accentLight, border: `1px solid ${accentBorder}`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
-                    <Icon sx={{ fontSize: 20, color: PRIMARY }} />
+                    <Icon sx={{ fontSize: 18, color: accent }} />
                 </Box>
                 <Box>
-                    <Typography sx={{ fontSize: '15px', fontWeight: '700', color: '#1a1a1a' }}>
+                    <Typography sx={{ fontSize: '14px', fontWeight: 700, color: '#111827', lineHeight: 1.1 }}>
                         {title}
                     </Typography>
-                    <Typography sx={{ fontSize: '11px', color: '#94A3B8', mt: 0.3 }}>
+                    <Typography sx={{ fontSize: '11px', color: '#6B7280', mt: 0.3 }}>
                         {subtitle}
                     </Typography>
                 </Box>
             </Box>
-            <Box sx={{ p: 2.5 }}>
+            <Box sx={{ p: 2 }}>
                 {children}
             </Box>
         </Card>
     );
 
+    // ─── Toggle row used in each config card ───────────────────────────────
+    const ToggleRow = ({ label, description, checked, onChange, accent = PRIMARY }) => (
+        <Box sx={{
+            p: 1.5, mb: 2,
+            borderRadius: '7px',
+            bgcolor: '#F9FAFB',
+            border: '1px solid #E5E7EB',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 1.5,
+        }}>
+            <Box>
+                <Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>
+                    {label}
+                </Typography>
+                <Typography sx={{ fontSize: '11px', color: '#6B7280', mt: 0.3 }}>
+                    {description}
+                </Typography>
+            </Box>
+            <Switch
+                checked={checked}
+                onChange={onChange}
+                sx={{
+                    '& .MuiSwitch-switchBase.Mui-checked': { color: accent },
+                    '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: accent },
+                }}
+            />
+        </Box>
+    );
+
+    // ─── Per-tab renderers ─────────────────────────────────────────────────
     const renderPFTab = () => (
         <Box>
             <SectionCard
                 icon={AccountBalanceIcon}
                 title="Provident Fund (PF) Configuration"
                 subtitle="Configure employee and employer PF contribution rates"
+                accent="#6D28D9" accentLight="#F5F3FF" accentBorder="#DDD6FE"
             >
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                    <Box>
-                        <Typography sx={{ fontSize: '14px', fontWeight: 600, color: '#1a1a1a' }}>
-                            Enable PF Deduction
-                        </Typography>
-                        <Typography sx={{ fontSize: '12px', color: '#64748B', mt: 0.5 }}>
-                            Automatically deduct PF from employee salary
-                        </Typography>
-                    </Box>
-                    <Switch
-                        checked={pfSettings.enabled}
-                        onChange={(e) => setPfSettings({ ...pfSettings, enabled: e.target.checked })}
-                        sx={{
-                            '& .MuiSwitch-switchBase.Mui-checked': { color: PRIMARY },
-                            '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: PRIMARY }
-                        }}
-                    />
-                </Box>
-
-                <Grid container spacing={2.5}>
-                    <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
+                <ToggleRow
+                    label="Enable PF Deduction"
+                    description="Automatically deduct PF from employee salary"
+                    checked={pfSettings.enabled}
+                    onChange={(e) => setPfSettings({ ...pfSettings, enabled: e.target.checked })}
+                    accent="#6D28D9"
+                />
+                <Grid container spacing={2}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                         <TextField
                             label="Employee Contribution"
                             value={pfSettings.employeeContribution}
                             onChange={(e) => setPfSettings({ ...pfSettings, employeeContribution: e.target.value })}
-                            size="small"
-                            fullWidth
-                            type="number"
+                            size="small" fullWidth type="number"
                             disabled={!pfSettings.enabled}
                             slotProps={{
                                 inputLabel: { shrink: true },
-                                input: { endAdornment: <InputAdornment position="end">%</InputAdornment> }
+                                input: { endAdornment: <InputAdornment position="end">%</InputAdornment> },
                             }}
                             sx={fieldSx}
                         />
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                         <TextField
                             label="Employer Contribution"
                             value={pfSettings.employerContribution}
                             onChange={(e) => setPfSettings({ ...pfSettings, employerContribution: e.target.value })}
-                            size="small"
-                            fullWidth
-                            type="number"
+                            size="small" fullWidth type="number"
                             disabled={!pfSettings.enabled}
                             slotProps={{
                                 inputLabel: { shrink: true },
-                                input: { endAdornment: <InputAdornment position="end">%</InputAdornment> }
+                                input: { endAdornment: <InputAdornment position="end">%</InputAdornment> },
                             }}
                             sx={fieldSx}
                         />
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                         <TextField
                             label="Wage Ceiling Limit"
                             value={pfSettings.wageLimit}
                             onChange={(e) => setPfSettings({ ...pfSettings, wageLimit: e.target.value })}
-                            size="small"
-                            fullWidth
-                            type="number"
+                            size="small" fullWidth type="number"
                             disabled={!pfSettings.enabled}
                             slotProps={{
                                 inputLabel: { shrink: true },
-                                input: { startAdornment: <InputAdornment position="start">₹</InputAdornment> }
+                                input: { startAdornment: <InputAdornment position="start">₹</InputAdornment> },
                             }}
                             sx={fieldSx}
                         />
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                         <TextField
                             label="Admin Charges"
                             value={pfSettings.adminCharges}
                             onChange={(e) => setPfSettings({ ...pfSettings, adminCharges: e.target.value })}
-                            size="small"
-                            fullWidth
-                            type="number"
+                            size="small" fullWidth type="number"
                             disabled={!pfSettings.enabled}
                             slotProps={{
                                 inputLabel: { shrink: true },
-                                input: { endAdornment: <InputAdornment position="end">%</InputAdornment> }
+                                input: { endAdornment: <InputAdornment position="end">%</InputAdornment> },
                             }}
                             sx={fieldSx}
                         />
@@ -561,71 +596,55 @@ export default function ComplianceSettings() {
                 icon={SecurityIcon}
                 title="Employee State Insurance (ESI) Configuration"
                 subtitle="Configure ESI contribution rates and wage limits"
+                accent="#047857" accentLight="#ECFDF5" accentBorder="#A7F3D0"
             >
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                    <Box>
-                        <Typography sx={{ fontSize: '14px', fontWeight: 600, color: '#1a1a1a' }}>
-                            Enable ESI Deduction
-                        </Typography>
-                        <Typography sx={{ fontSize: '12px', color: '#64748B', mt: 0.5 }}>
-                            Automatically deduct ESI if salary is below wage limit
-                        </Typography>
-                    </Box>
-                    <Switch
-                        checked={esiSettings.enabled}
-                        onChange={(e) => setEsiSettings({ ...esiSettings, enabled: e.target.checked })}
-                        sx={{
-                            '& .MuiSwitch-switchBase.Mui-checked': { color: PRIMARY },
-                            '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: PRIMARY }
-                        }}
-                    />
-                </Box>
-
-                <Grid container spacing={2.5}>
-                    <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
+                <ToggleRow
+                    label="Enable ESI Deduction"
+                    description="Automatically deduct ESI if salary is below wage limit"
+                    checked={esiSettings.enabled}
+                    onChange={(e) => setEsiSettings({ ...esiSettings, enabled: e.target.checked })}
+                    accent="#047857"
+                />
+                <Grid container spacing={2}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                         <TextField
                             label="Employee Contribution"
                             value={esiSettings.employeeContribution}
                             onChange={(e) => setEsiSettings({ ...esiSettings, employeeContribution: e.target.value })}
-                            size="small"
-                            fullWidth
-                            type="number"
+                            size="small" fullWidth type="number"
                             disabled={!esiSettings.enabled}
                             slotProps={{
                                 inputLabel: { shrink: true },
-                                input: { endAdornment: <InputAdornment position="end">%</InputAdornment> }
+                                input: { endAdornment: <InputAdornment position="end">%</InputAdornment> },
                             }}
                             sx={fieldSx}
                         />
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                         <TextField
                             label="Employer Contribution"
                             value={esiSettings.employerContribution}
                             onChange={(e) => setEsiSettings({ ...esiSettings, employerContribution: e.target.value })}
-                            size="small"
-                            fullWidth
-                            type="number"
+                            size="small" fullWidth type="number"
                             disabled={!esiSettings.enabled}
                             slotProps={{
                                 inputLabel: { shrink: true },
-                                input: { endAdornment: <InputAdornment position="end">%</InputAdornment> }
+                                input: { endAdornment: <InputAdornment position="end">%</InputAdornment> },
                             }}
                             sx={fieldSx}
                         />
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
+                    <Grid size={{ xs: 12 }}>
                         <TextField
                             label="Wage Ceiling Limit"
                             value={esiSettings.wageLimit}
                             onChange={(e) => setEsiSettings({ ...esiSettings, wageLimit: e.target.value })}
-                            size="small"
-                            fullWidth
-                            type="number"
+                            size="small" fullWidth type="number"
                             disabled={!esiSettings.enabled}
                             slotProps={{
                                 inputLabel: { shrink: true },
-                                input: { startAdornment: <InputAdornment position="start">₹</InputAdornment> }
+                                input: { startAdornment: <InputAdornment position="start">₹</InputAdornment> },
+                                formHelperText: { sx: { fontSize: '10.5px', fontWeight: 600, color: '#047857', ml: 0.5, mt: 0.3 } },
                             }}
                             helperText="ESI applicable if gross salary is below this limit"
                             sx={fieldSx}
@@ -642,71 +661,55 @@ export default function ComplianceSettings() {
                 icon={ReceiptIcon}
                 title="Professional Tax (PT) Configuration"
                 subtitle="Configure state-specific professional tax slabs"
+                accent="#C2410C" accentLight="#FFF7ED" accentBorder="#FED7AA"
             >
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                    <Box>
-                        <Typography sx={{ fontSize: '14px', fontWeight: 600, color: '#1a1a1a' }}>
-                            Enable Professional Tax
-                        </Typography>
-                        <Typography sx={{ fontSize: '12px', color: '#64748B', mt: 0.5 }}>
-                            Deduct PT as per state regulations
-                        </Typography>
-                    </Box>
-                    <Switch
-                        checked={ptSettings.enabled}
-                        onChange={(e) => setPtSettings({ ...ptSettings, enabled: e.target.checked })}
-                        sx={{
-                            '& .MuiSwitch-switchBase.Mui-checked': { color: PRIMARY },
-                            '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: PRIMARY }
-                        }}
-                    />
-                </Box>
-
-                <Grid container spacing={2.5}>
-                    <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
+                <ToggleRow
+                    label="Enable Professional Tax"
+                    description="Deduct PT as per state regulations"
+                    checked={ptSettings.enabled}
+                    onChange={(e) => setPtSettings({ ...ptSettings, enabled: e.target.checked })}
+                    accent="#C2410C"
+                />
+                <Grid container spacing={2}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                         <TextField
                             label="Monthly PT Deduction"
                             value={ptSettings.monthlyDeduction}
                             onChange={(e) => setPtSettings({ ...ptSettings, monthlyDeduction: e.target.value })}
-                            size="small"
-                            fullWidth
-                            type="number"
+                            size="small" fullWidth type="number"
                             disabled={!ptSettings.enabled}
                             slotProps={{
                                 inputLabel: { shrink: true },
-                                input: { startAdornment: <InputAdornment position="start">₹</InputAdornment> }
+                                input: { startAdornment: <InputAdornment position="start">₹</InputAdornment> },
                             }}
                             sx={fieldSx}
                         />
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                         <TextField
                             label="Annual PT Deduction"
                             value={ptSettings.annualDeduction}
                             onChange={(e) => setPtSettings({ ...ptSettings, annualDeduction: e.target.value })}
-                            size="small"
-                            fullWidth
-                            type="number"
+                            size="small" fullWidth type="number"
                             disabled={!ptSettings.enabled}
                             slotProps={{
                                 inputLabel: { shrink: true },
-                                input: { startAdornment: <InputAdornment position="start">₹</InputAdornment> }
+                                input: { startAdornment: <InputAdornment position="start">₹</InputAdornment> },
                             }}
                             sx={fieldSx}
                         />
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
+                    <Grid size={{ xs: 12 }}>
                         <TextField
                             label="Applicable From Salary"
                             value={ptSettings.applicableFrom}
                             onChange={(e) => setPtSettings({ ...ptSettings, applicableFrom: e.target.value })}
-                            size="small"
-                            fullWidth
-                            type="number"
+                            size="small" fullWidth type="number"
                             disabled={!ptSettings.enabled}
                             slotProps={{
                                 inputLabel: { shrink: true },
-                                input: { startAdornment: <InputAdornment position="start">₹</InputAdornment> }
+                                input: { startAdornment: <InputAdornment position="start">₹</InputAdornment> },
+                                formHelperText: { sx: { fontSize: '10.5px', fontWeight: 600, color: '#C2410C', ml: 0.5, mt: 0.3 } },
                             }}
                             helperText="PT applicable if gross salary is above this limit"
                             sx={fieldSx}
@@ -723,94 +726,83 @@ export default function ComplianceSettings() {
                 icon={AccountBalanceWalletIcon}
                 title="Tax Deducted at Source (TDS) Configuration"
                 subtitle="Configure income tax deduction settings and exemptions"
+                accent="#1D4ED8" accentLight="#EFF6FF" accentBorder="#BFDBFE"
             >
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                    <Box>
-                        <Typography sx={{ fontSize: '14px', fontWeight: 600, color: '#1a1a1a' }}>
-                            Enable TDS Calculation
-                        </Typography>
-                        <Typography sx={{ fontSize: '12px', color: '#64748B', mt: 0.5 }}>
-                            Calculate and deduct income tax as per IT Act
-                        </Typography>
-                    </Box>
-                    <Switch
-                        checked={tdsSettings.enabled}
-                        onChange={(e) => setTdsSettings({ ...tdsSettings, enabled: e.target.checked })}
-                        sx={{
-                            '& .MuiSwitch-switchBase.Mui-checked': { color: PRIMARY },
-                            '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: PRIMARY }
-                        }}
-                    />
-                </Box>
-
-                <Grid container spacing={2.5}>
-                    <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
+                <ToggleRow
+                    label="Enable TDS Calculation"
+                    description="Calculate and deduct income tax as per IT Act"
+                    checked={tdsSettings.enabled}
+                    onChange={(e) => setTdsSettings({ ...tdsSettings, enabled: e.target.checked })}
+                    accent="#1D4ED8"
+                />
+                <Grid container spacing={2}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                         <TextField
                             label="Standard Deduction"
                             value={tdsSettings.standardDeduction}
                             onChange={(e) => setTdsSettings({ ...tdsSettings, standardDeduction: e.target.value })}
-                            size="small"
-                            fullWidth
-                            type="number"
+                            size="small" fullWidth type="number"
                             disabled={!tdsSettings.enabled}
                             slotProps={{
                                 inputLabel: { shrink: true },
-                                input: { startAdornment: <InputAdornment position="start">₹</InputAdornment> }
+                                input: { startAdornment: <InputAdornment position="start">₹</InputAdornment> },
                             }}
                             sx={fieldSx}
                         />
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                         <TextField
                             label="Section 80C Limit"
                             value={tdsSettings.section80C}
                             onChange={(e) => setTdsSettings({ ...tdsSettings, section80C: e.target.value })}
-                            size="small"
-                            fullWidth
-                            type="number"
+                            size="small" fullWidth type="number"
                             disabled={!tdsSettings.enabled}
                             slotProps={{
                                 inputLabel: { shrink: true },
-                                input: { startAdornment: <InputAdornment position="start">₹</InputAdornment> }
+                                input: { startAdornment: <InputAdornment position="start">₹</InputAdornment> },
                             }}
                             sx={fieldSx}
                         />
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                         <TextField
                             label="Section 80D Limit (Medical Insurance)"
                             value={tdsSettings.section80D}
                             onChange={(e) => setTdsSettings({ ...tdsSettings, section80D: e.target.value })}
-                            size="small"
-                            fullWidth
-                            type="number"
+                            size="small" fullWidth type="number"
                             disabled={!tdsSettings.enabled}
                             slotProps={{
                                 inputLabel: { shrink: true },
-                                input: { startAdornment: <InputAdornment position="start">₹</InputAdornment> }
+                                input: { startAdornment: <InputAdornment position="start">₹</InputAdornment> },
                             }}
                             sx={fieldSx}
                         />
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                         <Box sx={{
-                            p: 2,
-                            border: '1px solid #E8E8E8',
-                            borderRadius: '12px',
+                            p: 1.5, height: '100%',
+                            borderRadius: '7px',
+                            bgcolor: '#F9FAFB',
+                            border: '1px solid #E5E7EB',
                             display: 'flex',
                             justifyContent: 'space-between',
-                            alignItems: 'center'
+                            alignItems: 'center',
                         }}>
-                            <Typography sx={{ fontSize: '13px', fontWeight: 600 }}>
-                                Enable HRA Exemption
-                            </Typography>
+                            <Box>
+                                <Typography sx={{ fontSize: '12.5px', fontWeight: 700, color: '#111827' }}>
+                                    Enable HRA Exemption
+                                </Typography>
+                                <Typography sx={{ fontSize: '10.5px', color: '#6B7280', mt: 0.3 }}>
+                                    Exempt House Rent Allowance from TDS
+                                </Typography>
+                            </Box>
                             <Switch
                                 checked={tdsSettings.hraExemption}
                                 onChange={(e) => setTdsSettings({ ...tdsSettings, hraExemption: e.target.checked })}
                                 disabled={!tdsSettings.enabled}
                                 sx={{
-                                    '& .MuiSwitch-switchBase.Mui-checked': { color: PRIMARY },
-                                    '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: PRIMARY }
+                                    '& .MuiSwitch-switchBase.Mui-checked': { color: '#1D4ED8' },
+                                    '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#1D4ED8' },
                                 }}
                             />
                         </Box>
@@ -820,505 +812,826 @@ export default function ComplianceSettings() {
         </Box>
     );
 
-    const renderEmployeeComplianceTab = () => (
-        <Box>
-            <Grid container spacing={2} sx={{ mb: 2 }}>
-                <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
-                    <Card sx={{ border: '1px solid #2563EB30', borderRadius: CARD_RADIUS, bgcolor: PRIMARY_LIGHT, boxShadow: 'none' }}>
-                        <CardContent sx={{ p: 2.5 }}>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                <Box>
-                                    <Typography sx={{ fontSize: '12px', color: PRIMARY, fontWeight: 600, mb: 1 }}>
-                                        Total Employees
-                                    </Typography>
-                                    <Typography sx={{ fontSize: '24px', fontWeight: 700, color: '#1a1a1a' }}>
-                                        {stats.totalEmployees}
-                                    </Typography>
-                                </Box>
-                                <PeopleIcon sx={{ fontSize: 32, color: PRIMARY, opacity: 0.6 }} />
-                            </Box>
-                        </CardContent>
-                    </Card>
-                </Grid>
-                <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
-                    <Card sx={{ border: '1px solid #8600BB30', borderRadius: CARD_RADIUS, bgcolor: '#f9f4fc', boxShadow: 'none' }}>
-                        <CardContent sx={{ p: 2.5 }}>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                <Box>
-                                    <Typography sx={{ fontSize: '12px', color: '#8600BB', fontWeight: 600, mb: 1 }}>
-                                        PF Applicable
-                                    </Typography>
-                                    <Typography sx={{ fontSize: '24px', fontWeight: 700, color: '#1a1a1a' }}>
-                                        {stats.pfApplicableCount}
-                                    </Typography>
-                                </Box>
-                                <AccountBalanceIcon sx={{ fontSize: 32, color: '#8600BB', opacity: 0.6 }} />
-                            </Box>
-                        </CardContent>
-                    </Card>
-                </Grid>
-                <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
-                    <Card sx={{ border: '1px solid #10B98130', borderRadius: CARD_RADIUS, bgcolor: '#ECFDF5', boxShadow: 'none' }}>
-                        <CardContent sx={{ p: 2.5 }}>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                <Box>
-                                    <Typography sx={{ fontSize: '12px', color: '#10B981', fontWeight: 600, mb: 1 }}>
-                                        ESI Applicable
-                                    </Typography>
-                                    <Typography sx={{ fontSize: '24px', fontWeight: 700, color: '#1a1a1a' }}>
-                                        {stats.esiApplicableCount}
-                                    </Typography>
-                                </Box>
-                                <SecurityIcon sx={{ fontSize: 32, color: '#10B981', opacity: 0.6 }} />
-                            </Box>
-                        </CardContent>
-                    </Card>
-                </Grid>
-                <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
-                    <Card sx={{ border: '1px solid #FF980030', borderRadius: CARD_RADIUS, bgcolor: '#FFF4E6', boxShadow: 'none' }}>
-                        <CardContent sx={{ p: 2.5 }}>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                <Box>
-                                    <Typography sx={{ fontSize: '12px', color: '#FF9800', fontWeight: 600, mb: 1 }}>
-                                        PT Applicable
-                                    </Typography>
-                                    <Typography sx={{ fontSize: '24px', fontWeight: 700, color: '#1a1a1a' }}>
-                                        {stats.ptApplicableCount}
-                                    </Typography>
-                                </Box>
-                                <ReceiptIcon sx={{ fontSize: 32, color: '#FF9800', opacity: 0.6 }} />
-                            </Box>
-                        </CardContent>
-                    </Card>
-                </Grid>
-            </Grid>
+    // ─── Employee Compliance tab (the table view) ───────────────────────────
+    const renderEmployeeComplianceTab = () => {
+        const kpiCards = [
+            {
+                label: 'Total Employees',
+                value: stats.totalEmployees,
+                sub: 'on payroll',
+                color: '#059669', bg: '#ECFDF5', border: '#A7F3D0',
+                icon: PeopleAltOutlinedIcon,
+            },
+            {
+                label: 'PF Applicable',
+                value: stats.pfApplicableCount,
+                sub: `of ${stats.totalEmployees}`,
+                color: '#6D28D9', bg: '#F5F3FF', border: '#DDD6FE',
+                icon: AccountBalanceIcon,
+            },
+            {
+                label: 'ESI Applicable',
+                value: stats.esiApplicableCount,
+                sub: `of ${stats.totalEmployees}`,
+                color: '#047857', bg: '#ECFDF5', border: '#A7F3D0',
+                icon: SecurityIcon,
+            },
+            {
+                label: 'PT Applicable',
+                value: stats.ptApplicableCount,
+                sub: `of ${stats.totalEmployees}`,
+                color: '#C2410C', bg: '#FFF7ED', border: '#FED7AA',
+                icon: ReceiptIcon,
+            },
+        ];
 
-            <Grid container spacing={2} sx={{ mb: 3 }}>
-                <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
-                    <Card sx={{ border: '1px solid #7DC35330', borderRadius: CARD_RADIUS, bgcolor: '#F0FDF4', boxShadow: 'none' }}>
-                        <CardContent sx={{ p: 2.5 }}>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <Box sx={{ flex: 1 }}>
-                                    <Typography sx={{ fontSize: '12px', color: '#7DC353', fontWeight: 600, mb: 1 }}>
-                                        Total Incentives
-                                    </Typography>
-                                    <Typography sx={{ fontSize: '22px', fontWeight: 700, color: '#1a1a1a' }}>
-                                        ₹{Number(stats.totalIncentives).toLocaleString()}
-                                    </Typography>
-                                    <Typography sx={{ fontSize: '11px', color: '#64748B', mt: 0.5 }}>
-                                        {stats.incentiveEmployeesCount} employees receiving incentives
-                                    </Typography>
-                                </Box>
-                                <CheckCircleIcon sx={{ fontSize: 38, color: '#7DC353', opacity: 0.6 }} />
-                            </Box>
-                        </CardContent>
-                    </Card>
-                </Grid>
-                <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
-                    <Card sx={{ border: '1px solid #E3005330', borderRadius: CARD_RADIUS, bgcolor: '#FCF8F9', boxShadow: 'none' }}>
-                        <CardContent sx={{ p: 2.5 }}>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <Box sx={{ flex: 1 }}>
-                                    <Typography sx={{ fontSize: '12px', color: '#E30053', fontWeight: 600, mb: 1 }}>
-                                        Total Additional Salary
-                                    </Typography>
-                                    <Typography sx={{ fontSize: '22px', fontWeight: 700, color: '#1a1a1a' }}>
-                                        ₹{Number(stats.totalAdditionalSalary).toLocaleString()}
-                                    </Typography>
-                                    <Typography sx={{ fontSize: '11px', color: '#64748B', mt: 0.5 }}>
-                                        {stats.additionalSalaryEmployeesCount} employees with additional salary
-                                    </Typography>
-                                </Box>
-                                <AccountBalanceWalletIcon sx={{ fontSize: 38, color: '#E30053', opacity: 0.6 }} />
-                            </Box>
-                        </CardContent>
-                    </Card>
-                </Grid>
-            </Grid>
-
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2.5, gap: 2 }}>
-                <TextField
-                    placeholder="Search by name, ID, or designation..."
-                    size="small"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    slotProps={{
-                        input: {
-                            startAdornment: (
-                                <InputAdornment position="start">
-                                    <SearchIcon sx={{ fontSize: 20, color: '#94A3B8' }} />
-                                </InputAdornment>
-                            )
-                        }
-                    }}
-                    sx={{ flex: 1, maxWidth: '400px', ...fieldSx }}
-                />
-                <Button
-                    variant="outlined"
-                    onClick={handleExportCompliance}
-                    sx={{
-                        textTransform: 'none',
-                        borderColor: PRIMARY,
-                        color: PRIMARY,
-                        borderRadius: '10px',
-                        fontSize: '13px',
-                        fontWeight: '700',
-                        '&:hover': { borderColor: PRIMARY_DARK, bgcolor: PRIMARY_LIGHT }
-                    }}
-                >
-                    Export to Excel
-                </Button>
-            </Box>
-
-            <Card sx={{ border: '1px solid #E8E8E8', borderRadius: CARD_RADIUS, boxShadow: 'none' }}>
-                <Box sx={{
-                    p: 2.5,
-                    borderBottom: '2px solid #F1F5F9',
-                    bgcolor: '#FAFAFA',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1.5
-                }}>
-                    <VerifiedUserIcon sx={{ fontSize: 20, color: PRIMARY }} />
-                    <Typography sx={{ fontSize: '15px', fontWeight: '700', color: '#1a1a1a' }}>
-                        Employee Compliance Settings
-                    </Typography>
-                    <Chip
-                        label={employeeData.length}
-                        size="small"
-                        sx={{ bgcolor: `${PRIMARY}18`, color: PRIMARY, fontWeight: 700, fontSize: '11px', height: '22px' }}
-                    />
-                </Box>
-                <Box sx={{ overflowX: 'auto' }}>
-                    <Table>
-                        <TableHead>
-                            <TableRow sx={{ bgcolor: '#F8FAFC' }}>
-                                <TableCell sx={{ fontWeight: 700, fontSize: '12px', color: '#64748B' }}>Employee</TableCell>
-                                <TableCell sx={{ fontWeight: 700, fontSize: '12px', color: '#64748B' }}>Basic Salary</TableCell>
-                                <TableCell sx={{ fontWeight: 700, fontSize: '12px', color: '#64748B', textAlign: 'center' }}>Incentive</TableCell>
-                                <TableCell sx={{ fontWeight: 700, fontSize: '12px', color: '#64748B', textAlign: 'center' }}>Add. Salary</TableCell>
-                                <TableCell sx={{ fontWeight: 700, fontSize: '12px', color: '#64748B', textAlign: 'center' }}>PF</TableCell>
-                                <TableCell sx={{ fontWeight: 700, fontSize: '12px', color: '#64748B', textAlign: 'center' }}>ESI</TableCell>
-                                <TableCell sx={{ fontWeight: 700, fontSize: '12px', color: '#64748B', textAlign: 'center' }}>PT</TableCell>
-                                <TableCell sx={{ fontWeight: 700, fontSize: '12px', color: '#64748B', textAlign: 'center' }}>TDS</TableCell>
-                                <TableCell sx={{ fontWeight: 700, fontSize: '12px', color: '#64748B', textAlign: 'center' }}>Actions</TableCell>
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {isLoading ? (
-                                <TableRow>
-                                    <TableCell colSpan={9} align="center" sx={{ py: 5, color: '#94A3B8', fontSize: '13px' }}>
-                                        Loading compliance data...
-                                    </TableCell>
-                                </TableRow>
-                            ) : filteredEmployees.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={9} align="center" sx={{ py: 5, color: '#94A3B8', fontSize: '13px' }}>
-                                        {searchQuery ? `No results for "${searchQuery}"` : 'No employee data found'}
-                                    </TableCell>
-                                </TableRow>
-                            ) : filteredEmployees.map((emp) => (
-                                <TableRow key={emp.id} sx={{ '&:hover': { bgcolor: '#F8FAFC' } }}>
-                                    <TableCell>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                            <Avatar sx={{ width: 36, height: 36, bgcolor: PRIMARY_LIGHT, color: PRIMARY }}>
-                                                {emp.name.charAt(0)}
-                                            </Avatar>
-                                            <Box>
-                                                <Typography sx={{ fontSize: '13px', fontWeight: 600 }}>
-                                                    {emp.name}
+        return (
+            <Box>
+                {/* Primary KPIs */}
+                <Grid container spacing={2} sx={{ mb: 2 }}>
+                    {kpiCards.map((card) => {
+                        const Icon = card.icon;
+                        return (
+                            <Grid size={{ xs: 12, sm: 6, md: 3 }} key={card.label}>
+                                <Card sx={{
+                                    border: `1px solid ${card.border}`,
+                                    borderRadius: '7px',
+                                    boxShadow: 'none',
+                                    bgcolor: card.bg,
+                                    height: '100%',
+                                    transition: 'transform 0.15s, box-shadow 0.15s',
+                                    '&:hover': {
+                                        transform: 'translateY(-2px)',
+                                        boxShadow: `0 6px 16px ${card.color}22`,
+                                    },
+                                }}>
+                                    <CardContent sx={{ py: 1.8, '&:last-child': { pb: 1.8 } }}>
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                            <Box sx={{ minWidth: 0, flex: 1 }}>
+                                                <Typography sx={{
+                                                    fontSize: '11px', color: card.color, fontWeight: 700,
+                                                    textTransform: 'uppercase', letterSpacing: 0.5,
+                                                }}>
+                                                    {card.label}
                                                 </Typography>
-                                                <Typography sx={{ fontSize: '11px', color: '#94A3B8' }}>
-                                                    {emp.employeeId} • {emp.designation}
+                                                <Typography sx={{
+                                                    fontSize: '24px', fontWeight: 800, color: '#111827',
+                                                    lineHeight: 1.2, mt: 0.5,
+                                                }} noWrap>
+                                                    {card.value}
+                                                </Typography>
+                                                <Typography sx={{
+                                                    fontSize: '10.5px', color: '#6B7280', fontWeight: 600, mt: 0.4,
+                                                }} noWrap>
+                                                    {card.sub}
                                                 </Typography>
                                             </Box>
+                                            <Box sx={{
+                                                width: 38, height: 38, borderRadius: '10px',
+                                                bgcolor: '#fff', border: `1px solid ${card.border}`,
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                flexShrink: 0, ml: 1,
+                                            }}>
+                                                <Icon sx={{ color: card.color, fontSize: 20 }} />
+                                            </Box>
                                         </Box>
-                                    </TableCell>
-                                    <TableCell sx={{ fontSize: '13px', fontWeight: 600 }}>
-                                        ₹{emp.basicSalary.toLocaleString()}
-                                    </TableCell>
-                                    <TableCell sx={{ textAlign: 'center' }}>
-                                        <Chip
-                                            label={emp.incentive > 0 ? `₹${emp.incentive.toLocaleString()}` : 'Nil'}
-                                            size="small"
+                                    </CardContent>
+                                </Card>
+                            </Grid>
+                        );
+                    })}
+                </Grid>
+
+                {/* Secondary KPIs — incentives & additional salary */}
+                <Grid container spacing={2} sx={{ mb: 2 }}>
+                    <Grid size={{ xs: 12, md: 6 }}>
+                        <Card sx={{
+                            border: '1px solid #A7F3D0',
+                            borderRadius: '7px',
+                            boxShadow: 'none',
+                            bgcolor: '#ECFDF5',
+                        }}>
+                            <CardContent sx={{ py: 1.8, '&:last-child': { pb: 1.8 } }}>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <Box>
+                                        <Typography sx={{ fontSize: '11px', color: '#047857', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                            Total Incentives
+                                        </Typography>
+                                        <Typography sx={{ fontSize: '22px', fontWeight: 800, color: '#111827', lineHeight: 1.2, mt: 0.5 }}>
+                                            {formatINR(stats.totalIncentives)}
+                                        </Typography>
+                                        <Typography sx={{ fontSize: '10.5px', color: '#6B7280', fontWeight: 600, mt: 0.4 }}>
+                                            {stats.incentiveEmployeesCount} employees receiving incentives
+                                        </Typography>
+                                    </Box>
+                                    <Box sx={{
+                                        width: 42, height: 42, borderRadius: '10px',
+                                        bgcolor: '#fff', border: '1px solid #A7F3D0',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    }}>
+                                        <TrendingUpIcon sx={{ color: '#047857', fontSize: 22 }} />
+                                    </Box>
+                                </Box>
+                            </CardContent>
+                        </Card>
+                    </Grid>
+                    <Grid size={{ xs: 12, md: 6 }}>
+                        <Card sx={{
+                            border: '1px solid #FECACA',
+                            borderRadius: '7px',
+                            boxShadow: 'none',
+                            bgcolor: '#FEF2F2',
+                        }}>
+                            <CardContent sx={{ py: 1.8, '&:last-child': { pb: 1.8 } }}>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <Box>
+                                        <Typography sx={{ fontSize: '11px', color: '#B91C1C', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                            Total Additional Salary
+                                        </Typography>
+                                        <Typography sx={{ fontSize: '22px', fontWeight: 800, color: '#111827', lineHeight: 1.2, mt: 0.5 }}>
+                                            {formatINR(stats.totalAdditionalSalary)}
+                                        </Typography>
+                                        <Typography sx={{ fontSize: '10.5px', color: '#6B7280', fontWeight: 600, mt: 0.4 }}>
+                                            {stats.additionalSalaryEmployeesCount} employees with additional salary
+                                        </Typography>
+                                    </Box>
+                                    <Box sx={{
+                                        width: 42, height: 42, borderRadius: '10px',
+                                        bgcolor: '#fff', border: '1px solid #FECACA',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    }}>
+                                        <AccountBalanceWalletIcon sx={{ color: '#B91C1C', fontSize: 22 }} />
+                                    </Box>
+                                </Box>
+                            </CardContent>
+                        </Card>
+                    </Grid>
+                </Grid>
+
+                {/* Table */}
+                <Card sx={{ border: '1px solid #E5E7EB', borderRadius: '7px', boxShadow: 'none', bgcolor: '#fff' }}>
+                    <Box sx={{
+                        px: 2, py: 1.5,
+                        borderBottom: '1px solid #E5E7EB',
+                        bgcolor: '#fff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 1.5,
+                        flexWrap: 'wrap',
+                    }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Box sx={{
+                                width: 28, height: 28, borderRadius: '8px',
+                                bgcolor: PRIMARY_LIGHT, border: `1px solid ${PRIMARY_BORDER}`,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}>
+                                <VerifiedUserIcon sx={{ fontSize: 16, color: PRIMARY }} />
+                            </Box>
+                            <Typography sx={{ fontSize: '14px', fontWeight: 700, color: '#111827' }}>
+                                Employee Compliance Settings
+                            </Typography>
+                            <Chip
+                                label={`${employeeData.length} employees`}
+                                size="small"
+                                sx={{
+                                    bgcolor: '#F3F4F6', color: '#374151',
+                                    fontWeight: 600, fontSize: '11px', height: 20,
+                                }}
+                            />
+                        </Box>
+
+                        {searchActive && (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
+                                <Typography sx={{ fontSize: '11.5px', color: '#6B7280' }}>
+                                    Showing
+                                </Typography>
+                                <Typography sx={{ fontSize: '13px', fontWeight: 800, color: PRIMARY_DARK }}>
+                                    {filteredEmployees.length}
+                                </Typography>
+                                <Typography sx={{ fontSize: '11.5px', color: '#6B7280' }}>
+                                    of {employeeData.length}
+                                </Typography>
+                                <Button
+                                    size="small"
+                                    startIcon={<RestartAltIcon sx={{ fontSize: 14 }} />}
+                                    onClick={() => setSearchQuery('')}
+                                    sx={{
+                                        textTransform: 'none', fontSize: '11.5px', fontWeight: 600,
+                                        ml: 0.8, height: 26, borderRadius: '7px', px: 1,
+                                        color: '#DC2626',
+                                        '&:hover': { bgcolor: '#FEF2F2' },
+                                    }}
+                                >
+                                    Clear
+                                </Button>
+                            </Box>
+                        )}
+                    </Box>
+
+                    <TableContainer>
+                        <Table stickyHeader size="small">
+                            <TableHead>
+                                <TableRow sx={{ bgcolor: PRIMARY_LIGHT }}>
+                                    {[
+                                        'S.No', 'Employee', 'Basic Salary', 'Incentive',
+                                        'Add. Salary', 'PF', 'ESI', 'PT', 'TDS', 'Actions',
+                                    ].map((header) => (
+                                        <TableCell
+                                            key={header}
                                             sx={{
-                                                bgcolor: emp.incentive > 0 ? '#F0FDF4' : '#F1F5F9',
-                                                color: emp.incentive > 0 ? '#7DC353' : '#94A3B8',
-                                                fontWeight: 600, fontSize: '11px'
-                                            }}
-                                        />
-                                    </TableCell>
-                                    <TableCell sx={{ textAlign: 'center' }}>
-                                        <Chip
-                                            label={emp.additionalSalary > 0 ? `₹${emp.additionalSalary.toLocaleString()}` : 'Nil'}
-                                            size="small"
-                                            sx={{
-                                                bgcolor: emp.additionalSalary > 0 ? '#FCF8F9' : '#F1F5F9',
-                                                color: emp.additionalSalary > 0 ? '#E30053' : '#94A3B8',
-                                                fontWeight: 600, fontSize: '11px'
-                                            }}
-                                        />
-                                    </TableCell>
-                                    <TableCell sx={{ textAlign: 'center' }}>
-                                        <Chip
-                                            label={emp.compliance.pfApplicable ? `${emp.compliance.pfPercentage}%` : 'N/A'}
-                                            size="small"
-                                            sx={{
-                                                bgcolor: emp.compliance.pfApplicable ? '#f9f4fc' : '#F1F5F9',
-                                                color: emp.compliance.pfApplicable ? '#8600BB' : '#94A3B8',
-                                                fontWeight: 600, fontSize: '11px'
-                                            }}
-                                        />
-                                    </TableCell>
-                                    <TableCell sx={{ textAlign: 'center' }}>
-                                        <Chip
-                                            label={emp.compliance.esiApplicable ? `${emp.compliance.esiPercentage}%` : 'N/A'}
-                                            size="small"
-                                            sx={{
-                                                bgcolor: emp.compliance.esiApplicable ? '#ECFDF5' : '#F1F5F9',
-                                                color: emp.compliance.esiApplicable ? '#10B981' : '#94A3B8',
-                                                fontWeight: 600, fontSize: '11px'
-                                            }}
-                                        />
-                                    </TableCell>
-                                    <TableCell sx={{ textAlign: 'center' }}>
-                                        <Chip
-                                            label={emp.compliance.ptApplicable ? `₹${emp.compliance.ptAmount}` : 'N/A'}
-                                            size="small"
-                                            sx={{
-                                                bgcolor: emp.compliance.ptApplicable ? '#FFF4E6' : '#F1F5F9',
-                                                color: emp.compliance.ptApplicable ? '#FF9800' : '#94A3B8',
-                                                fontWeight: 600, fontSize: '11px'
-                                            }}
-                                        />
-                                    </TableCell>
-                                    <TableCell sx={{ textAlign: 'center' }}>
-                                        <Chip
-                                            label={emp.compliance.tdsApplicable ? `${emp.compliance.tdsPercentage}%` : 'N/A'}
-                                            size="small"
-                                            sx={{
-                                                bgcolor: emp.compliance.tdsApplicable ? '#EFF6FF' : '#F1F5F9',
-                                                color: emp.compliance.tdsApplicable ? '#2563EB' : '#94A3B8',
-                                                fontWeight: 600, fontSize: '11px'
-                                            }}
-                                        />
-                                    </TableCell>
-                                    <TableCell sx={{ textAlign: 'center' }}>
-                                        <IconButton
-                                            size="small"
-                                            onClick={() => handleEditEmployee(emp)}
-                                            sx={{
+                                                fontWeight: 700, fontSize: '10px',
+                                                color: PRIMARY_DARK,
                                                 bgcolor: PRIMARY_LIGHT,
-                                                '&:hover': { bgcolor: PRIMARY, '& .MuiSvgIcon-root': { color: '#fff' } }
+                                                textTransform: 'uppercase', letterSpacing: 0.6,
+                                                whiteSpace: 'nowrap', py: 1.3,
+                                                borderBottom: `1px solid ${PRIMARY_BORDER}`,
                                             }}
                                         >
-                                            <EditIcon sx={{ fontSize: 18, color: PRIMARY }} />
-                                        </IconButton>
-                                    </TableCell>
+                                            {header}
+                                        </TableCell>
+                                    ))}
                                 </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </Box>
-            </Card>
-        </Box>
-    );
+                            </TableHead>
+                            <TableBody>
+                                {isLoading ? (
+                                    <TableRow>
+                                        <TableCell colSpan={10} align="center" sx={{ py: 6, borderBottom: 'none' }}>
+                                            <CircularProgress size={28} sx={{ color: PRIMARY }} />
+                                            <Typography sx={{ fontSize: '12px', color: '#9CA3AF', mt: 1.2 }}>
+                                                Loading compliance data…
+                                            </Typography>
+                                        </TableCell>
+                                    </TableRow>
+                                ) : filteredEmployees.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={10} align="center" sx={{ py: 6, borderBottom: 'none' }}>
+                                            <Box sx={{
+                                                width: 56, height: 56, borderRadius: '50%',
+                                                bgcolor: '#F3F4F6', mx: 'auto', mb: 1.2,
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            }}>
+                                                <VerifiedUserIcon sx={{ fontSize: 28, color: '#9CA3AF' }} />
+                                            </Box>
+                                            <Typography sx={{ fontSize: '13px', color: '#6B7280', fontWeight: 600 }}>
+                                                {searchActive ? `No results for "${searchQuery}"` : 'No employee data found'}
+                                            </Typography>
+                                            <Typography sx={{ fontSize: '11.5px', color: '#9CA3AF', mt: 0.4 }}>
+                                                {searchActive ? 'Try a different search term' : 'Employees will appear here once added to payroll'}
+                                            </Typography>
+                                        </TableCell>
+                                    </TableRow>
+                                ) : filteredEmployees.map((emp, idx) => {
+                                    const avColor = avatarColorFor(emp.name || '');
+                                    return (
+                                        <TableRow
+                                            key={emp.id}
+                                            sx={{
+                                                '&:hover': { bgcolor: PRIMARY_LIGHT },
+                                                borderBottom: '1px solid #F3F4F6',
+                                                transition: 'background-color 0.15s',
+                                            }}
+                                        >
+                                            <TableCell sx={{ width: 50, borderBottom: '1px solid #F3F4F6', py: 1.2 }}>
+                                                <Typography sx={{ fontSize: '12px', color: '#9CA3AF', fontWeight: 500 }}>
+                                                    {idx + 1}
+                                                </Typography>
+                                            </TableCell>
+                                            <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.2 }}>
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
+                                                    <Avatar sx={{
+                                                        width: 32, height: 32,
+                                                        bgcolor: `${avColor}15`,
+                                                        color: avColor,
+                                                        fontSize: '11px', fontWeight: 700,
+                                                        border: `1px solid ${avColor}33`,
+                                                    }}>
+                                                        {getInitials(emp.name || '?')}
+                                                    </Avatar>
+                                                    <Box sx={{ minWidth: 0 }}>
+                                                        <Typography sx={{
+                                                            fontSize: '13px', fontWeight: 600,
+                                                            color: '#111827', whiteSpace: 'nowrap',
+                                                        }}>
+                                                            {emp.name || '—'}
+                                                        </Typography>
+                                                        <Typography sx={{ fontSize: '10px', color: '#9CA3AF', fontWeight: 500 }}>
+                                                            {emp.employeeId}{emp.designation ? ` · ${emp.designation}` : ''}
+                                                        </Typography>
+                                                    </Box>
+                                                </Box>
+                                            </TableCell>
+                                            <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.2 }}>
+                                                <Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>
+                                                    {formatINR(emp.basicSalary)}
+                                                </Typography>
+                                            </TableCell>
+                                            <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.2, textAlign: 'center' }}>
+                                                <Chip
+                                                    label={emp.incentive > 0 ? formatINR(emp.incentive) : 'Nil'}
+                                                    size="small"
+                                                    sx={{
+                                                        bgcolor: emp.incentive > 0 ? '#ECFDF5' : '#F3F4F6',
+                                                        color: emp.incentive > 0 ? '#047857' : '#9CA3AF',
+                                                        border: `1px solid ${emp.incentive > 0 ? '#A7F3D0' : '#E5E7EB'}`,
+                                                        fontWeight: 700, fontSize: '10.5px', height: 22,
+                                                    }}
+                                                />
+                                            </TableCell>
+                                            <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.2, textAlign: 'center' }}>
+                                                <Chip
+                                                    label={emp.additionalSalary > 0 ? formatINR(emp.additionalSalary) : 'Nil'}
+                                                    size="small"
+                                                    sx={{
+                                                        bgcolor: emp.additionalSalary > 0 ? '#FEF2F2' : '#F3F4F6',
+                                                        color: emp.additionalSalary > 0 ? '#B91C1C' : '#9CA3AF',
+                                                        border: `1px solid ${emp.additionalSalary > 0 ? '#FECACA' : '#E5E7EB'}`,
+                                                        fontWeight: 700, fontSize: '10.5px', height: 22,
+                                                    }}
+                                                />
+                                            </TableCell>
+                                            <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.2, textAlign: 'center' }}>
+                                                <Chip
+                                                    label={emp.compliance.pfApplicable ? `${emp.compliance.pfPercentage}%` : 'N/A'}
+                                                    size="small"
+                                                    sx={{
+                                                        bgcolor: emp.compliance.pfApplicable ? '#F5F3FF' : '#F3F4F6',
+                                                        color: emp.compliance.pfApplicable ? '#6D28D9' : '#9CA3AF',
+                                                        border: `1px solid ${emp.compliance.pfApplicable ? '#DDD6FE' : '#E5E7EB'}`,
+                                                        fontWeight: 700, fontSize: '10.5px', height: 22,
+                                                    }}
+                                                />
+                                            </TableCell>
+                                            <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.2, textAlign: 'center' }}>
+                                                <Chip
+                                                    label={emp.compliance.esiApplicable ? `${emp.compliance.esiPercentage}%` : 'N/A'}
+                                                    size="small"
+                                                    sx={{
+                                                        bgcolor: emp.compliance.esiApplicable ? '#ECFDF5' : '#F3F4F6',
+                                                        color: emp.compliance.esiApplicable ? '#047857' : '#9CA3AF',
+                                                        border: `1px solid ${emp.compliance.esiApplicable ? '#A7F3D0' : '#E5E7EB'}`,
+                                                        fontWeight: 700, fontSize: '10.5px', height: 22,
+                                                    }}
+                                                />
+                                            </TableCell>
+                                            <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.2, textAlign: 'center' }}>
+                                                <Chip
+                                                    label={emp.compliance.ptApplicable ? formatINR(emp.compliance.ptAmount) : 'N/A'}
+                                                    size="small"
+                                                    sx={{
+                                                        bgcolor: emp.compliance.ptApplicable ? '#FFF7ED' : '#F3F4F6',
+                                                        color: emp.compliance.ptApplicable ? '#C2410C' : '#9CA3AF',
+                                                        border: `1px solid ${emp.compliance.ptApplicable ? '#FED7AA' : '#E5E7EB'}`,
+                                                        fontWeight: 700, fontSize: '10.5px', height: 22,
+                                                    }}
+                                                />
+                                            </TableCell>
+                                            <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.2, textAlign: 'center' }}>
+                                                <Chip
+                                                    label={emp.compliance.tdsApplicable ? `${emp.compliance.tdsPercentage}%` : 'N/A'}
+                                                    size="small"
+                                                    sx={{
+                                                        bgcolor: emp.compliance.tdsApplicable ? '#EFF6FF' : '#F3F4F6',
+                                                        color: emp.compliance.tdsApplicable ? '#1D4ED8' : '#9CA3AF',
+                                                        border: `1px solid ${emp.compliance.tdsApplicable ? '#BFDBFE' : '#E5E7EB'}`,
+                                                        fontWeight: 700, fontSize: '10.5px', height: 22,
+                                                    }}
+                                                />
+                                            </TableCell>
+                                            <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.2, textAlign: 'center' }}>
+                                                <Tooltip arrow title="Edit compliance">
+                                                    <IconButton
+                                                        size="small"
+                                                        onClick={() => handleEditEmployee(emp)}
+                                                        sx={{
+                                                            bgcolor: '#EFF6FF', borderRadius: '8px',
+                                                            border: '1px solid #BFDBFE',
+                                                            '&:hover': { bgcolor: '#DBEAFE' },
+                                                        }}
+                                                    >
+                                                        <EditIcon sx={{ fontSize: 14, color: '#2563EB' }} />
+                                                    </IconButton>
+                                                </Tooltip>
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
+                </Card>
+            </Box>
+        );
+    };
+
+    const anyConfigSaving = isPFSaving || isESISaving || isPTSaving || isTDSSaving;
+    const showSaveButton = activeTab !== 0;
+    const showExportButton = activeTab === 0;
 
     return (
         <>
-        <SnackBar open={snackOpen} color={snackColor} setOpen={setSnackOpen} status={snackStatus} message={snackMessage} />
-        <Box sx={{
-            height: '86vh',
-            display: 'flex',
-            flexDirection: 'column',
-            bgcolor: '#FAFAFA',
-            borderRadius: '20px',
-            border: '1px solid #E8E8E8',
-            overflow: 'hidden'
-        }}>
+            <SnackBar open={snackOpen} color={snackColor} setOpen={setSnackOpen} status={snackStatus} message={snackMessage} />
+
             <Box sx={{
-                bgcolor: '#fff',
-                borderBottom: '2px solid #F1F5F9',
-                px: 3,
-                py: 2,
                 display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center'
+                flexDirection: 'column',
+                bgcolor: '#F9FAFB',
+                borderRadius: '16px',
+                border: '1px solid #E5E7EB',
+                overflow: 'hidden',
+                minHeight: '88vh',
             }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <IconButton
-                        onClick={() => navigate(-1)}
-                        sx={{
-                            width: '40px',
-                            height: '40px',
-                            bgcolor: '#F8FAFC',
-                            border: '1px solid #E2E8F0',
-                            borderRadius: '10px',
-                            '&:hover': { bgcolor: PRIMARY_LIGHT, borderColor: PRIMARY }
-                        }}
-                    >
-                        <ArrowBackIcon sx={{ fontSize: 20 }} />
-                    </IconButton>
-                    <Box>
-                        <Typography sx={{ fontSize: '18px', fontWeight: '800', color: '#1a1a1a' }}>
-                            Auto-Deductions & Compliance
-                        </Typography>
-                        <Typography sx={{ fontSize: '12px', color: '#94A3B8', mt: 0.3 }}>
-                            Configure statutory compliance settings
-                        </Typography>
+                {/* ─── Header (fixed) ──────────────────────────────────────── */}
+                <Box sx={{
+                    position: "fixed",
+                    top: "60px",
+                    left: isExpanded ? "260px" : "80px",
+                    right: 0,
+                    backgroundColor: "#f2f2f2",
+                    px: 2,
+                    py: 1,
+                    borderBottom: "1px solid #ddd",
+                    borderTop: "1px solid #ddd",
+                    zIndex: 1200,
+                    transition: "left 0.3s ease-in-out",
+                    overflow: 'hidden',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: 1.5,
+                }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <IconButton
+                            onClick={() => navigate(-1)}
+                            sx={{
+                                width: 38, height: 38,
+                                bgcolor: '#F9FAFB',
+                                border: '1px solid #E5E7EB',
+                                borderRadius: '10px',
+                                '&:hover': { bgcolor: PRIMARY_LIGHT, borderColor: PRIMARY_BORDER },
+                            }}
+                        >
+                            <ArrowBackIcon sx={{ fontSize: 18, color: '#374151' }} />
+                        </IconButton>
+                        <Box sx={{
+                            width: 38, height: 38, borderRadius: '10px',
+                            bgcolor: PRIMARY_LIGHT, border: `1px solid ${PRIMARY_BORDER}`,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}>
+                            <VerifiedUserIcon sx={{ color: PRIMARY, fontSize: 20 }} />
+                        </Box>
+                        <Box>
+                            <Typography sx={{ fontSize: '16px', fontWeight: 800, color: '#111827', lineHeight: 1.1 }}>
+                                Auto-Deductions & Compliance
+                            </Typography>
+                            <Typography sx={{ fontSize: '11.5px', color: '#6B7280', mt: 0.3 }}>
+                                Configure statutory compliance settings and per-employee deductions
+                            </Typography>
+                        </Box>
+                    </Box>
+
+                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+                        {activeTab === 0 && (
+                            <TextField
+                                fullWidth
+                                variant="outlined"
+                                placeholder="Search by name, ID, or designation..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                slotProps={{
+                                    input: {
+                                        startAdornment: (
+                                            <InputAdornment position="start">
+                                                <SearchIcon sx={{ fontSize: 18, color: searchActive ? PRIMARY : '#9CA3AF' }} />
+                                            </InputAdornment>
+                                        ),
+                                        endAdornment: searchActive ? (
+                                            <InputAdornment position="end">
+                                                <IconButton size="small" onClick={() => setSearchQuery('')} sx={{ p: 0.3 }}>
+                                                    <CloseIcon sx={{ fontSize: 14, color: '#9CA3AF' }} />
+                                                </IconButton>
+                                            </InputAdornment>
+                                        ) : null,
+                                        sx: {
+                                            padding: '0 12px',
+                                            borderRadius: '50px',
+                                            height: '32px',
+                                            fontSize: '12px',
+                                        },
+                                    },
+                                }}
+                                sx={{
+                                    width: { xs: '100%', sm: 260 },
+                                    '& .MuiOutlinedInput-root': {
+                                        minHeight: '32px',
+                                        paddingRight: '3px',
+                                        backgroundColor: '#fff',
+                                    },
+                                    '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                        borderColor: websiteSettings.mainColor,
+                                    },
+                                }}
+                            />
+                        )}
+
+                        {showExportButton && (
+                            <Button
+                                disableElevation
+                                startIcon={<SaveOutlinedIcon sx={{ fontSize: 16 }} />}
+                                onClick={handleExportCompliance}
+                                sx={{
+                                    textTransform: 'none', fontSize: '12.5px', fontWeight: 700,
+                                    color: PRIMARY_DARK, bgcolor: PRIMARY_LIGHT,
+                                    border: `1.5px solid ${PRIMARY_BORDER}`,
+                                    borderRadius: '30px',
+                                    px: 2.2, height: 34,
+                                    boxShadow: 'none',
+                                    '&:hover': {
+                                        bgcolor: '#D1FAE5',
+                                        borderColor: PRIMARY,
+                                        boxShadow: 'none',
+                                    },
+                                }}
+                            >
+                                Export
+                            </Button>
+                        )}
+
+                        {showSaveButton && (
+                            <Button
+                                variant="contained"
+                                disableElevation
+                                startIcon={anyConfigSaving
+                                    ? <CircularProgress size={14} sx={{ color: '#fff' }} />
+                                    : <SaveOutlinedIcon sx={{ fontSize: 18 }} />}
+                                onClick={handleSave}
+                                disabled={anyConfigSaving}
+                                sx={{
+                                    textTransform: 'none',
+                                    bgcolor: '#0F172A',
+                                    color: '#fff',
+                                    borderRadius: '30px',
+                                    fontSize: '12.5px',
+                                    fontWeight: 700,
+                                    px: 2.4, height: 34,
+                                    boxShadow: 'none',
+                                    border: '1.5px solid #0F172A',
+                                    '&:hover': {
+                                        bgcolor: '#1E293B',
+                                        borderColor: '#1E293B',
+                                        boxShadow: 'none',
+                                    },
+                                    '&.Mui-disabled': { bgcolor: '#E5E7EB', color: '#9CA3AF', borderColor: '#E5E7EB' },
+                                }}
+                            >
+                                {anyConfigSaving ? 'Saving…' : 'Save Settings'}
+                            </Button>
+                        )}
                     </Box>
                 </Box>
-                <Button
-                    variant="contained"
-                    startIcon={<SaveOutlinedIcon />}
-                    onClick={handleSave}
-                    disabled={isPFSaving || isESISaving || isPTSaving || isTDSSaving}
-                    sx={{
-                        textTransform: 'none',
-                        bgcolor: PRIMARY,
-                        borderRadius: '10px',
-                        fontSize: '13px',
-                        fontWeight: '700',
-                        px: 3,
-                        '&:hover': { bgcolor: PRIMARY_DARK }
-                    }}
-                >
-                    {isPFSaving || isESISaving || isPTSaving || isTDSSaving ? 'Saving...' : 'Save Settings'}
-                </Button>
+
+                {/* ─── Tabs ────────────────────────────────────────────────── */}
+                <Box sx={{
+                    mt: '70px',
+                    bgcolor: '#fff',
+                    borderBottom: '1px solid #E5E7EB',
+                    px: 2,
+                }}>
+                    <Tabs
+                        value={activeTab}
+                        onChange={(e, newValue) => setActiveTab(newValue)}
+                        variant="scrollable"
+                        scrollButtons="auto"
+                        sx={{
+                            minHeight: 42,
+                            '& .MuiTab-root': {
+                                textTransform: 'none',
+                                fontSize: '12.5px',
+                                fontWeight: 600,
+                                minHeight: 42,
+                                color: '#6B7280',
+                                px: 2,
+                            },
+                            '& .Mui-selected': { color: `${PRIMARY} !important`, fontWeight: 700 },
+                            '& .MuiTabs-indicator': { bgcolor: PRIMARY, height: 2.5, borderRadius: '2px 2px 0 0' },
+                        }}
+                    >
+                        <Tab label="Employee Compliance" />
+                        <Tab label="Provident Fund (PF)" />
+                        <Tab label="ESI" />
+                        <Tab label="Professional Tax" />
+                        <Tab label="TDS" />
+                    </Tabs>
+                </Box>
+
+                {/* ─── Body ────────────────────────────────────────────────── */}
+                <Box sx={{ flex: 1, pb: 2, px: 2, pt: 2 }}>
+                    {activeTab === 0 && renderEmployeeComplianceTab()}
+                    {activeTab === 1 && renderPFTab()}
+                    {activeTab === 2 && renderESITab()}
+                    {activeTab === 3 && renderPTTab()}
+                    {activeTab === 4 && renderTDSTab()}
+                </Box>
             </Box>
 
-            <Divider />
-
-            <Box sx={{ borderBottom: 1, borderColor: 'divider', bgcolor: '#fff', px: 3 }}>
-                <Tabs
-                    value={activeTab}
-                    onChange={(e, newValue) => setActiveTab(newValue)}
-                    sx={{
-                        '& .MuiTab-root': { textTransform: 'none', fontSize: '13px', fontWeight: 600, minHeight: '48px' },
-                        '& .Mui-selected': { color: `${PRIMARY} !important` },
-                        '& .MuiTabs-indicator': { bgcolor: PRIMARY }
-                    }}
-                >
-                    <Tab label="Employee Compliance" />
-                    <Tab label="Provident Fund (PF)" />
-                    <Tab label="ESI" />
-                    <Tab label="Professional Tax" />
-                    <Tab label="TDS" />
-                </Tabs>
-            </Box>
-
-            <Box sx={{ flex: 1, overflow: 'auto', p: 2.5 }}>
-                {activeTab === 0 && renderEmployeeComplianceTab()}
-                {activeTab === 1 && renderPFTab()}
-                {activeTab === 2 && renderESITab()}
-                {activeTab === 3 && renderPTTab()}
-                {activeTab === 4 && renderTDSTab()}
-            </Box>
-
+            {/* ─── Edit Employee Compliance Dialog ─────────────────────── */}
             <Dialog
                 open={editDialogOpen}
                 onClose={() => setEditDialogOpen(false)}
                 maxWidth="md"
                 fullWidth
-                PaperProps={{ sx: { borderRadius: '16px', boxShadow: '0 8px 32px rgba(0,0,0,0.12)' } }}
+                slotProps={{
+                    paper: { sx: { borderRadius: '7px', overflow: 'hidden' } },
+                }}
             >
-                <DialogTitle sx={{ bgcolor: '#FAFAFA', borderBottom: '2px solid #F1F5F9', pb: 2 }}>
+                {/* Dialog header */}
+                <Box sx={{
+                    px: 2.5, py: 2,
+                    background: `linear-gradient(135deg, ${PRIMARY_LIGHT} 0%, #fff 70%)`,
+                    borderBottom: `1px solid ${PRIMARY_BORDER}`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5,
+                }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                         <Box sx={{
                             width: 40, height: 40, borderRadius: '10px',
-                            bgcolor: PRIMARY_LIGHT, display: 'flex',
-                            alignItems: 'center', justifyContent: 'center',
-                            border: `1px solid ${PRIMARY}30`
+                            bgcolor: '#fff', border: `1px solid ${PRIMARY_BORDER}`,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
                         }}>
-                            <EditIcon sx={{ fontSize: 20, color: PRIMARY }} />
+                            <EditIcon sx={{ color: PRIMARY, fontSize: 20 }} />
                         </Box>
                         <Box>
-                            <Typography sx={{ fontSize: '16px', fontWeight: '700', color: '#1a1a1a' }}>
+                            <Typography sx={{ fontSize: '16px', fontWeight: 800, color: '#111827', lineHeight: 1.1 }}>
                                 Edit Compliance Settings
                             </Typography>
-                            {selectedEmployee && (
-                                <Typography sx={{ fontSize: '12px', color: '#94A3B8', mt: 0.3 }}>
-                                    {selectedEmployee.name} ({selectedEmployee.employeeId})
-                                </Typography>
-                            )}
+                            <Typography sx={{ fontSize: '11.5px', color: '#6B7280', mt: 0.3 }}>
+                                Update statutory deductions and salary components for this employee
+                            </Typography>
                         </Box>
                     </Box>
-                </DialogTitle>
-                <DialogContent sx={{ p: 3, mt: 2 }}>
-                    {editedCompliance && selectedEmployee && (
-                        <Grid container spacing={3}>
-                            <Grid size={{ xs: 12 }}>
-                                <Card sx={{ border: '1px solid #E8E8E8', borderRadius: '12px', bgcolor: '#FAFAFA' }}>
-                                    <CardContent sx={{ p: 2.5 }}>
-                                        <Typography sx={{ fontSize: '14px', fontWeight: 700, color: '#1a1a1a', mb: 2 }}>
-                                            Salary Components
-                                        </Typography>
-                                        <Grid container spacing={2}>
-                                            <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
-                                                <TextField
-                                                    label="Performance Incentive"
-                                                    value={selectedEmployee.incentive}
-                                                    onChange={(e) => {
-                                                        const val = parseFloat(e.target.value) || 0;
-                                                        setEmployeeData(employeeData.map(emp =>
-                                                            emp.id === selectedEmployee.id ? { ...emp, incentive: val } : emp
-                                                        ));
-                                                        setSelectedEmployee({ ...selectedEmployee, incentive: val });
-                                                    }}
-                                                    size="small"
-                                                    fullWidth
-                                                    type="number"
-                                                    slotProps={{
-                                                        inputLabel: { shrink: true },
-                                                        input: { startAdornment: <InputAdornment position="start">₹</InputAdornment> }
-                                                    }}
-                                                    sx={fieldSx}
-                                                    helperText="Monthly performance-based incentive"
-                                                />
-                                            </Grid>
-                                            <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
-                                                <TextField
-                                                    label="Additional Salary"
-                                                    value={selectedEmployee.additionalSalary}
-                                                    onChange={(e) => {
-                                                        const val = parseFloat(e.target.value) || 0;
-                                                        setEmployeeData(employeeData.map(emp =>
-                                                            emp.id === selectedEmployee.id ? { ...emp, additionalSalary: val } : emp
-                                                        ));
-                                                        setSelectedEmployee({ ...selectedEmployee, additionalSalary: val });
-                                                    }}
-                                                    size="small"
-                                                    fullWidth
-                                                    type="number"
-                                                    slotProps={{
-                                                        inputLabel: { shrink: true },
-                                                        input: { startAdornment: <InputAdornment position="start">₹</InputAdornment> }
-                                                    }}
-                                                    sx={fieldSx}
-                                                    helperText="One-time or special allowance"
-                                                />
-                                            </Grid>
-                                        </Grid>
-                                    </CardContent>
-                                </Card>
-                            </Grid>
+                    <IconButton
+                        onClick={() => setEditDialogOpen(false)}
+                        sx={{
+                            width: 32, height: 32, borderRadius: '8px',
+                            bgcolor: '#fff', border: '1px solid #E5E7EB',
+                            '&:hover': { bgcolor: '#F9FAFB' },
+                        }}
+                    >
+                        <CloseIcon sx={{ fontSize: 16, color: '#6B7280' }} />
+                    </IconButton>
+                </Box>
 
-                            <Grid size={{ xs: 12 }}>
-                                <Card sx={{ border: '1px solid #8600BB30', borderRadius: '12px', bgcolor: '#f9f4fc' }}>
-                                    <CardContent sx={{ p: 2.5 }}>
-                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <DialogContent sx={{ p: 2.5, bgcolor: '#F9FAFB' }}>
+                    {editedCompliance && selectedEmployee && (
+                        <>
+                            {/* Employee Identity Card */}
+                            <Box sx={{
+                                p: 2, mb: 2,
+                                bgcolor: '#fff', borderRadius: '7px',
+                                border: '1px solid #E5E7EB',
+                                display: 'flex', alignItems: 'center', gap: 1.5,
+                            }}>
+                                <Avatar sx={{
+                                    width: 44, height: 44,
+                                    bgcolor: `${avatarColorFor(selectedEmployee.name)}15`,
+                                    color: avatarColorFor(selectedEmployee.name),
+                                    fontSize: '14px', fontWeight: 800,
+                                    border: `1px solid ${avatarColorFor(selectedEmployee.name)}33`,
+                                }}>
+                                    {getInitials(selectedEmployee.name)}
+                                </Avatar>
+                                <Box sx={{ flex: 1, minWidth: 0 }}>
+                                    <Typography sx={{ fontSize: '14px', fontWeight: 700, color: '#111827' }}>
+                                        {selectedEmployee.name}
+                                    </Typography>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, mt: 0.3, flexWrap: 'wrap' }}>
+                                        <Chip
+                                            label={selectedEmployee.employeeId}
+                                            size="small"
+                                            sx={{
+                                                bgcolor: '#F3F4F6', color: '#374151',
+                                                fontWeight: 600, fontSize: '10.5px', height: 20,
+                                                border: '1px solid #E5E7EB',
+                                            }}
+                                        />
+                                        {selectedEmployee.designation && (
+                                            <Typography sx={{ fontSize: '11px', color: '#6B7280' }}>
+                                                {selectedEmployee.designation}
+                                            </Typography>
+                                        )}
+                                    </Box>
+                                </Box>
+                                {selectedEmployee.basicSalary != null && (
+                                    <Box sx={{
+                                        textAlign: 'right',
+                                        px: 1.2, py: 0.6, borderRadius: '8px',
+                                        bgcolor: PRIMARY_LIGHT, border: `1px solid ${PRIMARY_BORDER}`,
+                                    }}>
+                                        <Typography sx={{ fontSize: '9.5px', color: PRIMARY_DARK, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                            Basic Salary
+                                        </Typography>
+                                        <Typography sx={{ fontSize: '14px', fontWeight: 800, color: PRIMARY_DARK }}>
+                                            {formatINR(selectedEmployee.basicSalary)}
+                                        </Typography>
+                                    </Box>
+                                )}
+                            </Box>
+
+                            {/* Salary Components */}
+                            <Box sx={{
+                                p: 2, mb: 2,
+                                bgcolor: '#fff', borderRadius: '7px',
+                                border: '1px solid #E5E7EB',
+                            }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                                    <Box sx={{
+                                        width: 24, height: 24, borderRadius: '6px',
+                                        bgcolor: PRIMARY_LIGHT, border: `1px solid ${PRIMARY_BORDER}`,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    }}>
+                                        <TrendingUpIcon sx={{ fontSize: 14, color: PRIMARY }} />
+                                    </Box>
+                                    <Typography sx={{
+                                        fontSize: '11px', fontWeight: 700, color: '#374151',
+                                        textTransform: 'uppercase', letterSpacing: 0.6,
+                                    }}>
+                                        Salary Components
+                                    </Typography>
+                                </Box>
+                                <Grid container spacing={2}>
+                                    <Grid size={{ xs: 12, sm: 6 }}>
+                                        <TextField
+                                            label="Performance Incentive"
+                                            value={selectedEmployee.incentive}
+                                            onChange={(e) => {
+                                                const val = parseFloat(e.target.value) || 0;
+                                                setEmployeeData(employeeData.map(emp =>
+                                                    emp.id === selectedEmployee.id ? { ...emp, incentive: val } : emp
+                                                ));
+                                                setSelectedEmployee({ ...selectedEmployee, incentive: val });
+                                            }}
+                                            size="small" fullWidth type="number"
+                                            slotProps={{
+                                                inputLabel: { shrink: true },
+                                                input: { startAdornment: <InputAdornment position="start">₹</InputAdornment> },
+                                                formHelperText: { sx: { fontSize: '10.5px', color: '#6B7280', ml: 0.5, mt: 0.3 } },
+                                            }}
+                                            helperText="Monthly performance-based incentive"
+                                            sx={fieldSx}
+                                        />
+                                    </Grid>
+                                    <Grid size={{ xs: 12, sm: 6 }}>
+                                        <TextField
+                                            label="Additional Salary"
+                                            value={selectedEmployee.additionalSalary}
+                                            onChange={(e) => {
+                                                const val = parseFloat(e.target.value) || 0;
+                                                setEmployeeData(employeeData.map(emp =>
+                                                    emp.id === selectedEmployee.id ? { ...emp, additionalSalary: val } : emp
+                                                ));
+                                                setSelectedEmployee({ ...selectedEmployee, additionalSalary: val });
+                                            }}
+                                            size="small" fullWidth type="number"
+                                            slotProps={{
+                                                inputLabel: { shrink: true },
+                                                input: { startAdornment: <InputAdornment position="start">₹</InputAdornment> },
+                                                formHelperText: { sx: { fontSize: '10.5px', color: '#6B7280', ml: 0.5, mt: 0.3 } },
+                                            }}
+                                            helperText="One-time or special allowance"
+                                            sx={fieldSx}
+                                        />
+                                    </Grid>
+                                </Grid>
+                            </Box>
+
+                            {/* Statutory deductions — grid of 4 mini cards */}
+                            <Grid container spacing={2}>
+                                {/* PF */}
+                                <Grid size={{ xs: 12, sm: 6 }}>
+                                    <Box sx={{
+                                        p: 2, bgcolor: '#fff', borderRadius: '7px',
+                                        border: '1px solid #DDD6FE',
+                                    }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
                                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                <AccountBalanceIcon sx={{ fontSize: 20, color: '#8600BB' }} />
-                                                <Typography sx={{ fontSize: '14px', fontWeight: 700, color: '#1a1a1a' }}>
-                                                    Provident Fund (PF)
+                                                <Box sx={{
+                                                    width: 28, height: 28, borderRadius: '7px',
+                                                    bgcolor: '#F5F3FF', border: '1px solid #DDD6FE',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                }}>
+                                                    <AccountBalanceIcon sx={{ fontSize: 15, color: '#6D28D9' }} />
+                                                </Box>
+                                                <Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>
+                                                    Provident Fund
                                                 </Typography>
                                             </Box>
                                             <Switch
                                                 checked={editedCompliance.pfApplicable}
                                                 onChange={(e) => setEditedCompliance({ ...editedCompliance, pfApplicable: e.target.checked })}
+                                                size="small"
                                                 sx={{
-                                                    '& .MuiSwitch-switchBase.Mui-checked': { color: '#8600BB' },
-                                                    '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#8600BB' }
+                                                    '& .MuiSwitch-switchBase.Mui-checked': { color: '#6D28D9' },
+                                                    '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#6D28D9' },
                                                 }}
                                             />
                                         </Box>
@@ -1326,36 +1639,43 @@ export default function ComplianceSettings() {
                                             label="PF Percentage"
                                             value={editedCompliance.pfPercentage}
                                             onChange={(e) => setEditedCompliance({ ...editedCompliance, pfPercentage: parseFloat(e.target.value) || 0 })}
-                                            size="small"
-                                            fullWidth
-                                            type="number"
+                                            size="small" fullWidth type="number"
                                             disabled={!editedCompliance.pfApplicable}
                                             slotProps={{
                                                 inputLabel: { shrink: true },
-                                                input: { endAdornment: <InputAdornment position="end">%</InputAdornment> }
+                                                input: { endAdornment: <InputAdornment position="end">%</InputAdornment> },
                                             }}
                                             sx={fieldSx}
                                         />
-                                    </CardContent>
-                                </Card>
-                            </Grid>
+                                    </Box>
+                                </Grid>
 
-                            <Grid size={{ xs: 12 }}>
-                                <Card sx={{ border: '1px solid #10B98130', borderRadius: '12px', bgcolor: '#ECFDF5' }}>
-                                    <CardContent sx={{ p: 2.5 }}>
-                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                                {/* ESI */}
+                                <Grid size={{ xs: 12, sm: 6 }}>
+                                    <Box sx={{
+                                        p: 2, bgcolor: '#fff', borderRadius: '7px',
+                                        border: '1px solid #A7F3D0',
+                                    }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
                                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                <SecurityIcon sx={{ fontSize: 20, color: '#10B981' }} />
-                                                <Typography sx={{ fontSize: '14px', fontWeight: 700, color: '#1a1a1a' }}>
-                                                    Employee State Insurance (ESI)
+                                                <Box sx={{
+                                                    width: 28, height: 28, borderRadius: '7px',
+                                                    bgcolor: '#ECFDF5', border: '1px solid #A7F3D0',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                }}>
+                                                    <SecurityIcon sx={{ fontSize: 15, color: '#047857' }} />
+                                                </Box>
+                                                <Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>
+                                                    ESI
                                                 </Typography>
                                             </Box>
                                             <Switch
                                                 checked={editedCompliance.esiApplicable}
                                                 onChange={(e) => setEditedCompliance({ ...editedCompliance, esiApplicable: e.target.checked })}
+                                                size="small"
                                                 sx={{
-                                                    '& .MuiSwitch-switchBase.Mui-checked': { color: '#10B981' },
-                                                    '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#10B981' }
+                                                    '& .MuiSwitch-switchBase.Mui-checked': { color: '#047857' },
+                                                    '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#047857' },
                                                 }}
                                             />
                                         </Box>
@@ -1363,36 +1683,43 @@ export default function ComplianceSettings() {
                                             label="ESI Percentage"
                                             value={editedCompliance.esiPercentage}
                                             onChange={(e) => setEditedCompliance({ ...editedCompliance, esiPercentage: parseFloat(e.target.value) || 0 })}
-                                            size="small"
-                                            fullWidth
-                                            type="number"
+                                            size="small" fullWidth type="number"
                                             disabled={!editedCompliance.esiApplicable}
                                             slotProps={{
                                                 inputLabel: { shrink: true },
-                                                input: { endAdornment: <InputAdornment position="end">%</InputAdornment> }
+                                                input: { endAdornment: <InputAdornment position="end">%</InputAdornment> },
                                             }}
                                             sx={fieldSx}
                                         />
-                                    </CardContent>
-                                </Card>
-                            </Grid>
+                                    </Box>
+                                </Grid>
 
-                            <Grid size={{ xs: 12 }}>
-                                <Card sx={{ border: '1px solid #FF980030', borderRadius: '12px', bgcolor: '#FFF4E6' }}>
-                                    <CardContent sx={{ p: 2.5 }}>
-                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                                {/* PT */}
+                                <Grid size={{ xs: 12, sm: 6 }}>
+                                    <Box sx={{
+                                        p: 2, bgcolor: '#fff', borderRadius: '7px',
+                                        border: '1px solid #FED7AA',
+                                    }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
                                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                <ReceiptIcon sx={{ fontSize: 20, color: '#FF9800' }} />
-                                                <Typography sx={{ fontSize: '14px', fontWeight: 700, color: '#1a1a1a' }}>
-                                                    Professional Tax (PT)
+                                                <Box sx={{
+                                                    width: 28, height: 28, borderRadius: '7px',
+                                                    bgcolor: '#FFF7ED', border: '1px solid #FED7AA',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                }}>
+                                                    <ReceiptIcon sx={{ fontSize: 15, color: '#C2410C' }} />
+                                                </Box>
+                                                <Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>
+                                                    Professional Tax
                                                 </Typography>
                                             </Box>
                                             <Switch
                                                 checked={editedCompliance.ptApplicable}
                                                 onChange={(e) => setEditedCompliance({ ...editedCompliance, ptApplicable: e.target.checked })}
+                                                size="small"
                                                 sx={{
-                                                    '& .MuiSwitch-switchBase.Mui-checked': { color: '#FF9800' },
-                                                    '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#FF9800' }
+                                                    '& .MuiSwitch-switchBase.Mui-checked': { color: '#C2410C' },
+                                                    '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#C2410C' },
                                                 }}
                                             />
                                         </Box>
@@ -1400,36 +1727,43 @@ export default function ComplianceSettings() {
                                             label="PT Amount"
                                             value={editedCompliance.ptAmount}
                                             onChange={(e) => setEditedCompliance({ ...editedCompliance, ptAmount: parseFloat(e.target.value) || 0 })}
-                                            size="small"
-                                            fullWidth
-                                            type="number"
+                                            size="small" fullWidth type="number"
                                             disabled={!editedCompliance.ptApplicable}
                                             slotProps={{
                                                 inputLabel: { shrink: true },
-                                                input: { startAdornment: <InputAdornment position="start">₹</InputAdornment> }
+                                                input: { startAdornment: <InputAdornment position="start">₹</InputAdornment> },
                                             }}
                                             sx={fieldSx}
                                         />
-                                    </CardContent>
-                                </Card>
-                            </Grid>
+                                    </Box>
+                                </Grid>
 
-                            <Grid size={{ xs: 12 }}>
-                                <Card sx={{ border: '1px solid #2563EB30', borderRadius: '12px', bgcolor: PRIMARY_LIGHT }}>
-                                    <CardContent sx={{ p: 2.5 }}>
-                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                                {/* TDS */}
+                                <Grid size={{ xs: 12, sm: 6 }}>
+                                    <Box sx={{
+                                        p: 2, bgcolor: '#fff', borderRadius: '7px',
+                                        border: '1px solid #BFDBFE',
+                                    }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
                                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                <AccountBalanceWalletIcon sx={{ fontSize: 20, color: PRIMARY }} />
-                                                <Typography sx={{ fontSize: '14px', fontWeight: 700, color: '#1a1a1a' }}>
-                                                    Tax Deducted at Source (TDS)
+                                                <Box sx={{
+                                                    width: 28, height: 28, borderRadius: '7px',
+                                                    bgcolor: '#EFF6FF', border: '1px solid #BFDBFE',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                }}>
+                                                    <AccountBalanceWalletIcon sx={{ fontSize: 15, color: '#1D4ED8' }} />
+                                                </Box>
+                                                <Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>
+                                                    TDS
                                                 </Typography>
                                             </Box>
                                             <Switch
                                                 checked={editedCompliance.tdsApplicable}
                                                 onChange={(e) => setEditedCompliance({ ...editedCompliance, tdsApplicable: e.target.checked })}
+                                                size="small"
                                                 sx={{
-                                                    '& .MuiSwitch-switchBase.Mui-checked': { color: PRIMARY },
-                                                    '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: PRIMARY }
+                                                    '& .MuiSwitch-switchBase.Mui-checked': { color: '#1D4ED8' },
+                                                    '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#1D4ED8' },
                                                 }}
                                             />
                                         </Box>
@@ -1437,48 +1771,54 @@ export default function ComplianceSettings() {
                                             label="TDS Percentage"
                                             value={editedCompliance.tdsPercentage}
                                             onChange={(e) => setEditedCompliance({ ...editedCompliance, tdsPercentage: parseFloat(e.target.value) || 0 })}
-                                            size="small"
-                                            fullWidth
-                                            type="number"
+                                            size="small" fullWidth type="number"
                                             disabled={!editedCompliance.tdsApplicable}
                                             slotProps={{
                                                 inputLabel: { shrink: true },
-                                                input: { endAdornment: <InputAdornment position="end">%</InputAdornment> }
+                                                input: { endAdornment: <InputAdornment position="end">%</InputAdornment> },
                                             }}
                                             sx={fieldSx}
                                         />
-                                    </CardContent>
-                                </Card>
+                                    </Box>
+                                </Grid>
                             </Grid>
-                        </Grid>
+                        </>
                     )}
                 </DialogContent>
-                <DialogActions sx={{ p: 3, bgcolor: '#FAFAFA', borderTop: '2px solid #F1F5F9' }}>
+
+                <DialogActions sx={{ px: 2.5, py: 1.8, borderTop: '1px solid #E5E7EB', bgcolor: '#fff' }}>
                     <Button
                         onClick={() => setEditDialogOpen(false)}
-                        sx={{ textTransform: 'none', color: '#64748B', borderRadius: '10px', fontSize: '13px', fontWeight: '700' }}
+                        disabled={isSavingCompliance}
+                        sx={{
+                            textTransform: 'none', fontSize: '13px', fontWeight: 600,
+                            color: '#374151', borderRadius: '10px',
+                            border: '1px solid #E5E7EB', px: 2, height: 38,
+                            '&:hover': { bgcolor: '#F9FAFB' },
+                        }}
                     >
                         Cancel
                     </Button>
                     <Button
-                        onClick={handleSaveEmployeeCompliance}
                         variant="contained"
+                        onClick={handleSaveEmployeeCompliance}
                         disabled={isSavingCompliance}
+                        startIcon={isSavingCompliance
+                            ? <CircularProgress size={14} sx={{ color: '#fff' }} />
+                            : <SaveOutlinedIcon sx={{ fontSize: 18 }} />}
                         sx={{
-                            textTransform: 'none',
-                            bgcolor: PRIMARY,
-                            borderRadius: '10px',
-                            fontSize: '13px',
-                            fontWeight: '700',
-                            px: 3,
-                            '&:hover': { bgcolor: PRIMARY_DARK }
+                            textTransform: 'none', fontSize: '13px', fontWeight: 700,
+                            bgcolor: PRIMARY, color: '#fff', borderRadius: '10px',
+                            px: 2.5, height: 38,
+                            boxShadow: `0 2px 6px ${PRIMARY}33`,
+                            '&:hover': { bgcolor: PRIMARY_DARK, boxShadow: `0 4px 12px ${PRIMARY}55` },
+                            '&.Mui-disabled': { bgcolor: '#E5E7EB', color: '#9CA3AF' },
                         }}
                     >
-                        {isSavingCompliance ? 'Saving...' : 'Save Changes'}
+                        {isSavingCompliance ? 'Saving…' : 'Save Changes'}
                     </Button>
                 </DialogActions>
             </Dialog>
-        </Box>
         </>
     );
 }

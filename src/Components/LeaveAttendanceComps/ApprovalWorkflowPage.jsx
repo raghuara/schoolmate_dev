@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
     Box, Card, CardContent, Grid, Typography, IconButton, Button, Chip,
-    Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
     Avatar, TextField, InputAdornment, CircularProgress, Tooltip,
-    Dialog, DialogTitle, DialogContent, DialogActions,
+    Dialog, DialogTitle, DialogContent, DialogActions, Divider,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -12,11 +11,15 @@ import PendingIcon from '@mui/icons-material/Pending';
 import SearchIcon from '@mui/icons-material/Search';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import PriorityHighIcon from '@mui/icons-material/PriorityHigh';
-import EventBusyIcon from '@mui/icons-material/EventBusy';
 import FactCheckOutlinedIcon from '@mui/icons-material/FactCheckOutlined';
 import CloseIcon from '@mui/icons-material/Close';
+import PhoneOutlinedIcon from '@mui/icons-material/PhoneOutlined';
+import ContactPhoneOutlinedIcon from '@mui/icons-material/ContactPhoneOutlined';
+import EventNoteOutlinedIcon from '@mui/icons-material/EventNoteOutlined';
+import NotesIcon from '@mui/icons-material/Notes';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import InboxOutlinedIcon from '@mui/icons-material/InboxOutlined';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import axios from 'axios';
@@ -35,9 +38,11 @@ const PRIMARY_BORDER = '#A7F3D0';
 const LEAVE_TYPE_STYLE = {
     'Casual Leave':    { color: '#2563EB', bg: '#EFF6FF', border: '#BFDBFE' },
     'Sick Leave':      { color: '#DC2626', bg: '#FEF2F2', border: '#FECACA' },
+    'Medical Leave':   { color: '#DC2626', bg: '#FEF2F2', border: '#FECACA' },
     'Planned Leave':   { color: '#16A34A', bg: '#F0FDF4', border: '#A7F3D0' },
     'Emergency Leave': { color: '#EA580C', bg: '#FFF7ED', border: '#FED7AA' },
     'Maternity Leave': { color: '#7C3AED', bg: '#F5F3FF', border: '#DDD6FE' },
+    'Paternity Leave': { color: '#0891B2', bg: '#ECFEFF', border: '#A5F3FC' },
     'Annual Leave':    { color: '#0891B2', bg: '#ECFEFF', border: '#A5F3FC' },
 };
 
@@ -53,12 +58,15 @@ const getInitials = (name = '') =>
 // ─── Date helpers ──────────────────────────────────────────────────────────
 const formatDate = (isoStr) => {
     if (!isoStr) return '—';
-    return new Date(isoStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const d = new Date(isoStr);
+    if (Number.isNaN(d.getTime())) return isoStr;
+    return d.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
 const getRelativeTime = (isoStr) => {
     if (!isoStr) return '';
     const d = new Date(isoStr);
+    if (Number.isNaN(d.getTime())) return '';
     const diffMs = Date.now() - d.getTime();
     if (diffMs < 0) return '';
     const minutes = Math.floor(diffMs / 60000);
@@ -72,13 +80,12 @@ const getRelativeTime = (isoStr) => {
     return `${Math.floor(days / 30)}mo ago`;
 };
 
-const getDaysUntil = (isoStr) => {
-    if (!isoStr) return null;
-    const d = new Date(isoStr);
-    d.setHours(0, 0, 0, 0);
+// Academic year window (Apr–Mar cutoff)
+const getCurrentAcademicYear = () => {
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return Math.round((d - today) / (1000 * 60 * 60 * 24));
+    const y = today.getFullYear();
+    const m = today.getMonth() + 1;
+    return m >= 4 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
 };
 
 const QUICK_REJECT_REASONS = [
@@ -89,33 +96,22 @@ const QUICK_REJECT_REASONS = [
     'Conflicting with team schedule',
 ];
 
-// ─── Sub-tab config ────────────────────────────────────────────────────────
-const SUB_TABS = [
-    { key: 'pending',  label: 'Pending',  apiStatus: 'Requested', icon: PendingIcon,      color: '#D97706' },
-    { key: 'approved', label: 'Approved', apiStatus: 'Approved',  icon: CheckCircleIcon,  color: PRIMARY   },
-    { key: 'rejected', label: 'Rejected', apiStatus: 'Declined',  icon: CancelIcon,       color: '#DC2626' },
-];
-
 export default function ApprovalWorkflowPage({ isEmbedded = false }) {
     const navigate = useNavigate();
     const user = useSelector((state) => state.auth);
-    const rollNumber = user.rollNumber;
+    const rollNumber = user?.rollNumber;
+    const academicYear = useMemo(() => getCurrentAcademicYear(), []);
 
     // ─── State ──────────────────────────────────────────────────────────────
-    const [approvalTab, setApprovalTab] = useState(0);
-    const [decisions, setDecisions] = useState({});
     const [search, setSearch] = useState('');
     const [leaves, setLeaves] = useState([]);
     const [isFetching, setIsFetching] = useState(false);
     const [actionLoading, setActionLoading] = useState({});
 
     // Reject dialog
-    const [rejectDialog, setRejectDialog] = useState({ open: false, leaveApplicationId: null });
+    const [rejectDialog, setRejectDialog] = useState({ open: false, leave: null });
     const [rejectReason, setRejectReason] = useState('');
     const [rejectLoading, setRejectLoading] = useState(false);
-
-    // View rejection reason
-    const [viewReasonDialog, setViewReasonDialog] = useState({ open: false, reason: '' });
 
     // SnackBar
     const [open, setOpen] = useState(false);
@@ -126,19 +122,30 @@ export default function ApprovalWorkflowPage({ isEmbedded = false }) {
         setMessage(msg); setOpen(true); setColor(success); setStatus(success);
     };
 
-    // ─── Fetch ─────────────────────────────────────────────────────────────
+    // ─── Fetch — always Status=Requested for this screen ───────────────────
+    // The approval queue only shows leaves still awaiting a decision. Once a
+    // leave is approved or rejected the API filters it out, so we drop the
+    // row from local state on action to keep the UI in sync without refetch.
     const fetchLeaves = async () => {
+        if (!rollNumber) return;
         setIsFetching(true);
         try {
             const res = await axios.get(leaveApprovalStatusCheck, {
-                params: { RollNumber: rollNumber },
+                params: {
+                    AcademicYear: academicYear,
+                    RollNumber:   rollNumber,
+                    Status:       'Requested',
+                },
                 headers: { Authorization: `Bearer ${token}` },
             });
-            if (res.data && res.data.success) {
-                setLeaves(res.data.leaves || []);
+            if (res?.data?.success) {
+                setLeaves(Array.isArray(res.data.leaves) ? res.data.leaves : []);
+            } else {
+                setLeaves([]);
             }
         } catch (error) {
             console.error('Error fetching leave approval status:', error);
+            setLeaves([]);
             showSnack('Failed to load leave applications', false);
         } finally {
             setIsFetching(false);
@@ -147,86 +154,101 @@ export default function ApprovalWorkflowPage({ isEmbedded = false }) {
 
     useEffect(() => {
         fetchLeaves();
-    }, []);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [rollNumber, academicYear]);
 
-    // ─── Status helpers ────────────────────────────────────────────────────
-    const getEffectiveStatus = (leave) => {
-        const local = decisions[leave.leaveApplicationId];
-        if (local === 'approved') return 'Approved';
-        if (local === 'rejected') return 'Declined';
-        return leave.status;
-    };
-
-    const pendingCount  = leaves.filter(l => getEffectiveStatus(l) === 'Requested').length;
-    const approvedCount = leaves.filter(l => getEffectiveStatus(l) === 'Approved').length;
-    const rejectedCount = leaves.filter(l => getEffectiveStatus(l) === 'Declined').length;
-    const totalApplications = pendingCount + approvedCount + rejectedCount;
-    const subTabCounts = { pending: pendingCount, approved: approvedCount, rejected: rejectedCount };
-
-    const activeApiStatus = SUB_TABS[approvalTab].apiStatus;
-    const baseFiltered = leaves.filter(l => getEffectiveStatus(l) === activeApiStatus);
-
+    // ─── Filter (search across name, leave type, reason, roll number) ─────
     const q = search.trim().toLowerCase();
-    const filtered = q
-        ? baseFiltered.filter(l =>
+    const filtered = useMemo(() => {
+        if (!q) return leaves;
+        return leaves.filter(l =>
             (l.name || '').toLowerCase().includes(q) ||
             (l.leaveType || '').toLowerCase().includes(q) ||
-            (l.reason || '').toLowerCase().includes(q)
-          )
-        : baseFiltered;
+            (l.reason || '').toLowerCase().includes(q) ||
+            String(l.forRollNumber || '').toLowerCase().includes(q)
+        );
+    }, [leaves, q]);
 
-    // ─── Actions ───────────────────────────────────────────────────────────
-    const handleDecision = async (leaveApplicationId, decision, reason = '') => {
-        const action = decision === 'approved' ? 'accept' : 'decline';
-        setActionLoading(prev => ({ ...prev, [leaveApplicationId]: true }));
+    // ─── Action handler ────────────────────────────────────────────────────
+    // PUT updateLeaveApprovalAction
+    //   ?leaveApplicationId=<id>&RollNumber=<approver>&Action=accept|reject&Reason=<text>
+    // The `Reason` param is always sent (empty string when accepting) so the
+    // URL shape matches the backend contract exactly.
+    const handleDecision = async (leave, decision, reason = '') => {
+        const id = leave.leaveApplicationId;
+        const action = decision === 'approved' ? 'accept' : 'reject';
+        setActionLoading(prev => ({ ...prev, [id]: true }));
         try {
-            const params = { leaveApplicationId, RollNumber: rollNumber, Action: action };
-            if (decision === 'rejected' && reason) params.Reason = reason;
-            await axios.put(updateLeaveApprovalAction, null, {
-                params, headers: { Authorization: `Bearer ${token}` },
+            const params = {
+                leaveApplicationId: id,
+                RollNumber: rollNumber,
+                Action: action,
+                Reason: action === 'reject' ? (reason || '').trim() : '',
+            };
+            const res = await axios.put(updateLeaveApprovalAction, null, {
+                params,
+                headers: { Authorization: `Bearer ${token}` },
             });
-            setDecisions(prev => ({ ...prev, [leaveApplicationId]: decision }));
-            showSnack(decision === 'approved' ? 'Leave approved successfully' : 'Leave rejected successfully', true);
+            // Treat explicit { success: false } / { error: true } as a failure
+            // even when the HTTP call itself succeeded.
+            const body = res?.data;
+            if (body && (body.success === false || body.error === true)) {
+                showSnack(body.message || 'Failed to update leave status', false);
+                return;
+            }
+            // Drop the row — it no longer belongs in the Requested queue.
+            setLeaves(prev => prev.filter(l => l.leaveApplicationId !== id));
+            showSnack(
+                decision === 'approved'
+                    ? `Leave approved for ${leave.name}`
+                    : `Leave rejected for ${leave.name}`,
+                true
+            );
         } catch (error) {
             console.error('Error updating leave action:', error);
-            showSnack('Failed to update leave status', false);
+            showSnack(error?.response?.data?.message || 'Failed to update leave status', false);
         } finally {
-            setActionLoading(prev => ({ ...prev, [leaveApplicationId]: false }));
+            setActionLoading(prev => ({ ...prev, [id]: false }));
         }
     };
 
-    const openRejectDialog = (leaveApplicationId) => {
+    const openRejectDialog = (leave) => {
         setRejectReason('');
-        setRejectDialog({ open: true, leaveApplicationId });
+        setRejectDialog({ open: true, leave });
     };
     const closeRejectDialog = () => {
-        setRejectDialog({ open: false, leaveApplicationId: null });
+        if (rejectLoading) return;
+        setRejectDialog({ open: false, leave: null });
         setRejectReason('');
     };
     const handleRejectSubmit = async () => {
+        if (!rejectDialog.leave) return;
+        if (rejectReason.trim().length < 5) {
+            showSnack('Please provide a rejection reason (at least 5 characters).', false);
+            return;
+        }
         setRejectLoading(true);
-        await handleDecision(rejectDialog.leaveApplicationId, 'rejected', rejectReason);
+        await handleDecision(rejectDialog.leave, 'rejected', rejectReason.trim());
         setRejectLoading(false);
-        closeRejectDialog();
+        setRejectDialog({ open: false, leave: null });
+        setRejectReason('');
     };
 
-    // ─── Leave type chip ───────────────────────────────────────────────────
+    // ─── Helpers for rendering ─────────────────────────────────────────────
     const renderLeaveTypeChip = (type) => {
         const cfg = LEAVE_TYPE_STYLE[type] || { color: '#374151', bg: '#F3F4F6', border: '#E5E7EB' };
         return (
             <Chip label={type} size="small" sx={{
                 bgcolor: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}`,
-                fontWeight: 600, fontSize: '10.5px', height: 22,
+                fontWeight: 700, fontSize: '10.5px', height: 22,
             }} />
         );
     };
 
-    // ─── KPI cards ─────────────────────────────────────────────────────────
-    const kpiCards = [
-        { label: 'Pending Review', value: pendingCount,  sub: 'Awaiting your action', color: '#D97706', bg: '#FFFBEB', border: '#FDE68A', icon: PendingIcon },
-        { label: 'Approved',       value: approvedCount, sub: totalApplications > 0 ? `${Math.round((approvedCount / totalApplications) * 100)}% of total` : '—', color: PRIMARY, bg: PRIMARY_LIGHT, border: PRIMARY_BORDER, icon: CheckCircleIcon },
-        { label: 'Rejected',       value: rejectedCount, sub: totalApplications > 0 ? `${Math.round((rejectedCount / totalApplications) * 100)}% of total` : '—', color: '#DC2626', bg: '#FEF2F2', border: '#FECACA', icon: CancelIcon },
-    ];
+    const isSingleDay = (from, to) => {
+        if (!from || !to) return false;
+        return new Date(from).toDateString() === new Date(to).toDateString();
+    };
 
     return (
         <>
@@ -258,74 +280,97 @@ export default function ApprovalWorkflowPage({ isEmbedded = false }) {
                                 Leave Approval
                             </Typography>
                             <Typography sx={{ fontSize: '11px', color: '#6B7280', fontWeight: 500 }}>
-                                Review and approve pending leave applications
+                                Review and act on pending leave applications
                             </Typography>
                         </Box>
                     </Box>
                 )}
 
-                {/* ─── KPI Cards (3) ─── */}
-                <Grid container spacing={2} sx={{ mb: 2 }}>
-                    {kpiCards.map((c) => {
-                        const Icon = c.icon;
-                        return (
-                            <Grid size={{ xs: 12, sm: 4 }} key={c.label}>
-                                <Card sx={{
-                                    border: `1px solid ${c.border}`,
-                                    borderRadius: '12px', boxShadow: 'none',
-                                    bgcolor: c.bg, height: '100%',
-                                    transition: 'transform 0.15s, box-shadow 0.15s',
-                                    '&:hover': { transform: 'translateY(-2px)', boxShadow: `0 6px 16px ${c.color}22` },
+                {/* ─── Header strip (count + search + refresh) ────────────── */}
+                <Card sx={{ border: '1px solid #E5E7EB', borderRadius: '12px', boxShadow: 'none', bgcolor: '#fff', mb: 2 }}>
+                    <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+                            {/* Pending count tile */}
+                            <Box sx={{
+                                display: 'flex', alignItems: 'center', gap: 1.2,
+                                px: 1.4, py: 0.8, borderRadius: '10px',
+                                bgcolor: '#FFFBEB', border: '1px solid #FDE68A',
+                                flexShrink: 0,
+                            }}>
+                                <Box sx={{
+                                    width: 36, height: 36, borderRadius: '8px',
+                                    bgcolor: '#fff', border: '1px solid #FDE68A',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 }}>
-                                    <CardContent sx={{ py: 1.8, '&:last-child': { pb: 1.8 } }}>
-                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                            <Box>
-                                                <Typography sx={{ fontSize: '11px', color: c.color, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                                                    {c.label}
-                                                </Typography>
-                                                <Typography sx={{ fontSize: '28px', fontWeight: 800, color: '#111827', lineHeight: 1.2, mt: 0.5 }}>
-                                                    {c.value}
-                                                </Typography>
-                                                <Typography sx={{ fontSize: '10px', color: c.color, fontWeight: 600, mt: 0.4 }}>
-                                                    {c.sub}
-                                                </Typography>
-                                            </Box>
-                                            <Box sx={{
-                                                width: 38, height: 38, borderRadius: '10px',
-                                                bgcolor: '#fff', border: `1px solid ${c.border}`,
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            }}>
-                                                <Icon sx={{ color: c.color, fontSize: 20 }} />
-                                            </Box>
-                                        </Box>
-                                    </CardContent>
-                                </Card>
-                            </Grid>
-                        );
-                    })}
-                </Grid>
-
-                {/* ─── Approval Requests Card ─── */}
-                <Card sx={{ border: '1px solid #E5E7EB', borderRadius: '12px', boxShadow: 'none', bgcolor: '#fff' }}>
-                    <CardContent sx={{ pb: '12px !important' }}>
-                        {/* Title row */}
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5, flexWrap: 'wrap', gap: 1 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
-                                <Typography sx={{ fontSize: '15px', fontWeight: 700, color: '#111827' }}>
-                                    Approval Requests
-                                </Typography>
-                                <Chip
-                                    label={`${baseFiltered.length} ${SUB_TABS[approvalTab].label.toLowerCase()}`}
-                                    size="small"
-                                    sx={{ bgcolor: '#F3F4F6', color: '#374151', fontWeight: 600, fontSize: '11px', height: 20 }}
-                                />
+                                    <PendingIcon sx={{ color: '#D97706', fontSize: 22 }} />
+                                </Box>
+                                <Box>
+                                    <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: '#92400E', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                        Pending Review
+                                    </Typography>
+                                    <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
+                                        <Typography sx={{ fontSize: 22, fontWeight: 800, color: '#111827', lineHeight: 1 }}>
+                                            {leaves.length}
+                                        </Typography>
+                                        <Typography sx={{ fontSize: 11, color: '#92400E', fontWeight: 600 }}>
+                                            request{leaves.length === 1 ? '' : 's'}
+                                        </Typography>
+                                    </Box>
+                                </Box>
                             </Box>
-                            <Tooltip title="Refresh" arrow>
+
+                            {/* Search */}
+                            <TextField
+                                size="small"
+                                placeholder="Search by name, roll no, leave type, or reason..."
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                slotProps={{
+                                    input: {
+                                        startAdornment: (
+                                            <InputAdornment position="start">
+                                                <SearchIcon sx={{ fontSize: 16, color: q ? PRIMARY : '#9CA3AF' }} />
+                                            </InputAdornment>
+                                        ),
+                                        endAdornment: q ? (
+                                            <InputAdornment position="end">
+                                                <IconButton size="small" onClick={() => setSearch('')} sx={{ p: 0.3 }}>
+                                                    <CloseIcon sx={{ fontSize: 14, color: '#9CA3AF' }} />
+                                                </IconButton>
+                                            </InputAdornment>
+                                        ) : null,
+                                    },
+                                }}
+                                sx={{
+                                    flex: 1, minWidth: 240,
+                                    '& .MuiOutlinedInput-root': {
+                                        height: 38, fontSize: '12.5px', borderRadius: '50px',
+                                        bgcolor: q ? PRIMARY_LIGHT : '#fff',
+                                        '& fieldset': { borderColor: q ? PRIMARY_BORDER : '#E5E7EB' },
+                                        '&:hover fieldset': { borderColor: '#D1D5DB' },
+                                        '&.Mui-focused fieldset': { borderColor: PRIMARY },
+                                    },
+                                }}
+                            />
+
+                            {q && (
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4 }}>
+                                    <Typography sx={{ fontSize: 11.5, color: '#6B7280' }}>Showing</Typography>
+                                    <Typography sx={{ fontSize: 13, fontWeight: 800, color: PRIMARY_DARK }}>
+                                        {filtered.length}
+                                    </Typography>
+                                    <Typography sx={{ fontSize: 11.5, color: '#6B7280' }}>
+                                        of {leaves.length}
+                                    </Typography>
+                                </Box>
+                            )}
+
+                            <Tooltip arrow title="Refresh">
                                 <IconButton
                                     onClick={fetchLeaves}
                                     disabled={isFetching}
                                     sx={{
-                                        width: 34, height: 34, borderRadius: '8px',
+                                        width: 38, height: 38, borderRadius: '10px',
                                         border: `1px solid ${PRIMARY_BORDER}`, bgcolor: PRIMARY_LIGHT,
                                         '&:hover': { bgcolor: '#DCFCE7', borderColor: PRIMARY },
                                     }}
@@ -336,445 +381,316 @@ export default function ApprovalWorkflowPage({ isEmbedded = false }) {
                                 </IconButton>
                             </Tooltip>
                         </Box>
-
-                        {/* Sub-tabs (segmented pill control) */}
-                        <Box sx={{
-                            display: 'flex', gap: 0.6, mb: 1.5,
-                            p: 0.4, borderRadius: '10px',
-                            bgcolor: '#F3F4F6', border: '1px solid #E5E7EB',
-                            width: 'fit-content', flexWrap: 'wrap',
-                        }}>
-                            {SUB_TABS.map((t, idx) => {
-                                const Icon = t.icon;
-                                const active = approvalTab === idx;
-                                const count = subTabCounts[t.key] || 0;
-                                return (
-                                    <Box
-                                        key={t.key}
-                                        onClick={() => setApprovalTab(idx)}
-                                        sx={{
-                                            px: 1.4, py: 0.6, borderRadius: '8px', cursor: 'pointer',
-                                            display: 'flex', alignItems: 'center', gap: 0.7,
-                                            transition: 'all 0.15s',
-                                            bgcolor: active ? '#fff' : 'transparent',
-                                            boxShadow: active ? '0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)' : 'none',
-                                            '&:hover': { bgcolor: active ? '#fff' : 'rgba(255,255,255,0.55)' },
-                                        }}
-                                    >
-                                        <Icon sx={{ fontSize: 14, color: active ? t.color : '#9CA3AF' }} />
-                                        <Typography sx={{
-                                            fontSize: '12px',
-                                            fontWeight: active ? 700 : 600,
-                                            color: active ? t.color : '#6B7280',
-                                        }}>
-                                            {t.label}
-                                        </Typography>
-                                        <Box sx={{
-                                            px: 0.7, py: 0.05, borderRadius: '8px', minWidth: 18, textAlign: 'center',
-                                            bgcolor: active ? `${t.color}15` : '#fff',
-                                            border: `1px solid ${active ? `${t.color}30` : '#E5E7EB'}`,
-                                        }}>
-                                            <Typography sx={{ fontSize: '10px', fontWeight: 800, color: active ? t.color : '#9CA3AF' }}>
-                                                {count}
-                                            </Typography>
-                                        </Box>
-                                    </Box>
-                                );
-                            })}
-                        </Box>
-
-                        {/* Filter toolbar */}
-                        <Box sx={{
-                            p: 1.2, mb: 1.5, borderRadius: '10px',
-                            border: '1px solid #E5E7EB', bgcolor: '#FAFAFA',
-                            display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center',
-                        }}>
-                            <TextField
-                                size="small"
-                                placeholder="Search by name, leave type, reason..."
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                                slotProps={{
-                                    input: {
-                                        startAdornment: (
-                                            <InputAdornment position="start">
-                                                <SearchIcon sx={{ fontSize: 16, color: search ? PRIMARY : '#9CA3AF' }} />
-                                            </InputAdornment>
-                                        ),
-                                        endAdornment: search ? (
-                                            <InputAdornment position="end">
-                                                <IconButton size="small" onClick={() => setSearch('')} sx={{ p: 0.3 }}>
-                                                    <CloseIcon sx={{ fontSize: 14, color: '#9CA3AF' }} />
-                                                </IconButton>
-                                            </InputAdornment>
-                                        ) : null,
-                                    },
-                                }}
-                                sx={{
-                                    flex: 1, minWidth: 240, maxWidth: 360,
-                                    '& .MuiOutlinedInput-root': {
-                                        height: 34, fontSize: '12.5px', borderRadius: '8px',
-                                        bgcolor: search ? PRIMARY_LIGHT : '#fff',
-                                        '& fieldset': { borderColor: search ? PRIMARY_BORDER : '#E5E7EB' },
-                                        '&:hover fieldset': { borderColor: '#D1D5DB' },
-                                        '&.Mui-focused fieldset': { borderColor: PRIMARY },
-                                    },
-                                }}
-                            />
-
-                            <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.6 }}>
-                                <Typography sx={{ fontSize: '11.5px', color: '#6B7280' }}>Showing</Typography>
-                                <Typography sx={{ fontSize: '13px', fontWeight: 800, color: search ? PRIMARY_DARK : '#111827' }}>
-                                    {filtered.length}
-                                </Typography>
-                                <Typography sx={{ fontSize: '11.5px', color: '#6B7280' }}>
-                                    of {baseFiltered.length}
-                                </Typography>
-                            </Box>
-                        </Box>
-
-                        {/* Table */}
-                        <TableContainer sx={{ borderRadius: '10px', overflow: 'hidden', border: '1px solid #E5E7EB' }}>
-                            <Table size="small">
-                                <TableHead>
-                                    <TableRow sx={{ bgcolor: PRIMARY_LIGHT, borderBottom: `1px solid ${PRIMARY_BORDER}` }}>
-                                        {['Staff Member', 'Leave Type', 'Duration', 'Days', 'Reason', 'Applied On', 'Action'].map(h => (
-                                            <TableCell key={h} sx={{
-                                                fontWeight: 700, fontSize: '10px', color: PRIMARY_DARK,
-                                                textTransform: 'uppercase', whiteSpace: 'nowrap',
-                                                letterSpacing: 0.6, py: 1.3, borderBottom: 'none',
-                                            }}>{h}</TableCell>
-                                        ))}
-                                    </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                    {isFetching ? (
-                                        <TableRow>
-                                            <TableCell colSpan={7} align="center" sx={{ py: 6, borderBottom: 'none' }}>
-                                                <CircularProgress size={28} sx={{ color: PRIMARY }} />
-                                            </TableCell>
-                                        </TableRow>
-                                    ) : filtered.length === 0 ? (
-                                        <TableRow>
-                                            <TableCell colSpan={7} align="center" sx={{ py: 6, borderBottom: 'none' }}>
-                                                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.8 }}>
-                                                    {(() => {
-                                                        const t = SUB_TABS[approvalTab];
-                                                        const Icon = t.icon;
-                                                        return (
-                                                            <Box sx={{
-                                                                width: 56, height: 56, borderRadius: '50%',
-                                                                bgcolor: `${t.color}15`, border: `2px solid ${t.color}40`,
-                                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                            }}>
-                                                                <Icon sx={{ fontSize: 28, color: t.color }} />
-                                                            </Box>
-                                                        );
-                                                    })()}
-                                                    <Typography sx={{ fontSize: '14px', fontWeight: 700, color: '#374151' }}>
-                                                        {search ? 'No matching applications' : `No ${SUB_TABS[approvalTab].label.toLowerCase()} applications`}
-                                                    </Typography>
-                                                    <Typography sx={{ fontSize: '11.5px', color: '#9CA3AF', textAlign: 'center', maxWidth: 360, lineHeight: 1.6 }}>
-                                                        {search
-                                                            ? 'Try clearing the search or switching to a different tab.'
-                                                            : approvalTab === 0
-                                                                ? "All caught up — no pending requests waiting for your review."
-                                                                : `Nothing has been ${SUB_TABS[approvalTab].label.toLowerCase()} yet for this period.`}
-                                                    </Typography>
-                                                    <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
-                                                        {search && (
-                                                            <Button
-                                                                size="small"
-                                                                onClick={() => setSearch('')}
-                                                                sx={{
-                                                                    textTransform: 'none', fontSize: '11.5px', fontWeight: 600,
-                                                                    color: '#374151', borderRadius: '8px',
-                                                                    border: '1px solid #E5E7EB', px: 1.6, height: 30,
-                                                                    '&:hover': { bgcolor: '#F9FAFB' },
-                                                                }}
-                                                            >
-                                                                Clear Search
-                                                            </Button>
-                                                        )}
-                                                        <Button
-                                                            size="small"
-                                                            startIcon={<RefreshIcon sx={{ fontSize: 14 }} />}
-                                                            onClick={fetchLeaves}
-                                                            sx={{
-                                                                textTransform: 'none', fontSize: '11.5px', fontWeight: 700,
-                                                                color: PRIMARY_DARK, borderRadius: '8px',
-                                                                border: `1px solid ${PRIMARY_BORDER}`, px: 1.6, height: 30,
-                                                                bgcolor: PRIMARY_LIGHT,
-                                                                '&:hover': { bgcolor: '#DCFCE7', borderColor: PRIMARY },
-                                                            }}
-                                                        >
-                                                            Refresh
-                                                        </Button>
-                                                    </Box>
-                                                </Box>
-                                            </TableCell>
-                                        </TableRow>
-                                    ) : filtered.map((req, idx) => {
-                                        const effectiveStatus = getEffectiveStatus(req);
-                                        const daysUntil = getDaysUntil(req.fromDate);
-                                        const isPending = effectiveStatus === 'Requested';
-                                        const isUrgent = isPending && daysUntil !== null && daysUntil >= 0 && daysUntil <= 3;
-                                        const startsTodayOrTomorrow = daysUntil === 0 || daysUntil === 1;
-                                        const avColor = avatarColorFor(req.name || '');
-
-                                        return (
-                                            <TableRow key={req.leaveApplicationId} sx={{
-                                                '&:hover': { bgcolor: PRIMARY_LIGHT },
-                                                borderBottom: '1px solid #F3F4F6',
-                                                transition: 'background-color 0.15s',
-                                            }}>
-                                                {/* Staff Member */}
-                                                <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
-                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
-                                                        <Avatar sx={{
-                                                            width: 34, height: 34,
-                                                            bgcolor: `${avColor}15`, color: avColor,
-                                                            fontSize: '11px', fontWeight: 700,
-                                                            border: `1px solid ${avColor}33`,
-                                                        }}>
-                                                            {getInitials(req.name)}
-                                                        </Avatar>
-                                                        <Box>
-                                                            <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>
-                                                                {req.name}
-                                                            </Typography>
-                                                            <Typography sx={{ fontSize: '10px', color: '#9CA3AF', fontWeight: 500, fontFamily: 'monospace' }}>
-                                                                {req.forRollNumber}
-                                                            </Typography>
-                                                        </Box>
-                                                    </Box>
-                                                </TableCell>
-
-                                                {/* Leave Type */}
-                                                <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
-                                                    {renderLeaveTypeChip(req.leaveType)}
-                                                </TableCell>
-
-                                                {/* Duration + urgency */}
-                                                <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
-                                                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.8 }}>
-                                                        <CalendarTodayIcon sx={{ fontSize: 13, color: isUrgent ? '#DC2626' : '#9CA3AF', mt: 0.2 }} />
-                                                        <Box>
-                                                            <Typography sx={{ fontSize: '12px', fontWeight: 600, color: '#374151', whiteSpace: 'nowrap' }}>
-                                                                {formatDate(req.fromDate)}
-                                                            </Typography>
-                                                            <Typography sx={{ fontSize: '10.5px', color: '#9CA3AF', whiteSpace: 'nowrap' }}>
-                                                                to {formatDate(req.toDate)}
-                                                            </Typography>
-                                                            {isUrgent && (
-                                                                <Box sx={{
-                                                                    mt: 0.5, display: 'inline-flex', alignItems: 'center', gap: 0.3,
-                                                                    px: 0.7, py: 0.1, borderRadius: '6px',
-                                                                    bgcolor: '#FEF2F2', border: '1px solid #FECACA',
-                                                                }}>
-                                                                    <PriorityHighIcon sx={{ fontSize: 11, color: '#DC2626' }} />
-                                                                    <Typography sx={{ fontSize: 9, fontWeight: 800, color: '#DC2626', letterSpacing: 0.3 }}>
-                                                                        {startsTodayOrTomorrow
-                                                                            ? (daysUntil === 0 ? 'STARTS TODAY' : 'STARTS TOMORROW')
-                                                                            : `IN ${daysUntil} DAYS`}
-                                                                    </Typography>
-                                                                </Box>
-                                                            )}
-                                                        </Box>
-                                                    </Box>
-                                                </TableCell>
-
-                                                {/* Days */}
-                                                <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
-                                                    <Box sx={{
-                                                        display: 'inline-flex', alignItems: 'baseline', gap: 0.4,
-                                                        px: 0.8, py: 0.2, borderRadius: '6px',
-                                                        bgcolor: '#EEF2FF', border: '1px solid #C7D2FE',
-                                                    }}>
-                                                        <Typography sx={{ fontSize: '12px', fontWeight: 800, color: '#4338CA', fontFamily: 'monospace' }}>
-                                                            {req.duration}
-                                                        </Typography>
-                                                        <Typography sx={{ fontSize: '10px', color: '#4338CA', fontWeight: 600 }}>
-                                                            {req.duration > 1 ? 'days' : 'day'}
-                                                        </Typography>
-                                                    </Box>
-                                                </TableCell>
-
-                                                {/* Reason */}
-                                                <TableCell sx={{ borderBottom: '1px solid #F3F4F6', maxWidth: 200 }}>
-                                                    <Tooltip title={req.reason || ''} placement="top" arrow>
-                                                        <Typography sx={{
-                                                            fontSize: '12px', color: '#4B5563',
-                                                            overflow: 'hidden', textOverflow: 'ellipsis',
-                                                            whiteSpace: 'nowrap', maxWidth: 200,
-                                                        }}>
-                                                            {req.reason || '—'}
-                                                        </Typography>
-                                                    </Tooltip>
-                                                </TableCell>
-
-                                                {/* Applied On */}
-                                                <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
-                                                    <Typography sx={{ fontSize: '12px', fontWeight: 600, color: '#374151', whiteSpace: 'nowrap' }}>
-                                                        {formatDate(req.createdOn)}
-                                                    </Typography>
-                                                    {req.createdOn && (
-                                                        <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.3, mt: 0.2 }}>
-                                                            <AccessTimeIcon sx={{ fontSize: 10, color: '#9CA3AF' }} />
-                                                            <Typography sx={{ fontSize: '10px', color: '#9CA3AF' }}>
-                                                                {getRelativeTime(req.createdOn)}
-                                                            </Typography>
-                                                        </Box>
-                                                    )}
-                                                </TableCell>
-
-                                                {/* Action */}
-                                                <TableCell sx={{ whiteSpace: 'nowrap', borderBottom: '1px solid #F3F4F6' }}>
-                                                    {effectiveStatus === 'Requested' ? (
-                                                        <Box sx={{ display: 'flex', gap: 0.8 }}>
-                                                            <Button
-                                                                size="small"
-                                                                variant="contained"
-                                                                disabled={!!actionLoading[req.leaveApplicationId]}
-                                                                startIcon={actionLoading[req.leaveApplicationId]
-                                                                    ? <CircularProgress size={12} color="inherit" />
-                                                                    : <CheckCircleIcon sx={{ fontSize: '14px !important' }} />}
-                                                                onClick={() => handleDecision(req.leaveApplicationId, 'approved')}
-                                                                sx={{
-                                                                    textTransform: 'none', fontSize: '11.5px', fontWeight: 700,
-                                                                    bgcolor: PRIMARY, color: '#fff',
-                                                                    borderRadius: '8px', px: 1.5, height: 30,
-                                                                    boxShadow: `0 2px 6px ${PRIMARY}33`,
-                                                                    '&:hover': { bgcolor: PRIMARY_DARK, boxShadow: `0 4px 12px ${PRIMARY}55` },
-                                                                    '&.Mui-disabled': { bgcolor: PRIMARY_BORDER, color: '#fff', boxShadow: 'none' },
-                                                                }}
-                                                            >
-                                                                Approve
-                                                            </Button>
-                                                            <Button
-                                                                size="small"
-                                                                variant="outlined"
-                                                                disabled={!!actionLoading[req.leaveApplicationId]}
-                                                                startIcon={actionLoading[req.leaveApplicationId]
-                                                                    ? <CircularProgress size={12} sx={{ color: '#DC2626' }} />
-                                                                    : <CancelIcon sx={{ fontSize: '14px !important' }} />}
-                                                                onClick={() => openRejectDialog(req.leaveApplicationId)}
-                                                                sx={{
-                                                                    textTransform: 'none', fontSize: '11.5px', fontWeight: 700,
-                                                                    color: '#DC2626', borderColor: '#FECACA',
-                                                                    bgcolor: '#FEF2F2', borderRadius: '8px',
-                                                                    px: 1.5, height: 30,
-                                                                    '&:hover': { borderColor: '#DC2626', bgcolor: '#FEE2E2' },
-                                                                }}
-                                                            >
-                                                                Reject
-                                                            </Button>
-                                                        </Box>
-                                                    ) : (
-                                                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, alignItems: 'flex-start' }}>
-                                                            <Chip
-                                                                label={effectiveStatus === 'Approved' ? 'Approved' : 'Rejected'}
-                                                                size="small"
-                                                                icon={effectiveStatus === 'Approved'
-                                                                    ? <CheckCircleIcon sx={{ fontSize: '12px !important' }} />
-                                                                    : <CancelIcon sx={{ fontSize: '12px !important' }} />}
-                                                                sx={{
-                                                                    bgcolor: effectiveStatus === 'Approved' ? PRIMARY_LIGHT : '#FEF2F2',
-                                                                    color:   effectiveStatus === 'Approved' ? PRIMARY_DARK  : '#B91C1C',
-                                                                    border: `1px solid ${effectiveStatus === 'Approved' ? PRIMARY_BORDER : '#FECACA'}`,
-                                                                    fontWeight: 700, fontSize: '10.5px', height: 22,
-                                                                    '& .MuiChip-icon': { color: 'inherit', ml: '6px' },
-                                                                }}
-                                                            />
-                                                            {effectiveStatus === 'Declined' && req.rejectionReason && (
-                                                                <Button
-                                                                    size="small"
-                                                                    onClick={() => setViewReasonDialog({ open: true, reason: req.rejectionReason })}
-                                                                    sx={{
-                                                                        textTransform: 'none', fontSize: '10.5px', fontWeight: 600,
-                                                                        color: '#DC2626', p: 0, minWidth: 0,
-                                                                        '&:hover': { bgcolor: 'transparent', textDecoration: 'underline' },
-                                                                    }}
-                                                                >
-                                                                    View reason
-                                                                </Button>
-                                                            )}
-                                                        </Box>
-                                                    )}
-                                                </TableCell>
-                                            </TableRow>
-                                        );
-                                    })}
-                                </TableBody>
-                            </Table>
-                        </TableContainer>
                     </CardContent>
                 </Card>
-            </Box>
 
-            {/* ── View Rejection Reason Dialog ── */}
-            <Dialog
-                open={viewReasonDialog.open}
-                onClose={() => setViewReasonDialog({ open: false, reason: '' })}
-                maxWidth="xs" fullWidth
-                PaperProps={{ sx: { borderRadius: '14px' } }}
-            >
-                <DialogTitle sx={{ pb: 1 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
-                        <Box sx={{
-                            width: 36, height: 36, borderRadius: '10px',
-                            bgcolor: '#FEF2F2', border: '1px solid #FECACA',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}>
-                            <CancelIcon sx={{ color: '#DC2626', fontSize: 20 }} />
-                        </Box>
-                        <Box>
-                            <Typography sx={{ fontSize: '15px', fontWeight: 800, color: '#111827' }}>
-                                Rejection Reason
-                            </Typography>
-                            <Typography sx={{ fontSize: '11px', color: '#6B7280', fontWeight: 500 }}>
-                                Reason provided for declining this leave
-                            </Typography>
-                        </Box>
-                    </Box>
-                </DialogTitle>
-                <DialogContent sx={{ pt: '12px !important' }}>
-                    <Box sx={{
-                        bgcolor: '#FEF2F2', border: '1px solid #FECACA',
-                        borderRadius: '10px', p: 1.8,
-                    }}>
-                        <Typography sx={{ fontSize: '13px', color: '#7F1D1D', lineHeight: 1.7 }}>
-                            {viewReasonDialog.reason}
+                {/* ─── Cards grid ─────────────────────────────────────────── */}
+                {isFetching && leaves.length === 0 ? (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
+                        <CircularProgress size={32} sx={{ color: PRIMARY }} />
+                        <Typography sx={{ ml: 2, fontSize: '13px', color: '#6B7280' }}>
+                            Loading approval queue…
                         </Typography>
                     </Box>
-                </DialogContent>
-                <DialogActions sx={{ px: 3, pb: 2.5 }}>
-                    <Button
-                        onClick={() => setViewReasonDialog({ open: false, reason: '' })}
-                        variant="contained"
-                        sx={{
-                            textTransform: 'none', borderRadius: '8px',
-                            bgcolor: '#DC2626', fontWeight: 700, fontSize: '12.5px',
-                            px: 2.5, height: 34, boxShadow: 'none',
-                            '&:hover': { bgcolor: '#B91C1C', boxShadow: 'none' },
-                        }}
-                    >
-                        Close
-                    </Button>
-                </DialogActions>
-            </Dialog>
+                ) : filtered.length === 0 ? (
+                    <Card sx={{
+                        border: '1px dashed #E5E7EB',
+                        borderRadius: '12px', boxShadow: 'none', bgcolor: '#fff',
+                        py: 6, textAlign: 'center',
+                    }}>
+                        <Box sx={{
+                            width: 64, height: 64, borderRadius: '50%',
+                            bgcolor: PRIMARY_LIGHT, border: `1px solid ${PRIMARY_BORDER}`,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            mx: 'auto', mb: 1.5,
+                        }}>
+                            {q
+                                ? <SearchIcon sx={{ fontSize: 30, color: PRIMARY }} />
+                                : <InboxOutlinedIcon sx={{ fontSize: 32, color: PRIMARY }} />}
+                        </Box>
+                        <Typography sx={{ fontSize: '14px', fontWeight: 700, color: '#111827' }}>
+                            {q ? `No requests match "${search}"` : 'All caught up — no pending requests'}
+                        </Typography>
+                        <Typography sx={{ fontSize: '11.5px', color: '#6B7280', mt: 0.4 }}>
+                            {q
+                                ? 'Try a different search term or clear the filter.'
+                                : 'New leave applications will appear here for your approval.'}
+                        </Typography>
+                    </Card>
+                ) : (
+                    <Grid container spacing={2}>
+                        {filtered.map((leave) => {
+                            const id = leave.leaveApplicationId;
+                            const isLoading = !!actionLoading[id];
+                            const typeCfg = LEAVE_TYPE_STYLE[leave.leaveType] || { color: '#374151', bg: '#F3F4F6', border: '#E5E7EB' };
+                            const avColor = avatarColorFor(leave.name || '');
+                            const singleDay = isSingleDay(leave.fromDate, leave.toDate);
+                            const days = Number(leave.workingDays) || 0;
 
-            {/* ── Reject Reason Dialog ── */}
+                            return (
+                                <Grid size={{ xs: 12, md: 6, xl: 4 }} key={id}>
+                                    <Card sx={{
+                                        position: 'relative',
+                                        border: '1px solid #E5E7EB',
+                                        borderRadius: '14px',
+                                        boxShadow: 'none',
+                                        bgcolor: '#fff',
+                                        height: '100%',
+                                        display: 'flex', flexDirection: 'column',
+                                        overflow: 'hidden',
+                                        transition: 'transform 0.15s, box-shadow 0.15s, border-color 0.15s',
+                                        '&:hover': {
+                                            transform: 'translateY(-2px)',
+                                            borderColor: PRIMARY_BORDER,
+                                            boxShadow: `0 6px 20px ${PRIMARY}1A`,
+                                        },
+                                    }}>
+                                        {/* Accent bar */}
+                                        <Box sx={{
+                                            position: 'absolute', left: 0, top: 0, bottom: 0,
+                                            width: 4, bgcolor: typeCfg.color,
+                                        }} />
+
+                                        {/* Header */}
+                                        <Box sx={{ p: 2, pb: 1, pl: 2.5 }}>
+                                            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.2 }}>
+                                                <Avatar sx={{
+                                                    width: 40, height: 40,
+                                                    bgcolor: `${avColor}15`,
+                                                    color: avColor,
+                                                    fontSize: '13px', fontWeight: 800,
+                                                    border: `1px solid ${avColor}33`,
+                                                    flexShrink: 0,
+                                                }}>
+                                                    {getInitials(leave.name)}
+                                                </Avatar>
+                                                <Box sx={{ flex: 1, minWidth: 0 }}>
+                                                    <Typography sx={{
+                                                        fontSize: '14px', fontWeight: 700, color: '#111827', lineHeight: 1.2,
+                                                    }} noWrap>
+                                                        {leave.name || '—'}
+                                                    </Typography>
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, mt: 0.3, flexWrap: 'wrap' }}>
+                                                        <Typography sx={{
+                                                            fontSize: 10.5, color: '#6B7280', fontFamily: 'monospace', fontWeight: 600,
+                                                        }}>
+                                                            {leave.forRollNumber}
+                                                        </Typography>
+                                                        {leave.createdOn && (
+                                                            <>
+                                                                <Box sx={{ width: 3, height: 3, borderRadius: '50%', bgcolor: '#D1D5DB' }} />
+                                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
+                                                                    <AccessTimeIcon sx={{ fontSize: 11, color: '#9CA3AF' }} />
+                                                                    <Typography sx={{ fontSize: 10.5, color: '#9CA3AF', fontWeight: 500 }}>
+                                                                        {getRelativeTime(leave.createdOn)}
+                                                                    </Typography>
+                                                                </Box>
+                                                            </>
+                                                        )}
+                                                    </Box>
+                                                </Box>
+                                                {renderLeaveTypeChip(leave.leaveType)}
+                                            </Box>
+                                        </Box>
+
+                                        {/* Date strip */}
+                                        <Box sx={{
+                                            mx: 2, mt: 0.5, mb: 1.5,
+                                            p: 1.2, borderRadius: '10px',
+                                            bgcolor: PRIMARY_LIGHT, border: `1px solid ${PRIMARY_BORDER}`,
+                                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                            gap: 1, flexWrap: 'wrap',
+                                        }}>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, minWidth: 0 }}>
+                                                <CalendarTodayIcon sx={{ fontSize: 15, color: PRIMARY_DARK, flexShrink: 0 }} />
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, flexWrap: 'wrap' }}>
+                                                    <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#111827' }}>
+                                                        {formatDate(leave.fromDate)}
+                                                    </Typography>
+                                                    {!singleDay && (
+                                                        <>
+                                                            <ArrowForwardIcon sx={{ fontSize: 13, color: PRIMARY }} />
+                                                            <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#111827' }}>
+                                                                {formatDate(leave.toDate)}
+                                                            </Typography>
+                                                        </>
+                                                    )}
+                                                </Box>
+                                            </Box>
+                                            <Box sx={{
+                                                px: 1.1, py: 0.3, borderRadius: '50px',
+                                                bgcolor: '#fff', border: `1px solid ${PRIMARY}`,
+                                                display: 'inline-flex', alignItems: 'center', gap: 0.4,
+                                            }}>
+                                                <Typography sx={{ fontSize: 13, fontWeight: 800, color: PRIMARY_DARK, fontFamily: 'monospace' }}>
+                                                    {days}
+                                                </Typography>
+                                                <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: PRIMARY_DARK }}>
+                                                    {days === 1 ? 'day' : 'days'}
+                                                </Typography>
+                                            </Box>
+                                        </Box>
+
+                                        {/* Body details */}
+                                        <Box sx={{ px: 2, pb: 1.5, flex: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                            {/* Reason */}
+                                            <Box>
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.4 }}>
+                                                    <NotesIcon sx={{ fontSize: 13, color: '#9CA3AF' }} />
+                                                    <Typography sx={{
+                                                        fontSize: 9.5, color: '#9CA3AF', fontWeight: 700,
+                                                        textTransform: 'uppercase', letterSpacing: 0.4,
+                                                    }}>
+                                                        Reason
+                                                    </Typography>
+                                                </Box>
+                                                <Typography sx={{
+                                                    fontSize: 12.5, color: '#374151', lineHeight: 1.5,
+                                                    bgcolor: '#FAFAFA', border: '1px solid #F3F4F6',
+                                                    borderRadius: '8px', px: 1.2, py: 0.8,
+                                                }}>
+                                                    {leave.reason || '—'}
+                                                </Typography>
+                                            </Box>
+
+                                            {/* Contacts row */}
+                                            <Grid container spacing={1}>
+                                                <Grid size={{ xs: 6 }}>
+                                                    <Box sx={{
+                                                        p: 0.8, borderRadius: '8px',
+                                                        bgcolor: '#FAFAFA', border: '1px solid #F3F4F6',
+                                                    }}>
+                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.2 }}>
+                                                            <PhoneOutlinedIcon sx={{ fontSize: 12, color: '#2563EB' }} />
+                                                            <Typography sx={{
+                                                                fontSize: 9, color: '#9CA3AF', fontWeight: 700,
+                                                                textTransform: 'uppercase', letterSpacing: 0.4,
+                                                            }}>
+                                                                Contact
+                                                            </Typography>
+                                                        </Box>
+                                                        <Typography sx={{
+                                                            fontSize: 11.5, fontWeight: 700, color: '#111827',
+                                                            fontFamily: 'monospace',
+                                                        }} noWrap>
+                                                            {leave.contact || '—'}
+                                                        </Typography>
+                                                    </Box>
+                                                </Grid>
+                                                <Grid size={{ xs: 6 }}>
+                                                    <Box sx={{
+                                                        p: 0.8, borderRadius: '8px',
+                                                        bgcolor: '#FAFAFA', border: '1px solid #F3F4F6',
+                                                    }}>
+                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.2 }}>
+                                                            <ContactPhoneOutlinedIcon sx={{ fontSize: 12, color: '#DC2626' }} />
+                                                            <Typography sx={{
+                                                                fontSize: 9, color: '#9CA3AF', fontWeight: 700,
+                                                                textTransform: 'uppercase', letterSpacing: 0.4,
+                                                            }}>
+                                                                Emergency
+                                                            </Typography>
+                                                        </Box>
+                                                        <Typography sx={{
+                                                            fontSize: 11.5, fontWeight: 700,
+                                                            color: leave.emergencyContact ? '#111827' : '#9CA3AF',
+                                                            fontFamily: 'monospace',
+                                                            fontStyle: leave.emergencyContact ? 'normal' : 'italic',
+                                                        }} noWrap>
+                                                            {leave.emergencyContact || 'Not provided'}
+                                                        </Typography>
+                                                    </Box>
+                                                </Grid>
+                                            </Grid>
+
+                                            {/* Remarks (only if meaningful) */}
+                                            {leave.remarks && leave.remarks !== 'None' && (
+                                                <Box>
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.4 }}>
+                                                        <EventNoteOutlinedIcon sx={{ fontSize: 13, color: '#9CA3AF' }} />
+                                                        <Typography sx={{
+                                                            fontSize: 9.5, color: '#9CA3AF', fontWeight: 700,
+                                                            textTransform: 'uppercase', letterSpacing: 0.4,
+                                                        }}>
+                                                            Remarks
+                                                        </Typography>
+                                                    </Box>
+                                                    <Typography sx={{
+                                                        fontSize: 11.5, color: '#374151', lineHeight: 1.4,
+                                                        fontStyle: 'italic',
+                                                    }}>
+                                                        “{leave.remarks}”
+                                                    </Typography>
+                                                </Box>
+                                            )}
+                                        </Box>
+
+                                        <Divider />
+
+                                        {/* Action buttons */}
+                                        <Box sx={{
+                                            px: 2, py: 1.2,
+                                            display: 'flex', gap: 1,
+                                            bgcolor: '#FAFBFD',
+                                        }}>
+                                            <Button
+                                                fullWidth
+                                                disabled={isLoading}
+                                                startIcon={<CancelIcon sx={{ fontSize: 16 }} />}
+                                                onClick={() => openRejectDialog(leave)}
+                                                sx={{
+                                                    textTransform: 'none', fontSize: 13, fontWeight: 700,
+                                                    color: '#B91C1C', bgcolor: '#fff',
+                                                    border: '1px solid #FECACA', borderRadius: '8px',
+                                                    height: 36, boxShadow: 'none',
+                                                    '&:hover': { bgcolor: '#FEF2F2', borderColor: '#DC2626' },
+                                                    '&.Mui-disabled': { color: '#FCA5A5', borderColor: '#FECACA' },
+                                                }}
+                                            >
+                                                Reject
+                                            </Button>
+                                            <Button
+                                                fullWidth
+                                                disabled={isLoading}
+                                                variant="contained"
+                                                disableElevation
+                                                startIcon={isLoading
+                                                    ? <CircularProgress size={14} sx={{ color: '#fff' }} />
+                                                    : <CheckCircleIcon sx={{ fontSize: 16 }} />}
+                                                onClick={() => handleDecision(leave, 'approved')}
+                                                sx={{
+                                                    textTransform: 'none', fontSize: 13, fontWeight: 700,
+                                                    bgcolor: PRIMARY, color: '#fff',
+                                                    border: `1px solid ${PRIMARY}`,
+                                                    borderRadius: '8px', height: 36,
+                                                    boxShadow: 'none',
+                                                    '&:hover': { bgcolor: PRIMARY_DARK, borderColor: PRIMARY_DARK },
+                                                    '&.Mui-disabled': { bgcolor: '#A7F3D0', color: '#fff', borderColor: '#A7F3D0' },
+                                                }}
+                                            >
+                                                {isLoading ? 'Working…' : 'Approve'}
+                                            </Button>
+                                        </Box>
+                                    </Card>
+                                </Grid>
+                            );
+                        })}
+                    </Grid>
+                )}
+            </Box>
+
+            {/* ─── Reject Reason Dialog (mandatory) ────────────────────── */}
             <Dialog
                 open={rejectDialog.open}
                 onClose={closeRejectDialog}
-                maxWidth="xs" fullWidth
-                PaperProps={{ sx: { borderRadius: '14px' } }}
+                maxWidth="xs"
+                fullWidth
+                slotProps={{ paper: { sx: { borderRadius: '14px' } } }}
             >
                 <DialogTitle sx={{ pb: 1 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
                         <Box sx={{
-                            width: 36, height: 36, borderRadius: '10px',
+                            width: 38, height: 38, borderRadius: '10px',
                             bgcolor: '#FEF2F2', border: '1px solid #FECACA',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                         }}>
@@ -785,14 +701,19 @@ export default function ApprovalWorkflowPage({ isEmbedded = false }) {
                                 Reject Leave
                             </Typography>
                             <Typography sx={{ fontSize: '11px', color: '#6B7280', fontWeight: 500 }}>
-                                Please provide a reason for rejection
+                                {rejectDialog.leave
+                                    ? `${rejectDialog.leave.name} · ${rejectDialog.leave.leaveType}`
+                                    : 'A reason is required'}
                             </Typography>
                         </Box>
                     </Box>
                 </DialogTitle>
 
                 <DialogContent sx={{ pt: '12px !important' }}>
-                    <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.5, mb: 0.8 }}>
+                    <Typography sx={{
+                        fontSize: 10.5, fontWeight: 700, color: '#6B7280',
+                        textTransform: 'uppercase', letterSpacing: 0.5, mb: 0.8,
+                    }}>
                         Quick Reasons
                     </Typography>
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.6, mb: 1.5 }}>
@@ -817,17 +738,22 @@ export default function ApprovalWorkflowPage({ isEmbedded = false }) {
                         })}
                     </Box>
 
-                    <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.5, mb: 0.6 }}>
-                        Custom Reason
+                    <Typography sx={{
+                        fontSize: 10.5, fontWeight: 700, color: '#6B7280',
+                        textTransform: 'uppercase', letterSpacing: 0.5, mb: 0.6,
+                    }}>
+                        Reason for rejection <Box component="span" sx={{ color: '#DC2626' }}>*</Box>
                     </Typography>
                     <TextField
                         autoFocus
                         fullWidth
                         multiline
                         rows={3}
-                        placeholder="Add details — this will be visible to the staff member"
+                        required
+                        placeholder="Explain why this leave is being rejected — visible to the applicant"
                         value={rejectReason}
                         onChange={(e) => setRejectReason(e.target.value.slice(0, 250))}
+                        error={rejectReason.length > 0 && rejectReason.trim().length < 5}
                         sx={{
                             '& .MuiOutlinedInput-root': {
                                 borderRadius: '8px', fontSize: '12.5px',
@@ -836,10 +762,18 @@ export default function ApprovalWorkflowPage({ isEmbedded = false }) {
                         }}
                     />
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
-                        <Typography sx={{ fontSize: 10, color: '#9CA3AF' }}>
-                            Required — at least 5 characters
+                        <Typography sx={{
+                            fontSize: 10,
+                            color: rejectReason.length > 0 && rejectReason.trim().length < 5 ? '#DC2626' : '#9CA3AF',
+                            fontWeight: 600,
+                        }}>
+                            Required · at least 5 characters
                         </Typography>
-                        <Typography sx={{ fontSize: 10, color: rejectReason.length > 230 ? '#DC2626' : '#9CA3AF', fontWeight: 600 }}>
+                        <Typography sx={{
+                            fontSize: 10,
+                            color: rejectReason.length > 230 ? '#DC2626' : '#9CA3AF',
+                            fontWeight: 600,
+                        }}>
                             {rejectReason.length}/250
                         </Typography>
                     </Box>
@@ -862,16 +796,16 @@ export default function ApprovalWorkflowPage({ isEmbedded = false }) {
                         onClick={handleRejectSubmit}
                         disabled={rejectReason.trim().length < 5 || rejectLoading}
                         variant="contained"
+                        disableElevation
                         startIcon={rejectLoading
                             ? <CircularProgress size={14} color="inherit" />
                             : <CancelIcon sx={{ fontSize: '15px !important' }} />}
                         sx={{
                             textTransform: 'none', borderRadius: '8px',
                             bgcolor: '#DC2626', fontWeight: 700, fontSize: '12.5px',
-                            px: 2.2, height: 34,
-                            boxShadow: '0 2px 6px rgba(220, 38, 38, 0.25)',
-                            '&:hover': { bgcolor: '#B91C1C', boxShadow: '0 4px 12px rgba(220, 38, 38, 0.4)' },
-                            '&:disabled': { bgcolor: '#FECACA', color: '#fff', boxShadow: 'none' },
+                            px: 2.2, height: 34, boxShadow: 'none',
+                            '&:hover': { bgcolor: '#B91C1C', boxShadow: 'none' },
+                            '&.Mui-disabled': { bgcolor: '#FECACA', color: '#fff' },
                         }}
                     >
                         {rejectLoading ? 'Rejecting…' : 'Reject Leave'}

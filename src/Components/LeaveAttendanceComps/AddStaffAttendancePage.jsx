@@ -4,7 +4,7 @@ import {
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
     Avatar, Select, MenuItem, TextField, InputAdornment,
     Switch, Tooltip, CircularProgress, Alert, IconButton, Menu, Divider,
-    Popover, Paper,
+    Popover, Paper, Tabs, Tab,
 } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
 import SearchIcon from '@mui/icons-material/Search';
@@ -20,6 +20,14 @@ import DoneAllIcon from '@mui/icons-material/DoneAll';
 import ClearAllIcon from '@mui/icons-material/ClearAll';
 import FlashOnIcon from '@mui/icons-material/FlashOn';
 import StickyNote2Icon from '@mui/icons-material/StickyNote2';
+import LocalCafeIcon from '@mui/icons-material/LocalCafe';
+import RestaurantIcon from '@mui/icons-material/Restaurant';
+import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import TimerOutlinedIcon from '@mui/icons-material/TimerOutlined';
+import FingerprintIcon from '@mui/icons-material/Fingerprint';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import LoginIcon from '@mui/icons-material/Login';
 import axios from 'axios';
 import { useSelector } from 'react-redux';
 import { getAttendanceTeacherBefor, postAttendanceTeachers, updateTeachersAttendance } from '../../Api/Api';
@@ -138,6 +146,33 @@ const computeWorkingHours = (checkIn, checkOut) => {
     const m = diff % 60;
     return { hours: h, minutes: m, label: `${h}h ${m}m`, totalMinutes: diff };
 };
+
+// ─── Break helpers ────────────────────────────────────────────────────────────
+const formatMinutes = (mins) => {
+    if (!Number.isFinite(mins) || mins <= 0) return '0m';
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return h > 0 ? `${h}h ${m}m` : `${m}m`;
+};
+
+const computeBreakDuration = (out, back) => {
+    const a = parseHHmm(out);
+    const b = parseHHmm(back);
+    if (a === null || b === null || b <= a) return 0;
+    return b - a;
+};
+
+const computeTotalBreakMinutes = (breaks = []) =>
+    breaks.reduce((sum, br) => sum + computeBreakDuration(br.out, br.in), 0);
+
+// Default break presets used when "Add break" is clicked without prefilled times.
+const BREAK_PRESETS = [
+    { label: 'Morning Tea', out: '11:00', in: '11:15', icon: LocalCafeIcon, accent: '#D97706', accentBg: '#FFFBEB', accentBorder: '#FDE68A' },
+    { label: 'Lunch',       out: '13:00', in: '13:30', icon: RestaurantIcon, accent: '#C2410C', accentBg: '#FFF7ED', accentBorder: '#FED7AA' },
+    { label: 'Evening Tea', out: '16:00', in: '16:15', icon: LocalCafeIcon, accent: '#A16207', accentBg: '#FEFCE8', accentBorder: '#FEF08A' },
+];
+
+const makeBreakId = () => `br_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 
 // ─── Memoized status pill ────────────────────────────────────────────────────
 const StatusPill = memo(function StatusPill({ value, selected, onClick }) {
@@ -328,6 +363,230 @@ const StaffRow = memo(function StaffRow({
     );
 });
 
+// ─── Memoized break editor row (Tab 2) ──────────────────────────────────────
+const BreakRow = memo(function BreakRow({
+    staff, idx, mark, inT, outT, breaks,
+    onAddBreak, onUpdateBreak, onDeleteBreak, onAddPreset,
+}) {
+    const work = useMemo(() => computeWorkingHours(inT, outT), [inT, outT]);
+    const totalBreakMin = useMemo(() => computeTotalBreakMinutes(breaks), [breaks]);
+    const netWorkMin = work ? Math.max(0, work.totalMinutes - totalBreakMin) : 0;
+    const avColor = avatarColorFor(staff.name || '');
+    const needsTime = mark === 'Present' || mark === 'Late';
+
+    return (
+        <TableRow
+            sx={{
+                '&:hover': { bgcolor: PRIMARY_LIGHT },
+                '& td': { borderBottom: '1px solid #F3F4F6', verticalAlign: 'top', py: 1.2 },
+                transition: 'background-color 0.15s',
+            }}
+        >
+            {/* S.No */}
+            <TableCell>
+                <Typography sx={{ fontSize: '12px', color: '#9CA3AF', fontWeight: 500 }}>{idx + 1}</Typography>
+            </TableCell>
+
+            {/* Staff Member */}
+            <TableCell>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.1 }}>
+                    <Avatar src={staff.filePath || undefined}
+                        sx={{
+                            width: 32, height: 32,
+                            bgcolor: `${avColor}15`,
+                            color: avColor,
+                            fontSize: '11px', fontWeight: 700,
+                            border: `1px solid ${avColor}33`,
+                        }}>
+                        {staff.avatar}
+                    </Avatar>
+                    <Box>
+                        <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>{staff.name}</Typography>
+                        <Typography sx={{ fontSize: '10px', color: '#9CA3AF', fontWeight: 500 }}>{staff.rollNumber}</Typography>
+                    </Box>
+                </Box>
+            </TableCell>
+
+            {/* Break editor */}
+            <TableCell sx={{ minWidth: 360 }}>
+                {!needsTime ? (
+                    <Typography sx={{ fontSize: '11px', fontStyle: 'italic', color: '#9CA3AF' }}>
+                        Breaks not applicable
+                    </Typography>
+                ) : (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.7 }}>
+                        {breaks.length === 0 ? (
+                            <Typography sx={{ fontSize: '11px', color: '#9CA3AF', fontStyle: 'italic', mb: 0.3 }}>
+                                No breaks recorded yet
+                            </Typography>
+                        ) : breaks.map((br, i) => {
+                            const dur = computeBreakDuration(br.out, br.in);
+                            const isValid = dur > 0;
+                            return (
+                                <Box
+                                    key={br.id}
+                                    sx={{
+                                        display: 'flex', alignItems: 'center', gap: 0.6,
+                                        px: 0.8, py: 0.5,
+                                        bgcolor: isValid ? '#FFFBEB' : '#F9FAFB',
+                                        border: `1px solid ${isValid ? '#FDE68A' : '#E5E7EB'}`,
+                                        borderRadius: '8px',
+                                    }}
+                                >
+                                    <Box sx={{
+                                        width: 22, height: 22, borderRadius: '6px',
+                                        bgcolor: isValid ? '#FFF' : '#F3F4F6',
+                                        border: `1px solid ${isValid ? '#FDE68A' : '#E5E7EB'}`,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        flexShrink: 0,
+                                    }}>
+                                        <LocalCafeIcon sx={{ fontSize: 12, color: isValid ? '#D97706' : '#9CA3AF' }} />
+                                    </Box>
+                                    <Typography sx={{ fontSize: '10.5px', fontWeight: 700, color: '#6B7280', minWidth: 42 }}>
+                                        Break {i + 1}
+                                    </Typography>
+                                    <TextField
+                                        type="time" size="small"
+                                        value={br.out || ''}
+                                        onChange={(e) => onUpdateBreak(staff.id, br.id, 'out', e.target.value)}
+                                        sx={{
+                                            width: 110,
+                                            '& .MuiOutlinedInput-root': {
+                                                fontSize: '11.5px', fontWeight: 600, height: 28, bgcolor: '#fff',
+                                                '& fieldset': { borderColor: '#E5E7EB' },
+                                                '&:hover fieldset': { borderColor: '#D97706' },
+                                                '&.Mui-focused fieldset': { borderColor: '#D97706', borderWidth: 1.5 },
+                                            },
+                                        }}
+                                    />
+                                    <Typography sx={{ fontSize: '11px', fontWeight: 700, color: '#9CA3AF' }}>→</Typography>
+                                    <TextField
+                                        type="time" size="small"
+                                        value={br.in || ''}
+                                        onChange={(e) => onUpdateBreak(staff.id, br.id, 'in', e.target.value)}
+                                        sx={{
+                                            width: 110,
+                                            '& .MuiOutlinedInput-root': {
+                                                fontSize: '11.5px', fontWeight: 600, height: 28, bgcolor: '#fff',
+                                                '& fieldset': { borderColor: '#E5E7EB' },
+                                                '&:hover fieldset': { borderColor: PRIMARY },
+                                                '&.Mui-focused fieldset': { borderColor: PRIMARY, borderWidth: 1.5 },
+                                            },
+                                        }}
+                                    />
+                                    <Chip
+                                        size="small"
+                                        label={isValid ? formatMinutes(dur) : '—'}
+                                        sx={{
+                                            height: 20, minWidth: 42, fontSize: '10px', fontWeight: 700,
+                                            bgcolor: isValid ? '#FEF3C7' : '#F3F4F6',
+                                            color: isValid ? '#92400E' : '#9CA3AF',
+                                            border: `1px solid ${isValid ? '#FDE68A' : '#E5E7EB'}`,
+                                        }}
+                                    />
+                                    <Tooltip arrow title="Remove this break">
+                                        <IconButton
+                                            size="small"
+                                            onClick={() => onDeleteBreak(staff.id, br.id)}
+                                            sx={{
+                                                width: 24, height: 24, borderRadius: '6px',
+                                                color: '#DC2626',
+                                                '&:hover': { bgcolor: '#FEF2F2' },
+                                            }}
+                                        >
+                                            <DeleteOutlineIcon sx={{ fontSize: 14 }} />
+                                        </IconButton>
+                                    </Tooltip>
+                                </Box>
+                            );
+                        })}
+
+                        {/* Add break + presets */}
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, flexWrap: 'wrap', mt: 0.2 }}>
+                            <Button
+                                size="small"
+                                startIcon={<AddCircleOutlineIcon sx={{ fontSize: 14 }} />}
+                                onClick={() => onAddBreak(staff.id)}
+                                sx={{
+                                    textTransform: 'none', fontSize: '11px', fontWeight: 700,
+                                    height: 26, borderRadius: '8px', px: 1,
+                                    color: PRIMARY_DARK,
+                                    border: `1px dashed ${PRIMARY_BORDER}`,
+                                    bgcolor: '#fff',
+                                    '&:hover': { bgcolor: PRIMARY_LIGHT, borderStyle: 'solid' },
+                                }}
+                            >
+                                Add Break
+                            </Button>
+                            {BREAK_PRESETS.map(p => {
+                                const PIcon = p.icon;
+                                return (
+                                    <Tooltip key={p.label} arrow title={`Quick add: ${p.label} (${p.out} – ${p.in})`}>
+                                        <Button
+                                            size="small"
+                                            startIcon={<PIcon sx={{ fontSize: 13 }} />}
+                                            onClick={() => onAddPreset(staff.id, p)}
+                                            sx={{
+                                                textTransform: 'none', fontSize: '10.5px', fontWeight: 600,
+                                                height: 26, borderRadius: '8px', px: 0.8,
+                                                color: p.accent, bgcolor: p.accentBg,
+                                                border: `1px solid ${p.accentBorder}`,
+                                                '&:hover': { bgcolor: p.accentBg, borderColor: p.accent, filter: 'brightness(0.97)' },
+                                            }}
+                                        >
+                                            {p.label}
+                                        </Button>
+                                    </Tooltip>
+                                );
+                            })}
+                        </Box>
+                    </Box>
+                )}
+            </TableCell>
+
+            {/* Total Break Time */}
+            <TableCell>
+                {needsTime ? (
+                    <Chip
+                        size="small"
+                        icon={<LocalCafeIcon sx={{ fontSize: '12px !important' }} />}
+                        label={formatMinutes(totalBreakMin)}
+                        sx={{
+                            bgcolor: totalBreakMin > 0 ? '#FFFBEB' : '#F3F4F6',
+                            color: totalBreakMin > 0 ? '#92400E' : '#9CA3AF',
+                            border: `1px solid ${totalBreakMin > 0 ? '#FDE68A' : '#E5E7EB'}`,
+                            fontWeight: 700, fontSize: '11px', height: 22,
+                            '& .MuiChip-icon': { color: 'inherit', ml: '6px' },
+                        }}
+                    />
+                ) : (
+                    <Typography sx={{ fontSize: '11px', color: '#D1D5DB' }}>—</Typography>
+                )}
+            </TableCell>
+
+            {/* Breaks count summary */}
+            <TableCell>
+                {needsTime ? (
+                    <Chip
+                        size="small"
+                        icon={<TimerOutlinedIcon sx={{ fontSize: '12px !important' }} />}
+                        label={`${breaks.length} ${breaks.length === 1 ? 'break' : 'breaks'}`}
+                        sx={{
+                            bgcolor: breaks.length > 0 ? PRIMARY_LIGHT : '#F3F4F6',
+                            color: breaks.length > 0 ? PRIMARY_DARK : '#9CA3AF',
+                            border: `1px solid ${breaks.length > 0 ? PRIMARY_BORDER : '#E5E7EB'}`,
+                            fontWeight: 700, fontSize: '11px', height: 22,
+                            '& .MuiChip-icon': { color: 'inherit', ml: '6px' },
+                        }}
+                    />
+                ) : (
+                    <Typography sx={{ fontSize: '11px', color: '#D1D5DB' }}>—</Typography>
+                )}
+            </TableCell>
+        </TableRow>
+    );
+});
+
 // ─── Component ───────────────────────────────────────────────────────────────
 export default function AddStaffAttendancePage() {
     const user = useSelector(state => state.auth);
@@ -343,11 +602,15 @@ export default function AddStaffAttendancePage() {
 
     const isMounted = useRef(false);
 
+    // Active tab: 0 = Check In/Out, 1 = Break In/Out
+    const [activeTab, setActiveTab] = useState(0);
+
     // Per-row state
     const [attendanceMarks, setAttendanceMarks] = useState({}); // id → 'Present' | ...
     const [checkInTimes, setCheckInTimes]       = useState({}); // id → 'HH:MM'
     const [checkOutTimes, setCheckOutTimes]     = useState({}); // id → 'HH:MM'
     const [rowNotes, setRowNotes]               = useState({}); // id → text
+    const [breaksMap, setBreaksMap]             = useState({}); // id → [{ id, out, in }]
 
     // Bulk-time controls
     const [sameTimeEnabled, setSameTimeEnabled] = useState(false);
@@ -638,6 +901,38 @@ export default function AddStaffAttendancePage() {
 
     const closeNotesPopover = () => { setNotesAnchor(null); setNotesTargetId(null); };
 
+    // ─── Break handlers ──────────────────────────────────────────────────────
+    const handleAddBreak = useCallback((staffId) => {
+        setBreaksMap(prev => ({
+            ...prev,
+            [staffId]: [...(prev[staffId] || []), { id: makeBreakId(), out: '', in: '' }],
+        }));
+    }, []);
+
+    const handleAddPreset = useCallback((staffId, preset) => {
+        setBreaksMap(prev => ({
+            ...prev,
+            [staffId]: [...(prev[staffId] || []), { id: makeBreakId(), out: preset.out, in: preset.in }],
+        }));
+    }, []);
+
+    const handleUpdateBreak = useCallback((staffId, breakId, field, value) => {
+        setBreaksMap(prev => {
+            const list = prev[staffId] || [];
+            return {
+                ...prev,
+                [staffId]: list.map(br => (br.id === breakId ? { ...br, [field]: value } : br)),
+            };
+        });
+    }, []);
+
+    const handleDeleteBreak = useCallback((staffId, breakId) => {
+        setBreaksMap(prev => {
+            const list = (prev[staffId] || []).filter(br => br.id !== breakId);
+            return { ...prev, [staffId]: list };
+        });
+    }, []);
+
     const handleSaveAttendance = async () => {
         const missingIn = filteredStaff.filter(s => needsTime(s.id) && !checkInTimes[s.id]);
         if (missingIn.length > 0) {
@@ -654,6 +949,9 @@ export default function AddStaffAttendancePage() {
             const checkOut = needsTime(s.id) ? (checkOutTimes[s.id] || '') : '';
             const note = (rowNotes[s.id] || '').trim();
             const work = computeWorkingHours(checkIn, checkOut);
+            const rawBreaks = (breaksMap[s.id] || []).filter(br => computeBreakDuration(br.out, br.in) > 0);
+            const totalBreakMin = computeTotalBreakMinutes(rawBreaks);
+            const netWorkMin = work ? Math.max(0, work.totalMinutes - totalBreakMin) : 0;
 
             return {
                 rollNumber: s.rollNumber,
@@ -664,6 +962,9 @@ export default function AddStaffAttendancePage() {
                 checkIn,
                 checkOut,
                 workingMinutes: work ? work.totalMinutes : 0,
+                breaks: rawBreaks.map(br => ({ breakOut: br.out, breakIn: br.in, minutes: computeBreakDuration(br.out, br.in) })),
+                totalBreakMinutes: totalBreakMin,
+                netWorkingMinutes: netWorkMin,
                 notes: note,
                 source: 'manual',
             };
@@ -743,6 +1044,34 @@ export default function AddStaffAttendancePage() {
                             }}
                         />
                     </Box>
+                </Box>
+            </Box>
+
+            {/* Manual entry / biometric fallback banner */}
+            <Box sx={{
+                mb: 2, px: 1.5, py: 1.2, borderRadius: '10px',
+                bgcolor: '#EFF6FF', border: '1px solid #BFDBFE',
+                display: 'flex', alignItems: 'flex-start', gap: 1,
+            }}>
+                <Box sx={{
+                    width: 30, height: 30, borderRadius: '8px',
+                    bgcolor: '#fff', border: '1px solid #BFDBFE',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    flexShrink: 0,
+                }}>
+                    <FingerprintIcon sx={{ fontSize: 17, color: '#1D4ED8' }} />
+                </Box>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography sx={{ fontSize: '12.5px', fontWeight: 700, color: '#1E40AF', lineHeight: 1.2 }}>
+                        Manual Entry Mode · Biometric Fallback
+                    </Typography>
+                    <Typography sx={{ fontSize: '11px', color: '#1E3A8A', mt: 0.3, lineHeight: 1.4 }}>
+                        Use this screen <strong>only when the biometric device is offline or to correct existing punches</strong>.
+                        All check-in / check-out and break records are tagged{' '}
+                        <Box component="span" sx={{ display: 'inline-block', px: 0.6, borderRadius: '4px', bgcolor: '#DBEAFE', color: '#1D4ED8', fontWeight: 700, fontSize: '10px' }}>
+                            source: manual
+                        </Box>{' '}and audit-logged against <strong>{currentUserRoll || 'your roll number'}</strong>.
+                    </Typography>
                 </Box>
             </Box>
 
@@ -937,15 +1266,77 @@ export default function AddStaffAttendancePage() {
                 </Box>
             </Box>
 
-            {/* Table */}
+            {/* Table card with tabs */}
             <Card sx={{ boxShadow: 'none', border: '1px solid #E5E7EB', borderRadius: '12px', bgcolor: '#fff', overflow: 'hidden' }}>
+                {/* Tabs */}
+                <Box sx={{ borderBottom: '1px solid #E5E7EB', px: 1.5, bgcolor: '#FAFBFD' }}>
+                    <Tabs
+                        value={activeTab}
+                        onChange={(e, v) => setActiveTab(v)}
+                        sx={{
+                            minHeight: 42,
+                            '& .MuiTab-root': {
+                                textTransform: 'none', fontSize: '12.5px', fontWeight: 600,
+                                minHeight: 42, color: '#6B7280', px: 2, gap: 0.6,
+                            },
+                            '& .Mui-selected': { color: `${PRIMARY} !important`, fontWeight: 700 },
+                            '& .MuiTabs-indicator': { bgcolor: PRIMARY, height: 2.5, borderRadius: '2px 2px 0 0' },
+                        }}
+                    >
+                        <Tab
+                            icon={<AccessTimeIcon sx={{ fontSize: 16 }} />}
+                            iconPosition="start"
+                            label={
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
+                                    Check In / Check Out
+                                    <Chip
+                                        label={counts.present + counts.late}
+                                        size="small"
+                                        sx={{
+                                            height: 18, fontSize: '10px', fontWeight: 700,
+                                            bgcolor: activeTab === 0 ? PRIMARY_LIGHT : '#F3F4F6',
+                                            color: activeTab === 0 ? PRIMARY_DARK : '#6B7280',
+                                            border: `1px solid ${activeTab === 0 ? PRIMARY_BORDER : '#E5E7EB'}`,
+                                        }}
+                                    />
+                                </Box>
+                            }
+                        />
+                        <Tab
+                            icon={<LocalCafeIcon sx={{ fontSize: 16 }} />}
+                            iconPosition="start"
+                            label={
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
+                                    Break In / Break Out
+                                    {(() => {
+                                        const totalBreaks = filteredStaff.reduce((sum, s) => sum + ((breaksMap[s.id] || []).length), 0);
+                                        return (
+                                            <Chip
+                                                label={totalBreaks}
+                                                size="small"
+                                                sx={{
+                                                    height: 18, fontSize: '10px', fontWeight: 700,
+                                                    bgcolor: activeTab === 1 ? '#FFFBEB' : '#F3F4F6',
+                                                    color: activeTab === 1 ? '#92400E' : '#6B7280',
+                                                    border: `1px solid ${activeTab === 1 ? '#FDE68A' : '#E5E7EB'}`,
+                                                }}
+                                            />
+                                        );
+                                    })()}
+                                </Box>
+                            }
+                        />
+                    </Tabs>
+                </Box>
+
+                {/* Tab content */}
                 {loading ? (
                     <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 6 }}>
                         <CircularProgress size={28} sx={{ color: PRIMARY }} />
                         <Typography sx={{ ml: 2, fontSize: '13px', color: '#6B7280' }}>Loading staff list...</Typography>
                     </Box>
-                ) : (
-                    <TableContainer sx={{ maxHeight: '52vh' }}>
+                ) : activeTab === 0 ? (
+                    <TableContainer>
                         <Table size="small" stickyHeader>
                             <TableHead>
                                 <TableRow sx={{
@@ -994,6 +1385,69 @@ export default function AddStaffAttendancePage() {
                             </TableBody>
                         </Table>
                     </TableContainer>
+                ) : (
+                    <>
+                        {/* Breaks-tab intro strip */}
+                        <Box sx={{
+                            px: 2, py: 1.2,
+                            bgcolor: '#FFFBEB',
+                            borderBottom: '1px solid #FDE68A',
+                            display: 'flex', alignItems: 'flex-start', gap: 1,
+                        }}>
+                            <WarningAmberIcon sx={{ fontSize: 16, color: '#B45309', mt: 0.1, flexShrink: 0 }} />
+                            <Typography sx={{ fontSize: '11px', color: '#92400E', lineHeight: 1.4 }}>
+                                Record break-out → break-in pairs for each staff.
+                                Use the preset chips (<strong>Morning Tea</strong>, <strong>Lunch</strong>, <strong>Evening Tea</strong>) for one-click entry, or
+                                <strong> Add Break</strong> to enter custom times. Breaks apply only to <strong>Present</strong> / <strong>Late</strong> staff.
+                            </Typography>
+                        </Box>
+
+                        <TableContainer>
+                            <Table size="small" stickyHeader>
+                                <TableHead>
+                                    <TableRow sx={{
+                                        '& th': {
+                                            bgcolor: PRIMARY_LIGHT,
+                                            fontWeight: 700, fontSize: '10px', color: PRIMARY_DARK,
+                                            textTransform: 'uppercase', letterSpacing: 0.6,
+                                            borderBottom: `1px solid ${PRIMARY_BORDER}`, py: 1.3,
+                                        },
+                                    }}>
+                                        <TableCell sx={{ width: 42 }}>#</TableCell>
+                                        <TableCell>Staff Member</TableCell>
+                                        <TableCell sx={{ minWidth: 360 }}>Breaks (Out → In)</TableCell>
+                                        <TableCell>Total Break</TableCell>
+                                        <TableCell>Breaks Count</TableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {filteredStaff.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={5} align="center">
+                                                <Typography sx={{ fontSize: '13px', color: '#9CA3AF', py: 4 }}>
+                                                    {staffList.length === 0 ? 'No staff data available for this date' : 'No staff found'}
+                                                </Typography>
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : filteredStaff.map((staff, idx) => (
+                                        <BreakRow
+                                            key={staff.id}
+                                            staff={staff}
+                                            idx={idx}
+                                            mark={attendanceMarks[staff.id] || 'Present'}
+                                            inT={checkInTimes[staff.id] || ''}
+                                            outT={checkOutTimes[staff.id] || ''}
+                                            breaks={breaksMap[staff.id] || []}
+                                            onAddBreak={handleAddBreak}
+                                            onUpdateBreak={handleUpdateBreak}
+                                            onDeleteBreak={handleDeleteBreak}
+                                            onAddPreset={handleAddPreset}
+                                        />
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+                    </>
                 )}
 
                 {/* Footer */}
@@ -1008,12 +1462,25 @@ export default function AddStaffAttendancePage() {
                                 <strong style={{ color: '#111827' }}>{filteredStaff.length}</strong> staff
                             </Typography>
                             <Divider orientation="vertical" flexItem />
-                            <Typography sx={{ fontSize: '11px', color: '#6B7280' }}>
-                                Present <strong style={{ color: STATUS_STYLE.Present.color }}>{counts.present}</strong>
-                                {' · '}Late <strong style={{ color: STATUS_STYLE.Late.color }}>{counts.late}</strong>
-                                {' · '}Absent <strong style={{ color: STATUS_STYLE.Absent.color }}>{counts.absent}</strong>
-                                {' · '}Leave <strong style={{ color: STATUS_STYLE['On Leave'].color }}>{counts.onLeave}</strong>
-                            </Typography>
+                            {activeTab === 0 ? (
+                                <Typography sx={{ fontSize: '11px', color: '#6B7280' }}>
+                                    Present <strong style={{ color: STATUS_STYLE.Present.color }}>{counts.present}</strong>
+                                    {' · '}Late <strong style={{ color: STATUS_STYLE.Late.color }}>{counts.late}</strong>
+                                    {' · '}Absent <strong style={{ color: STATUS_STYLE.Absent.color }}>{counts.absent}</strong>
+                                    {' · '}Leave <strong style={{ color: STATUS_STYLE['On Leave'].color }}>{counts.onLeave}</strong>
+                                </Typography>
+                            ) : (() => {
+                                const totalBreaks = filteredStaff.reduce((sum, s) => sum + ((breaksMap[s.id] || []).length), 0);
+                                const totalBreakMin = filteredStaff.reduce((sum, s) => sum + computeTotalBreakMinutes(breaksMap[s.id] || []), 0);
+                                const staffWithBreaks = filteredStaff.filter(s => (breaksMap[s.id] || []).length > 0).length;
+                                return (
+                                    <Typography sx={{ fontSize: '11px', color: '#6B7280' }}>
+                                        Total Breaks <strong style={{ color: '#92400E' }}>{totalBreaks}</strong>
+                                        {' · '}Staff with Breaks <strong style={{ color: '#111827' }}>{staffWithBreaks}/{counts.present + counts.late}</strong>
+                                        {' · '}Combined Break Time <strong style={{ color: '#92400E' }}>{formatMinutes(totalBreakMin)}</strong>
+                                    </Typography>
+                                );
+                            })()}
                         </Box>
                         <Button
                             variant="contained"

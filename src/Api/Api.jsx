@@ -28,6 +28,7 @@ const updateUserPassword = `${baseApiurl}Dashboard/UpdateUserPassword`;
 
 // Communication 
 
+const fetchDashboard = `${baseApiurl}communicationActivityDashboard/fetchDashboard`;
 // News
 const News = `${baseApiurl}news/`;
 const postNews = `${News}postNews`;
@@ -345,6 +346,7 @@ const postLeaveRequest = `${leave}postLeaveRequest`;
 const leaveApprovalStatusCheck = `${baseApiurl}leaveApprovalStatusCheck`;
 const updateLeaveApprovalAction = `${baseApiurl}updateLeaveApprovalAction`;
 const getLeaveDashboard = `${leave}getLeaveDashboard`;
+const getLeaveApprovalDashboard = `${leave}getLeaveApprovalDashboard`;
 
 const payRoll = `${baseApiurl}payRoll/`;
 const postSalaryStructure = `${payRoll}postSalaryStructure`;
@@ -760,6 +762,7 @@ export {
     leaveApprovalStatusCheck,
     updateLeaveApprovalAction,
     getLeaveDashboard,
+    getLeaveApprovalDashboard,
     getAttendanceDashboard,
     getStaffAttendanceOverview,
     reportsLeaveManagement,
@@ -825,5 +828,6 @@ export {
     PostStudentExit,
     FetchExitHistory,
     SyncStatus,
-    TriggerManualSync
+    TriggerManualSync,
+    fetchDashboard,
 }

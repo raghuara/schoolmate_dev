@@ -24,7 +24,7 @@ import EventNoteOutlinedIcon from '@mui/icons-material/EventNoteOutlined';
 import HistoryToggleOffIcon from '@mui/icons-material/HistoryToggleOff';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { getLeaveDashboard, GetleaveTypes } from '../../Api/Api';
+import { getLeaveApprovalDashboard, GetleaveTypes } from '../../Api/Api';
 import SnackBar from '../SnackBar';
 import { useSelector } from 'react-redux';
 import ApplyLeavePage from './ApplyLeavePage';
@@ -61,6 +61,23 @@ const avatarColorFor = (name = '') => {
 
 const getInitials = (name = '') =>
     name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+
+// Academic year window matches the rest of the leave module (Apr–Mar cutoff).
+const getCurrentAcademicYear = () => {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = today.getMonth() + 1;
+    return m >= 4 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
+};
+
+// API returns "Approved" / "Pending" / "Rejected" with mixed casing — normalize for our maps.
+const normalizeLeaveStatus = (s) => {
+    if (!s) return 'Pending';
+    const v = String(s).toLowerCase();
+    if (v.startsWith('approve')) return 'Approved';
+    if (v.startsWith('reject'))  return 'Rejected';
+    return 'Pending';
+};
 
 // ─── Period label helpers (handles both UI labels & API enum values) ───────
 const PERIOD_LABEL = {
@@ -136,22 +153,77 @@ export default function LeaveManagementPage({
     const [availableLeaveTypes, setAvailableLeaveTypes] = useState([]);
     const [isFetchingLeaveTypes, setIsFetchingLeaveTypes] = useState(false);
 
-    // ─── Fetch ──────────────────────────────────────────────────────────────
+    // ─── Fetch (Leave Approval Dashboard) ────────────────────────────────────
+    // GET /getLeaveApprovalDashboard?RollNumber=...&AcademicYear=YYYY-YYYY
+    // Response shape:
+    //   { error, cards: { pendingCount, approvedCount, rejectedCount },
+    //     pending: [...], approved: [...], rejected: [...] }
+    // We normalize the API's three buckets into the page's existing state shape:
+    //   applications: { allLeaves, pendingApproval, approved, rejected }
+    // and synthesise the KPI cards (totalLeavesThisMonth + approvedPercentOfTotal)
+    // that the existing UI expects.
+    const rollNumber = user?.rollNumber;
+    const academicYear = React.useMemo(() => getCurrentAcademicYear(), []);
+
     const fetchDashboard = async () => {
+        if (!rollNumber) return;
         setIsFetching(true);
         try {
-            const res = await axios.get(getLeaveDashboard, {
+            const res = await axios.get(getLeaveApprovalDashboard, {
+                params: { RollNumber: rollNumber, AcademicYear: academicYear },
                 headers: { Authorization: `Bearer ${token}` },
             });
-            if (res.data && !res.data.error) {
-                setDashboardData({
-                    cards: res.data.cards,
-                    leaveBalance: res.data.leaveBalance,
-                    applications: res.data.applications,
-                });
+            const body = res?.data;
+            if (!body || body.error) {
+                setDashboardData(prev => ({
+                    ...prev,
+                    cards: { totalLeavesThisMonth: 0, approved: 0, pending: 0, rejected: 0, approvedPercentOfTotal: 0 },
+                    applications: { allLeaves: [], pendingApproval: [], approved: [], rejected: [] },
+                }));
+                return;
             }
+
+            const apiCards = body.cards || {};
+            const pending   = Array.isArray(body.pending)  ? body.pending  : [];
+            const approved  = Array.isArray(body.approved) ? body.approved : [];
+            const rejected  = Array.isArray(body.rejected) ? body.rejected : [];
+
+            // Make sure each row carries a normalized `status` so the existing
+            // chip renderer picks the right colour even if the API omits it.
+            const stamp = (rows, status) => rows.map(r => ({ ...r, status: normalizeLeaveStatus(r.status) || status }));
+            const pendingRows  = stamp(pending,  'Pending');
+            const approvedRows = stamp(approved, 'Approved');
+            const rejectedRows = stamp(rejected, 'Rejected');
+
+            const pendingCount  = Number(apiCards.pendingCount)  || pendingRows.length;
+            const approvedCount = Number(apiCards.approvedCount) || approvedRows.length;
+            const rejectedCount = Number(apiCards.rejectedCount) || rejectedRows.length;
+            const total = pendingCount + approvedCount + rejectedCount;
+            const approvedPct = total > 0 ? Math.round((approvedCount / total) * 100) : 0;
+
+            setDashboardData(prev => ({
+                ...prev,
+                cards: {
+                    totalLeavesThisMonth: total,
+                    approved: approvedCount,
+                    pending:  pendingCount,
+                    rejected: rejectedCount,
+                    approvedPercentOfTotal: approvedPct,
+                },
+                applications: {
+                    allLeaves:       [...pendingRows, ...approvedRows, ...rejectedRows],
+                    pendingApproval: pendingRows,
+                    approved:        approvedRows,
+                    rejected:        rejectedRows,
+                },
+            }));
         } catch (error) {
-            console.error('Error fetching leave dashboard:', error);
+            console.error('Error fetching leave approval dashboard:', error);
+            setDashboardData(prev => ({
+                ...prev,
+                cards: { totalLeavesThisMonth: 0, approved: 0, pending: 0, rejected: 0, approvedPercentOfTotal: 0 },
+                applications: { allLeaves: [], pendingApproval: [], approved: [], rejected: [] },
+            }));
         } finally {
             setIsFetching(false);
         }
@@ -179,9 +251,13 @@ export default function LeaveManagementPage({
     };
 
     useEffect(() => {
-        fetchDashboard();
         fetchLeaveTypes();
     }, []);
+
+    useEffect(() => {
+        if (rollNumber) fetchDashboard();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [rollNumber, academicYear]);
 
     // ─── Derived data ───────────────────────────────────────────────────────
     const stats = dashboardData.cards;

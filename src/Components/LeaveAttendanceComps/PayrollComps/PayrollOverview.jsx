@@ -32,28 +32,28 @@ import {
 
 // ─── Payroll Module Cards (existing) ────────────────────────────────────────
 const payrollModules = [
-    { color: '#8600BB', icon: AssignmentIcon,       text: 'Create Salary Structures',  description: 'Configure salary components and define earnings / deduction rules for employee categories and salary grades.', bgColor: '#f9f4fc', iconBgColor: '#8600BB1A', path: 'salary-structures' },
-    { color: '#2563EB', icon: AccountBalanceIcon,   text: 'Auto-Deductions & Compliance', description: 'Manage statutory deductions: Provident Fund (PF), ESI, Professional Tax (PT), TDS settings for payroll compliance.', bgColor: '#EFF6FF', iconBgColor: '#2563EB1A', path: 'compliance' },
-    { color: '#00ACC1', icon: ReceiptLongIcon,      text: 'Bank Details',               description: 'Manage employee bank account details for salary disbursement and maintain records for payroll processing.', bgColor: '#E0F7FA', iconBgColor: '#00ACC11A', path: 'bank-reports' },
-    { color: '#E30053', icon: DescriptionIcon,      text: 'Audit-Ready Salary Register',description: 'View and export detailed salary breakdowns per employee including earnings, deductions, and net pay for each month.', bgColor: '#FCF8F9', iconBgColor: '#fbebf1',  path: 'salary-register' },
-    { color: '#FF9800', icon: TaskAltIcon,          text: 'Run & Approve Payroll',      description: 'Process monthly payroll, approve salary disbursement, and download professional payslips for employees.', bgColor: '#FFF4E6', iconBgColor: '#FF98001A', path: 'approve-payroll' },
+    { color: '#8600BB', icon: AssignmentIcon, text: 'Create Salary Structures', description: 'Configure salary components and define earnings / deduction rules for employee categories and salary grades.', bgColor: '#f9f4fc', iconBgColor: '#8600BB1A', path: 'salary-structures' },
+    { color: '#2563EB', icon: AccountBalanceIcon, text: 'Auto-Deductions & Compliance', description: 'Manage statutory deductions: Provident Fund (PF), ESI, Professional Tax (PT), TDS settings for payroll compliance.', bgColor: '#EFF6FF', iconBgColor: '#2563EB1A', path: 'compliance' },
+    { color: '#00ACC1', icon: ReceiptLongIcon, text: 'Bank Details', description: 'Manage employee bank account details for salary disbursement and maintain records for payroll processing.', bgColor: '#E0F7FA', iconBgColor: '#00ACC11A', path: 'bank-reports' },
+    { color: '#E30053', icon: DescriptionIcon, text: 'Audit-Ready Salary Register', description: 'View and export detailed salary breakdowns per employee including earnings, deductions, and net pay for each month.', bgColor: '#FCF8F9', iconBgColor: '#fbebf1', path: 'salary-register' },
+    { color: '#FF9800', icon: TaskAltIcon, text: 'Run & Approve Payroll', description: 'Process monthly payroll, approve salary disbursement, and download professional payslips for employees.', bgColor: '#FFF4E6', iconBgColor: '#FF98001A', path: 'approve-payroll' },
 ];
 
 // ─── Payroll Cycle Stages ───────────────────────────────────────────────────
 const PAYROLL_STAGES = [
-    { key: 'attendance',  label: 'Attendance Cutoff',  description: 'Lock monthly attendance',           icon: FactCheckIcon },
-    { key: 'calculation', label: 'Salary Calculation', description: 'Compute gross / LOP / net',         icon: AssignmentIcon },
-    { key: 'approval',    label: 'Manager Approval',   description: 'Review & approve register',         icon: HowToRegIcon },
-    { key: 'paid',        label: 'Salary Credited',    description: 'Paid to bank & payslips shared',    icon: SavingsIcon },
+    { key: 'attendance', label: 'Attendance Cutoff', description: 'Lock monthly attendance', icon: FactCheckIcon },
+    { key: 'calculation', label: 'Salary Calculation', description: 'Compute gross / LOP / net', icon: AssignmentIcon },
+    { key: 'approval', label: 'Manager Approval', description: 'Review & approve register', icon: HowToRegIcon },
+    { key: 'paid', label: 'Salary Credited', description: 'Paid to bank & payslips shared', icon: SavingsIcon },
 ];
 
 // ─── Statutory rates (standard India) ───────────────────────────────────────
 const STATUTORY = {
-    PF_EMPLOYEE:   0.12,   // 12% of Basic + DA
-    PF_EMPLOYER:   0.12,
-    ESI_EMPLOYEE:  0.0075, // 0.75% of Gross (if gross ≤ ₹21,000)
-    ESI_EMPLOYER:  0.0325, // 3.25%
-    PT_MONTHLY:    200,    // Professional Tax (state-dependent)
+    PF_EMPLOYEE: 0.12,   // 12% of Basic + DA
+    PF_EMPLOYER: 0.12,
+    ESI_EMPLOYEE: 0.0075, // 0.75% of Gross (if gross ≤ ₹21,000)
+    ESI_EMPLOYER: 0.0325, // 3.25%
+    PT_MONTHLY: 200,    // Professional Tax (state-dependent)
 };
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -69,8 +69,8 @@ const formatINR = (n) => {
 const formatLakhs = (n) => {
     if (n == null || Number.isNaN(n)) return '₹0';
     if (n >= 10000000) return `₹${(n / 10000000).toFixed(2)} Cr`;
-    if (n >= 100000)   return `₹${(n / 100000).toFixed(2)} L`;
-    if (n >= 1000)     return `₹${(n / 1000).toFixed(1)}K`;
+    if (n >= 100000) return `₹${(n / 100000).toFixed(2)} L`;
+    if (n >= 1000) return `₹${(n / 1000).toFixed(1)}K`;
     return `₹${n}`;
 };
 
@@ -103,19 +103,19 @@ export default function PayrollOverview({ isEmbedded = false, onBack }) {
         const activeEmployees = 152;
 
         // Earnings
-        const basic        = 2260000;   // 50% of gross roughly
-        const hra          = 904000;    // 40% of basic
-        const allowances   = 985000;    // conveyance + medical + special + LTA
-        const overtime     = 85000;
-        const incentives   = 120000;
-        const bonus        = 169000;
-        const gross        = basic + hra + allowances + overtime + incentives + bonus;
+        const basic = 2260000;   // 50% of gross roughly
+        const hra = 904000;    // 40% of basic
+        const allowances = 985000;    // conveyance + medical + special + LTA
+        const overtime = 85000;
+        const incentives = 120000;
+        const bonus = 169000;
+        const gross = basic + hra + allowances + overtime + incentives + bonus;
 
         // Statutory deductions
-        const pfEmployee   = Math.round(basic * STATUTORY.PF_EMPLOYEE);
-        const esiEmployee  = Math.round(gross * 0.3 * STATUTORY.ESI_EMPLOYEE); // ~30% eligible
-        const pt           = STATUTORY.PT_MONTHLY * activeEmployees;
-        const tds          = 305000;
+        const pfEmployee = Math.round(basic * STATUTORY.PF_EMPLOYEE);
+        const esiEmployee = Math.round(gross * 0.3 * STATUTORY.ESI_EMPLOYEE); // ~30% eligible
+        const pt = STATUTORY.PT_MONTHLY * activeEmployees;
+        const tds = 305000;
         const loanRecovery = 45000;
         const lopDeduction = 32000;
         const totalDeductions = pfEmployee + esiEmployee + pt + tds + loanRecovery + lopDeduction;
@@ -123,7 +123,7 @@ export default function PayrollOverview({ isEmbedded = false, onBack }) {
         const netPay = gross - totalDeductions;
 
         // Leave-driven fields
-        const lopDays      = 34;
+        const lopDays = 34;
         const encashableDays = 87;
 
         return {
@@ -147,18 +147,18 @@ export default function PayrollOverview({ isEmbedded = false, onBack }) {
 
     // Earnings vs Deductions donut
     const earningsDeductions = useMemo(() => ([
-        { name: 'Basic + HRA',     value: snapshot.basic + snapshot.hra,       color: '#2563EB' },
-        { name: 'Allowances',      value: snapshot.allowances,                  color: '#00ACC1' },
+        { name: 'Basic + HRA', value: snapshot.basic + snapshot.hra, color: '#2563EB' },
+        { name: 'Allowances', value: snapshot.allowances, color: '#00ACC1' },
         { name: 'OT + Incentives', value: snapshot.overtime + snapshot.incentives + snapshot.bonus, color: '#16A34A' },
-        { name: 'Deductions',      value: snapshot.totalDeductions,             color: '#DC2626' },
+        { name: 'Deductions', value: snapshot.totalDeductions, color: '#DC2626' },
     ]), [snapshot]);
 
     // Compliance status
     const compliance = [
-        { name: 'PF',  status: 'filed',   amount: snapshot.pfEmployee * 2, dueDate: '15th', color: '#2563EB', description: 'Provident Fund' },
+        { name: 'PF', status: 'filed', amount: snapshot.pfEmployee * 2, dueDate: '15th', color: '#2563EB', description: 'Provident Fund' },
         { name: 'ESI', status: 'pending', amount: Math.round(snapshot.esiEmployee * 5.33), dueDate: '21st', color: '#00ACC1', description: 'Employee State Insurance' },
-        { name: 'PT',  status: 'filed',   amount: snapshot.pt, dueDate: '15th', color: '#7C3AED', description: 'Professional Tax' },
-        { name: 'TDS', status: 'pending', amount: snapshot.tds, dueDate: '7th',  color: '#EA580C', description: 'Tax Deducted at Source' },
+        { name: 'PT', status: 'filed', amount: snapshot.pt, dueDate: '15th', color: '#7C3AED', description: 'Professional Tax' },
+        { name: 'TDS', status: 'pending', amount: snapshot.tds, dueDate: '7th', color: '#EA580C', description: 'Tax Deducted at Source' },
     ];
 
     const handleBackClick = () => {
@@ -198,17 +198,7 @@ export default function PayrollOverview({ isEmbedded = false, onBack }) {
                 >
                     {monthOptions().map(m => <MenuItem key={m} value={m} sx={{ fontSize: '13px' }}>{m}</MenuItem>)}
                 </Select>
-                {(userType === 'superadmin' || userType === 'admin') && (
-                    <Button variant="contained" startIcon={<PlayCircleOutlineIcon />}
-                        onClick={() => navigate('approve-payroll')}
-                        sx={{
-                            textTransform: 'none', fontSize: '13px', fontWeight: 700, borderRadius: '50px',
-                            bgcolor: '#FF9800', boxShadow: 'none', px: 2.5,
-                            '&:hover': { bgcolor: '#F57C00', boxShadow: 'none' },
-                        }}>
-                        Run Payroll
-                    </Button>
-                )}
+
             </Box>
         </Box>
     );
@@ -238,7 +228,7 @@ export default function PayrollOverview({ isEmbedded = false, onBack }) {
                     const isDone = idx < currentStage;
                     const isCurrent = idx === currentStage;
                     const color = isDone ? '#16A34A' : isCurrent ? '#F97316' : '#CBD5E1';
-                    const bg    = isDone ? '#DCFCE7' : isCurrent ? '#FFF7ED' : '#F3F4F6';
+                    const bg = isDone ? '#DCFCE7' : isCurrent ? '#FFF7ED' : '#F3F4F6';
                     return (
                         <React.Fragment key={stage.key}>
                             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, minWidth: 0 }}>
@@ -271,11 +261,11 @@ export default function PayrollOverview({ isEmbedded = false, onBack }) {
     // ─── Section: KPI Row ──────────────────────────────────────────────────
     const renderKpis = () => {
         const kpis = [
-            { title: 'Total Employees',   value: snapshot.totalEmployees,           sub: `${snapshot.activeEmployees} on-roll`,         icon: PeopleIcon,                 color: '#8600BB', bg: '#F5F0FA' },
-            { title: 'Gross Payroll',     value: formatLakhs(snapshot.gross),       sub: 'Earnings before deductions',                  icon: AccountBalanceWalletIcon,   color: '#2563EB', bg: '#EFF6FF', delta: '+2.8%' },
-            { title: 'Total Deductions',  value: formatLakhs(snapshot.totalDeductions), sub: 'PF + ESI + PT + TDS + LOP',               icon: ReceiptLongIcon,            color: '#DC2626', bg: '#FEF2F2', delta: '-1.2%', deltaDown: true },
-            { title: 'Net Pay',           value: formatLakhs(snapshot.netPay),      sub: 'Disbursable to bank',                         icon: SavingsIcon,                color: '#16A34A', bg: '#F0FDF4', delta: '+3.1%' },
-            { title: 'Pending Approvals', value: snapshot.pendingApprovals,          sub: `${snapshot.lopDays} LOP days recorded`,       icon: PendingActionsIcon,         color: '#F97316', bg: '#FFF7ED' },
+            { title: 'Total Employees', value: snapshot.totalEmployees, sub: `${snapshot.activeEmployees} on-roll`, icon: PeopleIcon, color: '#8600BB', bg: '#F5F0FA' },
+            { title: 'Gross Payroll', value: formatLakhs(snapshot.gross), sub: 'Earnings before deductions', icon: AccountBalanceWalletIcon, color: '#2563EB', bg: '#EFF6FF', delta: '+2.8%' },
+            { title: 'Total Deductions', value: formatLakhs(snapshot.totalDeductions), sub: 'PF + ESI + PT + TDS + LOP', icon: ReceiptLongIcon, color: '#DC2626', bg: '#FEF2F2', delta: '-1.2%', deltaDown: true },
+            { title: 'Net Pay', value: formatLakhs(snapshot.netPay), sub: 'Disbursable to bank', icon: SavingsIcon, color: '#16A34A', bg: '#F0FDF4', delta: '+3.1%' },
+            { title: 'Pending Approvals', value: snapshot.pendingApprovals, sub: `${snapshot.lopDays} LOP days recorded`, icon: PendingActionsIcon, color: '#F97316', bg: '#FFF7ED' },
         ];
         return (
             <Grid container spacing={2} sx={{ mb: 2 }}>
@@ -322,7 +312,7 @@ export default function PayrollOverview({ isEmbedded = false, onBack }) {
                 })}
             </Grid>
         );
-    };  
+    };
 
     // ─── Section: Module cards ─────────────────────────────────────────────
     const renderModules = () => (

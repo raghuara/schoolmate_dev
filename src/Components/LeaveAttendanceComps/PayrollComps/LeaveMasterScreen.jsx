@@ -184,10 +184,8 @@ const emptyLeaveForm = {
     unusedLeaveAction: 'lapse',
     encashmentTiming: 'End of Period',
     encashmentFormula: 'gross_by_working_days',
-    // Deduction
-    extraLeaveDeducted: true,
     // Special rules
-    standaloneOnly: false,         // can't be adjacent to a holiday / another leave (no "sandwich")
+    blockContinuousLeave: false,   // block any back-to-back leave with off-days or other leaves
     requiresDocument: false,       // user must upload a supporting doc when applying
     documentHint: '',              // free-text hint shown to user (e.g., "Medical certificate")
 };
@@ -1267,8 +1265,7 @@ export default function LeaveMasterScreen() {
                     advanceUsageAllowed: !!lt.advanceUsageAllowed,
                     maxPerMonth: Number(lt.maxDaysPerMonth) || 0,
                     unusedLeaveAction: UNUSED_ACTION_FROM_API[lt.unusedAction] || 'lapse',
-                    extraLeaveDeducted: !!lt.deductSalaryForExtra,
-                    standaloneOnly: !!lt.standaloneOnly,
+                    blockContinuousLeave: !!lt.BlockContinuousLeave,
                     requiresDocument: !!lt.requireSupportingDocument,
                     // Defaults for fields the new API doesn't return — kept so the dialog still renders.
                     encashmentTiming: 'End of Period',
@@ -1400,8 +1397,7 @@ export default function LeaveMasterScreen() {
             numberOfDays: Number(policyForm.daysPerPeriod) || 0,
             maxDaysPerMonth: Number(policyForm.maxPerMonth) || 0,
             unusedAction: UNUSED_ACTION_TO_API[policyForm.unusedLeaveAction] || 'Lapse',
-            deductSalaryForExtra: !!policyForm.extraLeaveDeducted,
-            standaloneOnly: !!policyForm.standaloneOnly,
+            BlockContinuousLeave: !!policyForm.blockContinuousLeave,
             requireSupportingDocument: !!policyForm.requiresDocument,
             updatedByRollNumber: authUser.rollNumber,
         };
@@ -2548,15 +2544,9 @@ export default function LeaveMasterScreen() {
                                                         <Typography sx={{ fontSize: 11, fontWeight: 600, color: '#333' }}>{policy.encashmentTiming}</Typography>
                                                     </Box>
                                                 )}
-                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <Typography sx={{ fontSize: 11, color: '#666' }}>Extra leave:</Typography>
-                                                    <Typography sx={{ fontSize: 11, fontWeight: 700, color: policy.extraLeaveDeducted ? '#DC2626' : '#999' }}>
-                                                        {policy.extraLeaveDeducted ? 'Salary deducted' : 'No deduction'}
-                                                    </Typography>
-                                                </Box>
 
                                                 {/* Special-rule chips — only render when set */}
-                                                {(policy.standaloneOnly || policy.requiresDocument || Number(policy.maxPerMonth) > 0) && (
+                                                {(policy.blockContinuousLeave || policy.requiresDocument || Number(policy.maxPerMonth) > 0) && (
                                                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.4 }}>
                                                         {Number(policy.maxPerMonth) > 0 && (
                                                             <Chip
@@ -2569,9 +2559,9 @@ export default function LeaveMasterScreen() {
                                                                 }}
                                                             />
                                                         )}
-                                                        {policy.standaloneOnly && (
+                                                        {policy.blockContinuousLeave && (
                                                             <Chip
-                                                                label="Standalone only"
+                                                                label="Continuous Leave blocked"
                                                                 size="small"
                                                                 sx={{
                                                                     height: 20, fontSize: 10, fontWeight: 700,
@@ -3345,41 +3335,21 @@ export default function LeaveMasterScreen() {
                         </Box>
                     )}
 
-                    {/* ── Sub-card: Salary Deduction ── */}
-                    <Box sx={{ border: '1px solid #E5E7EB', borderRadius: '8px', p: 2, mb: 2 }}>
-                        <Typography sx={{ fontSize: 12, fontWeight: 700, color: PRIMARY, mb: 1.5, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                            When will salary be deducted?
-                        </Typography>
-                        <ToggleRow
-                            label="Deduct Salary for Extra Leave"
-                            description={
-                                isOnDemandPolicy(policyForm)
-                                    ? 'Each leave day will result in a salary deduction (on-demand type)'
-                                    : `Any leave taken beyond ${getEffectiveTotalDays(policyForm)} day(s) per ${getPeriodLabel(policyForm.allocationPeriod)} will result in a salary deduction`
-                            }
-                            checked={policyForm.extraLeaveDeducted}
-                            onChange={(v) => ffPolicy('extraLeaveDeducted', v)}
-                        />
-                        <Typography sx={{ fontSize: 10, color: '#9CA3AF', mt: 1 }}>
-                            Per-day deduction is calculated using the global <strong>Salary Deduction Formula</strong> set in the section above.
-                        </Typography>
-                    </Box>
-
                     {/* ── Sub-card: Special Rules ── */}
                     <Box sx={{ border: '1px solid #E5E7EB', borderRadius: '8px', p: 2, mb: 2 }}>
                         <Typography sx={{ fontSize: 12, fontWeight: 700, color: PRIMARY, mb: 1.5, textTransform: 'uppercase', letterSpacing: 0.5 }}>
                             Special Rules
                         </Typography>
 
-                        {/* Standalone-only toggle */}
+                        {/* Continuous-leave block toggle */}
                         <Box sx={{ mb: 1.5 }}>
                             <ToggleRow
-                                label="Standalone only — block sandwich with off-days"
-                                description="Leave can only be taken on a working day surrounded by other working days. The day before and the day after cannot be a holiday or another leave (prevents extending weekends)."
-                                checked={policyForm.standaloneOnly}
-                                onChange={(v) => ffPolicy('standaloneOnly', v)}
+                                label="Continuous Leave — block any back-to-back leave"
+                                description="Leave can only be taken as a single, standalone working day. The day before and the day after cannot be a holiday, weekend, or another leave — blocking every form of continuous / sandwich leave."
+                                checked={policyForm.blockContinuousLeave}
+                                onChange={(v) => ffPolicy('blockContinuousLeave', v)}
                             />
-                            {policyForm.standaloneOnly && (
+                            {policyForm.blockContinuousLeave && (
                                 <Box sx={{
                                     mt: 1, ml: 2, p: 1.2, borderRadius: '6px',
                                     borderLeft: `3px solid ${PRIMARY}`, bgcolor: PRIMARY_LIGHT,
@@ -3470,11 +3440,6 @@ export default function LeaveMasterScreen() {
                                             ? 'Carried forward to next period'
                                             : 'Lapses (expires)'}
                                 </strong></>
-                            )}
-                            {policyForm.extraLeaveDeducted ? (
-                                <><br />• Extra leave beyond allocation: <strong style={{ color: '#DC2626' }}>Salary deducted</strong></>
-                            ) : (
-                                <><br />• Extra leave beyond allocation: <strong style={{ color: '#666' }}>No deduction</strong></>
                             )}
                         </Typography>
                     </Box>
