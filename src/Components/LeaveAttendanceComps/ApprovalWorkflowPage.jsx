@@ -171,19 +171,21 @@ export default function ApprovalWorkflowPage({ isEmbedded = false }) {
 
     // ─── Action handler ────────────────────────────────────────────────────
     // PUT updateLeaveApprovalAction
-    //   ?leaveApplicationId=<id>&RollNumber=<approver>&Action=accept|reject&Reason=<text>
+    //   ?AcademicYear=YYYY-YYYY&leaveApplicationId=<id>&RollNumber=<approver>
+    //   &Action=accept|decline&Reason=<text>
     // The `Reason` param is always sent (empty string when accepting) so the
     // URL shape matches the backend contract exactly.
     const handleDecision = async (leave, decision, reason = '') => {
         const id = leave.leaveApplicationId;
-        const action = decision === 'approved' ? 'accept' : 'reject';
+        const action = decision === 'approved' ? 'accept' : 'decline';
         setActionLoading(prev => ({ ...prev, [id]: true }));
         try {
             const params = {
+                AcademicYear: academicYear,
                 leaveApplicationId: id,
                 RollNumber: rollNumber,
                 Action: action,
-                Reason: action === 'reject' ? (reason || '').trim() : '',
+                Reason: action === 'decline' ? (reason || '').trim() : '',
             };
             const res = await axios.put(updateLeaveApprovalAction, null, {
                 params,

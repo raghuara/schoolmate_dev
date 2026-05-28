@@ -53,6 +53,7 @@
     "react-slick": "^0.30.2",
     "react-textarea-autosize": "^8.5.9",
     "react-to-print": "^3.2.0",
+    "react-window": "^2.2.7",
     "recharts": "^2.13.0",
     "redux-persist": "^6.0.0",
     "simple-keyboard-layouts": "^3.4.147",

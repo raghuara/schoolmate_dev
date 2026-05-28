@@ -114,6 +114,7 @@ export default function LeaveManagementPage({
     const user = useSelector((state) => state.auth);
     const userType = user.userType;
     const isAdmin = userType === 'superadmin' || userType === 'admin';
+    const isSuperAdmin = userType === 'superadmin';
 
     // ─── Sub-view (Applications / Apply Leave / Leave Approval) ──────────────
     const [subView, setSubViewState] = useState(initialSubView);
@@ -127,7 +128,10 @@ export default function LeaveManagementPage({
         if (onSubViewChange) onSubViewChange(v);
     };
     // Non-admins should never land on approval, even if parent requests it
-    const effectiveSubView = !isAdmin && subView === 'approval' ? 'applications' : subView;
+    const effectiveSubView =
+        (!isAdmin && subView === 'approval') || (isSuperAdmin && subView === 'myStatus')
+            ? 'applications'
+            : subView;
 
     // ─── State ──────────────────────────────────────────────────────────────
     const [leaveTab, setLeaveTab] = useState(0);
@@ -233,12 +237,16 @@ export default function LeaveManagementPage({
         setIsFetchingLeaveTypes(true);
         try {
             const res = await axios.get(GetleaveTypes, {
+                params: { academicYear },
                 headers: { Authorization: `Bearer ${token}` },
             });
-            // Tolerate common envelope shapes: { data: [...] }, { leaveTypes: [...] }, or plain array.
+            // Tolerate common envelope shapes: { data: { items: [...] } }, { data: [...] },
+            // { items: [...] }, { leaveTypes: [...] }, or plain array.
             const body = res?.data;
             const list = Array.isArray(body) ? body
+                : Array.isArray(body?.data?.items) ? body.data.items
                 : Array.isArray(body?.data) ? body.data
+                : Array.isArray(body?.items) ? body.items
                 : Array.isArray(body?.leaveTypes) ? body.leaveTypes
                 : [];
             setAvailableLeaveTypes(list);
@@ -252,7 +260,8 @@ export default function LeaveManagementPage({
 
     useEffect(() => {
         fetchLeaveTypes();
-    }, []);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [academicYear]);
 
     useEffect(() => {
         if (rollNumber) fetchDashboard();
@@ -408,7 +417,10 @@ export default function LeaveManagementPage({
                     const SUB_VIEWS = [
                         { key: 'applications', label: 'Applications', icon: ListAltOutlinedIcon,    color: PRIMARY },
                         { key: 'apply',        label: 'Apply Leave',  icon: EventNoteOutlinedIcon, color: '#059669' },
-                        { key: 'myStatus',     label: 'My Requests',  icon: HistoryToggleOffIcon,  color: '#7C3AED' },
+                        // Super Admin leaves are auto-approved — no "My Requests" tab.
+                        ...(!isSuperAdmin ? [
+                            { key: 'myStatus', label: 'My Requests', icon: HistoryToggleOffIcon, color: '#7C3AED' },
+                        ] : []),
                         ...(isAdmin ? [
                             { key: 'approval', label: 'Leave Approval', icon: FactCheckOutlinedIcon, color: '#2563EB' },
                         ] : []),
@@ -460,7 +472,7 @@ export default function LeaveManagementPage({
                 )}
 
                 {/* ─── My Requests sub-view (logged-in user's own leave status) ─── */}
-                {effectiveSubView === 'myStatus' && (
+                {effectiveSubView === 'myStatus' && !isSuperAdmin && (
                     <MyLeaveStatusPage />
                 )}
 

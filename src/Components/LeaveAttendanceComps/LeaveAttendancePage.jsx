@@ -47,7 +47,7 @@ import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import axios from 'axios';
-import { getAttendanceDashboard, SyncStatus, TriggerManualSync } from '../../Api/Api';
+import { getAttendanceDashboard, SyncStatus, TriggerManualSync, GetTeachersAttendance } from '../../Api/Api';
 import SnackBar from '../SnackBar';
 
 import StaffAttendanceOverviewPage from './StaffAttendanceOverviewPage';
@@ -327,6 +327,11 @@ export default function LeaveAttendancePage() {
     const [todayRoleMenuAnchor, setTodayRoleMenuAnchor] = useState(null);
     const [todayStatusMenuAnchor, setTodayStatusMenuAnchor] = useState(null);
 
+    // Today's Attendance live data — fetched directly from GetTeachersAttendance
+    // (independent of the dashboard payload so we can refresh in isolation).
+    const [todayAttendanceList, setTodayAttendanceList] = useState([]);
+    const [isLoadingTodayList, setIsLoadingTodayList] = useState(false);
+
     const clearTodayFilters = () => {
         setTodayAttSearch('');
         setTodayAttRoleFilter('all');
@@ -396,6 +401,91 @@ export default function LeaveAttendancePage() {
     useEffect(() => {
         fetchDashboard(formatDateForApi(new Date()));
     }, []);
+
+    // GET /teachersattendance/GetTeachersAttendance
+    //   ?fromDate=YYYY-MM-DD&toDate=YYYY-MM-DD&academicYear=YYYY-YYYY
+    // For the Today's Attendance tab fromDate === toDate === today, so the
+    // response always contains zero or one record per staff member for today.
+    //
+    // Each row's status is derived in this order:
+    //   1. leaves[0].isOnApprovedLeave === true  → "On Leave"
+    //      (approvedLeaveIsHalfDay decorates the chip with a half-day badge)
+    //   2. punches has entries                   → "Late" if loginTime > 09:15
+    //                                              else "Present"
+    //   3. otherwise                             → "Absent"
+    // The normalized record uses the same field names the existing render
+    // already consumes (rollNumber, name, role, status, loginTime, logoutTime,
+    // source) so the table / filters / chips keep working unchanged.
+    const normalizeTodayRecord = (rec) => {
+        const userType = String(rec.userType || '').toLowerCase();
+        const role = userType === 'teacher' ? 'teaching' : 'nonteaching';
+
+        const firstPunch = Array.isArray(rec.punches) && rec.punches.length > 0 ? rec.punches[0] : null;
+        const lastPunch  = Array.isArray(rec.punches) && rec.punches.length > 0 ? rec.punches[rec.punches.length - 1] : null;
+        const loginRaw   = firstPunch?.loginTime  || '';
+        const logoutRaw  = lastPunch?.logoutTime  || '';
+        // Server gives "HH:MM:SS" — trim to "HH:MM" for display consistency.
+        const trimSec = (t) => (t && t.length >= 5 ? t.slice(0, 5) : t || '');
+
+        const onLeave = Array.isArray(rec.leaves) && rec.leaves.some(l => l?.isOnApprovedLeave === true);
+        const isHalfDay = onLeave && rec.leaves.some(l => l?.isOnApprovedLeave === true && l?.approvedLeaveIsHalfDay === true);
+
+        let status = 'absent';
+        if (onLeave) {
+            status = 'onleave';
+        } else if (loginRaw) {
+            const [hh, mm] = loginRaw.split(':').map(Number);
+            const lateAfter = SCHOOL_START_HOUR * 60 + LATE_THRESHOLD_MIN;
+            status = (hh * 60 + (mm || 0)) > lateAfter ? 'late' : 'present';
+        }
+
+        const source = firstPunch
+            ? (String(firstPunch.loginSource || '').toLowerCase() === 'manual' ? 'manual' : 'biometric')
+            : '';
+
+        return {
+            rollNumber: rec.rollNumber || '',
+            name: rec.name || '',
+            userType: rec.userType || '',
+            role,
+            status,
+            attendance: status,
+            loginTime: trimSec(loginRaw),
+            logoutTime: trimSec(logoutRaw),
+            source,
+            isHalfDayLeave: isHalfDay,
+            rawPunches: rec.punches || [],
+            rawBreaks: rec.breaks || [],
+            rawLeaves: rec.leaves || [],
+        };
+    };
+
+    const fetchTodaysAttendance = async () => {
+        setIsLoadingTodayList(true);
+        try {
+            const todayIso = new Date().toISOString().split('T')[0];
+            const res = await axios.get(GetTeachersAttendance, {
+                params: {
+                    fromDate: todayIso,
+                    toDate: todayIso,
+                    academicYear: selectedAcademicYear || currentAcademicYear,
+                },
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (res?.data && !res.data.error) {
+                const rows = Array.isArray(res.data.data) ? res.data.data : [];
+                setTodayAttendanceList(rows.map(normalizeTodayRecord));
+            } else {
+                setTodayAttendanceList([]);
+            }
+        } catch (err) {
+            console.error("Failed to load today's attendance:", err);
+            setTodayAttendanceList([]);
+            showSnack("Failed to load today's attendance", false);
+        } finally {
+            setIsLoadingTodayList(false);
+        }
+    };
 
     const handleTabChange = (_e, newValue) => setTabValue(newValue);
 
@@ -473,35 +563,56 @@ export default function LeaveAttendancePage() {
         }
     };
 
-    // Initial fetch + polling — admin/superadmin only.
-    // Non-admin users never trigger SyncStatus calls. This is the main load reduction.
+    // Polling guard — SyncStatus only runs when ALL of these hold:
+    //   1. The user is an admin / superadmin (existing rule)
+    //   2. The user is currently on the Dashboard tab (tab index 0). The
+    //      Sync Worker (PC) + Biometric Reachability tiles that consume this
+    //      data only render on the dashboard, so polling on any other tab is
+    //      wasted backend load.
+    const isDashboardTab = tabValue === 0;
+    const shouldPollSyncStatus = isAdminUser && isDashboardTab;
+
+    // Fetch the Today's Attendance list whenever the tab becomes active OR the
+    // academic year changes while it's already active.
     useEffect(() => {
-        if (!isAdminUser) return;
+        if (tabValue === 2) {
+            fetchTodaysAttendance();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [tabValue, selectedAcademicYear]);
+
+    // Initial fetch + polling — admin/superadmin AND on the Dashboard tab only.
+    // Switching to any other tab tears down the poll; switching back re-fires it.
+    useEffect(() => {
+        if (!shouldPollSyncStatus) return;
         fetchSyncStatus();
         return () => {
             if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
             if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isAdminUser]);
+    }, [shouldPollSyncStatus]);
 
     useEffect(() => {
-        if (!isAdminUser) return;
+        if (!shouldPollSyncStatus) return;
         if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
         const interval = isSyncing ? POLL_INTERVAL_BUSY : POLL_INTERVAL_IDLE;
         pollIntervalRef.current = setInterval(fetchSyncStatus, interval);
         return () => clearInterval(pollIntervalRef.current);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isSyncing, isAdminUser]);
+    }, [isSyncing, shouldPollSyncStatus]);
 
     // ─── Idle redirect ─────────────────────────────────────────────────────
     // If the user doesn't touch the page for IDLE_TIMEOUT_MS we route them
     // away to /dashboardmenu/dashboard, which unmounts this component and
     // tears down the SyncStatus polling. Saves backend load when people
     // leave a tab open in the corner of their screen all day.
+    //
+    // Same guard as polling: only matters when we'd actually be polling, i.e.
+    // an admin sitting on the Dashboard tab. On other tabs there's no poll
+    // to suppress, so the redirect would just be obnoxious.
     useEffect(() => {
-        // Don't bother running idle detection for users who don't poll anything.
-        if (!isAdminUser) return;
+        if (!shouldPollSyncStatus) return;
 
         let idleTimer = null;
         const resetIdle = () => {
@@ -523,7 +634,7 @@ export default function LeaveAttendancePage() {
             if (idleTimer) clearTimeout(idleTimer);
             IDLE_EVENTS.forEach((evt) => window.removeEventListener(evt, resetIdle));
         };
-    }, [isAdminUser, isSyncing, navigate]);
+    }, [shouldPollSyncStatus, isSyncing, navigate]);
 
     // 1Hz tick to refresh cooldown / "X seconds ago" labels (only when needed).
     useEffect(() => {
@@ -1224,8 +1335,10 @@ export default function LeaveAttendancePage() {
     };
 
     // ─── Today's Attendance (full-page view of all staff today) ───────────
+    // Data source: GetTeachersAttendance (fromDate=toDate=today), normalized
+    // into the shape the existing render code already expects.
     const renderTodaysAttendance = () => {
-        const { todaysAttendance } = dashboardData;
+        const todaysAttendance = todayAttendanceList;
 
         // Helper: compute worked hours from HH:mm strings
         const computeWorkedHours = (loginStr, logoutStr) => {
@@ -1599,7 +1712,7 @@ export default function LeaveAttendancePage() {
                 {/* Table */}
                 <Card sx={{ border: '1px solid #E5E7EB', borderRadius: '12px', boxShadow: 'none', bgcolor: '#fff' }}>
                     <CardContent sx={{ pb: '12px !important' }}>
-                        {isLoading ? (
+                        {(isLoading || isLoadingTodayList) ? (
                             <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
                                 <CircularProgress size={32} sx={{ color: PRIMARY }} />
                             </Box>
@@ -1728,12 +1841,22 @@ export default function LeaveAttendancePage() {
                                                         )}
                                                     </TableCell>
                                                     <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
-                                                        <Chip label={statusLabel} size="small"
-                                                            sx={{
-                                                                bgcolor: statConf.bg, color: statConf.color,
-                                                                fontWeight: 700, fontSize: '10px', height: 22,
-                                                                border: `1px solid ${statConf.border}`,
-                                                            }} />
+                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+                                                            <Chip label={statusLabel} size="small"
+                                                                sx={{
+                                                                    bgcolor: statConf.bg, color: statConf.color,
+                                                                    fontWeight: 700, fontSize: '10px', height: 22,
+                                                                    border: `1px solid ${statConf.border}`,
+                                                                }} />
+                                                            {statusLabel === 'On Leave' && emp.isHalfDayLeave && (
+                                                                <Chip label="Half Day" size="small"
+                                                                    sx={{
+                                                                        bgcolor: '#FFF7ED', color: '#C2410C',
+                                                                        fontWeight: 700, fontSize: '9.5px', height: 20,
+                                                                        border: '1px solid #FED7AA',
+                                                                    }} />
+                                                            )}
+                                                        </Box>
                                                     </TableCell>
                                                 </TableRow>
                                             );
@@ -2065,6 +2188,22 @@ export default function LeaveAttendancePage() {
                         </Box>
                         {userType !== "teacher" && (
                             <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+                                {/* Biometric Mapping — opens the staff ↔ device-ID sync page on its own route */}
+                                <Button
+                                    onClick={() => navigate('biometric-mapping')}
+                                    startIcon={<FingerprintIcon />}
+                                    variant="outlined"
+                                    sx={{
+                                        textTransform: 'none', borderRadius: '50px',
+                                        bgcolor: '#fff', color: PRIMARY_DARK,
+                                        border: `1px solid ${PRIMARY_BORDER}`,
+                                        fontSize: '13px', fontWeight: 700, px: 2.2,
+                                        boxShadow: 'none',
+                                        '&:hover': { bgcolor: PRIMARY_LIGHT, borderColor: PRIMARY, boxShadow: 'none' },
+                                    }}
+                                >
+                                    Biometric Mapping
+                                </Button>
                                 <Button
                                     onClick={() => setTabValue(1)}
                                     startIcon={<AddIcon />}

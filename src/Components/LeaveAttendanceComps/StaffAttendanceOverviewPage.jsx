@@ -33,7 +33,6 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import EventBusyIcon from '@mui/icons-material/EventBusy';
 import DateRangeIcon from '@mui/icons-material/DateRange';
 import { useNavigate } from 'react-router-dom';
-import { useSelector } from 'react-redux';
 import axios from 'axios';
 import { getStaffAttendanceOverview } from '../../Api/Api';
 import SnackBar from '../SnackBar';
@@ -56,11 +55,31 @@ const formatDateForApi = (dateObj) => {
     return `${d}-${m}-${y}`;
 };
 
-// "YYYY-MM-DD" input value → "DD-MM-YYYY" for API
-const inputToApi = (str) => {
-    if (!str) return '';
-    const [y, m, d] = str.split('-');
-    return `${d}-${m}-${y}`;
+// JS Date → "YYYY-MM-DD" (the format the GetStaffAttendanceOverview API expects).
+const toIsoDate = (dateObj) => {
+    const y = dateObj.getFullYear();
+    const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const d = String(dateObj.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+};
+
+// Compute the From/To date pair (ISO format) for a given viewBy preset.
+// 7days  → last 7 days ending today  (today − 6 → today)
+// 15days → last 15 days ending today (today − 14 → today)
+const datesForViewPreset = (preset) => {
+    const today = new Date();
+    const from = new Date();
+    const span = preset === '15days' ? 14 : 6; // 7-day window spans 6 prior days + today
+    from.setDate(today.getDate() - span);
+    return { from: toIsoDate(from), to: toIsoDate(today) };
+};
+
+// Academic year window (April → March) — matches the rest of the module.
+const getCurrentAcademicYear = () => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = d.getMonth() + 1;
+    return m >= 4 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
 };
 
 // "DD-MM-YYYY" → "DD" for header display
@@ -111,9 +130,6 @@ const today = new Date().toISOString().split('T')[0];
 
 const StaffAttendanceOverviewPage = ({ isEmbedded = false }) => {
     const navigate = useNavigate();
-    const user = useSelector((state) => state.auth);
-    const rollNumber = user.rollNumber;
-
     // Filters
     const [searchQuery, setSearchQuery]       = useState('');
     const [userTypeFilter, setUserTypeFilter] = useState('All User Types');
@@ -144,16 +160,24 @@ const StaffAttendanceOverviewPage = ({ isEmbedded = false }) => {
     };
 
     // Fetch overview
+    // GET /GetStaffAttendanceOverview
+    //   ?AcademicYear=YYYY-YYYY&FromDate=YYYY-MM-DD&ToDate=YYYY-MM-DD&UserType=<userType>
+    // For 7days / 15days presets we compute the date range locally; for the
+    // custom range we use what the user picked in the date inputs (already
+    // YYYY-MM-DD from <input type="date">).
     const fetchOverview = useCallback(async () => {
         // For custom range, require both dates
         if (viewBy === 'custom' && (!fromDate || !toDate)) return;
 
+        const range = viewBy === 'custom'
+            ? { from: fromDate, to: toDate }
+            : datesForViewPreset(viewBy);
+
         const params = {
-            RollNumber: rollNumber,
-            ViewBy:     viewBy !== 'custom' ? viewBy : '',
-            FromDate:   viewBy === 'custom' ? inputToApi(fromDate) : '',
-            ToDate:     viewBy === 'custom' ? inputToApi(toDate)   : '',
-            UserType:   userTypeFilter !== 'All User Types' ? userTypeFilter : '',
+            AcademicYear: getCurrentAcademicYear(),
+            FromDate:     range.from,
+            ToDate:       range.to,
+            UserType:     userTypeFilter !== 'All User Types' ? userTypeFilter : '',
         };
 
         setIsLoading(true);
@@ -180,7 +204,7 @@ const StaffAttendanceOverviewPage = ({ isEmbedded = false }) => {
         } finally {
             setIsLoading(false);
         }
-    }, [rollNumber, viewBy, fromDate, toDate, userTypeFilter]);
+    }, [viewBy, fromDate, toDate, userTypeFilter]);
 
     // Re-fetch when viewBy or userType changes (not on every fromDate/toDate keystroke for custom)
     useEffect(() => {

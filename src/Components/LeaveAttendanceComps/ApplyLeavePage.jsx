@@ -769,20 +769,24 @@ export default function ApplyLeavePage({ onSuccess, onCancel }) {
         }
     };
 
-    const submitDisabled =
-        isSubmitting
-        || !form.leaveType
-        || !selectedStart
-        || !form.reason.trim()
-        || !form.contact.trim()
-        || !isValidPhone(form.contact)
-        || (form.emergencyContact.trim() && !isValidPhone(form.emergencyContact))
-        || (rangeBreakdown && rangeBreakdown.leaveDays === 0)
-        || (form.isHalfDay && selectedEnd && !selectedEnd.isSame(selectedStart, 'day'))
-        || (rangeBreakdown && rangeBreakdown.mandatory > 0 && !mandatoryAck)
-        || (monthlyCapCheck && !monthlyCapCheck.ok)
-        || (activeRules.requiresDocument && uploadedFiles.length === 0)
-        || (balanceCheck && !balanceCheck.ok);
+    const submitBlockerReason = (() => {
+        if (isSubmitting) return '';
+        if (!form.leaveType) return 'Select a leave type to continue.';
+        if (!selectedStart) return 'Pick at least a start date from the calendar.';
+        if (!form.reason.trim()) return 'Enter a reason for your leave.';
+        if (!form.contact.trim()) return 'Enter your contact number.';
+        if (!isValidPhone(form.contact)) return 'Contact number must be 10–15 digits.';
+        if (form.emergencyContact.trim() && !isValidPhone(form.emergencyContact)) return 'Emergency contact must be 10–15 digits (or leave it blank).';
+        if (rangeBreakdown && rangeBreakdown.leaveDays === 0) return 'Selected range has no working days — pick a working day.';
+        if (form.isHalfDay && selectedEnd && !selectedEnd.isSame(selectedStart, 'day')) return 'Half-day leave must be on a single day.';
+        if (rangeBreakdown && rangeBreakdown.mandatory > 0 && !mandatoryAck) return `Confirm prior approval for ${rangeBreakdown.mandatory} mandatory working day(s).`;
+        if (monthlyCapCheck && !monthlyCapCheck.ok) return `${form.leaveType} exceeds the monthly cap of ${monthlyCapCheck.cap} day(s).`;
+        if (activeRules.requiresDocument && uploadedFiles.length === 0) return `${form.leaveType} requires a supporting document.`;
+        if (balanceCheck && !balanceCheck.ok) return `Only ${balanceCheck.remaining} day(s) of ${form.leaveType} remaining.`;
+        return '';
+    })();
+
+    const submitDisabled = isSubmitting || submitBlockerReason !== '';
 
     return (
         <>
@@ -1100,35 +1104,53 @@ export default function ApplyLeavePage({ onSuccess, onCancel }) {
 
                             <Grid container spacing={1} sx={{ mb: 1.2 }}>
                                 <Grid size={{ xs: 12, sm: 6 }}>
-                                    <TextField
-                                        fullWidth
-                                        required
-                                        size="small"
-                                        label="Contact Number"
-                                        placeholder="98xxxxxxxx"
-                                        value={form.contact}
-                                        onChange={(e) => updateForm('contact', e.target.value.replace(/[^\d+\s-]/g, ''))}
-                                        slotProps={{ inputLabel: { shrink: true }, htmlInput: { maxLength: 15 } }}
-                                        sx={{
-                                            '& .MuiOutlinedInput-root': { fontSize: 13 },
-                                            '& .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: PRIMARY },
-                                        }}
-                                    />
+                                    {(() => {
+                                        const contactTouched = form.contact.trim().length > 0;
+                                        const contactInvalid = contactTouched && !isValidPhone(form.contact);
+                                        return (
+                                            <TextField
+                                                fullWidth
+                                                required
+                                                size="small"
+                                                label="Contact Number"
+                                                placeholder="98xxxxxxxx"
+                                                value={form.contact}
+                                                onChange={(e) => updateForm('contact', e.target.value.replace(/[^\d+\s-]/g, ''))}
+                                                error={contactInvalid}
+                                                helperText={contactInvalid ? 'Enter a valid 10–15 digit phone number' : ' '}
+                                                slotProps={{ inputLabel: { shrink: true }, htmlInput: { maxLength: 15 } }}
+                                                sx={{
+                                                    '& .MuiOutlinedInput-root': { fontSize: 13 },
+                                                    '& .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: contactInvalid ? undefined : PRIMARY },
+                                                    '& .MuiFormHelperText-root': { fontSize: 10.5, ml: 0.5, mt: 0.3, minHeight: 14 },
+                                                }}
+                                            />
+                                        );
+                                    })()}
                                 </Grid>
                                 <Grid size={{ xs: 12, sm: 6 }}>
-                                    <TextField
-                                        fullWidth
-                                        size="small"
-                                        label="Emergency Contact"
-                                        placeholder="Optional"
-                                        value={form.emergencyContact}
-                                        onChange={(e) => updateForm('emergencyContact', e.target.value.replace(/[^\d+\s-]/g, ''))}
-                                        slotProps={{ inputLabel: { shrink: true }, htmlInput: { maxLength: 15 } }}
-                                        sx={{
-                                            '& .MuiOutlinedInput-root': { fontSize: 13 },
-                                            '& .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: PRIMARY },
-                                        }}
-                                    />
+                                    {(() => {
+                                        const emergencyTouched = form.emergencyContact.trim().length > 0;
+                                        const emergencyInvalid = emergencyTouched && !isValidPhone(form.emergencyContact);
+                                        return (
+                                            <TextField
+                                                fullWidth
+                                                size="small"
+                                                label="Emergency Contact"
+                                                placeholder="Optional"
+                                                value={form.emergencyContact}
+                                                onChange={(e) => updateForm('emergencyContact', e.target.value.replace(/[^\d+\s-]/g, ''))}
+                                                error={emergencyInvalid}
+                                                helperText={emergencyInvalid ? 'Enter a valid 10–15 digit phone number' : ' '}
+                                                slotProps={{ inputLabel: { shrink: true }, htmlInput: { maxLength: 15 } }}
+                                                sx={{
+                                                    '& .MuiOutlinedInput-root': { fontSize: 13 },
+                                                    '& .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: emergencyInvalid ? undefined : PRIMARY },
+                                                    '& .MuiFormHelperText-root': { fontSize: 10.5, ml: 0.5, mt: 0.3, minHeight: 14 },
+                                                }}
+                                            />
+                                        );
+                                    })()}
                                 </Grid>
                             </Grid>
 
@@ -1555,9 +1577,13 @@ export default function ApplyLeavePage({ onSuccess, onCancel }) {
                     px: 2, py: 1, mt: 1.5, borderRadius: '10px', bgcolor: '#fff', border: '1px solid #E5E7EB',
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1,
                 }}>
-                    <Typography sx={{ fontSize: 11, color: '#6B7280' }}>
-                        {submitDisabled
-                            ? 'Complete all required fields to submit your application.'
+                    <Typography sx={{
+                        fontSize: 11,
+                        fontWeight: submitBlockerReason ? 600 : 400,
+                        color: submitBlockerReason ? '#B45309' : '#6B7280',
+                    }}>
+                        {submitBlockerReason
+                            ? `⚠ ${submitBlockerReason}`
                             : 'Ready to submit. Your manager will be notified for approval.'}
                     </Typography>
                     <Box sx={{ display: 'flex', gap: 1 }}>

@@ -9,6 +9,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArticleIcon from '@mui/icons-material/Article';
 import SubjectIcon from '@mui/icons-material/Subject';
 import ClassIcon from '@mui/icons-material/Class';
+import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
 
 export default function AcademicsPage() {
     const [isLoading, setIsLoading] = useState(false);
@@ -54,13 +55,42 @@ export default function AcademicsPage() {
                         <Typography sx={{ fontWeight: "600", fontSize: "20px", }} >Academics</Typography>
                     </Grid>
                     <Grid
-                        sx={{ display: "flex", justifyContent: "center", alignItems: "center" }}
+                        sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center", pr: 1 }}
                         size={{
                             xs: 6,
                             sm: 6,
-                            md: 3,
-                            lg: 6
+                            md: 9,
+                            lg: 9
                         }}>
+                        {userType === 'superadmin' && (
+                            <Link
+                                to="/dashboardmenu/access/academics/academic-year"
+                                style={{ textDecoration: 'none' }}
+                            >
+                                <Button
+                                    variant="contained"
+                                    disableElevation
+                                    startIcon={<CalendarMonthOutlinedIcon sx={{ fontSize: 18 }} />}
+                                    sx={{
+                                        textTransform: 'none',
+                                        fontSize: '13px',
+                                        fontWeight: 700,
+                                        bgcolor: '#059669',
+                                        color: '#fff',
+                                        borderRadius: '8px',
+                                        px: 2.2,
+                                        height: 36,
+                                        boxShadow: '0 2px 6px rgba(5, 150, 105, 0.2)',
+                                        '&:hover': {
+                                            bgcolor: '#047857',
+                                            boxShadow: '0 4px 12px rgba(5, 150, 105, 0.35)',
+                                        },
+                                    }}
+                                >
+                                    Academic Year
+                                </Button>
+                            </Link>
+                        )}
                     </Grid>
                 </Grid>
             </Box>

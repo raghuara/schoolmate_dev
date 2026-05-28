@@ -25,6 +25,9 @@ const getDashboardSliders = `${baseApiurl}dashboardSliders/getDashboardSliders`;
 const deleteDashboardSlider = `${baseApiurl}dashboardSliders/deleteDashboardSlider`;
 const UsersPassword = `${baseApiurl}Dashboard/UsersPassword`;
 const updateUserPassword = `${baseApiurl}Dashboard/UpdateUserPassword`;
+const PostTeachersManualAttendance = `${baseApiurl}teachersattendance/PostTeachersManualAttendance`;
+const GetTeachersAttendanceAudit = `${baseApiurl}teachersattendance/GetTeachersAttendanceAudit`;
+const GetTeachersAttendance = `${baseApiurl}teachersattendance/GetTeachersAttendance`;
 
 // Communication 
 
@@ -329,14 +332,16 @@ const expenceDashboard = `${baseApiurl}expenceDashboard`;
 const biometrics = `${baseApiurl}biometrics/`;
 const SyncStatus = `${biometrics}SyncStatus/`;
 const TriggerManualSync = `${biometrics}TriggerManualSync/`;
-
+const GetBiometricMappings = `${biometrics}GetBiometricMappings/`;
+const PostBiometricMappings = `${biometrics}PostBiometricMappings/`;
+const UpdateBiometricMappings = `${biometrics}UpdateBiometricMappings/`;
 
 const attendance = `${baseApiurl}attendance/`;
 const postAttendanceTeachers = `${attendance}postAttendanceTeachers`;
-const getAttendanceTeacherBefor = `${attendance}getAttendanceTeacherBefor`;
+const GetAttendanceTeacherBefore = `${baseApiurl}teachersattendance/GetAttendanceTeacherBefore`;
 const updateTeachersAttendance = `${attendance}updateTeachersAttendance`;
 const getAttendanceDashboard = `${attendance}getAttendanceDashboard`;
-const getStaffAttendanceOverview = `${attendance}getStaffAttendanceOverview`;
+const getStaffAttendanceOverview = `${baseApiurl}teachersattendance/getStaffAttendanceOverview`;
 const reportsLeaveManagement = `${baseApiurl}reports/reportsLeaveManagement`;
 const reportsLeaveManagementFullReport = `${baseApiurl}reports/reportsLeaveManagementFullReport`;
 
@@ -464,6 +469,8 @@ const getAllExams = `${baseApiurl}GradeValueFetch/getAllExams`;
 
 const PostStudentExit = `${baseApiurl}studentExit/PostStudentExit`;
 const FetchExitHistory = `${baseApiurl}studentExit/FetchExitHistory`;
+const PostAcademicYearConfig = `${baseApiurl}academicyear/PostAcademicYearConfig`;
+const GetAcademicYearConfig = `${baseApiurl}academicyear/GetAcademicYearConfig`;
 
 // Class & Section Management
 const postGrade = `${baseApiurl}GradeValueFetch/postGrade`;
@@ -756,7 +763,7 @@ export {
     defaulters,
     feeReport,
     postAttendanceTeachers,
-    getAttendanceTeacherBefor,
+    GetAttendanceTeacherBefore,
     updateTeachersAttendance,
     postLeaveRequest,
     leaveApprovalStatusCheck,
@@ -829,5 +836,13 @@ export {
     FetchExitHistory,
     SyncStatus,
     TriggerManualSync,
+    GetBiometricMappings,
     fetchDashboard,
+    PostBiometricMappings,
+    UpdateBiometricMappings,
+    PostTeachersManualAttendance,
+    GetTeachersAttendance,
+    GetTeachersAttendanceAudit,
+    PostAcademicYearConfig,
+    GetAcademicYearConfig
 }

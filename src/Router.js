@@ -96,6 +96,7 @@ import PasswordManagementPage from "./Components/AccessControlComps/UsersComps/P
 import FeeFinancePage from "./Components/StudentComps/FeeFinanceComps/FeeFinancePage";
 import MergeSiblingsPage from "./Components/StudentComps/StudentInformationComps/MergeSiblingsPage";
 import AcademicsPage from "./Components/AccessControlComps/AcademicsPage";
+import AcademicYearSetupPage from "./Components/AccessControlComps/AcademicYearSetupPage";
 import ExamManagementPage from "./Components/AccessControlComps/AcademicsComps/ExamManagementPage";
 import SubjectMangementPage from "./Components/AccessControlComps/AcademicsComps/SubjectMangementPage";
 import SubjectCreatePage from "./Components/AccessControlComps/AcademicsComps/SubjectCreatePage";
@@ -145,6 +146,7 @@ import SalaryRegister from "./Components/LeaveAttendanceComps/PayrollComps/Salar
 import LeavePolicy from "./Components/LeaveAttendanceComps/PayrollComps/LeavePolicy";
 import LeaveMasterScreen from "./Components/LeaveAttendanceComps/PayrollComps/LeaveMasterScreen";
 import LeaveAttendancePage from "./Components/LeaveAttendanceComps/LeaveAttendancePage";
+import BiometricStaffMappingPage from "./Components/LeaveAttendanceComps/BiometricStaffMappingPage";
 import VehicleDetailsPage from "./Components/TransportComps/TransportAssetComps/VehicleDetailsComps/VehicleDetailsPage";
 import EditVehicleDetails from "./Components/TransportComps/TransportAssetComps/VehicleDetailsComps/EditVehicleDetails";
 import VehicleManagementPage from "./Components/TransportComps/TransportAssetComps/VehicleDetailsComps/VehicleManagePage";
@@ -302,6 +304,7 @@ export default function RouterPage() {
                 {/*Leave & payroll - Single Page with Tabs*/}
                 <Route path="Leave" element={<LeaveAttendanceMainPage />} />
                 <Route path="Leave/leave-attendance" element={<LeaveAttendancePage />} />
+                <Route path="Leave/leave-attendance/biometric-mapping" element={<BiometricStaffMappingPage />} />
                 <Route path="Leave/payroll" element={<PayrollOverview />} />
                 <Route path="Leave/payroll/payroll-form" element={<AddEditPayroll />} />
                 <Route path="Leave/payroll/salary-structures" element={<SalaryStructures />} />
@@ -407,6 +410,7 @@ export default function RouterPage() {
                 <Route path="access/issue-tc" element={<IssueTcPage />} />
 
                 <Route path="access/academics" element={<AcademicsPage />} />
+                <Route path="access/academics/academic-year" element={<AcademicYearSetupPage />} />
                 <Route path="access/class-section" element={<ClassSectionManagementPage />} />
                 <Route path="access/exam" element={<ExamManagementPage />} />
                 <Route path="access/subject" element={<SubjectMangementPage />} />

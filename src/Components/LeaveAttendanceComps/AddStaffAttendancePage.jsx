@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback, memo } from 'react';
 import {
     Box, Card, CardContent, Grid, Typography, Button, Chip,
-    Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
     Avatar, Select, MenuItem, TextField, InputAdornment,
     Switch, Tooltip, CircularProgress, Alert, IconButton, Menu, Divider,
     Popover, Paper, Tabs, Tab,
 } from '@mui/material';
+import { List } from 'react-window';
 import SaveIcon from '@mui/icons-material/Save';
 import SearchIcon from '@mui/icons-material/Search';
 import PeopleIcon from '@mui/icons-material/People';
@@ -30,11 +30,20 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import LoginIcon from '@mui/icons-material/Login';
 import axios from 'axios';
 import { useSelector } from 'react-redux';
-import { getAttendanceTeacherBefor, postAttendanceTeachers, updateTeachersAttendance } from '../../Api/Api';
+import { GetAttendanceTeacherBefore, PostTeachersManualAttendance } from '../../Api/Api';
 import SnackBar from '../SnackBar';
 
 const today = new Date().toISOString().split('T')[0];
 const token = "123";
+
+// Academic year window (April → March) — matches the rest of the Leave &
+// Attendance module. Returns format expected by the API, e.g. "2026-2027".
+const getCurrentAcademicYear = () => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = d.getMonth() + 1;
+    return m >= 4 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
+};
 
 // ─── Theme ───────────────────────────────────────────────────────────────────
 const PRIMARY = '#059669';
@@ -258,57 +267,92 @@ const TimeCell = memo(function TimeCell({
     );
 });
 
-// ─── Memoized staff row ──────────────────────────────────────────────────────
+// ─── Column widths shared between header + virtual rows ────────────────────
+// Both tabs render via react-window, so the original <TableCell> sizing has
+// been replaced with explicit pixel widths so the flex header and the
+// virtualized flex rows stay aligned.
+const COL_STAFF = {
+    serial:  46,
+    member:  { flex: '1 1 220px', minWidth: 220 },
+    role:    150,
+    status:  300,
+    checkIn: 150,
+    checkOut: 150,
+    work:    110,
+    notes:   60,
+};
+const COL_BREAK = {
+    serial:  46,
+    member:  { flex: '0 0 220px', width: 220 },
+    breaks:  { flex: '1 1 380px', minWidth: 380 },
+    total:   120,
+    count:   120,
+};
+
+// ─── Memoized staff row (rendered by react-window <List>) ──────────────────
+// Receives { index, style } from the virtualizer; everything else comes via
+// rowProps. The outer Box MUST apply `style` for the virtualizer's absolute
+// positioning to work.
 const StaffRow = memo(function StaffRow({
-    staff, idx, mark, inT, outT, note, sameTimeEnabled,
+    index, style,
+    items, marks, ins, outs, notes, sameTimeEnabled,
     onMarkChange, onCheckInChange, onCheckOutChange, onOpenNotes,
 }) {
-    const work = useMemo(() => computeWorkingHours(inT, outT), [inT, outT]);
+    const staff = items[index];
+    if (!staff) return null;
+
+    const mark = marks[staff.id] || 'Present';
+    const inT  = ins[staff.id]  || '';
+    const outT = outs[staff.id] || '';
+    const note = notes[staff.id] || '';
+    const work = computeWorkingHours(inT, outT);
     const roleConf = ROLE_CONFIG[staff.role] || { color: '#6B7280', bg: '#F3F4F6', border: '#E5E7EB' };
     const avColor = avatarColorFor(staff.name || '');
     const needsTime = mark === 'Present' || mark === 'Late';
 
-    const checkInIcon = useMemo(() => <AccessTimeIcon sx={{ fontSize: 14, color: PRIMARY }} />, []);
-    const checkOutIcon = useMemo(() => <LogoutIcon sx={{ fontSize: 14, color: '#1D4ED8' }} />, []);
+    const checkInIcon = <AccessTimeIcon sx={{ fontSize: 14, color: PRIMARY }} />;
+    const checkOutIcon = <LogoutIcon sx={{ fontSize: 14, color: '#1D4ED8' }} />;
 
     return (
-        <TableRow
+        <Box
+            style={style}                 // ⬅ react-window positioning
             sx={{
-                '&:hover': { bgcolor: PRIMARY_LIGHT },
-                '& td': { borderBottom: '1px solid #F3F4F6' },
+                display: 'flex', alignItems: 'center',
+                px: 1, gap: 1,
+                borderBottom: '1px solid #F3F4F6',
                 transition: 'background-color 0.15s',
+                '&:hover': { bgcolor: PRIMARY_LIGHT },
             }}
         >
-            <TableCell>
-                <Typography sx={{ fontSize: '12px', color: '#9CA3AF', fontWeight: 500 }}>{idx + 1}</Typography>
-            </TableCell>
-            <TableCell>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.1 }}>
-                    <Avatar src={staff.filePath || undefined}
-                        sx={{
-                            width: 32, height: 32,
-                            bgcolor: `${avColor}15`,
-                            color: avColor,
-                            fontSize: '11px', fontWeight: 700,
-                            border: `1px solid ${avColor}33`,
-                        }}>
-                        {staff.avatar}
-                    </Avatar>
-                    <Box>
-                        <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>{staff.name}</Typography>
-                        <Typography sx={{ fontSize: '10px', color: '#9CA3AF', fontWeight: 500 }}>{staff.rollNumber}</Typography>
-                    </Box>
+            <Box sx={{ width: COL_STAFF.serial, flexShrink: 0 }}>
+                <Typography sx={{ fontSize: '12px', color: '#9CA3AF', fontWeight: 500 }}>{index + 1}</Typography>
+            </Box>
+            <Box sx={{ ...COL_STAFF.member, display: 'flex', alignItems: 'center', gap: 1.1 }}>
+                <Avatar src={staff.filePath || undefined}
+                    sx={{
+                        width: 32, height: 32,
+                        bgcolor: `${avColor}15`,
+                        color: avColor,
+                        fontSize: '11px', fontWeight: 700,
+                        border: `1px solid ${avColor}33`,
+                        flexShrink: 0,
+                    }}>
+                    {staff.avatar}
+                </Avatar>
+                <Box sx={{ minWidth: 0 }}>
+                    <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#111827' }} noWrap>{staff.name}</Typography>
+                    <Typography sx={{ fontSize: '10px', color: '#9CA3AF', fontWeight: 500 }}>{staff.rollNumber}</Typography>
                 </Box>
-            </TableCell>
-            <TableCell>
+            </Box>
+            <Box sx={{ width: COL_STAFF.role, flexShrink: 0 }}>
                 <Chip label={staff.role} size="small"
                     sx={{
                         bgcolor: roleConf.bg, color: roleConf.color,
                         border: `1px solid ${roleConf.border}`,
                         fontWeight: 600, fontSize: '10px', height: 22,
                     }} />
-            </TableCell>
-            <TableCell>
+            </Box>
+            <Box sx={{ width: COL_STAFF.status, flexShrink: 0 }}>
                 <Box sx={{ display: 'flex', gap: 0.6, flexWrap: 'wrap' }}>
                     {STATUS_OPTIONS.map(opt => (
                         <StatusPill
@@ -319,20 +363,20 @@ const StaffRow = memo(function StaffRow({
                         />
                     ))}
                 </Box>
-            </TableCell>
-            <TableCell>
+            </Box>
+            <Box sx={{ width: COL_STAFF.checkIn, flexShrink: 0 }}>
                 <TimeCell
                     id={staff.id} value={inT} mark={mark} onChange={onCheckInChange}
                     icon={checkInIcon} activeColor={PRIMARY} mode="in" sameTimeEnabled={sameTimeEnabled}
                 />
-            </TableCell>
-            <TableCell>
+            </Box>
+            <Box sx={{ width: COL_STAFF.checkOut, flexShrink: 0 }}>
                 <TimeCell
                     id={staff.id} value={outT} mark={mark} onChange={onCheckOutChange}
                     icon={checkOutIcon} activeColor="#1D4ED8" mode="out" sameTimeEnabled={sameTimeEnabled}
                 />
-            </TableCell>
-            <TableCell>
+            </Box>
+            <Box sx={{ width: COL_STAFF.work, flexShrink: 0 }}>
                 {needsTime && work ? (
                     <Chip size="small" label={work.label}
                         sx={{
@@ -343,8 +387,8 @@ const StaffRow = memo(function StaffRow({
                 ) : (
                     <Typography sx={{ fontSize: '11px', color: '#D1D5DB' }}>—</Typography>
                 )}
-            </TableCell>
-            <TableCell align="center">
+            </Box>
+            <Box sx={{ width: COL_STAFF.notes, flexShrink: 0, textAlign: 'center' }}>
                 <Tooltip title={note ? note : 'Add note'} placement="top" arrow>
                     <IconButton size="small"
                         onClick={(e) => onOpenNotes(e, staff.id)}
@@ -358,57 +402,85 @@ const StaffRow = memo(function StaffRow({
                         <StickyNote2Icon sx={{ fontSize: 16 }} />
                     </IconButton>
                 </Tooltip>
-            </TableCell>
-        </TableRow>
+            </Box>
+        </Box>
     );
 });
 
-// ─── Memoized break editor row (Tab 2) ──────────────────────────────────────
+// ─── Helper: estimate break-row height for variable-height virtualization ──
+// 64px base (avatar row) + 40px per break entry + 40px for the add-break /
+// preset chip row. Returns ~64 when the row is not eligible (Absent / Leave)
+// so all rows stay tightly packed for those statuses.
+const estimateBreakRowHeight = (mark, breaksCount) => {
+    const needsTime = mark === 'Present' || mark === 'Late';
+    if (!needsTime) return 60;
+    const base = 60;
+    const perBreak = 40;
+    const addBtnRow = 40;
+    return base + (breaksCount * perBreak) + addBtnRow;
+};
+
+// ─── Memoized break editor row (rendered by react-window <List>) ───────────
 const BreakRow = memo(function BreakRow({
-    staff, idx, mark, inT, outT, breaks,
+    index, style,
+    items, marks, ins, outs, breaksMap,
     onAddBreak, onUpdateBreak, onDeleteBreak, onAddPreset,
 }) {
-    const work = useMemo(() => computeWorkingHours(inT, outT), [inT, outT]);
-    const totalBreakMin = useMemo(() => computeTotalBreakMinutes(breaks), [breaks]);
-    const netWorkMin = work ? Math.max(0, work.totalMinutes - totalBreakMin) : 0;
+    const staff = items[index];
+    if (!staff) return null;
+
+    const mark = marks[staff.id] || 'Present';
+    const inT  = ins[staff.id]  || '';
+    const outT = outs[staff.id] || '';
+    const breaks = breaksMap[staff.id] || [];
+    const totalBreakMin = computeTotalBreakMinutes(breaks);
     const avColor = avatarColorFor(staff.name || '');
     const needsTime = mark === 'Present' || mark === 'Late';
 
+    // computeWorkingHours / netWorkMin kept for parity with the old component
+    // even though they're no longer rendered after the earlier UI trim.
+    /* eslint-disable no-unused-vars */
+    const work = computeWorkingHours(inT, outT);
+    const netWorkMin = work ? Math.max(0, work.totalMinutes - totalBreakMin) : 0;
+    /* eslint-enable no-unused-vars */
+
     return (
-        <TableRow
+        <Box
+            style={style}                 // ⬅ react-window positioning
             sx={{
-                '&:hover': { bgcolor: PRIMARY_LIGHT },
-                '& td': { borderBottom: '1px solid #F3F4F6', verticalAlign: 'top', py: 1.2 },
+                display: 'flex', alignItems: 'flex-start',
+                px: 1, py: 1.2, gap: 1,
+                borderBottom: '1px solid #F3F4F6',
                 transition: 'background-color 0.15s',
+                '&:hover': { bgcolor: PRIMARY_LIGHT },
             }}
         >
             {/* S.No */}
-            <TableCell>
-                <Typography sx={{ fontSize: '12px', color: '#9CA3AF', fontWeight: 500 }}>{idx + 1}</Typography>
-            </TableCell>
+            <Box sx={{ width: COL_BREAK.serial, flexShrink: 0, pt: 0.4 }}>
+                <Typography sx={{ fontSize: '12px', color: '#9CA3AF', fontWeight: 500 }}>{index + 1}</Typography>
+            </Box>
 
             {/* Staff Member */}
-            <TableCell>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.1 }}>
-                    <Avatar src={staff.filePath || undefined}
-                        sx={{
-                            width: 32, height: 32,
-                            bgcolor: `${avColor}15`,
-                            color: avColor,
-                            fontSize: '11px', fontWeight: 700,
-                            border: `1px solid ${avColor}33`,
-                        }}>
-                        {staff.avatar}
-                    </Avatar>
-                    <Box>
-                        <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>{staff.name}</Typography>
-                        <Typography sx={{ fontSize: '10px', color: '#9CA3AF', fontWeight: 500 }}>{staff.rollNumber}</Typography>
-                    </Box>
+            <Box sx={{ ...COL_BREAK.member, display: 'flex', alignItems: 'center', gap: 1.1, pt: 0.2 }}>
+                <Avatar src={staff.filePath || undefined}
+                    sx={{
+                        width: 32, height: 32,
+                        bgcolor: `${avColor}15`,
+                        color: avColor,
+                        fontSize: '11px', fontWeight: 700,
+                        border: `1px solid ${avColor}33`,
+                        flexShrink: 0,
+                    }}>
+                    {staff.avatar}
+                </Avatar>
+                <Box sx={{ minWidth: 0 }}>
+                    <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#111827' }} noWrap>{staff.name}</Typography>
+                    <Typography sx={{ fontSize: '10px', color: '#9CA3AF', fontWeight: 500 }}>{staff.rollNumber}</Typography>
                 </Box>
-            </TableCell>
+            </Box>
 
             {/* Break editor */}
-            <TableCell sx={{ minWidth: 360 }}>
+            <Box sx={{ ...COL_BREAK.breaks }}>
                 {!needsTime ? (
                     <Typography sx={{ fontSize: '11px', fontStyle: 'italic', color: '#9CA3AF' }}>
                         Breaks not applicable
@@ -542,10 +614,10 @@ const BreakRow = memo(function BreakRow({
                         </Box>
                     </Box>
                 )}
-            </TableCell>
+            </Box>
 
             {/* Total Break Time */}
-            <TableCell>
+            <Box sx={{ width: COL_BREAK.total, flexShrink: 0, pt: 0.4 }}>
                 {needsTime ? (
                     <Chip
                         size="small"
@@ -562,10 +634,10 @@ const BreakRow = memo(function BreakRow({
                 ) : (
                     <Typography sx={{ fontSize: '11px', color: '#D1D5DB' }}>—</Typography>
                 )}
-            </TableCell>
+            </Box>
 
             {/* Breaks count summary */}
-            <TableCell>
+            <Box sx={{ width: COL_BREAK.count, flexShrink: 0, pt: 0.4 }}>
                 {needsTime ? (
                     <Chip
                         size="small"
@@ -582,8 +654,8 @@ const BreakRow = memo(function BreakRow({
                 ) : (
                     <Typography sx={{ fontSize: '11px', color: '#D1D5DB' }}>—</Typography>
                 )}
-            </TableCell>
-        </TableRow>
+            </Box>
+        </Box>
     );
 });
 
@@ -640,6 +712,9 @@ export default function AddStaffAttendancePage() {
         return {
             id: item.rollNumber,
             rollNumber: item.rollNumber,
+            // PostTeachersManualAttendance expects EmployeeId per item — the
+            // GetAttendanceTeacherBefore response calls it `biometricId`.
+            employeeId: item.biometricId || item.employeeId || '',
             name: item.name,
             userType: USER_TYPE_DISPLAY[apiUType] || item.userType,
             role: ROLE_FROM_USER_TYPE[apiUType] || 'Non Teaching Staff',
@@ -663,14 +738,18 @@ export default function AddStaffAttendancePage() {
         return { marks, ins, outs, notes };
     };
 
-    const fetchStaffList = async (date) => {
+    // GET /GetAttendanceTeacherBefore?AcademicYear=YYYY-YYYY&UserType=<role>
+    // Returns { details: [{ rollNumber, name, userType, status, dateTime, ... }] }.
+    // The endpoint no longer returns the top-level `isAttendanceAdded` flag, so
+    // we derive it per user-type from whether any row has a populated `status`.
+    const fetchStaffList = async () => {
         setLoading(true);
-        const formattedDate = isoToApiDate(date);
+        const academicYear = getCurrentAcademicYear();
         try {
             const results = await Promise.allSettled(
                 FETCH_USER_TYPES.map(uType =>
-                    axios.get(getAttendanceTeacherBefor, {
-                        params: { Date: formattedDate, UserType: uType },
+                    axios.get(GetAttendanceTeacherBefore, {
+                        params: { AcademicYear: academicYear, UserType: uType },
                         headers: { Authorization: `Bearer ${token}` },
                     })
                 )
@@ -682,7 +761,10 @@ export default function AddStaffAttendancePage() {
                 const uiType = USER_TYPE_DISPLAY[FETCH_USER_TYPES[i]];
                 if (result.status === 'fulfilled' && !result.value.data.error) {
                     const { details = [], isAttendanceAdded: flag } = result.value.data;
-                    addedMap[uiType] = flag === 'Y';
+                    const isAdded = flag === 'Y' ? true
+                        : flag === 'N' ? false
+                        : details.some(d => d.status && String(d.status).trim().length > 0);
+                    addedMap[uiType] = isAdded;
                     details.forEach(item => allStaff.push(mapStaffItem(item)));
                 } else {
                     addedMap[uiType] = false;
@@ -700,21 +782,24 @@ export default function AddStaffAttendancePage() {
         }
     };
 
-    const fetchUserType = async (date, uiType) => {
+    const fetchUserType = async (uiType) => {
         const apiUType = UI_TO_API_USER_TYPE[uiType] || uiType.toLowerCase();
         setLoading(true);
-        const formattedDate = isoToApiDate(date);
+        const academicYear = getCurrentAcademicYear();
         try {
-            const res = await axios.get(getAttendanceTeacherBefor, {
-                params: { Date: formattedDate, UserType: apiUType },
+            const res = await axios.get(GetAttendanceTeacherBefore, {
+                params: { AcademicYear: academicYear, UserType: apiUType },
                 headers: { Authorization: `Bearer ${token}` },
             });
             if (!res.data.error) {
                 const { details = [], isAttendanceAdded: flag } = res.data;
                 const newStaff = details.map(item => mapStaffItem(item));
+                const isAdded = flag === 'Y' ? true
+                    : flag === 'N' ? false
+                    : details.some(d => d.status && String(d.status).trim().length > 0);
 
                 setStaffList(prev => [...prev.filter(s => s.userType !== uiType), ...newStaff]);
-                setIsAttendanceAddedMap(prev => ({ ...prev, [uiType]: flag === 'Y' }));
+                setIsAttendanceAddedMap(prev => ({ ...prev, [uiType]: isAdded }));
 
                 const apply = (prev, key) => {
                     const updated = { ...prev };
@@ -740,13 +825,13 @@ export default function AddStaffAttendancePage() {
 
     useEffect(() => {
         isMounted.current = false;
-        fetchStaffList(attendanceDate);
+        fetchStaffList();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [attendanceDate]);
 
     useEffect(() => {
         if (!isMounted.current) { isMounted.current = true; return; }
-        fetchUserType(attendanceDate, userTypeFilter);
+        fetchUserType(userTypeFilter);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [userTypeFilter]);
 
@@ -933,6 +1018,19 @@ export default function AddStaffAttendancePage() {
         });
     }, []);
 
+    // POST /teachersattendance/PostTeachersManualAttendance
+    // Body shape:
+    //   {
+    //     editorRollNumber, date (YYYY-MM-DD), academicYear, reason,
+    //     items: [{
+    //       rollNumber, employeeId,
+    //       status, loginTime (HH:MM:SS), logoutTime (HH:MM:SS),
+    //       breaks: [{ breakNo?, breakOutTime, breakInTime }]
+    //     }]
+    //   }
+    // Each item only includes the fields the user actually filled in — the
+    // backend treats missing fields as "no change" so we don't overwrite
+    // existing punches with empty values.
     const handleSaveAttendance = async () => {
         const missingIn = filteredStaff.filter(s => needsTime(s.id) && !checkInTimes[s.id]);
         if (missingIn.length > 0) {
@@ -940,53 +1038,65 @@ export default function AddStaffAttendancePage() {
             return;
         }
 
-        const datePart = isoToApiDate(attendanceDate);
+        // Append ":00" so HH:MM from the time inputs becomes HH:MM:SS for the API.
+        const toApiTime = (hhmm) => (hhmm && hhmm.length === 5 ? `${hhmm}:00` : (hhmm || ''));
 
-        const details = filteredStaff.map(s => {
+        const items = filteredStaff.map(s => {
             const statusUI = attendanceMarks[s.id] || 'Present';
             const apiStatus = STATUS_UI_TO_API[statusUI] || 'present';
-            const checkIn = needsTime(s.id) ? (checkInTimes[s.id] || getCurrentTime()) : '00:00';
-            const checkOut = needsTime(s.id) ? (checkOutTimes[s.id] || '') : '';
-            const note = (rowNotes[s.id] || '').trim();
-            const work = computeWorkingHours(checkIn, checkOut);
-            const rawBreaks = (breaksMap[s.id] || []).filter(br => computeBreakDuration(br.out, br.in) > 0);
-            const totalBreakMin = computeTotalBreakMinutes(rawBreaks);
-            const netWorkMin = work ? Math.max(0, work.totalMinutes - totalBreakMin) : 0;
+            const hasTime = needsTime(s.id);
+            const checkIn  = hasTime ? (checkInTimes[s.id]  || getCurrentTime()) : '';
+            const checkOut = hasTime ? (checkOutTimes[s.id] || '')               : '';
 
-            return {
+            const breaks = (breaksMap[s.id] || [])
+                .filter(br => computeBreakDuration(br.out, br.in) > 0)
+                .map((br, idx) => {
+                    const entry = {
+                        breakOutTime: toApiTime(br.out),
+                        breakInTime:  toApiTime(br.in),
+                    };
+                    // Preserve server-assigned BreakNo when editing an existing
+                    // break; new breaks omit it so the server can assign one.
+                    if (Number.isInteger(br.breakNo)) entry.breakNo = br.breakNo;
+                    else if (Number.isInteger(br.serverBreakNo)) entry.breakNo = br.serverBreakNo;
+                    else entry.breakNo = idx + 1;
+                    return entry;
+                });
+
+            const item = {
                 rollNumber: s.rollNumber,
-                // Backward-compat: existing API reads `dateTime`
-                dateTime: `${datePart} ${checkIn}`,
+                employeeId: s.employeeId || '',
                 status: apiStatus,
-                // Extended manual-entry fields (backend may choose to persist these)
-                checkIn,
-                checkOut,
-                workingMinutes: work ? work.totalMinutes : 0,
-                breaks: rawBreaks.map(br => ({ breakOut: br.out, breakIn: br.in, minutes: computeBreakDuration(br.out, br.in) })),
-                totalBreakMinutes: totalBreakMin,
-                netWorkingMinutes: netWorkMin,
-                notes: note,
-                source: 'manual',
             };
+            if (hasTime && checkIn)  item.loginTime  = toApiTime(checkIn);
+            if (hasTime && checkOut) item.logoutTime = toApiTime(checkOut);
+            if (breaks.length > 0)   item.breaks     = breaks;
+            return item;
         });
 
+        // Build the per-day reason from the row notes (the UI captures one note
+        // per row; we surface the first non-empty one as the top-level reason,
+        // and any others get appended). Empty string is fine.
+        const allNotes = filteredStaff
+            .map(s => (rowNotes[s.id] || '').trim())
+            .filter(n => n.length > 0);
+        const reason = allNotes.length > 0 ? allNotes.join(' · ') : '';
+
         const body = {
-            userType: UI_TO_API_USER_TYPE[userTypeFilter] || userTypeFilter.toLowerCase(),
-            date: datePart,
-            source: 'manual',
-            markedBy: currentUserRoll,
-            details,
+            editorRollNumber: currentUserRoll,
+            date: attendanceDate, // already YYYY-MM-DD from the date input
+            academicYear: getCurrentAcademicYear(),
+            reason,
+            items,
         };
 
         try {
-            if (isCurrentTypeAdded) {
-                await axios.put(updateTeachersAttendance, body, {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
-            } else {
-                await axios.post(postAttendanceTeachers, body, {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
+            const res = await axios.post(PostTeachersManualAttendance, body, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (res?.data && res.data.error) {
+                showSnack(res.data.message || 'Failed to save attendance', false);
+                return;
             }
             showSnack(isCurrentTypeAdded ? 'Attendance updated successfully!' : 'Attendance saved successfully!', true);
             setIsAttendanceAddedMap(prev => ({ ...prev, [userTypeFilter]: true }));
@@ -1336,55 +1446,60 @@ export default function AddStaffAttendancePage() {
                         <Typography sx={{ ml: 2, fontSize: '13px', color: '#6B7280' }}>Loading staff list...</Typography>
                     </Box>
                 ) : activeTab === 0 ? (
-                    <TableContainer>
-                        <Table size="small" stickyHeader>
-                            <TableHead>
-                                <TableRow sx={{
-                                    '& th': {
-                                        bgcolor: PRIMARY_LIGHT,
-                                        fontWeight: 700, fontSize: '10px', color: PRIMARY_DARK,
-                                        textTransform: 'uppercase', letterSpacing: 0.6,
-                                        borderBottom: `1px solid ${PRIMARY_BORDER}`, py: 1.3,
-                                    },
-                                }}>
-                                    <TableCell sx={{ width: 42 }}>#</TableCell>
-                                    <TableCell>Staff Member</TableCell>
-                                    <TableCell>Role</TableCell>
-                                    <TableCell sx={{ minWidth: 280 }}>Status</TableCell>
-                                    <TableCell>Check-In</TableCell>
-                                    <TableCell>Check-Out</TableCell>
-                                    <TableCell>Working Hrs</TableCell>
-                                    <TableCell sx={{ width: 54, textAlign: 'center' }}>Notes</TableCell>
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {filteredStaff.length === 0 ? (
-                                    <TableRow>
-                                        <TableCell colSpan={8} align="center">
-                                            <Typography sx={{ fontSize: '13px', color: '#9CA3AF', py: 4 }}>
-                                                {staffList.length === 0 ? 'No staff data available for this date' : 'No staff found'}
-                                            </Typography>
-                                        </TableCell>
-                                    </TableRow>
-                                ) : filteredStaff.map((staff, idx) => (
-                                    <StaffRow
-                                        key={staff.id}
-                                        staff={staff}
-                                        idx={idx}
-                                        mark={attendanceMarks[staff.id] || 'Present'}
-                                        inT={checkInTimes[staff.id] || ''}
-                                        outT={checkOutTimes[staff.id] || ''}
-                                        note={rowNotes[staff.id] || ''}
-                                        sameTimeEnabled={sameTimeEnabled}
-                                        onMarkChange={handleMarkChange}
-                                        onCheckInChange={handleCheckInChange}
-                                        onCheckOutChange={handleCheckOutChange}
-                                        onOpenNotes={handleOpenNotes}
-                                    />
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </TableContainer>
+                    <>
+                        {/* Sticky header row (matches virtual rows below) */}
+                        <Box sx={{
+                            display: 'flex', alignItems: 'center',
+                            px: 1, py: 1.1, gap: 1,
+                            bgcolor: PRIMARY_LIGHT,
+                            borderBottom: `1px solid ${PRIMARY_BORDER}`,
+                            position: 'sticky', top: 0, zIndex: 2,
+                            '& > *': {
+                                fontSize: '10px', fontWeight: 700, color: PRIMARY_DARK,
+                                letterSpacing: 0.6, textTransform: 'uppercase',
+                                whiteSpace: 'nowrap',
+                            },
+                        }}>
+                            <Box sx={{ width: COL_STAFF.serial, flexShrink: 0 }}>#</Box>
+                            <Box sx={{ ...COL_STAFF.member }}>Staff Member</Box>
+                            <Box sx={{ width: COL_STAFF.role, flexShrink: 0 }}>Role</Box>
+                            <Box sx={{ width: COL_STAFF.status, flexShrink: 0 }}>Status</Box>
+                            <Box sx={{ width: COL_STAFF.checkIn, flexShrink: 0 }}>Check-In</Box>
+                            <Box sx={{ width: COL_STAFF.checkOut, flexShrink: 0 }}>Check-Out</Box>
+                            <Box sx={{ width: COL_STAFF.work, flexShrink: 0 }}>Working Hrs</Box>
+                            <Box sx={{ width: COL_STAFF.notes, flexShrink: 0, textAlign: 'center' }}>Notes</Box>
+                        </Box>
+
+                        {filteredStaff.length === 0 ? (
+                            <Typography sx={{ fontSize: '13px', color: '#9CA3AF', py: 4, textAlign: 'center' }}>
+                                {staffList.length === 0 ? 'No staff data available for this date' : 'No staff found'}
+                            </Typography>
+                        ) : (
+                            // react-window keeps only ~12 rows mounted at a
+                            // time — fixes the load-hang on 150+ row payrolls.
+                            <Box sx={{ height: 'min(56vh, 600px)', minHeight: 320 }}>
+                                <List
+                                    rowCount={filteredStaff.length}
+                                    rowHeight={64}
+                                    rowComponent={StaffRow}
+                                    rowProps={{
+                                        items: filteredStaff,
+                                        marks: attendanceMarks,
+                                        ins: checkInTimes,
+                                        outs: checkOutTimes,
+                                        notes: rowNotes,
+                                        sameTimeEnabled,
+                                        onMarkChange: handleMarkChange,
+                                        onCheckInChange: handleCheckInChange,
+                                        onCheckOutChange: handleCheckOutChange,
+                                        onOpenNotes: handleOpenNotes,
+                                    }}
+                                    overscanCount={4}
+                                    style={{ width: '100%', height: '100%' }}
+                                />
+                            </Box>
+                        )}
+                    </>
                 ) : (
                     <>
                         {/* Breaks-tab intro strip */}
@@ -1402,51 +1517,62 @@ export default function AddStaffAttendancePage() {
                             </Typography>
                         </Box>
 
-                        <TableContainer>
-                            <Table size="small" stickyHeader>
-                                <TableHead>
-                                    <TableRow sx={{
-                                        '& th': {
-                                            bgcolor: PRIMARY_LIGHT,
-                                            fontWeight: 700, fontSize: '10px', color: PRIMARY_DARK,
-                                            textTransform: 'uppercase', letterSpacing: 0.6,
-                                            borderBottom: `1px solid ${PRIMARY_BORDER}`, py: 1.3,
-                                        },
-                                    }}>
-                                        <TableCell sx={{ width: 42 }}>#</TableCell>
-                                        <TableCell>Staff Member</TableCell>
-                                        <TableCell sx={{ minWidth: 360 }}>Breaks (Out → In)</TableCell>
-                                        <TableCell>Total Break</TableCell>
-                                        <TableCell>Breaks Count</TableCell>
-                                    </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                    {filteredStaff.length === 0 ? (
-                                        <TableRow>
-                                            <TableCell colSpan={5} align="center">
-                                                <Typography sx={{ fontSize: '13px', color: '#9CA3AF', py: 4 }}>
-                                                    {staffList.length === 0 ? 'No staff data available for this date' : 'No staff found'}
-                                                </Typography>
-                                            </TableCell>
-                                        </TableRow>
-                                    ) : filteredStaff.map((staff, idx) => (
-                                        <BreakRow
-                                            key={staff.id}
-                                            staff={staff}
-                                            idx={idx}
-                                            mark={attendanceMarks[staff.id] || 'Present'}
-                                            inT={checkInTimes[staff.id] || ''}
-                                            outT={checkOutTimes[staff.id] || ''}
-                                            breaks={breaksMap[staff.id] || []}
-                                            onAddBreak={handleAddBreak}
-                                            onUpdateBreak={handleUpdateBreak}
-                                            onDeleteBreak={handleDeleteBreak}
-                                            onAddPreset={handleAddPreset}
-                                        />
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </TableContainer>
+                        {/* Sticky header row */}
+                        <Box sx={{
+                            display: 'flex', alignItems: 'center',
+                            px: 1, py: 1.1, gap: 1,
+                            bgcolor: PRIMARY_LIGHT,
+                            borderBottom: `1px solid ${PRIMARY_BORDER}`,
+                            position: 'sticky', top: 0, zIndex: 2,
+                            '& > *': {
+                                fontSize: '10px', fontWeight: 700, color: PRIMARY_DARK,
+                                letterSpacing: 0.6, textTransform: 'uppercase',
+                                whiteSpace: 'nowrap',
+                            },
+                        }}>
+                            <Box sx={{ width: COL_BREAK.serial, flexShrink: 0 }}>#</Box>
+                            <Box sx={{ ...COL_BREAK.member }}>Staff Member</Box>
+                            <Box sx={{ ...COL_BREAK.breaks }}>Breaks (Out → In)</Box>
+                            <Box sx={{ width: COL_BREAK.total, flexShrink: 0 }}>Total Break</Box>
+                            <Box sx={{ width: COL_BREAK.count, flexShrink: 0 }}>Breaks Count</Box>
+                        </Box>
+
+                        {filteredStaff.length === 0 ? (
+                            <Typography sx={{ fontSize: '13px', color: '#9CA3AF', py: 4, textAlign: 'center' }}>
+                                {staffList.length === 0 ? 'No staff data available for this date' : 'No staff found'}
+                            </Typography>
+                        ) : (
+                            // Variable-height virtualization: rows expand for
+                            // every break entry, so rowHeight is a function of
+                            // the row's current state. react-window stays
+                            // smooth even when most rows are tall.
+                            <Box sx={{ height: 'min(56vh, 600px)', minHeight: 320 }}>
+                                <List
+                                    rowCount={filteredStaff.length}
+                                    rowHeight={(index) => {
+                                        const s = filteredStaff[index];
+                                        if (!s) return 60;
+                                        const m = attendanceMarks[s.id] || 'Present';
+                                        const brs = breaksMap[s.id] || [];
+                                        return estimateBreakRowHeight(m, brs.length);
+                                    }}
+                                    rowComponent={BreakRow}
+                                    rowProps={{
+                                        items: filteredStaff,
+                                        marks: attendanceMarks,
+                                        ins: checkInTimes,
+                                        outs: checkOutTimes,
+                                        breaksMap,
+                                        onAddBreak: handleAddBreak,
+                                        onUpdateBreak: handleUpdateBreak,
+                                        onDeleteBreak: handleDeleteBreak,
+                                        onAddPreset: handleAddPreset,
+                                    }}
+                                    overscanCount={3}
+                                    style={{ width: '100%', height: '100%' }}
+                                />
+                            </Box>
+                        )}
                     </>
                 )}
 
