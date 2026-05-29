@@ -42,6 +42,17 @@ const getInitials = (name = '') =>
 const AVATAR_PALETTE = ['#0891B2', '#7C3AED', '#EA580C', '#DC2626', '#16A34A', '#2563EB', '#DB2777', '#CA8A04'];
 const colorFor = (name = '') => AVATAR_PALETTE[name.charCodeAt(0) % AVATAR_PALETTE.length];
 
+const GENDER_STYLES = {
+    male:   { bg: '#DBEAFE', color: '#1D4ED8', border: '#BFDBFE', label: 'Male' },
+    female: { bg: '#FCE7F3', color: '#BE185D', border: '#FBCFE8', label: 'Female' },
+};
+const genderStyle = (g) => {
+    const norm = String(g || '').trim().toLowerCase();
+    if (norm.startsWith('m')) return GENDER_STYLES.male;
+    if (norm.startsWith('f')) return GENDER_STYLES.female;
+    return null;
+};
+
 export default function StudentPromotionPage() {
     const navigate = useNavigate();
     const dispatch = useDispatch();
@@ -160,6 +171,8 @@ export default function StudentPromotionPage() {
     const [selected, setSelected] = useState({});        // { rollNumber: true }
     const [search, setSearch] = useState('');
     const [bulkDestKey, setBulkDestKey] = useState('');
+    const [distributeOpen, setDistributeOpen] = useState(false);
+    const [distributeTipOpen, setDistributeTipOpen] = useState(false);
 
     useEffect(() => {
         if (!srcClassId || !srcSection) {
@@ -195,6 +208,7 @@ export default function StudentPromotionPage() {
                     id: s.rollNumber,
                     rollNumber: String(s.rollNumber),
                     name: s.name || '—',
+                    gender: s.gender || '',
                     photoUrl: '',
                     grade: gradeName,
                     section: sectionName,
@@ -270,22 +284,53 @@ export default function StudentPromotionPage() {
         }
     };
 
-    const handleAutoDistribute = () => {
+    const handleAutoDistribute = (direction = 'sequential') => {
         if (destinations.length === 0) return;
-        const selectedRolls = Object.keys(selected).filter(rn => selected[rn]);
-        if (selectedRolls.length === 0) return;
+
+        const selectedStudents = students.filter(s => selected[s.rollNumber]);
+        if (selectedStudents.length === 0) return;
 
         const next = { ...assignments };
-        selectedRolls.forEach((rn, idx) => {
-            next[rn] = destinations[idx % destinations.length].key;
+
+        if (direction === 'gender') {
+            const genderRank = (g) => {
+                const norm = String(g || '').trim().toLowerCase();
+                if (norm.startsWith('m')) return 0;
+                if (norm.startsWith('f')) return 1;
+                return 2;
+            };
+            const sorted = [...selectedStudents].sort((a, b) => genderRank(a.gender) - genderRank(b.gender));
+            const total = sorted.length;
+            const k = destinations.length;
+            sorted.forEach((s, idx) => {
+                const destIdx = Math.min(k - 1, Math.floor((idx * k) / total));
+                next[s.rollNumber] = destinations[destIdx].key;
+            });
+            setAssignments(next);
+            setSelected({});
+            setBulkDestKey('');
+            showSnack(
+                `${total} student${total !== 1 ? 's' : ''} grouped by gender across ${k} destination${k !== 1 ? 's' : ''} (boys first, girls last).`,
+                true
+            );
+            return;
+        }
+
+        const ordered = direction === 'reverse'
+            ? [...destinations].reverse()
+            : destinations;
+
+        selectedStudents.forEach((s, idx) => {
+            next[s.rollNumber] = ordered[idx % ordered.length].key;
         });
         setAssignments(next);
 
         setSelected({});
         setBulkDestKey('');
 
+        const directionLabel = direction === 'reverse' ? 'reverse sequential' : 'sequential';
         showSnack(
-            `${selectedRolls.length} student${selectedRolls.length !== 1 ? 's' : ''} distributed across ${destinations.length} destination${destinations.length !== 1 ? 's' : ''}.`,
+            `${selectedStudents.length} student${selectedStudents.length !== 1 ? 's' : ''} distributed across ${destinations.length} destination${destinations.length !== 1 ? 's' : ''} (${directionLabel}).`,
             true
         );
     };
@@ -718,21 +763,60 @@ export default function StudentPromotionPage() {
 
                                     <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
 
-                                    <Tooltip title="Spread the selected students evenly across all destinations">
+                                    <Tooltip
+                                        title="Spread the selected students evenly across all destinations — pick the order"
+                                        placement="top"
+                                        arrow
+                                        enterDelay={500}
+                                        leaveDelay={0}
+                                        open={distributeTipOpen && !distributeOpen}
+                                        onOpen={() => setDistributeTipOpen(true)}
+                                        onClose={() => setDistributeTipOpen(false)}
+                                        disableInteractive
+                                    >
                                         <span>
-                                            <Button
-                                                size="small" startIcon={<ShuffleIcon sx={{ fontSize: 14 }} />}
-                                                disabled={selectedCount === 0 || destinations.length === 0}
-                                                onClick={handleAutoDistribute}
-                                                sx={{
-                                                    textTransform: 'none', fontSize: 12, fontWeight: 600,
-                                                    color: '#374151', borderRadius: '6px', height: 32, px: 1.2,
-                                                    border: '1px solid #E5E7EB', bgcolor: '#fff',
-                                                    '&:hover': { bgcolor: '#F3F4F6' },
-                                                }}
-                                            >
-                                                Distribute Evenly
-                                            </Button>
+                                            <FormControl size="small" disabled={selectedCount === 0 || destinations.length === 0}>
+                                                <Select
+                                                    value=""
+                                                    displayEmpty
+                                                    open={distributeOpen}
+                                                    onOpen={() => { setDistributeOpen(true); setDistributeTipOpen(false); }}
+                                                    onClose={() => setDistributeOpen(false)}
+                                                    onChange={(e) => {
+                                                        const dir = e.target.value;
+                                                        if (dir) handleAutoDistribute(dir);
+                                                    }}
+                                                    renderValue={() => (
+                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
+                                                            <ShuffleIcon sx={{ fontSize: 14, color: '#6B7280' }} />
+                                                            <Typography sx={{ fontSize: 12, color: '#374151', fontWeight: 600 }}>
+                                                                Distribute Evenly
+                                                            </Typography>
+                                                        </Box>
+                                                    )}
+                                                    MenuProps={{
+                                                        anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
+                                                        transformOrigin: { vertical: 'top', horizontal: 'left' },
+                                                        slotProps: { paper: { sx: { mt: 0.5, borderRadius: '8px', boxShadow: '0 6px 20px rgba(0,0,0,0.12)' } } },
+                                                    }}
+                                                    sx={{
+                                                        fontSize: 12, minWidth: 180, height: 32, bgcolor: '#fff',
+                                                        borderRadius: '6px',
+                                                        '& .MuiOutlinedInput-notchedOutline': { borderColor: '#E5E7EB' },
+                                                        '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#D1D5DB' },
+                                                    }}
+                                                >
+                                                    <MenuItem value="sequential" sx={{ fontSize: 12 }}>
+                                                        Sequential (A1 → A2 → A3)
+                                                    </MenuItem>
+                                                    <MenuItem value="reverse" sx={{ fontSize: 12 }}>
+                                                        Reverse Sequential (A3 → A2 → A1)
+                                                    </MenuItem>
+                                                    <MenuItem value="gender" sx={{ fontSize: 12 }}>
+                                                        Group by Gender (Boys → Girls)
+                                                    </MenuItem>
+                                                </Select>
+                                            </FormControl>
                                         </span>
                                     </Tooltip>
                                     <Button
@@ -779,7 +863,7 @@ export default function StudentPromotionPage() {
                                                     sx={{ color: T.main, '&.Mui-checked, &.MuiCheckbox-indeterminate': { color: T.main } }}
                                                 />
                                             </TableCell>
-                                            {['#', 'Roll No', 'Student', 'Current', 'Move To'].map(h => (
+                                            {['#', 'Roll No', 'Student', 'Gender', 'Current', 'Move To'].map(h => (
                                                 <TableCell key={h} sx={{ fontWeight: 700, fontSize: 11, color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.4, bgcolor: '#F9FAFB' }}>
                                                     {h}
                                                 </TableCell>
@@ -816,6 +900,24 @@ export default function StudentPromotionPage() {
                                                             </Avatar>
                                                             <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#111' }}>{s.name}</Typography>
                                                         </Box>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {(() => {
+                                                            const gs = genderStyle(s.gender);
+                                                            return gs ? (
+                                                                <Chip
+                                                                    size="small"
+                                                                    label={gs.label}
+                                                                    sx={{
+                                                                        fontSize: 11, fontWeight: 700, height: 22,
+                                                                        bgcolor: gs.bg, color: gs.color,
+                                                                        border: `1px solid ${gs.border}`,
+                                                                    }}
+                                                                />
+                                                            ) : (
+                                                                <Typography sx={{ fontSize: 12, color: '#9CA3AF' }}>—</Typography>
+                                                            );
+                                                        })()}
                                                     </TableCell>
                                                     <TableCell>
                                                         {(s.grade || s.section) ? (
