@@ -283,6 +283,28 @@ export default function SpecialConcession() {
             return;
         }
 
+        // Validate mandatory fields
+        if (isIndividual) {
+            const incompleteRow = rowsWithConcession.find(
+                (r) => !(r.rowCategory || '').trim() || !(r.rowRecommendedBy || '').trim() || !(r.rowReason || '').trim()
+            );
+            if (incompleteRow) {
+                setMessage("Please fill Concession Category, Recommended By, and Recommendation Reason for all concession rows");
+                setStatus(false);
+                setColor(false);
+                setOpen(true);
+                return;
+            }
+        } else {
+            if (!(concessionCategory || '').trim() || !(recommendedBy || '').trim() || !(recommendationReason || '').trim()) {
+                setMessage("Please fill Concession Category, Recommended By, and Recommendation Reason");
+                setStatus(false);
+                setColor(false);
+                setOpen(true);
+                return;
+            }
+        }
+
         // concessionBy = the logged-in user who is granting this concession (admin / staff / etc.)
         const concessionBy = userRollNumber || "";
 
@@ -389,11 +411,13 @@ export default function SpecialConcession() {
                 setStatus(true);
                 setColor(true);
                 setOpen(true);
-                // Refresh data after applying concession
-                fetchAllFeeData();
                 setConcessionCategory('');
                 setRecommendedBy('');
                 setRecommendationReason('');
+                // Redirect to Billing Screen after short delay so user sees the success message
+                setTimeout(() => {
+                    navigate(-1);
+                }, 1200);
             } else {
                 throw new Error(res.data.message || 'Failed to apply concession');
             }
@@ -526,7 +550,7 @@ export default function SpecialConcession() {
                             <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
                                 <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#374151', mb: 0.8, display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                     <CategoryIcon sx={{ fontSize: 14, color: websiteSettings.mainColor }} />
-                                    Concession Category
+                                    Concession Category <span style={{ color: 'red' }}>*</span>
                                 </Typography>
                                 <TextField
                                     fullWidth
@@ -558,7 +582,7 @@ export default function SpecialConcession() {
                             <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
                                 <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#374151', mb: 0.8, display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                     <PersonIcon sx={{ fontSize: 14, color: websiteSettings.mainColor }} />
-                                    Recommended By
+                                    Recommended By <span style={{ color: 'red' }}>*</span>
                                 </Typography>
                                 <TextField
                                     fullWidth
@@ -590,7 +614,7 @@ export default function SpecialConcession() {
                             <Grid size={{ xs: 12, sm: 12, md: 4, lg: 4 }}>
                                 <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#374151', mb: 0.8, display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                     <NotesIcon sx={{ fontSize: 14, color: websiteSettings.mainColor }} />
-                                    Recommendation Reason
+                                    Recommendation Reason <span style={{ color: 'red' }}>*</span>
                                 </Typography>
                                 <TextField
                                     fullWidth
@@ -641,7 +665,7 @@ export default function SpecialConcession() {
                                         "Concession %",
                                         "Concession Amount",
                                         "Final Fee Amount",
-                                        ...(isIndividual ? ["Category", "Recommended By", "Reason"] : []),
+                                        ...(isIndividual ? ["Category *", "Recommended By *", "Reason *"] : []),
                                     ].map((header, index) => (
                                         <TableCell
                                             key={index}
@@ -781,7 +805,7 @@ export default function SpecialConcession() {
                                                         <TextField
                                                             variant="outlined"
                                                             size="small"
-                                                            placeholder="Category"
+                                                            placeholder="Category *"
                                                             value={row.rowCategory}
                                                             onChange={(e) => handleChange(rowIndex, "rowCategory", e.target.value)}
                                                             sx={{ width: "130px", '& .MuiOutlinedInput-root': { fontSize: 12, borderRadius: '6px' } }}
@@ -791,7 +815,7 @@ export default function SpecialConcession() {
                                                         <TextField
                                                             variant="outlined"
                                                             size="small"
-                                                            placeholder="Recommended By"
+                                                            placeholder="Recommended By *"
                                                             value={row.rowRecommendedBy}
                                                             onChange={(e) => handleChange(rowIndex, "rowRecommendedBy", e.target.value)}
                                                             sx={{ width: "130px", '& .MuiOutlinedInput-root': { fontSize: 12, borderRadius: '6px' } }}
@@ -801,7 +825,7 @@ export default function SpecialConcession() {
                                                         <TextField
                                                             variant="outlined"
                                                             size="small"
-                                                            placeholder="Reason"
+                                                            placeholder="Reason *"
                                                             value={row.rowReason}
                                                             onChange={(e) => handleChange(rowIndex, "rowReason", e.target.value)}
                                                             sx={{ width: "150px", '& .MuiOutlinedInput-root': { fontSize: 12, borderRadius: '6px' } }}

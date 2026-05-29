@@ -159,21 +159,31 @@ export default function AttendanceReportsPage({ isEmbedded = false }) {
     const presets = buildPresets();
 
     // ── Fetch summary ──────────────────────────────────────────────────────
+    // GET /reportsLeaveManagement
+    //   ?FromDate=YYYY-MM-DD&ToDate=YYYY-MM-DD&Category=<cat>&AttendanceStatus=<status>
+    // Dates are sent in the same YYYY-MM-DD format the <input type="date">
+    // already produces — no DD-MM-YYYY conversion.
     const fetchReports = useCallback(async () => {
         setIsLoading(true);
         try {
             const res = await axios.get(reportsLeaveManagement, {
                 params: {
-                    FromDate:         inputToApi(fromDate),
-                    ToDate:           inputToApi(toDate),
+                    FromDate:         fromDate,
+                    ToDate:           toDate,
                     Category:         mapCategoryToApi(categoryFilter === 'all' ? '' : categoryFilter),
                     AttendanceStatus: statusFilter !== 'all' ? statusFilter : '',
                 },
                 headers: { Authorization: `Bearer ${token}` },
             });
             if (res.data && !res.data.error) {
-                setCards(res.data.cards   || {});
-                setSummary(res.data.summary || []);
+                setCards(res.data.cards || {});
+                // The new API returns `rollNumber`; older shape used `staffId`.
+                // Normalize so the rest of the page can keep reading row.staffId.
+                const list = Array.isArray(res.data.summary) ? res.data.summary : [];
+                setSummary(list.map(r => ({
+                    ...r,
+                    staffId: r.staffId || r.rollNumber || '',
+                })));
             } else {
                 showSnack(res.data?.message || 'Failed to load reports', false);
             }
@@ -188,27 +198,67 @@ export default function AttendanceReportsPage({ isEmbedded = false }) {
     useEffect(() => { fetchReports(); }, [fetchReports]);
 
     // ── Full report ────────────────────────────────────────────────────────
+    // GET /reportsLeaveManagementFullReport
+    //   ?RollNumber=<roll>&FromDate=YYYY-MM-DD&ToDate=YYYY-MM-DD
+    // The dialog stays open in three states:
+    //   isLoading: true                → spinner
+    //   data: { ...record, hasData }   → full report
+    //   data: { empty: true, message } → friendly "no data" view (no toast)
     const fetchFullReport = async (staffId) => {
+        // Don't fire the request when the row had no roll number — skip
+        // straight to the empty state. Saves a guaranteed-to-fail round-trip.
+        if (!staffId || String(staffId).trim().length === 0) {
+            setReportDialog({
+                open: true,
+                isLoading: false,
+                data: { empty: true, message: 'This staff member has no roll number on file.' },
+            });
+            return;
+        }
+
         setReportDialog({ open: true, data: null, isLoading: true });
         try {
             const res = await axios.get(reportsLeaveManagementFullReport, {
                 params: {
                     RollNumber: staffId,
-                    FromDate:   inputToApi(fromDate),
-                    ToDate:     inputToApi(toDate),
+                    FromDate:   fromDate,
+                    ToDate:     toDate,
                 },
                 headers: { Authorization: `Bearer ${token}` },
             });
-            if (res.data && !res.data.error) {
-                setReportDialog({ open: true, data: res.data, isLoading: false });
-            } else {
-                showSnack('Failed to load full report', false);
-                setReportDialog({ open: false, data: null, isLoading: false });
+            const body = res?.data || {};
+
+            // Backend signalled an issue OR returned a record with no usable
+            // content (no name AND no working days AND no calendar entries).
+            const hasContent =
+                (body.name && body.name.trim().length > 0)
+                || (body.workingDays && body.workingDays > 0)
+                || (Array.isArray(body.calendar)  && body.calendar.length > 0)
+                || (Array.isArray(body.dailyLog) && body.dailyLog.length > 0);
+
+            if (body.error || !hasContent) {
+                setReportDialog({
+                    open: true,
+                    isLoading: false,
+                    data: { empty: true, message: body.message || 'No attendance data found for this staff member in the selected range.' },
+                });
+                return;
             }
+
+            // Normalize so the dialog can keep reading fullData.staffId.
+            setReportDialog({
+                open: true,
+                isLoading: false,
+                data: { ...body, staffId: body.staffId || body.rollNumber || staffId },
+            });
         } catch (err) {
             console.error('Full report fetch error:', err);
-            showSnack('Failed to load full report', false);
-            setReportDialog({ open: false, data: null, isLoading: false });
+            const msg = err?.response?.data?.message || 'Could not load the full report. Please try again.';
+            setReportDialog({
+                open: true,
+                isLoading: false,
+                data: { empty: true, message: msg },
+            });
         }
     };
 
@@ -781,6 +831,38 @@ export default function AttendanceReportsPage({ isEmbedded = false }) {
                     {reportDialog.isLoading ? (
                         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 10 }}>
                             <CircularProgress size={36} sx={{ color: PRIMARY }} />
+                        </Box>
+                    ) : fullData?.empty ? (
+                        <Box sx={{ px: 4, py: 6, textAlign: 'center' }}>
+                            <Box sx={{
+                                width: 64, height: 64, borderRadius: '50%',
+                                bgcolor: '#F3F4F6', border: '1px solid #E5E7EB',
+                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                mb: 1.5,
+                            }}>
+                                <Typography sx={{ fontSize: '28px' }}>📭</Typography>
+                            </Box>
+                            <Typography sx={{ fontSize: '16px', fontWeight: 700, color: '#111827', mb: 0.6 }}>
+                                No report data available
+                            </Typography>
+                            <Typography sx={{ fontSize: '12.5px', color: '#6B7280', maxWidth: 380, mx: 'auto', lineHeight: 1.6 }}>
+                                {fullData.message || 'No attendance records were found for this staff member in the selected range.'}
+                            </Typography>
+                            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2.5 }}>
+                                <Button
+                                    onClick={closeDialog}
+                                    variant="contained"
+                                    disableElevation
+                                    sx={{
+                                        textTransform: 'none', fontSize: '13px', fontWeight: 700,
+                                        bgcolor: PRIMARY, color: '#fff',
+                                        borderRadius: '8px', px: 2.4, height: 36,
+                                        '&:hover': { bgcolor: PRIMARY_DARK },
+                                    }}
+                                >
+                                    Close
+                                </Button>
+                            </Box>
                         </Box>
                     ) : fullData && (
                         <>

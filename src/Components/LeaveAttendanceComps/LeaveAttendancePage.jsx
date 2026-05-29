@@ -47,7 +47,7 @@ import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import axios from 'axios';
-import { getAttendanceDashboard, SyncStatus, TriggerManualSync, GetTeachersAttendance } from '../../Api/Api';
+import { SyncStatus, TriggerManualSync, GetTeachersAttendance } from '../../Api/Api';
 import SnackBar from '../SnackBar';
 
 import StaffAttendanceOverviewPage from './StaffAttendanceOverviewPage';
@@ -280,14 +280,6 @@ export default function LeaveAttendancePage() {
         setSnackMessage(msg); setSnackOpen(true); setSnackColor(success); setSnackStatus(success);
     };
 
-    // Dashboard state
-    const [dashboardData, setDashboardData] = useState({
-        cards: { totalPresent: 0, totalStaff: 0, totalAbsent: 0, lateArrivals: 0, onLeave: 0 },
-        todaysAttendance: [],
-        staffMembersCount: 0,
-    });
-    const [isLoading, setIsLoading] = useState(false);
-
     // ─── Biometric Sync State ──────────────────────────────────────────────
     // Full latest response from the SyncStatus endpoint (or null if not loaded).
     const [syncStatus, setSyncStatus] = useState(null);
@@ -339,28 +331,10 @@ export default function LeaveAttendancePage() {
     };
 
     // ─── Personal attendance (read-only display) ────────────────────────────
-    // All punch / break / logout events are captured by the biometric device.
-    // This screen ONLY visualises them — no actions are exposed to the user.
-    // Dummy values below will be replaced by backend payload when wired.
-    const [loginTime] = useState(() => {
-        const t = new Date();
-        t.setHours(9, 15, 0, 0);
-        return t;
-    });
+    // Driven by the logged-in user's own record from todayAttendanceList
+    // (populated by GetTeachersAttendance). Falls back gracefully when the
+    // user has no record yet — the LOGIN tile shows "—", the ticker reads 0.
     const [currentTime, setCurrentTime] = useState(new Date());
-
-    // Dummy completed breaks — replace with device-synced data.
-    const [breaks] = useState(() => {
-        const mkTime = (h, m) => {
-            const d = new Date();
-            d.setHours(h, m, 0, 0);
-            return d;
-        };
-        return [
-            { start: mkTime(11, 0),  end: mkTime(11, 15) }, // morning tea
-            { start: mkTime(13, 0),  end: mkTime(13, 30) }, // lunch
-        ];
-    });
 
     // Live ticker — increments the "logged in for" counter every second.
     useEffect(() => {
@@ -368,39 +342,48 @@ export default function LeaveAttendancePage() {
         return () => clearInterval(id);
     }, []);
 
-    const loggedInMs = currentTime - loginTime;
-    const totalBreakMs = breaks.reduce((sum, b) => sum + (b.end - b.start), 0);
-    const netWorkMs = loggedInMs - totalBreakMs;
-
-    const loggedInDur = formatDuration(loggedInMs);
-    const breakDur = formatDuration(totalBreakMs);
-    const netWorkDur = formatDuration(netWorkMs);
-
-    const fetchDashboard = async (dateStr) => {
-        setIsLoading(true);
-        try {
-            const res = await axios.get(getAttendanceDashboard, {
-                params: { RollNumber: rollNumber, Date: dateStr },
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            if (res.data && !res.data.error) {
-                setDashboardData({
-                    cards:             res.data.cards            || {},
-                    todaysAttendance:  res.data.todaysAttendance || [],
-                    staffMembersCount: res.data.staffMembersCount || 0,
-                });
-            }
-        } catch (error) {
-            console.error('Error fetching attendance dashboard:', error);
-            showSnack('Failed to load attendance data', false);
-        } finally {
-            setIsLoading(false);
-        }
+    // Parse "HH:MM" / "HH:MM:SS" → Date object anchored to today.
+    const hhmmToTodayDate = (timeStr) => {
+        if (!timeStr || typeof timeStr !== 'string') return null;
+        const parts = timeStr.split(':').map(Number);
+        if (parts.length < 2 || Number.isNaN(parts[0]) || Number.isNaN(parts[1])) return null;
+        const d = new Date();
+        d.setHours(parts[0], parts[1], parts[2] || 0, 0);
+        return d;
     };
 
-    useEffect(() => {
-        fetchDashboard(formatDateForApi(new Date()));
-    }, []);
+    // The logged-in user's row from today's attendance fetch.
+    const myAttendanceRecord = useMemo(() => {
+        if (!rollNumber || !Array.isArray(todayAttendanceList) || todayAttendanceList.length === 0) return null;
+        return todayAttendanceList.find(r => String(r.rollNumber) === String(rollNumber)) || null;
+    }, [todayAttendanceList, rollNumber]);
+
+    // First punch's loginTime — null until the user has clocked in today.
+    const loginTime = useMemo(() => {
+        const first = myAttendanceRecord?.rawPunches?.[0];
+        return hhmmToTodayDate(first?.loginTime || myAttendanceRecord?.loginTime || '');
+    }, [myAttendanceRecord]);
+
+    // Completed-break list: [{ start: Date, end: Date }] — only fully-closed
+    // breaks (both breakOut + breakIn present) are counted.
+    const breaks = useMemo(() => {
+        const list = myAttendanceRecord?.rawBreaks || [];
+        return list
+            .map(b => ({
+                start: hhmmToTodayDate(b.breakOutTime),
+                end:   hhmmToTodayDate(b.breakInTime),
+                breakNo: b.breakNo,
+            }))
+            .filter(b => b.start && b.end && b.end >= b.start);
+    }, [myAttendanceRecord]);
+
+    const loggedInMs   = loginTime ? Math.max(0, currentTime - loginTime) : 0;
+    const totalBreakMs = breaks.reduce((sum, b) => sum + (b.end - b.start), 0);
+    const netWorkMs    = Math.max(0, loggedInMs - totalBreakMs);
+
+    const loggedInDur = formatDuration(loggedInMs);
+    const breakDur    = formatDuration(totalBreakMs);
+    const netWorkDur  = formatDuration(netWorkMs);
 
     // GET /teachersattendance/GetTeachersAttendance
     //   ?fromDate=YYYY-MM-DD&toDate=YYYY-MM-DD&academicYear=YYYY-YYYY
@@ -512,7 +495,7 @@ export default function LeaveAttendancePage() {
                 // close the loader + refresh dashboard so the new punches show.
                 if (isSyncing && res.data.isPending === false) {
                     stopSyncLoader();
-                    fetchDashboard(formatDateForApi(new Date()));
+                    fetchTodaysAttendance();
                     showSnack('Sync completed — attendance data refreshed', true);
                 }
             }
@@ -548,7 +531,7 @@ export default function LeaveAttendancePage() {
                 if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
                 syncTimeoutRef.current = setTimeout(() => {
                     stopSyncLoader();
-                    fetchDashboard(formatDateForApi(new Date()));
+                    fetchTodaysAttendance();
                     showSnack('Sync still running in the background — refreshing now', true);
                 }, SYNC_TIMEOUT_MS);
                 // Trigger an immediate status fetch so the UI reflects the new lastTriggeredAt.
@@ -573,9 +556,10 @@ export default function LeaveAttendancePage() {
     const shouldPollSyncStatus = isAdminUser && isDashboardTab;
 
     // Fetch the Today's Attendance list whenever the tab becomes active OR the
-    // academic year changes while it's already active.
+    // academic year changes. Both the Dashboard (preview, top 10) and the
+    // Today's Attendance tab (full list) share the same fetch + state.
     useEffect(() => {
-        if (tabValue === 2) {
+        if (tabValue === 0 || tabValue === 2) {
             fetchTodaysAttendance();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -664,17 +648,28 @@ export default function LeaveAttendancePage() {
 
     // ─── Dashboard render ──────────────────────────────────────────────────
     const renderDashboard = () => {
-        const { cards, todaysAttendance, staffMembersCount } = dashboardData;
+        // Dashboard's Today's Attendance preview + KPI cards are both derived
+        // from GetTeachersAttendance (normalized). One fetch powers everything.
+        const todaysAttendance = todayAttendanceList;
 
-        const totalStaff = cards.totalStaff ?? staffMembersCount ?? 0;
-        const presentCount = cards.totalPresent ?? 0;
-        const attendanceRate = totalStaff > 0 ? Math.round((presentCount / totalStaff) * 100) : 0;
+        // KPI counts derived in a single pass over the list.
+        const counts = todaysAttendance.reduce((acc, emp) => {
+            const s = (emp.status || '').toLowerCase();
+            if (s === 'present')  acc.present += 1;
+            else if (s === 'late')    acc.late    += 1;
+            else if (s === 'absent')  acc.absent  += 1;
+            else if (s === 'onleave' || s === 'on leave') acc.onLeave += 1;
+            return acc;
+        }, { present: 0, late: 0, absent: 0, onLeave: 0 });
+
+        const totalStaff = todaysAttendance.length;
+        const presentCount = counts.present;
 
         const kpiCards = [
-            { label: 'Present',    value: presentCount,       sub: `/${totalStaff}`, color: '#059669', bg: '#ECFDF5', border: '#A7F3D0', icon: CheckCircleIcon },
-            { label: 'Absent',     value: cards.totalAbsent  ?? 0,                   color: '#DC2626', bg: '#FEF2F2', border: '#FECACA', icon: CancelIcon },
-            { label: 'Late',       value: cards.lateArrivals ?? 0,                   color: '#D97706', bg: '#FFFBEB', border: '#FDE68A', icon: AccessTimeIcon },
-            { label: 'On Leave',   value: cards.onLeave      ?? 0,                   color: '#2563EB', bg: '#EFF6FF', border: '#BFDBFE', icon: EventIcon },
+            { label: 'Present',    value: presentCount,    sub: `/${totalStaff}`, color: '#059669', bg: '#ECFDF5', border: '#A7F3D0', icon: CheckCircleIcon },
+            { label: 'Absent',     value: counts.absent,                          color: '#DC2626', bg: '#FEF2F2', border: '#FECACA', icon: CancelIcon },
+            { label: 'Late',       value: counts.late,                            color: '#D97706', bg: '#FFFBEB', border: '#FDE68A', icon: AccessTimeIcon },
+            { label: 'On Leave',   value: counts.onLeave,                         color: '#2563EB', bg: '#EFF6FF', border: '#BFDBFE', icon: EventIcon },
         ];
 
         return (
@@ -1081,7 +1076,7 @@ export default function LeaveAttendancePage() {
                                     </Box>
                                 </Box>
 
-                                {isLoading ? (
+                                {isLoadingTodayList ? (
                                     <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}>
                                         <CircularProgress size={28} sx={{ color: PRIMARY }} />
                                     </Box>
@@ -1109,7 +1104,7 @@ export default function LeaveAttendancePage() {
                                                             No attendance records yet today
                                                         </TableCell>
                                                     </TableRow>
-                                                ) : todaysAttendance.slice(0, 8).map((emp, idx) => {
+                                                ) : todaysAttendance.slice(0, 10).map((emp, idx) => {
                                                     const roleLabel = mapRole(emp.role);
                                                     const statusLabel = mapStatus(emp.status, emp.attendance);
                                                     const roleConf = ROLE_CONFIG[roleLabel] || { color: '#6B7280', bg: '#F3F4F6', border: '#E5E7EB' };
@@ -1340,17 +1335,42 @@ export default function LeaveAttendancePage() {
     const renderTodaysAttendance = () => {
         const todaysAttendance = todayAttendanceList;
 
-        // Helper: compute worked hours from HH:mm strings
-        const computeWorkedHours = (loginStr, logoutStr) => {
-            if (!loginStr || !logoutStr) return null;
-            const [lh, lm] = loginStr.split(':').map(Number);
-            const [oh, om] = logoutStr.split(':').map(Number);
-            if (Number.isNaN(lh) || Number.isNaN(oh)) return null;
-            let mins = (oh * 60 + om) - (lh * 60 + lm);
-            if (mins < 0) mins += 24 * 60;
+        // Parse HH:MM / HH:MM:SS → minutes since midnight.
+        const toMinutes = (timeStr) => {
+            if (!timeStr || typeof timeStr !== 'string') return null;
+            const [h, m] = timeStr.split(':').map(Number);
+            if (Number.isNaN(h) || Number.isNaN(m)) return null;
+            return h * 60 + m;
+        };
+
+        // Sum break minutes from the rawBreaks array (each entry has
+        // breakOutTime + breakInTime). Skips incomplete / invalid breaks.
+        const sumBreakMinutes = (rawBreaks = []) => rawBreaks.reduce((sum, b) => {
+            const out = toMinutes(b.breakOutTime);
+            const inn = toMinutes(b.breakInTime);
+            if (out == null || inn == null || inn < out) return sum;
+            return sum + (inn - out);
+        }, 0);
+
+        // "8h 15m" string for minutes — empty when 0.
+        const formatMinutes = (mins) => {
+            if (!Number.isFinite(mins) || mins <= 0) return '0m';
             const h = Math.floor(mins / 60);
             const m = mins % 60;
             return h > 0 ? `${h}h ${m}m` : `${m}m`;
+        };
+
+        // Net worked hours = (logout − login) − Σ breaks. Returns the gross /
+        // break / net minutes so the cell can show a tooltip breakdown too.
+        const computeWorkedBreakdown = (loginStr, logoutStr, rawBreaks) => {
+            const loginMin = toMinutes(loginStr);
+            const logoutMin = toMinutes(logoutStr);
+            if (loginMin == null || logoutMin == null) return null;
+            let gross = logoutMin - loginMin;
+            if (gross < 0) gross += 24 * 60; // overnight safety
+            const breakMin = sumBreakMinutes(rawBreaks);
+            const net = Math.max(0, gross - breakMin);
+            return { gross, breakMin, net, breakCount: (rawBreaks || []).length };
         };
 
         // Filter
@@ -1712,7 +1732,7 @@ export default function LeaveAttendancePage() {
                 {/* Table */}
                 <Card sx={{ border: '1px solid #E5E7EB', borderRadius: '12px', boxShadow: 'none', bgcolor: '#fff' }}>
                     <CardContent sx={{ pb: '12px !important' }}>
-                        {(isLoading || isLoadingTodayList) ? (
+                        {isLoadingTodayList ? (
                             <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
                                 <CircularProgress size={32} sx={{ color: PRIMARY }} />
                             </Box>
@@ -1747,7 +1767,7 @@ export default function LeaveAttendancePage() {
                                             const statConf = STATUS_STYLE[statusLabel] || STATUS_STYLE.Absent;
                                             const isBiometric = (emp.source || '').toLowerCase() === 'biometric';
                                             const showTime = statusLabel === 'Present' || statusLabel === 'Late';
-                                            const worked = showTime ? computeWorkedHours(emp.loginTime, emp.logoutTime) : null;
+                                            const workedInfo = showTime ? computeWorkedBreakdown(emp.loginTime, emp.logoutTime, emp.rawBreaks) : null;
                                             const avColor = avatarColorFor(emp.name || '');
 
                                             return (
@@ -1832,10 +1852,28 @@ export default function LeaveAttendancePage() {
                                                         )}
                                                     </TableCell>
                                                     <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
-                                                        {worked ? (
-                                                            <Typography sx={{ fontSize: '12px', fontWeight: 700, color: '#4338CA', fontFamily: 'monospace' }}>
-                                                                {worked}
-                                                            </Typography>
+                                                        {workedInfo ? (
+                                                            <Tooltip
+                                                                arrow placement="top"
+                                                                title={
+                                                                    <Box sx={{ fontSize: '11px', lineHeight: 1.6 }}>
+                                                                        <div>Gross: <strong>{formatMinutes(workedInfo.gross)}</strong></div>
+                                                                        <div>Breaks: <strong>{formatMinutes(workedInfo.breakMin)}</strong> ({workedInfo.breakCount})</div>
+                                                                        <div>Net: <strong>{formatMinutes(workedInfo.net)}</strong></div>
+                                                                    </Box>
+                                                                }
+                                                            >
+                                                                <Box sx={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                                                                    <Typography sx={{ fontSize: '12px', fontWeight: 700, color: '#4338CA', fontFamily: 'monospace' }}>
+                                                                        {formatMinutes(workedInfo.net)}
+                                                                    </Typography>
+                                                                    {workedInfo.breakMin > 0 && (
+                                                                        <Typography sx={{ fontSize: '9.5px', fontWeight: 600, color: '#D97706', fontFamily: 'monospace' }}>
+                                                                            − {formatMinutes(workedInfo.breakMin)} brk
+                                                                        </Typography>
+                                                                    )}
+                                                                </Box>
+                                                            </Tooltip>
                                                         ) : (
                                                             <Typography sx={{ fontSize: '12px', color: '#D1D5DB' }}>—</Typography>
                                                         )}

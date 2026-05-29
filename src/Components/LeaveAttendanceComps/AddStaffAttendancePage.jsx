@@ -28,9 +28,10 @@ import TimerOutlinedIcon from '@mui/icons-material/TimerOutlined';
 import FingerprintIcon from '@mui/icons-material/Fingerprint';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import LoginIcon from '@mui/icons-material/Login';
+import EventBusyIcon from '@mui/icons-material/EventBusy';
 import axios from 'axios';
 import { useSelector } from 'react-redux';
-import { GetAttendanceTeacherBefore, PostTeachersManualAttendance } from '../../Api/Api';
+import { GetAttendanceTeacherBefore, PostTeachersManualAttendance, GetTeachersAttendance } from '../../Api/Api';
 import SnackBar from '../SnackBar';
 
 const today = new Date().toISOString().split('T')[0];
@@ -184,17 +185,19 @@ const BREAK_PRESETS = [
 const makeBreakId = () => `br_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 
 // ─── Memoized status pill ────────────────────────────────────────────────────
-const StatusPill = memo(function StatusPill({ value, selected, onClick }) {
+const StatusPill = memo(function StatusPill({ value, selected, onClick, locked }) {
     const s = STATUS_STYLE[value];
     return (
         <Box
-            onClick={onClick}
+            onClick={locked ? undefined : onClick}
             sx={{
-                px: 1.1, py: '3px', borderRadius: '50px', cursor: 'pointer',
+                px: 1.1, py: '3px', borderRadius: '50px',
+                cursor: locked ? 'not-allowed' : 'pointer',
                 border: `1px solid ${selected ? s.color : '#E5E7EB'}`,
                 bgcolor: selected ? s.bg : '#fff',
+                opacity: locked && !selected ? 0.45 : 1,
                 transition: 'all 0.15s',
-                '&:hover': { borderColor: s.color, bgcolor: s.bg },
+                '&:hover': locked ? {} : { borderColor: s.color, bgcolor: s.bg },
             }}
         >
             <Typography sx={{
@@ -296,22 +299,57 @@ const COL_BREAK = {
 const StaffRow = memo(function StaffRow({
     index, style,
     items, marks, ins, outs, notes, sameTimeEnabled,
+    leaveMap, sourceMap, breaksMap,
     onMarkChange, onCheckInChange, onCheckOutChange, onOpenNotes,
 }) {
     const staff = items[index];
     if (!staff) return null;
 
-    const mark = marks[staff.id] || 'Present';
+    const mark = marks[staff.id] || '';
     const inT  = ins[staff.id]  || '';
     const outT = outs[staff.id] || '';
     const note = notes[staff.id] || '';
     const work = computeWorkingHours(inT, outT);
+    // Net hours = gross − total break minutes. The Working Hrs cell shows the
+    // net value with a small "− 55m brk" hint beneath, matching the Today's
+    // Attendance tab.
+    const breakMinForRow = work ? computeTotalBreakMinutes(breaksMap?.[staff.id] || []) : 0;
+    const netWorkMin = work ? Math.max(0, work.totalMinutes - breakMinForRow) : 0;
     const roleConf = ROLE_CONFIG[staff.role] || { color: '#6B7280', bg: '#F3F4F6', border: '#E5E7EB' };
     const avColor = avatarColorFor(staff.name || '');
     const needsTime = mark === 'Present' || mark === 'Late';
 
+    // Approved-leave lockdown — when leave is approved server-side we cannot
+    // mark this staff member present/late/absent: the status is forced to
+    // "On Leave" and all editable controls become read-only.
+    const leaveInfo = leaveMap?.[staff.id];
+    const isLeaveLocked = !!leaveInfo?.isOnApprovedLeave;
+    const isHalfDayLeave = isLeaveLocked && !!leaveInfo?.approvedLeaveIsHalfDay;
+
+    // Per-field source ("biometric" | "manual") for the small badge near times.
+    const src = sourceMap?.[staff.id] || {};
+
     const checkInIcon = <AccessTimeIcon sx={{ fontSize: 14, color: PRIMARY }} />;
     const checkOutIcon = <LogoutIcon sx={{ fontSize: 14, color: '#1D4ED8' }} />;
+
+    const renderSourceBadge = (source) => {
+        if (!source) return null;
+        const isBio = String(source).toLowerCase() === 'biometric';
+        return (
+            <Chip
+                size="small"
+                label={isBio ? 'Bio' : 'Manual'}
+                sx={{
+                    height: 14, fontSize: '8.5px', fontWeight: 700,
+                    bgcolor: isBio ? '#EEF2FF' : '#F9FAFB',
+                    color:   isBio ? '#4338CA' : '#6B7280',
+                    border:  `1px solid ${isBio ? '#C7D2FE' : '#E5E7EB'}`,
+                    mt: 0.3,
+                    '& .MuiChip-label': { px: 0.6 },
+                }}
+            />
+        );
+    };
 
     return (
         <Box
@@ -340,7 +378,23 @@ const StaffRow = memo(function StaffRow({
                     {staff.avatar}
                 </Avatar>
                 <Box sx={{ minWidth: 0 }}>
-                    <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#111827' }} noWrap>{staff.name}</Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+                        <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#111827' }} noWrap>{staff.name}</Typography>
+                        {isLeaveLocked && (
+                            <Chip
+                                size="small"
+                                icon={<EventBusyIcon sx={{ fontSize: '11px !important' }} />}
+                                label={isHalfDayLeave ? 'Half-Day Leave' : 'Approved Leave'}
+                                sx={{
+                                    height: 18, fontSize: '9.5px', fontWeight: 700,
+                                    bgcolor: '#EFF6FF', color: '#1D4ED8',
+                                    border: '1px solid #BFDBFE',
+                                    '& .MuiChip-icon': { color: 'inherit', ml: '4px' },
+                                    '& .MuiChip-label': { px: 0.7 },
+                                }}
+                            />
+                        )}
+                    </Box>
                     <Typography sx={{ fontSize: '10px', color: '#9CA3AF', fontWeight: 500 }}>{staff.rollNumber}</Typography>
                 </Box>
             </Box>
@@ -359,6 +413,7 @@ const StaffRow = memo(function StaffRow({
                             key={opt}
                             value={opt}
                             selected={mark === opt}
+                            locked={isLeaveLocked}
                             onClick={() => onMarkChange(staff.id, opt)}
                         />
                     ))}
@@ -369,21 +424,44 @@ const StaffRow = memo(function StaffRow({
                     id={staff.id} value={inT} mark={mark} onChange={onCheckInChange}
                     icon={checkInIcon} activeColor={PRIMARY} mode="in" sameTimeEnabled={sameTimeEnabled}
                 />
+                {inT && renderSourceBadge(src.login)}
             </Box>
             <Box sx={{ width: COL_STAFF.checkOut, flexShrink: 0 }}>
                 <TimeCell
                     id={staff.id} value={outT} mark={mark} onChange={onCheckOutChange}
                     icon={checkOutIcon} activeColor="#1D4ED8" mode="out" sameTimeEnabled={sameTimeEnabled}
                 />
+                {outT && renderSourceBadge(src.logout)}
             </Box>
             <Box sx={{ width: COL_STAFF.work, flexShrink: 0 }}>
                 {needsTime && work ? (
-                    <Chip size="small" label={work.label}
-                        sx={{
-                            bgcolor: PRIMARY_LIGHT, color: PRIMARY_DARK,
-                            border: `1px solid ${PRIMARY_BORDER}`,
-                            fontWeight: 700, fontSize: '11px', height: 22,
-                        }} />
+                    <Tooltip
+                        arrow placement="top"
+                        title={
+                            <Box sx={{ fontSize: '11px', lineHeight: 1.6 }}>
+                                <div>Gross: <strong>{formatMinutes(work.totalMinutes)}</strong></div>
+                                <div>Breaks: <strong>{formatMinutes(breakMinForRow)}</strong></div>
+                                <div>Net: <strong>{formatMinutes(netWorkMin)}</strong></div>
+                            </Box>
+                        }
+                    >
+                        <Box sx={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                            <Chip size="small" label={formatMinutes(netWorkMin)}
+                                sx={{
+                                    bgcolor: PRIMARY_LIGHT, color: PRIMARY_DARK,
+                                    border: `1px solid ${PRIMARY_BORDER}`,
+                                    fontWeight: 700, fontSize: '11px', height: 22,
+                                }} />
+                            {breakMinForRow > 0 && (
+                                <Typography sx={{
+                                    fontSize: '9.5px', fontWeight: 600, color: '#D97706',
+                                    fontFamily: 'monospace', mt: 0.3,
+                                }}>
+                                    − {formatMinutes(breakMinForRow)} brk
+                                </Typography>
+                            )}
+                        </Box>
+                    </Tooltip>
                 ) : (
                     <Typography sx={{ fontSize: '11px', color: '#D1D5DB' }}>—</Typography>
                 )}
@@ -429,7 +507,7 @@ const BreakRow = memo(function BreakRow({
     const staff = items[index];
     if (!staff) return null;
 
-    const mark = marks[staff.id] || 'Present';
+    const mark = marks[staff.id] || '';
     const inT  = ins[staff.id]  || '';
     const outT = outs[staff.id] || '';
     const breaks = breaksMap[staff.id] || [];
@@ -556,19 +634,6 @@ const BreakRow = memo(function BreakRow({
                                             border: `1px solid ${isValid ? '#FDE68A' : '#E5E7EB'}`,
                                         }}
                                     />
-                                    <Tooltip arrow title="Remove this break">
-                                        <IconButton
-                                            size="small"
-                                            onClick={() => onDeleteBreak(staff.id, br.id)}
-                                            sx={{
-                                                width: 24, height: 24, borderRadius: '6px',
-                                                color: '#DC2626',
-                                                '&:hover': { bgcolor: '#FEF2F2' },
-                                            }}
-                                        >
-                                            <DeleteOutlineIcon sx={{ fontSize: 14 }} />
-                                        </IconButton>
-                                    </Tooltip>
                                 </Box>
                             );
                         })}
@@ -684,6 +749,12 @@ export default function AddStaffAttendancePage() {
     const [rowNotes, setRowNotes]               = useState({}); // id → text
     const [breaksMap, setBreaksMap]             = useState({}); // id → [{ id, out, in }]
 
+    // Per-row enrichments from GetTeachersAttendance:
+    //   leaveMap  → { rollNumber: { isOnApprovedLeave, approvedLeaveIsHalfDay } }
+    //   sourceMap → { rollNumber: { login: 'biometric'|'manual', logout: '...' } }
+    const [leaveMap, setLeaveMap]   = useState({});
+    const [sourceMap, setSourceMap] = useState({});
+
     // Bulk-time controls
     const [sameTimeEnabled, setSameTimeEnabled] = useState(false);
     const [globalCheckIn, setGlobalCheckIn]     = useState('');
@@ -706,9 +777,36 @@ export default function AddStaffAttendancePage() {
     };
 
     // ─── Data fetch ──────────────────────────────────────────────────────────
+    // Trim "HH:MM:SS" → "HH:MM" for the time inputs. The server uses seconds;
+    // the UI uses HH:MM and we re-append :00 on save (via toApiTime).
+    const trimSec = (t) => (t && t.length >= 5 ? t.slice(0, 5) : (t || ''));
+
     const mapStaffItem = (item) => {
         const apiUType = item.userType?.toLowerCase() || '';
-        const existingCheckIn = item.dateTime ? (item.dateTime.split(' ')[1] || '') : '';
+
+        // Login/logout — prefer the new `punches[]` shape, fall back to the
+        // legacy `dateTime` / `checkOut` fields.
+        const firstPunch = Array.isArray(item.punches) && item.punches.length > 0 ? item.punches[0] : null;
+        const lastPunch  = Array.isArray(item.punches) && item.punches.length > 0 ? item.punches[item.punches.length - 1] : null;
+        const existingCheckIn = firstPunch?.loginTime
+            ? trimSec(firstPunch.loginTime)
+            : (item.dateTime ? (item.dateTime.split(' ')[1] || '') : '');
+        const existingCheckOut = lastPunch?.logoutTime
+            ? trimSec(lastPunch.logoutTime)
+            : (item.checkOut || '');
+
+        // Existing server breaks — KEEP the server `breakNo` so edits route
+        // through update mode (per spec A4). Breaks added locally afterwards
+        // will have no `breakNo`, which signals the server to assign one (A3).
+        const existingBreaks = Array.isArray(item.breaks)
+            ? item.breaks.map(b => ({
+                id: makeBreakId(),
+                out: trimSec(b.breakOutTime),
+                in:  trimSec(b.breakInTime),
+                breakNo: Number.isInteger(b.breakNo) ? b.breakNo : undefined,
+            })).filter(b => b.out || b.in)
+            : [];
+
         return {
             id: item.rollNumber,
             rollNumber: item.rollNumber,
@@ -722,20 +820,25 @@ export default function AddStaffAttendancePage() {
             filePath: item.filePath || '',
             existingStatus: item.status || '',
             existingCheckIn,
-            existingCheckOut: item.checkOut || '',
+            existingCheckOut,
             existingNotes: item.notes || '',
+            existingBreaks,
         };
     };
 
     const initRowState = (staff) => {
-        const marks = {}, ins = {}, outs = {}, notes = {};
+        const marks = {}, ins = {}, outs = {}, notes = {}, brks = {};
         staff.forEach(s => {
-            marks[s.id] = STATUS_API_TO_UI[s.existingStatus.toLowerCase()] || 'Present';
+            // Only seed a status when the server already has one for this
+            // staff — otherwise leave it empty so the user has to pick.
+            const fromServer = STATUS_API_TO_UI[s.existingStatus.toLowerCase()];
+            marks[s.id] = fromServer || '';
             ins[s.id]   = s.existingCheckIn;
             outs[s.id]  = s.existingCheckOut;
             notes[s.id] = s.existingNotes;
+            brks[s.id]  = s.existingBreaks || [];
         });
-        return { marks, ins, outs, notes };
+        return { marks, ins, outs, notes, brks };
     };
 
     // GET /GetAttendanceTeacherBefore?AcademicYear=YYYY-YYYY&UserType=<role>
@@ -773,8 +876,9 @@ export default function AddStaffAttendancePage() {
 
             setStaffList(allStaff);
             setIsAttendanceAddedMap(addedMap);
-            const { marks, ins, outs, notes } = initRowState(allStaff);
+            const { marks, ins, outs, notes, brks } = initRowState(allStaff);
             setAttendanceMarks(marks); setCheckInTimes(ins); setCheckOutTimes(outs); setRowNotes(notes);
+            setBreaksMap(brks);
         } catch {
             showSnack('Failed to load staff list', false);
         } finally {
@@ -804,10 +908,11 @@ export default function AddStaffAttendancePage() {
                 const apply = (prev, key) => {
                     const updated = { ...prev };
                     newStaff.forEach(s => {
-                        if (key === 'marks')  updated[s.id] = STATUS_API_TO_UI[s.existingStatus.toLowerCase()] || 'Present';
+                        if (key === 'marks')  updated[s.id] = STATUS_API_TO_UI[s.existingStatus.toLowerCase()] || '';
                         if (key === 'ins')    updated[s.id] = s.existingCheckIn;
                         if (key === 'outs')   updated[s.id] = s.existingCheckOut;
                         if (key === 'notes')  updated[s.id] = s.existingNotes;
+                        if (key === 'brks')   updated[s.id] = s.existingBreaks || [];
                     });
                     return updated;
                 };
@@ -815,6 +920,7 @@ export default function AddStaffAttendancePage() {
                 setCheckInTimes(prev   => apply(prev, 'ins'));
                 setCheckOutTimes(prev  => apply(prev, 'outs'));
                 setRowNotes(prev       => apply(prev, 'notes'));
+                setBreaksMap(prev      => apply(prev, 'brks'));
             }
         } catch {
             showSnack('Failed to reload staff data', false);
@@ -823,15 +929,101 @@ export default function AddStaffAttendancePage() {
         }
     };
 
+    // GET /teachersattendance/GetTeachersAttendance
+    //   ?fromDate=YYYY-MM-DD&toDate=YYYY-MM-DD&academicYear=YYYY-YYYY
+    // Fetches the actual per-staff record for the selected date so the row
+    // pre-fills with existing punches / breaks / leaves and the source
+    // (biometric vs manual) for each filled field. Only enriches staff that
+    // already appear in `staffList` — it does NOT add new rows.
+    const fetchTodaysAttendance = async () => {
+        try {
+            const res = await axios.get(GetTeachersAttendance, {
+                params: {
+                    fromDate: attendanceDate,
+                    toDate:   attendanceDate,
+                    academicYear: getCurrentAcademicYear(),
+                },
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!res?.data || res.data.error) return;
+            const rows = Array.isArray(res.data.data) ? res.data.data : [];
+            if (rows.length === 0) return;
+
+            const marksDelta  = {};
+            const insDelta    = {};
+            const outsDelta   = {};
+            const breaksDelta = {};
+            const leaveDelta  = {};
+            const srcDelta    = {};
+
+            rows.forEach(rec => {
+                const id = rec.rollNumber;
+                if (!id) return;
+
+                const firstPunch = Array.isArray(rec.punches) && rec.punches.length > 0 ? rec.punches[0] : null;
+                const lastPunch  = Array.isArray(rec.punches) && rec.punches.length > 0 ? rec.punches[rec.punches.length - 1] : null;
+                const login  = trimSec(firstPunch?.loginTime);
+                const logout = trimSec(lastPunch?.logoutTime);
+
+                // Leaves — auto-lock to "On Leave" when approved by server.
+                const leaveRow = Array.isArray(rec.leaves) ? rec.leaves.find(l => l?.isOnApprovedLeave) : null;
+                if (leaveRow) {
+                    leaveDelta[id] = {
+                        isOnApprovedLeave: true,
+                        approvedLeaveIsHalfDay: !!leaveRow.approvedLeaveIsHalfDay,
+                    };
+                    marksDelta[id] = 'On Leave';
+                } else if (login) {
+                    // Derive late vs present from the login time relative to the
+                    // school start + late threshold.
+                    const [hh, mm] = login.split(':').map(Number);
+                    const lateAfter = SCHOOL_START_HOUR * 60 + LATE_THRESHOLD_MIN;
+                    marksDelta[id] = (hh * 60 + (mm || 0)) > lateAfter ? 'Late' : 'Present';
+                }
+
+                if (login)  insDelta[id]  = login;
+                if (logout) outsDelta[id] = logout;
+
+                // Breaks — keep server breakNo so update-mode works (per A4).
+                if (Array.isArray(rec.breaks) && rec.breaks.length > 0) {
+                    breaksDelta[id] = rec.breaks.map(b => ({
+                        id: makeBreakId(),
+                        out: trimSec(b.breakOutTime),
+                        in:  trimSec(b.breakInTime),
+                        breakNo: Number.isInteger(b.breakNo) ? b.breakNo : undefined,
+                        outSource: b.breakOutSource || '',
+                        inSource:  b.breakInSource  || '',
+                    }));
+                }
+
+                // Source badges next to login/logout times.
+                srcDelta[id] = {
+                    login:  firstPunch?.loginSource  || '',
+                    logout: lastPunch?.logoutSource  || '',
+                };
+            });
+
+            if (Object.keys(marksDelta).length)  setAttendanceMarks(prev => ({ ...prev, ...marksDelta }));
+            if (Object.keys(insDelta).length)    setCheckInTimes(prev   => ({ ...prev, ...insDelta }));
+            if (Object.keys(outsDelta).length)   setCheckOutTimes(prev  => ({ ...prev, ...outsDelta }));
+            if (Object.keys(breaksDelta).length) setBreaksMap(prev      => ({ ...prev, ...breaksDelta }));
+            if (Object.keys(leaveDelta).length)  setLeaveMap(prev       => ({ ...prev, ...leaveDelta }));
+            if (Object.keys(srcDelta).length)    setSourceMap(prev      => ({ ...prev, ...srcDelta }));
+        } catch (err) {
+            console.error("Failed to enrich today's attendance:", err);
+            // Soft-fail — base staff list still works without enrichment.
+        }
+    };
+
     useEffect(() => {
         isMounted.current = false;
-        fetchStaffList();
+        fetchStaffList().then(() => fetchTodaysAttendance());
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [attendanceDate]);
 
     useEffect(() => {
         if (!isMounted.current) { isMounted.current = true; return; }
-        fetchUserType(userTypeFilter);
+        fetchUserType(userTypeFilter).then(() => fetchTodaysAttendance());
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [userTypeFilter]);
 
@@ -1032,34 +1224,41 @@ export default function AddStaffAttendancePage() {
     // backend treats missing fields as "no change" so we don't overwrite
     // existing punches with empty values.
     const handleSaveAttendance = async () => {
-        const missingIn = filteredStaff.filter(s => needsTime(s.id) && !checkInTimes[s.id]);
-        if (missingIn.length > 0) {
-            showSnack(`Check-in required for ${missingIn.length} Present/Late member(s).`, false);
-            return;
-        }
-
         // Append ":00" so HH:MM from the time inputs becomes HH:MM:SS for the API.
         const toApiTime = (hhmm) => (hhmm && hhmm.length === 5 ? `${hhmm}:00` : (hhmm || ''));
 
+        // Partial save: only include rows the user actually filled in.
+        //   • No status picked      → skip (untouched row).
+        //   • Present/Late w/o time → skip (incomplete — quietly counted so
+        //                              the user can see the warning in a snack).
+        //   • Absent / On Leave     → always include (status is the only data).
+        //   • Present/Late w/ time  → include with the time/breaks.
+        let skippedIncomplete = 0;
         const items = filteredStaff.map(s => {
-            const statusUI = attendanceMarks[s.id] || 'Present';
+            const statusUI = attendanceMarks[s.id];
+            if (!statusUI) return null; // untouched
             const apiStatus = STATUS_UI_TO_API[statusUI] || 'present';
-            const hasTime = needsTime(s.id);
-            const checkIn  = hasTime ? (checkInTimes[s.id]  || getCurrentTime()) : '';
-            const checkOut = hasTime ? (checkOutTimes[s.id] || '')               : '';
+            const hasTime = statusUI === 'Present' || statusUI === 'Late';
+            if (hasTime && !checkInTimes[s.id]) {
+                skippedIncomplete += 1;
+                return null;
+            }
+            const checkIn  = hasTime ? checkInTimes[s.id]  : '';
+            const checkOut = hasTime ? (checkOutTimes[s.id] || '') : '';
 
+            // Build breaks payload. Per the API spec:
+            //   • Existing breaks (have a server `breakNo`) → send `breakNo`
+            //     so the backend UPDATES that row (A4).
+            //   • Brand-new breaks (no `breakNo`) → OMIT `breakNo` so the
+            //     backend ASSIGNS one and creates a new row (A3).
             const breaks = (breaksMap[s.id] || [])
                 .filter(br => computeBreakDuration(br.out, br.in) > 0)
-                .map((br, idx) => {
+                .map(br => {
                     const entry = {
                         breakOutTime: toApiTime(br.out),
                         breakInTime:  toApiTime(br.in),
                     };
-                    // Preserve server-assigned BreakNo when editing an existing
-                    // break; new breaks omit it so the server can assign one.
                     if (Number.isInteger(br.breakNo)) entry.breakNo = br.breakNo;
-                    else if (Number.isInteger(br.serverBreakNo)) entry.breakNo = br.serverBreakNo;
-                    else entry.breakNo = idx + 1;
                     return entry;
                 });
 
@@ -1072,7 +1271,17 @@ export default function AddStaffAttendancePage() {
             if (hasTime && checkOut) item.logoutTime = toApiTime(checkOut);
             if (breaks.length > 0)   item.breaks     = breaks;
             return item;
-        });
+        }).filter(Boolean);
+
+        if (items.length === 0) {
+            showSnack(
+                skippedIncomplete > 0
+                    ? `Add a check-in time for the ${skippedIncomplete} Present/Late member(s) to save.`
+                    : 'Mark at least one staff member to save attendance.',
+                false
+            );
+            return;
+        }
 
         // Build the per-day reason from the row notes (the UI captures one note
         // per row; we surface the first non-empty one as the top-level reason,
@@ -1098,7 +1307,11 @@ export default function AddStaffAttendancePage() {
                 showSnack(res.data.message || 'Failed to save attendance', false);
                 return;
             }
-            showSnack(isCurrentTypeAdded ? 'Attendance updated successfully!' : 'Attendance saved successfully!', true);
+            const baseMsg = `Attendance saved for ${items.length} member${items.length === 1 ? '' : 's'}`;
+            const tail = skippedIncomplete > 0
+                ? ` · ${skippedIncomplete} skipped (missing check-in)`
+                : '';
+            showSnack(baseMsg + tail, true);
             setIsAttendanceAddedMap(prev => ({ ...prev, [userTypeFilter]: true }));
         } catch (error) {
             showSnack(error?.response?.data?.message || 'Failed to save attendance', false);
@@ -1489,6 +1702,9 @@ export default function AddStaffAttendancePage() {
                                         outs: checkOutTimes,
                                         notes: rowNotes,
                                         sameTimeEnabled,
+                                        leaveMap,
+                                        sourceMap,
+                                        breaksMap,
                                         onMarkChange: handleMarkChange,
                                         onCheckInChange: handleCheckInChange,
                                         onCheckOutChange: handleCheckOutChange,

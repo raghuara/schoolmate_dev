@@ -30,7 +30,6 @@ const GetTeachersAttendanceAudit = `${baseApiurl}teachersattendance/GetTeachersA
 const GetTeachersAttendance = `${baseApiurl}teachersattendance/GetTeachersAttendance`;
 
 // Communication 
-
 const fetchDashboard = `${baseApiurl}communicationActivityDashboard/fetchDashboard`;
 // News
 const News = `${baseApiurl}news/`;
