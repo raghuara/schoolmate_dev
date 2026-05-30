@@ -9,7 +9,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SchoolIcon from '@mui/icons-material/School';
 import SearchIcon from '@mui/icons-material/Search';
 import CloseIcon from '@mui/icons-material/Close';
-import GroupsIcon from '@mui/icons-material/Groups';
+import GroupsIcon from '@mui/icons-material/Groups';    
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import PersonOffIcon from '@mui/icons-material/PersonOff';
@@ -212,9 +212,9 @@ export default function IssueTcPage() {
 
     // ── Class / Section ─────────────────────────────────────────────────────
     const [srcClassId, setSrcClassId] = useState('');
-    const [srcSection, setSrcSection] = useState('');
+    const [srcSection, setSrcSection] = useState([]);
     const srcClass = useMemo(() => grades.find(c => c.id === srcClassId) || null, [grades, srcClassId]);
-    const sourceKey = srcClassId && srcSection ? `${srcClassId}-${srcSection}` : '';
+    const sourceKey = srcClassId && srcSection.length > 0 ? `${srcClassId}-${srcSection.join(',')}` : '';
 
     // ── TC-specific fields ──────────────────────────────────────────────────
     const [tcIssueDate, setTcIssueDate] = useState(todayISO);
@@ -252,7 +252,7 @@ export default function IssueTcPage() {
 
     // Fetch students whenever class/section changes
     useEffect(() => {
-        if (!srcClassId || !srcSection) {
+        if (!srcClassId || srcSection.length === 0) {
             setStudents([]);
             setSelected({});
             return;
@@ -262,28 +262,36 @@ export default function IssueTcPage() {
         setIsLoadingStudents(true);
         setSelected({});
 
-        axios.get(FetchPromotableStudents, {
-            params: { gradeId: srcClassId, sectionName: srcSection },
-            headers: { Authorization: `Bearer ${TOKEN}` },
-        })
-            .then(res => {
+        const promises = srcSection.map(sec =>
+            axios.get(FetchPromotableStudents, {
+                params: { gradeId: srcClassId, sectionName: sec },
+                headers: { Authorization: `Bearer ${TOKEN}` },
+            })
+        );
+
+        Promise.all(promises)
+            .then(responses => {
                 if (cancelled) return;
-                const data = res?.data || {};
-                if (data.error) {
-                    setStudents([]);
-                    showSnack(data.message || 'Failed to load students.', false);
-                    return;
-                }
-                const gradeName = data.gradeName || '';
-                const sectionName = data.sectionName || '';
-                const list = (data.students || []).map(s => ({
-                    id: s.rollNumber,
-                    rollNumber: String(s.rollNumber),
-                    name: s.name || '—',
-                    grade: gradeName,
-                    section: sectionName,
-                }));
-                setStudents(list);
+                const allStudents = [];
+                responses.forEach(res => {
+                    const data = res?.data || {};
+                    if (data.error) {
+                        showSnack(data.message || 'Failed to load students.', false);
+                        return;
+                    }
+                    const gradeName = data.gradeName || '';
+                    const sectionName = data.sectionName || '';
+                    (data.students || []).forEach(s => {
+                        allStudents.push({
+                            id: s.rollNumber,
+                            rollNumber: String(s.rollNumber),
+                            name: s.name || '—',
+                            grade: gradeName,
+                            section: sectionName,
+                        });
+                    });
+                });
+                setStudents(allStudents);
             })
             .catch(err => {
                 if (cancelled) return;
@@ -297,7 +305,7 @@ export default function IssueTcPage() {
 
         return () => { cancelled = true; };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [srcClassId, srcSection]);
+    }, [sourceKey]);
 
     const filteredStudents = useMemo(() => {
         const q = search.trim().toLowerCase();
@@ -357,7 +365,7 @@ export default function IssueTcPage() {
 
     const resetAfterSuccess = () => {
         setStudents([]); setSelected({});
-        setSrcClassId(''); setSrcSection('');
+        setSrcClassId(''); setSrcSection([]);
         setTcReason(''); setDiscontinueReason(''); setDiscontinueDetails('');
         setConfirmText('');
         setConfirmOpen(false);
@@ -392,7 +400,7 @@ export default function IssueTcPage() {
             action: isTC ? 'TC' : 'Discontinue',
             gradeId: srcClass.id,
             gradeName: srcClass.sign,
-            sectionName: srcSection,
+            sectionName: srcSection.join(', '),
             academicYear,
             exitDate: exitDateISO,
             reason: isTC
@@ -987,7 +995,7 @@ export default function IssueTcPage() {
                                     <Select
                                         value={srcClassId}
                                         label={isTC ? 'Last Class' : 'Current Class'}
-                                        onChange={(e) => { setSrcClassId(e.target.value); setSrcSection(''); }}
+                                        onChange={(e) => { setSrcClassId(e.target.value); setSrcSection([]); }}
                                         sx={{ fontSize: 13 }}
                                         disabled={isLoadingGrades}
                                     >
@@ -1000,14 +1008,46 @@ export default function IssueTcPage() {
                             </Grid>
                             <Grid size={{ xs: 12, sm: 4 }}>
                                 <FormControl fullWidth size="small" disabled={!srcClass}>
-                                    <InputLabel sx={{ fontSize: 13 }}>{isTC ? 'Last Section' : 'Current Section'}</InputLabel>
+                                    <InputLabel sx={{ fontSize: 13 }}>{isTC ? 'Last Section(s)' : 'Current Section(s)'}</InputLabel>
                                     <Select
+                                        multiple
                                         value={srcSection}
-                                        label={isTC ? 'Last Section' : 'Current Section'}
-                                        onChange={(e) => setSrcSection(e.target.value)}
+                                        label={isTC ? 'Last Section(s)' : 'Current Section(s)'}
+                                        onChange={(e) => {
+                                            const value = e.target.value;
+                                            if (value.includes('__all__')) {
+                                                const allSections = srcClass?.sections || [];
+                                                setSrcSection(srcSection.length === allSections.length ? [] : [...allSections]);
+                                            } else {
+                                                setSrcSection(typeof value === 'string' ? value.split(',') : value);
+                                            }
+                                        }}
+                                        renderValue={(selected) => (
+                                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                                {selected.length === (srcClass?.sections || []).length ? (
+                                                    <Chip label="All Sections" size="small" sx={{ height: 22, fontSize: 11, bgcolor: theme.light, color: theme.primary, fontWeight: 700 }} />
+                                                ) : selected.map(s => (
+                                                    <Chip key={s} label={`Section ${s}`} size="small" sx={{ height: 22, fontSize: 11 }} />
+                                                ))}
+                                            </Box>
+                                        )}
                                         sx={{ fontSize: 13 }}
                                     >
-                                        {(srcClass?.sections || []).map(s => <MenuItem key={s} value={s}>Section {s}</MenuItem>)}
+                                        <MenuItem value="__all__" sx={{ fontSize: 13, borderBottom: '1px solid #E5E7EB' }}>
+                                            <Checkbox
+                                                size="small"
+                                                checked={(srcClass?.sections || []).length > 0 && srcSection.length === (srcClass?.sections || []).length}
+                                                indeterminate={srcSection.length > 0 && srcSection.length < (srcClass?.sections || []).length}
+                                                sx={{ py: 0 }}
+                                            />
+                                            <Typography sx={{ fontSize: 13, fontWeight: 700 }}>Select All</Typography>
+                                        </MenuItem>
+                                        {(srcClass?.sections || []).map(s => (
+                                            <MenuItem key={s} value={s} sx={{ fontSize: 13 }}>
+                                                <Checkbox size="small" checked={srcSection.indexOf(s) > -1} sx={{ py: 0 }} />
+                                                Section {s}
+                                            </MenuItem>
+                                        ))}
                                     </Select>
                                 </FormControl>
                             </Grid>
@@ -1027,7 +1067,7 @@ export default function IssueTcPage() {
                                 </Typography>
                                 <Typography sx={{ fontSize: 13, fontWeight: 700, color: sourceKey ? theme.dark : '#9CA3AF' }} noWrap>
                                     {sourceKey
-                                        ? `${academicYear} · ${srcClass.sign} · Section ${srcSection}`
+                                        ? `${academicYear} · ${srcClass.sign} · Section${srcSection.length > 1 ? 's' : ''} ${srcSection.join(', ')}`
                                         : 'Choose academic year, class & section to continue'}
                                 </Typography>
                             </Box>
@@ -1400,10 +1440,10 @@ export default function IssueTcPage() {
                         </Box>
                         <Box sx={{ p: 1, borderRadius: '6px', bgcolor: '#F9FAFB', border: '1px solid #E5E7EB' }}>
                             <Typography sx={{ fontSize: 10, color: '#6B7280', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4 }}>
-                                {isTC ? 'Last Class & Section' : 'Class & Section'}
+                                {isTC ? 'Last Class & Section(s)' : 'Class & Section(s)'}
                             </Typography>
                             <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#111' }}>
-                                {srcClass?.sign} · Section {srcSection}
+                                {srcClass?.sign} · Section{srcSection.length > 1 ? 's' : ''} {srcSection.join(', ')}
                             </Typography>
                         </Box>
                         <Box sx={{ p: 1, borderRadius: '6px', bgcolor: '#F9FAFB', border: '1px solid #E5E7EB' }}>
@@ -1444,7 +1484,7 @@ export default function IssueTcPage() {
                                 {selectedCount} student{selectedCount !== 1 ? 's' : ''} will be {isTC ? 'issued TC' : 'discontinued'}
                             </Typography>
                             <Typography sx={{ fontSize: 11, color: '#6B7280' }}>
-                                {srcClass?.sign} · Section {srcSection} · {academicYear}
+                                {srcClass?.sign} · Section{srcSection.length > 1 ? 's' : ''} {srcSection.join(', ')} · {academicYear}
                             </Typography>
                         </Box>
                         <Box sx={{ textAlign: 'right' }}>
