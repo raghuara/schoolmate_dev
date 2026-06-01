@@ -18,6 +18,7 @@ const DashboardUsers = `${Dashboard}DashboardUsers`;
 const DashboardManagement = `${Dashboard}DashboardManagement`;
 const DashboardNews = `${Dashboard}DashboardNews&Circular`;
 const DashboardBirthday = `${Dashboard}DashboardBirthday`;
+const BirthdayInstagramPost = `${baseApiurl}instagram/birthday`;
 const DashboardStudentsAttendance = `${Dashboard}DashboardStudentsAttendance`;
 const DashboardTeachersAttendance = `${Dashboard}DashboardTeachersAttendance`;
 const postDashboardSliders = `${baseApiurl}dashboardSliders/postDashboardSliders`;
@@ -584,6 +585,7 @@ export {
     DashboardManagement,
     DashboardNews,
     DashboardBirthday,
+    BirthdayInstagramPost,
     DashboardTeachersAttendance,
     DashboardStudentsAttendance,
     updateSchoolCalender,
