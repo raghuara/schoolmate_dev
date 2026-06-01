@@ -100,6 +100,9 @@ export default function CreateStudentInfoPage() {
     const [rteStudent, setRteStudent] = useState("");
     const [studentNameEnglish, setStudentNameEnglish] = useState("");
     const [isNewStudent, setIsNewStudent] = useState(true);
+    const [dateOfAdmission, setDateOfAdmission] = useState(null);
+    const [joiningClass, setJoiningClass] = useState("");
+    const [joiningSection, setJoiningSection] = useState(null);
     const [studentNameTamil, setStudentNameTamil] = useState("");
     const [dateOfBirth, setDateOfBirth] = useState(null);
     const [gender, setGender] = useState("");
@@ -249,6 +252,9 @@ export default function CreateStudentInfoPage() {
 
     const selectedGrade = grades.find((grade) => grade.sign === selectedGradeId);
     const sections = selectedGrade?.sections.map((section) => ({ sectionName: section })) || [];
+
+    const joiningGrade = grades.find((grade) => grade.sign === joiningClass);
+    const joiningSections = joiningGrade?.sections.map((section) => ({ sectionName: section })) || [];
 
     const selectedClass = grades.find((grade) => grade.sign === selectedSiblingClass);
     const siblingSections = selectedClass?.sections.map((section) => ({ sectionName: section })) || [];
@@ -643,6 +649,10 @@ export default function CreateStudentInfoPage() {
                 section: selectedSection,
                 RTEStudent: rteStudent,
                 oldOrNewAdmission: isNewStudent ? "new" : "old",
+                AcademicYear: `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
+                DateOfAdmission: dateOfAdmission || "",
+                JoiningClass: joiningClass || "",
+                JoiningSection: joiningSection || "",
             };
 
             const res = await axios.post(postStudentAcademicInformation, sendData, {
@@ -689,6 +699,9 @@ export default function CreateStudentInfoPage() {
         setRchIdOrPicmeNumber("")
         setOriginalCertificateReceived(null);
         setRteStudent(null)
+        setDateOfAdmission(null)
+        setJoiningClass("")
+        setJoiningSection(null)
     }
 
     const handleStudentSubmit = async (status) => {
@@ -984,7 +997,7 @@ export default function CreateStudentInfoPage() {
                 },
             });
 
-            setOpen(true);
+            setOpen(true);  
             setColor(true);
             setStatus(true);
             setMessage("Data Added successfully.");
@@ -1790,6 +1803,131 @@ export default function CreateStudentInfoPage() {
                                                     </RadioGroup>
                                                 </FormControl>
                                             </Box>
+                                        </Box>
+                                    </Grid>
+                                    <Grid size={{ xs: 12, sm: 6, md: 3, lg: 2.4 }} sx={{ display: "flex", justifyContent: "center", pt: 1 }}>
+                                        <Box>
+                                            <Typography sx={{ fontSize: "12px" }} component="span">Date Of Admission<span style={{ color: "#ff0000", fontSize: "16px" }}>*</span></Typography><br />
+                                            <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                                <DatePicker
+                                                    disabled={isDisabledAcademic}
+                                                    value={dateOfAdmission ? dayjs(dateOfAdmission, "DD-MM-YYYY") : null}
+                                                    onChange={(newValue) => {
+                                                        setDateOfAdmission(newValue ? newValue.format("DD-MM-YYYY") : "");
+                                                    }}
+                                                    slotProps={{
+                                                        textField: {
+                                                            size: "small",
+                                                            sx: { width: "223px", mt: 0.5 }
+                                                        }
+                                                    }}
+                                                />
+                                            </LocalizationProvider>
+                                        </Box>
+                                    </Grid>
+                                    <Grid size={{ xs: 12, sm: 6, md: 3, lg: 2.4 }} sx={{ display: "flex", justifyContent: "center", pt: 1 }}>
+                                        <Box>
+                                            <Typography sx={{ fontSize: "12px" }} component="span">Joining Class<span style={{ color: "#ff0000", fontSize: "16px" }}>*</span></Typography><br />
+                                            <Autocomplete
+                                                disabled={isDisabledAcademic}
+                                                disablePortal
+                                                options={grades}
+                                                getOptionLabel={(option) => option.sign}
+                                                value={grades.find((item) => item.sign === joiningClass) || null}
+                                                onChange={(event, newValue) => {
+                                                    if (newValue) {
+                                                        setJoiningClass(newValue.sign);
+                                                        setJoiningSection(newValue.sections[0] || null);
+                                                    } else {
+                                                        setJoiningClass("");
+                                                        setJoiningSection(null);
+                                                    }
+                                                }}
+                                                isOptionEqualToValue={(option, value) => option.id === value.id}
+                                                sx={{ width: "223px", mt: 0.5 }}
+                                                PopperComponent={(props) => (
+                                                    <Popper {...props} modifiers={[{ name: "preventOverflow", options: { boundary: "window" } }]} />
+                                                )}
+                                                componentsProps={{
+                                                    popper: {
+                                                        sx: {
+                                                            maxHeight: "180px",
+                                                            overflowY: "auto",
+                                                            boxShadow: "0 4px 8px 0 rgba(0, 0, 0, 0.2)",
+                                                            borderRadius: "6px",
+                                                        },
+                                                    },
+                                                    listbox: {
+                                                        sx: {
+                                                            fontSize: "14px",
+                                                            padding: "5px",
+                                                        },
+                                                    },
+                                                }}
+                                                renderInput={(params) => (
+                                                    <TextField
+                                                        {...params}
+                                                        fullWidth
+                                                        InputProps={{
+                                                            ...params.InputProps,
+                                                            sx: {
+                                                                paddingRight: 0,
+                                                                height: "41px",
+                                                                width: "100%",
+                                                                fontSize: "14px",
+                                                            },
+                                                        }}
+                                                    />
+                                                )}
+                                            />
+                                        </Box>
+                                    </Grid>
+                                    <Grid size={{ xs: 12, sm: 6, md: 3, lg: 2.4 }} sx={{ display: "flex", justifyContent: "center", pt: 1 }}>
+                                        <Box>
+                                            <Typography sx={{ fontSize: "12px" }} component="span">Joining Section<span style={{ color: "#ff0000", fontSize: "16px" }}>*</span></Typography><br />
+                                            <Autocomplete
+                                                disabled={isDisabledAcademic}
+                                                disablePortal
+                                                options={joiningSections}
+                                                getOptionLabel={(option) => option.sectionName}
+                                                value={joiningSections.find((option) => option.sectionName === joiningSection) || null}
+                                                onChange={(event, newValue) => setJoiningSection(newValue?.sectionName || null)}
+                                                isOptionEqualToValue={(option, value) => option.sectionName === value.sectionName}
+                                                sx={{ width: "223px", mt: 0.5 }}
+                                                PopperComponent={(props) => (
+                                                    <Popper {...props} modifiers={[{ name: "preventOverflow", options: { boundary: "window" } }]} />
+                                                )}
+                                                componentsProps={{
+                                                    popper: {
+                                                        sx: {
+                                                            maxHeight: "180px",
+                                                            overflowY: "auto",
+                                                            boxShadow: "0 4px 8px 0 rgba(0, 0, 0, 0.2)",
+                                                            borderRadius: "6px",
+                                                        },
+                                                    },
+                                                    listbox: {
+                                                        sx: {
+                                                            fontSize: "14px",
+                                                            padding: "5px",
+                                                        },
+                                                    },
+                                                }}
+                                                renderInput={(params) => (
+                                                    <TextField
+                                                        {...params}
+                                                        fullWidth
+                                                        InputProps={{
+                                                            ...params.InputProps,
+                                                            sx: {
+                                                                paddingRight: 0,
+                                                                height: "41px",
+                                                                fontSize: "14px",
+                                                            },
+                                                        }}
+                                                    />
+                                                )}
+                                            />
                                         </Box>
                                     </Grid>
                                     <Box sx={{ position: "absolute", bottom: "10px", right: "10px" }}>

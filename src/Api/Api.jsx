@@ -469,7 +469,8 @@ const getAllExams = `${baseApiurl}GradeValueFetch/getAllExams`;
 const PostStudentExit = `${baseApiurl}studentExit/PostStudentExit`;
 const FetchExitHistory = `${baseApiurl}studentExit/FetchExitHistory`;
 const PostAcademicYearConfig = `${baseApiurl}academicyear/PostAcademicYearConfig`;
-const GetAcademicYearConfig = `${baseApiurl}academicyear/GetAcademicYearConfig`;
+const GetAcademicYearConfig = `${baseApiurl}academicyear/GetAcademicYearConfig`;    
+const GetExitFeesSummary = `${baseApiurl}studentExit/GetExitFeesSummary`;
 
 // Class & Section Management
 const postGrade = `${baseApiurl}GradeValueFetch/postGrade`;
@@ -843,5 +844,6 @@ export {
     GetTeachersAttendance,
     GetTeachersAttendanceAudit,
     PostAcademicYearConfig,
-    GetAcademicYearConfig
+    GetAcademicYearConfig,
+    GetExitFeesSummary
 }

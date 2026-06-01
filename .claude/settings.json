@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx -y acorn-jsx --ecma2020 src/Components/AccessControlComps/IssueTcPage.jsx)"
+    ]
+  }
+}
