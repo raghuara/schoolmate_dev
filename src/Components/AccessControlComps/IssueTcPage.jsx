@@ -3,13 +3,13 @@ import {
     Box, Grid, Typography, IconButton, Button, Chip, TextField, Select, MenuItem,
     FormControl, InputLabel, Checkbox, Table, TableHead, TableBody, TableRow, TableCell,
     TableContainer, Avatar, InputAdornment, Dialog, DialogTitle,
-    DialogContent, DialogActions, CircularProgress, Tooltip,
+    DialogContent, DialogActions, CircularProgress, Tooltip, Collapse,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SchoolIcon from '@mui/icons-material/School';
 import SearchIcon from '@mui/icons-material/Search';
 import CloseIcon from '@mui/icons-material/Close';
-import GroupsIcon from '@mui/icons-material/Groups';
+import GroupsIcon from '@mui/icons-material/Groups';    
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import PersonOffIcon from '@mui/icons-material/PersonOff';
@@ -22,11 +22,15 @@ import OutboxIcon from '@mui/icons-material/Outbox';
 import HistoryIcon from '@mui/icons-material/History';
 import FilterAltOutlinedIcon from '@mui/icons-material/FilterAltOutlined';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
+import PaidIcon from '@mui/icons-material/Paid';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import axios from 'axios';
 import { selectGrades, selectGradesLoading, fetchGradesData } from '../../Redux/Slices/DropdownController';
-import { FetchPromotableStudents, PostStudentExit, FetchExitHistory } from '../../Api/Api';
+import { FetchPromotableStudents, PostStudentExit, FetchExitHistory, GetExitFeesSummary } from '../../Api/Api';
 import SnackBar from '../SnackBar';
 
 const TOKEN = '123';
@@ -212,9 +216,9 @@ export default function IssueTcPage() {
 
     // ── Class / Section ─────────────────────────────────────────────────────
     const [srcClassId, setSrcClassId] = useState('');
-    const [srcSection, setSrcSection] = useState('');
+    const [srcSection, setSrcSection] = useState([]);
     const srcClass = useMemo(() => grades.find(c => c.id === srcClassId) || null, [grades, srcClassId]);
-    const sourceKey = srcClassId && srcSection ? `${srcClassId}-${srcSection}` : '';
+    const sourceKey = srcClassId && srcSection.length > 0 ? `${srcClassId}-${srcSection.join(',')}` : '';
 
     // ── TC-specific fields ──────────────────────────────────────────────────
     const [tcIssueDate, setTcIssueDate] = useState(todayISO);
@@ -250,9 +254,16 @@ export default function IssueTcPage() {
     const requiresTypedConfirm = true;
     const canSubmit = !requiresTypedConfirm || isConfirmTextValid;
 
+    // ── Fee Summary Dialog state ───────────────────────────────────────────
+    const [feesSummaryOpen, setFeesSummaryOpen] = useState(false);
+    const [feesSummaryData, setFeesSummaryData] = useState(null);
+    const [isLoadingFees, setIsLoadingFees] = useState(false);
+    const [approvalMode, setApprovalMode] = useState('all'); // 'all' | 'paid'
+    const [expandedFeeStudents, setExpandedFeeStudents] = useState({});
+
     // Fetch students whenever class/section changes
     useEffect(() => {
-        if (!srcClassId || !srcSection) {
+        if (!srcClassId || srcSection.length === 0) {
             setStudents([]);
             setSelected({});
             return;
@@ -262,28 +273,36 @@ export default function IssueTcPage() {
         setIsLoadingStudents(true);
         setSelected({});
 
-        axios.get(FetchPromotableStudents, {
-            params: { gradeId: srcClassId, sectionName: srcSection },
-            headers: { Authorization: `Bearer ${TOKEN}` },
-        })
-            .then(res => {
+        const promises = srcSection.map(sec =>
+            axios.get(FetchPromotableStudents, {
+                params: { gradeId: srcClassId, sectionName: sec },
+                headers: { Authorization: `Bearer ${TOKEN}` },
+            })
+        );
+
+        Promise.all(promises)
+            .then(responses => {
                 if (cancelled) return;
-                const data = res?.data || {};
-                if (data.error) {
-                    setStudents([]);
-                    showSnack(data.message || 'Failed to load students.', false);
-                    return;
-                }
-                const gradeName = data.gradeName || '';
-                const sectionName = data.sectionName || '';
-                const list = (data.students || []).map(s => ({
-                    id: s.rollNumber,
-                    rollNumber: String(s.rollNumber),
-                    name: s.name || '—',
-                    grade: gradeName,
-                    section: sectionName,
-                }));
-                setStudents(list);
+                const allStudents = [];
+                responses.forEach(res => {
+                    const data = res?.data || {};
+                    if (data.error) {
+                        showSnack(data.message || 'Failed to load students.', false);
+                        return;
+                    }
+                    const gradeName = data.gradeName || '';
+                    const sectionName = data.sectionName || '';
+                    (data.students || []).forEach(s => {
+                        allStudents.push({
+                            id: s.rollNumber,
+                            rollNumber: String(s.rollNumber),
+                            name: s.name || '—',
+                            grade: gradeName,
+                            section: sectionName,
+                        });
+                    });
+                });
+                setStudents(allStudents);
             })
             .catch(err => {
                 if (cancelled) return;
@@ -297,7 +316,7 @@ export default function IssueTcPage() {
 
         return () => { cancelled = true; };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [srcClassId, srcSection]);
+    }, [sourceKey]);
 
     const filteredStudents = useMemo(() => {
         const q = search.trim().toLowerCase();
@@ -343,10 +362,71 @@ export default function IssueTcPage() {
         return true;
     };
 
-    const handleConfirmClick = () => {
+    const handleConfirmClick = async () => {
         if (!validateBeforeSubmit()) return;
-        setConfirmText('');           // reset every time the dialog opens
+
+        const selectedStudents = Object.keys(selected)
+            .filter(rn => selected[rn])
+            .map(rn => {
+                const s = students.find(st => st.rollNumber === String(rn));
+                return {
+                    rollNumber: String(rn),
+                    grade: s?.grade || '',
+                    section: s?.section || '',
+                };
+            });
+
+        setIsLoadingFees(true);
+        setFeesSummaryData(null);
+        setExpandedFeeStudents({});
+        setFeesSummaryOpen(true);
+
+        try {
+            const res = await axios.post(GetExitFeesSummary, {
+                academicYear,
+                students: selectedStudents,
+            }, {
+                headers: { Authorization: `Bearer ${TOKEN}` },
+            });
+            const data = res?.data || {};
+            if (data.error) {
+                showSnack(data.message || 'Failed to load fee summary.', false);
+                setFeesSummaryOpen(false);
+            } else {
+                setFeesSummaryData(data);
+            }
+        } catch (err) {
+            console.error('GetExitFeesSummary failed:', err);
+            showSnack(err?.response?.data?.message || 'Failed to load fee summary.', false);
+            setFeesSummaryOpen(false);
+        } finally {
+            setIsLoadingFees(false);
+        }
+    };
+
+    const closeFeesSummary = () => {
+        if (isLoadingFees) return;
+        setFeesSummaryOpen(false);
+        setFeesSummaryData(null);
+        setExpandedFeeStudents({});
+    };
+
+    const handleApproveAll = () => {
+        setApprovalMode('all');
+        setFeesSummaryOpen(false);
+        setConfirmText('');
         setConfirmOpen(true);
+    };
+
+    const handleApprovePaid = () => {
+        setApprovalMode('paid');
+        setFeesSummaryOpen(false);
+        setConfirmText('');
+        setConfirmOpen(true);
+    };
+
+    const toggleFeeStudentExpand = (rollNumber) => {
+        setExpandedFeeStudents(prev => ({ ...prev, [rollNumber]: !prev[rollNumber] }));
     };
 
     const closeConfirm = () => {
@@ -357,10 +437,14 @@ export default function IssueTcPage() {
 
     const resetAfterSuccess = () => {
         setStudents([]); setSelected({});
-        setSrcClassId(''); setSrcSection('');
+        setSrcClassId(''); setSrcSection([]);
         setTcReason(''); setDiscontinueReason(''); setDiscontinueDetails('');
         setConfirmText('');
         setConfirmOpen(false);
+        setFeesSummaryOpen(false);
+        setFeesSummaryData(null);
+        setExpandedFeeStudents({});
+        setApprovalMode('all');
     };
 
     const handleSubmit = async () => {
@@ -373,35 +457,57 @@ export default function IssueTcPage() {
             return;
         }
 
-        const studentRollNumbers = Object.keys(selected)
-            .filter(rn => selected[rn])
-            .map(rn => String(rn));
+        // Determine which roll numbers to send based on approvalMode
+        let studentRollNumbers;
+        if (approvalMode === 'paid') {
+            const paidSet = new Set((feesSummaryData?.fullyPaidStudents || []).map(s => String(s.rollNumber)));
+            studentRollNumbers = Object.keys(selected)
+                .filter(rn => selected[rn] && paidSet.has(String(rn)))
+                .map(rn => String(rn));
+        } else {
+            studentRollNumbers = Object.keys(selected)
+                .filter(rn => selected[rn])
+                .map(rn => String(rn));
+        }
 
         if (studentRollNumbers.length === 0) {
-            showSnack('No students selected.', false);
+            showSnack('No students to process.', false);
             return;
         }
 
-        // Build unified payload for PostStudentExit
+        // Build groups — group selected roll numbers by section
+        const groupsMap = {};
+        studentRollNumbers.forEach(rn => {
+            const student = students.find(s => s.rollNumber === rn);
+            if (!student) return;
+            const sec = student.section;
+            if (!groupsMap[sec]) {
+                groupsMap[sec] = {
+                    gradeId: srcClass.id,
+                    gradeName: srcClass.sign,
+                    sectionName: sec,
+                    rollNumbers: [],
+                };
+            }
+            groupsMap[sec].rollNumbers.push(rn);
+        });
+        const groups = Object.values(groupsMap);
+
         const reasonObj = !isTC ? DISCONTINUE_REASONS.find(r => r.code === discontinueReason) : null;
         const dateStr = isTC ? tcIssueDate : lastAttendanceDate;
-        const exitDateISO = new Date(`${dateStr}T00:00:00`).toISOString();
 
         const payload = {
             issuedByRollNumber: String(actorRollNumber),
             action: isTC ? 'TC' : 'Discontinue',
-            gradeId: srcClass.id,
-            gradeName: srcClass.sign,
-            sectionName: srcSection,
             academicYear,
-            exitDate: exitDateISO,
+            exitDate: dateStr,
             reason: isTC
                 ? (tcReason.trim() || 'Transfer Certificate Issued')
                 : (reasonObj?.label || discontinueReason || 'Discontinued'),
             additionalNotes: isTC
-                ? null
+                ? (tcReason.trim() || null)
                 : (discontinueDetails.trim() || null),
-            studentRollNumbers,
+            groups,
         };
 
         setIsSubmitting(true);
@@ -446,9 +552,8 @@ export default function IssueTcPage() {
         try {
             const res = await axios.get(FetchExitHistory, {
                 params: {
-                    GradeId: selectedClass.id,
-                    SectionName: historySection,
-                    AcademicYear: historyYear,
+                    gradeId: selectedClass.id,
+                    sectionName: historySection,
                 },
                 headers: { Authorization: `Bearer ${TOKEN}` },
             });
@@ -987,7 +1092,7 @@ export default function IssueTcPage() {
                                     <Select
                                         value={srcClassId}
                                         label={isTC ? 'Last Class' : 'Current Class'}
-                                        onChange={(e) => { setSrcClassId(e.target.value); setSrcSection(''); }}
+                                        onChange={(e) => { setSrcClassId(e.target.value); setSrcSection([]); }}
                                         sx={{ fontSize: 13 }}
                                         disabled={isLoadingGrades}
                                     >
@@ -1000,14 +1105,46 @@ export default function IssueTcPage() {
                             </Grid>
                             <Grid size={{ xs: 12, sm: 4 }}>
                                 <FormControl fullWidth size="small" disabled={!srcClass}>
-                                    <InputLabel sx={{ fontSize: 13 }}>{isTC ? 'Last Section' : 'Current Section'}</InputLabel>
+                                    <InputLabel sx={{ fontSize: 13 }}>{isTC ? 'Last Section(s)' : 'Current Section(s)'}</InputLabel>
                                     <Select
+                                        multiple
                                         value={srcSection}
-                                        label={isTC ? 'Last Section' : 'Current Section'}
-                                        onChange={(e) => setSrcSection(e.target.value)}
+                                        label={isTC ? 'Last Section(s)' : 'Current Section(s)'}
+                                        onChange={(e) => {
+                                            const value = e.target.value;
+                                            if (value.includes('__all__')) {
+                                                const allSections = srcClass?.sections || [];
+                                                setSrcSection(srcSection.length === allSections.length ? [] : [...allSections]);
+                                            } else {
+                                                setSrcSection(typeof value === 'string' ? value.split(',') : value);
+                                            }
+                                        }}
+                                        renderValue={(selected) => (
+                                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                                {selected.length === (srcClass?.sections || []).length ? (
+                                                    <Chip label="All Sections" size="small" sx={{ height: 22, fontSize: 11, bgcolor: theme.light, color: theme.primary, fontWeight: 700 }} />
+                                                ) : selected.map(s => (
+                                                    <Chip key={s} label={`Section ${s}`} size="small" sx={{ height: 22, fontSize: 11 }} />
+                                                ))}
+                                            </Box>
+                                        )}
                                         sx={{ fontSize: 13 }}
                                     >
-                                        {(srcClass?.sections || []).map(s => <MenuItem key={s} value={s}>Section {s}</MenuItem>)}
+                                        <MenuItem value="__all__" sx={{ fontSize: 13, borderBottom: '1px solid #E5E7EB' }}>
+                                            <Checkbox
+                                                size="small"
+                                                checked={(srcClass?.sections || []).length > 0 && srcSection.length === (srcClass?.sections || []).length}
+                                                indeterminate={srcSection.length > 0 && srcSection.length < (srcClass?.sections || []).length}
+                                                sx={{ py: 0 }}
+                                            />
+                                            <Typography sx={{ fontSize: 13, fontWeight: 700 }}>Select All</Typography>
+                                        </MenuItem>
+                                        {(srcClass?.sections || []).map(s => (
+                                            <MenuItem key={s} value={s} sx={{ fontSize: 13 }}>
+                                                <Checkbox size="small" checked={srcSection.indexOf(s) > -1} sx={{ py: 0 }} />
+                                                Section {s}
+                                            </MenuItem>
+                                        ))}
                                     </Select>
                                 </FormControl>
                             </Grid>
@@ -1027,7 +1164,7 @@ export default function IssueTcPage() {
                                 </Typography>
                                 <Typography sx={{ fontSize: 13, fontWeight: 700, color: sourceKey ? theme.dark : '#9CA3AF' }} noWrap>
                                     {sourceKey
-                                        ? `${academicYear} · ${srcClass.sign} · Section ${srcSection}`
+                                        ? `${academicYear} · ${srcClass.sign} · Section${srcSection.length > 1 ? 's' : ''} ${srcSection.join(', ')}`
                                         : 'Choose academic year, class & section to continue'}
                                 </Typography>
                             </Box>
@@ -1357,9 +1494,245 @@ export default function IssueTcPage() {
                 </Box>
             </Box>
 
+            {/* Fee Summary dialog */}
+            <Dialog open={feesSummaryOpen} onClose={closeFeesSummary} maxWidth="md" fullWidth
+                PaperProps={{ sx: { borderRadius: '12px' } }}>
+                <DialogTitle sx={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    pb: 1, bgcolor: '#F0FDF4', borderBottom: '1px solid #BBF7D0',
+                }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
+                        <Box sx={{
+                            width: 32, height: 32, borderRadius: '8px',
+                            bgcolor: '#fff', border: '1px solid #BBF7D0',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}>
+                            <AccountBalanceWalletIcon sx={{ color: '#16A34A', fontSize: 18 }} />
+                        </Box>
+                        <Box>
+                            <Typography sx={{ fontSize: 15, fontWeight: 700, color: '#111' }}>
+                                Fee Summary — Student Exit
+                            </Typography>
+                            <Typography sx={{ fontSize: 11, color: '#6B7280' }}>
+                                Review student fee status before proceeding
+                            </Typography>
+                        </Box>
+                    </Box>
+                    <IconButton size="small" onClick={closeFeesSummary} disabled={isLoadingFees}>
+                        <CloseIcon sx={{ fontSize: 18 }} />
+                    </IconButton>
+                </DialogTitle>
+                <DialogContent sx={{ pt: '12px !important' }}>
+                    {isLoadingFees ? (
+                        <Box sx={{ py: 6, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5 }}>
+                            <CircularProgress size={32} sx={{ color: '#16A34A' }} />
+                            <Typography sx={{ fontSize: 13, color: '#6B7280' }}>Loading fee summary...</Typography>
+                        </Box>
+                    ) : feesSummaryData ? (
+                        <>
+                            {/* Summary stats */}
+                            <Grid container spacing={1.5} sx={{ mb: 1.5 }}>
+                                {[
+                                    { label: 'CHECKED', value: feesSummaryData.summary?.checkedCount || 0, color: '#0891B2', bg: '#ECFEFF', border: '#A5F3FC' },
+                                    { label: 'PENDING FEES', value: feesSummaryData.summary?.pending || 0, color: '#DC2626', bg: '#FEF2F2', border: '#FECACA' },
+                                    { label: 'FULLY PAID', value: feesSummaryData.summary?.fullyPaid || 0, color: '#16A34A', bg: '#F0FDF4', border: '#BBF7D0' },
+                                ].map(s => (
+                                    <Grid size={{ xs: 12, sm: 4 }} key={s.label}>
+                                        <Box sx={{ p: 1.2, borderRadius: '10px', bgcolor: s.bg, border: `1px solid ${s.border}` }}>
+                                            <Typography sx={{ fontSize: 10, color: s.color, fontWeight: 700, letterSpacing: 0.5, mb: 0.4 }}>
+                                                {s.label}
+                                            </Typography>
+                                            <Typography sx={{ fontSize: 22, fontWeight: 800, color: s.color, lineHeight: 1 }}>
+                                                {s.value}
+                                            </Typography>
+                                        </Box>
+                                    </Grid>
+                                ))}
+                            </Grid>
+
+                            {/* API message banner */}
+                            {feesSummaryData.message && (
+                                <Box sx={{
+                                    p: 1, borderRadius: '8px', mb: 1.5,
+                                    bgcolor: (feesSummaryData.summary?.pending || 0) > 0 ? '#FEF2F2' : '#F0FDF4',
+                                    border: `1px solid ${(feesSummaryData.summary?.pending || 0) > 0 ? '#FECACA' : '#BBF7D0'}`,
+                                    display: 'flex', alignItems: 'center', gap: 0.8,
+                                }}>
+                                    <WarningAmberIcon sx={{
+                                        fontSize: 16, flexShrink: 0,
+                                        color: (feesSummaryData.summary?.pending || 0) > 0 ? '#DC2626' : '#16A34A',
+                                    }} />
+                                    <Typography sx={{
+                                        fontSize: 12, fontWeight: 600,
+                                        color: (feesSummaryData.summary?.pending || 0) > 0 ? '#991B1B' : '#166534',
+                                    }}>
+                                        {feesSummaryData.message}
+                                    </Typography>
+                                </Box>
+                            )}
+
+                            {/* Pending Students */}
+                            {(feesSummaryData.pendingStudents || []).length > 0 && (
+                                <Box sx={{ mb: 1.5 }}>
+                                    <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#DC2626', mb: 0.8, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+                                        Students with Pending Fees ({feesSummaryData.pendingStudents.length})
+                                    </Typography>
+                                    <Box sx={{ border: '1px solid #FECACA', borderRadius: '8px', overflow: 'hidden' }}>
+                                        {feesSummaryData.pendingStudents.map((ps, idx) => (
+                                            <Box key={ps.rollNumber} sx={{ borderBottom: idx < feesSummaryData.pendingStudents.length - 1 ? '1px solid #FEE2E2' : 'none' }}>
+                                                <Box
+                                                    onClick={() => toggleFeeStudentExpand(ps.rollNumber)}
+                                                    sx={{
+                                                        p: 1.2, display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer',
+                                                        bgcolor: expandedFeeStudents[ps.rollNumber] ? '#FEF2F2' : '#fff',
+                                                        '&:hover': { bgcolor: '#FEF2F2' },
+                                                        transition: 'background-color 0.15s',
+                                                    }}
+                                                >
+                                                    <Avatar sx={{ width: 30, height: 30, bgcolor: colorFor(ps.name || ''), fontSize: 11, fontWeight: 700 }}>
+                                                        {getInitials(ps.name)}
+                                                    </Avatar>
+                                                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                                                        <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#111' }}>{ps.name}</Typography>
+                                                        <Typography sx={{ fontSize: 10.5, color: '#9CA3AF', fontFamily: 'monospace' }}>#{ps.rollNumber}</Typography>
+                                                    </Box>
+                                                    <Box sx={{ textAlign: 'right', mr: 0.5 }}>
+                                                        <Typography sx={{ fontSize: 13, fontWeight: 800, color: '#DC2626' }}>
+                                                            ₹{(ps.totalPendingAmount || 0).toLocaleString('en-IN')}
+                                                        </Typography>
+                                                        <Typography sx={{ fontSize: 10, color: '#9CA3AF' }}>pending</Typography>
+                                                    </Box>
+                                                    <IconButton size="small" sx={{ p: 0.3 }}>
+                                                        {expandedFeeStudents[ps.rollNumber]
+                                                            ? <KeyboardArrowUpIcon sx={{ fontSize: 18, color: '#9CA3AF' }} />
+                                                            : <KeyboardArrowDownIcon sx={{ fontSize: 18, color: '#9CA3AF' }} />}
+                                                    </IconButton>
+                                                </Box>
+                                                <Collapse in={!!expandedFeeStudents[ps.rollNumber]}>
+                                                    <Box sx={{ px: 1.5, pb: 1.2, bgcolor: '#FEF2F2' }}>
+                                                        <Table size="small">
+                                                            <TableHead>
+                                                                <TableRow>
+                                                                    <TableCell sx={{ fontSize: 10, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', py: 0.5, borderBottom: '1px solid #FECACA' }}>Module</TableCell>
+                                                                    <TableCell sx={{ fontSize: 10, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', py: 0.5, borderBottom: '1px solid #FECACA' }}>Fee Name</TableCell>
+                                                                    <TableCell align="right" sx={{ fontSize: 10, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', py: 0.5, borderBottom: '1px solid #FECACA' }}>Pending</TableCell>
+                                                                </TableRow>
+                                                            </TableHead>
+                                                            <TableBody>
+                                                                {(ps.pendingFees || []).map((fee, fi) => (
+                                                                    <TableRow key={fi}>
+                                                                        <TableCell sx={{ fontSize: 11.5, color: '#374151', py: 0.5, borderBottom: '1px solid #FEE2E2' }}>
+                                                                            <Chip label={fee.module} size="small" sx={{
+                                                                                height: 20, fontSize: 10, fontWeight: 700,
+                                                                                bgcolor: fee.module === 'School' ? '#EEF2FF' : '#FFF7ED',
+                                                                                color: fee.module === 'School' ? '#4338CA' : '#C2410C',
+                                                                                border: `1px solid ${fee.module === 'School' ? '#C7D2FE' : '#FED7AA'}`,
+                                                                            }} />
+                                                                        </TableCell>
+                                                                        <TableCell sx={{ fontSize: 11.5, color: '#374151', py: 0.5, borderBottom: '1px solid #FEE2E2' }}>{fee.feeName}</TableCell>
+                                                                        <TableCell align="right" sx={{ fontSize: 11.5, fontWeight: 700, color: '#DC2626', py: 0.5, borderBottom: '1px solid #FEE2E2' }}>
+                                                                            ₹{(fee.pendingAmount || 0).toLocaleString('en-IN')}
+                                                                        </TableCell>
+                                                                    </TableRow>
+                                                                ))}
+                                                            </TableBody>
+                                                        </Table>
+                                                    </Box>
+                                                </Collapse>
+                                            </Box>
+                                        ))}
+                                    </Box>
+                                </Box>
+                            )}
+
+                            {/* Fully Paid Students */}
+                            <Box>
+                                <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#16A34A', mb: 0.8, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+                                    Fully Paid Students ({(feesSummaryData.fullyPaidStudents || []).length})
+                                </Typography>
+                                {(feesSummaryData.fullyPaidStudents || []).length === 0 ? (
+                                    <Box sx={{ p: 2, borderRadius: '8px', border: '1px solid #E5E7EB', bgcolor: '#F9FAFB', textAlign: 'center' }}>
+                                        <Typography sx={{ fontSize: 12, color: '#9CA3AF' }}>No fully paid students</Typography>
+                                    </Box>
+                                ) : (
+                                    <Box sx={{ border: '1px solid #BBF7D0', borderRadius: '8px', overflow: 'hidden' }}>
+                                        {(feesSummaryData.fullyPaidStudents || []).map((ps, idx) => (
+                                            <Box key={ps.rollNumber} sx={{
+                                                p: 1.2, display: 'flex', alignItems: 'center', gap: 1,
+                                                bgcolor: '#F0FDF4',
+                                                borderBottom: idx < feesSummaryData.fullyPaidStudents.length - 1 ? '1px solid #DCFCE7' : 'none',
+                                            }}>
+                                                <Avatar sx={{ width: 30, height: 30, bgcolor: colorFor(ps.name || ''), fontSize: 11, fontWeight: 700 }}>
+                                                    {getInitials(ps.name)}
+                                                </Avatar>
+                                                <Box sx={{ flex: 1, minWidth: 0 }}>
+                                                    <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#111' }}>{ps.name}</Typography>
+                                                    <Typography sx={{ fontSize: 10.5, color: '#9CA3AF', fontFamily: 'monospace' }}>#{ps.rollNumber}</Typography>
+                                                </Box>
+                                                <CheckCircleIcon sx={{ fontSize: 18, color: '#16A34A' }} />
+                                            </Box>
+                                        ))}
+                                    </Box>
+                                )}
+                            </Box>
+                        </>
+                    ) : null}
+                </DialogContent>
+                {feesSummaryData && !isLoadingFees && (
+                    <DialogActions sx={{ px: 2.5, py: 1.5, gap: 1, borderTop: '1px solid #E5E7EB' }}>
+                        <Button
+                            onClick={closeFeesSummary}
+                            sx={{
+                                textTransform: 'none', fontSize: 13, fontWeight: 600,
+                                color: '#374151', borderRadius: '8px',
+                                border: '1px solid #E5E7EB', px: 2, height: 36,
+                                '&:hover': { bgcolor: '#F9FAFB' },
+                            }}
+                        >
+                            Cancel
+                        </Button>
+                        <Box sx={{ flex: 1 }} />
+                        <Button
+                            onClick={handleApprovePaid}
+                            disabled={(feesSummaryData.fullyPaidStudents || []).length === 0}
+                            startIcon={<PaidIcon sx={{ fontSize: 16 }} />}
+                            sx={{
+                                textTransform: 'none', fontSize: 13, fontWeight: 700,
+                                bgcolor: '#16A34A', color: '#fff', borderRadius: '8px',
+                                px: 2, height: 36,
+                                boxShadow: '0 2px 6px rgba(22,163,74,0.2)',
+                                '&:hover': { bgcolor: '#15803D', boxShadow: '0 4px 12px rgba(22,163,74,0.35)' },
+                                '&.Mui-disabled': { bgcolor: '#E5E7EB', color: '#9CA3AF', boxShadow: 'none' },
+                            }}
+                        >
+                            Approve Paid ({(feesSummaryData.fullyPaidStudents || []).length})
+                        </Button>
+                        <Button
+                            onClick={handleApproveAll}
+                            startIcon={<DoneAllIcon sx={{ fontSize: 16 }} />}
+                            sx={{
+                                textTransform: 'none', fontSize: 13, fontWeight: 700,
+                                bgcolor: theme.primary, color: '#fff', borderRadius: '8px',
+                                px: 2, height: 36,
+                                boxShadow: `0 2px 6px ${theme.primary}33`,
+                                '&:hover': { bgcolor: theme.dark, boxShadow: `0 4px 12px ${theme.primary}55` },
+                            }}
+                        >
+                            Approve All ({feesSummaryData.summary?.checkedCount || selectedCount})
+                        </Button>
+                    </DialogActions>
+                )}
+            </Dialog>
+
             {/* Confirmation dialog */}
             <Dialog open={confirmOpen} onClose={closeConfirm} maxWidth="sm" fullWidth
                 PaperProps={{ sx: { borderRadius: '12px' } }}>
+                {(() => {
+                    const confirmStudentCount = approvalMode === 'paid'
+                        ? (feesSummaryData?.fullyPaidStudents || []).length
+                        : selectedCount;
+                    return (
+                    <>
                 <DialogTitle sx={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     pb: 1, bgcolor: theme.light, borderBottom: `1px solid ${theme.border}`,
@@ -1377,9 +1750,11 @@ export default function IssueTcPage() {
                                 {isTC ? 'Confirm TC Issue' : 'Confirm Discontinuation'}
                             </Typography>
                             <Typography sx={{ fontSize: 11, color: theme.softText }}>
-                                {isTC
-                                    ? 'Students will be marked as transferred and removed from active enrollment'
-                                    : 'Students will be marked as discontinued from the last attendance date'}
+                                {approvalMode === 'paid'
+                                    ? 'Only fully paid students will be processed'
+                                    : (isTC
+                                        ? 'Students will be marked as transferred and removed from active enrollment'
+                                        : 'Students will be marked as discontinued from the last attendance date')}
                             </Typography>
                         </Box>
                     </Box>
@@ -1388,6 +1763,24 @@ export default function IssueTcPage() {
                     </IconButton>
                 </DialogTitle>
                 <DialogContent sx={{ pt: '12px !important' }}>
+                    {/* Approval mode badge */}
+                    <Box sx={{
+                        mb: 1.5, p: 0.8, borderRadius: '8px',
+                        bgcolor: approvalMode === 'paid' ? '#F0FDF4' : theme.light,
+                        border: `1px solid ${approvalMode === 'paid' ? '#BBF7D0' : theme.border}`,
+                        display: 'flex', alignItems: 'center', gap: 0.8,
+                    }}>
+                        {approvalMode === 'paid'
+                            ? <PaidIcon sx={{ fontSize: 14, color: '#16A34A' }} />
+                            : <DoneAllIcon sx={{ fontSize: 14, color: theme.primary }} />}
+                        <Typography sx={{
+                            fontSize: 11.5, fontWeight: 700,
+                            color: approvalMode === 'paid' ? '#166534' : theme.softText,
+                        }}>
+                            {approvalMode === 'paid' ? 'Approve Paid Only' : 'Approve All Students'}
+                        </Typography>
+                    </Box>
+
                     {/* Context grid */}
                     <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, mb: 1.5 }}>
                         <Box sx={{ p: 1, borderRadius: '6px', bgcolor: '#F9FAFB', border: '1px solid #E5E7EB' }}>
@@ -1400,10 +1793,10 @@ export default function IssueTcPage() {
                         </Box>
                         <Box sx={{ p: 1, borderRadius: '6px', bgcolor: '#F9FAFB', border: '1px solid #E5E7EB' }}>
                             <Typography sx={{ fontSize: 10, color: '#6B7280', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4 }}>
-                                {isTC ? 'Last Class & Section' : 'Class & Section'}
+                                {isTC ? 'Last Class & Section(s)' : 'Class & Section(s)'}
                             </Typography>
                             <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#111' }}>
-                                {srcClass?.sign} · Section {srcSection}
+                                {srcClass?.sign} · Section{srcSection.length > 1 ? 's' : ''} {srcSection.join(', ')}
                             </Typography>
                         </Box>
                         <Box sx={{ p: 1, borderRadius: '6px', bgcolor: '#F9FAFB', border: '1px solid #E5E7EB' }}>
@@ -1441,15 +1834,15 @@ export default function IssueTcPage() {
                         </Box>
                         <Box sx={{ flex: 1 }}>
                             <Typography sx={{ fontSize: 14, fontWeight: 700, color: theme.dark }}>
-                                {selectedCount} student{selectedCount !== 1 ? 's' : ''} will be {isTC ? 'issued TC' : 'discontinued'}
+                                {confirmStudentCount} student{confirmStudentCount !== 1 ? 's' : ''} will be {isTC ? 'issued TC' : 'discontinued'}
                             </Typography>
                             <Typography sx={{ fontSize: 11, color: '#6B7280' }}>
-                                {srcClass?.sign} · Section {srcSection} · {academicYear}
+                                {srcClass?.sign} · Section{srcSection.length > 1 ? 's' : ''} {srcSection.join(', ')} · {academicYear}
                             </Typography>
                         </Box>
                         <Box sx={{ textAlign: 'right' }}>
                             <Typography sx={{ fontSize: 22, fontWeight: 800, color: theme.dark, lineHeight: 1 }}>
-                                {selectedCount}
+                                {confirmStudentCount}
                             </Typography>
                             <Typography sx={{ fontSize: 10, color: '#6B7280' }}>
                                 students
@@ -1483,14 +1876,14 @@ export default function IssueTcPage() {
                                     {isTC ? (
                                         <>
                                             Once Transfer Certificates are issued, the action is <strong>permanent</strong>.
-                                            The {selectedCount} selected student{selectedCount !== 1 ? 's' : ''} will be marked as
+                                            The {confirmStudentCount} selected student{confirmStudentCount !== 1 ? 's' : ''} will be marked as
                                             <strong> transferred</strong> and removed from active enrollment. This cannot be undone
                                             from the application — please double-check your selection.
                                         </>
                                     ) : (
                                         <>
                                             Once students are marked as discontinued, the action is <strong>permanent</strong>.
-                                            The {selectedCount} selected student{selectedCount !== 1 ? 's' : ''} will be marked as
+                                            The {confirmStudentCount} selected student{confirmStudentCount !== 1 ? 's' : ''} will be marked as
                                             <strong> discontinued</strong> from <strong>{lastAttendanceDate}</strong> and removed
                                             from active enrollment. This cannot be undone from the application — please double-check
                                             your selection.
@@ -1598,9 +1991,12 @@ export default function IssueTcPage() {
                             ? (isTC ? 'Issuing TC…' : 'Discontinuing…')
                             : (requiresTypedConfirm && !isConfirmTextValid
                                 ? `Type "${CONFIRM_KEYWORD}" to enable`
-                                : `${actionLabel} for ${selectedCount} Student${selectedCount !== 1 ? 's' : ''}`)}
+                                : `${actionLabel} for ${confirmStudentCount} Student${confirmStudentCount !== 1 ? 's' : ''}`)}
                     </Button>
                 </DialogActions>
+                    </>
+                    );
+                })()}
             </Dialog>
         </>
     );

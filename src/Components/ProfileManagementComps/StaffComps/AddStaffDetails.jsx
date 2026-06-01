@@ -9,7 +9,7 @@ import { useDispatch, useSelector } from "react-redux";
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { useDropzone } from "react-dropzone";
 import { Textarea } from "@mui/joy";
-import { postStaffInformation, postStaffStudentInformation, postStudentAcademicInformation, postStudentDocumentInformation, postStudentFamilyInformation, postStudentgeneralhealthInformation, postStudentGuardianInformation, postStudentInformation, postStudentSiblingInformation } from "../../../Api/Api";
+import { getUsersByUserType, postStaffInformation, postStaffStudentInformation, postStudentAcademicInformation, postStudentDocumentInformation, postStudentFamilyInformation, postStudentgeneralhealthInformation, postStudentGuardianInformation, postStudentInformation, postStudentSiblingInformation } from "../../../Api/Api";
 import axios from "axios";
 import DropDownList from "../../DropdownList";
 import { selectGrades } from "../../../Redux/Slices/DropdownController";
@@ -115,6 +115,7 @@ export default function AddStaffDetails() {
     const selectedClass = grades.find((grade) => grade.sign === selectedSiblingClass);
     const siblingSections = selectedClass?.sections.map((section) => ({ sectionName: section })) || [];
     const [studyingInSameSchool, setStudyingInSameSchool] = useState("No");
+    const [studentsList, setStudentsList] = useState([]);
     const MAX_CHILDREN = 5;
     const [children, setChildren] = useState([
         {
@@ -154,6 +155,24 @@ export default function AddStaffDetails() {
             inputRef.current.scrollLeft = inputRef.current.scrollWidth;
         }
     }, [value]);
+
+    useEffect(() => {
+        if (studyingInSameSchool === "yes") {
+            const fetchStudents = async () => {
+                try {
+                    const res = await axios.get(getUsersByUserType, {
+                        params: { userType: "student" },
+                        headers: { Authorization: `Bearer ${token}` },
+                    });
+                    const flattened = (res.data.data || []).flatMap((g) => g.users || []);
+                    setStudentsList(flattened);
+                } catch (error) {
+                    console.error("Error fetching students:", error);
+                }
+            };
+            fetchStudents();
+        }
+    }, [studyingInSameSchool]);
 
     const handleStudyingChange = (event) => {
         const value = event.target.value;
@@ -293,8 +312,8 @@ export default function AddStaffDetails() {
             formData.append("UserType", selectedUserType);
             formData.append("StaffDesignation", staffDesignation);
             formData.append("DateofJoining", dateOfJoining);
-            formData.append("StaffPassportSizePhotofiletype", "image");
             if (profileImage) {
+                formData.append("StaffPassportSizePhotofiletype", "image");
                 formData.append("PassportSizePhotofile", profileImage);
             }
 
@@ -1119,7 +1138,7 @@ export default function AddStaffDetails() {
                                         </Grid>
                                         <Grid size={{ xs: 12, sm: 6, md: 3, lg: 2.4 }} sx={{ pt: 1, px: 1 }}  >
                                             <Box>
-                                                <Typography sx={{ fontSize: "12px" }}>Studying in Same School</Typography>
+                                                <Typography sx={{ fontSize: "12px" }}>Child in Same School</Typography>
                                                 <FormControl>
                                                     <RadioGroup
                                                         row
@@ -1160,16 +1179,41 @@ export default function AddStaffDetails() {
 
                                                         <Grid size={{ xs: 12, sm: 6, md: 3, lg: 2.4 }} sx={{ pt: 1 }} >
                                                             <Typography sx={{ fontSize: "12px" }} component="span">Roll Number<span style={{ color: "#ff0000", fontSize: "16px" }}>*</span></Typography><br />
-                                                            <TextField
-                                                                id="outlined-size-small"
-                                                                size="small"
-                                                                value={child.rollNumber}
-                                                                onChange={(e) => updateChildField(child.id, "rollNumber", e.target.value)}
-                                                                inputProps={{
-                                                                    maxLength: 25,
-                                                                    pattern: "[A-Za-z ]*"
+                                                            <Autocomplete
+                                                                disablePortal
+                                                                options={studentsList}
+                                                                getOptionLabel={(option) =>
+                                                                    typeof option === "string" ? option : option.rollNumber || ""
+                                                                }
+                                                                value={studentsList.find((s) => s.rollNumber === child.rollNumber) || null}
+                                                                onChange={(event, newValue) => {
+                                                                    if (newValue) {
+                                                                        updateChildField(child.id, "rollNumber", newValue.rollNumber);
+                                                                        updateChildField(child.id, "childrenName", newValue.name || "");
+                                                                    } else {
+                                                                        updateChildField(child.id, "rollNumber", "");
+                                                                        updateChildField(child.id, "childrenName", "");
+                                                                    }
                                                                 }}
-                                                                sx={{ mt: 0.5 }}
+                                                                isOptionEqualToValue={(option, value) => option.rollNumber === value.rollNumber}
+                                                                sx={{ width: "100%", mt: 0.5 }}
+                                                                renderOption={(props, option) => (
+                                                                    <li {...props} key={option.rollNumber}>
+                                                                        {option.rollNumber} — {option.name}
+                                                                    </li>
+                                                                )}
+                                                                renderInput={(params) => (
+                                                                    <TextField
+                                                                        {...params}
+                                                                        size="small"
+                                                                        sx={{
+                                                                            "& .MuiInputBase-root": {
+                                                                                height: 41,
+                                                                                fontSize: 14,
+                                                                            },
+                                                                        }}
+                                                                    />
+                                                                )}
                                                             />
 
                                                         </Grid>
@@ -1179,11 +1223,7 @@ export default function AddStaffDetails() {
                                                                 id="outlined-size-small"
                                                                 size="small"
                                                                 value={child.childrenName}
-                                                                onChange={(e) => updateChildField(child.id, "childrenName", e.target.value)}
-                                                                inputProps={{
-                                                                    maxLength: 25,
-                                                                    pattern: "[A-Za-z ]*"
-                                                                }}
+                                                                disabled
                                                                 sx={{ mt: 0.5 }}
                                                             />
 
