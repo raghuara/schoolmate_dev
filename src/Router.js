@@ -13,6 +13,7 @@ import ExamTimeTablesPage from "./Components/CommunicationComps/ExamTimeTablesPa
 import StudyMaterialsPage from "./Components/CommunicationComps/StudyMaterialsPage";
 import MarksResultsPage from "./Components/CommunicationComps/MarksResultsPage";
 import ImportantEventsPage from "./Components/CommunicationComps/ImportantEventsPage";
+import BirthdayPostPage from "./Components/CommunicationComps/BirthdayPostPage";
 import FeedBackPage from "./Components/CommunicationComps/FeedBackPage";
 import AttendancePage from "./Components/CommunicationComps/AttendancePage";
 import SchoolCalenderPage from "./Components/CommunicationComps/SchoolCalenderPage";
@@ -217,6 +218,7 @@ export default function RouterPage() {
                 <Route path="marks" element={<MarksResultsPage />} />
                 <Route path="schoolcalendar" element={<SchoolCalenderPage />} />
                 <Route path="events" element={<ImportantEventsPage />} />
+                <Route path="birthday-post" element={<BirthdayPostPage />} />
                 <Route path="feedback" element={<FeedBackPage />} />
                 <Route path="attendance" element={<AttendancePage />} />
                 <Route path="notification" element={<NotificationPage />} />
