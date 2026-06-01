@@ -10,6 +10,7 @@ import gradesReducer from './Slices/DropdownController';
 import authReducer from './Slices/AuthSlice';
 import sidebarReducer from './Slices/sidebarSlice'
 import versionReducer from './Slices/versionSlice'
+import academicYearReducer from './Slices/academicYearSlice'
 
 const authPersistConfig = {
   key: 'auth',
@@ -40,6 +41,13 @@ const versionPersistConfig = {
 const persistedSidebarReducer = persistReducer( sidebarPersistConfig, sidebarReducer);
 const persistedVersionReducer = persistReducer(versionPersistConfig, versionReducer);
 
+const academicYearPersistConfig = {
+  key: 'academicYear',
+  storage,
+  whitelist: ['selectedYear'],
+};
+const persistedAcademicYearReducer = persistReducer(academicYearPersistConfig, academicYearReducer);
+
 const store = configureStore({
   reducer: {
     auth: persistedAuthReducer, 
@@ -51,6 +59,7 @@ const store = configureStore({
     grades: persistedGradesReducer, 
     sidebar: persistedSidebarReducer,
     version: persistedVersionReducer,
+    academicYear: persistedAcademicYearReducer,
   },
 });
 

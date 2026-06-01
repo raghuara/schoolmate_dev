@@ -48,6 +48,8 @@ import CreateFeedBackPage from "./Components/CommunicationComps/FeedBackComps/Cr
 import QuestionsFeedBackPage from "./Components/CommunicationComps/FeedBackComps/QuestionsFeedBack";
 import CreateTeacherTimeTablesPage from "./Components/CommunicationComps/TimeTablesComps/CreateTecherTimeTable";
 import MyProjectPage from "./Components/MyProjects/MyProjects";
+import WorkDonePage from "./Components/WorkDoneComps/WorkDonePage";
+import WorkDoneSettings from "./Components/WorkDoneComps/WorkDoneSettings";
 import SchedulePage from "./Components/MyProjects/SchedulePage";
 import DraftPage from "./Components/MyProjects/DraftPage";
 import ApprovalPage from "./Components/Approvals/ApprovalPage";
@@ -216,6 +218,8 @@ export default function RouterPage() {
                 <Route path="homework" element={<HomeWorkPage />} />
                 <Route path="examtimetables" element={<ExamTimeTablesPage />} />
                 <Route path="studymaterials" element={<StudyMaterialsPage />} />
+                <Route path="workdone" element={<WorkDonePage />} />
+                <Route path="workdone/settings" element={<WorkDoneSettings />} />
                 <Route path="marks" element={<MarksResultsPage />} />
                 <Route path="schoolcalendar" element={<SchoolCalenderPage />} />
                 <Route path="events" element={<ImportantEventsPage />} />
