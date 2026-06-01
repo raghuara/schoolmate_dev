@@ -2,12 +2,13 @@ import { Box } from '@mui/system'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Loader from '../../../Loader'
 import SnackBar from '../../../SnackBar'
-import { Accordion, AccordionDetails, AccordionSummary, Alert, Autocomplete, Avatar, Button, Card, CardContent, Checkbox, Chip, CircularProgress, createTheme, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Fade, Grid, IconButton, InputAdornment, LinearProgress, Paper, Radio, Step, StepLabel, Stepper, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tabs, TextField, ThemeProvider, Tooltip, Typography } from '@mui/material';
+import { Accordion, AccordionDetails, AccordionSummary, Alert, Avatar, Button, Card, CardContent, Checkbox, Chip, CircularProgress, createTheme, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Fade, Grid, IconButton, InputAdornment, LinearProgress, Paper, Radio, Step, StepLabel, Stepper, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tabs, TextField, ThemeProvider, Tooltip, Typography } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { selectGrades } from '../../../../Redux/Slices/DropdownController';
 import { selectWebsiteSettings } from '../../../../Redux/Slices/websiteSettingsSlice';
+import { selectAcademicYear } from '../../../../Redux/Slices/academicYearSlice';
 import avatarImage from '../../../../Images/PagesImage/avatar.png';
 import ClearIcon from '@mui/icons-material/Clear';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
@@ -95,9 +96,8 @@ export default function BillingScreen() {
   const [selectedFee, setSelectedFee] = useState(null);
   const [toPayAmounts, setToPayAmounts] = useState({});
 
-  const currentYear = new Date().getFullYear();
-  const currentAcademicYear = `${currentYear}-${currentYear + 1}`;
-  const [selectedYear, setSelectedYear] = useState(currentAcademicYear);
+  // Academic year is set globally in the dashboard header (Redux)
+  const selectedYear = useSelector(selectAcademicYear);
 
   const [counts, setCounts] = useState(
     notesList.reduce((acc, n) => ({ ...acc, [n]: 0 }), {})
@@ -171,6 +171,9 @@ export default function BillingScreen() {
     });
     setCounts(notesList.reduce((acc, n) => ({ ...acc, [n]: 0 }), {}));
     setChangeCounts(notesList.reduce((acc, n) => ({ ...acc, [n]: 0 }), {}));
+    if (upiProofPreview) URL.revokeObjectURL(upiProofPreview);
+    setUpiProofFile(null);
+    setUpiProofPreview('');
   };
 
   const handleClosePaymentPopup = () => {
@@ -230,6 +233,34 @@ export default function BillingScreen() {
     amount: '',
   });
 
+  // UPI payment proof (screenshot) — sent only with the school-fee endpoint
+  const [upiProofFile, setUpiProofFile] = useState(null);
+  const [upiProofPreview, setUpiProofPreview] = useState('');
+
+  const handleUpiProofChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setMessage('Please upload a valid image file');
+      setStatus(false); setColor(false); setOpen(true);
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setMessage('Image size must be under 5MB');
+      setStatus(false); setColor(false); setOpen(true);
+      return;
+    }
+    if (upiProofPreview) URL.revokeObjectURL(upiProofPreview);
+    setUpiProofFile(file);
+    setUpiProofPreview(URL.createObjectURL(file));
+  };
+
+  const handleRemoveUpiProof = () => {
+    if (upiProofPreview) URL.revokeObjectURL(upiProofPreview);
+    setUpiProofFile(null);
+    setUpiProofPreview('');
+  };
+
   const feeTabs = [
     "School Fee",
     "Transport Fee",
@@ -237,12 +268,6 @@ export default function BillingScreen() {
     "Additional Fee",
   ];
 
-
-  const academicYears = [
-    `${currentYear - 2}-${currentYear - 1}`,
-    `${currentYear - 1}-${currentYear}`,
-    `${currentYear}-${currentYear + 1}`,
-  ];
 
   const paymentSteps = ['Select Method', 'Enter Details', 'Confirm & Pay'];
 
@@ -471,6 +496,10 @@ export default function BillingScreen() {
         const txnValidation = validateTransactionID(paymentFormData.transactionId, 'UPI');
         if (!txnValidation.valid) return txnValidation;
 
+        if (!upiProofFile) {
+          return { valid: false, message: 'Please upload the UPI payment screenshot to continue' };
+        }
+
         return { valid: true };
       }
 
@@ -685,8 +714,8 @@ export default function BillingScreen() {
 
       const totalPaidAmount = Math.round(totalAmount * 100) / 100;
 
-      // Transport fees use camelCase field names, other fees use PascalCase
-      const isTransportFee = value === 1;
+      // All fee endpoints expect camelCase field names
+      const useCamelCaseKeys = true;
 
       const paymentMethods = {
         totalPaidAmount: totalPaidAmount,
@@ -696,7 +725,7 @@ export default function BillingScreen() {
       };
 
       // Add remark field with correct casing based on fee type
-      if (isTransportFee) {
+      if (useCamelCaseKeys) {
         paymentMethods.remark = sanitizeInput(paymentFormData.remarks || `Payment via ${paymentMethodOptions.find(m => m.id === selectedPaymentMethod)?.name}`);
       } else {
         paymentMethods.Remark = sanitizeInput(paymentFormData.remarks || `Payment via ${paymentMethodOptions.find(m => m.id === selectedPaymentMethod)?.name}`);
@@ -704,7 +733,7 @@ export default function BillingScreen() {
 
       switch (selectedPaymentMethod) {
         case 'upi':
-          if (isTransportFee) {
+          if (useCamelCaseKeys) {
             paymentMethods.upiid = sanitizeInput(paymentFormData.upiId || '');
             paymentMethods.transactionID = sanitizeInput(paymentFormData.transactionId || '');
           } else {
@@ -714,7 +743,7 @@ export default function BillingScreen() {
           break;
 
         case 'netbanking':
-          if (isTransportFee) {
+          if (useCamelCaseKeys) {
             paymentMethods.transactionID = sanitizeInput(paymentFormData.transactionId || '');
             paymentMethods.bankName = sanitizeInput(paymentFormData.bankName || '');
           } else {
@@ -724,7 +753,7 @@ export default function BillingScreen() {
           break;
 
         case 'cheque':
-          if (isTransportFee) {
+          if (useCamelCaseKeys) {
             paymentMethods.transactionID = sanitizeInput(paymentFormData.transactionId || '');
             paymentMethods.chequeNo = sanitizeInput(paymentFormData.chequeNo || '');
             paymentMethods.bankName = sanitizeInput(paymentFormData.bankName || '');
@@ -737,7 +766,7 @@ export default function BillingScreen() {
           break;
 
         case 'card':
-          if (isTransportFee) {
+          if (useCamelCaseKeys) {
             paymentMethods.transactionID = sanitizeInput(paymentFormData.transactionId || '');
             paymentMethods.cardType = sanitizeInput(paymentFormData.cardType || '');
             paymentMethods.cardLastFourDigits = paymentFormData.cardLast4?.replace(/\D/g, '').substring(0, 4) || '';
@@ -787,16 +816,28 @@ export default function BillingScreen() {
           apiEndpoint = postPaymentMethod;
       }
 
-      const res = await axios.post(apiEndpoint, payload, {
+      const requestConfig = {
         params: {
           RollNumber: rollNumber,
           Year: selectedYear
         },
         headers: {
           Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
         },
-      });
+      };
+
+      // All fee endpoints expect multipart form-data:
+      //   request      → JSON string of { payFeesElements, paymentMethods }
+      //   UPIProofFile → uploaded screenshot (only when paying via UPI)
+      const formData = new FormData();
+      formData.append('request', JSON.stringify(payload));
+      if (selectedPaymentMethod === 'upi' && upiProofFile) {
+        formData.append('UPIProofFile', upiProofFile);
+      }
+      const requestBody = formData;
+      // Content-Type (with multipart boundary) is set automatically by the browser
+
+      const res = await axios.post(apiEndpoint, requestBody, requestConfig);
 
       if (res.data.success || res.status === 200) {
         setPaymentProcessing(false);
@@ -1184,6 +1225,7 @@ export default function BillingScreen() {
   };
 
   useEffect(() => {
+    if (!selectedYear) return;
     switch (value) {
       case 0:
         fetchStatusDetails();
@@ -1200,6 +1242,7 @@ export default function BillingScreen() {
       default:
         fetchStatusDetails();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedYear, value]);
 
   const fetchStatusDetails = async () => {
@@ -1347,31 +1390,6 @@ export default function BillingScreen() {
                   height: "33px"
                 }}
               >Special Concession / Reconcession</Button>
-              <Autocomplete
-                size="small"
-                options={academicYears}
-                sx={{ width: "170px" }}
-                value={selectedYear}
-                onChange={(e, newValue) => setSelectedYear(newValue)}
-                renderInput={(params) => (
-                  <TextField
-                    placeholder="Select Academic Year"
-                    {...params}
-                    variant="outlined"
-                    sx={{
-                      "& .MuiOutlinedInput-root": {
-                        borderRadius: "5px",
-                        fontSize: 14,
-                        height: 35,
-                      },
-                      "& .MuiOutlinedInput-input": {
-                        textAlign: "center",
-                        fontWeight: "600"
-                      },
-                    }}
-                  />
-                )}
-              />
             </Box>
           </Grid>
         </Grid>
@@ -3002,6 +3020,71 @@ export default function BillingScreen() {
                               onChange={(e) => handlePaymentFormChange("remarks", e.target.value)}
                               sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
                             />
+                          </Grid>
+
+                          {/* UPI payment screenshot upload */}
+                          <Grid size={{ xs: 12 }}>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              id="upi-proof-upload"
+                              style={{ display: "none" }}
+                              onChange={handleUpiProofChange}
+                            />
+                            {!upiProofFile ? (
+                              <label htmlFor="upi-proof-upload">
+                                <Box
+                                  sx={{
+                                    border: "1.5px dashed #c4b5fd",
+                                    borderRadius: "10px",
+                                    p: 2,
+                                    textAlign: "center",
+                                    cursor: "pointer",
+                                    backgroundColor: "#faf5ff",
+                                    transition: "all 0.2s",
+                                    "&:hover": { backgroundColor: "#f3e8ff", borderColor: "#8b5cf6" },
+                                  }}
+                                >
+                                  <AccountBalanceWalletIcon sx={{ color: "#8b5cf6", fontSize: 26, mb: 0.5 }} />
+                                  <Typography sx={{ fontSize: "0.85rem", fontWeight: 600, color: "#6d28d9" }}>
+                                    Upload UPI Payment Screenshot
+                                    <Box component="span" sx={{ color: "#ef4444", ml: 0.3 }}>*</Box>
+                                  </Typography>
+                                  <Typography sx={{ fontSize: "0.72rem", color: "#94a3b8", mt: 0.3 }}>
+                                    PNG / JPG, up to 5MB — required
+                                  </Typography>
+                                </Box>
+                              </label>
+                            ) : (
+                              <Box
+                                sx={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 1.5,
+                                  p: 1.2,
+                                  border: "1px solid #e2e8f0",
+                                  borderRadius: "10px",
+                                  backgroundColor: "#faf5ff",
+                                }}
+                              >
+                                <Avatar
+                                  variant="rounded"
+                                  src={upiProofPreview}
+                                  sx={{ width: 48, height: 48, border: "1px solid #e2e8f0" }}
+                                />
+                                <Box sx={{ flex: 1, minWidth: 0 }}>
+                                  <Typography sx={{ fontSize: "0.82rem", fontWeight: 600, color: "#1e293b" }} noWrap>
+                                    {upiProofFile.name}
+                                  </Typography>
+                                  <Typography sx={{ fontSize: "0.72rem", color: "#64748b" }}>
+                                    {(upiProofFile.size / 1024).toFixed(0)} KB
+                                  </Typography>
+                                </Box>
+                                <IconButton size="small" onClick={handleRemoveUpiProof} sx={{ color: "#ef4444" }}>
+                                  <CloseIcon fontSize="small" />
+                                </IconButton>
+                              </Box>
+                            )}
                           </Grid>
                         </Grid>
                       )}

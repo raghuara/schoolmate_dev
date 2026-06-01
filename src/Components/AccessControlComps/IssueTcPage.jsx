@@ -208,6 +208,8 @@ export default function IssueTcPage() {
     // ── Academic Year ───────────────────────────────────────────────────────
     const academicYears = useMemo(() => buildAcademicYears(), []);
     const [academicYear, setAcademicYear] = useState(getLastCompletedAcademicYear());
+    const currentAcademicYear = getCurrentAcademicYear();
+    const isCurrentYearSelected = academicYear === currentAcademicYear;
 
     // Re-default academic year when switching modes
     useEffect(() => {
@@ -247,6 +249,9 @@ export default function IssueTcPage() {
 
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Current-year caution gate — when issuing TC against the current academic year
+    const [currentYearWarnOpen, setCurrentYearWarnOpen] = useState(false);
 
     // Type-to-confirm gate — required for BOTH TC and Discontinue (both are irreversible)
     const [confirmText, setConfirmText] = useState('');
@@ -402,6 +407,23 @@ export default function IssueTcPage() {
         } finally {
             setIsLoadingFees(false);
         }
+    };
+
+    // Entry point for the action button:
+    // In TC mode, if the current academic year is selected, ask for confirmation first.
+    // Otherwise proceed straight to the Fee Summary flow.
+    const handleActionButtonClick = () => {
+        if (!validateBeforeSubmit()) return;
+        if (isTC && isCurrentYearSelected) {
+            setCurrentYearWarnOpen(true);
+            return;
+        }
+        handleConfirmClick();
+    };
+
+    const proceedAfterCurrentYearWarn = () => {
+        setCurrentYearWarnOpen(false);
+        handleConfirmClick();
     };
 
     const closeFeesSummary = () => {
@@ -1467,7 +1489,7 @@ export default function IssueTcPage() {
                                 Cancel
                             </Button>
                             <Button
-                                onClick={handleConfirmClick}
+                                onClick={handleActionButtonClick}
                                 disabled={selectedCount === 0 || !sourceKey}
                                 startIcon={actionIcon}
                                 sx={{
@@ -1493,6 +1515,70 @@ export default function IssueTcPage() {
                     )}
                 </Box>
             </Box>
+
+            {/* Current academic year caution dialog (TC mode) */}
+            <Dialog
+                open={currentYearWarnOpen}
+                onClose={() => setCurrentYearWarnOpen(false)}
+                maxWidth="xs"
+                fullWidth
+                PaperProps={{ sx: { borderRadius: '12px' } }}
+            >
+                <DialogContent sx={{ p: 3, textAlign: 'center' }}>
+                    <Box sx={{
+                        width: 56, height: 56, borderRadius: '50%',
+                        bgcolor: '#FEF3C7', mx: 'auto', mb: 1.5,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                        <WarningAmberIcon sx={{ fontSize: 30, color: '#D97706' }} />
+                    </Box>
+                    <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#111827', mb: 0.8 }}>
+                        Current Academic Year Selected
+                    </Typography>
+                    <Typography sx={{ fontSize: 13, color: '#6B7280', lineHeight: 1.6 }}>
+                        You've selected the <b>current academic year ({currentAcademicYear})</b> for issuing TC.
+                        A TC is usually issued against the <b>last completed</b> academic year. Are you sure you want to continue?
+                    </Typography>
+
+                    <Box sx={{
+                        mt: 2, p: 1.5, borderRadius: '8px',
+                        bgcolor: '#FFFBEB', border: '1px solid #FDE68A',
+                        display: 'flex', alignItems: 'flex-start', gap: 1, textAlign: 'left',
+                    }}>
+                        <GppMaybeIcon sx={{ fontSize: 18, color: '#D97706', mt: '1px', flexShrink: 0 }} />
+                        <Typography sx={{ fontSize: 11.5, color: '#92400E', lineHeight: 1.5 }}>
+                            Please double-check the academic year before proceeding. Issuing a TC for the wrong year
+                            can affect fee records and the student's academic history.
+                        </Typography>
+                    </Box>
+                </DialogContent>
+                <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
+                    <Button
+                        onClick={() => setCurrentYearWarnOpen(false)}
+                        fullWidth
+                        sx={{
+                            textTransform: 'none', fontSize: 13, fontWeight: 600,
+                            color: '#374151', borderRadius: '8px', height: 38,
+                            border: '1px solid #E5E7EB', '&:hover': { bgcolor: '#F9FAFB' },
+                        }}
+                    >
+                        Go Back
+                    </Button>
+                    <Button
+                        onClick={proceedAfterCurrentYearWarn}
+                        fullWidth
+                        startIcon={<CheckCircleIcon sx={{ fontSize: 16 }} />}
+                        sx={{
+                            textTransform: 'none', fontSize: 13, fontWeight: 700,
+                            bgcolor: '#D97706', color: '#fff', borderRadius: '8px', height: 38,
+                            boxShadow: '0 2px 6px #D9770633',
+                            '&:hover': { bgcolor: '#B45309' },
+                        }}
+                    >
+                        Yes, Continue
+                    </Button>
+                </DialogActions>
+            </Dialog>
 
             {/* Fee Summary dialog */}
             <Dialog open={feesSummaryOpen} onClose={closeFeesSummary} maxWidth="md" fullWidth

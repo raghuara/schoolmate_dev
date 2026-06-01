@@ -20,6 +20,19 @@ import {
   selectAcademicYearMeta,
 } from '../../Redux/Slices/academicYearSlice';
 
+const CustomTooltip = styled(({ className, ...props }) => (
+  <Tooltip {...props} classes={{ popper: className }} />
+))({
+  [`& .${tooltipClasses.tooltip}`]: {
+    backgroundColor: 'black',
+    color: 'white',
+    fontSize: '0.875rem',
+  },
+  [`& .${tooltipClasses.arrow}`]: {
+    color: 'black',
+  },
+});
+
 function DashbrdHeader() {
   const theme = useTheme();
   const navigate = useNavigate();
@@ -68,21 +81,6 @@ function DashbrdHeader() {
     navigate("/");
     dispatch(logout());
   };
-
-  const CustomTooltip = styled(({ className, ...props }) => (
-    <Tooltip {...props} classes={{ popper: className }} />
-  ))
-  ({
-    [`& .${tooltipClasses.tooltip}`]: {
-      backgroundColor: 'black',
-      color: 'white',
-      fontSize: '0.875rem',
-    },
-    [`& .${tooltipClasses.arrow}`]: {
-      color: 'black',
-    },
-  });
-
 
   return (
     <Box

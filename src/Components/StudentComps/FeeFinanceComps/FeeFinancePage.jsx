@@ -461,7 +461,10 @@ export default function FeeFinancePage() {
 
             {activeTab === 0 && (
             <Grid container spacing={2} >
-                {items.filter(item => userType !== "teacher" || item.text === "Expense").map((item, index) => {
+                {items
+                    .filter(item => userType !== "teacher" || item.text === "Expense")
+                    .filter(item => item.text !== "Concession Log" || userType === "superadmin")
+                    .map((item, index) => {
                     const IconComponent = item.icon;
                     return (
                         <Grid

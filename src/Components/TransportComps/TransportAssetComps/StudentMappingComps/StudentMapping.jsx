@@ -13,7 +13,6 @@ import {
     DialogActions,
     TextField,
     InputAdornment,
-    Autocomplete,
     Table,
     TableBody,
     TableCell,
@@ -58,6 +57,7 @@ import SnackBar from '../../../SnackBar'
 import StudentSelectionPopup from '../../../Tools/StudentSelectionPopup'
 import axios from 'axios'
 import { getRouteFullDetailsById, GetUsersBaseDetails, postStudentRouteMapping, getAllStudentMappingCards } from '../../../../Api/Api'
+import { selectAcademicYear } from '../../../../Redux/Slices/academicYearSlice'
 
 // Color palette for bus cards - darker header/buttons with light card bg
 const busColors = [
@@ -470,21 +470,19 @@ export default function StudentMapping() {
     const [selectedStudents, setSelectedStudents] = useState([]);
     const [studentSearchQuery, setStudentSearchQuery] = useState("");
 
-    const currentYear = new Date().getFullYear();
-    const currentAcademicYear = `${currentYear}-${currentYear + 1}`;
-    const [selectedYear, setSelectedYear] = useState(currentAcademicYear);
-  
-    const academicYears = [
-      `${currentYear - 2}-${currentYear - 1}`,
-      `${currentYear - 1}-${currentYear}`,
-      `${currentYear}-${currentYear + 1}`,
-    ];
+    // Academic year is set globally in the dashboard header (Redux)
+    const selectedYear = useSelector(selectAcademicYear);
 
     // Fetch initial data
     useEffect(() => {
         getUsers();
-        fetchBusRoutes();
     }, []);
+
+    // Reload route cards whenever the selected academic year changes
+    useEffect(() => {
+        if (selectedYear) fetchBusRoutes();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedYear]);
 
     const getUsers = async () => {
         try {
@@ -871,31 +869,6 @@ export default function StudentMapping() {
                         }
                     }}
                     sx={{ width: 300 }}
-                />
-                <Autocomplete
-                  size="small"
-                  options={academicYears}
-                  sx={{ width: "170px" }}
-                  value={selectedYear}
-                  onChange={(e, newValue) => setSelectedYear(newValue)}
-                  renderInput={(params) => (
-                    <TextField
-                      placeholder="Select Academic Year"
-                      {...params}
-                      variant="outlined"
-                      sx={{
-                        "& .MuiOutlinedInput-root": {
-                          borderRadius: "5px",
-                          fontSize: 14,
-                          height: 35,
-                        },
-                        "& .MuiOutlinedInput-input": {
-                          textAlign: "center",
-                          fontWeight: "600"
-                        },
-                      }}
-                    />
-                  )}
                 />
             </Box>
 
