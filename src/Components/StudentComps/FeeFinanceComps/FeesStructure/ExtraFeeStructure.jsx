@@ -2,7 +2,10 @@ import { Box } from '@mui/system'
 import React, { useEffect, useState } from 'react'
 import Loader from '../../../Loader'
 import SnackBar from '../../../SnackBar'
-import { Autocomplete, Button, Grid, IconButton, InputAdornment, TextField, Tooltip, Typography } from '@mui/material';
+import { Autocomplete, Button, Chip, FormControlLabel, Grid, IconButton, InputAdornment, Switch, TextField, Tooltip, Typography } from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
+import ClearIcon from '@mui/icons-material/Clear';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -49,9 +52,11 @@ export default function ExtraFeeStructure() {
   const [fees, setFees] = useState({
     feeName: '',
     remarks: '',
-    amount: '',
+    gradeAmounts: {},
     dueDate: null,
   });
+  const [removedGrades, setRemovedGrades] = useState(new Set());
+  const [autoFill, setAutoFill] = useState(false);
 
   const handleChange = (key, value) => {
     setFees(prev => ({
@@ -60,13 +65,75 @@ export default function ExtraFeeStructure() {
     }));
   };
 
+  const handleGradeAmountChange = (grade, value) => {
+    if (!/^\d{0,8}$/.test(value)) return;
+    const cleaned = value.replace(/^0+(\d)/, '$1');
+
+    if (autoFill) {
+      const newAmounts = {};
+      grades.forEach((g) => {
+        if (!removedGrades.has(g.sign)) {
+          newAmounts[g.sign] = cleaned;
+        }
+      });
+      setFees((prev) => ({ ...prev, gradeAmounts: { ...prev.gradeAmounts, ...newAmounts } }));
+    } else {
+      setFees((prev) => ({
+        ...prev,
+        gradeAmounts: { ...prev.gradeAmounts, [grade]: cleaned },
+      }));
+    }
+  };
+
+  const handleRemoveGrade = (gradeSign) => {
+    setRemovedGrades((prev) => new Set([...prev, gradeSign]));
+    setFees((prev) => {
+      const newAmounts = { ...prev.gradeAmounts };
+      delete newAmounts[gradeSign];
+      return { ...prev, gradeAmounts: newAmounts };
+    });
+  };
+
+  const handleRestoreGrade = (gradeSign) => {
+    setRemovedGrades((prev) => {
+      const next = new Set(prev);
+      next.delete(gradeSign);
+      return next;
+    });
+  };
+
+  const hasAtLeastOneFee = () => {
+    return Object.values(fees.gradeAmounts).some(
+      (v) => v !== undefined && v !== '' && Number(v) > 0
+    );
+  };
+
+  const buildGradePayload = () => {
+    // Removed grades + blank inputs → null (so they get hidden in Created Fees).
+    // Explicitly typed 0 → 0 (shows as ₹ 0, meaning free for that grade).
+    // Any other number → Number(raw).
+    const payload = {};
+    grades.forEach((grade) => {
+      const key = grade.sign.toLowerCase();
+      if (removedGrades.has(grade.sign)) {
+        payload[key] = null;
+        return;
+      }
+      const raw = fees.gradeAmounts[grade.sign];
+      payload[key] = raw === undefined || raw === null || raw === '' ? null : Number(raw);
+    });
+    return payload;
+  };
+
   const handleReset = () => {
     setFees({
       feeName: '',
       remarks: '',
-      amount: '',
+      gradeAmounts: {},
       dueDate: null,
     });
+    setRemovedGrades(new Set());
+    setAutoFill(false);
   };
 
   const formatDate = (d) => (d ? dayjs(d).format('DD-MM-YYYY') : '');
@@ -87,8 +154,8 @@ export default function ExtraFeeStructure() {
       return;
     }
 
-    if (!fees.amount) {
-      setMessage("Fee Amount is required");
+    if (!hasAtLeastOneFee()) {
+      setMessage("Please add fee amount for at least one class");
       setOpen(true);
       setStatus(false);
       return;
@@ -103,10 +170,10 @@ export default function ExtraFeeStructure() {
         feeName: fees.feeName,
         remarks: fees.remarks,
         paid: "Y",
-        feeAmount: fees.amount ? Number(fees.amount) : null,
         dueDate: fees.dueDate
           ? dayjs(fees.dueDate).format("YYYY-MM-DD")
           : null,
+        ...buildGradePayload(),
       };
 
       await axios.post(postAdditionalFee, sendData, {
@@ -237,7 +304,7 @@ export default function ExtraFeeStructure() {
             </Box>
 
             <Grid container rowSpacing={2} columnSpacing={4} p={3}>
-              <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
+              <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
                 <Typography sx={{ mb: 0.5, fontWeight: "600" }}>Fee Name</Typography>
                 <TextField
                   size="small"
@@ -253,7 +320,7 @@ export default function ExtraFeeStructure() {
                   }}
                 />
               </Grid>
-              <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
+              <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
                 <Typography sx={{ mb: 0.5, fontWeight: '600' }}>Remarks</Typography>
                 <TextField
                   size="small"
@@ -269,31 +336,7 @@ export default function ExtraFeeStructure() {
                   }}
                 />
               </Grid>
-              <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
-                <Typography sx={{ mb: 0.5, fontWeight: '600' }}>Fee Amount</Typography>
-                <TextField
-                  fullWidth
-                  size="small"
-                  value={fees.amount}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/\D/g, '').slice(0, 8);
-                    handleChange("amount", value);
-                  }}
-                  slotProps={{
-                    input: {
-                      startAdornment: <InputAdornment position="start">₹</InputAdornment>,
-                      inputMode: "numeric",
-                    }
-                  }}
-                  sx={{
-                    "& .MuiOutlinedInput-root": {
-                      borderRadius: "5px",
-                      fontSize: 14,
-                    },
-                  }}
-                />
-              </Grid>
-              <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
+              <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
                 <Typography sx={{ mb: 0.5, fontWeight: '600' }}>Add due date</Typography>
                 <LocalizationProvider dateAdapter={AdapterDayjs}>
                   <DatePicker
@@ -364,6 +407,129 @@ export default function ExtraFeeStructure() {
                   )}
                 </LocalizationProvider>
               </Grid>
+            </Grid>
+
+            {/* Grade-wise Fee Amount header strip */}
+            <Box sx={{
+              background: '#FFF5F2',
+              borderTop: '1px solid #FFD5C2',
+              borderBottom: '1px solid #FFD5C2',
+              px: 3, py: 1.25,
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              flexWrap: 'wrap', gap: 1.5,
+            }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <Box sx={{
+                  width: 30, height: 30, borderRadius: '6px',
+                  backgroundColor: '#FFD5C2', border: '1px solid #FFB088',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <InfoOutlinedIcon sx={{ color: '#EA580C', fontSize: 15 }} />
+                </Box>
+                <Box>
+                  <Typography sx={{ fontWeight: 600, fontSize: 14, color: '#C2410C' }}>
+                    Grade-wise Fee Amount
+                  </Typography>
+                  <Typography sx={{ fontSize: 11, color: '#EA580C' }}>
+                    Setting ₹0 makes this fee free for that grade
+                  </Typography>
+                </Box>
+              </Box>
+
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={autoFill}
+                    onChange={(e) => setAutoFill(e.target.checked)}
+                    size="small"
+                    sx={{
+                      '& .MuiSwitch-switchBase.Mui-checked': { color: '#EA580C' },
+                      '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { backgroundColor: '#EA580C' },
+                    }}
+                  />
+                }
+                label={<Typography sx={{ fontSize: 13, color: '#555' }}>Fill All Grades</Typography>}
+                labelPlacement="start"
+                sx={{ m: 0 }}
+              />
+            </Box>
+
+            {/* Removed grades — restorable chips */}
+            {removedGrades.size > 0 && (
+              <Box sx={{ px: 3, pb: 1, pt: 1, display: 'flex', flexWrap: 'wrap', gap: 0.8, alignItems: 'center' }}>
+                <Typography sx={{ fontSize: 12, color: '#999' }}>Removed grades:</Typography>
+                {[...removedGrades].map((g) => (
+                  <Chip
+                    key={g}
+                    label={g}
+                    size="small"
+                    onClick={() => handleRestoreGrade(g)}
+                    icon={<AddIcon sx={{ fontSize: '14px !important' }} />}
+                    sx={{
+                      fontSize: 12, height: 22,
+                      bgcolor: '#f5f5f5', border: '1px solid #ddd',
+                      cursor: 'pointer',
+                      '&:hover': { bgcolor: '#FFEDE5', borderColor: '#EA580C', color: '#EA580C' },
+                    }}
+                  />
+                ))}
+              </Box>
+            )}
+
+            {/* Grade fee inputs grid */}
+            <Grid container spacing={2} sx={{
+              backgroundColor: '#FFEDE5',
+              p: 3,
+              borderBottomLeftRadius: '5px', borderBottomRightRadius: '5px',
+            }}>
+              {grades.filter((g) => !removedGrades.has(g.sign)).map((grade) => (
+                <Grid size={{ xs: 6, sm: 4, md: 2, lg: 1.5 }} key={grade.sign}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                    <Typography sx={{ color: '#EA580C', fontSize: '12px', ml: 0.5 }}>
+                      {grade.sign}
+                    </Typography>
+                    <Tooltip title="Remove this grade" placement="top">
+                      <IconButton
+                        size="small"
+                        onClick={() => handleRemoveGrade(grade.sign)}
+                        sx={{
+                          p: 0.3, color: '#bbb',
+                          bgcolor: 'rgba(0,0,0,0.04)',
+                          borderRadius: '50%',
+                          transition: 'all 0.2s ease',
+                          '&:hover': {
+                            color: '#fff',
+                            bgcolor: '#EA580C',
+                            transform: 'scale(1.15)',
+                          },
+                        }}
+                      >
+                        <ClearIcon sx={{ fontSize: 13 }} />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                  <TextField
+                    size="small"
+                    value={fees.gradeAmounts[grade.sign] || ''}
+                    onChange={(e) => handleGradeAmountChange(grade.sign, e.target.value)}
+                    variant="outlined"
+                    slotProps={{
+                      input: {
+                        startAdornment: <InputAdornment position="start">₹</InputAdornment>,
+                        inputMode: 'numeric',
+                      }
+                    }}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        height: 33,
+                        fontSize: 14,
+                        borderRadius: '5px',
+                        backgroundColor: '#F6F6F8',
+                      },
+                    }}
+                  />
+                </Grid>
+              ))}
             </Grid>
           </Box>
 

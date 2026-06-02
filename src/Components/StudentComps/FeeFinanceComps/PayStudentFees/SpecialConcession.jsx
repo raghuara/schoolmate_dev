@@ -74,25 +74,36 @@ export default function SpecialConcession() {
         return fee + existingConcession;
     };
 
-    const isFeePaid = (item) => {
-        const actualAmount = getActualFeeAmount(item);
-        if (actualAmount <= 0) return true;
+    // Remaining payable amount — what can still be collected / conceded for this fee
+    const getPendingAmount = (item) => {
+        const pending = parseFloat(item.pendingAmount);
+        if (Number.isFinite(pending)) return Math.max(pending, 0);
+        // Fallback when the API doesn't send pendingAmount
+        const gross = getActualFeeAmount(item);
         const paid = parseFloat(item.paidAmount ?? item.amountPaid ?? item.paid ?? 0);
-        if (paid > 0) return true;
-        if (item.status === 'Paid' || item.status === 'Partial' || item.isPaid === true) return true;
-        return false;
+        return Math.max(gross - paid, 0);
+    };
+
+    // Only FULLY paid fees are blocked. Unpaid AND partially paid fees are allowed.
+    const isFullyPaid = (item) => {
+        const actualAmount = getActualFeeAmount(item);
+        if (actualAmount <= 0) return true;            // nothing to concede
+        return getPendingAmount(item) <= 0;            // fully paid → no pending left
     };
 
     const buildRows = (tab, feeData) => {
         const data = feeData?.[tab] || [];
         return data
-            .filter((item) => !isFeePaid(item))
+            .filter((item) => !isFullyPaid(item))
             .map((item) => {
                 const actualAmount = getActualFeeAmount(item);
+                const pending = getPendingAmount(item);
                 return {
                     ...item,
                     displayName: getFeeName(item, tab),
                     displayAmount: actualAmount,
+                    pendingAmount: pending,
+                    maxConcession: pending,            // concession can't exceed what's still owed
                     concessionPercent: "",
                     concessionAmount: "",
                     finalFee: actualAmount,
@@ -242,17 +253,20 @@ export default function SpecialConcession() {
         const updatedRows = [...rows];
         let row = { ...updatedRows[index] };
         const amount = parseFloat(row.displayAmount);
+        // Concession is limited to the remaining payable (pending) amount
+        const maxConcession = Number.isFinite(parseFloat(row.maxConcession)) ? parseFloat(row.maxConcession) : amount;
 
         if (field === "percent") {
             const percent = Math.min(parseFloat(value) || 0, 100);
-            const concessionAmount = Math.round((amount * percent) / 100);
+            let concessionAmount = Math.round((amount * percent) / 100);
+            if (concessionAmount > maxConcession) concessionAmount = maxConcession;
             row.concessionPercent = parseFloat(value) > 100 ? '100' : value;
             row.concessionAmount = concessionAmount;
             row.finalFee = Math.round(amount - concessionAmount);
         } else if (field === "amount") {
-            const concessionAmount = Math.min(parseFloat(value) || 0, amount);
-            const percent = ((concessionAmount / amount) * 100).toFixed(2);
-            row.concessionAmount = parseFloat(value) > amount ? String(amount) : value;
+            const concessionAmount = Math.min(parseFloat(value) || 0, maxConcession);
+            const percent = amount > 0 ? ((concessionAmount / amount) * 100).toFixed(2) : '0';
+            row.concessionAmount = parseFloat(value) > maxConcession ? String(maxConcession) : value;
             row.concessionPercent = percent;
             row.finalFee = Math.round(amount - concessionAmount);
         } else if (field === "rowCategory") {
@@ -735,6 +749,11 @@ export default function SpecialConcession() {
                                                 }}
                                             >
                                                 ₹ {row.displayAmount}
+                                                {Number(row.pendingAmount) < Number(row.displayAmount) && (
+                                                    <Typography sx={{ fontSize: 11, color: "#f59e0b", fontWeight: 600 }}>
+                                                        ₹{row.pendingAmount} pending
+                                                    </Typography>
+                                                )}
                                             </TableCell>
 
                                             <TableCell

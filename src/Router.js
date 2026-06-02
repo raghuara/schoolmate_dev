@@ -13,6 +13,7 @@ import ExamTimeTablesPage from "./Components/CommunicationComps/ExamTimeTablesPa
 import StudyMaterialsPage from "./Components/CommunicationComps/StudyMaterialsPage";
 import MarksResultsPage from "./Components/CommunicationComps/MarksResultsPage";
 import ImportantEventsPage from "./Components/CommunicationComps/ImportantEventsPage";
+import BirthdayPostPage from "./Components/CommunicationComps/BirthdayPostPage";
 import FeedBackPage from "./Components/CommunicationComps/FeedBackPage";
 import AttendancePage from "./Components/CommunicationComps/AttendancePage";
 import SchoolCalenderPage from "./Components/CommunicationComps/SchoolCalenderPage";
@@ -48,6 +49,8 @@ import CreateFeedBackPage from "./Components/CommunicationComps/FeedBackComps/Cr
 import QuestionsFeedBackPage from "./Components/CommunicationComps/FeedBackComps/QuestionsFeedBack";
 import CreateTeacherTimeTablesPage from "./Components/CommunicationComps/TimeTablesComps/CreateTecherTimeTable";
 import MyProjectPage from "./Components/MyProjects/MyProjects";
+import WorkDonePage from "./Components/WorkDoneComps/WorkDonePage";
+import WorkDoneSettings from "./Components/WorkDoneComps/WorkDoneSettings";
 import SchedulePage from "./Components/MyProjects/SchedulePage";
 import DraftPage from "./Components/MyProjects/DraftPage";
 import ApprovalPage from "./Components/Approvals/ApprovalPage";
@@ -216,9 +219,12 @@ export default function RouterPage() {
                 <Route path="homework" element={<HomeWorkPage />} />
                 <Route path="examtimetables" element={<ExamTimeTablesPage />} />
                 <Route path="studymaterials" element={<StudyMaterialsPage />} />
+                <Route path="workdone" element={<WorkDonePage />} />
+                <Route path="workdone/settings" element={<WorkDoneSettings />} />
                 <Route path="marks" element={<MarksResultsPage />} />
                 <Route path="schoolcalendar" element={<SchoolCalenderPage />} />
                 <Route path="events" element={<ImportantEventsPage />} />
+                <Route path="birthday-post" element={<BirthdayPostPage />} />
                 <Route path="feedback" element={<FeedBackPage />} />
                 <Route path="attendance" element={<AttendancePage />} />
                 <Route path="notification" element={<NotificationPage />} />

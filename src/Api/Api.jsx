@@ -18,6 +18,7 @@ const DashboardUsers = `${Dashboard}DashboardUsers`;
 const DashboardManagement = `${Dashboard}DashboardManagement`;
 const DashboardNews = `${Dashboard}DashboardNews&Circular`;
 const DashboardBirthday = `${Dashboard}DashboardBirthday`;
+const BirthdayInstagramPost = `${baseApiurl}instagram/birthday`;
 const DashboardStudentsAttendance = `${Dashboard}DashboardStudentsAttendance`;
 const DashboardTeachersAttendance = `${Dashboard}DashboardTeachersAttendance`;
 const postDashboardSliders = `${baseApiurl}dashboardSliders/postDashboardSliders`;
@@ -469,7 +470,7 @@ const getAllExams = `${baseApiurl}GradeValueFetch/getAllExams`;
 const PostStudentExit = `${baseApiurl}studentExit/PostStudentExit`;
 const FetchExitHistory = `${baseApiurl}studentExit/FetchExitHistory`;
 const PostAcademicYearConfig = `${baseApiurl}academicyear/PostAcademicYearConfig`;
-const GetAcademicYearConfig = `${baseApiurl}academicyear/GetAcademicYearConfig`;    
+const GetAcademicYearConfig = `${baseApiurl}academicyear/GetAcademicYearConfig`;
 const GetExitFeesSummary = `${baseApiurl}studentExit/GetExitFeesSummary`;
 
 // Class & Section Management
@@ -585,6 +586,7 @@ export {
     DashboardManagement,
     DashboardNews,
     DashboardBirthday,
+    BirthdayInstagramPost,
     DashboardTeachersAttendance,
     DashboardStudentsAttendance,
     updateSchoolCalender,

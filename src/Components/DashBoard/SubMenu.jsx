@@ -27,6 +27,7 @@ function SubMenuPage({active}) {
         { path: '/dashboardmenu/marks', label: 'Marks'},
         { path: '/dashboardmenu/schoolcalendar', label: 'School Calendar'},
         { path: '/dashboardmenu/events', label: 'Events'},
+        { path: '/dashboardmenu/birthday-post', label: 'Birthday Post'},
         ...(userType !== "teacher" ? [{ path: '/dashboardmenu/feedback', label: 'Feedback' }] : []),
         { path: '/dashboardmenu/attendance', label: 'Attendance'},
         ...(userType !== "teacher" ? [{ path: '/dashboardmenu/notification', label: 'Notification' }] : []),

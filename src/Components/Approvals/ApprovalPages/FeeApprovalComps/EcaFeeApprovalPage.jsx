@@ -13,6 +13,11 @@ import HighlightOffIcon from '@mui/icons-material/HighlightOff';
 import { useDispatch, useSelector } from "react-redux";
 import { selectWebsiteSettings } from "../../../../Redux/Slices/websiteSettingsSlice";
 import { selectGrades } from "../../../../Redux/Slices/DropdownController";
+import {
+    selectAcademicYear,
+    selectAcademicYearOptions,
+    setSelectedAcademicYear,
+} from "../../../../Redux/Slices/academicYearSlice";
 import NoData from '../../../../Images/Login/No Data.png'
 import { ecaFeeFetch, ECAupdateSchoolFee, updateEcaFeesApprovalAction } from "../../../../Api/Api";
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
@@ -35,9 +40,9 @@ export default function EcaFeeApprovalPage() {
     const location = useLocation();
     const tabIndex = location.state?.tabIndex ?? 1;
 
-    const currentYear = new Date().getFullYear();
-    const currentAcademicYear = `${currentYear}-${currentYear + 1}`;
-    const [selectedYear, setSelectedYear] = useState(currentAcademicYear);
+    
+    const selectedYear = useSelector(selectAcademicYear);
+    const academicYears = useSelector(selectAcademicYearOptions);
     const websiteSettings = useSelector(selectWebsiteSettings)
 
     const [openRejectDialog, setOpenRejectDialog] = useState(false);
@@ -60,12 +65,6 @@ export default function EcaFeeApprovalPage() {
     const [details, setDetails] = useState([]);
 
     const isExpanded = useSelector((state) => state.sidebar.isExpanded);
-
-    const academicYears = [
-        `${currentYear - 2}-${currentYear - 1}`,
-        `${currentYear - 1}-${currentYear}`,
-        `${currentYear}-${currentYear + 1}`,
-    ];
 
     const formatDate = (dateString) => {
         if (!dateString) return "-";
@@ -146,6 +145,7 @@ export default function EcaFeeApprovalPage() {
     }, [selectedYear, selectedGradeId]);
 
     const fetchStatusDetails = async () => {
+        if (!selectedYear) return; // wait for the global academic year to load
         setIsLoading(true);
         try {
             const res = await axios.get(ecaFeeFetch, {
@@ -222,7 +222,7 @@ export default function EcaFeeApprovalPage() {
             setMessage('Activity Name is required'); setOpen(true); setColor(false); setStatus(false); return;
         }
 
-        // Validate: all active (non-removed) grades must have an amount
+        
         const errors = {};
         grades.forEach((g) => {
             if (!editRemovedGrades.has(g.sign)) {
@@ -320,8 +320,8 @@ export default function EcaFeeApprovalPage() {
                                 size="small"
                                 options={academicYears}
                                 sx={{ width: "170px" }}
-                                value={selectedYear}
-                                onChange={(e, newValue) => setSelectedYear(newValue)}
+                                value={selectedYear || ''}
+                                onChange={(e, newValue) => { if (newValue) dispatch(setSelectedAcademicYear(newValue)) }}
                                 renderInput={(params) => (
                                     <TextField
                                         placeholder="Select Academic Year"

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
     Box, Button, Dialog, Typography, TextField, Chip, Grid,
     IconButton, Divider, InputAdornment, List, ListItemButton, Avatar,
+    FormControl, InputLabel, Select, MenuItem,
 } from '@mui/material';
 import { Stack } from '@mui/system';
 import CloseIcon from '@mui/icons-material/Close';
@@ -14,12 +15,16 @@ const ECA_LIGHT = '#EEF1FD';
 
 export default function EcaStudentSelectionPopup({ open, onClose, users = [], onSave, existingStudents = [], activity = null }) {
     const [searchQuery, setSearchQuery] = useState('');
+    const [classFilter, setClassFilter] = useState('');
+    const [sectionFilter, setSectionFilter] = useState('');
     const [selectedRolls, setSelectedRolls] = useState([]);
 
     useEffect(() => {
         if (open) {
             setSelectedRolls(existingStudents);
             setSearchQuery('');
+            setClassFilter('');
+            setSectionFilter('');
         }
     }, [open, existingStudents]);
 
@@ -30,10 +35,30 @@ export default function EcaStudentSelectionPopup({ open, onClose, users = [], on
         return a !== b;
     }, [selectedRolls, existingStudents]);
 
+    // Eligible classes for this activity come straight from the eligible students,
+    // so non-eligible classes never show up in the filter.
+    const classOptions = useMemo(
+        () => [...new Set(users.map((u) => u.grade).filter(Boolean))],
+        [users]
+    );
+
+    const sectionOptions = useMemo(() => {
+        const pool = classFilter ? users.filter((u) => u.grade === classFilter) : users;
+        return [...new Set(pool.map((u) => u.section).filter(Boolean))];
+    }, [users, classFilter]);
+
+    const isSearching = !!searchQuery.trim();
+
     const filteredUsers = users.filter((u) => {
-        if (!searchQuery.trim()) return true;
-        const q = searchQuery.toLowerCase();
-        return u.rollNumber?.toLowerCase().includes(q) || u.name?.toLowerCase().includes(q);
+        // Searching by name/roll spans ALL eligible classes & sections.
+        if (isSearching) {
+            const q = searchQuery.toLowerCase();
+            return u.rollNumber?.toLowerCase().includes(q) || u.name?.toLowerCase().includes(q);
+        }
+        // No search → apply the class/section filter
+        const matchesClass = !classFilter || u.grade === classFilter;
+        const matchesSection = !sectionFilter || u.section === sectionFilter;
+        return matchesClass && matchesSection;
     });
 
     const addStudent = (student) => {
@@ -53,6 +78,8 @@ export default function EcaStudentSelectionPopup({ open, onClose, users = [], on
 
     const handleClose = () => {
         setSearchQuery('');
+        setClassFilter('');
+        setSectionFilter('');
         setSelectedRolls([]);
         onClose();
     };
@@ -112,8 +139,49 @@ export default function EcaStudentSelectionPopup({ open, onClose, users = [], on
                                             ),
                                         }
                                     }}
-                                    sx={{ mb: 1.5, '& .MuiOutlinedInput-root': { borderRadius: '8px', fontSize: 13 } }}
+                                    sx={{ mb: 1, '& .MuiOutlinedInput-root': { borderRadius: '8px', fontSize: 13 } }}
                                 />
+
+                                {/* Class / Section filter — disabled while searching (search spans all classes) */}
+                                <Box sx={{ display: 'flex', gap: 1, mb: 0.8 }}>
+                                    <FormControl size="small" sx={{ flex: 1 }} disabled={isSearching || classOptions.length === 0}>
+                                        <InputLabel sx={{ fontSize: 12, '&.Mui-focused': { color: ECA_COLOR } }}>Class</InputLabel>
+                                        <Select
+                                            value={classFilter}
+                                            label="Class"
+                                            onChange={(e) => { setClassFilter(e.target.value); setSectionFilter(''); }}
+                                            sx={{ fontSize: 12, borderRadius: '8px' }}
+                                        >
+                                            <MenuItem value="" sx={{ fontSize: 12 }}><em>All Classes</em></MenuItem>
+                                            {classOptions.map((c) => (
+                                                <MenuItem key={c} value={c} sx={{ fontSize: 12 }}>{c}</MenuItem>
+                                            ))}
+                                        </Select>
+                                    </FormControl>
+                                    <FormControl size="small" sx={{ flex: 1 }} disabled={isSearching || sectionOptions.length === 0}>
+                                        <InputLabel sx={{ fontSize: 12, '&.Mui-focused': { color: ECA_COLOR } }}>Section</InputLabel>
+                                        <Select
+                                            value={sectionFilter}
+                                            label="Section"
+                                            onChange={(e) => setSectionFilter(e.target.value)}
+                                            sx={{ fontSize: 12, borderRadius: '8px' }}
+                                        >
+                                            <MenuItem value="" sx={{ fontSize: 12 }}><em>All Sections</em></MenuItem>
+                                            {sectionOptions.map((s) => (
+                                                <MenuItem key={s} value={s} sx={{ fontSize: 12 }}>{s}</MenuItem>
+                                            ))}
+                                        </Select>
+                                    </FormControl>
+                                </Box>
+
+                                <Typography sx={{ fontSize: 10.5, color: '#9CA3AF', mb: 1.2, minHeight: 14 }}>
+                                    {isSearching
+                                        ? 'Searching across all eligible classes & sections'
+                                        : (classFilter || sectionFilter)
+                                            ? `Showing ${filteredUsers.length} student${filteredUsers.length !== 1 ? 's' : ''} in this filter`
+                                            : ''}
+                                </Typography>
+
                                 <Box sx={{ maxHeight: 280, overflowY: 'auto', '&::-webkit-scrollbar': { width: '4px' }, '&::-webkit-scrollbar-thumb': { backgroundColor: '#D1D5DB', borderRadius: '10px' } }}>
                                     {filteredUsers.length === 0 ? (
                                         <Box sx={{ py: 4, textAlign: 'center' }}>

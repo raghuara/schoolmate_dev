@@ -78,7 +78,10 @@ export default function AcademicYearSetupPage() {
             });
             const body = res?.data;
             if (body && !body.error) {
-                if (Number.isInteger(body.startMonth)) setStartMonth(body.startMonth);
+                if (Number.isInteger(body.startMonth)) {
+                    const uiMonth = body.startMonth - 1;
+                    if (uiMonth >= 0 && uiMonth <= 11) setStartMonth(uiMonth);
+                }
                 setIsLocked(!!body.isLocked);
                 setServerConfig(body);
             }
@@ -168,7 +171,7 @@ export default function AcademicYearSetupPage() {
             const body = {
                 createdByRollNumber: rollNumber || '',
                 createdByUserType: userType || '',
-                startMonth,
+                startMonth: startMonth + 1,
             };
             const res = await axios.post(PostAcademicYearConfig, body, {
                 headers: { Authorization: `Bearer ${token}` },

@@ -2,7 +2,7 @@ import { Box } from '@mui/system'
 import React, { useEffect, useState } from 'react'
 import Loader from '../../../Loader'
 import SnackBar from '../../../SnackBar'
-import { Autocomplete, Button, Card, CardContent, Dialog, DialogActions, DialogContent, DialogTitle, Grid, IconButton, InputAdornment, InputLabel, MenuItem, Popper, Select, Switch, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tabs, TextField, Tooltip, Typography, Chip, Divider } from '@mui/material';
+import { Autocomplete, Button, Card, CardContent, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, Grid, IconButton, InputAdornment, InputLabel, MenuItem, Popper, Select, Switch, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tabs, TextField, Tooltip, Typography, Chip, Divider } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -37,6 +37,7 @@ import dayjs from 'dayjs';
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 
 
 export default function TransportFeeStructure() {
@@ -135,6 +136,44 @@ export default function TransportFeeStructure() {
       ...prev,
       [stopId]: !prev[stopId]
     }));
+  };
+
+  const stopHasFees = (stopId) => {
+    if (!stopId) return false;
+    return grades.some(g => {
+      const v = feeAmounts[`${stopId}_${g.id}`];
+      return v !== undefined && v !== '' && v !== '0';
+    });
+  };
+
+  const handleCopyFromStop = (sourceStopId, targetStopId) => {
+    if (!sourceStopId || !targetStopId || sourceStopId === targetStopId) return;
+
+    const sourceStop = selectedTripDetails?.routeStops.find(s => s.id === sourceStopId);
+
+    const updates = {};
+    grades.forEach(g => {
+      const v = feeAmounts[`${sourceStopId}_${g.id}`];
+      if (v !== undefined && v !== '') {
+        updates[`${targetStopId}_${g.id}`] = v;
+      }
+    });
+
+    if (Object.keys(updates).length === 0) {
+      setMessage(`No fees to copy from "${sourceStop?.place || 'source stop'}".`);
+      setColor('warning');
+      setStatus(true);
+      setOpen(true);
+      return;
+    }
+
+    setFeeAmounts(prev => ({ ...prev, ...updates }));
+    setSameFeeEnabled(prev => ({ ...prev, [targetStopId]: !!prev[sourceStopId] }));
+
+    setMessage(`Fees copied from "${sourceStop?.place || 'source stop'}".`);
+    setColor('success');
+    setStatus(true);
+    setOpen(true);
   };
 
   const handleSelectRoute = (routeId) => {
@@ -939,42 +978,131 @@ export default function TransportFeeStructure() {
                         </Box>
                       </Box>
 
-                      {/* Same Fee Toggle */}
-                      <Box sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 1,
-                        px: 2,
-                        py: 0.5,
-                        bgcolor: sameFeeEnabled[stop.id] ? "#E0F2FE" : "transparent",
-                        borderRadius: "4px",
-                        border: sameFeeEnabled[stop.id] ? "1px solid #0284C7" : "1px solid transparent",
-                      }}>
-                        <LinkIcon sx={{
-                          fontSize: 16,
-                          color: sameFeeEnabled[stop.id] ? "#0284C7" : "#999"
-                        }} />
-                        <Typography sx={{
-                          fontSize: "13px",
-                          fontWeight: 600,
-                          color: sameFeeEnabled[stop.id] ? "#0284C7" : "#666"
+          
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1, pr: 1 }}>
+                        {/* Copy from filled stops */}
+                        {(() => {
+                          const filledOtherStops = selectedTripDetails.routeStops
+                            .map((s, i) => ({ ...s, displayIndex: i + 1 }))
+                            .filter(s => s.id !== stop.id && stopHasFees(s.id));
+                          const noSources = filledOtherStops.length === 0;
+                          return (
+                            <Tooltip
+                              title={
+                                feeAlreadyCreated
+                                  ? "Fee structure already created"
+                                  : noSources
+                                    ? "No other stops have fees filled yet"
+                                    : "Copy fees from another filled stop"
+                              }
+                              placement="top"
+                              arrow
+                            >
+                              <span>
+                                <FormControl size="small" disabled={feeAlreadyCreated || noSources}>
+                                  <Select
+                                    value=""
+                                    displayEmpty
+                                    onChange={(e) => {
+                                      const sourceId = e.target.value;
+                                      if (sourceId) handleCopyFromStop(sourceId, stop.id);
+                                    }}
+                                    renderValue={() => (
+                                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.6 }}>
+                                        <ContentCopyIcon sx={{ fontSize: 14, color: "#0284C7" }} />
+                                        <Typography sx={{ fontSize: "12px", color: "#0284C7", fontWeight: 600 }}>
+                                          Copy from...
+                                        </Typography>
+                                      </Box>
+                                    )}
+                                    MenuProps={{
+                                      anchorOrigin: { vertical: "bottom", horizontal: "left" },
+                                      transformOrigin: { vertical: "top", horizontal: "left" },
+                                      slotProps: {
+                                        paper: {
+                                          sx: {
+                                            mt: 0.5,
+                                            maxHeight: 280,
+                                            minWidth: 220,
+                                            borderRadius: "5px",
+                                            border: "1px solid #E8DDEA",
+                                            boxShadow: "0 6px 20px rgba(0,0,0,0.12)",
+                                          }
+                                        }
+                                      }
+                                    }}
+                                    sx={{
+                                      height: 32, minWidth: 150,
+                                      bgcolor: "#fff",
+                                      borderRadius: "4px",
+                                      fontSize: "12px",
+                                      "& .MuiOutlinedInput-notchedOutline": { borderColor: "#BAE6FD" },
+                                      "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#0284C7" },
+                                      "&.Mui-disabled .MuiOutlinedInput-notchedOutline": { borderColor: "#ddd" },
+                                    }}
+                                  >
+                                    {filledOtherStops.map(s => (
+                                      <MenuItem key={s.id} value={s.id} sx={{ fontSize: "12px" }}>
+                                        <Box sx={{ display: "flex", alignItems: "center", gap: 1, width: "100%" }}>
+                                          <Box sx={{
+                                            minWidth: 20, height: 20, borderRadius: "4px",
+                                            bgcolor: "#1976d2", color: "#fff",
+                                            display: "flex", alignItems: "center", justifyContent: "center",
+                                            fontSize: "10px", fontWeight: 700,
+                                          }}>
+                                            {s.displayIndex}
+                                          </Box>
+                                          <FmdGoodIcon sx={{ fontSize: 14, color: "#00796b" }} />
+                                          <Typography sx={{ fontSize: "12px", fontWeight: 600, color: "#333" }} noWrap>
+                                            Stop {s.displayIndex} · {s.place}
+                                          </Typography>
+                                        </Box>
+                                      </MenuItem>
+                                    ))}
+                                  </Select>
+                                </FormControl>
+                              </span>
+                            </Tooltip>
+                          );
+                        })()}
+
+                        {/* Same Fee Toggle */}
+                        <Box sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 1,
+                          px: 1.5,
+                          py: 0.5,
+                          bgcolor: sameFeeEnabled[stop.id] ? "#E0F2FE" : "transparent",
+                          borderRadius: "4px",
+                          border: sameFeeEnabled[stop.id] ? "1px solid #0284C7" : "1px solid transparent",
                         }}>
-                          Same Fee for All Classes
-                        </Typography>
-                        <Switch
-                          size="small"
-                          disabled={feeAlreadyCreated}
-                          checked={sameFeeEnabled[stop.id] || false}
-                          onChange={() => handleSameFeeToggle(stop.id)}
-                          sx={{
-                            '& .MuiSwitch-switchBase.Mui-checked': {
-                              color: '#00796b',
-                            },
-                            '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                              backgroundColor: '#00796b',
-                            },
-                          }}
-                        />
+                          <LinkIcon sx={{
+                            fontSize: 16,
+                            color: sameFeeEnabled[stop.id] ? "#0284C7" : "#999"
+                          }} />
+                          <Typography sx={{
+                            fontSize: "13px",
+                            fontWeight: 600,
+                            color: sameFeeEnabled[stop.id] ? "#0284C7" : "#666"
+                          }}>
+                            Same Fee for All Classes
+                          </Typography>
+                          <Switch
+                            size="small"
+                            disabled={feeAlreadyCreated}
+                            checked={sameFeeEnabled[stop.id] || false}
+                            onChange={() => handleSameFeeToggle(stop.id)}
+                            sx={{
+                              '& .MuiSwitch-switchBase.Mui-checked': {
+                                color: '#00796b',
+                              },
+                              '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                                backgroundColor: '#00796b',
+                              },
+                            }}
+                          />
+                        </Box>
                       </Box>
                     </Box>
 

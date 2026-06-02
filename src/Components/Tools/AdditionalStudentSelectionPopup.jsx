@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
     Box, Button, Dialog, Typography, TextField, Chip, Grid,
     IconButton, Divider, InputAdornment, List, ListItemButton, Avatar,
+    FormControl, InputLabel, Select, MenuItem,
 } from '@mui/material';
 import { Stack } from '@mui/system';
 import CloseIcon from '@mui/icons-material/Close';
@@ -23,12 +24,16 @@ export default function AdditionalStudentSelectionPopup({
     activity = null,
 }) {
     const [searchQuery, setSearchQuery] = useState('');
+    const [classFilter, setClassFilter] = useState('');
+    const [sectionFilter, setSectionFilter] = useState('');
     const [selectedRolls, setSelectedRolls] = useState([]);
 
     useEffect(() => {
         if (open) {
             setSelectedRolls(existingStudents);
             setSearchQuery('');
+            setClassFilter('');
+            setSectionFilter('');
         }
     }, [open, existingStudents]);
 
@@ -41,10 +46,28 @@ export default function AdditionalStudentSelectionPopup({
 
     const existingSet = useMemo(() => new Set(existingStudents), [existingStudents]);
 
+    const classOptions = useMemo(
+        () => [...new Set(users.map((u) => u.grade).filter(Boolean))],
+        [users]
+    );
+
+    const sectionOptions = useMemo(() => {
+        const pool = classFilter ? users.filter((u) => u.grade === classFilter) : users;
+        return [...new Set(pool.map((u) => u.section).filter(Boolean))];
+    }, [users, classFilter]);
+
+    const isSearching = !!searchQuery.trim();
+
     const filteredUsers = users.filter((u) => {
-        if (!searchQuery.trim()) return true;
-        const q = searchQuery.toLowerCase();
-        return u.rollNumber?.toLowerCase().includes(q) || u.name?.toLowerCase().includes(q);
+        // Searching by name/roll spans ALL classes & sections.
+        if (isSearching) {
+            const q = searchQuery.toLowerCase();
+            return u.rollNumber?.toLowerCase().includes(q) || u.name?.toLowerCase().includes(q);
+        }
+        // No search → apply the class/section filter
+        const matchesClass = !classFilter || u.grade === classFilter;
+        const matchesSection = !sectionFilter || u.section === sectionFilter;
+        return matchesClass && matchesSection;
     });
 
     const addStudent = (student) => {
@@ -64,6 +87,8 @@ export default function AdditionalStudentSelectionPopup({
 
     const handleClose = () => {
         setSearchQuery('');
+        setClassFilter('');
+        setSectionFilter('');
         setSelectedRolls([]);
         onClose();
     };
@@ -152,8 +177,49 @@ export default function AdditionalStudentSelectionPopup({
                                             ),
                                         }
                                     }}
-                                    sx={{ mb: 1.5, '& .MuiOutlinedInput-root': { borderRadius: '8px', fontSize: 13 } }}
+                                    sx={{ mb: 1, '& .MuiOutlinedInput-root': { borderRadius: '8px', fontSize: 13 } }}
                                 />
+
+                                {/* Class / Section filter — disabled while searching (search spans all classes) */}
+                                <Box sx={{ display: 'flex', gap: 1, mb: 0.8 }}>
+                                    <FormControl size="small" sx={{ flex: 1 }} disabled={isSearching || classOptions.length === 0}>
+                                        <InputLabel sx={{ fontSize: 12, '&.Mui-focused': { color: MAIN_COLOR } }}>Class</InputLabel>
+                                        <Select
+                                            value={classFilter}
+                                            label="Class"
+                                            onChange={(e) => { setClassFilter(e.target.value); setSectionFilter(''); }}
+                                            sx={{ fontSize: 12, borderRadius: '8px' }}
+                                        >
+                                            <MenuItem value="" sx={{ fontSize: 12 }}><em>All Classes</em></MenuItem>
+                                            {classOptions.map((c) => (
+                                                <MenuItem key={c} value={c} sx={{ fontSize: 12 }}>{c}</MenuItem>
+                                            ))}
+                                        </Select>
+                                    </FormControl>
+                                    <FormControl size="small" sx={{ flex: 1 }} disabled={isSearching || sectionOptions.length === 0}>
+                                        <InputLabel sx={{ fontSize: 12, '&.Mui-focused': { color: MAIN_COLOR } }}>Section</InputLabel>
+                                        <Select
+                                            value={sectionFilter}
+                                            label="Section"
+                                            onChange={(e) => setSectionFilter(e.target.value)}
+                                            sx={{ fontSize: 12, borderRadius: '8px' }}
+                                        >
+                                            <MenuItem value="" sx={{ fontSize: 12 }}><em>All Sections</em></MenuItem>
+                                            {sectionOptions.map((s) => (
+                                                <MenuItem key={s} value={s} sx={{ fontSize: 12 }}>{s}</MenuItem>
+                                            ))}
+                                        </Select>
+                                    </FormControl>
+                                </Box>
+
+                                <Typography sx={{ fontSize: 10.5, color: '#9CA3AF', mb: 1.2, minHeight: 14 }}>
+                                    {isSearching
+                                        ? 'Searching across all classes & sections'
+                                        : (classFilter || sectionFilter)
+                                            ? `Showing ${filteredUsers.length} student${filteredUsers.length !== 1 ? 's' : ''} in this filter`
+                                            : ''}
+                                </Typography>
+
                                 <Box sx={{
                                     maxHeight: 280, overflowY: 'auto',
                                     '&::-webkit-scrollbar': { width: '4px' },

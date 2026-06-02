@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { Box, IconButton, useMediaQuery, useTheme, Typography, Dialog, DialogContent, DialogActions, Button, Tooltip, tooltipClasses } from '@mui/material';
+import React, { useEffect, useState } from 'react';
+import { Box, IconButton, useMediaQuery, useTheme, Typography, Dialog, DialogContent, DialogActions, Button, Tooltip, tooltipClasses, Autocomplete, TextField } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import CloseIcon from '@mui/icons-material/Close';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { useDispatch, useSelector } from 'react-redux';
 import { toggleMainMenu } from '../../Redux/Slices/MainMenuSlice';
 import productLogo from '../../Images/Login/SchoolMate Logo.png';
@@ -11,6 +12,26 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import { useNavigate } from 'react-router-dom';
 import { logout } from '../../Redux/Slices/AuthSlice';
 import { styled } from '@mui/system';
+import {
+  fetchAcademicYearConfig,
+  setSelectedAcademicYear,
+  selectAcademicYear,
+  selectAcademicYearOptions,
+  selectAcademicYearMeta,
+} from '../../Redux/Slices/academicYearSlice';
+
+const CustomTooltip = styled(({ className, ...props }) => (
+  <Tooltip {...props} classes={{ popper: className }} />
+))({
+  [`& .${tooltipClasses.tooltip}`]: {
+    backgroundColor: 'black',
+    color: 'white',
+    fontSize: '0.875rem',
+  },
+  [`& .${tooltipClasses.arrow}`]: {
+    color: 'black',
+  },
+});
 
 function DashbrdHeader() {
   const theme = useTheme();
@@ -19,7 +40,28 @@ function DashbrdHeader() {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isMainMenuOpen = useSelector((state) => state.menu.isMainMenuOpen);
   const websiteSettings = useSelector(selectWebsiteSettings);
+  const selectedAcademicYear = useSelector(selectAcademicYear);
+  const academicYearOptions = useSelector(selectAcademicYearOptions);
+  const academicYearMeta = useSelector(selectAcademicYearMeta);
   const [openDrawer, setOpenDrawer] = useState(false);
+
+  const academicYearWindowLabel = (() => {
+    if (!selectedAcademicYear || !academicYearMeta?.startMonthName || !academicYearMeta?.endMonthName) {
+      return '';
+    }
+    const parts = String(selectedAcademicYear).split('-').map((s) => Number(s.trim()));
+    if (parts.length === 1 && Number.isFinite(parts[0])) {
+      return `${academicYearMeta.startMonthName} ${parts[0]} → ${academicYearMeta.endMonthName} ${parts[0]}`;
+    }
+    if (parts.length === 2 && Number.isFinite(parts[0]) && Number.isFinite(parts[1])) {
+      return `${academicYearMeta.startMonthName} ${parts[0]} → ${academicYearMeta.endMonthName} ${parts[1]}`;
+    }
+    return '';
+  })();
+
+  useEffect(() => {
+    dispatch(fetchAcademicYearConfig());
+  }, [dispatch]);
 
   const handleToggleSidebar = () => {
     dispatch(toggleMainMenu());
@@ -39,21 +81,6 @@ function DashbrdHeader() {
     navigate("/");
     dispatch(logout());
   };
-
-  const CustomTooltip = styled(({ className, ...props }) => (
-    <Tooltip {...props} classes={{ popper: className }} />
-  ))
-  ({
-    [`& .${tooltipClasses.tooltip}`]: {
-      backgroundColor: 'black',
-      color: 'white',
-      fontSize: '0.875rem',
-    },
-    [`& .${tooltipClasses.arrow}`]: {
-      color: 'black',
-    },
-  });
-
 
   return (
     <Box
@@ -78,28 +105,78 @@ function DashbrdHeader() {
           <img src={productLogo} width={"150px"} alt="logo" />
         </Box>
       </Box>
-      {isMobile && (
-        <IconButton onClick={handleToggleSidebar}>
-          {isMainMenuOpen ? <CloseIcon /> : <MenuIcon />}
-        </IconButton>
-      )}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
+        {academicYearOptions && academicYearOptions.length > 0 && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Autocomplete
+              size="small"
+              disableClearable
+              options={academicYearOptions}
+              sx={{ width: '170px' }}
+              value={selectedAcademicYear && academicYearOptions.includes(selectedAcademicYear) ? selectedAcademicYear : null}
+              onChange={(_, newValue) => newValue && dispatch(setSelectedAcademicYear(newValue))}
+              renderInput={(params) => (
+                <TextField
+                  placeholder="Select Academic Year"
+                  {...params}
+                  variant="outlined"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: '5px',
+                      fontSize: 14,
+                      height: 35,
+                    },
+                    '& .MuiOutlinedInput-input': {
+                      textAlign: 'center',
+                      fontWeight: '600',
+                    },
+                  }}
+                />
+              )}
+            />
+            {academicYearWindowLabel && (
+              <CustomTooltip
+                title={
+                  <Box sx={{ px: 0.5, py: 0.3 }}>
+                    <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: '#FCBE3A', textTransform: 'uppercase', letterSpacing: 0.5, mb: 0.3 }}>
+                      Academic Year Window
+                    </Typography>
+                    <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#fff', lineHeight: 1.3 }}>
+                      {academicYearWindowLabel}
+                    </Typography>
+                  </Box>
+                }
+                arrow
+                placement="bottom"
+              >
+                <IconButton size="small" sx={{ p: 0.3 }}>
+                  <InfoOutlinedIcon sx={{ fontSize: 18, color: '#555' }} />
+                </IconButton>
+              </CustomTooltip>
+            )}
+          </Box>
+        )}
 
-      <CustomTooltip title={"Logout"} arrow placement="right-start">
-        <IconButton
-          onClick={handleLogoutClick}
-          sx={{
+        {isMobile && (
+          <IconButton onClick={handleToggleSidebar}>
+            {isMainMenuOpen ? <CloseIcon /> : <MenuIcon />}
+          </IconButton>
+        )}
 
-            // position:"absolute",
-            //  bottom: userType === "teacher" ? "-190%" : "none",
-            backgroundColor: "#000",
-            "&:hover": {
-              backgroundColor: "#000"
-            }
-          }}
-        >
-          <LogoutIcon style={{ color: "#fff", fontSize: "16px" }} />
-        </IconButton>
-      </CustomTooltip>
+        <CustomTooltip title={"Logout"} arrow placement="right-start">
+          <IconButton
+            onClick={handleLogoutClick}
+            sx={{
+              backgroundColor: "#000",
+              "&:hover": {
+                backgroundColor: "#fff"
+              }
+            }}
+          >
+            <LogoutIcon style={{ color: "#fff", fontSize: "16px" }} />
+          </IconButton>
+        </CustomTooltip>
+      </Box>
 
       <Dialog
         open={openDrawer}

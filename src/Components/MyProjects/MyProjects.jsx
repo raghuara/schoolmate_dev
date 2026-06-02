@@ -23,6 +23,7 @@ import MessageIcon from '@mui/icons-material/Message';
 import StickyNote2Icon from '@mui/icons-material/StickyNote2';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import LibraryBooksIcon from '@mui/icons-material/LibraryBooks';
+import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 
 
 
@@ -53,6 +54,7 @@ export default function MyProjectPage() {
         { color: "#E10052", icon: MenuBookIcon, text: "Homeworks", bgColor: "#FCF8F9", iconBgColor: "#FBEBF1", path: '/dashboardmenu/homework' },
         // { color: "#4C17A3", icon: ExamIcon, text: "Exam Timetables", bgColor: "#FAF9FB", iconBgColor: "#F0ECF6", path: '/dashboardmenu/examtimetables' },
         { color: "#1F73C2", icon: LibraryBooksIcon, text: "Study Materials", bgColor: "#F9FAFC", iconBgColor: "#EEF3F9", path: '/dashboardmenu/studymaterials' },
+        { color: "#0891B2", icon: AssignmentTurnedInIcon, text: "Work Done", bgColor: "#F0FAFB", iconBgColor: "#E0F7FA", path: '/dashboardmenu/workdone' },
 
         // { color: "#073274", icon: MarksIcon, text: "Marks / Results", bgColor: "#F8F9FA", iconBgColor: "#ECEEF3", path: '/dashboardmenu/marks' },
         // { color: "#12A5B6", icon: CalendarIcon, text: "School Calender", bgColor: "#F8FAFA", iconBgColor: "#F0ECF6", path: '/dashboardmenu/schoolcalendar' },
@@ -61,7 +63,7 @@ export default function MyProjectPage() {
         // { color: "#AA018D", icon: AttendanceIcon, text: "Attendance", bgColor: "#FBF8FA", iconBgColor: "#F8EBF6", path: '/dashboardmenu/attendance' },
     ];
     const filteredItems = userType === "teacher"
-        ? items.filter(item => item.text === "Homeworks" || item.text === "Study Materials")
+        ? items.filter(item => item.text === "Homeworks" || item.text === "Study Materials" || item.text === "Work Done")
         : items;
     return (
         <Box sx={{ width: "100%", }}>

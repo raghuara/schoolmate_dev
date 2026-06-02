@@ -14,6 +14,7 @@ const initialState = {
         '/dashboardmenu/marks',
         '/dashboardmenu/schoolcalendar',
         '/dashboardmenu/events',
+        '/dashboardmenu/birthday-post',
         '/dashboardmenu/feedback',
         '/dashboardmenu/attendance',
         '/dashboardmenu/attendance/export',

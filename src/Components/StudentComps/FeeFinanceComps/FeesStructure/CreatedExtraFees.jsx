@@ -22,6 +22,7 @@ import { additionalFeeFetch, updateAdditionalFee, deleteAdditionalFeesStructure 
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { selectWebsiteSettings } from '../../../../Redux/Slices/websiteSettingsSlice'
+import { selectGrades } from '../../../../Redux/Slices/DropdownController'
 
 export default function CreatedExtraFees() {
   const navigate = useNavigate()
@@ -30,7 +31,23 @@ export default function CreatedExtraFees() {
   const userType = user.userType
   const token = '123'
   const websiteSettings = useSelector(selectWebsiteSettings)
+  const grades = useSelector(selectGrades) || []
   const isExpanded = useSelector((state) => state.sidebar.isExpanded)
+
+  
+  const getGradeEntries = (item) => {
+    if (item.grades && typeof item.grades === 'object') {
+      return Object.entries(item.grades).filter(
+        ([, amount]) => amount !== null && amount !== undefined && amount !== ''
+      )
+    }
+    if (grades.length > 0) {
+      return grades
+        .map((g) => [g.sign, item[g.sign.toLowerCase()]])
+        .filter(([, amount]) => amount !== null && amount !== undefined && amount !== '')
+    }
+    return []
+  }
 
   const currentYear = new Date().getFullYear()
   const currentAcademicYear = `${currentYear}-${currentYear + 1}`
@@ -75,7 +92,7 @@ export default function CreatedExtraFees() {
     setIsLoading(true)
     try {
       const res = await axios.get(additionalFeeFetch, {
-        params: { Year: selectedYear, Status: 'Approved' },
+        params: { Year: selectedYear },
         headers: { Authorization: `Bearer ${token}` },
       })
       setFeeList(res.data)
@@ -287,32 +304,87 @@ export default function CreatedExtraFees() {
                 </Box>
 
                 <Box p={2} sx={{ backgroundColor: '#fff', border: '1px solid #FFD5C2', borderRadius: '5px' }}>
-                  <TableContainer sx={{ border: '1px solid #FFD5C2', backgroundColor: '#fff', boxShadow: 'none', borderBottom: 'none' }}>
-                    <Table stickyHeader sx={{ minWidth: '100%' }}>
-                      <TableHead>
-                        <TableRow>
-                          <TableCell sx={{ borderRight: 1, borderColor: '#FFD5C2', textAlign: 'center', backgroundColor: '#FFF5F2' }}>Fee Name</TableCell>
-                          <TableCell sx={{ borderRight: 1, borderColor: '#FFD5C2', textAlign: 'center', backgroundColor: '#FFF5F2' }}>Remarks</TableCell>
-                          <TableCell sx={{ borderRight: 1, borderColor: '#FFD5C2', textAlign: 'center', backgroundColor: '#FFF5F2' }}>Payment Status</TableCell>
-                          <TableCell sx={{ borderRight: 1, borderColor: '#FFD5C2', textAlign: 'center', backgroundColor: '#FFF5F2' }}>Fee Amount</TableCell>
-                          <TableCell sx={{ borderRight: 1, borderColor: '#FFD5C2', textAlign: 'center', backgroundColor: '#FFF5F2' }}>Due Date</TableCell>
-                          <TableCell sx={{ borderColor: '#FFD5C2', textAlign: 'center', backgroundColor: '#FFF5F2' }}>Created By</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        <TableRow>
-                          <TableCell sx={{ borderRight: 1, borderColor: '#FFD5C2', textAlign: 'center' }}>{item.feeName}</TableCell>
-                          <TableCell sx={{ borderRight: 1, borderColor: '#FFD5C2', textAlign: 'center' }}>{item.remarks}</TableCell>
-                          <TableCell sx={{ borderRight: 1, borderColor: '#FFD5C2', textAlign: 'center' }}>{item.paid === 'Y' ? 'Paid' : 'Unpaid'}</TableCell>
-                          <TableCell sx={{ borderRight: 1, borderColor: '#FFD5C2', textAlign: 'center' }}>₹ {item.feeAmount}</TableCell>
-                          <TableCell sx={{ borderRight: 1, borderColor: '#FFD5C2', textAlign: 'center' }}>{formatDate(item.dueDate)}</TableCell>
-                          <TableCell sx={{ borderColor: '#FFD5C2', textAlign: 'center' }}>
-                            {item.createdByRollName} - {item.createdByRollNumber}
-                          </TableCell>
-                        </TableRow>
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
+                  {(() => {
+                    const gradeEntries = getGradeEntries(item)
+                    const isGradeWise = gradeEntries.length > 0
+
+                    
+                    if (isGradeWise) {
+                      return (
+                        <>
+                          <TableContainer sx={{ border: '1px solid #FFD5C2', backgroundColor: '#fff', boxShadow: 'none', borderBottom: 'none' }}>
+                            <Table stickyHeader sx={{ minWidth: '100%' }}>
+                              <TableHead>
+                                <TableRow>
+                                  <TableCell sx={{ borderRight: 1, borderColor: '#FFD5C2', textAlign: 'center', backgroundColor: '#FFF5F2' }}>Fee Name</TableCell>
+                                  <TableCell sx={{ borderRight: 1, borderColor: '#FFD5C2', textAlign: 'center', backgroundColor: '#FFF5F2' }}>Remarks</TableCell>
+                                  <TableCell sx={{ borderRight: 1, borderColor: '#FFD5C2', textAlign: 'center', backgroundColor: '#FFF5F2' }}>Payment Status</TableCell>
+                                  <TableCell sx={{ textAlign: 'center', backgroundColor: '#FFF5F2' }}>Due Date</TableCell>
+                                </TableRow>
+                              </TableHead>
+                              <TableBody>
+                                <TableRow>
+                                  <TableCell sx={{ borderRight: 1, borderColor: '#FFD5C2', textAlign: 'center' }}>{item.feeName}</TableCell>
+                                  <TableCell sx={{ borderRight: 1, borderColor: '#FFD5C2', textAlign: 'center' }}>{item.remarks}</TableCell>
+                                  <TableCell sx={{ borderRight: 1, borderColor: '#FFD5C2', textAlign: 'center' }}>{item.paid === 'Y' ? 'Paid' : 'Unpaid'}</TableCell>
+                                  <TableCell sx={{ textAlign: 'center' }}>{formatDate(item.dueDate)}</TableCell>
+                                </TableRow>
+                              </TableBody>
+                            </Table>
+                          </TableContainer>
+
+                          <Box sx={{ backgroundColor: '#FFEDE5', p: 3, border: '1px solid #FFD5C2', borderTop: 'none' }}>
+                            <Grid container spacing={2}>
+                              {gradeEntries.map(([gradeKey, amount]) => (
+                                <Grid size={{ xs: 6, sm: 4, md: 2, lg: 1.5 }} key={gradeKey}>
+                                  <Typography sx={{ color: '#EA580C', fontSize: '12px', mb: 0.5 }}>
+                                    {String(gradeKey).toUpperCase()}
+                                  </Typography>
+                                  <Box sx={{
+                                    border: '1px solid #0000003A', borderRadius: '5px',
+                                    height: '30px', backgroundColor: '#F6F6F8',
+                                    px: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                  }}>
+                                    ₹ {amount}
+                                  </Box>
+                                </Grid>
+                              ))}
+                            </Grid>
+                          </Box>
+                        </>
+                      )
+                    }
+
+                    
+                    return (
+                      <TableContainer sx={{ border: '1px solid #FFD5C2', backgroundColor: '#fff', boxShadow: 'none', borderBottom: 'none' }}>
+                        <Table stickyHeader sx={{ minWidth: '100%' }}>
+                          <TableHead>
+                            <TableRow>
+                              <TableCell sx={{ borderRight: 1, borderColor: '#FFD5C2', textAlign: 'center', backgroundColor: '#FFF5F2' }}>Fee Name</TableCell>
+                              <TableCell sx={{ borderRight: 1, borderColor: '#FFD5C2', textAlign: 'center', backgroundColor: '#FFF5F2' }}>Remarks</TableCell>
+                              <TableCell sx={{ borderRight: 1, borderColor: '#FFD5C2', textAlign: 'center', backgroundColor: '#FFF5F2' }}>Payment Status</TableCell>
+                              <TableCell sx={{ borderRight: 1, borderColor: '#FFD5C2', textAlign: 'center', backgroundColor: '#FFF5F2' }}>Fee Amount</TableCell>
+                              <TableCell sx={{ borderRight: 1, borderColor: '#FFD5C2', textAlign: 'center', backgroundColor: '#FFF5F2' }}>Due Date</TableCell>
+                              <TableCell sx={{ borderColor: '#FFD5C2', textAlign: 'center', backgroundColor: '#FFF5F2' }}>Created By</TableCell>
+                            </TableRow>
+                          </TableHead>
+                          <TableBody>
+                            <TableRow>
+                              <TableCell sx={{ borderRight: 1, borderColor: '#FFD5C2', textAlign: 'center' }}>{item.feeName}</TableCell>
+                              <TableCell sx={{ borderRight: 1, borderColor: '#FFD5C2', textAlign: 'center' }}>{item.remarks}</TableCell>
+                              <TableCell sx={{ borderRight: 1, borderColor: '#FFD5C2', textAlign: 'center' }}>{item.paid === 'Y' ? 'Paid' : 'Unpaid'}</TableCell>
+                              <TableCell sx={{ borderRight: 1, borderColor: '#FFD5C2', textAlign: 'center' }}>₹ {item.feeAmount}</TableCell>
+                              <TableCell sx={{ borderRight: 1, borderColor: '#FFD5C2', textAlign: 'center' }}>{formatDate(item.dueDate)}</TableCell>
+                              <TableCell sx={{ borderColor: '#FFD5C2', textAlign: 'center' }}>
+                                {item.createdByRollName} - {item.createdByRollNumber}
+                              </TableCell>
+                            </TableRow>
+                          </TableBody>
+                        </Table>
+                      </TableContainer>
+                    )
+                  })()}
                 </Box>
               </React.Fragment>
             ))
