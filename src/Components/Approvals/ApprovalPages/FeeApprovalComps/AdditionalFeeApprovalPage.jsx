@@ -1,4 +1,6 @@
-import { Autocomplete, Box, Button, Card, Chip, createTheme, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Fab, Grid, IconButton, Popper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from "@mui/material";
+import { Autocomplete, Box, Button, Card, Chip, createTheme, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Fab, FormControlLabel, Grid, IconButton, InputAdornment, Popper, Switch, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Tooltip, Typography } from "@mui/material";
+import AddIcon from '@mui/icons-material/Add';
+import ClearIcon from '@mui/icons-material/Clear';
 import axios from "axios";
 import React, { useEffect, useRef, useState } from "react";
 import Loader from "../../../Loader";
@@ -8,8 +10,13 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useDispatch, useSelector } from "react-redux";
 import { selectWebsiteSettings } from "../../../../Redux/Slices/websiteSettingsSlice";
 import { selectGrades } from "../../../../Redux/Slices/DropdownController";
+import {
+    selectAcademicYear,
+    selectAcademicYearOptions,
+    setSelectedAcademicYear,
+} from "../../../../Redux/Slices/academicYearSlice";
 import NoData from '../../../../Images/Login/No Data.png'
-import { additionalFeeFetch, approvalStatusCheck, updateAdditionalFee, updateAdditionalFeesApprovalAction, updateSchoolFee, updateSchoolFeesApprovalAction } from "../../../../Api/Api";
+import { additionalFeeFetch, updateAdditionalFee, updateAdditionalFeesApprovalAction } from "../../../../Api/Api";
 
 export default function AdditionalFeeApprovalPage() {
     const user = useSelector((state) => state.auth);
@@ -27,9 +34,9 @@ export default function AdditionalFeeApprovalPage() {
     const location = useLocation();
     const tabIndex = location.state?.tabIndex ?? 1;
 
-    const currentYear = new Date().getFullYear();
-    const currentAcademicYear = `${currentYear}-${currentYear + 1}`;
-    const [selectedYear, setSelectedYear] = useState(currentAcademicYear);
+    
+    const selectedYear = useSelector(selectAcademicYear);
+    const academicYears = useSelector(selectAcademicYearOptions);
     const [selectedClass, setSelectedClass] = useState("Prekg");
 
     const websiteSettings = useSelector(selectWebsiteSettings)
@@ -43,7 +50,15 @@ export default function AdditionalFeeApprovalPage() {
 
     const [rejectReason, setRejectReason] = useState("");
     const [rejectError, setRejectError] = useState(false);
-    const [editFees, setEditFees] = useState([]);
+    const [editFees, setEditFees] = useState({
+        id: null,
+        feeName: '',
+        remarks: '',
+        paid: 'Y',
+        dueDate: null,
+        gradeAmounts: {},
+    });
+    const [editRemovedGrades, setEditRemovedGrades] = useState(new Set());
 
     const dispatch = useDispatch();
     const grades = useSelector(selectGrades);
@@ -55,11 +70,20 @@ export default function AdditionalFeeApprovalPage() {
 
 
 
-    const academicYears = [
-        `${currentYear - 2}-${currentYear - 1}`,
-        `${currentYear - 1}-${currentYear}`,
-        `${currentYear}-${currentYear + 1}`,
-    ];
+    
+    const getGradeEntries = (item) => {
+        if (item.grades && typeof item.grades === 'object') {
+            return Object.entries(item.grades).filter(
+                ([, amount]) => amount !== null && amount !== undefined && amount !== ''
+            );
+        }
+        if (grades && grades.length > 0) {
+            return grades
+                .map((g) => [g.sign, item[g.sign.toLowerCase()]])
+                .filter(([, amount]) => amount !== null && amount !== undefined && amount !== '');
+        }
+        return [];
+    };
 
     const formatDate = (dateString) => {
         if (!dateString) return "-";
@@ -92,19 +116,25 @@ export default function AdditionalFeeApprovalPage() {
     }, [selectedYear, selectedGradeId]);
 
     const fetchStatusDetails = async () => {
+        if (!selectedYear) return; // wait for the global academic year to load
         setIsLoading(true);
         try {
             const res = await axios.get(additionalFeeFetch, {
                 params: {
                     Year: selectedYear,
-                    Status: "Requested"
+                    Status: "Requested",
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
                 },
             });
 
-            setDetails(res.data)
+           
+            const data = res.data;
+            const list = Array.isArray(data)
+                ? data
+                : (data?.fees || data?.additionalFees || data?.data || []);
+            setDetails(list)
         } catch (error) {
             console.error("Error while inserting news data:", error);
         } finally {
@@ -162,22 +192,63 @@ export default function AdditionalFeeApprovalPage() {
     };
 
 
+    const handleEditGradeChange = (gradeSign, value) => {
+        if (!/^\d{0,8}$/.test(value)) return;
+        const cleaned = value.replace(/^0+(\d)/, '$1');
+        setEditFees((prev) => ({
+            ...prev,
+            gradeAmounts: { ...prev.gradeAmounts, [gradeSign]: cleaned },
+        }));
+    };
+
+    const handleEditRemoveGrade = (gradeSign) => {
+        setEditRemovedGrades((prev) => new Set([...prev, gradeSign]));
+        setEditFees((prev) => {
+            const newAmounts = { ...prev.gradeAmounts };
+            delete newAmounts[gradeSign];
+            return { ...prev, gradeAmounts: newAmounts };
+        });
+    };
+
+    const handleEditRestoreGrade = (gradeSign) => {
+        setEditRemovedGrades((prev) => {
+            const next = new Set(prev);
+            next.delete(gradeSign);
+            return next;
+        });
+    };
+
     const handleUpdate = async (status) => {
 
         setIsLoading(true);
         try {
-            const fee = editFees[0];
+            // Removed grades + blank inputs → null (hidden in Created Fees).
+            // Typed values (including 0) → Number(...).
+            const gradePayload = {};
+            grades.forEach((g) => {
+                const key = g.sign.toLowerCase();
+                if (editRemovedGrades.has(g.sign)) {
+                    gradePayload[key] = null;
+                    return;
+                }
+                const raw = editFees.gradeAmounts[g.sign];
+                gradePayload[key] = raw === undefined || raw === null || raw === '' ? null : Number(raw);
+            });
 
             const sendData = {
-                additionalFeesID: fee.id,
+                additionalFeesID: editFees.id,
                 rollNumber,
                 year: selectedYear,
-                feeName: fee.feeName,
-                remarks: fee.remarks,
-                paid: fee.paid,
-                feeAmount: fee.feeAmount,
-                dueDate: fee.dueDate,
-            }
+                feeName: editFees.feeName,
+                remarks: editFees.remarks,
+                paid: editFees.paid,
+                dueDate: editFees.dueDate
+                    ? (typeof editFees.dueDate === 'string'
+                        ? editFees.dueDate.slice(0, 10)
+                        : new Date(editFees.dueDate).toISOString().slice(0, 10))
+                    : null,
+                ...gradePayload,
+            };
 
             const res = await axios.put(updateAdditionalFee, sendData, {
                 headers: {
@@ -246,8 +317,8 @@ export default function AdditionalFeeApprovalPage() {
                                 size="small"
                                 options={academicYears}
                                 sx={{ width: "170px" }}
-                                value={selectedYear}
-                                onChange={(e, newValue) => setSelectedYear(newValue)}
+                                value={selectedYear || ''}
+                                onChange={(e, newValue) => { if (newValue) dispatch(setSelectedAcademicYear(newValue)) }}
                                 renderInput={(params) => (
                                     <TextField
                                         placeholder="Select Academic Year"
@@ -384,53 +455,86 @@ export default function AdditionalFeeApprovalPage() {
                                             borderRadius: "5px"
                                         }}
                                     >
-                                        <Table stickyHeader aria-label="attendance table" sx={{ minWidth: '100%' }}>
-                                            <TableHead>
-                                                <TableRow>
-                                                    <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#faf6fc" }}>
-                                                        Fee Name
-                                                    </TableCell>
-                                                    <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#faf6fc" }}>
-                                                        Remarks
-                                                    </TableCell>
-                                                    <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#faf6fc" }}>
-                                                        Payment Status
-                                                    </TableCell>
-                                                    <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#faf6fc" }}>
-                                                        Fee Amount
-                                                    </TableCell>
-                                                    <TableCell sx={{ textAlign: "center", backgroundColor: "#faf6fc" }}>
-                                                        Due Date
-                                                    </TableCell>
-                                                </TableRow>
-                                            </TableHead>
-                                            <TableBody>
+                                        {(() => {
+                                            const gradeEntries = getGradeEntries(item);
+                                            const isGradeWise = gradeEntries.length > 0;
 
-                                                <TableRow key={item.id}>
-
-
-                                                    <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center" }}>
-                                                        {item.feeName}
-                                                    </TableCell>
-
-                                                    <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center" }}>
-                                                        {item.remarks}
-                                                    </TableCell>
-                                                    <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center" }}>
-                                                        {item.paid === "Y" ? "Paid" : "Unpaid"}
-                                                    </TableCell>
-
-                                                    <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center" }}>
-                                                        {item.feeAmount}
-                                                    </TableCell>
-
-                                                    <TableCell sx={{ textAlign: "center" }}>
-                                                        {formatDate(item.dueDate)}
-                                                    </TableCell>
-                                                </TableRow>
-                                            </TableBody>
-                                        </Table>
+                                            return (
+                                                <>
+                                                    <Table stickyHeader aria-label="fee approval table" sx={{ minWidth: '100%' }}>
+                                                        <TableHead>
+                                                            <TableRow>
+                                                                <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#faf6fc" }}>
+                                                                    Fee Name
+                                                                </TableCell>
+                                                                <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#faf6fc" }}>
+                                                                    Remarks
+                                                                </TableCell>
+                                                                <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#faf6fc" }}>
+                                                                    Payment Status
+                                                                </TableCell>
+                                                                {!isGradeWise && (
+                                                                    <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#faf6fc" }}>
+                                                                        Fee Amount
+                                                                    </TableCell>
+                                                                )}
+                                                                <TableCell sx={{ textAlign: "center", backgroundColor: "#faf6fc" }}>
+                                                                    Due Date
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        </TableHead>
+                                                        <TableBody>
+                                                            <TableRow key={item.id}>
+                                                                <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center" }}>
+                                                                    {item.feeName}
+                                                                </TableCell>
+                                                                <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center" }}>
+                                                                    {item.remarks}
+                                                                </TableCell>
+                                                                <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center" }}>
+                                                                    {item.paid === "Y" ? "Paid" : "Unpaid"}
+                                                                </TableCell>
+                                                                {!isGradeWise && (
+                                                                    <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center" }}>
+                                                                        {item.feeAmount}
+                                                                    </TableCell>
+                                                                )}
+                                                                <TableCell sx={{ textAlign: "center" }}>
+                                                                    {formatDate(item.dueDate)}
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        </TableBody>
+                                                    </Table>
+                                                </>
+                                            );
+                                        })()}
                                     </TableContainer>
+
+                                    
+                                    {(() => {
+                                        const gradeEntries = getGradeEntries(item);
+                                        if (gradeEntries.length === 0) return null;
+                                        return (
+                                            <Box sx={{ backgroundColor: "#FFE5E5", p: 3, border: "1px solid #E8DDEA", borderTop: "none" }}>
+                                                <Grid container spacing={2}>
+                                                    {gradeEntries.map(([gradeKey, amount]) => (
+                                                        <Grid size={{ xs: 6, sm: 4, md: 2, lg: 1.5 }} key={gradeKey}>
+                                                            <Typography sx={{ color: "red", fontSize: "12px", mb: 0.5 }}>
+                                                                {String(gradeKey).toUpperCase()}
+                                                            </Typography>
+                                                            <Box sx={{
+                                                                border: "1px solid #0000003A", borderRadius: "5px",
+                                                                height: "30px", backgroundColor: "#F6F6F8",
+                                                                px: 1, display: "flex", alignItems: "center", justifyContent: "center",
+                                                            }}>
+                                                                ₹ {amount}
+                                                            </Box>
+                                                        </Grid>
+                                                    ))}
+                                                </Grid>
+                                            </Box>
+                                        );
+                                    })()}
                                     <Box
                                         sx={{
                                             display: "flex",
@@ -567,8 +671,30 @@ export default function AdditionalFeeApprovalPage() {
                                                 variant="outlined"
                                                 onClick={() => {
                                                     setSelectedFee(item);
+                                                   
+                                                    const gradeAmounts = {};
+                                                    const removed = new Set();
+                                                    grades.forEach((g) => {
+                                                        const key = g.sign.toLowerCase();
+                                                        const raw =
+                                                            (item.grades && typeof item.grades === 'object' ? item.grades[key] : undefined)
+                                                            ?? item[key];
+                                                        if (raw === null || raw === undefined || raw === '') {
+                                                            removed.add(g.sign);
+                                                        } else {
+                                                            gradeAmounts[g.sign] = String(raw);
+                                                        }
+                                                    });
+                                                    setEditFees({
+                                                        id: item.id,
+                                                        feeName: item.feeName || '',
+                                                        remarks: item.remarks || '',
+                                                        paid: item.paid || 'Y',
+                                                        dueDate: item.dueDate || null,
+                                                        gradeAmounts,
+                                                    });
+                                                    setEditRemovedGrades(removed);
                                                     setOpenEditDialog(true);
-                                                    setEditFees([item]);
                                                 }}
                                                 sx={{
                                                     textTransform: "none",
@@ -621,120 +747,148 @@ export default function AdditionalFeeApprovalPage() {
                     </DialogTitle>
 
                     <DialogContent dividers>
-                        <Card sx={{ borderRadius: 0, boxShadow: "none" }}>
-                            <Table sx={{ borderCollapse: "separate", borderSpacing: 0 }}>
-                                <TableHead sx={{ bgcolor: "#f3e5f5" }}>
-                                    <TableRow>
-                                        {["Fee Name", "Remarks", "Payment Status", "Amount", "Due Date"].map((h) => (
-                                            <TableCell
-                                                key={h}
-                                                sx={{
-                                                    fontWeight: 600,
-                                                    fontSize: 14,
-                                                    border: "1px dotted #ccc",
-                                                }}
-                                            >
-                                                {h}
-                                            </TableCell>
-                                        ))}
-                                    </TableRow>
-                                </TableHead>
+                        <Box sx={{ border: '1px solid #FFD5C2', borderRadius: '5px', overflow: 'hidden' }}>
 
-                                <TableBody>
-                                    {Array.isArray(editFees) && editFees.map((fee, i) => (
-                                        <TableRow key={i}>
-                                            <TableCell sx={{ border: "1px dotted #ccc" }}>
-                                                <TextField
-                                                    fullWidth
-                                                    size="small"
-                                                    value={fee.feeName}
-                                                    onChange={(e) => {
-                                                        const updated = [...editFees];
-                                                        updated[i].feeName = e.target.value;
-                                                        setEditFees(updated);
-                                                    }}
-                                                    variant="outlined"
-                                                    sx={{
-                                                        "& fieldset": { border: "none" },
-                                                        fontSize: 14,
-                                                    }}
-                                                />
-                                            </TableCell>
+                            {/* Fee Details header */}
+                            <Box sx={{ background: '#FFF5F2', borderBottom: '1px solid #FFD5C2', px: 3, py: 1.25, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                <Box sx={{ width: 30, height: 30, borderRadius: '6px', backgroundColor: '#FFD5C2', border: '1px solid #FFB088', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <AddIcon sx={{ color: '#EA580C', fontSize: 15 }} />
+                                </Box>
+                                <Typography sx={{ fontWeight: 600, fontSize: 14, color: '#C2410C' }}>Fee Details</Typography>
+                            </Box>
 
-                                            <TableCell sx={{ border: "1px dotted #ccc", minWidth: 250 }}>
-                                                <TextField
-                                                    fullWidth
-                                                    multiline
-                                                    rows={2}
-                                                    size="small"
-                                                    value={fee.remarks}
-                                                    onChange={(e) => {
-                                                        const updated = [...editFees];
-                                                        updated[i].remarks = e.target.value;
-                                                        setEditFees(updated);
-                                                    }}
-                                                />
-                                            </TableCell>
+                            <Grid container rowSpacing={2} columnSpacing={4} p={3}>
+                                <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
+                                    <Typography sx={{ mb: 0.5, fontWeight: '600' }}>Fee Name</Typography>
+                                    <TextField
+                                        fullWidth
+                                        size="small"
+                                        value={editFees.feeName}
+                                        onChange={(e) => setEditFees((prev) => ({ ...prev, feeName: e.target.value }))}
+                                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '5px', fontSize: 14 } }}
+                                    />
+                                </Grid>
 
-                                            <TableCell sx={{ border: "1px dotted #ccc", minWidth: 250 }}>
-                                                <Autocomplete
-                                                    size="small"
-                                                    options={["Paid", "Unpaid"]}
-                                                    value={fee.paid === "Y" ? "Paid" : "Unpaid"}
-                                                    onChange={(e, newValue) => {
-                                                        const updated = [...editFees];
-                                                        updated[i].paid = newValue === "Paid" ? "Y" : "N";
-                                                        setEditFees(updated);
-                                                    }}
-                                                    renderInput={(params) => (
-                                                        <TextField
-                                                            {...params}
-                                                            placeholder="Select status"
-                                                        />
-                                                    )}
-                                                />
-                                            </TableCell>
+                                <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
+                                    <Typography sx={{ mb: 0.5, fontWeight: '600' }}>Remarks</Typography>
+                                    <TextField
+                                        fullWidth
+                                        size="small"
+                                        value={editFees.remarks}
+                                        onChange={(e) => setEditFees((prev) => ({ ...prev, remarks: e.target.value }))}
+                                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '5px', fontSize: 14 } }}
+                                    />
+                                </Grid>
 
+                                <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
+                                    <Typography sx={{ mb: 0.5, fontWeight: '600' }}>Payment Status</Typography>
+                                    <Autocomplete
+                                        size="small"
+                                        options={["Paid", "Unpaid"]}
+                                        value={editFees.paid === "Y" ? "Paid" : "Unpaid"}
+                                        onChange={(e, newValue) => setEditFees((prev) => ({ ...prev, paid: newValue === "Paid" ? "Y" : "N" }))}
+                                        renderInput={(params) => <TextField {...params} placeholder="Select status" />}
+                                    />
+                                </Grid>
 
-                                            <TableCell sx={{ border: "1px dotted #ccc" }}>
-                                                <TextField
-                                                    size="small"
-                                                    type="number"
-                                                    value={fee.feeAmount ?? ""}
-                                                    onChange={(e) => {
-                                                        const updated = [...editFees];
-                                                        updated[i].feeAmount = Number(e.target.value || 0);
-                                                        setEditFees(updated);
-                                                    }}
-                                                    InputProps={{
-                                                        startAdornment: (
-                                                            <Typography sx={{ mr: 0.5 }}>₹</Typography>
-                                                        ),
-                                                    }}
-                                                    sx={{ width: 150 }}
-                                                />
-                                            </TableCell>
+                                <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
+                                    <Typography sx={{ mb: 0.5, fontWeight: '600' }}>Due Date</Typography>
+                                    <TextField
+                                        fullWidth
+                                        type="date"
+                                        size="small"
+                                        value={toInputDate(editFees.dueDate) || ''}
+                                        onChange={(e) => setEditFees((prev) => ({ ...prev, dueDate: e.target.value }))}
+                                        InputLabelProps={{ shrink: true }}
+                                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '5px', fontSize: 14 } }}
+                                    />
+                                </Grid>
+                            </Grid>
 
+                            {/* Grade-wise header strip */}
+                            <Box sx={{
+                                background: '#FFF5F2',
+                                borderTop: '1px solid #FFD5C2',
+                                borderBottom: '1px solid #FFD5C2',
+                                px: 3, py: 1.25,
+                                display: 'flex', alignItems: 'center', gap: 1.5,
+                            }}>
+                                <Box sx={{
+                                    width: 30, height: 30, borderRadius: '6px',
+                                    backgroundColor: '#FFD5C2', border: '1px solid #FFB088',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                }}>
+                                    <AddIcon sx={{ color: '#EA580C', fontSize: 15 }} />
+                                </Box>
+                                <Box>
+                                    <Typography sx={{ fontWeight: 600, fontSize: 14, color: '#C2410C' }}>
+                                        Grade-wise Fee Amount
+                                    </Typography>
+                                    <Typography sx={{ fontSize: 11, color: '#EA580C' }}>
+                                        Setting ₹0 makes this fee free for that grade
+                                    </Typography>
+                                </Box>
+                            </Box>
 
-                                            <TableCell sx={{ border: "1px dotted #ccc", textAlign: "center" }}>
-                                                <TextField
-                                                    type="date"
-                                                    size="small"
-                                                    value={toInputDate(fee.dueDate)}
-                                                    onChange={(e) => {
-                                                        const updated = [...editFees];
-                                                        updated[i].dueDate = e.target.value;
-                                                        setEditFees(updated);
-                                                    }}
-                                                    InputLabelProps={{ shrink: true }}
-                                                />
-                                            </TableCell>
-
-                                        </TableRow>
+                            {/* Removed grade chips */}
+                            {editRemovedGrades.size > 0 && (
+                                <Box sx={{ px: 3, pt: 1, pb: 1, display: 'flex', flexWrap: 'wrap', gap: 0.8, alignItems: 'center' }}>
+                                    <Typography sx={{ fontSize: 12, color: '#999' }}>Removed grades:</Typography>
+                                    {[...editRemovedGrades].map((g) => (
+                                        <Chip
+                                            key={g}
+                                            label={g}
+                                            size="small"
+                                            onClick={() => handleEditRestoreGrade(g)}
+                                            icon={<AddIcon sx={{ fontSize: '14px !important' }} />}
+                                            sx={{
+                                                fontSize: 12, height: 22, bgcolor: '#f5f5f5', border: '1px solid #ddd', cursor: 'pointer',
+                                                '&:hover': { bgcolor: '#FFEDE5', borderColor: '#EA580C', color: '#EA580C' },
+                                            }}
+                                        />
                                     ))}
-                                </TableBody>
-                            </Table>
-                        </Card>
+                                </Box>
+                            )}
+
+                            {/* Grade input grid */}
+                            <Grid container spacing={2} sx={{
+                                backgroundColor: '#FFEDE5', p: 3,
+                                borderBottomLeftRadius: '5px', borderBottomRightRadius: '5px',
+                            }}>
+                                {grades.filter((g) => !editRemovedGrades.has(g.sign)).map((grade) => (
+                                    <Grid size={{ xs: 6, sm: 4, md: 2, lg: 1.5 }} key={grade.sign}>
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                                            <Typography sx={{ color: '#EA580C', fontSize: '12px', ml: 0.5 }}>{grade.sign}</Typography>
+                                            <Tooltip title="Remove this grade" placement="top">
+                                                <IconButton
+                                                    size="small"
+                                                    onClick={() => handleEditRemoveGrade(grade.sign)}
+                                                    sx={{
+                                                        p: 0.3, color: '#bbb', bgcolor: 'rgba(0,0,0,0.04)', borderRadius: '50%',
+                                                        transition: 'all 0.2s ease',
+                                                        '&:hover': { color: '#fff', bgcolor: '#EA580C', transform: 'scale(1.15)' },
+                                                    }}
+                                                >
+                                                    <ClearIcon sx={{ fontSize: 13 }} />
+                                                </IconButton>
+                                            </Tooltip>
+                                        </Box>
+                                        <TextField
+                                            size="small"
+                                            value={editFees.gradeAmounts[grade.sign] ?? ''}
+                                            onChange={(e) => handleEditGradeChange(grade.sign, e.target.value)}
+                                            slotProps={{
+                                                input: {
+                                                    startAdornment: <InputAdornment position="start">₹</InputAdornment>,
+                                                    inputMode: 'numeric',
+                                                }
+                                            }}
+                                            sx={{ '& .MuiOutlinedInput-root': { height: 33, fontSize: 14, borderRadius: '5px', backgroundColor: '#F6F6F8' } }}
+                                        />
+                                    </Grid>
+                                ))}
+                            </Grid>
+                        </Box>
                     </DialogContent>
 
                     <DialogActions sx={{ px: 3, py: 2 }}>
