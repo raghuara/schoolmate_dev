@@ -39,18 +39,17 @@ const DEFAULT_PERIODS = [
 const DEFAULT_FLAGS = {
     allowTeacherAddPeriod: true,
     requireStatusIndicator: true,
-    requireSubject: true,
-    enableNextDayPlan: true,
     lockPastDays: false,
 };
 
 const FLAG_META = [
     { key: 'allowTeacherAddPeriod', label: 'Teachers can add extra periods', desc: 'When off, only admins can add or remove periods.' },
-    { key: 'requireSubject', label: 'Subject is mandatory per period', desc: 'Block saving if any filled period is missing a subject.' },
     { key: 'requireStatusIndicator', label: 'At least one status indicator required', desc: 'Force teachers to mark T / R / C.W / W / etc.' },
-    { key: 'enableNextDayPlan', label: 'Enable “Next Day Plan” entries', desc: 'Show the red-mode toggle for planning tomorrow’s lessons.' },
     { key: 'lockPastDays', label: 'Lock entries after the day ends', desc: 'Prevent backdating. Coordinators can still override.' },
 ];
+
+// Custom period-subjects common to every class (PT, Yoga, ...). Backend later.
+const DEFAULT_CUSTOM_SUBJECTS = ['PT', 'Yoga', 'Library', 'Moral Science'];
 
 export default function WorkDoneSettings() {
     const navigate = useNavigate();
@@ -62,6 +61,19 @@ export default function WorkDoneSettings() {
     const [dialog, setDialog] = useState({ open: false, mode: 'add', period: null });
     const [form, setForm] = useState({ name: '', startTime: '', endTime: '' });
     const [savedSnack, setSavedSnack] = useState(false);
+
+    // Custom period-subjects (PT, Yoga, ...) — common to all classes
+    const [customSubjects, setCustomSubjects] = useState(DEFAULT_CUSTOM_SUBJECTS);
+    const [newSubject, setNewSubject] = useState('');
+
+    const addCustomSubject = () => {
+        const v = newSubject.trim();
+        if (!v) return;
+        if (customSubjects.some((s) => s.toLowerCase() === v.toLowerCase())) { setNewSubject(''); return; }
+        setCustomSubjects((prev) => [...prev, v]);
+        setNewSubject('');
+    };
+    const removeCustomSubject = (name) => setCustomSubjects((prev) => prev.filter((s) => s !== name));
 
     const totalDuration = useMemo(() => {
         let mins = 0;
@@ -112,6 +124,7 @@ export default function WorkDoneSettings() {
     const resetDefaults = () => {
         setPeriods(DEFAULT_PERIODS);
         setFlags(DEFAULT_FLAGS);
+        setCustomSubjects(DEFAULT_CUSTOM_SUBJECTS);
     };
     const saveAll = () => {
         setSavedSnack(true);
@@ -283,15 +296,63 @@ export default function WorkDoneSettings() {
                                         <EditOutlinedIcon sx={{ fontSize: 15, color: '#6B7280' }} />
                                     </IconButton>
                                 </Tooltip>
-                                <Tooltip title="Delete" arrow>
-                                    <IconButton size="small" onClick={() => remove(p.id)} sx={{ width: 26, height: 26 }}>
-                                        <DeleteOutlineIcon sx={{ fontSize: 15, color: '#DC2626' }} />
-                                    </IconButton>
-                                </Tooltip>
+                                {idx >= 8 && (
+                                    <Tooltip title="Delete extra period" arrow>
+                                        <IconButton size="small" onClick={() => remove(p.id)} sx={{ width: 26, height: 26 }}>
+                                            <DeleteOutlineIcon sx={{ fontSize: 15, color: '#DC2626' }} />
+                                        </IconButton>
+                                    </Tooltip>
+                                )}
                             </Box>
                         </Grid>
                     ))}
                 </Grid>
+
+                <Divider sx={{ my: 2 }} />
+
+                {/* Custom period-subjects — common to every class (PT, Yoga, ...) */}
+                <Box sx={{ mb: 1.2 }}>
+                    <Typography sx={{ fontSize: 14, fontWeight: 800, color: '#111827' }}>Custom Period Names</Typography>
+                    <Typography sx={{ fontSize: 11.5, color: '#6B7280' }}>
+                        Extra subjects common to every class (PT, Yoga, Library…). These appear in the Subject field on the Work Done page <strong>alongside each grade’s own subjects</strong> — the grade subjects are not changed.
+                    </Typography>
+                </Box>
+                <Box sx={{ display: 'flex', gap: 1, mb: 1.2, flexWrap: 'wrap' }}>
+                    <TextField
+                        size="small"
+                        value={newSubject}
+                        onChange={(e) => setNewSubject(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') addCustomSubject(); }}
+                        placeholder="e.g. PT, Yoga, Library"
+                        sx={{ width: { xs: '100%', sm: 280 }, '& .MuiOutlinedInput-root': { borderRadius: '8px', height: 36, fontSize: 13 } }}
+                    />
+                    <Button
+                        onClick={addCustomSubject}
+                        startIcon={<AddIcon sx={{ fontSize: 16 }} />}
+                        variant="contained"
+                        disableElevation
+                        sx={{ textTransform: 'none', fontWeight: 700, bgcolor: PRIMARY, '&:hover': { bgcolor: PRIMARY_DARK }, borderRadius: '8px', height: 36, px: 2 }}
+                    >
+                        Add
+                    </Button>
+                </Box>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.8, mb: 1 }}>
+                    {customSubjects.length === 0 ? (
+                        <Typography sx={{ fontSize: 12, color: '#9CA3AF', fontStyle: 'italic' }}>No custom periods yet.</Typography>
+                    ) : customSubjects.map((s) => (
+                        <Chip
+                            key={s}
+                            label={s}
+                            onDelete={() => removeCustomSubject(s)}
+                            deleteIcon={<DeleteOutlineIcon sx={{ fontSize: '16px !important' }} />}
+                            sx={{
+                                height: 30, fontSize: 12.5, fontWeight: 700,
+                                bgcolor: PRIMARY_LIGHT, color: PRIMARY_DARK, border: `1px solid ${PRIMARY_BORDER}`,
+                                '& .MuiChip-deleteIcon': { color: `${PRIMARY_DARK}99`, '&:hover': { color: '#DC2626' } },
+                            }}
+                        />
+                    ))}
+                </Box>
 
                 <Divider sx={{ my: 2 }} />
 
@@ -343,7 +404,15 @@ export default function WorkDoneSettings() {
                 </DialogTitle>
                 <DialogContent sx={{ p: 2 }}>
                     <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.5, mb: 0.3 }}>Name</Typography>
-                    <TextField size="small" fullWidth value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} sx={{ mb: 1.2, '& .MuiOutlinedInput-root': { borderRadius: '8px' } }} />
+                    <TextField
+                        size="small"
+                        fullWidth
+                        value={form.name}
+                        onChange={(e) => setForm({ ...form, name: e.target.value })}
+                        disabled={dialog.mode === 'edit'}
+                        helperText={dialog.mode === 'edit' ? 'Period name can’t be changed — edit the time only.' : ''}
+                        sx={{ mb: 1.2, '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+                    />
                     <Grid container spacing={1.2}>
                         <Grid size={{ xs: 6 }}>
                             <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.5, mb: 0.3 }}>Start</Typography>
