@@ -167,6 +167,7 @@ export default function WorkDonePage() {
     const user = useSelector((state) => state.auth);
     const userType = user?.userType;
     const isAdmin = userType === 'superadmin' || userType === 'admin';
+    const isTeacher = userType === 'teacher';
     const token = '123';
     const academicYear = useSelector(selectAcademicYear);
 
@@ -179,7 +180,7 @@ export default function WorkDonePage() {
     const [entryType, setEntryType] = useState('normal'); // 'normal' = Today Plan, 'leave' = Leave Plan
     const [saving, setSaving] = useState(false);
 
-    const [activeTab, setActiveTab] = useState(0);
+    const [activeTab, setActiveTab] = useState(userType === 'teacher' ? 0 : 1);
     const [periodDialog, setPeriodDialog] = useState({ open: false });
     const [periodForm, setPeriodForm] = useState({ name: '', startTime: '', endTime: '' });
     const [historySearch, setHistorySearch] = useState('');
@@ -545,9 +546,9 @@ export default function WorkDonePage() {
                     '& .MuiTabs-indicator': { backgroundColor: PRIMARY, height: 3, borderRadius: '3px 3px 0 0' },
                 }}
             >
-                <Tab icon={<EventNoteIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Daily Entry" />
-                <Tab icon={<TableChartOutlinedIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Report" />
-                <Tab icon={<HistoryIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="History" />
+                {isTeacher && <Tab value={0} icon={<EventNoteIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Daily Entry" />}
+                <Tab value={1} icon={<TableChartOutlinedIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Report" />
+                <Tab value={2} icon={<HistoryIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="History" />
             </Tabs>
 
             <Box sx={{ flex: 1, overflowY: 'auto', mt: 1.5, pr: 0.5 }}>
