@@ -1,4 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import axios from 'axios';
+import { getContactDetails, postContactDetails, updateContactDetailsById, deleteContactDetailsById } from '../../Api/Api';
+import { selectAcademicYear } from '../../Redux/Slices/academicYearSlice';
 import {
     Avatar, Box, Button, Checkbox, Chip, Collapse, Dialog, DialogActions, DialogContent,
     DialogTitle, Divider, FormControl, Grid, IconButton, InputAdornment, MenuItem, Select,
@@ -20,12 +23,7 @@ import PhoneIcon from '@mui/icons-material/Phone';
 import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined';
 import GroupsIcon from '@mui/icons-material/Groups';
 
-// Mock contacts for now — replace with API later
-const MOCK_CONTACTS = [
-    { id: 1, name: 'Front Office', numbers: ['9876543210', '044-28543210'], everyone: true, selectedIds: [] },
-    { id: 2, name: 'Principal Office', numbers: ['9123456780'], everyone: true, selectedIds: [] },
-    { id: 3, name: 'Transport In-charge', numbers: ['9012345678', '9012345679'], everyone: false, selectedIds: [] },
-];
+const TOKEN = '123';
 
 const AVATAR_COLORS = ['#0891B2', '#7C3AED', '#EA580C', '#DC2626', '#16A34A', '#2563EB', '#DB2777', '#CA8A04'];
 const colorFor = (name = '') => AVATAR_COLORS[(name.charCodeAt(0) || 0) % AVATAR_COLORS.length];
@@ -35,27 +33,81 @@ export default function ContactDetails() {
     const navigate = useNavigate();
     const grades = useSelector(selectGrades) || [];
     const websiteSettings = useSelector(selectWebsiteSettings);
+    const academicYear = useSelector(selectAcademicYear);
+    const authRollNumber = useSelector((state) => state?.auth?.rollNumber || '');
     const mainColor = websiteSettings?.mainColor || '#E30053';
     const textColor = websiteSettings?.textColor || '#fff';
 
-    const [contacts, setContacts] = useState(MOCK_CONTACTS);
+    const [contacts, setContacts] = useState([]);
+    const [isLoading, setIsLoading] = useState(false);
 
     // ── View filter (header) ──────────────────────────────────────────────────
     const [filterGradeId, setFilterGradeId] = useState('');
     const [filterSection, setFilterSection] = useState('');
     const filterGrade = grades.find((g) => g.id === filterGradeId) || null;
 
-    const filteredContacts = useMemo(() => {
-        if (!filterGradeId) return contacts;
-        return contacts.filter((c) => {
-            if (c.everyone) return true;
-            if (!filterSection) {
-                // any section of this grade
-                return c.selectedIds.some((id) => id.startsWith(`${filterGradeId}-`));
-            }
-            return c.selectedIds.includes(`${filterGradeId}-${filterSection}`);
+    // ── API: flatten one API contact header into N UI rows (one per contactPerson) ─
+    const flattenApiContacts = (apiContacts) => {
+        const rows = [];
+        (apiContacts || []).forEach((header) => {
+            const everyone = !!header.visibleToEveryone;
+            // visibility[] → selectedIds: ['gradeID-section', ...]. isAllSections expands to every section of that grade.
+            const selectedIds = [];
+            (header.visibility || []).forEach((v) => {
+                const grade = grades.find((g) => g.id === v.gradeID);
+                if (v.isAllSections && grade) {
+                    grade.sections.forEach((s) => selectedIds.push(`${v.gradeID}-${s}`));
+                } else if (v.section) {
+                    selectedIds.push(`${v.gradeID}-${v.section}`);
+                }
+            });
+            // Dedupe (in case isAllSections + per-section rows both appear)
+            const uniqueIds = [...new Set(selectedIds)];
+            (header.contactPersons || []).forEach((p) => {
+                rows.push({
+                    id: p.contactID,
+                    contactHeaderID: header.contactHeaderID,
+                    name: p.contactName || '',
+                    initials: p.initials || '',
+                    numbers: (p.phoneNumbers || []).map((pn) => pn.phoneNumber).filter(Boolean),
+                    everyone,
+                    selectedIds: everyone ? [] : uniqueIds,
+                    visibilityText: header.visibilityText || '',
+                });
+            });
         });
-    }, [contacts, filterGradeId, filterSection]);
+        return rows;
+    };
+
+    const fetchContacts = async () => {
+        if (!academicYear) return;
+        setIsLoading(true);
+        try {
+            const res = await axios.get(getContactDetails, {
+                params: {
+                    AcademicYear: academicYear,
+                    GradeID: filterGradeId || 0,
+                    Section: filterSection || 'All Sections',
+                },
+                headers: { Authorization: `Bearer ${TOKEN}` },
+            });
+            const list = flattenApiContacts(res.data?.contacts || []);
+            setContacts(list);
+        } catch (err) {
+            console.error('Failed to load contact details:', err);
+            setContacts([]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchContacts();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [academicYear, filterGradeId, filterSection]);
+
+    // Backend already filters by grade/section — pass through as-is for the rendering layer.
+    const filteredContacts = contacts;
 
     // ── Create / Edit dialog ──────────────────────────────────────────────────
     const [createOpen, setCreateOpen] = useState(false);
@@ -86,9 +138,43 @@ export default function ContactDetails() {
         setCreateOpen(true);
     };
 
-    const confirmDelete = () => {
-        if (deleteTarget) setContacts((prev) => prev.filter((c) => c.id !== deleteTarget.id));
-        setDeleteTarget(null);
+    const confirmDelete = async () => {
+        if (!deleteTarget) return;
+        try {
+            await axios.delete(deleteContactDetailsById, {
+                params: {
+                    ContactHeaderID: deleteTarget.contactHeaderID,
+                    DeletedByRollNumber: authRollNumber,
+                },
+                headers: { Authorization: `Bearer ${TOKEN}` },
+            });
+            setDeleteTarget(null);
+            fetchContacts();
+        } catch (err) {
+            console.error('Failed to delete contact:', err);
+            setDeleteTarget(null);
+        }
+    };
+
+    // ── selectedIds (gradeId-section[]) → API's gradeSections shape ───────────
+    // Groups by gradeID; if every section of that grade is selected → allSections: true.
+    const toGradeSectionsPayload = () => {
+        const byGrade = new Map();
+        selectedIds.forEach((id) => {
+            const [gradeIdStr, section] = id.split('-');
+            const gradeID = Number(gradeIdStr);
+            if (!byGrade.has(gradeID)) byGrade.set(gradeID, new Set());
+            byGrade.get(gradeID).add(section);
+        });
+        return [...byGrade.entries()].map(([gradeID, sectionSet]) => {
+            const grade = grades.find((g) => g.id === gradeID);
+            const allSections = grade && sectionSet.size === grade.sections.length;
+            return {
+                gradeID,
+                allSections: !!allSections,
+                sections: allSections ? [] : [...sectionSet],
+            };
+        });
     };
 
     // Tree helpers
@@ -135,7 +221,7 @@ export default function ContactDetails() {
     const addBlock = () => setBlocks((prev) => [...prev, { name: '', numbers: [''] }]);
     const removeBlock = (i) => setBlocks((prev) => (prev.length > 1 ? prev.filter((_, idx) => idx !== i) : prev));
 
-    const handleSaveAll = () => {
+    const handleSaveAll = async () => {
         const everyone = isEveryoneChecked();
         if (!everyone && selectedIds.length === 0) {
             alert('Please select at least one class & section (or Everyone).');
@@ -148,27 +234,57 @@ export default function ContactDetails() {
             alert('Add at least one name with one phone number.');
             return;
         }
-        // Edit mode — update the single contact being edited
+
+        const gradeSections = everyone ? [] : toGradeSectionsPayload();
+
+        // ─ EDIT — PUT updateContactDetailsById, single contactPerson per header (per (a)) ─
         if (editingId) {
+            const target = contacts.find((c) => c.id === editingId);
+            if (!target) { closeCreate(); return; }
             const b = valid[0];
-            setContacts((prev) => prev.map((c) => (
-                c.id === editingId
-                    ? { ...c, name: b.name, numbers: b.numbers, everyone, selectedIds: everyone ? [] : [...selectedIds] }
-                    : c
-            )));
-            closeCreate();
+            const payload = {
+                contactHeaderID: target.contactHeaderID,
+                academicYear,
+                updatedByRollNumber: authRollNumber,
+                visibleToEveryone: everyone,
+                gradeSections,
+                contacts: [{ contactName: b.name, phoneNumbers: b.numbers }],
+            };
+            try {
+                await axios.put(updateContactDetailsById, payload, {
+                    headers: { Authorization: `Bearer ${TOKEN}` },
+                });
+                closeCreate();
+                fetchContacts();
+            } catch (err) {
+                console.error('Failed to update contact:', err);
+                alert(err?.response?.data?.message || 'Failed to update contact.');
+            }
             return;
         }
-        const baseId = Math.max(0, ...contacts.map((c) => c.id)) + 1;
-        const newContacts = valid.map((b, idx) => ({
-            id: baseId + idx,
-            name: b.name,
-            numbers: b.numbers,
-            everyone,
-            selectedIds: everyone ? [] : [...selectedIds],
-        }));
-        setContacts((prev) => [...newContacts, ...prev]);
-        closeCreate();
+
+        // ─ CREATE — POST postContactDetails. One header per save; if the user added multiple
+        //   name+number blocks, fire one POST per block (each becomes its own header).
+        try {
+            for (const b of valid) {
+                const payload = {
+                    academicYear,
+                    createdByRollNumber: authRollNumber,
+                    visibleToEveryone: everyone,
+                    gradeSections,
+                    contacts: [{ contactName: b.name, phoneNumbers: b.numbers }],
+                };
+                // eslint-disable-next-line no-await-in-loop
+                await axios.post(postContactDetails, payload, {
+                    headers: { Authorization: `Bearer ${TOKEN}` },
+                });
+            }
+            closeCreate();
+            fetchContacts();
+        } catch (err) {
+            console.error('Failed to create contact:', err);
+            alert(err?.response?.data?.message || 'Failed to create contact.');
+        }
     };
 
     return (
