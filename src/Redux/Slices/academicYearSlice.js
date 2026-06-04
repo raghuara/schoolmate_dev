@@ -87,6 +87,7 @@ const academicYearSlice = createSlice({
       .addCase(fetchAcademicYearConfig.fulfilled, (state, action) => {
         const body = action.payload;
         const currentAY = body.currentAcademicYear || deriveCurrentAY(body.startMonth);
+        const previousCurrentYear = state.currentYear;
         state.loading = false;
         state.isConfigured = true;
         state.startMonth = body.startMonth ?? null;
@@ -94,11 +95,16 @@ const academicYearSlice = createSlice({
         state.startMonthName = body.startMonthName ?? null;
         state.endMonthName = body.endMonthName ?? null;
         state.isLocked = !!body.isLocked;
-        state.currentYear = currentAY;
         state.options = buildOptions(currentAY);
-        if (!state.selectedYear || !state.options.includes(state.selectedYear)) {
+        const yearRolledOver = previousCurrentYear !== currentAY;
+        if (
+          !state.selectedYear ||
+          !state.options.includes(state.selectedYear) ||
+          yearRolledOver
+        ) {
           state.selectedYear = currentAY;
         }
+        state.currentYear = currentAY;
       })
       .addCase(fetchAcademicYearConfig.rejected, (state, action) => {
         state.loading = false;

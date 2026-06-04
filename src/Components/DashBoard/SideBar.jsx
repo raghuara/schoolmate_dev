@@ -1003,7 +1003,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
             }
 
             {/* My Project Tab */}
-            {version.LITE && (userType === "superadmin" || userType === "admin") && (
+            {version.LITE && (userType === "superadmin" || userType === "admin"|| userType === "teacher"  ) && (
               <ListItem onClick={() => handleMenuClickOne('myprojects')} sx={{ borderRadius: 2, px: 3, paddingTop: '3px', paddingBottom: '3px' }}>
                 <CustomTooltip title={isExpanded ? "" : "My Projects"} arrow placement="right-start">
                   <Box

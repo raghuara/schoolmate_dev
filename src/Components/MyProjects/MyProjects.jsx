@@ -56,14 +56,9 @@ export default function MyProjectPage() {
         { color: "#1F73C2", icon: LibraryBooksIcon, text: "Study Materials", bgColor: "#F9FAFC", iconBgColor: "#EEF3F9", path: '/dashboardmenu/studymaterials' },
         { color: "#0891B2", icon: AssignmentTurnedInIcon, text: "Work Done", bgColor: "#F0FAFB", iconBgColor: "#E0F7FA", path: '/dashboardmenu/workdone' },
 
-        // { color: "#073274", icon: MarksIcon, text: "Marks / Results", bgColor: "#F8F9FA", iconBgColor: "#ECEEF3", path: '/dashboardmenu/marks' },
-        // { color: "#12A5B6", icon: CalendarIcon, text: "School Calender", bgColor: "#F8FAFA", iconBgColor: "#F0ECF6", path: '/dashboardmenu/schoolcalendar' },
-        // { color: "#4C17A3", icon: EventsIcon, text: "Important Events", bgColor: "#FAF9FB", iconBgColor: "#ECF5F6", path: '/dashboardmenu/events' },
-        // { color: "#F44336", icon: FeedbackIcon, text: "Feedback", bgColor: "#FCF9F8", iconBgColor: "#FAF0EC", path: '/dashboardmenu/feedback' },
-        // { color: "#AA018D", icon: AttendanceIcon, text: "Attendance", bgColor: "#FBF8FA", iconBgColor: "#F8EBF6", path: '/dashboardmenu/attendance' },
     ];
     const filteredItems = userType === "teacher"
-        ? items.filter(item => item.text === "Homeworks" || item.text === "Study Materials" || item.text === "Work Done")
+        ? items.filter(item => item.text === "Work Done")
         : items;
     return (
         <Box sx={{ width: "100%", }}>

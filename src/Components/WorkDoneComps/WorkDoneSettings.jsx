@@ -1,10 +1,14 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-    Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
+    Box, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle,
     Divider, Grid, IconButton, Switch, TextField, Tooltip, Typography
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
+import axios from 'axios';
+import SnackBar from '../SnackBar';
+import { selectAcademicYear } from '../../Redux/Slices/academicYearSlice';
+import { GetWorkdonePeriods, PostWorkdonePeriods, GetCustomWorkdoneSubjects, SaveCustomWorkdoneSubjects } from '../../Api/Api';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SettingsIcon from '@mui/icons-material/Settings';
 import AddIcon from '@mui/icons-material/Add';
@@ -39,16 +43,11 @@ const DEFAULT_PERIODS = [
 const DEFAULT_FLAGS = {
     allowTeacherAddPeriod: true,
     requireStatusIndicator: true,
-    requireSubject: true,
-    enableNextDayPlan: true,
     lockPastDays: false,
 };
 
 const FLAG_META = [
-    { key: 'allowTeacherAddPeriod', label: 'Teachers can add extra periods', desc: 'When off, only admins can add or remove periods.' },
-    { key: 'requireSubject', label: 'Subject is mandatory per period', desc: 'Block saving if any filled period is missing a subject.' },
     { key: 'requireStatusIndicator', label: 'At least one status indicator required', desc: 'Force teachers to mark T / R / C.W / W / etc.' },
-    { key: 'enableNextDayPlan', label: 'Enable “Next Day Plan” entries', desc: 'Show the red-mode toggle for planning tomorrow’s lessons.' },
     { key: 'lockPastDays', label: 'Lock entries after the day ends', desc: 'Prevent backdating. Coordinators can still override.' },
 ];
 
@@ -56,12 +55,68 @@ export default function WorkDoneSettings() {
     const navigate = useNavigate();
     const user = useSelector((state) => state.auth);
     const isSuperAdmin = user?.userType === 'superadmin';
+    const token = '123';
+    const academicYear = useSelector(selectAcademicYear);
+    const rollNumber = user?.rollNumber || '';
+    const userType = user?.userType || '';
 
     const [periods, setPeriods] = useState(DEFAULT_PERIODS);
     const [flags, setFlags] = useState(DEFAULT_FLAGS);
     const [dialog, setDialog] = useState({ open: false, mode: 'add', period: null });
     const [form, setForm] = useState({ name: '', startTime: '', endTime: '' });
-    const [savedSnack, setSavedSnack] = useState(false);
+    const [snack, setSnack] = useState({ open: false, ok: true, msg: '' });
+    const [loading, setLoading] = useState(false);
+    const [savingPeriods, setSavingPeriods] = useState(false);
+    const [savingSubjects, setSavingSubjects] = useState(false);
+
+    // Custom period-subjects — loaded from the API (no dummy fallback)
+    const [customSubjects, setCustomSubjects] = useState([]);
+    const [newSubject, setNewSubject] = useState('');
+
+    const addCustomSubject = () => {
+        const v = newSubject.trim();
+        if (!v) return;
+        if (customSubjects.some((s) => s.toLowerCase() === v.toLowerCase())) { setNewSubject(''); return; }
+        setCustomSubjects((prev) => [...prev, v]);
+        setNewSubject('');
+    };
+    const removeCustomSubject = (name) => setCustomSubjects((prev) => prev.filter((s) => s !== name));
+
+    // Load periods + custom subjects for the selected academic year
+    useEffect(() => {
+        if (!academicYear) return;
+        let cancelled = false;
+        const load = async () => {
+            setLoading(true);
+            try {
+                const headers = { Authorization: `Bearer ${token}` };
+                const [periodsRes, subjectsRes] = await Promise.allSettled([
+                    axios.get(GetWorkdonePeriods, { params: { academicYear }, headers }),
+                    axios.get(GetCustomWorkdoneSubjects, { params: { academicYear }, headers }),
+                ]);
+                if (cancelled) return;
+
+                if (periodsRes.status === 'fulfilled' && !periodsRes.value.data?.error) {
+                    const apiPeriods = (periodsRes.value.data?.periods || [])
+                        .slice()
+                        .sort((a, b) => (a.sortOrder ?? a.periodNumber) - (b.sortOrder ?? b.periodNumber))
+                        .map((p) => ({ id: p.periodNumber, name: p.name || `Period ${p.periodNumber}`, startTime: p.startTime || '', endTime: p.endTime || '' }));
+                    setPeriods(apiPeriods.length ? apiPeriods : DEFAULT_PERIODS);
+                }
+
+                if (subjectsRes.status === 'fulfilled' && !subjectsRes.value.data?.error) {
+                    setCustomSubjects(subjectsRes.value.data?.subjects || []);
+                }
+            } catch {
+                /* keep current state on failure */
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        };
+        load();
+        return () => { cancelled = true; };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [academicYear]);
 
     const totalDuration = useMemo(() => {
         let mins = 0;
@@ -78,16 +133,61 @@ export default function WorkDoneSettings() {
         return `${h}h ${m}m`;
     }, [periods]);
 
+    // ── Time helpers ──────────────────────────────────────────────────────────
+    const toMin = (t) => {
+        if (!t || !t.includes(':')) return null;
+        const [h, m] = t.split(':').map(Number);
+        if (Number.isNaN(h) || Number.isNaN(m)) return null;
+        return h * 60 + m;
+    };
+    const toHHMM = (mins) => {
+        const m = ((mins % 1440) + 1440) % 1440;
+        return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+    };
+    // Most common period duration across existing periods (defaults to 45 mins)
+    const commonDuration = () => {
+        const counts = {};
+        periods.forEach((p) => {
+            const s = toMin(p.startTime);
+            const e = toMin(p.endTime);
+            if (s != null && e != null && e > s) counts[e - s] = (counts[e - s] || 0) + 1;
+        });
+        const entries = Object.entries(counts);
+        if (!entries.length) return 45;
+        entries.sort((a, b) => b[1] - a[1] || Number(a[0]) - Number(b[0]));
+        return Number(entries[0][0]);
+    };
+
     const openAdd = () => {
-        setForm({ name: `Period ${periods.length + 1}`, startTime: '', endTime: '' });
+        // Auto-continue from the last period's end, using the common period duration
+        const last = periods[periods.length - 1];
+        const dur = commonDuration();
+        const start = last?.endTime || '';
+        const startMin = toMin(start);
+        const end = startMin != null ? toHHMM(startMin + dur) : '';
+        setForm({ name: `Period ${periods.length + 1}`, startTime: start, endTime: end });
         setDialog({ open: true, mode: 'add', period: null });
     };
     const openEdit = (p) => {
         setForm({ name: p.name, startTime: p.startTime || '', endTime: p.endTime || '' });
         setDialog({ open: true, mode: 'edit', period: p });
     };
+    // Changing start auto-fills end = start + common duration (end stays editable)
+    const handleStartChange = (val) => {
+        const startMin = toMin(val);
+        const dur = commonDuration();
+        setForm((f) => ({ ...f, startTime: val, endTime: startMin != null ? toHHMM(startMin + dur) : '' }));
+    };
     const save = () => {
         if (!form.name.trim()) return;
+        if (!form.startTime || !form.endTime) {
+            setSnack({ open: true, ok: false, msg: 'Start and end time are required.' });
+            return;
+        }
+        if (toMin(form.endTime) <= toMin(form.startTime)) {
+            setSnack({ open: true, ok: false, msg: 'End time must be after start time.' });
+            return;
+        }
         if (dialog.mode === 'add') {
             const nextId = Math.max(0, ...periods.map((p) => p.id)) + 1;
             setPeriods((prev) => [...prev, { id: nextId, ...form }]);
@@ -112,10 +212,52 @@ export default function WorkDoneSettings() {
     const resetDefaults = () => {
         setPeriods(DEFAULT_PERIODS);
         setFlags(DEFAULT_FLAGS);
+        setCustomSubjects([]);
     };
-    const saveAll = () => {
-        setSavedSnack(true);
-        setTimeout(() => setSavedSnack(false), 2500);
+    const authHeaders = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+
+    const savePeriods = async () => {
+        if (!academicYear) {
+            setSnack({ open: true, ok: false, msg: 'Academic year not set. Pick it in the dashboard header.' });
+            return;
+        }
+        // Renumber by current order; backend derives the period name from periodNumber
+        const periodsBody = periods.map((p, idx) => ({
+            periodNumber: idx + 1,
+            startTime: p.startTime,
+            endTime: p.endTime,
+        }));
+        setSavingPeriods(true);
+        try {
+            const res = await axios.post(PostWorkdonePeriods, {
+                academicYear, rollNumber: String(rollNumber), userType, periods: periodsBody,
+            }, { headers: authHeaders });
+            if (res.data?.error) throw new Error(res.data.message || 'Failed to save periods');
+            setSnack({ open: true, ok: true, msg: 'Periods saved.' });
+        } catch (err) {
+            setSnack({ open: true, ok: false, msg: err?.response?.data?.message || err.message || 'Failed to save periods.' });
+        } finally {
+            setSavingPeriods(false);
+        }
+    };
+
+    const saveSubjects = async () => {
+        if (!academicYear) {
+            setSnack({ open: true, ok: false, msg: 'Academic year not set. Pick it in the dashboard header.' });
+            return;
+        }
+        setSavingSubjects(true);
+        try {
+            const res = await axios.post(SaveCustomWorkdoneSubjects, {
+                academicYear, rollNumber: String(rollNumber), userType, subjects: customSubjects,
+            }, { headers: authHeaders });
+            if (res.data?.error) throw new Error(res.data.message || 'Failed to save custom period names');
+            setSnack({ open: true, ok: true, msg: 'Custom period names saved.' });
+        } catch (err) {
+            setSnack({ open: true, ok: false, msg: err?.response?.data?.message || err.message || 'Failed to save custom period names.' });
+        } finally {
+            setSavingSubjects(false);
+        }
     };
 
     if (!isSuperAdmin) {
@@ -168,20 +310,6 @@ export default function WorkDoneSettings() {
                     >
                         Reset Defaults
                     </Button>
-                    <Button
-                        onClick={saveAll}
-                        startIcon={<SaveOutlinedIcon sx={{ fontSize: 16 }} />}
-                        variant="contained"
-                        disableElevation
-                        sx={{
-                            textTransform: 'none', fontSize: 12.5, fontWeight: 700,
-                            bgcolor: PRIMARY, color: '#fff', borderRadius: '8px',
-                            px: 2, height: 34, boxShadow: `0 2px 6px ${PRIMARY}33`,
-                            '&:hover': { bgcolor: PRIMARY_DARK },
-                        }}
-                    >
-                        Save Settings
-                    </Button>
                 </Box>
             </Box>
 
@@ -229,19 +357,34 @@ export default function WorkDoneSettings() {
                         <Typography sx={{ fontSize: 14, fontWeight: 800, color: '#111827' }}>Periods</Typography>
                         <Typography sx={{ fontSize: 11.5, color: '#6B7280' }}>Reorder, rename, set time slots, or remove periods.</Typography>
                     </Box>
-                    <Button
-                        onClick={openAdd}
-                        startIcon={<AddIcon sx={{ fontSize: 16 }} />}
-                        variant="contained"
-                        disableElevation
-                        sx={{
-                            textTransform: 'none', fontSize: 12.5, fontWeight: 700,
-                            bgcolor: PRIMARY, color: '#fff', borderRadius: '8px', height: 32, px: 1.8,
-                            '&:hover': { bgcolor: PRIMARY_DARK },
-                        }}
-                    >
-                        Add Period
-                    </Button>
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                        <Button
+                            onClick={openAdd}
+                            startIcon={<AddIcon sx={{ fontSize: 16 }} />}
+                            sx={{
+                                textTransform: 'none', fontSize: 12.5, fontWeight: 700,
+                                border: '1px solid #E5E7EB', color: '#374151', borderRadius: '8px', height: 32, px: 1.8,
+                                '&:hover': { bgcolor: '#F9FAFB', borderColor: PRIMARY },
+                            }}
+                        >
+                            Add Period
+                        </Button>
+                        <Button
+                            onClick={savePeriods}
+                            disabled={savingPeriods || loading}
+                            startIcon={savingPeriods ? <CircularProgress size={13} sx={{ color: '#fff' }} /> : <SaveOutlinedIcon sx={{ fontSize: 16 }} />}
+                            variant="contained"
+                            disableElevation
+                            sx={{
+                                textTransform: 'none', fontSize: 12.5, fontWeight: 700,
+                                bgcolor: PRIMARY, color: '#fff', borderRadius: '8px', height: 32, px: 1.8,
+                                '&:hover': { bgcolor: PRIMARY_DARK },
+                                '&.Mui-disabled': { bgcolor: '#9CA3AF', color: '#fff' },
+                            }}
+                        >
+                            {savingPeriods ? 'Saving…' : 'Save Periods'}
+                        </Button>
+                    </Box>
                 </Box>
 
                 <Grid container spacing={1}>
@@ -283,11 +426,13 @@ export default function WorkDoneSettings() {
                                         <EditOutlinedIcon sx={{ fontSize: 15, color: '#6B7280' }} />
                                     </IconButton>
                                 </Tooltip>
-                                <Tooltip title="Delete" arrow>
-                                    <IconButton size="small" onClick={() => remove(p.id)} sx={{ width: 26, height: 26 }}>
-                                        <DeleteOutlineIcon sx={{ fontSize: 15, color: '#DC2626' }} />
-                                    </IconButton>
-                                </Tooltip>
+                                {idx >= 8 && (
+                                    <Tooltip title="Delete extra period" arrow>
+                                        <IconButton size="small" onClick={() => remove(p.id)} sx={{ width: 26, height: 26 }}>
+                                            <DeleteOutlineIcon sx={{ fontSize: 15, color: '#DC2626' }} />
+                                        </IconButton>
+                                    </Tooltip>
+                                )}
                             </Box>
                         </Grid>
                     ))}
@@ -295,45 +440,67 @@ export default function WorkDoneSettings() {
 
                 <Divider sx={{ my: 2 }} />
 
-                <Typography sx={{ fontSize: 14, fontWeight: 800, color: '#111827', mb: 0.3 }}>School-wide Rules</Typography>
-                <Typography sx={{ fontSize: 11.5, color: '#6B7280', mb: 1.5 }}>Toggles apply to every Work Done entry across the school.</Typography>
-
-                <Grid container spacing={1.2}>
-                    {FLAG_META.map((f) => (
-                        <Grid size={{ xs: 12, md: 6 }} key={f.key}>
-                            <Box sx={{
-                                p: 1.4, borderRadius: '10px',
-                                border: '1px solid', borderColor: flags[f.key] ? PRIMARY_BORDER : '#E5E7EB',
-                                bgcolor: flags[f.key] ? PRIMARY_LIGHT : '#fff',
-                                display: 'flex', alignItems: 'flex-start', gap: 1,
-                            }}>
-                                <Box sx={{ flex: 1, minWidth: 0 }}>
-                                    <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#111827', lineHeight: 1.2 }}>{f.label}</Typography>
-                                    <Typography sx={{ fontSize: 11, color: '#6B7280', mt: 0.3, lineHeight: 1.45 }}>{f.desc}</Typography>
-                                </Box>
-                                <Switch
-                                    checked={flags[f.key]}
-                                    onChange={(e) => setFlags((prev) => ({ ...prev, [f.key]: e.target.checked }))}
-                                    sx={{
-                                        '& .MuiSwitch-switchBase.Mui-checked': { color: PRIMARY },
-                                        '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { backgroundColor: PRIMARY },
-                                    }}
-                                />
-                            </Box>
-                        </Grid>
-                    ))}
-                </Grid>
-
-                <Box sx={{
-                    mt: 2, p: 1.4, borderRadius: '10px',
-                    border: '1px solid #FDE68A', bgcolor: '#FFFBEB',
-                    display: 'flex', alignItems: 'flex-start', gap: 1,
-                }}>
-                    <InfoOutlinedIcon sx={{ fontSize: 16, color: '#B45309', mt: 0.2 }} />
-                    <Typography sx={{ fontSize: 11.5, color: '#92400E', lineHeight: 1.5 }}>
-                        Changes here apply <strong>school-wide</strong>. Teachers will see the new periods on their next Work Done entry. Existing saved entries are not modified.
-                    </Typography>
+                {/* Custom period-subjects — common to every class (PT, Yoga, ...) */}
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1, mb: 1.2, flexWrap: 'wrap' }}>
+                    <Box sx={{ flex: 1, minWidth: 220 }}>
+                        <Typography sx={{ fontSize: 14, fontWeight: 800, color: '#111827' }}>Custom Period Names</Typography>
+                        <Typography sx={{ fontSize: 11.5, color: '#6B7280' }}>
+                            Extra subjects common to every class (PT, Yoga, Library…). These appear in the Subject field on the Work Done page <strong>alongside each grade’s own subjects</strong> — the grade subjects are not changed.
+                        </Typography>
+                    </Box>
+                    <Button
+                        onClick={saveSubjects}
+                        disabled={savingSubjects || loading}
+                        startIcon={savingSubjects ? <CircularProgress size={13} sx={{ color: '#fff' }} /> : <SaveOutlinedIcon sx={{ fontSize: 16 }} />}
+                        variant="contained"
+                        disableElevation
+                        sx={{
+                            textTransform: 'none', fontSize: 12.5, fontWeight: 700,
+                            bgcolor: PRIMARY, color: '#fff', borderRadius: '8px', height: 32, px: 1.8,
+                            '&:hover': { bgcolor: PRIMARY_DARK },
+                            '&.Mui-disabled': { bgcolor: '#9CA3AF', color: '#fff' },
+                        }}
+                    >
+                        {savingSubjects ? 'Saving…' : 'Save Names'}
+                    </Button>
                 </Box>
+                <Box sx={{ display: 'flex', gap: 1, mb: 1.2, flexWrap: 'wrap' }}>
+                    <TextField
+                        size="small"
+                        value={newSubject}
+                        onChange={(e) => setNewSubject(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') addCustomSubject(); }}
+                        placeholder="e.g. PT, Yoga, Library"
+                        sx={{ width: { xs: '100%', sm: 280 }, '& .MuiOutlinedInput-root': { borderRadius: '8px', height: 36, fontSize: 13 } }}
+                    />
+                    <Button
+                        onClick={addCustomSubject}
+                        startIcon={<AddIcon sx={{ fontSize: 16 }} />}
+                        variant="contained"
+                        disableElevation
+                        sx={{ textTransform: 'none', fontWeight: 700, bgcolor: PRIMARY, '&:hover': { bgcolor: PRIMARY_DARK }, borderRadius: '8px', height: 36, px: 2 }}
+                    >
+                        Add
+                    </Button>
+                </Box>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.8, mb: 1 }}>
+                    {customSubjects.length === 0 ? (
+                        <Typography sx={{ fontSize: 12, color: '#9CA3AF', fontStyle: 'italic' }}>No custom periods yet.</Typography>
+                    ) : customSubjects.map((s) => (
+                        <Chip
+                            key={s}
+                            label={s}
+                            onDelete={() => removeCustomSubject(s)}
+                            deleteIcon={<DeleteOutlineIcon sx={{ fontSize: '16px !important' }} />}
+                            sx={{
+                                height: 30, fontSize: 12.5, fontWeight: 700,
+                                bgcolor: PRIMARY_LIGHT, color: PRIMARY_DARK, border: `1px solid ${PRIMARY_BORDER}`,
+                                '& .MuiChip-deleteIcon': { color: `${PRIMARY_DARK}99`, '&:hover': { color: '#DC2626' } },
+                            }}
+                        />
+                    ))}
+                </Box>
+
             </Box>
 
             <Dialog open={dialog.open} onClose={() => setDialog({ open: false, mode: 'add', period: null })} maxWidth="xs" fullWidth slotProps={{ paper: { sx: { borderRadius: '12px' } } }}>
@@ -343,15 +510,23 @@ export default function WorkDoneSettings() {
                 </DialogTitle>
                 <DialogContent sx={{ p: 2 }}>
                     <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.5, mb: 0.3 }}>Name</Typography>
-                    <TextField size="small" fullWidth value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} sx={{ mb: 1.2, '& .MuiOutlinedInput-root': { borderRadius: '8px' } }} />
+                    <TextField
+                        size="small"
+                        fullWidth
+                        value={form.name}
+                        onChange={(e) => setForm({ ...form, name: e.target.value })}
+                        disabled={dialog.mode === 'edit'}
+                        helperText={dialog.mode === 'edit' ? 'Period name can’t be changed — edit the time only.' : ''}
+                        sx={{ mb: 1.2, '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+                    />
                     <Grid container spacing={1.2}>
                         <Grid size={{ xs: 6 }}>
-                            <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.5, mb: 0.3 }}>Start</Typography>
-                            <TextField size="small" type="time" fullWidth value={form.startTime} onChange={(e) => setForm({ ...form, startTime: e.target.value })} sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }} />
+                            <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.5, mb: 0.3 }}>Start <Box component="span" sx={{ color: '#DC2626' }}>*</Box></Typography>
+                            <TextField size="small" type="time" fullWidth required value={form.startTime} onChange={(e) => handleStartChange(e.target.value)} sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }} />
                         </Grid>
                         <Grid size={{ xs: 6 }}>
-                            <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.5, mb: 0.3 }}>End</Typography>
-                            <TextField size="small" type="time" fullWidth value={form.endTime} onChange={(e) => setForm({ ...form, endTime: e.target.value })} sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }} />
+                            <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.5, mb: 0.3 }}>End <Box component="span" sx={{ color: '#DC2626' }}>*</Box></Typography>
+                            <TextField size="small" type="time" fullWidth required value={form.endTime} onChange={(e) => setForm({ ...form, endTime: e.target.value })} sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }} />
                         </Grid>
                     </Grid>
                 </DialogContent>
@@ -361,12 +536,13 @@ export default function WorkDoneSettings() {
                 </DialogActions>
             </Dialog>
 
-            <Dialog open={savedSnack} onClose={() => setSavedSnack(false)} maxWidth="xs" slotProps={{ paper: { sx: { borderRadius: '12px' } } }}>
-                <DialogContent sx={{ p: 2.5, display: 'flex', alignItems: 'center', gap: 1.2, minWidth: 280 }}>
-                    <VerifiedOutlinedIcon sx={{ fontSize: 28, color: PRIMARY_DARK }} />
-                    <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>Settings saved.</Typography>
-                </DialogContent>
-            </Dialog>
+            <SnackBar
+                open={snack.open}
+                message={snack.msg}
+                status={snack.ok}
+                color={snack.ok}
+                setOpen={(v) => setSnack((s) => ({ ...s, open: v }))}
+            />
         </Box>
     );
 }

@@ -9,15 +9,15 @@ import {
     Typography,
     SvgIcon,
     Divider,
-    Autocomplete,
-    TextField,
     Dialog,
     DialogContent
 } from "@mui/material";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useNavigate } from "react-router-dom";
+import { useSelector } from "react-redux";
 import axios from "axios";
+import { selectAcademicYear } from "../../../../Redux/Slices/academicYearSlice";
 import { ecaFeeFetch, ecaFeeFetchID, ecaFeeStudentAdd, ecaFeeStudentFetch, getEligibleEcaStudents } from "../../../../Api/Api";
 import AddAdmissionNumbersDialog from "../../../AddAdmissionNumberDialog";
 import StudentSelectionPopup from "../../../Tools/StudentSelectionPopup";
@@ -29,9 +29,8 @@ import EcaStudentSelectionPopup from "../../../Tools/EcaStudentSelectionPopup";
 export default function ExtraCurricularManage() {
 
     const token = "123"
-    const currentYear = new Date().getFullYear();
-    const currentAcademicYear = `${currentYear}-${currentYear + 1}`;
-    const [selectedYear, setSelectedYear] = useState(currentAcademicYear);
+    // Academic year is set globally in the dashboard header (Redux)
+    const selectedYear = useSelector(selectAcademicYear);
     const navigate = useNavigate();
     const [isLoading, setIsLoading] = useState([])
 
@@ -50,13 +49,6 @@ export default function ExtraCurricularManage() {
     const [status, setStatus] = useState(false);
     const [color, setColor] = useState(false);
     const [message, setMessage] = useState('');
-
-
-    const academicYears = [
-        `${currentYear - 2}-${currentYear - 1}`,
-        `${currentYear - 1}-${currentYear}`,
-        `${currentYear}-${currentYear + 1}`,
-    ];
 
 
     const handleOpenStudentPopup = (activity) => {
@@ -88,7 +80,8 @@ export default function ExtraCurricularManage() {
     };
 
     useEffect(() => {
-        getEcaFees()
+        if (selectedYear) getEcaFees()
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedYear]);
 
     const getEcaFees = async () => {
@@ -176,7 +169,7 @@ export default function ExtraCurricularManage() {
             {isLoading && <Loader />}
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
             {/* HEADER */}
-            <Box sx={{ backgroundColor: "#f2f2f2", borderRadius: "10px 10px 10px 0px", px: 2, borderBottom: "1px solid #ddd" }}>
+            <Box sx={{ backgroundColor: "#f2f2f2", borderRadius: "10px 10px 10px 0px", px: 2,py:1, borderBottom: "1px solid #ddd" }}>
                 <Grid container>
                     <Grid size={{ xs: 12, md: 6, lg: 9 }} sx={{ display: "flex", alignItems: "center" }}>
                         <IconButton onClick={() => navigate(-1)} sx={{ width: "27px", height: "27px", marginTop: "3px", mr: 1 }}>
@@ -184,40 +177,6 @@ export default function ExtraCurricularManage() {
                         </IconButton>
                         <Typography sx={{ fontWeight: 600, fontSize: "20px" }} > Extra Curricular activity Manage</Typography>
                     </Grid>
-                    <Grid
-                        size={{ xs: 6, sm: 6, md: 3, lg: 3 }}
-                        sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "flex-end",
-                            gap: 1.5,
-                            borderRadius: "8px",
-                            px: 2,
-                            py: 1,
-                        }}
-                    >
-                      
-
-                        <Autocomplete
-                            size="small"
-                            options={academicYears}
-                            sx={{ width: "170px" }}
-                            value={selectedYear}
-                            onChange={(e, newValue) => setSelectedYear(newValue)}
-                            renderInput={(params) => (
-                                <TextField
-                                    placeholder="Select Academic Year"
-                                    {...params}
-                                    variant="outlined"
-                                    sx={{
-                                        "& .MuiOutlinedInput-root": { borderRadius: "5px", fontSize: 14, height: 35 },
-                                        "& .MuiOutlinedInput-input": { textAlign: "center", fontWeight: "600" },
-                                    }}
-                                />
-                            )}
-                        />
-                    </Grid>
-
                 </Grid>
             </Box>
 

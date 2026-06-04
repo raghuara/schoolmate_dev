@@ -9,8 +9,6 @@ import {
     Typography,
     SvgIcon,
     Divider,
-    Autocomplete,
-    TextField,
 }
     from "@mui/material";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -29,9 +27,8 @@ import AdditionalStudentSelectionPopup from "../../../Tools/AdditionalStudentSel
 export default function AdditionalFeeManage() {
 
     const token = "123"
-    const currentYear = new Date().getFullYear();
-    const currentAcademicYear = `${currentYear}-${currentYear + 1}`;
-    const [selectedYear, setSelectedYear] = useState(currentAcademicYear);
+    // Academic year is set globally in the dashboard header (Redux)
+    const selectedYear = useSelector(selectAcademicYear);
     const navigate = useNavigate();
     const [isLoading, setIsLoading] = useState([])
 
@@ -68,12 +65,6 @@ export default function AdditionalFeeManage() {
         }
         return [];
     };
-
-    const academicYears = [
-        `${currentYear - 2}-${currentYear - 1}`,
-        `${currentYear - 1}-${currentYear}`,
-        `${currentYear}-${currentYear + 1}`,
-    ];
 
     const handleOpenStudentPopup = (activity) => {
         setSelectedActivity(activity);
@@ -120,7 +111,8 @@ export default function AdditionalFeeManage() {
     }
 
     useEffect(() => {
-        getEcaFees()
+        if (selectedYear) getEcaFees()
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedYear]);
 
     const getEcaFees = async () => {
@@ -213,6 +205,7 @@ export default function AdditionalFeeManage() {
                 right: 0,
                 backgroundColor: "#f2f2f2",
                 px: 2,
+                py: 1,
                 borderBottom: "1px solid #ddd",
                 zIndex: 1200,
                 transition: "left 0.3s ease-in-out",
@@ -225,39 +218,6 @@ export default function AdditionalFeeManage() {
                         </IconButton>
                         <Typography sx={{ fontWeight: 600, fontSize: "20px" }} >Additional Fee Manage</Typography>
                     </Grid>
-                    <Grid
-                        size={{ xs: 6, sm: 6, md: 3, lg: 3 }}
-                        sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "flex-end",
-                            gap: 1.5,
-                            borderRadius: "8px",
-                            px: 2,
-                            py: 1,
-                        }}
-                    >
-                
-                        <Autocomplete
-                            size="small"
-                            options={academicYears}
-                            sx={{ width: "170px" }}
-                            value={selectedYear}
-                            onChange={(e, newValue) => setSelectedYear(newValue)}
-                            renderInput={(params) => (
-                                <TextField
-                                    placeholder="Select Academic Year"
-                                    {...params}
-                                    variant="outlined"
-                                    sx={{
-                                        "& .MuiOutlinedInput-root": { borderRadius: "5px", fontSize: 14, height: 35 },
-                                        "& .MuiOutlinedInput-input": { textAlign: "center", fontWeight: "600" },
-                                    }}
-                                />
-                            )}
-                        />
-                    </Grid>
-
                 </Grid>
             </Box>
 

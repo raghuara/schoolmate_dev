@@ -89,6 +89,8 @@ export default function BirthdayPostPage() {
                 grade: s.grade || '',
                 section: s.section || '',
                 photoUrl: s.profilePhoto || '',
+                acknowledged: !!s.acknowledged || s.acknowledgementStatus === 'seen',
+                viewedAtIst: s.viewedAtIst || null,
             }));
             setStudents(list);
 
@@ -519,7 +521,7 @@ export default function BirthdayPostPage() {
                         <Table size="small" stickyHeader>
                             <TableHead>
                                 <TableRow sx={{ bgcolor: '#F9FAFB' }}>
-                                    {['#', 'Roll No', 'Student', 'Class', 'Acknowledgement'].map(h => (
+                                    {['#', 'Roll No', 'Student', 'Class', 'Acknowledgement', 'Viewed Time'].map(h => (
                                         <TableCell key={h} sx={{
                                             fontWeight: 700, fontSize: 11, color: '#6B7280',
                                             textTransform: 'uppercase', letterSpacing: 0.4, bgcolor: '#F9FAFB',
@@ -531,7 +533,14 @@ export default function BirthdayPostPage() {
                             </TableHead>
                             <TableBody>
                                 {filteredStudents.map((s, idx) => {
-                                    const viewed = viewedSet.has(s.rollNumber);
+                                    const formatViewedTime = (isoStr) => {
+                                        if (!isoStr) return '--';
+                                        try {
+                                            const d = new Date(isoStr.replace(' ', 'T'));
+                                            if (Number.isNaN(d.getTime())) return '--';
+                                            return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+                                        } catch { return '--'; }
+                                    };
                                     return (
                                         <TableRow key={s.rollNumber} sx={{ '&:hover': { bgcolor: '#FAFAFA' } }}>
                                             <TableCell sx={{ fontSize: 12, color: '#9CA3AF' }}>{idx + 1}</TableCell>
@@ -580,11 +589,11 @@ export default function BirthdayPostPage() {
                                                             border: '1px solid #E5E7EB',
                                                         }}
                                                     />
-                                                ) : viewed ? (
+                                                ) : s.acknowledged ? (
                                                     <Chip
                                                         size="small"
                                                         icon={<VisibilityIcon sx={{ fontSize: '14px !important', color: '#16A34A !important' }} />}
-                                                        label="Viewed"
+                                                        label="Seen"
                                                         sx={{
                                                             fontSize: 11, fontWeight: 700, height: 22,
                                                             bgcolor: '#F0FDF4', color: '#15803D',
@@ -595,7 +604,7 @@ export default function BirthdayPostPage() {
                                                     <Chip
                                                         size="small"
                                                         icon={<VisibilityOffIcon sx={{ fontSize: '14px !important', color: '#C2410C !important' }} />}
-                                                        label="Not viewed"
+                                                        label="Not Viewed"
                                                         sx={{
                                                             fontSize: 11, fontWeight: 700, height: 22,
                                                             bgcolor: '#FFF7ED', color: '#C2410C',
@@ -603,6 +612,11 @@ export default function BirthdayPostPage() {
                                                         }}
                                                     />
                                                 )}
+                                            </TableCell>
+                                            <TableCell>
+                                                <Typography sx={{ fontSize: 12, fontWeight: 600, color: s.viewedAtIst ? '#374151' : '#D1D5DB', whiteSpace: 'nowrap' }}>
+                                                    {formatViewedTime(s.viewedAtIst)}
+                                                </Typography>
                                             </TableCell>
                                         </TableRow>
                                     );

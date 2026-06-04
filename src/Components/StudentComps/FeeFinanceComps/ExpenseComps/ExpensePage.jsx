@@ -235,8 +235,20 @@ export default function ExpensePage() {
 
     const [newAllocation, setNewAllocation] = useState({
         amount: "",
+        paymentMethod: "",
         notes: ""
     });
+
+    const ALLOC_DENOMS = [2000, 500, 200, 100, 50, 20, 10, 5, 2, 1];
+    const [allocDenominations, setAllocDenominations] = useState(
+        ALLOC_DENOMS.reduce((acc, d) => ({ ...acc, [d]: 0 }), {})
+    );
+    const allocDenomTotal = ALLOC_DENOMS.reduce((sum, d) => sum + d * (allocDenominations[d] || 0), 0);
+
+    const handleAllocDenomChange = (denom, value) => {
+        const num = value === '' ? 0 : Math.max(0, parseInt(value, 10) || 0);
+        setAllocDenominations((prev) => ({ ...prev, [denom]: num }));
+    };
 
     // New expense request form
     const [newRequest, setNewRequest] = useState({
@@ -249,6 +261,17 @@ export default function ExpensePage() {
         requestedBy: userName,
         requestedByEmail: ""
     });
+
+    const DENOMINATIONS = [2000, 500, 200, 100, 50, 20, 10, 5, 2, 1];
+    const [denominations, setDenominations] = useState(
+        DENOMINATIONS.reduce((acc, d) => ({ ...acc, [d]: 0 }), {})
+    );
+    const denominationTotal = DENOMINATIONS.reduce((sum, d) => sum + d * (denominations[d] || 0), 0);
+
+    const handleDenominationChange = (denom, value) => {
+        const num = value === '' ? 0 : Math.max(0, parseInt(value, 10) || 0);
+        setDenominations((prev) => ({ ...prev, [denom]: num }));
+    };
 
     const [approvalAction, setApprovalAction] = useState("");
     const [rejectionReason, setRejectionReason] = useState("");
@@ -1067,6 +1090,82 @@ export default function ExpensePage() {
                                 </Select>
                             </FormControl>
                         </Grid>
+
+                        {newRequest.paymentMethod === 'Cash' && (
+                            <Grid size={{ xs: 12, sm: 12, md: 12, lg: 12 }}>
+                                <Box sx={{
+                                    p: 2, borderRadius: '10px',
+                                    bgcolor: '#F8FAFC', border: '1px solid #E2E8F0',
+                                }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+                                        <Box>
+                                            <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>
+                                                Denomination Breakdown
+                                            </Typography>
+                                            <Typography sx={{ fontSize: 11, color: '#6B7280' }}>
+                                                Enter quantity for each denomination
+                                            </Typography>
+                                        </Box>
+                                        <Box sx={{
+                                            px: 1.5, py: 0.6, borderRadius: '8px',
+                                            bgcolor: denominationTotal > 0 ? '#EEF2FF' : '#F3F4F6',
+                                            border: `1px solid ${denominationTotal > 0 ? '#C7D2FE' : '#E5E7EB'}`,
+                                        }}>
+                                            <Typography sx={{ fontSize: 11, color: '#6B7280', fontWeight: 600 }}>Total</Typography>
+                                            <Typography sx={{ fontSize: 18, fontWeight: 800, color: denominationTotal > 0 ? '#4338CA' : '#9CA3AF', lineHeight: 1.2 }}>
+                                                ₹{denominationTotal.toLocaleString('en-IN')}
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+                                    <Box sx={{
+                                        border: '1px solid #E5E7EB', borderRadius: '8px',
+                                        overflow: 'hidden', bgcolor: '#fff',
+                                    }}>
+                                        {DENOMINATIONS.map((d, idx) => (
+                                            <Box key={d} sx={{
+                                                display: 'flex', alignItems: 'center', gap: 1.5,
+                                                px: 2, py: 1,
+                                                borderBottom: idx < DENOMINATIONS.length - 1 ? '1px solid #F3F4F6' : 'none',
+                                                '&:hover': { bgcolor: '#FAFAFA' },
+                                                transition: 'background-color 0.1s',
+                                            }}>
+                                                <Box sx={{
+                                                    minWidth: 72, px: 1.2, py: 0.4, borderRadius: '6px',
+                                                    bgcolor: '#F9FAFB', border: '1px solid #E5E7EB',
+                                                    textAlign: 'center',
+                                                }}>
+                                                    <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#374151' }}>
+                                                        ₹{d.toLocaleString('en-IN')}
+                                                    </Typography>
+                                                </Box>
+                                                <Typography sx={{ fontSize: 14, color: '#9CA3AF', fontWeight: 600 }}>×</Typography>
+                                                <TextField
+                                                    size="small"
+                                                    type="number"
+                                                    value={denominations[d] || ''}
+                                                    onChange={(e) => handleDenominationChange(d, e.target.value)}
+                                                    placeholder="0"
+                                                    slotProps={{ input: { inputProps: { min: 0, style: { textAlign: 'center' } } } }}
+                                                    sx={{
+                                                        width: 80,
+                                                        '& .MuiOutlinedInput-root': {
+                                                            borderRadius: '6px', height: 34, fontSize: 13, fontWeight: 700,
+                                                        },
+                                                    }}
+                                                />
+                                                <Typography sx={{ fontSize: 14, color: '#9CA3AF', fontWeight: 600 }}>=</Typography>
+                                                <Typography sx={{
+                                                    fontSize: 13, fontWeight: 700, ml: 'auto',
+                                                    color: (denominations[d] || 0) > 0 ? '#111827' : '#D1D5DB',
+                                                }}>
+                                                    ₹{(d * (denominations[d] || 0)).toLocaleString('en-IN')}
+                                                </Typography>
+                                            </Box>
+                                        ))}
+                                    </Box>
+                                </Box>
+                            </Grid>
+                        )}
 
                         <Grid size={{ xs: 12, sm: 12, md: 12, lg: 12 }}>
                             <TextField
@@ -2194,6 +2293,99 @@ export default function ExpensePage() {
                                 placeholder="Enter allocation"
                             />
                         </Grid>
+
+                        <Grid size={{ xs: 12 }}>
+                            <FormControl fullWidth required>
+                                <InputLabel>Payment Method</InputLabel>
+                                <Select
+                                    value={newAllocation.paymentMethod}
+                                    onChange={(e) => setNewAllocation({ ...newAllocation, paymentMethod: e.target.value })}
+                                    label="Payment Method"
+                                >
+                                    {paymentMethods.map((method) => (
+                                        <MenuItem key={method} value={method}>
+                                            {method}
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                        </Grid>
+
+                        {newAllocation.paymentMethod === 'Cash' && (
+                            <Grid size={{ xs: 12 }}>
+                                <Box sx={{
+                                    p: 2, borderRadius: '10px',
+                                    bgcolor: '#F8FAFC', border: '1px solid #E2E8F0',
+                                }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+                                        <Box>
+                                            <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>
+                                                Denomination Breakdown
+                                            </Typography>
+                                            <Typography sx={{ fontSize: 11, color: '#6B7280' }}>
+                                                Enter quantity for each denomination
+                                            </Typography>
+                                        </Box>
+                                        <Box sx={{
+                                            px: 1.5, py: 0.6, borderRadius: '8px',
+                                            bgcolor: allocDenomTotal > 0 ? '#EEF2FF' : '#F3F4F6',
+                                            border: `1px solid ${allocDenomTotal > 0 ? '#C7D2FE' : '#E5E7EB'}`,
+                                        }}>
+                                            <Typography sx={{ fontSize: 11, color: '#6B7280', fontWeight: 600 }}>Total</Typography>
+                                            <Typography sx={{ fontSize: 18, fontWeight: 800, color: allocDenomTotal > 0 ? '#4338CA' : '#9CA3AF', lineHeight: 1.2 }}>
+                                                ₹{allocDenomTotal.toLocaleString('en-IN')}
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+                                    <Box sx={{
+                                        border: '1px solid #E5E7EB', borderRadius: '8px',
+                                        overflow: 'hidden', bgcolor: '#fff',
+                                    }}>
+                                        {ALLOC_DENOMS.map((d, idx) => (
+                                            <Box key={d} sx={{
+                                                display: 'flex', alignItems: 'center', gap: 1.5,
+                                                px: 2, py: 1,
+                                                borderBottom: idx < ALLOC_DENOMS.length - 1 ? '1px solid #F3F4F6' : 'none',
+                                                '&:hover': { bgcolor: '#FAFAFA' },
+                                                transition: 'background-color 0.1s',
+                                            }}>
+                                                <Box sx={{
+                                                    minWidth: 72, px: 1.2, py: 0.4, borderRadius: '6px',
+                                                    bgcolor: '#F9FAFB', border: '1px solid #E5E7EB',
+                                                    textAlign: 'center',
+                                                }}>
+                                                    <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#374151' }}>
+                                                        ₹{d.toLocaleString('en-IN')}
+                                                    </Typography>
+                                                </Box>
+                                                <Typography sx={{ fontSize: 14, color: '#9CA3AF', fontWeight: 600 }}>×</Typography>
+                                                <TextField
+                                                    size="small"
+                                                    type="number"
+                                                    value={allocDenominations[d] || ''}
+                                                    onChange={(e) => handleAllocDenomChange(d, e.target.value)}
+                                                    placeholder="0"
+                                                    slotProps={{ input: { inputProps: { min: 0, style: { textAlign: 'center' } } } }}
+                                                    sx={{
+                                                        width: 80,
+                                                        '& .MuiOutlinedInput-root': {
+                                                            borderRadius: '6px', height: 34, fontSize: 13, fontWeight: 700,
+                                                        },
+                                                    }}
+                                                />
+                                                <Typography sx={{ fontSize: 14, color: '#9CA3AF', fontWeight: 600 }}>=</Typography>
+                                                <Typography sx={{
+                                                    fontSize: 13, fontWeight: 700, ml: 'auto',
+                                                    color: (allocDenominations[d] || 0) > 0 ? '#111827' : '#D1D5DB',
+                                                }}>
+                                                    ₹{(d * (allocDenominations[d] || 0)).toLocaleString('en-IN')}
+                                                </Typography>
+                                            </Box>
+                                        ))}
+                                    </Box>
+                                </Box>
+                            </Grid>
+                        )}
 
                         <Grid size={{ xs: 12 }}>
                             <TextField

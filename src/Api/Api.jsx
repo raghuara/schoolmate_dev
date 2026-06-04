@@ -445,6 +445,17 @@ const approvalStatusCheckTranspoart = `${transpoartFee}approvalStatusCheckTransp
 const updateTranspoartSchoolFee = `${transpoartFee}updateTranspoartSchoolFee`;
 const deleteTranspoartFeesStructure = `${transpoartFee}deleteTranspoartFeesStructure`;
 
+// Worl Done 
+const GetWorkdoneClassWise = `${baseApiurl}WorkDoneReport/GetWorkdoneClassWise`;
+const GetWorkdoneTeacherWise = `${baseApiurl}WorkDoneReport/GetWorkdoneTeacherWise`;
+const PostWorkdoneReport = `${baseApiurl}WorkDoneReport/PostWorkdoneReport`;
+
+const GetWorkdonePeriods = `${baseApiurl}WorkDoneSettings/GetWorkdonePeriods`;
+const PostWorkdonePeriods = `${baseApiurl}WorkDoneSettings/PostWorkdonePeriods`;
+const GetCustomWorkdoneSubjects = `${baseApiurl}WorkDoneSettings/GetCustomWorkdoneSubjects`;
+const SaveCustomWorkdoneSubjects = `${baseApiurl}WorkDoneSettings/SaveCustomWorkdoneSubjects`;
+const GetWorkdoneSettings = `${baseApiurl}WorkDoneSettings/GetWorkdoneSettings`;
+const SaveWorkdoneSettings = `${baseApiurl}WorkDoneSettings/SaveWorkdoneSettings`;
 
 
 // Vehicle Safety & Compliance APIs
@@ -847,5 +858,14 @@ export {
     GetTeachersAttendanceAudit,
     PostAcademicYearConfig,
     GetAcademicYearConfig,
-    GetExitFeesSummary
+    GetExitFeesSummary,
+    GetWorkdoneClassWise,
+    GetWorkdoneTeacherWise,
+    PostWorkdoneReport,
+    GetWorkdonePeriods,
+    PostWorkdonePeriods,
+    GetCustomWorkdoneSubjects,
+    SaveCustomWorkdoneSubjects,
+    GetWorkdoneSettings,
+    SaveWorkdoneSettings
 }

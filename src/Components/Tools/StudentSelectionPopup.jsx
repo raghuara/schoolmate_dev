@@ -28,6 +28,8 @@ export default function StudentSelectionPopup({ open, onClose, onSave, activity 
     // All currently selected rolls (existing + newly added in this session)
     const [selectedRolls, setSelectedRolls] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
+    const [classFilter, setClassFilter] = useState('');
+    const [sectionFilter, setSectionFilter] = useState('');
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
@@ -38,6 +40,8 @@ export default function StudentSelectionPopup({ open, onClose, onSave, activity 
             setExistingStudentMap({});
             setSelectedRolls([]);
             setSearchQuery('');
+            setClassFilter('');
+            setSectionFilter('');
         }
     }, [open]);
 
@@ -79,6 +83,8 @@ export default function StudentSelectionPopup({ open, onClose, onSave, activity 
             setSelectedRolls([]);
             setEligibleStudents([]);
             setSearchQuery('');
+            setClassFilter('');
+            setSectionFilter('');
             return;
         }
 
@@ -96,6 +102,8 @@ export default function StudentSelectionPopup({ open, onClose, onSave, activity 
         setSelectedRolls(existingRollNumbers);   // pre-populate with existing
         setEligibleStudents([]);
         setSearchQuery('');
+        setClassFilter('');
+        setSectionFilter('');
         fetchEligibleStudents(stop);
     };
 
@@ -108,10 +116,31 @@ export default function StudentSelectionPopup({ open, onClose, onSave, activity 
         return { name: rollNumber, rollNumber, grade: '', section: '' };
     };
 
+    // Distinct class options from the eligible list
+    const classOptions = useMemo(
+        () => [...new Set(eligibleStudents.map(s => s.grade).filter(Boolean))],
+        [eligibleStudents]
+    );
+
+    // Sections available within the chosen class (or across all if no class chosen)
+    const sectionOptions = useMemo(() => {
+        const pool = classFilter ? eligibleStudents.filter(s => s.grade === classFilter) : eligibleStudents;
+        return [...new Set(pool.map(s => s.section).filter(Boolean))];
+    }, [eligibleStudents, classFilter]);
+
+    const isSearching = !!searchQuery.trim();
+
     const filteredStudents = eligibleStudents.filter(u => {
-        if (!searchQuery.trim()) return true;
-        const q = searchQuery.toLowerCase();
-        return u.rollNumber?.toLowerCase().includes(q) || u.name?.toLowerCase().includes(q);
+        // When searching (by name or roll number) we look across ALL classes/sections,
+        // so a roll number is found regardless of the class/section filter.
+        if (isSearching) {
+            const q = searchQuery.toLowerCase();
+            return u.rollNumber?.toLowerCase().includes(q) || u.name?.toLowerCase().includes(q);
+        }
+        // No search query → apply the class/section filter
+        const matchesClass = !classFilter || u.grade === classFilter;
+        const matchesSection = !sectionFilter || u.section === sectionFilter;
+        return matchesClass && matchesSection;
     });
 
     const addStudent = (student) => {
@@ -131,6 +160,8 @@ export default function StudentSelectionPopup({ open, onClose, onSave, activity 
         setExistingStudentMap({});
         setSelectedRolls([]);
         setSearchQuery('');
+        setClassFilter('');
+        setSectionFilter('');
         onClose();
     };
 
@@ -310,8 +341,48 @@ export default function StudentSelectionPopup({ open, onClose, onSave, activity 
                                             ),
                                         }
                                     }}
-                                    sx={{ mb: 1.5, '& .MuiOutlinedInput-root': { borderRadius: '8px', fontSize: 13 } }}
+                                    sx={{ mb: 1, '& .MuiOutlinedInput-root': { borderRadius: '8px', fontSize: 13 } }}
                                 />
+
+                                {/* Class / Section filter — disabled while searching (search spans all classes) */}
+                                <Box sx={{ display: 'flex', gap: 1, mb: 0.8 }}>
+                                    <FormControl size="small" sx={{ flex: 1 }} disabled={!selectedBusStop || loading || isSearching}>
+                                        <InputLabel sx={{ fontSize: 12, '&.Mui-focused': { color: MAIN_COLOR } }}>Class</InputLabel>
+                                        <Select
+                                            value={classFilter}
+                                            label="Class"
+                                            onChange={(e) => { setClassFilter(e.target.value); setSectionFilter(''); }}
+                                            sx={{ fontSize: 12, borderRadius: '8px' }}
+                                        >
+                                            <MenuItem value="" sx={{ fontSize: 12 }}><em>All Classes</em></MenuItem>
+                                            {classOptions.map(c => (
+                                                <MenuItem key={c} value={c} sx={{ fontSize: 12 }}>{c}</MenuItem>
+                                            ))}
+                                        </Select>
+                                    </FormControl>
+                                    <FormControl size="small" sx={{ flex: 1 }} disabled={!selectedBusStop || loading || isSearching || sectionOptions.length === 0}>
+                                        <InputLabel sx={{ fontSize: 12, '&.Mui-focused': { color: MAIN_COLOR } }}>Section</InputLabel>
+                                        <Select
+                                            value={sectionFilter}
+                                            label="Section"
+                                            onChange={(e) => setSectionFilter(e.target.value)}
+                                            sx={{ fontSize: 12, borderRadius: '8px' }}
+                                        >
+                                            <MenuItem value="" sx={{ fontSize: 12 }}><em>All Sections</em></MenuItem>
+                                            {sectionOptions.map(s => (
+                                                <MenuItem key={s} value={s} sx={{ fontSize: 12 }}>{s}</MenuItem>
+                                            ))}
+                                        </Select>
+                                    </FormControl>
+                                </Box>
+
+                                <Typography sx={{ fontSize: 10.5, color: '#9CA3AF', mb: 1.2, minHeight: 14 }}>
+                                    {isSearching
+                                        ? 'Searching across all classes & sections'
+                                        : (classFilter || sectionFilter)
+                                            ? `Showing ${filteredStudents.length} student${filteredStudents.length !== 1 ? 's' : ''} in this filter`
+                                            : ''}
+                                </Typography>
                                 <Box sx={{ maxHeight: 240, overflowY: 'auto', '&::-webkit-scrollbar': { width: '4px' }, '&::-webkit-scrollbar-thumb': { backgroundColor: '#D1D5DB', borderRadius: '10px' } }}>
                                     {!selectedBusStop ? (
                                         <Box sx={{ py: 5, textAlign: 'center' }}>

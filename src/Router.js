@@ -161,6 +161,7 @@ import ViewProfilePage from "./Components/DashBoard/ViewProfilePage";
 import CreatedEcaFees from "./Components/StudentComps/FeeFinanceComps/FeesStructure/CreatedEcaFees";
 import CreatedExtraFees from "./Components/StudentComps/FeeFinanceComps/FeesStructure/CreatedExtraFees";
 import CommunicationDashboard from "./Components/CommunicationComps/CommunicationDashboard";
+import ContactDetails from "./Components/CommunicationComps/ContactDetails";
 
 
 export default function RouterPage() {
@@ -215,6 +216,7 @@ export default function RouterPage() {
                 <Route path="messages" element={<MessagesPage />} />
                 <Route path="circulars" element={<CircularsPage />} />
                 <Route path="consentforms" element={<ConsentFormsPage />} />
+                <Route path="contact" element={<ContactDetails />} />
                 <Route path="timetables" element={<TimeTablePage />} />
                 <Route path="homework" element={<HomeWorkPage />} />
                 <Route path="examtimetables" element={<ExamTimeTablesPage />} />
