@@ -7,6 +7,7 @@ const initialState = {
         '/dashboardmenu/messages',
         '/dashboardmenu/circulars',
         '/dashboardmenu/consentforms',
+        '/dashboardmenu/contact',
         '/dashboardmenu/timetables',
         '/dashboardmenu/homework',
         '/dashboardmenu/examtimetables',
@@ -51,6 +52,7 @@ const initialState = {
         '/dashboardmenu/myprojects',
         '/dashboardmenu/status',
         '/dashboardmenu/draft',
+        '/dashboardmenu/workdone',
     ],
     
     ERPActivePaths: [
