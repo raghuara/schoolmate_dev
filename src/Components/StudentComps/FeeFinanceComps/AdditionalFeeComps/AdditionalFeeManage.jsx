@@ -261,7 +261,7 @@ export default function AdditionalFeeManage() {
                 </Grid>
             </Box>
 
-            <Box sx={{ px: 2, pt: "60px" }}>
+            <Box sx={{ px: 4, pt: "60px" }}>
                 {/* <Stack direction="row" justifyContent="end" py={2} pr={2}>
                     <Button
                         startIcon={
