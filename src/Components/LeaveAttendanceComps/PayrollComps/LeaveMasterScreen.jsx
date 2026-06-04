@@ -256,6 +256,18 @@ const INITIAL_CONFIG = {
     lunchBreakMinutes: 60,
     shortBreakMinutes: 15,
 
+    // Multi-shift array — primary source of truth for the Shift Timing section.
+    shifts: [
+        {
+            shiftName: 'Morning Shift',
+            startTime: '08:00',
+            endTime: '16:00',
+            gracePeriodMinutes: 10,
+            lunchBreakMinutes: 45,
+            shortBreakMinutes: 15,
+        },
+    ],
+
     // Default Working Days (0=Sun, 1=Mon … 6=Sat)
     defaultWorkingDays: [1, 2, 3, 4, 5, 6],
 };
@@ -494,6 +506,31 @@ export default function LeaveMasterScreen() {
     const [config, setConfig] = useState({ ...INITIAL_CONFIG });
 
     const update = (key, value) => setConfig(prev => ({ ...prev, [key]: value }));
+
+    // ── Shift array helpers ────────────────────────────────────────────────
+    const updateShift = (index, field, value) => setConfig(prev => {
+        const next = [...(prev.shifts || [])];
+        next[index] = { ...(next[index] || {}), [field]: value };
+        return { ...prev, shifts: next };
+    });
+
+    const addShift = () => setConfig(prev => {
+        const len = (prev.shifts || []).length;
+        const newShift = {
+            shiftName: len === 0 ? 'Morning Shift' : `Shift ${len + 1}`,
+            startTime: '09:00',
+            endTime: '17:00',
+            gracePeriodMinutes: 10,
+            lunchBreakMinutes: 45,
+            shortBreakMinutes: 15,
+        };
+        return { ...prev, shifts: [...(prev.shifts || []), newShift] };
+    });
+
+    const removeShift = (index) => setConfig(prev => ({
+        ...prev,
+        shifts: (prev.shifts || []).filter((_, i) => i !== index),
+    }));
 
     // Reset all 6 Policy Setup sections back to their default values.
     const handleClearAll = () => {
@@ -922,12 +959,40 @@ export default function LeaveMasterScreen() {
             bonusCreditFrequency: FREQUENCY_FROM_API[d.bonusPayout?.creditFrequency] || 'Quarterly',
 
             // Shift Timing & Work Hours
-            // API uses startTime / endTime inside shiftTiming
-            shiftStartTime: d.shiftTiming?.startTime || d.shiftTiming?.shiftStartTime || prev.shiftStartTime,
-            shiftEndTime:   d.shiftTiming?.endTime   || d.shiftTiming?.shiftEndTime   || prev.shiftEndTime,
-            gracePeriodMinutes: Number(d.shiftTiming?.gracePeriodMinutes) || 0,
-            lunchBreakMinutes: Number(d.shiftTiming?.lunchBreakMinutes) || 0,
-            shortBreakMinutes: Number(d.shiftTiming?.shortBreakMinutes) || 0,
+            // Multi-shift: API returns shifts: [...] (new). Falls back to old single
+            // shiftTiming object for backward-compat with policies saved before migration.
+            shifts: Array.isArray(d.shifts) && d.shifts.length > 0
+                ? d.shifts
+                    .slice()
+                    .sort((a, b) => (Number(a.displayOrder) || 0) - (Number(b.displayOrder) || 0))
+                    .map(s => ({
+                        id: s.id,
+                        shiftName: s.shiftName || '',
+                        startTime: s.startTime || '08:00',
+                        endTime:   s.endTime   || '16:00',
+                        gracePeriodMinutes: Number(s.gracePeriodMinutes) || 0,
+                        lunchBreakMinutes:  Number(s.lunchBreakMinutes)  || 0,
+                        shortBreakMinutes:  Number(s.shortBreakMinutes)  || 0,
+                    }))
+                : (d.shiftTiming
+                    ? [{
+                        shiftName: 'Default Shift',
+                        startTime: d.shiftTiming.startTime || d.shiftTiming.shiftStartTime || '08:00',
+                        endTime:   d.shiftTiming.endTime   || d.shiftTiming.shiftEndTime   || '16:00',
+                        gracePeriodMinutes: Number(d.shiftTiming.gracePeriodMinutes) || 0,
+                        lunchBreakMinutes:  Number(d.shiftTiming.lunchBreakMinutes)  || 0,
+                        shortBreakMinutes:  Number(d.shiftTiming.shortBreakMinutes)  || 0,
+                    }]
+                    : (prev.shifts || INITIAL_CONFIG.shifts)
+                  ),
+
+            // Keep legacy flat fields synced with the first shift, so the lateArrival
+            // useEffect (which reads config.gracePeriodMinutes) keeps working.
+            shiftStartTime: (d.shifts?.[0]?.startTime) || d.shiftTiming?.startTime || prev.shiftStartTime,
+            shiftEndTime:   (d.shifts?.[0]?.endTime)   || d.shiftTiming?.endTime   || prev.shiftEndTime,
+            gracePeriodMinutes: Number(d.shifts?.[0]?.gracePeriodMinutes ?? d.shiftTiming?.gracePeriodMinutes) || 0,
+            lunchBreakMinutes:  Number(d.shifts?.[0]?.lunchBreakMinutes  ?? d.shiftTiming?.lunchBreakMinutes)  || 0,
+            shortBreakMinutes:  Number(d.shifts?.[0]?.shortBreakMinutes  ?? d.shiftTiming?.shortBreakMinutes)  || 0,
         }));
     };
 
@@ -946,13 +1011,28 @@ export default function LeaveMasterScreen() {
             endMonth:   Number(prev.policyApplicabilityPeriod?.endMonth)   || 3,
             autoRenew:  !!prev.policyApplicabilityPeriod?.autoRenew,
         },
-        shiftTiming: {
-            startTime: prev.shiftTiming?.startTime || '08:00',
-            endTime:   prev.shiftTiming?.endTime   || '16:00',
-            gracePeriodMinutes: Number(prev.shiftTiming?.gracePeriodMinutes) || 0,
-            lunchBreakMinutes:  Number(prev.shiftTiming?.lunchBreakMinutes)  || 0,
-            shortBreakMinutes:  Number(prev.shiftTiming?.shortBreakMinutes)  || 0,
-        },
+        shifts: Array.isArray(prev.shifts) && prev.shifts.length > 0
+            ? prev.shifts.map((s, i) => ({
+                shiftName: s.shiftName || `Shift ${i + 1}`,
+                startTime: s.startTime || '08:00',
+                endTime:   s.endTime   || '16:00',
+                gracePeriodMinutes: Number(s.gracePeriodMinutes) || 0,
+                lunchBreakMinutes:  Number(s.lunchBreakMinutes)  || 0,
+                shortBreakMinutes:  Number(s.shortBreakMinutes)  || 0,
+                displayOrder: i,
+            }))
+            : (prev.shiftTiming
+                ? [{
+                    shiftName: 'Default Shift',
+                    startTime: prev.shiftTiming.startTime || '08:00',
+                    endTime:   prev.shiftTiming.endTime   || '16:00',
+                    gracePeriodMinutes: Number(prev.shiftTiming.gracePeriodMinutes) || 0,
+                    lunchBreakMinutes:  Number(prev.shiftTiming.lunchBreakMinutes)  || 0,
+                    shortBreakMinutes:  Number(prev.shiftTiming.shortBreakMinutes)  || 0,
+                    displayOrder: 0,
+                }]
+                : []
+              ),
         attendanceBonus:     prev.attendanceBonus     || {},
         punctuality:         prev.punctuality         || {},
         leaveSalaryDeduction: prev.leaveSalaryDeduction || {},
@@ -1097,13 +1177,15 @@ export default function LeaveMasterScreen() {
             endMonth:   Number(endMonth),
             autoRenew:  !!autoRenew,
         },
-        shiftTiming: {
-            startTime: config.shiftStartTime || '',
-            endTime:   config.shiftEndTime   || '',
-            gracePeriodMinutes: Number(config.gracePeriodMinutes) || 0,
-            lunchBreakMinutes:  Number(config.lunchBreakMinutes)  || 0,
-            shortBreakMinutes:  Number(config.shortBreakMinutes)  || 0,
-        },
+        shifts: (config.shifts || []).map((s, i) => ({
+            shiftName: (s.shiftName || `Shift ${i + 1}`).trim(),
+            startTime: s.startTime || '',
+            endTime:   s.endTime   || '',
+            gracePeriodMinutes: Number(s.gracePeriodMinutes) || 0,
+            lunchBreakMinutes:  Number(s.lunchBreakMinutes)  || 0,
+            shortBreakMinutes:  Number(s.shortBreakMinutes)  || 0,
+            displayOrder: i,
+        })),
         attendanceBonus: {
             enabled: !!config.attendanceBonusEnabled,
             amount: Number(config.attendanceBonusAmount) || 0,
@@ -1726,173 +1808,237 @@ export default function LeaveMasterScreen() {
                     </Section>
 
                     {/* ═══ Section: Shift Timing & Work Hours ═══ */}
-                    {(() => {
-                        const startMins = parseTimeToMinutes(config.shiftStartTime);
-                        const endMins = parseTimeToMinutes(config.shiftEndTime);
-                        let shiftMinutes = 0;
-                        if (startMins != null && endMins != null) {
-                            shiftMinutes = endMins - startMins;
-                            if (shiftMinutes < 0) shiftMinutes += 24 * 60;
-                        }
-                        const totalBreakMinutes =
-                            (Number(config.lunchBreakMinutes) || 0) +
-                            (Number(config.shortBreakMinutes) || 0);
-                        const effectiveMinutes = Math.max(0, shiftMinutes - totalBreakMinutes);
-                        const lateAfter = startMins != null
-                            ? (startMins + (Number(config.gracePeriodMinutes) || 0)) % (24 * 60)
-                            : null;
-                        const lateAfterStr = lateAfter != null
-                            ? formatTime12(`${String(Math.floor(lateAfter / 60)).padStart(2, '0')}:${String(lateAfter % 60).padStart(2, '0')}`)
-                            : '—';
-                        const breakExceedsShift = totalBreakMinutes > shiftMinutes && shiftMinutes > 0;
+                    <Section icon={AccessTimeIcon} title="Shift Timing & Work Hours" color="#0891B2"
+                        subtitle="Add one or more shift schedules — each shift has its own timing, grace period, and breaks">
 
-                        return (
-                            <Section icon={AccessTimeIcon} title="Shift Timing & Work Hours" color="#0891B2"
-                                subtitle="Standard shift schedule for all staff — defines what counts as on-time, breaks, and effective working hours">
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            {(config.shifts || []).map((shift, idx) => {
+                                const startMins = parseTimeToMinutes(shift.startTime);
+                                const endMins = parseTimeToMinutes(shift.endTime);
+                                let shiftMinutes = 0;
+                                if (startMins != null && endMins != null) {
+                                    shiftMinutes = endMins - startMins;
+                                    if (shiftMinutes < 0) shiftMinutes += 24 * 60;
+                                }
+                                const totalBreakMinutes =
+                                    (Number(shift.lunchBreakMinutes) || 0) +
+                                    (Number(shift.shortBreakMinutes) || 0);
+                                const effectiveMinutes = Math.max(0, shiftMinutes - totalBreakMinutes);
+                                const lateAfter = startMins != null
+                                    ? (startMins + (Number(shift.gracePeriodMinutes) || 0)) % (24 * 60)
+                                    : null;
+                                const lateAfterStr = lateAfter != null
+                                    ? formatTime12(`${String(Math.floor(lateAfter / 60)).padStart(2, '0')}:${String(lateAfter % 60).padStart(2, '0')}`)
+                                    : '—';
+                                const breakExceedsShift = totalBreakMinutes > shiftMinutes && shiftMinutes > 0;
+                                const onlyOne = (config.shifts || []).length <= 1;
 
-                                <Grid container spacing={2}>
-                                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2.4 }}>
-                                        <TimeField
-                                            label="Shift Start Time"
-                                            value={config.shiftStartTime}
-                                            onChange={(v) => update('shiftStartTime', v)}
-                                            helperText={`Begins at ${formatTime12(config.shiftStartTime)}`}
-                                        />
-                                    </Grid>
-                                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2.4 }}>
-                                        <TimeField
-                                            label="Shift End Time"
-                                            value={config.shiftEndTime}
-                                            onChange={(v) => update('shiftEndTime', v)}
-                                            helperText={`Ends at ${formatTime12(config.shiftEndTime)}`}
-                                        />
-                                    </Grid>
-                                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2.4 }}>
-                                        <NumberField
-                                            label="Grace Period"
-                                            value={config.gracePeriodMinutes}
-                                            onChange={(v) => update('gracePeriodMinutes', v)}
-                                            suffix="minutes"
-                                            helperText={`Late after ${lateAfterStr}`}
-                                        />
-                                    </Grid>
-                                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2.4 }}>
-                                        <NumberField
-                                            label="Lunch Break"
-                                            value={config.lunchBreakMinutes}
-                                            onChange={(v) => update('lunchBreakMinutes', v)}
-                                            suffix="minutes"
-                                            helperText="Excluded from working hours"
-                                        />
-                                    </Grid>
-                                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2.4 }}>
-                                        <NumberField
-                                            label="Short / Tea Break"
-                                            value={config.shortBreakMinutes}
-                                            onChange={(v) => update('shortBreakMinutes', v)}
-                                            suffix="minutes"
-                                            helperText="Combined short breaks per day"
-                                        />
-                                    </Grid>
-                                </Grid>
-
-                                {/* Computed Summary Cards */}
-                                <Grid container spacing={1.5} sx={{ mt: 1.5 }}>
-                                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
-                                        <Box sx={{
-                                            p: 1.5, borderRadius: '8px',
-                                            bgcolor: '#F0F9FA', border: '1px solid #BAE6FD',
-                                        }}>
-                                            <Typography sx={{ fontSize: '10px', color: '#0E7490', fontWeight: 700, letterSpacing: '0.4px', mb: 0.3 }}>
-                                                TOTAL SHIFT HOURS
-                                            </Typography>
-                                            <Typography sx={{ fontSize: '18px', fontWeight: 800, color: '#0891B2', lineHeight: 1.2 }}>
-                                                {formatHrs(shiftMinutes)}
-                                            </Typography>
-                                            <Typography sx={{ fontSize: '10px', color: '#64748B' }}>
-                                                {formatTime12(config.shiftStartTime)} → {formatTime12(config.shiftEndTime)}
-                                            </Typography>
-                                        </Box>
-                                    </Grid>
-                                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
-                                        <Box sx={{
-                                            p: 1.5, borderRadius: '8px',
-                                            bgcolor: '#FFF7ED', border: '1px solid #FED7AA',
-                                        }}>
-                                            <Typography sx={{ fontSize: '10px', color: '#9A3412', fontWeight: 700, letterSpacing: '0.4px', mb: 0.3 }}>
-                                                TOTAL BREAK TIME
-                                            </Typography>
-                                            <Typography sx={{ fontSize: '18px', fontWeight: 800, color: '#EA580C', lineHeight: 1.2 }}>
-                                                {formatHrs(totalBreakMinutes)}
-                                            </Typography>
-                                            <Typography sx={{ fontSize: '10px', color: '#64748B' }}>
-                                                Lunch {config.lunchBreakMinutes || 0}m + Short {config.shortBreakMinutes || 0}m
-                                            </Typography>
-                                        </Box>
-                                    </Grid>
-                                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
-                                        <Box sx={{
-                                            p: 1.5, borderRadius: '8px',
-                                            bgcolor: '#F0FDF4', border: '1px solid #A7F3D0',
-                                        }}>
-                                            <Typography sx={{ fontSize: '10px', color: '#065F46', fontWeight: 700, letterSpacing: '0.4px', mb: 0.3 }}>
-                                                EFFECTIVE LOGIN HOURS
-                                            </Typography>
-                                            <Typography sx={{ fontSize: '18px', fontWeight: 800, color: '#059669', lineHeight: 1.2 }}>
-                                                {formatHrs(effectiveMinutes)}
-                                            </Typography>
-                                            <Typography sx={{ fontSize: '10px', color: '#64748B' }}>
-                                                Shift − Breaks
-                                            </Typography>
-                                        </Box>
-                                    </Grid>
-                                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
-                                        <Box sx={{
-                                            p: 1.5, borderRadius: '8px',
-                                            bgcolor: '#FEF3C7', border: '1px solid #FDE68A',
-                                        }}>
-                                            <Typography sx={{ fontSize: '10px', color: '#92400E', fontWeight: 700, letterSpacing: '0.4px', mb: 0.3 }}>
-                                                LATE MARK AFTER
-                                            </Typography>
-                                            <Typography sx={{ fontSize: '18px', fontWeight: 800, color: '#D97706', lineHeight: 1.2 }}>
-                                                {lateAfterStr}
-                                            </Typography>
-                                            <Typography sx={{ fontSize: '10px', color: '#64748B' }}>
-                                                Grace: {config.gracePeriodMinutes || 0} min
-                                            </Typography>
-                                        </Box>
-                                    </Grid>
-                                </Grid>
-
-                                {/* Validation warning if break > shift */}
-                                {breakExceedsShift && (
-                                    <Box sx={{
-                                        mt: 2, p: 1.2, borderRadius: '8px',
-                                        bgcolor: '#FEF2F2', border: '1px solid #FECACA',
-                                        display: 'flex', alignItems: 'center', gap: 1,
+                                return (
+                                    <Box key={idx} sx={{
+                                        border: '1.5px solid #BAE6FD',
+                                        borderRadius: '10px',
+                                        bgcolor: '#FAFEFF',
+                                        overflow: 'hidden',
                                     }}>
-                                        <WarningAmberIcon sx={{ fontSize: 16, color: '#DC2626', flexShrink: 0 }} />
-                                        <Typography sx={{ fontSize: '11px', color: '#991B1B' }}>
-                                            Total break time exceeds shift duration. Please review.
-                                        </Typography>
-                                    </Box>
-                                )}
+                                        {/* Shift card header — name + remove */}
+                                        <Box sx={{
+                                            display: 'flex', alignItems: 'center', gap: 1.5,
+                                            px: 2, py: 1.2,
+                                            bgcolor: '#F0F9FA', borderBottom: '1px solid #BAE6FD',
+                                        }}>
+                                            <Box sx={{
+                                                minWidth: 26, height: 26, borderRadius: '50%',
+                                                bgcolor: '#0891B2', color: '#fff',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                fontSize: '12px', fontWeight: 700,
+                                            }}>
+                                                {idx + 1}
+                                            </Box>
+                                            <TextField
+                                                size="small"
+                                                variant="standard"
+                                                placeholder="Shift name (e.g. Morning Shift)"
+                                                value={shift.shiftName || ''}
+                                                onChange={(e) => updateShift(idx, 'shiftName', e.target.value)}
+                                                sx={{
+                                                    flex: 1,
+                                                    '& .MuiInputBase-input': {
+                                                        fontSize: '14px', fontWeight: 700, color: '#0E7490',
+                                                    },
+                                                    '& .MuiInput-underline:before': { borderBottomColor: '#BAE6FD' },
+                                                }}
+                                            />
+                                            <Tooltip title={onlyOne ? 'At least one shift is required' : 'Remove this shift'}>
+                                                <span>
+                                                    <IconButton
+                                                        size="small"
+                                                        disabled={onlyOne}
+                                                        onClick={() => removeShift(idx)}
+                                                        sx={{
+                                                            color: '#DC2626',
+                                                            '&:hover': { bgcolor: '#FEF2F2' },
+                                                            '&.Mui-disabled': { color: '#cbd5e1' },
+                                                        }}
+                                                    >
+                                                        <DeleteIcon sx={{ fontSize: 18 }} />
+                                                    </IconButton>
+                                                </span>
+                                            </Tooltip>
+                                        </Box>
 
-                                {/* Info banner */}
-                                <Box sx={{
-                                    mt: 2, p: 1.5, borderRadius: '8px',
-                                    bgcolor: '#F0F9FA', border: '1px solid #BAE6FD',
-                                    display: 'flex', alignItems: 'flex-start', gap: 1,
-                                }}>
-                                    <InfoOutlinedIcon sx={{ fontSize: 16, color: '#0891B2', mt: 0.2, flexShrink: 0 }} />
-                                    <Typography sx={{ fontSize: '11px', color: '#0E7490', lineHeight: 1.7 }}>
-                                        Standard working day runs from <strong>{formatTime12(config.shiftStartTime)}</strong> to <strong>{formatTime12(config.shiftEndTime)}</strong> — a total of <strong>{formatHrs(shiftMinutes)}</strong> with <strong>{formatHrs(effectiveMinutes)}</strong> of effective login time after breaks.
-                                        Staff arriving after <strong>{lateAfterStr}</strong> will be flagged as <strong>late</strong>. Use the Punctuality section below to set the late penalty and emergency allowance.
-                                    </Typography>
-                                </Box>
-                            </Section>
-                        );
-                    })()}
+                                        {/* Shift fields */}
+                                        <Box sx={{ p: 2 }}>
+                                            <Grid container spacing={2}>
+                                                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2.4 }}>
+                                                    <TimeField
+                                                        label="Shift Start Time"
+                                                        value={shift.startTime}
+                                                        onChange={(v) => updateShift(idx, 'startTime', v)}
+                                                        helperText={`Begins at ${formatTime12(shift.startTime)}`}
+                                                    />
+                                                </Grid>
+                                                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2.4 }}>
+                                                    <TimeField
+                                                        label="Shift End Time"
+                                                        value={shift.endTime}
+                                                        onChange={(v) => updateShift(idx, 'endTime', v)}
+                                                        helperText={`Ends at ${formatTime12(shift.endTime)}`}
+                                                    />
+                                                </Grid>
+                                                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2.4 }}>
+                                                    <NumberField
+                                                        label="Grace Period"
+                                                        value={shift.gracePeriodMinutes}
+                                                        onChange={(v) => updateShift(idx, 'gracePeriodMinutes', v)}
+                                                        suffix="minutes"
+                                                        helperText={`Late after ${lateAfterStr}`}
+                                                    />
+                                                </Grid>
+                                                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2.4 }}>
+                                                    <NumberField
+                                                        label="Lunch Break"
+                                                        value={shift.lunchBreakMinutes}
+                                                        onChange={(v) => updateShift(idx, 'lunchBreakMinutes', v)}
+                                                        suffix="minutes"
+                                                        helperText="Excluded from working hours"
+                                                    />
+                                                </Grid>
+                                                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2.4 }}>
+                                                    <NumberField
+                                                        label="Short / Tea Break"
+                                                        value={shift.shortBreakMinutes}
+                                                        onChange={(v) => updateShift(idx, 'shortBreakMinutes', v)}
+                                                        suffix="minutes"
+                                                        helperText="Combined short breaks per day"
+                                                    />
+                                                </Grid>
+                                            </Grid>
+
+                                            {/* Per-shift Computed Summary */}
+                                            <Grid container spacing={1.5} sx={{ mt: 1.5 }}>
+                                                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+                                                    <Box sx={{ p: 1.5, borderRadius: '8px', bgcolor: '#F0F9FA', border: '1px solid #BAE6FD' }}>
+                                                        <Typography sx={{ fontSize: '10px', color: '#0E7490', fontWeight: 700, letterSpacing: '0.4px', mb: 0.3 }}>
+                                                            TOTAL SHIFT HOURS
+                                                        </Typography>
+                                                        <Typography sx={{ fontSize: '18px', fontWeight: 800, color: '#0891B2', lineHeight: 1.2 }}>
+                                                            {formatHrs(shiftMinutes)}
+                                                        </Typography>
+                                                        <Typography sx={{ fontSize: '10px', color: '#64748B' }}>
+                                                            {formatTime12(shift.startTime)} → {formatTime12(shift.endTime)}
+                                                        </Typography>
+                                                    </Box>
+                                                </Grid>
+                                                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+                                                    <Box sx={{ p: 1.5, borderRadius: '8px', bgcolor: '#FFF7ED', border: '1px solid #FED7AA' }}>
+                                                        <Typography sx={{ fontSize: '10px', color: '#9A3412', fontWeight: 700, letterSpacing: '0.4px', mb: 0.3 }}>
+                                                            TOTAL BREAK TIME
+                                                        </Typography>
+                                                        <Typography sx={{ fontSize: '18px', fontWeight: 800, color: '#EA580C', lineHeight: 1.2 }}>
+                                                            {formatHrs(totalBreakMinutes)}
+                                                        </Typography>
+                                                        <Typography sx={{ fontSize: '10px', color: '#64748B' }}>
+                                                            Lunch {shift.lunchBreakMinutes || 0}m + Short {shift.shortBreakMinutes || 0}m
+                                                        </Typography>
+                                                    </Box>
+                                                </Grid>
+                                                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+                                                    <Box sx={{ p: 1.5, borderRadius: '8px', bgcolor: '#F0FDF4', border: '1px solid #A7F3D0' }}>
+                                                        <Typography sx={{ fontSize: '10px', color: '#065F46', fontWeight: 700, letterSpacing: '0.4px', mb: 0.3 }}>
+                                                            EFFECTIVE LOGIN HOURS
+                                                        </Typography>
+                                                        <Typography sx={{ fontSize: '18px', fontWeight: 800, color: '#059669', lineHeight: 1.2 }}>
+                                                            {formatHrs(effectiveMinutes)}
+                                                        </Typography>
+                                                        <Typography sx={{ fontSize: '10px', color: '#64748B' }}>
+                                                            Shift − Breaks
+                                                        </Typography>
+                                                    </Box>
+                                                </Grid>
+                                                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+                                                    <Box sx={{ p: 1.5, borderRadius: '8px', bgcolor: '#FEF3C7', border: '1px solid #FDE68A' }}>
+                                                        <Typography sx={{ fontSize: '10px', color: '#92400E', fontWeight: 700, letterSpacing: '0.4px', mb: 0.3 }}>
+                                                            LATE MARK AFTER
+                                                        </Typography>
+                                                        <Typography sx={{ fontSize: '18px', fontWeight: 800, color: '#D97706', lineHeight: 1.2 }}>
+                                                            {lateAfterStr}
+                                                        </Typography>
+                                                        <Typography sx={{ fontSize: '10px', color: '#64748B' }}>
+                                                            Grace: {shift.gracePeriodMinutes || 0} min
+                                                        </Typography>
+                                                    </Box>
+                                                </Grid>
+                                            </Grid>
+
+                                            {breakExceedsShift && (
+                                                <Box sx={{
+                                                    mt: 2, p: 1.2, borderRadius: '8px',
+                                                    bgcolor: '#FEF2F2', border: '1px solid #FECACA',
+                                                    display: 'flex', alignItems: 'center', gap: 1,
+                                                }}>
+                                                    <WarningAmberIcon sx={{ fontSize: 16, color: '#DC2626', flexShrink: 0 }} />
+                                                    <Typography sx={{ fontSize: '11px', color: '#991B1B' }}>
+                                                        Total break time exceeds shift duration. Please review.
+                                                    </Typography>
+                                                </Box>
+                                            )}
+                                        </Box>
+                                    </Box>
+                                );
+                            })}
+
+                            {/* Add another shift */}
+                            <Box>
+                                <Button
+                                    startIcon={<AddIcon />}
+                                    onClick={addShift}
+                                    sx={{
+                                        textTransform: 'none', fontWeight: 600, fontSize: '13px',
+                                        color: '#0891B2',
+                                        border: '1.5px dashed #BAE6FD',
+                                        borderRadius: '8px',
+                                        px: 2, py: 0.8,
+                                        bgcolor: '#F0F9FA',
+                                        '&:hover': { bgcolor: '#E0F2FE', borderColor: '#0891B2' },
+                                    }}
+                                >
+                                    Add Another Shift
+                                </Button>
+                            </Box>
+                        </Box>
+
+                        {/* Section-level info banner */}
+                        <Box sx={{
+                            mt: 2, p: 1.5, borderRadius: '8px',
+                            bgcolor: '#F0F9FA', border: '1px solid #BAE6FD',
+                            display: 'flex', alignItems: 'flex-start', gap: 1,
+                        }}>
+                            <InfoOutlinedIcon sx={{ fontSize: 16, color: '#0891B2', mt: 0.2, flexShrink: 0 }} />
+                            <Typography sx={{ fontSize: '11px', color: '#0E7490', lineHeight: 1.7 }}>
+                                Each shift defines its own start time, end time, grace period and breaks. Staff arriving after <strong>start time + grace</strong> will be flagged as <strong>late</strong> for that shift. Use the Punctuality section below to set the late penalty and emergency allowance.
+                            </Typography>
+                        </Box>
+                    </Section>
 
                     {/* ═══ Section 1: Attendance Bonus ═══ */}
                     <Section icon={CalendarMonthIcon} title="Attendance Bonus" color="#2563EB"

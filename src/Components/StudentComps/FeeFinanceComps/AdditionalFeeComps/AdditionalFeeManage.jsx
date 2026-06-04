@@ -20,6 +20,7 @@ import SnackBar from "../../../SnackBar";
 import Loader from "../../../Loader";
 import { useSelector } from "react-redux";
 import { selectAcademicYear } from "../../../../Redux/Slices/academicYearSlice";
+import { selectGrades } from "../../../../Redux/Slices/DropdownController";
 import AdditionalStudentSelectionPopup from "../../../Tools/AdditionalStudentSelectionPopup";
 
 
@@ -47,6 +48,29 @@ export default function AdditionalFeeManage() {
     const [message, setMessage] = useState('');
 
     const isExpanded = useSelector((state) => state.sidebar.isExpanded);
+    const grades = useSelector(selectGrades) || [];
+
+    // Pull grade-wise fees out of an item — supports either { grades: { lkg: 500, ... } }
+    // OR flat top-level keys (the same shape the POST payload uses).
+    const getGradeEntries = (item) => {
+        if (item.grades && typeof item.grades === 'object') {
+            return Object.entries(item.grades).filter(
+                ([, amount]) => amount !== null && amount !== undefined && amount !== ''
+            );
+        }
+        if (grades.length > 0) {
+            return grades
+                .map((g) => [g.sign, item[g.sign.toLowerCase()]])
+                .filter(([, amount]) => amount !== null && amount !== undefined && amount !== '');
+        }
+        return [];
+    };
+
+    const academicYears = [
+        `${currentYear - 2}-${currentYear - 1}`,
+        `${currentYear - 1}-${currentYear}`,
+        `${currentYear}-${currentYear + 1}`,
+    ];
 
     const handleOpenStudentPopup = (activity) => {
         setSelectedActivity(activity);
@@ -261,109 +285,214 @@ export default function AdditionalFeeManage() {
                                         flexDirection: "column",
                                     }}
                                 >
-                                    <Box sx={{ flexGrow: 1 }}>
-                                        <Box
-                                            sx={{
-                                                display: "flex",
-                                                justifyContent: "space-between",
-                                                alignItems: "center",
-                                                py: 0.8,
-                                                borderBottom: "1px dashed #EEE",
-                                            }}
-                                        >
-                                            <Typography fontSize={13} fontWeight={600} color="#555">
-                                                Fee Name
-                                            </Typography>
-                                            <Typography
-                                                fontSize={13}
-                                                fontWeight={500}
-                                                color={"#333"}
-                                            >
-                                                {activity.feeName}
-                                            </Typography>
-                                        </Box>
-                                        <Box
-                                            sx={{
-                                                display: "flex",
-                                                justifyContent: "space-between",
-                                                alignItems: "center",
-                                                py: 0.8,
-                                                borderBottom: "1px dashed #EEE",
-                                            }}
-                                        >
-                                            <Typography fontSize={13} fontWeight={600} color="#555">
-                                                Remarks
-                                            </Typography>
-                                            
-                                            <Typography
-                                                fontSize={13}
-                                                fontWeight={500}
-                                                color={"#333"}
-                                            >
-                                                {activity.remarks}
-                                            </Typography>
-                                        </Box>
-                                        <Box
-                                            sx={{
-                                                display: "flex",
-                                                justifyContent: "space-between",
-                                                alignItems: "center",
-                                                py: 0.8,
-                                                borderBottom: "1px dashed #EEE",
-                                            }}
-                                        >
-                                            <Typography fontSize={13} fontWeight={600} color="#555">
-                                                Payment Status
-                                            </Typography>
-                                            <Typography
-                                                fontSize={13}
-                                                fontWeight={500}
-                                                color={"#333"}
-                                            >
-                                                {activity.paid === "Y" ? "Paid" : "Unpaid"}
-                                            </Typography>
-                                        </Box>
-                                        <Box
-                                            sx={{
-                                                display: "flex",
-                                                justifyContent: "space-between",
-                                                alignItems: "center",
-                                                py: 0.8,
-                                                borderBottom: "1px dashed #EEE",
-                                            }}
-                                        >
-                                            <Typography fontSize={13} fontWeight={600} color="#555">
-                                                Fee Amount
-                                            </Typography>
-                                            <Typography
-                                                fontSize={13}
-                                                fontWeight={500}
-                                                color={"#333"}
-                                            >
-                                                {activity.feeAmount}
-                                            </Typography>
-                                        </Box>
-                                        <Box
-                                            sx={{
-                                                display: "flex",
-                                                justifyContent: "space-between",
-                                                alignItems: "center",
-                                                py: 0.8,
-                                                borderBottom: "1px dashed #EEE",
-                                            }}
-                                        >
-                                            <Typography fontSize={13} fontWeight={600} color="#555">
-                                                Due Date
-                                            </Typography>
-                                            <Typography
-                                                fontSize={13}
-                                                fontWeight={500}
-                                                color={"#333"}
-                                            >
-                                                {formatDate(activity.dueDate)}
-                                            </Typography>
-                                        </Box>
-                                    </Box>
+                                    {(() => {
+                                        const gradeEntries = getGradeEntries(activity);
+                                        const isGradeWise = gradeEntries.length > 0;
+
+                                        // NEW grade-wise entries → ECA card PATTERN (purple header, 3-col grade grid, action button)
+                                        // but populated with Additional Fee fields (Remarks, Payment Status, Due Date) above the grid.
+                                        if (isGradeWise) {
+                                            return (
+                                                <Box sx={{ flexGrow: 1 }}>
+                                                    {/* Additional Fee meta fields */}
+                                                    <Box
+                                                        sx={{
+                                                            display: "flex",
+                                                            justifyContent: "space-between",
+                                                            alignItems: "center",
+                                                            py: 0.8,
+                                                            borderBottom: "1px dashed #EEE",
+                                                        }}
+                                                    >
+                                                        <Typography fontSize={13} fontWeight={600} color="#555">
+                                                            Remarks
+                                                        </Typography>
+                                                        <Typography fontSize={13} fontWeight={500} color="#333">
+                                                            {activity.remarks}
+                                                        </Typography>
+                                                    </Box>
+                                                    <Box
+                                                        sx={{
+                                                            display: "flex",
+                                                            justifyContent: "space-between",
+                                                            alignItems: "center",
+                                                            py: 0.8,
+                                                            borderBottom: "1px dashed #EEE",
+                                                        }}
+                                                    >
+                                                        <Typography fontSize={13} fontWeight={600} color="#555">
+                                                            Payment Status
+                                                        </Typography>
+                                                        <Typography fontSize={13} fontWeight={500} color="#333">
+                                                            {activity.paid === "Y" ? "Paid" : "Unpaid"}
+                                                        </Typography>
+                                                    </Box>
+                                                    <Box
+                                                        sx={{
+                                                            display: "flex",
+                                                            justifyContent: "space-between",
+                                                            alignItems: "center",
+                                                            py: 0.8,
+                                                            borderBottom: "1px dashed #EEE",
+                                                            mb: 2,
+                                                        }}
+                                                    >
+                                                        <Typography fontSize={13} fontWeight={600} color="#555">
+                                                            Due Date
+                                                        </Typography>
+                                                        <Typography fontSize={13} fontWeight={500} color="#333">
+                                                            {formatDate(activity.dueDate)}
+                                                        </Typography>
+                                                    </Box>
+
+                                                    {/* Grade-wise grid (ECA pattern) */}
+                                                    <Typography fontSize={12} mb={2}>
+                                                        Eligible Class & Fee :
+                                                    </Typography>
+
+                                                    <Box
+                                                        sx={{
+                                                            display: "grid",
+                                                            gridTemplateColumns: "repeat(3, 1fr)",
+                                                            gap: 1.2,
+                                                            mb: 3,
+                                                        }}
+                                                    >
+                                                        {gradeEntries.map(([gradeKey, amount]) => {
+                                                            const isFree = Number(amount) === 0;
+                                                            return (
+                                                                <Box key={gradeKey} textAlign="center">
+                                                                    <Typography fontSize={11} sx={{ color: isFree ? "#2E7D32" : "#333", fontWeight: isFree ? 600 : 400 }}>
+                                                                        {String(gradeKey).toUpperCase()}
+                                                                    </Typography>
+                                                                    <Box
+                                                                        sx={{
+                                                                            border: `1px solid ${isFree ? "#A5D6A7" : "#dedede"}`,
+                                                                            borderRadius: 50,
+                                                                            py: 0.6,
+                                                                            px: 1.6,
+                                                                            mt: 0.5,
+                                                                            bgcolor: isFree ? "#E8F5E9" : "transparent",
+                                                                        }}
+                                                                    >
+                                                                        <Typography fontSize={10} sx={{ color: isFree ? "#2E7D32" : "inherit", fontWeight: isFree ? 600 : 400 }}>
+                                                                            {isFree ? "Free" : `₹ ${amount}`}
+                                                                        </Typography>
+                                                                    </Box>
+                                                                </Box>
+                                                            );
+                                                        })}
+                                                    </Box>
+                                                </Box>
+                                            );
+                                        }
+
+                                        // LEGACY entries (single feeAmount, no grade data) → keep the original row layout untouched.
+                                        return (
+                                            <Box sx={{ flexGrow: 1 }}>
+                                                <Box
+                                                    sx={{
+                                                        display: "flex",
+                                                        justifyContent: "space-between",
+                                                        alignItems: "center",
+                                                        py: 0.8,
+                                                        borderBottom: "1px dashed #EEE",
+                                                    }}
+                                                >
+                                                    <Typography fontSize={13} fontWeight={600} color="#555">
+                                                        Fee Name
+                                                    </Typography>
+                                                    <Typography
+                                                        fontSize={13}
+                                                        fontWeight={500}
+                                                        color={"#333"}
+                                                    >
+                                                        {activity.feeName}
+                                                    </Typography>
+                                                </Box>
+                                                <Box
+                                                    sx={{
+                                                        display: "flex",
+                                                        justifyContent: "space-between",
+                                                        alignItems: "center",
+                                                        py: 0.8,
+                                                        borderBottom: "1px dashed #EEE",
+                                                    }}
+                                                >
+                                                    <Typography fontSize={13} fontWeight={600} color="#555">
+                                                        Remarks
+                                                    </Typography>
+                                                    <Typography
+                                                        fontSize={13}
+                                                        fontWeight={500}
+                                                        color={"#333"}
+                                                    >
+                                                        {activity.remarks}
+                                                    </Typography>
+                                                </Box>
+                                                <Box
+                                                    sx={{
+                                                        display: "flex",
+                                                        justifyContent: "space-between",
+                                                        alignItems: "center",
+                                                        py: 0.8,
+                                                        borderBottom: "1px dashed #EEE",
+                                                    }}
+                                                >
+                                                    <Typography fontSize={13} fontWeight={600} color="#555">
+                                                        Payment Status
+                                                    </Typography>
+                                                    <Typography
+                                                        fontSize={13}
+                                                        fontWeight={500}
+                                                        color={"#333"}
+                                                    >
+                                                        {activity.paid === "Y" ? "Paid" : "Unpaid"}
+                                                    </Typography>
+                                                </Box>
+                                                <Box
+                                                    sx={{
+                                                        display: "flex",
+                                                        justifyContent: "space-between",
+                                                        alignItems: "center",
+                                                        py: 0.8,
+                                                        borderBottom: "1px dashed #EEE",
+                                                    }}
+                                                >
+                                                    <Typography fontSize={13} fontWeight={600} color="#555">
+                                                        Fee Amount
+                                                    </Typography>
+                                                    <Typography
+                                                        fontSize={13}
+                                                        fontWeight={500}
+                                                        color={"#333"}
+                                                    >
+                                                        {activity.feeAmount}
+                                                    </Typography>
+                                                </Box>
+                                                <Box
+                                                    sx={{
+                                                        display: "flex",
+                                                        justifyContent: "space-between",
+                                                        alignItems: "center",
+                                                        py: 0.8,
+                                                        borderBottom: "1px dashed #EEE",
+                                                    }}
+                                                >
+                                                    <Typography fontSize={13} fontWeight={600} color="#555">
+                                                        Due Date
+                                                    </Typography>
+                                                    <Typography
+                                                        fontSize={13}
+                                                        fontWeight={500}
+                                                        color={"#333"}
+                                                    >
+                                                        {formatDate(activity.dueDate)}
+                                                    </Typography>
+                                                </Box>
+                                            </Box>
+                                        );
+                                    })()}
 
                                     <Box sx={{ mt: "auto" }}>
                                         <Button
