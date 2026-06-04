@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
     Autocomplete, Box, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle,
-    Divider, FormControl, FormControlLabel, Grid, IconButton, InputAdornment, MenuItem,
+    Divider, FormControl, FormControlLabel, Grid, IconButton, MenuItem,
     Select, Switch, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tabs, TextField, Typography
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
@@ -16,18 +16,17 @@ import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import AddIcon from '@mui/icons-material/Add';
 import SettingsIcon from '@mui/icons-material/Settings';
 import SaveOutlinedIcon from '@mui/icons-material/SaveOutlined';
-import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import CloseIcon from '@mui/icons-material/Close';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import EventNoteIcon from '@mui/icons-material/EventNote';
-import HistoryIcon from '@mui/icons-material/History';
-import SearchIcon from '@mui/icons-material/Search';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ClassOutlinedIcon from '@mui/icons-material/ClassOutlined';
 import MeetingRoomOutlinedIcon from '@mui/icons-material/MeetingRoomOutlined';
-import TableChartOutlinedIcon from '@mui/icons-material/TableChartOutlined';
 import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
 import EventBusyIcon from '@mui/icons-material/EventBusy';
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 
 const PRIMARY = '#0891B2';
 const PRIMARY_LIGHT = '#ECFEFF';
@@ -62,19 +61,74 @@ const DEFAULT_PERIODS = [
 
 const SUBJECT_PALETTE = ['#1565C0', '#C62828', '#2E7D32', '#EF6C00', '#7B1FA2', '#00838F', '#5D4037', '#00897B', '#AD1457', '#455A64'];
 
+// Each period column gets its own colour theme (matches the project palette) — cycles if there are more periods.
+const PERIOD_COLORS = [
+    { color: '#3457D5', bg: '#EEF1FC', border: '#CBD6F7' }, // blue
+    { color: '#7DC353', bg: '#F1F9EB', border: '#D4E9C4' }, // green
+    { color: '#FF6B35', bg: '#FFF1EB', border: '#FFD4C4' }, // orange
+    { color: '#8600BB', bg: '#F6EBFB', border: '#E4C4F0' }, // purple
+    { color: '#00ACC1', bg: '#E5F7FA', border: '#BAE8EE' }, // teal
+    { color: '#E30053', bg: '#FDEAF1', border: '#F7C4D7' }, // pink
+    { color: '#FF9800', bg: '#FFF6E6', border: '#FFE3B5' }, // amber
+    { color: '#5E35B1', bg: '#EFEAF7', border: '#D4C4EC' }, // deep purple
+];
+const periodColor = (n) => PERIOD_COLORS[((Number(n) || 1) - 1 + PERIOD_COLORS.length * 100) % PERIOD_COLORS.length];
+
+// ── Date-range navigator helpers (YYYY-MM-DD in/out) ──────────────────────────
+const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const isoParts = (iso) => iso.split('-').map(Number); // [y, m, d]
+const shiftIso = (iso, days) => {
+    const [y, m, d] = isoParts(iso);
+    const dt = new Date(y, m - 1, d);
+    dt.setDate(dt.getDate() + days);
+    const yy = dt.getFullYear();
+    const mm = String(dt.getMonth() + 1).padStart(2, '0');
+    const dd = String(dt.getDate()).padStart(2, '0');
+    return `${yy}-${mm}-${dd}`;
+};
+const rangeLength = (from, to) => {
+    const [fy, fm, fd] = isoParts(from);
+    const [ty, tm, td] = isoParts(to);
+    return Math.round((new Date(ty, tm - 1, td) - new Date(fy, fm - 1, fd)) / 86400000) + 1;
+};
+const formatRange = (from, to) => {
+    if (!from || !to) return '';
+    const [fy, fm, fd] = isoParts(from);
+    const [ty, tm, td] = isoParts(to);
+    if (from === to) return `${fd} ${MONTHS_SHORT[fm - 1]} ${fy}`;
+    if (fy === ty && fm === tm) return `${fd} – ${td} ${MONTHS_SHORT[tm - 1]} ${ty}`;
+    if (fy === ty) return `${fd} ${MONTHS_SHORT[fm - 1]} – ${td} ${MONTHS_SHORT[tm - 1]} ${ty}`;
+    return `${fd} ${MONTHS_SHORT[fm - 1]} ${fy} – ${td} ${MONTHS_SHORT[tm - 1]} ${ty}`;
+};
+
+// Date-range pill — shows the actual from→to dates with a calendar icon and ‹ › to page the window
+const DateRangeNav = ({ from, to, onChange }) => {
+    const page = (dir) => {
+        const len = rangeLength(from, to) || 1;
+        onChange(shiftIso(from, dir * len), shiftIso(to, dir * len));
+    };
+    return (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3, border: '1px solid #E5E7EB', borderRadius: '8px', height: 36, px: 0.4, bgcolor: '#fff' }}>
+            <IconButton size="small" onClick={() => page(-1)} sx={{ width: 26, height: 26 }}>
+                <ChevronLeftIcon sx={{ fontSize: 18, color: '#6B7280' }} />
+            </IconButton>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, px: 0.5 }}>
+                <CalendarTodayIcon sx={{ fontSize: 13, color: '#6B7280' }} />
+                <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#1F2937', whiteSpace: 'nowrap' }}>{formatRange(from, to)}</Typography>
+            </Box>
+            <IconButton size="small" onClick={() => page(1)} sx={{ width: 26, height: 26 }}>
+                <ChevronRightIcon sx={{ fontSize: 18, color: '#6B7280' }} />
+            </IconButton>
+        </Box>
+    );
+};
+
 const colorForSubject = (name) => {
     if (!name) return PRIMARY;
     let hash = 0;
     for (let i = 0; i < name.length; i += 1) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
     return SUBJECT_PALETTE[hash % SUBJECT_PALETTE.length];
 };
-
-const MOCK_HISTORY = [
-    { date: '2026-05-29', grade: 'VIII', section: 'A', filled: 8 },
-    { date: '2026-05-28', grade: 'VIII', section: 'A', filled: 7 },
-    { date: '2026-05-27', grade: 'VIII', section: 'A', filled: 8 },
-    { date: '2026-05-26', grade: 'VIII', section: 'A', filled: 8 },
-];
 
 const toIsoDate = (d) => {
     const yyyy = d.getFullYear();
@@ -119,44 +173,69 @@ const StatusChips = ({ codes = [] }) => (
     </Box>
 );
 
-// Shared report grid cell — colored left-bar mini card / free-period / empty
-const WorkCell = ({ entry, showClass = false }) => {
-    if (!entry) {
-        return (
-            <Box sx={{ minHeight: 56, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Box sx={{ width: 16, height: 3, borderRadius: 2, bgcolor: '#E5E7EB' }} />
-            </Box>
-        );
-    }
+// Period column header — plain, like the reference scheduler
+const ReportPeriodHead = ({ name, startTime, endTime }) => (
+    <Box sx={{ minWidth: 0 }}>
+        <Typography sx={{ fontSize: 12.5, fontWeight: 800, color: '#1F2937', lineHeight: 1.1 }} noWrap>{name}</Typography>
+        {(startTime || endTime) && (
+            <Typography sx={{ fontSize: 9.5, fontWeight: 600, color: '#9CA3AF' }}>{startTime} – {endTime}</Typography>
+        )}
+    </Box>
+);
+
+// Empty / not-filled period cell — blank like the reference grid
+const EmptyCell = () => <Box sx={{ minHeight: 56 }} />;
+
+// A single work-done entry. Normal entries are plain (white) with a coloured left
+// accent bar per period; leave / free periods get a soft tint (like the reference).
+const EntryCard = ({ entry, color, showTeacher = false, showClass = false }) => {
+    if (!entry) return null;
     if (entry.isFreePeriod) {
         return (
-            <Box sx={{ minHeight: 56, display: 'flex', alignItems: 'center' }}>
-                <Chip label="Free Period" size="small" sx={{ height: 22, fontSize: 10, fontWeight: 800, bgcolor: '#FEF3C7', color: '#B45309', border: '1px solid #FDE68A' }} />
+            <Box sx={{ minHeight: 56, borderRadius: '8px', bgcolor: '#FFFBEB', border: '1px solid #FDE68A', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0.3, p: 1 }}>
+                <MeetingRoomOutlinedIcon sx={{ fontSize: 18, color: '#B45309' }} />
+                <Typography sx={{ fontSize: 11, fontWeight: 800, color: '#B45309' }}>Free Period</Typography>
             </Box>
         );
     }
-    const sc = colorForSubject(entry.subject);
+    if (entry.entryType === 'leave') {
+        return (
+            <Box sx={{ minHeight: 56, borderRadius: '8px', bgcolor: '#FFF7ED', border: '1px solid #FED7AA', p: 1 }}>
+                {showTeacher && entry.teacherName && (
+                    <Typography sx={{ fontSize: 10.5, fontWeight: 800, color: '#9A3412', textTransform: 'uppercase', letterSpacing: 0.3, mb: 0.3 }} noWrap>{entry.teacherName}</Typography>
+                )}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <EventBusyIcon sx={{ fontSize: 15, color: '#C2410C' }} />
+                    <Typography sx={{ fontSize: 12, fontWeight: 800, color: '#C2410C' }}>Leave</Typography>
+                </Box>
+                {entry.topicActivity && <Typography sx={{ fontSize: 10.5, color: '#9A3412', mt: 0.2 }}>{entry.topicActivity}</Typography>}
+            </Box>
+        );
+    }
+    const c = color;
     return (
-        <Box sx={{ minHeight: 56, borderLeft: `3px solid ${sc}`, pl: 1, py: 0.4, borderRadius: '0 6px 6px 0', bgcolor: `${sc}0D` }}>
-            {showClass && (entry.grade || entry.section) && (
-                <Typography sx={{ fontSize: 9.5, fontWeight: 800, color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.3 }}>{entry.grade} {entry.section}</Typography>
+        <Box sx={{ minHeight: 56, pl: 1, py: 0.3, borderLeft: `3px solid ${c.color}` }}>
+            {showTeacher && entry.teacherName && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, mb: 0.4 }}>
+                    <Box sx={{ width: 20, height: 20, borderRadius: '50%', flexShrink: 0, bgcolor: c.color, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8.5, fontWeight: 800 }}>
+                        {getInitials(entry.teacherName)}
+                    </Box>
+                    <Box sx={{ minWidth: 0 }}>
+                        <Typography sx={{ fontSize: 10.5, fontWeight: 800, color: '#334155', textTransform: 'uppercase', letterSpacing: 0.3, lineHeight: 1.15 }} noWrap>{entry.teacherName}</Typography>
+                        <Typography sx={{ fontSize: 8.5, color: '#94A3B8', fontFamily: 'monospace' }}>#{entry.rollNumber}</Typography>
+                    </Box>
+                </Box>
             )}
-            {entry.subject && <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: sc, lineHeight: 1.2 }}>{entry.subject}</Typography>}
-            {entry.topicActivity && <Typography sx={{ fontSize: 11, color: '#374151', lineHeight: 1.3 }}>{entry.topicActivity}</Typography>}
-            {entry.pageReference && <Typography sx={{ fontSize: 10, color: '#9CA3AF' }}>Pg {entry.pageReference}</Typography>}
+            {showClass && (entry.grade || entry.section) && (
+                <Typography sx={{ fontSize: 9.5, fontWeight: 800, color: '#64748B', textTransform: 'uppercase', letterSpacing: 0.3 }}>{entry.grade} {entry.section}</Typography>
+            )}
+            {entry.subject && <Typography sx={{ fontSize: 12.5, fontWeight: 800, color: c.color, lineHeight: 1.2 }}>{entry.subject}</Typography>}
+            {entry.topicActivity && <Typography sx={{ fontSize: 11, color: '#334155', lineHeight: 1.3, mt: 0.2 }}>{entry.topicActivity}</Typography>}
+            {entry.pageReference && <Typography sx={{ fontSize: 10, color: '#94A3B8', mt: 0.2 }}>Pg {entry.pageReference}</Typography>}
             {entry.statusCodes?.length > 0 && <StatusChips codes={entry.statusCodes} />}
         </Box>
     );
 };
-
-const PeriodHeadCell = ({ name, startTime, endTime }) => (
-    <Box>
-        <Typography sx={{ fontSize: 12, fontWeight: 800, color: PRIMARY_DARK, lineHeight: 1.1 }}>{name}</Typography>
-        {(startTime || endTime) && (
-            <Typography sx={{ fontSize: 9.5, fontWeight: 600, color: '#0E749099' }}>{startTime} – {endTime}</Typography>
-        )}
-    </Box>
-);
 
 // Each period now carries its OWN class & section (not a common one for the whole day)
 const emptyEntry = () => ({ grade: '', section: '', subject: '', topic: '', statuses: [], pageRef: '', isFree: false });
@@ -183,11 +262,9 @@ export default function WorkDonePage() {
     const [activeTab, setActiveTab] = useState(userType === 'teacher' ? 0 : 1);
     const [periodDialog, setPeriodDialog] = useState({ open: false });
     const [periodForm, setPeriodForm] = useState({ name: '', startTime: '', endTime: '' });
-    const [historySearch, setHistorySearch] = useState('');
     const [snack, setSnack] = useState({ open: false, msg: '', ok: true });
 
-    // ── Report tab (Teacher-wise / Class-wise) ────────────────────────────────
-    const [reportMode, setReportMode] = useState('teacher');   // 'teacher' | 'class'
+    // ── Report tabs (Teacher-wise / Class-wise) ───────────────────────────────
     const [datePreset, setDatePreset] = useState('today');     // 'today' | '7' | '15' | 'custom'
     const [fromDate, setFromDate] = useState(toIsoDate(today));
     const [toDate, setToDate] = useState(toIsoDate(today));
@@ -199,7 +276,9 @@ export default function WorkDonePage() {
     // class-wise
     const [cwGradeSign, setCwGradeSign] = useState(null);
     const [cwSection, setCwSection] = useState(null);
-    const [cwDate, setCwDate] = useState(toIsoDate(today));
+    const [cwPreset, setCwPreset] = useState('7');             // 'today' | '7' | '15' | 'custom' — defaults to 7 days
+    const [cwFromDate, setCwFromDate] = useState(() => { const d = new Date(today); d.setDate(d.getDate() - 6); return toIsoDate(d); });
+    const [cwToDate, setCwToDate] = useState(toIsoDate(today));
     const [classData, setClassData] = useState(null);
 
     // Subjects available for a given grade sign = that grade's subjects + custom period-subjects
@@ -376,12 +455,6 @@ export default function WorkDonePage() {
         setPeriodDialog({ open: false });
     };
 
-    const filteredHistory = useMemo(() => {
-        const q = historySearch.trim().toLowerCase();
-        if (!q) return MOCK_HISTORY;
-        return MOCK_HISTORY.filter((h) => h.date.includes(q) || h.grade.toLowerCase().includes(q) || h.section.toLowerCase().includes(q));
-    }, [historySearch]);
-
     // ── Report tab logic ──────────────────────────────────────────────────────
     const applyPreset = (preset) => {
         setDatePreset(preset);
@@ -392,6 +465,17 @@ export default function WorkDonePage() {
         if (preset === '15') start.setDate(end.getDate() - 14);
         setFromDate(toIsoDate(start));
         setToDate(toIsoDate(end));
+    };
+
+    const applyCwPreset = (preset) => {
+        setCwPreset(preset);
+        if (preset === 'custom') return;
+        const end = new Date();
+        const start = new Date();
+        if (preset === '7') start.setDate(end.getDate() - 6);
+        if (preset === '15') start.setDate(end.getDate() - 14);
+        setCwFromDate(toIsoDate(start));
+        setCwToDate(toIsoDate(end));
     };
 
     // Load staff list once (for the teacher-wise picker)
@@ -416,11 +500,11 @@ export default function WorkDonePage() {
     }, []);
 
     const fetchTeacherWise = async () => {
-        if (!staffRoll || !fromDate || !toDate) { setTeacherData(null); return; }
+        if (!fromDate || !toDate) { setTeacherData(null); return; }
         setReportLoading(true);
         try {
             const res = await axios.get(GetWorkdoneTeacherWise, {
-                params: { rollNumber: staffRoll, fromDate: toDDMMYYYY(fromDate), toDate: toDDMMYYYY(toDate) },
+                params: { fromDate: toDDMMYYYY(fromDate), toDate: toDDMMYYYY(toDate) },
                 headers: { Authorization: `Bearer ${token}` },
             });
             setTeacherData(res.data?.error ? null : res.data);
@@ -432,11 +516,11 @@ export default function WorkDonePage() {
     };
 
     const fetchClassWise = async () => {
-        if (!cwGradeSign || !cwSection || !cwDate) { setClassData(null); return; }
+        if (!cwGradeSign || !cwSection || !cwFromDate || !cwToDate) { setClassData(null); return; }
         setReportLoading(true);
         try {
             const res = await axios.get(GetWorkdoneClassWise, {
-                params: { date: toDDMMYYYY(cwDate), grade: cwGradeSign, section: cwSection },
+                params: { fromDate: toDDMMYYYY(cwFromDate), toDate: toDDMMYYYY(cwToDate), grade: cwGradeSign, section: cwSection },
                 headers: { Authorization: `Bearer ${token}` },
             });
             setClassData(res.data?.error ? null : res.data);
@@ -448,46 +532,68 @@ export default function WorkDonePage() {
     };
 
     useEffect(() => {
-        if (activeTab !== 1 || reportMode !== 'teacher') return;
+        if (activeTab !== 1) return;
         fetchTeacherWise();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeTab, reportMode, staffRoll, fromDate, toDate]);
+    }, [activeTab, fromDate, toDate]);
 
     useEffect(() => {
-        if (activeTab !== 1 || reportMode !== 'class') return;
+        if (activeTab !== 2) return;
         fetchClassWise();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeTab, reportMode, cwGradeSign, cwSection, cwDate]);
+    }, [activeTab, cwGradeSign, cwSection, cwFromDate, cwToDate]);
 
-    // Teacher-wise: period columns = union of period numbers across all days
+    // Teacher-wise: always show every configured period (from GetWorkdonePeriods),
+    // then merge in any extra periods that appear across all teachers' days.
     const teacherPeriodCols = useMemo(() => {
         const map = new Map();
-        (teacherData?.days || []).forEach((d) =>
-            (d.periods || []).forEach((p) => {
+        periods.forEach((p) => map.set(p.id, { name: p.name || `Period ${p.id}`, startTime: p.startTime, endTime: p.endTime }));
+        (teacherData?.teachers || []).forEach((t) =>
+            (t.days || []).forEach((d) =>
+                (d.periods || []).forEach((p) => {
+                    if (!map.has(p.periodNumber)) map.set(p.periodNumber, { name: p.name || `Period ${p.periodNumber}`, startTime: p.startTime, endTime: p.endTime });
+                })
+            )
+        );
+        return Array.from(map.entries()).sort((a, b) => a[0] - b[0]).map(([number, info]) => ({ number, ...info }));
+    }, [teacherData, periods]);
+
+    // API returns every teacher for the range; the Staff picker is an optional client-side filter.
+    const teacherList = useMemo(() => {
+        const all = teacherData?.teachers || [];
+        return staffRoll ? all.filter((t) => t.rollNumber === staffRoll) : all;
+    }, [teacherData, staffRoll]);
+
+    // Flatten to one row per staff per day so the table lists each staff against all periods.
+    const teacherRows = useMemo(() => {
+        const rows = [];
+        teacherList.forEach((t) => {
+            const days = t.days || [];
+            if (days.length === 0) {
+                rows.push({ rollNumber: t.rollNumber, teacherName: t.teacherName, day: null });
+            } else {
+                days.forEach((d) => rows.push({ rollNumber: t.rollNumber, teacherName: t.teacherName, day: d }));
+            }
+        });
+        return rows;
+    }, [teacherList]);
+
+    // Class-wise: columns = every configured period (from GetWorkdonePeriods),
+    // merged with any extra periods across all days; rows = one per day.
+    const classPeriodCols = useMemo(() => {
+        const map = new Map();
+        periods.forEach((p) => map.set(p.id, { name: p.name || `Period ${p.id}`, startTime: p.startTime, endTime: p.endTime }));
+        (classData?.days || []).forEach((day) =>
+            (day.periods || []).forEach((p) => {
                 if (!map.has(p.periodNumber)) map.set(p.periodNumber, { name: p.name || `Period ${p.periodNumber}`, startTime: p.startTime, endTime: p.endTime });
             })
         );
         return Array.from(map.entries()).sort((a, b) => a[0] - b[0]).map(([number, info]) => ({ number, ...info }));
-    }, [teacherData]);
+    }, [classData, periods]);
 
-    // Class-wise: columns = periods; rows = distinct teachers (pivot)
-    const classPeriodCols = useMemo(
-        () => (classData?.periods || []).map((p) => ({ number: p.periodNumber, name: p.name, startTime: p.startTime, endTime: p.endTime })),
-        [classData]
-    );
-    const classTeacherRows = useMemo(() => {
-        const map = new Map();
-        (classData?.periods || []).forEach((p) =>
-            (p.entries || []).forEach((e) => {
-                if (e.rollNumber && !map.has(e.rollNumber)) map.set(e.rollNumber, e.teacherName || e.rollNumber);
-            })
-        );
-        return Array.from(map.entries()).map(([rollNumber, name]) => ({ rollNumber, name }));
-    }, [classData]);
-    const classCellEntry = (rollNumber, periodNumber) => {
-        const p = (classData?.periods || []).find((x) => x.periodNumber === periodNumber);
-        return p?.entries?.find((e) => e.rollNumber === rollNumber) || null;
-    };
+    // For a given day + period column, the entries logged in that period.
+    const classDayEntries = (day, periodNumber) =>
+        (day?.periods || []).find((p) => p.periodNumber === periodNumber)?.entries || [];
 
     return (
         <Box sx={{ border: '1px solid #ccc', borderRadius: '20px', p: 2, height: '86vh', display: 'flex', flexDirection: 'column' }}>
@@ -536,20 +642,101 @@ export default function WorkDonePage() {
 
             <Divider sx={{ my: 1.5 }} />
 
-            <Tabs
-                value={activeTab}
-                onChange={(_, v) => setActiveTab(v)}
-                sx={{
-                    minHeight: 36, borderBottom: '1px solid #eee',
-                    '& .MuiTab-root': { textTransform: 'none', fontSize: 12.5, fontWeight: 700, color: '#555', minHeight: 36, px: 2 },
-                    '& .Mui-selected': { color: `${PRIMARY_DARK} !important` },
-                    '& .MuiTabs-indicator': { backgroundColor: PRIMARY, height: 3, borderRadius: '3px 3px 0 0' },
-                }}
-            >
-                {isTeacher && <Tab value={0} icon={<EventNoteIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Daily Entry" />}
-                <Tab value={1} icon={<TableChartOutlinedIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Report" />
-                <Tab value={2} icon={<HistoryIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="History" />
-            </Tabs>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1, borderBottom: '1px solid #eee' }}>
+                <Tabs
+                    value={activeTab}
+                    onChange={(_, v) => setActiveTab(v)}
+                    sx={{
+                        minHeight: 36,
+                        '& .MuiTab-root': { textTransform: 'none', fontSize: 12.5, fontWeight: 700, color: '#555', minHeight: 36, px: 2 },
+                        '& .Mui-selected': { color: `${PRIMARY_DARK} !important` },
+                        '& .MuiTabs-indicator': { backgroundColor: PRIMARY, height: 3, borderRadius: '3px 3px 0 0' },
+                    }}
+                >
+                    {/* {isTeacher && <Tab value={0} icon={<EventNoteIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Daily Entry" />} */}
+                    {<Tab value={0} icon={<EventNoteIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Daily Entry" />}
+                    <Tab value={1} icon={<PersonOutlineIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Teacher-wise" />
+                    <Tab value={2} icon={<ClassOutlinedIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Class-wise" />
+                </Tabs>
+
+                {/* Per-tab filters — aligned to the right of the tab bar to keep the table area tall */}
+                {activeTab === 1 && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, flexWrap: 'wrap', pb: 0.6 }}>
+                        <Autocomplete
+                            size="small"
+                            options={staffOptions}
+                            getOptionLabel={(o) => (o ? `${o.name || ''} (${o.rollNumber || ''})` : '')}
+                            isOptionEqualToValue={(o, v) => o.rollNumber === v.rollNumber}
+                            onChange={(_, v) => setStaffRoll(v?.rollNumber || '')}
+                            sx={{ width: 230 }}
+                            renderInput={(params) => (
+                                <TextField {...params} placeholder="All staff" sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px', height: 36, fontSize: 12.5, fontWeight: 600 } }} />
+                            )}
+                        />
+                        <FormControl size="small" sx={{ width: 140 }}>
+                            <Select value={datePreset} onChange={(e) => applyPreset(e.target.value)} sx={{ borderRadius: '8px', height: 36, fontSize: 12.5, fontWeight: 600 }}>
+                                <MenuItem value="today" sx={{ fontSize: 13 }}>Today</MenuItem>
+                                <MenuItem value="7" sx={{ fontSize: 13 }}>Last 7 Days</MenuItem>
+                                <MenuItem value="15" sx={{ fontSize: 13 }}>Last 15 Days</MenuItem>
+                                <MenuItem value="custom" sx={{ fontSize: 13 }}>Custom</MenuItem>
+                            </Select>
+                        </FormControl>
+                        <DateRangeNav from={fromDate} to={toDate} onChange={(f, t) => { setFromDate(f); setToDate(t); setDatePreset('custom'); }} />
+                        {datePreset === 'custom' && (
+                            <>
+                                <TextField type="date" size="small" value={fromDate} onChange={(e) => setFromDate(e.target.value)} sx={{ width: 140, '& .MuiOutlinedInput-root': { borderRadius: '8px', height: 36, fontSize: 12.5 } }} />
+                                <TextField type="date" size="small" value={toDate} onChange={(e) => setToDate(e.target.value)} sx={{ width: 140, '& .MuiOutlinedInput-root': { borderRadius: '8px', height: 36, fontSize: 12.5 } }} />
+                            </>
+                        )}
+                    </Box>
+                )}
+
+                {activeTab === 2 && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, flexWrap: 'wrap', pb: 0.6 }}>
+                        <FormControl size="small" sx={{ width: 110 }}>
+                            <Select
+                                value={cwGradeSign || ''}
+                                displayEmpty
+                                onChange={(e) => { const sign = e.target.value; setCwGradeSign(sign); const g = grades.find((x) => x.sign === sign); setCwSection(g?.sections?.[0] || null); }}
+                                renderValue={(v) => (v ? v : 'Class')}
+                                sx={{ borderRadius: '8px', height: 36, fontSize: 12.5, fontWeight: 600, textTransform: 'uppercase' }}
+                            >
+                                {(grades || []).map((g) => (
+                                    <MenuItem key={g.sign} value={g.sign} sx={{ fontSize: 13, textTransform: 'uppercase', fontWeight: 600 }}>{g.sign}</MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                        <FormControl size="small" sx={{ width: 110 }}>
+                            <Select
+                                value={cwSection || ''}
+                                displayEmpty
+                                onChange={(e) => setCwSection(e.target.value)}
+                                renderValue={(v) => (v ? `Sec ${v}` : 'Section')}
+                                sx={{ borderRadius: '8px', height: 36, fontSize: 12.5, fontWeight: 600 }}
+                            >
+                                {(grades?.find((g) => g.sign === cwGradeSign)?.sections || []).map((s) => (
+                                    <MenuItem key={s} value={s} sx={{ fontSize: 13 }}>Sec {s}</MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                        <FormControl size="small" sx={{ width: 140 }}>
+                            <Select value={cwPreset} onChange={(e) => applyCwPreset(e.target.value)} sx={{ borderRadius: '8px', height: 36, fontSize: 12.5, fontWeight: 600 }}>
+                                <MenuItem value="today" sx={{ fontSize: 13 }}>Today</MenuItem>
+                                <MenuItem value="7" sx={{ fontSize: 13 }}>Last 7 Days</MenuItem>
+                                <MenuItem value="15" sx={{ fontSize: 13 }}>Last 15 Days</MenuItem>
+                                <MenuItem value="custom" sx={{ fontSize: 13 }}>Custom</MenuItem>
+                            </Select>
+                        </FormControl>
+                        <DateRangeNav from={cwFromDate} to={cwToDate} onChange={(f, t) => { setCwFromDate(f); setCwToDate(t); setCwPreset('custom'); }} />
+                        {cwPreset === 'custom' && (
+                            <>
+                                <TextField type="date" size="small" value={cwFromDate} onChange={(e) => setCwFromDate(e.target.value)} sx={{ width: 140, '& .MuiOutlinedInput-root': { borderRadius: '8px', height: 36, fontSize: 12.5 } }} />
+                                <TextField type="date" size="small" value={cwToDate} onChange={(e) => setCwToDate(e.target.value)} sx={{ width: 140, '& .MuiOutlinedInput-root': { borderRadius: '8px', height: 36, fontSize: 12.5 } }} />
+                            </>
+                        )}
+                    </Box>
+                )}
+            </Box>
 
             <Box sx={{ flex: 1, overflowY: 'auto', mt: 1.5, pr: 0.5 }}>
                 {/* ───────────────── DAILY ENTRY ───────────────── */}
@@ -828,218 +1015,137 @@ export default function WorkDonePage() {
                     </>
                 )}
 
-                {/* ───────────────── WORK DONE REPORT ───────────────── */}
+                {/* ───────────────── TEACHER-WISE ───────────────── */}
                 {activeTab === 1 && (
                     <>
-                        {/* Mode toggle */}
-                        <Box sx={{ display: 'flex', gap: 0.6, mb: 1.5, p: 0.4, borderRadius: '10px', bgcolor: '#F3F4F6', border: '1px solid #E5E7EB', width: 'fit-content' }}>
-                            {[
-                                { key: 'teacher', label: 'Teacher-wise', icon: PersonOutlineIcon },
-                                { key: 'class', label: 'Class-wise', icon: ClassOutlinedIcon },
-                            ].map((m) => {
-                                const Icon = m.icon; const active = reportMode === m.key;
-                                return (
-                                    <Box key={m.key} onClick={() => setReportMode(m.key)} sx={{ px: 1.6, py: 0.7, borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 0.7, bgcolor: active ? '#fff' : 'transparent', boxShadow: active ? '0 1px 3px rgba(0,0,0,0.08)' : 'none' }}>
-                                        <Icon sx={{ fontSize: 16, color: active ? PRIMARY_DARK : '#9CA3AF' }} />
-                                        <Typography sx={{ fontSize: 12.5, fontWeight: active ? 700 : 600, color: active ? PRIMARY_DARK : '#6B7280' }}>{m.label}</Typography>
-                                    </Box>
-                                );
-                            })}
-                        </Box>
-
-                        {/* ── TEACHER-WISE ── */}
-                        {reportMode === 'teacher' && (
+                        {reportLoading ? (
+                            <Box sx={{ py: 6, display: 'flex', justifyContent: 'center' }}><CircularProgress size={28} sx={{ color: PRIMARY }} /></Box>
+                        ) : teacherList.length === 0 ? (
+                            <Box sx={{ py: 6, textAlign: 'center', borderRadius: '10px', border: '1px dashed #E5E7EB', bgcolor: '#FAFAFA' }}>
+                                <PersonOutlineIcon sx={{ fontSize: 40, color: '#D1D5DB', mb: 1 }} />
+                                <Typography sx={{ fontSize: 13, color: '#6B7280', fontWeight: 600 }}>
+                                    {staffRoll ? 'No work done records for this staff in the selected range.' : 'No work done records for the selected date range.'}
+                                </Typography>
+                            </Box>
+                        ) : (
                             <>
-                                <Grid container spacing={1.5} sx={{ mb: 1.5 }} alignItems="flex-end">
-                                    <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-                                        <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.5, mb: 0.4 }}>Staff</Typography>
-                                        <Autocomplete
-                                            size="small"
-                                            options={staffOptions}
-                                            getOptionLabel={(o) => (o ? `${o.name || ''} (${o.rollNumber || ''})` : '')}
-                                            isOptionEqualToValue={(o, v) => o.rollNumber === v.rollNumber}
-                                            onChange={(_, v) => setStaffRoll(v?.rollNumber || '')}
-                                            renderInput={(params) => (
-                                                <TextField {...params} placeholder="Search staff by name / roll number" sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px', fontSize: 13, fontWeight: 600 } }} />
-                                            )}
-                                        />
-                                    </Grid>
-                                    <Grid size={{ xs: 12, md: 8 }}>
-                                        <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.5, mb: 0.4 }}>Date Range</Typography>
-                                        <Box sx={{ display: 'flex', gap: 0.8, flexWrap: 'wrap' }}>
-                                            {[
-                                                { key: 'today', label: 'Today' },
-                                                { key: '7', label: '7 Days' },
-                                                { key: '15', label: '15 Days' },
-                                                { key: 'custom', label: 'Custom' },
-                                            ].map((opt) => {
-                                                const active = datePreset === opt.key;
+                                <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#6B7280', mb: 1 }}>
+                                    {teacherList.length} staff · {teacherData?.fromDate} → {teacherData?.toDate}
+                                </Typography>
+                                <TableContainer sx={{ border: '1px solid #E2E8F0', borderRadius: '14px', maxHeight: 'calc(86vh - 320px)', overflowX: 'auto' }}>
+                                    <Table stickyHeader size="small" sx={{ width: 'auto', borderCollapse: 'separate', borderSpacing: 0 }}>
+                                        <TableHead>
+                                            <TableRow>
+                                                <TableCell sx={{ position: 'sticky', left: 0, top: 0, zIndex: 4, width: 200, minWidth: 200, bgcolor: '#fff', borderBottom: '1px solid #EAECEF', borderRight: '1px solid #EAECEF' }}>
+                                                    <Typography sx={{ fontSize: 12, fontWeight: 800, color: '#0F172A', textTransform: 'uppercase', letterSpacing: 0.5 }}>Staff</Typography>
+                                                </TableCell>
+                                                {teacherPeriodCols.map((c) => (
+                                                    <TableCell key={c.number} sx={{ width: 190, minWidth: 190, bgcolor: '#fff', borderBottom: '1px solid #EAECEF', borderRight: '1px solid #F1F3F5' }}>
+                                                        <ReportPeriodHead name={c.name} startTime={c.startTime} endTime={c.endTime} />
+                                                    </TableCell>
+                                                ))}
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {teacherRows.map((r, idx) => {
+                                                const d = r.day;
+                                                const dayPeriods = d?.periods || [];
                                                 return (
-                                                    <Chip
-                                                        key={opt.key}
-                                                        label={opt.label}
-                                                        onClick={() => applyPreset(opt.key)}
-                                                        sx={{ height: 34, fontSize: 12.5, fontWeight: 700, borderRadius: '8px', cursor: 'pointer', bgcolor: active ? PRIMARY : '#fff', color: active ? '#fff' : '#374151', border: '1px solid', borderColor: active ? PRIMARY : '#E5E7EB', '&:hover': { bgcolor: active ? PRIMARY : '#F9FAFB' } }}
-                                                    />
+                                                    <TableRow key={`${r.rollNumber}-${d?.date || idx}`} sx={{ '&:hover': { bgcolor: '#FAFBFC' } }}>
+                                                        <TableCell sx={{ position: 'sticky', left: 0, zIndex: 1, bgcolor: '#fff', borderRight: '1px solid #EAECEF', borderBottom: '1px solid #F1F3F5', verticalAlign: 'top' }}>
+                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                                <Box sx={{ width: 30, height: 30, borderRadius: '50%', flexShrink: 0, bgcolor: colorForSubject(r.teacherName), color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800 }}>
+                                                                    {getInitials(r.teacherName)}
+                                                                </Box>
+                                                                <Box sx={{ minWidth: 0 }}>
+                                                                    <Typography sx={{ fontSize: 12.5, fontWeight: 800, color: '#0F172A', lineHeight: 1.2 }} noWrap>{r.teacherName}</Typography>
+                                                                    <Typography sx={{ fontSize: 10, color: '#94A3B8', fontFamily: 'monospace' }}>#{r.rollNumber}</Typography>
+                                                                </Box>
+                                                            </Box>
+                                                            {d && (
+                                                                <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.4, mt: 0.6 }}>
+                                                                    <Typography sx={{ fontSize: 10.5, color: '#475569', fontWeight: 700 }}>{d.date} · {dayNameOf(d.date)}</Typography>
+                                                                    <Chip label={`${dayPeriods.length}/${teacherPeriodCols.length} filled`} size="small" sx={{ height: 18, fontSize: 9.5, fontWeight: 700, bgcolor: '#F1F5F9', color: '#475569', border: '1px solid #E2E8F0' }} />
+                                                                    {d.entryType === 'leave' && (
+                                                                        <Chip label="Leave" size="small" sx={{ height: 18, fontSize: 9.5, fontWeight: 800, bgcolor: '#FFF7ED', color: '#C2410C', border: '1px solid #FED7AA' }} />
+                                                                    )}
+                                                                </Box>
+                                                            )}
+                                                        </TableCell>
+                                                        {teacherPeriodCols.map((c) => {
+                                                            const entry = dayPeriods.find((x) => x.periodNumber === c.number);
+                                                            return (
+                                                                <TableCell key={c.number} sx={{ verticalAlign: 'top', borderRight: '1px solid #F1F3F5', borderBottom: '1px solid #F1F3F5', p: 0.8 }}>
+                                                                    {entry ? <EntryCard entry={entry} color={periodColor(c.number)} showClass /> : <EmptyCell />}
+                                                                </TableCell>
+                                                            );
+                                                        })}
+                                                    </TableRow>
                                                 );
                                             })}
-                                        </Box>
-                                    </Grid>
-                                </Grid>
-
-                                {datePreset === 'custom' && (
-                                    <Grid container spacing={1.5} sx={{ mb: 1.5 }}>
-                                        <Grid size={{ xs: 6, sm: 3 }}>
-                                            <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.5, mb: 0.4 }}>From</Typography>
-                                            <TextField type="date" size="small" fullWidth value={fromDate} onChange={(e) => setFromDate(e.target.value)} sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px', height: 36, fontSize: 13 } }} />
-                                        </Grid>
-                                        <Grid size={{ xs: 6, sm: 3 }}>
-                                            <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.5, mb: 0.4 }}>To</Typography>
-                                            <TextField type="date" size="small" fullWidth value={toDate} onChange={(e) => setToDate(e.target.value)} sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px', height: 36, fontSize: 13 } }} />
-                                        </Grid>
-                                    </Grid>
-                                )}
-
-                                {reportLoading ? (
-                                    <Box sx={{ py: 6, display: 'flex', justifyContent: 'center' }}><CircularProgress size={28} sx={{ color: PRIMARY }} /></Box>
-                                ) : !staffRoll ? (
-                                    <Box sx={{ py: 6, textAlign: 'center', borderRadius: '10px', border: '1px dashed #E5E7EB', bgcolor: '#FAFAFA' }}>
-                                        <PersonOutlineIcon sx={{ fontSize: 40, color: '#D1D5DB', mb: 1 }} />
-                                        <Typography sx={{ fontSize: 13, color: '#6B7280', fontWeight: 600 }}>Select a staff member to view their work done.</Typography>
-                                    </Box>
-                                ) : !teacherData?.days?.length ? (
-                                    <Box sx={{ py: 6, textAlign: 'center', borderRadius: '10px', border: '1px dashed #E5E7EB', bgcolor: '#FAFAFA' }}>
-                                        <Typography sx={{ fontSize: 13, color: '#6B7280', fontWeight: 600 }}>No work done records for this staff in the selected range.</Typography>
-                                    </Box>
-                                ) : (
-                                    <>
-                                        <Typography sx={{ fontSize: 13, fontWeight: 800, color: '#111827', mb: 1 }}>
-                                            {teacherData.teacherName} · #{teacherData.rollNumber}
-                                            <Box component="span" sx={{ fontWeight: 600, color: '#6B7280', ml: 1 }}>{teacherData.fromDate} → {teacherData.toDate}</Box>
-                                        </Typography>
-                                        <TableContainer sx={{ border: '1px solid #E5E7EB', borderRadius: '12px', maxHeight: 'calc(86vh - 320px)', overflowX: 'auto' }}>
-                                            <Table stickyHeader size="small" sx={{ width: 'auto', borderCollapse: 'separate', borderSpacing: 0 }}>
-                                                <TableHead>
-                                                    <TableRow>
-                                                        <TableCell sx={{ position: 'sticky', left: 0, top: 0, zIndex: 4, width: 140, minWidth: 140, bgcolor: PRIMARY_LIGHT, borderBottom: `2px solid ${PRIMARY_BORDER}`, borderRight: `1px solid ${PRIMARY_BORDER}` }}>
-                                                            <Typography sx={{ fontSize: 12, fontWeight: 800, color: PRIMARY_DARK }}>Date / Day</Typography>
-                                                        </TableCell>
-                                                        {teacherPeriodCols.map((c) => (
-                                                            <TableCell key={c.number} sx={{ width: 190, minWidth: 190, bgcolor: PRIMARY_LIGHT, borderBottom: `2px solid ${PRIMARY_BORDER}`, borderRight: '1px solid #E5E7EB' }}>
-                                                                <PeriodHeadCell name={c.name} startTime={c.startTime} endTime={c.endTime} />
-                                                            </TableCell>
-                                                        ))}
-                                                    </TableRow>
-                                                </TableHead>
-                                                <TableBody>
-                                                    {teacherData.days.map((d) => (
-                                                        <TableRow key={d.date} sx={{ '&:nth-of-type(even)': { bgcolor: '#FAFBFC' }, '&:hover': { bgcolor: PRIMARY_LIGHT } }}>
-                                                            <TableCell sx={{ position: 'sticky', left: 0, zIndex: 1, bgcolor: '#fff', borderRight: `1px solid ${PRIMARY_BORDER}`, verticalAlign: 'top' }}>
-                                                                <Typography sx={{ fontSize: 12.5, fontWeight: 800, color: '#111827' }}>{d.date}</Typography>
-                                                                <Typography sx={{ fontSize: 10.5, color: PRIMARY_DARK, fontWeight: 700 }}>{dayNameOf(d.date)}</Typography>
-                                                                <Chip label={`${d.filledPeriods}/${d.totalPeriods} filled`} size="small" sx={{ mt: 0.5, height: 18, fontSize: 9.5, fontWeight: 700, bgcolor: '#fff', color: '#6B7280', border: '1px solid #E5E7EB' }} />
-                                                            </TableCell>
-                                                            {teacherPeriodCols.map((c) => (
-                                                                <TableCell key={c.number} sx={{ verticalAlign: 'top', borderRight: '1px solid #F3F4F6', p: 0.8 }}>
-                                                                    <WorkCell entry={(d.periods || []).find((x) => x.periodNumber === c.number)} showClass />
-                                                                </TableCell>
-                                                            ))}
-                                                        </TableRow>
-                                                    ))}
-                                                </TableBody>
-                                            </Table>
-                                        </TableContainer>
-                                    </>
-                                )}
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
+                            </>
+                        )}
                             </>
                         )}
 
-                        {/* ── CLASS-WISE ── */}
-                        {reportMode === 'class' && (
-                            <>
-                                <Grid container spacing={1.5} sx={{ mb: 1.5 }} alignItems="flex-end">
-                                    <Grid size={{ xs: 6, sm: 3, md: 2.5 }}>
-                                        <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.5, mb: 0.4 }}>Class</Typography>
-                                        <FormControl fullWidth size="small">
-                                            <Select
-                                                value={cwGradeSign || ''}
-                                                onChange={(e) => { const sign = e.target.value; setCwGradeSign(sign); const g = grades.find((x) => x.sign === sign); setCwSection(g?.sections?.[0] || null); }}
-                                                sx={{ borderRadius: '8px', height: 36, fontSize: 13, fontWeight: 600, textTransform: 'uppercase' }}
-                                            >
-                                                {(grades || []).map((g) => (
-                                                    <MenuItem key={g.sign} value={g.sign} sx={{ fontSize: 13, textTransform: 'uppercase', fontWeight: 600 }}>{g.sign}</MenuItem>
-                                                ))}
-                                            </Select>
-                                        </FormControl>
-                                    </Grid>
-                                    <Grid size={{ xs: 6, sm: 3, md: 2.5 }}>
-                                        <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.5, mb: 0.4 }}>Date</Typography>
-                                        <TextField type="date" size="small" fullWidth value={cwDate} onChange={(e) => setCwDate(e.target.value)} sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px', height: 36, fontSize: 13 } }} />
-                                    </Grid>
-                                    <Grid size={{ xs: 12, md: 7 }}>
-                                        <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.5, mb: 0.4 }}>Section</Typography>
-                                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.8 }}>
-                                            {(grades?.find((g) => g.sign === cwGradeSign)?.sections || []).map((s) => {
-                                                const active = cwSection === s;
-                                                return (
-                                                    <Box key={s} onClick={() => setCwSection(s)} sx={{ px: 1.6, height: 36, display: 'flex', alignItems: 'center', borderRadius: '8px', cursor: 'pointer', border: '1.5px solid', borderColor: active ? PRIMARY : '#E5E7EB', bgcolor: active ? PRIMARY_LIGHT : '#fff', color: active ? PRIMARY_DARK : '#374151', fontSize: 13, fontWeight: 700 }}>
-                                                        Sec {s}
-                                                    </Box>
-                                                );
-                                            })}
-                                        </Box>
-                                    </Grid>
-                                </Grid>
-
-                                {reportLoading ? (
+                {/* ───────────────── CLASS-WISE ───────────────── */}
+                {activeTab === 2 && (
+                    <>
+                        {reportLoading ? (
                                     <Box sx={{ py: 6, display: 'flex', justifyContent: 'center' }}><CircularProgress size={28} sx={{ color: PRIMARY }} /></Box>
-                                ) : !classData?.periods?.length ? (
-                                    <Box sx={{ py: 6, textAlign: 'center', borderRadius: '10px', border: '1px dashed #E5E7EB', bgcolor: '#FAFAFA' }}>
-                                        <Typography sx={{ fontSize: 13, color: '#6B7280', fontWeight: 600 }}>No work done records for this class on the selected date.</Typography>
-                                    </Box>
                                 ) : (
                                     <>
                                         <Typography sx={{ fontSize: 13, fontWeight: 800, color: '#111827', mb: 1 }}>
-                                            {classData.grade} · Section {classData.section}
-                                            <Box component="span" sx={{ fontWeight: 600, color: '#6B7280', ml: 1 }}>{classData.date} ({dayNameOf(classData.date)})</Box>
+                                            {classData?.grade || cwGradeSign} · Section {classData?.section || cwSection}
+                                            <Box component="span" sx={{ fontWeight: 600, color: '#6B7280', ml: 1 }}>{classData?.fromDate || toDDMMYYYY(cwFromDate)} → {classData?.toDate || toDDMMYYYY(cwToDate)}</Box>
                                         </Typography>
-                                        <TableContainer sx={{ border: '1px solid #E5E7EB', borderRadius: '12px', maxHeight: 'calc(86vh - 300px)', overflowX: 'auto' }}>
+                                        <TableContainer sx={{ border: '1px solid #E2E8F0', borderRadius: '14px', maxHeight: 'calc(86vh - 320px)', overflowX: 'auto' }}>
                                             <Table stickyHeader size="small" sx={{ width: 'auto', borderCollapse: 'separate', borderSpacing: 0 }}>
                                                 <TableHead>
                                                     <TableRow>
-                                                        <TableCell sx={{ position: 'sticky', left: 0, top: 0, zIndex: 4, width: 190, minWidth: 190, bgcolor: PRIMARY_LIGHT, borderBottom: `2px solid ${PRIMARY_BORDER}`, borderRight: `1px solid ${PRIMARY_BORDER}` }}>
-                                                            <Typography sx={{ fontSize: 12, fontWeight: 800, color: PRIMARY_DARK }}>Staff</Typography>
+                                                        <TableCell sx={{ position: 'sticky', left: 0, top: 0, zIndex: 4, width: 150, minWidth: 150, bgcolor: '#fff', borderBottom: '1px solid #EAECEF', borderRight: '1px solid #EAECEF' }}>
+                                                            <Typography sx={{ fontSize: 12, fontWeight: 800, color: '#0F172A', textTransform: 'uppercase', letterSpacing: 0.5 }}>Date / Day</Typography>
                                                         </TableCell>
                                                         {classPeriodCols.map((c) => (
-                                                            <TableCell key={c.number} sx={{ width: 190, minWidth: 190, bgcolor: PRIMARY_LIGHT, borderBottom: `2px solid ${PRIMARY_BORDER}`, borderRight: '1px solid #E5E7EB' }}>
-                                                                <PeriodHeadCell name={c.name} startTime={c.startTime} endTime={c.endTime} />
+                                                            <TableCell key={c.number} sx={{ width: 200, minWidth: 200, bgcolor: '#fff', borderBottom: '1px solid #EAECEF', borderRight: '1px solid #F1F3F5' }}>
+                                                                <ReportPeriodHead name={c.name} startTime={c.startTime} endTime={c.endTime} />
                                                             </TableCell>
                                                         ))}
                                                     </TableRow>
                                                 </TableHead>
                                                 <TableBody>
-                                                    {classTeacherRows.length === 0 ? (
+                                                    {!classData?.days?.length ? (
                                                         <TableRow>
-                                                            <TableCell colSpan={classPeriodCols.length + 1} sx={{ textAlign: 'center', py: 4, color: '#9CA3AF' }}>No staff entries.</TableCell>
-                                                        </TableRow>
-                                                    ) : classTeacherRows.map((t) => (
-                                                        <TableRow key={t.rollNumber} sx={{ '&:nth-of-type(even)': { bgcolor: '#FAFBFC' }, '&:hover': { bgcolor: PRIMARY_LIGHT } }}>
-                                                            <TableCell sx={{ position: 'sticky', left: 0, zIndex: 1, bgcolor: '#fff', borderRight: `1px solid ${PRIMARY_BORDER}`, verticalAlign: 'top' }}>
-                                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                                    <Box sx={{ width: 30, height: 30, borderRadius: '50%', flexShrink: 0, bgcolor: colorForSubject(t.name), color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800 }}>
-                                                                        {getInitials(t.name)}
-                                                                    </Box>
-                                                                    <Box sx={{ minWidth: 0 }}>
-                                                                        <Typography sx={{ fontSize: 12.5, fontWeight: 800, color: '#111827', lineHeight: 1.2 }} noWrap>{t.name}</Typography>
-                                                                        <Typography sx={{ fontSize: 10, color: '#9CA3AF', fontFamily: 'monospace' }}>#{t.rollNumber}</Typography>
-                                                                    </Box>
-                                                                </Box>
+                                                            <TableCell colSpan={classPeriodCols.length + 1} sx={{ textAlign: 'center', py: 5, color: '#9CA3AF', fontSize: 13, fontWeight: 600 }}>
+                                                                No work done records for this class in the selected range.
                                                             </TableCell>
-                                                            {classPeriodCols.map((c) => (
-                                                                <TableCell key={c.number} sx={{ verticalAlign: 'top', borderRight: '1px solid #F3F4F6', p: 0.8 }}>
-                                                                    <WorkCell entry={classCellEntry(t.rollNumber, c.number)} />
-                                                                </TableCell>
-                                                            ))}
+                                                        </TableRow>
+                                                    ) : classData.days.map((day) => (
+                                                        <TableRow key={day.date} sx={{ '&:hover': { bgcolor: '#FAFBFC' } }}>
+                                                            <TableCell sx={{ position: 'sticky', left: 0, zIndex: 1, bgcolor: '#fff', borderRight: '1px solid #EAECEF', borderBottom: '1px solid #F1F3F5', verticalAlign: 'top' }}>
+                                                                <Typography sx={{ fontSize: 12.5, fontWeight: 800, color: '#0F172A' }}>{day.date}</Typography>
+                                                                <Typography sx={{ fontSize: 10.5, color: '#475569', fontWeight: 700 }}>{dayNameOf(day.date)}</Typography>
+                                                            </TableCell>
+                                                            {classPeriodCols.map((c) => {
+                                                                const entries = classDayEntries(day, c.number);
+                                                                const pc = periodColor(c.number);
+                                                                return (
+                                                                    <TableCell key={c.number} sx={{ verticalAlign: 'top', borderRight: '1px solid #F1F3F5', borderBottom: '1px solid #F1F3F5', p: 0.8 }}>
+                                                                        {entries.length ? (
+                                                                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.6 }}>
+                                                                                {entries.map((e, i) => (
+                                                                                    <EntryCard key={`${e.rollNumber}-${i}`} entry={e} color={pc} showTeacher />
+                                                                                ))}
+                                                                            </Box>
+                                                                        ) : (
+                                                                            <EmptyCell />
+                                                                        )}
+                                                                    </TableCell>
+                                                                );
+                                                            })}
                                                         </TableRow>
                                                     ))}
                                                 </TableBody>
@@ -1049,48 +1155,6 @@ export default function WorkDonePage() {
                                 )}
                             </>
                         )}
-                    </>
-                )}
-
-                {/* ───────────────── HISTORY ───────────────── */}
-                {activeTab === 2 && (
-                    <Box>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1.5, gap: 1, flexWrap: 'wrap' }}>
-                            <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>Previous Entries</Typography>
-                            <TextField
-                                size="small"
-                                value={historySearch}
-                                onChange={(e) => setHistorySearch(e.target.value)}
-                                placeholder="Search by date, grade, section"
-                                sx={{ width: { xs: '100%', sm: 320 }, '& .MuiOutlinedInput-root': { borderRadius: '8px', height: 34, fontSize: 12.5 } }}
-                                slotProps={{ input: { startAdornment: (<InputAdornment position="start"><SearchIcon sx={{ fontSize: 16, color: '#9CA3AF' }} /></InputAdornment>) } }}
-                            />
-                        </Box>
-                        <Grid container spacing={1}>
-                            {filteredHistory.map((h, i) => (
-                                <Grid size={{ xs: 12, sm: 6, md: 4 }} key={i}>
-                                    <Box sx={{ p: 1.4, borderRadius: '10px', border: '1px solid #E5E7EB', bgcolor: '#fff', display: 'flex', alignItems: 'center', gap: 1.2, cursor: 'pointer', transition: '0.15s', '&:hover': { borderColor: PRIMARY_BORDER, bgcolor: PRIMARY_LIGHT } }}>
-                                        <Box sx={{ width: 38, height: 38, borderRadius: '8px', bgcolor: PRIMARY_LIGHT, border: `1px solid ${PRIMARY_BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                            <CalendarTodayIcon sx={{ fontSize: 16, color: PRIMARY_DARK }} />
-                                        </Box>
-                                        <Box sx={{ flex: 1, minWidth: 0 }}>
-                                            <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#111827' }}>{h.date}</Typography>
-                                            <Typography sx={{ fontSize: 11, color: '#6B7280', fontWeight: 600 }}>Grade {h.grade} · Sec {h.section}</Typography>
-                                        </Box>
-                                        <Chip label={`${h.filled}/8`} size="small" sx={{ height: 22, fontSize: 10.5, fontWeight: 800, bgcolor: PRIMARY, color: '#fff' }} />
-                                    </Box>
-                                </Grid>
-                            ))}
-                            {filteredHistory.length === 0 && (
-                                <Grid size={{ xs: 12 }}>
-                                    <Box sx={{ p: 4, textAlign: 'center', borderRadius: '10px', border: '1px dashed #E5E7EB', bgcolor: '#FAFAFA' }}>
-                                        <Typography sx={{ fontSize: 13, color: '#6B7280', fontWeight: 600 }}>No previous entries.</Typography>
-                                    </Box>
-                                </Grid>
-                            )}
-                        </Grid>
-                    </Box>
-                )}
             </Box>
 
             {/* Add Extra Period dialog */}

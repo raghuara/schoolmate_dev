@@ -84,6 +84,12 @@ const ConsentFormFetchAll = `${baseApiurl}/ConsentAll/ConsentFormFetchAll`;
 const updateConsentForm = `${baseApiurl}/ConsentForm/updateConsentForm`;
 const GetConsentFormById = `${baseApiurl}/feedBack/GetConsentFormById`;
 
+// Contact Details
+const getContactDetails = `${baseApiurl}communicationActivityDashboard/getContactDetails`;
+const postContactDetails = `${baseApiurl}communicationActivityDashboard/postContactDetails`;
+const updateContactDetailsById = `${baseApiurl}communicationActivityDashboard/updateContactDetailsById`;
+const deleteContactDetailsById = `${baseApiurl}communicationActivityDashboard/deleteContactDetailsById`;
+
 // Time Tables
 const timeTable = `${baseApiurl}timeTable/`;
 const TimeTableFetch = `${timeTable}TimeTableFetch`;
@@ -876,5 +882,9 @@ export {
     GetCustomWorkdoneSubjects,
     SaveCustomWorkdoneSubjects,
     GetWorkdoneSettings,
-    SaveWorkdoneSettings
+    SaveWorkdoneSettings,
+    getContactDetails,
+    postContactDetails,
+    updateContactDetailsById,
+    deleteContactDetailsById,
 }

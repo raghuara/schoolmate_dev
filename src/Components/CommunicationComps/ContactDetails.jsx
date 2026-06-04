@@ -351,8 +351,8 @@ export default function ContactDetails() {
             <Box sx={{ flex: 1, overflowY: 'auto', pr: 0.5 }}>
                 <Grid container spacing={1.5}>
                     {filteredContacts.map((c) => (
-                        <Grid size={{ xs: 12, sm: 6, md: 4 }} key={c.id}>
-                            <Box sx={{ p: 1.6, borderRadius: '12px', border: '1px solid #E5E7EB', bgcolor: '#fff', height: '100%', transition: '0.2s', '&:hover': { boxShadow: '0 2px 10px rgba(0,0,0,0.07)' } }}>
+                        <Grid size={{ xs: 12, sm: 6, md: 4 }} key={c.id} sx={{ display: 'flex', mb:4 }}>
+                            <Box sx={{ p: 1.6, borderRadius: '12px', border: '1px solid #E5E7EB', bgcolor: '#fff', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', transition: '0.2s', '&:hover': { boxShadow: '0 2px 10px rgba(0,0,0,0.07)' } }}>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, mb: 1 }}>
                                     <Avatar sx={{ width: 42, height: 42, bgcolor: colorFor(c.name), fontSize: 14, fontWeight: 700 }}>{getInitials(c.name)}</Avatar>
                                     <Box sx={{ flex: 1, minWidth: 0 }}>
