@@ -66,12 +66,6 @@ export default function AdditionalFeeManage() {
         return [];
     };
 
-    const academicYears = [
-        `${currentYear - 2}-${currentYear - 1}`,
-        `${currentYear - 1}-${currentYear}`,
-        `${currentYear}-${currentYear + 1}`,
-    ];
-
     const handleOpenStudentPopup = (activity) => {
         setSelectedActivity(activity);
         setOpenStudentPopup(true);
