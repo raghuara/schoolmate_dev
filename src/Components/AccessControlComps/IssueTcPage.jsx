@@ -30,7 +30,7 @@ import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import axios from 'axios';
 import { selectGrades, selectGradesLoading, fetchGradesData } from '../../Redux/Slices/DropdownController';
-import { FetchPromotableStudents, PostStudentExit, FetchExitHistory, GetExitFeesSummary } from '../../Api/Api';
+import { PostStudentExit, FetchExitHistory, GetExitFeesSummary, getUsersByUserType } from '../../Api/Api';
 import SnackBar from '../SnackBar';
 
 const TOKEN = '123';
@@ -236,6 +236,9 @@ export default function IssueTcPage() {
     const [isLoadingStudents, setIsLoadingStudents] = useState(false);
     const [selected, setSelected] = useState({});
     const [search, setSearch] = useState('');
+    // Master list from getUsersByUserType?userType=student — grouped by grade, fetched once
+    const [allStudentGroups, setAllStudentGroups] = useState([]);
+    const [studentsLoaded, setStudentsLoaded] = useState(false);
 
     // ── Snack ───────────────────────────────────────────────────────────────
     const [snackOpen, setSnackOpen] = useState(false);
@@ -266,62 +269,62 @@ export default function IssueTcPage() {
     const [approvalMode, setApprovalMode] = useState('all'); // 'all' | 'paid'
     const [expandedFeeStudents, setExpandedFeeStudents] = useState({});
 
-    // Fetch students whenever class/section changes
+    // Load the full student list once (grouped by grade) — getUsersByUserType?userType=student
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await axios.get(getUsersByUserType, {
+                    params: { userType: 'student' },
+                    headers: { Authorization: `Bearer ${TOKEN}` },
+                });
+                const data = res?.data || {};
+                if (cancelled) return;
+                if (data.error) {
+                    showSnack(data.message || 'Failed to load students.', false);
+                    setAllStudentGroups([]);
+                } else {
+                    setAllStudentGroups(Array.isArray(data.data) ? data.data : []);
+                }
+            } catch (err) {
+                if (cancelled) return;
+                console.error('getUsersByUserType failed:', err);
+                setAllStudentGroups([]);
+                showSnack(err?.response?.data?.message || 'Failed to load students.', false);
+            } finally {
+                if (!cancelled) setStudentsLoaded(true);
+            }
+        })();
+        return () => { cancelled = true; };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Derive the shown students from the selected class (grade) + section(s)
     useEffect(() => {
         if (!srcClassId || srcSection.length === 0) {
             setStudents([]);
             setSelected({});
             return;
         }
-
-        let cancelled = false;
-        setIsLoadingStudents(true);
         setSelected({});
+        if (!studentsLoaded) { setIsLoadingStudents(true); return; }
 
-        const promises = srcSection.map(sec =>
-            axios.get(FetchPromotableStudents, {
-                params: { gradeId: srcClassId, sectionName: sec },
-                headers: { Authorization: `Bearer ${TOKEN}` },
-            })
-        );
-
-        Promise.all(promises)
-            .then(responses => {
-                if (cancelled) return;
-                const allStudents = [];
-                responses.forEach(res => {
-                    const data = res?.data || {};
-                    if (data.error) {
-                        showSnack(data.message || 'Failed to load students.', false);
-                        return;
-                    }
-                    const gradeName = data.gradeName || '';
-                    const sectionName = data.sectionName || '';
-                    (data.students || []).forEach(s => {
-                        allStudents.push({
-                            id: s.rollNumber,
-                            rollNumber: String(s.rollNumber),
-                            name: s.name || '—',
-                            grade: gradeName,
-                            section: sectionName,
-                        });
-                    });
-                });
-                setStudents(allStudents);
-            })
-            .catch(err => {
-                if (cancelled) return;
-                console.error('FetchPromotableStudents failed:', err);
-                setStudents([]);
-                showSnack(err?.response?.data?.message || 'Failed to load students.', false);
-            })
-            .finally(() => {
-                if (!cancelled) setIsLoadingStudents(false);
-            });
-
-        return () => { cancelled = true; };
+        const gradeName = String(srcClass?.sign || '').toLowerCase();
+        const group = allStudentGroups.find(g => String(g.grade || '').toLowerCase() === gradeName);
+        const secSet = new Set(srcSection.map(s => String(s)));
+        const list = (group?.users || [])
+            .filter(u => secSet.has(String(u.section)))
+            .map(u => ({
+                id: String(u.rollNumber),
+                rollNumber: String(u.rollNumber),
+                name: u.name || '—',
+                grade: u.grade || srcClass?.sign || '',
+                section: u.section || '',
+            }));
+        setStudents(list);
+        setIsLoadingStudents(false);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [sourceKey]);
+    }, [sourceKey, studentsLoaded, allStudentGroups]);
 
     const filteredStudents = useMemo(() => {
         const q = search.trim().toLowerCase();

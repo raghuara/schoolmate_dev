@@ -13,6 +13,7 @@ import { getUsersByUserType, postStaffInformation, postStaffStudentInformation, 
 import axios from "axios";
 import DropDownList from "../../DropdownList";
 import { selectGrades } from "../../../Redux/Slices/DropdownController";
+import { selectAcademicYear } from "../../../Redux/Slices/academicYearSlice";
 import Loader from "../../Loader";
 import SnackBar from "../../SnackBar";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
@@ -48,6 +49,7 @@ export default function AddStaffDetails() {
     const navigate = useNavigate()
     const dispatch = useDispatch();
     const grades = useSelector(selectGrades);
+    const academicYear = useSelector(selectAcademicYear);
     const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
     const [activeStep, setActiveStep] = useState(0);
     const [count, setCount] = useState(0);
@@ -298,6 +300,14 @@ export default function AddStaffDetails() {
             return;
         }
 
+        if (!academicYear) {
+            setMessage("Academic year is required");
+            setOpen(true);
+            setColor(false);
+            setStatus(false);
+            return;
+        }
+
         setIsLoading(true);
         try {
             const formData = new FormData();
@@ -307,11 +317,12 @@ export default function AddStaffDetails() {
             formData.append("DateOfBirth", dateOfBirth);
             formData.append("Gender", gender);
             formData.append("AdmissionClass", selectedGradeId);
-            formData.append("Section", selectedSection);
+            formData.append("Section", selectedSection || "");
             formData.append("StaffCategory", staffCategory);
             formData.append("UserType", selectedUserType);
             formData.append("StaffDesignation", staffDesignation);
             formData.append("DateofJoining", dateOfJoining);
+            formData.append("AcademicYear", academicYear);
             if (profileImage) {
                 formData.append("StaffPassportSizePhotofiletype", "image");
                 formData.append("PassportSizePhotofile", profileImage);
@@ -497,7 +508,7 @@ export default function AddStaffDetails() {
                     </Grid>
                     <Grid size={{ xs: 12, md: 6, lg: 3 }} sx={{ display: "flex", justifyContent: "end", alignItems: "center" }}>
                         <Typography sx={{ color: "#7F7F7F", fontSize: "16px" }}>
-                            Academic Year: {new Date().getFullYear()}-{new Date().getFullYear() + 1}
+                            Academic Year: {academicYear || `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`}
                         </Typography>
                     </Grid>
                 </Grid>
