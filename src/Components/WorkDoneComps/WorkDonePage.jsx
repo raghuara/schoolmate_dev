@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
     Autocomplete, Box, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle,
-    Divider, FormControl, FormControlLabel, Grid, IconButton, MenuItem,
+    Divider, FormControl, FormControlLabel, Grid, IconButton, InputAdornment, MenuItem,
     Select, Switch, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tabs, TextField, Typography
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
@@ -10,10 +10,11 @@ import axios from 'axios';
 import SnackBar from '../SnackBar';
 import { selectGrades } from '../../Redux/Slices/DropdownController';
 import { selectAcademicYear } from '../../Redux/Slices/academicYearSlice';
-import { GetWorkdoneClassWise, GetWorkdoneTeacherWise, getUsersByUserType, PostWorkdoneReport, GetWorkdonePeriods, GetCustomWorkdoneSubjects } from '../../Api/Api';
+import { GetWorkdoneClassWise, GetWorkdoneTeacherWise, GetIndividualTeacherWorkDone, getUsersByUserType, PostWorkdoneReport, GetWorkdonePeriods, GetCustomWorkdoneSubjects } from '../../Api/Api';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import AddIcon from '@mui/icons-material/Add';
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import SettingsIcon from '@mui/icons-material/Settings';
 import SaveOutlinedIcon from '@mui/icons-material/SaveOutlined';
 import CloseIcon from '@mui/icons-material/Close';
@@ -27,6 +28,9 @@ import EventBusyIcon from '@mui/icons-material/EventBusy';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import FlightTakeoffIcon from '@mui/icons-material/FlightTakeoff';
+import HealingIcon from '@mui/icons-material/Healing';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 
 const PRIMARY = '#0891B2';
 const PRIMARY_LIGHT = '#ECFEFF';
@@ -144,6 +148,80 @@ const toDDMMYYYY = (iso) => {
     return `${d}-${m}-${y}`;
 };
 
+// ╔════════════════════════════════════════════════════════════════════╗
+// ║ DUMMY DATA FOR CLASS-WISE (PREKG · A1) — REMOVE THIS BLOCK LATER   ║
+// ║ Used to preview the Class-wise table without backend data.         ║
+// ║ Delete: this function + the early-return inside fetchClassWise.    ║
+// ╚════════════════════════════════════════════════════════════════════╝
+const DUMMY_CLASSWISE_SUBJECTS = [
+    { subject: 'EVS',         topic: 'Natural Disasters',     page: '11', teacher: 'Aarav Rao',     codes: ['AC', 'R'] },
+    { subject: 'English',     topic: 'Phonics — Letter B',    page: '5',  teacher: 'Priya Sharma',  codes: ['T', 'W'] },
+    { subject: 'Maths',       topic: 'Counting 1–10',         page: '15', teacher: 'Aarav Rao',     codes: ['T', 'C.W'] },
+    { subject: 'Art & Craft', topic: 'Paper folding',         page: '-',  teacher: 'Meera Iyer',    codes: ['AC'] },
+    { subject: 'Story Time',  topic: 'The Hungry Caterpillar', page: '20', teacher: 'Priya Sharma', codes: ['T'] },
+    { subject: 'Rhymes',      topic: 'Twinkle Twinkle',       page: '8',  teacher: 'Meera Iyer',    codes: ['R', 'P'] },
+    { subject: 'Drawing',     topic: 'Free-hand circles',     page: '-',  teacher: 'Meera Iyer',    codes: ['AC'] },
+    { subject: 'Music',       topic: 'Sing-along',            page: '-',  teacher: 'Karan Mehta',   codes: ['AC', 'P'] },
+];
+const DUMMY_PERIODS_META = [
+    { number: 1, name: 'Period 1', startTime: '08:30', endTime: '09:15' },
+    { number: 2, name: 'Period 2', startTime: '09:15', endTime: '10:00' },
+    { number: 3, name: 'Period 3', startTime: '10:00', endTime: '10:45' },
+    { number: 4, name: 'Period 4', startTime: '11:00', endTime: '11:45' },
+    { number: 5, name: 'Period 5', startTime: '11:45', endTime: '12:30' },
+    { number: 6, name: 'Period 6', startTime: '13:15', endTime: '14:00' },
+    { number: 7, name: 'Period 7', startTime: '14:00', endTime: '14:45' },
+    { number: 8, name: 'Period 8', startTime: '14:45', endTime: '15:30' },
+];
+const buildDummyClasswiseData = (fromIso, toIso) => {
+    const days = [];
+    let cursor = fromIso;
+    const guard = 366;
+    for (let i = 0; i < guard; i++) {
+        const dateStr = toDDMMYYYY(cursor);
+        const periods = DUMMY_PERIODS_META.map((meta) => {
+            // Make some slots intentionally empty so the table looks realistic
+            const skip = (meta.number === 6 && i % 3 === 0) || (meta.number === 8 && i % 2 === 0);
+            if (skip) {
+                return { periodNumber: meta.number, name: meta.name, startTime: meta.startTime, endTime: meta.endTime, entries: [] };
+            }
+            const s = DUMMY_CLASSWISE_SUBJECTS[(i + meta.number) % DUMMY_CLASSWISE_SUBJECTS.length];
+            return {
+                periodNumber: meta.number,
+                name: meta.name,
+                startTime: meta.startTime,
+                endTime: meta.endTime,
+                entries: [{
+                    subject: s.subject,
+                    topicActivity: s.topic,
+                    pageReference: s.page,
+                    statusCodes: s.codes,
+                    teacherName: s.teacher,
+                    rollNumber: 'DUMMY-' + s.teacher.replace(/\s+/g, ''),
+                }],
+            };
+        });
+        days.push({ date: dateStr, periods });
+        if (cursor === toIso) break;
+        const [y, m, d] = cursor.split('-').map(Number);
+        const next = new Date(y, m - 1, d);
+        next.setDate(next.getDate() + 1);
+        const ny = next.getFullYear();
+        const nm = String(next.getMonth() + 1).padStart(2, '0');
+        const nd = String(next.getDate()).padStart(2, '0');
+        cursor = `${ny}-${nm}-${nd}`;
+    }
+    return {
+        error: false,
+        grade: 'PREKG',
+        section: 'A1',
+        fromDate: toDDMMYYYY(fromIso),
+        toDate: toDDMMYYYY(toIso),
+        days,
+    };
+};
+// ╚════════════════════════════════════════════════════════════════════╝
+
 const statusMeta = (code) =>
     STATUS_INDICATORS.find((s) => s.code === code) || { code, color: '#374151', bg: '#F3F4F6' };
 
@@ -251,12 +329,28 @@ export default function WorkDonePage() {
     const academicYear = useSelector(selectAcademicYear);
 
     const today = new Date();
-    const [selectedDate, setSelectedDate] = useState(toIsoDate(today));
+    const tomorrowIso = (() => { const d = new Date(today); d.setDate(d.getDate() + 1); return toIsoDate(d); })();
+    const todayIso = toIsoDate(today);
+    const [selectedDate, setSelectedDate] = useState(todayIso);
 
     const [periods, setPeriods] = useState(DEFAULT_PERIODS);
     const [customSubjects, setCustomSubjects] = useState([]);
     const [entries, setEntries] = useState({});
     const [entryType, setEntryType] = useState('normal'); // 'normal' = Today Plan, 'leave' = Leave Plan
+
+    // Date boundaries by mode:
+    //   Today Plan (normal) → today or earlier (no future planning here)
+    //   Leave Plan (leave)  → tomorrow or later (future-only)
+    // Auto-correct the date when the user toggles between modes if it falls outside the allowed range.
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    useEffect(() => {
+        if (entryType === 'leave' && selectedDate <= todayIso) {
+            setSelectedDate(tomorrowIso);
+        } else if (entryType === 'normal' && selectedDate > todayIso) {
+            setSelectedDate(todayIso);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [entryType]);
     const [saving, setSaving] = useState(false);
 
     const [activeTab, setActiveTab] = useState(userType === 'teacher' ? 0 : 1);
@@ -335,6 +429,83 @@ export default function WorkDonePage() {
     const entryKey = selectedDate; // one register per staff per day
     const dayEntries = entries[entryKey] || {};
 
+    // Daily Entry tab — load existing work done for the selected date from API.
+    // API expects date in DD-MM-YYYY; selectedDate is YYYY-MM-DD.
+    // Maps each API period into the local entry shape keyed by periodNumber.
+    useEffect(() => {
+        if (activeTab !== 0) return;
+        if (!user?.rollNumber || !selectedDate) return;
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await axios.get(GetIndividualTeacherWorkDone, {
+                    params: { date: toDDMMYYYY(selectedDate), rollNumber: user.rollNumber },
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                if (cancelled) return;
+                const data = res?.data;
+                console.log('[WorkDone] GET response for', toDDMMYYYY(selectedDate), '→', data);
+                if (!data || data.error) {
+                    setEntries((prev) => ({ ...prev, [selectedDate]: {} }));
+                    setEntryType('normal');
+                    return;
+                }
+                // Be defensive about response shape — backend may wrap differently.
+                const apiEntries =
+                    (Array.isArray(data.entries) && data.entries) ||
+                    (Array.isArray(data.data?.entries) && data.data.entries) ||
+                    (Array.isArray(data.workDoneEntries) && data.workDoneEntries) ||
+                    (Array.isArray(data) && data) ||
+                    // Single flat object that already looks like an entry (has periods)
+                    (Array.isArray(data.periods) ? [data] : []);
+                // Normalize entryType case ('Normal' / 'normal' / 'NORMAL')
+                const isLeave = (t) => {
+                    const v = String(t || '').toLowerCase();
+                    return v === 'leave' || v === 'leave_plan';
+                };
+                const isNormal = (t) => String(t || '').toLowerCase() === 'normal';
+                const main = apiEntries.find((e) => isNormal(e.entryType))
+                    || apiEntries.find((e) => isLeave(e.entryType))
+                    || apiEntries[0];
+                const dayMap = {};
+                if (main && Array.isArray(main.periods)) {
+                    main.periods.forEach((p) => {
+                        const pid = p.periodNumber ?? p.periodId ?? p.period ?? p.id;
+                        if (pid == null) return;
+                        dayMap[pid] = {
+                            grade: p.grade || p.gradeSign || '',
+                            section: p.section || '',
+                            subject: p.subject || '',
+                            topic: p.topicActivity || p.topic || '',
+                            statuses: Array.isArray(p.statusCodes) ? p.statusCodes : (Array.isArray(p.statuses) ? p.statuses : []),
+                            pageRef: p.pageReference || p.pageRef || '',
+                            isFree: !!(p.isFreePeriod ?? p.isFree),
+                        };
+                    });
+                }
+                console.log('[WorkDone] parsed dayMap →', dayMap);
+                setEntries((prev) => ({ ...prev, [selectedDate]: dayMap }));
+                if (apiEntries.some((e) => isLeave(e.entryType))) {
+                    setEntryType('leave');
+                } else {
+                    setEntryType('normal');
+                }
+            } catch (err) {
+                if (cancelled) return;
+                // 404 = "no record yet for this date" — that's a normal state, not a failure.
+                // Treat it as empty: clear the date's entries and switch back to normal mode.
+                if (err?.response?.status === 404) {
+                    setEntries((prev) => ({ ...prev, [selectedDate]: {} }));
+                    setEntryType('normal');
+                    return;
+                }
+                console.error('Failed to load daily work done:', err);
+            }
+        })();
+        return () => { cancelled = true; };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTab, selectedDate, user?.rollNumber]);
+
     const setEntryField = (periodId, field, value) => {
         setEntries((prev) => {
             const existing = prev[entryKey] || {};
@@ -390,6 +561,17 @@ export default function WorkDonePage() {
             setSnack({ open: true, ok: false, msg: 'Fill at least one period before saving.' });
             return;
         }
+        // Date-mode boundary:
+        //   Leave Plan must be a future date (planning ahead)
+        //   Today Plan must be today or earlier (no forward-dating regular records)
+        if (entryType === 'leave' && selectedDate <= todayIso) {
+            setSnack({ open: true, ok: false, msg: 'Leave Plan can only be saved for a future date.' });
+            return;
+        }
+        if (entryType === 'normal' && selectedDate > todayIso) {
+            setSnack({ open: true, ok: false, msg: 'Today Plan can only be saved for today or a past date.' });
+            return;
+        }
         // Validate each filled (non-free) period has class, section & subject
         const bad = periods.find((p) => {
             const row = dayEntries[p.id];
@@ -421,7 +603,8 @@ export default function WorkDonePage() {
 
         const payload = {
             date: toDDMMYYYY(selectedDate),
-            entryType,                                  // 'normal' (Today Plan) | 'leave' (Leave Plan)
+            // API contract: 'normal' for Today Plan, 'leave_plan' for Leave Plan
+            entryType: entryType === 'leave' ? 'leave_plan' : 'normal',
             rollNumber: String(user?.rollNumber || ''),
             userType: userType || '',
             periods: payloadPeriods,
@@ -517,6 +700,12 @@ export default function WorkDonePage() {
 
     const fetchClassWise = async () => {
         if (!cwGradeSign || !cwSection || !cwFromDate || !cwToDate) { setClassData(null); return; }
+        // ─── DUMMY DATA FOR PREKG · A1 — REMOVE THIS IF/BLOCK LATER ──────
+        if (String(cwGradeSign).toUpperCase() === 'PREKG' && String(cwSection).toUpperCase() === 'A1') {
+            setClassData(buildDummyClasswiseData(cwFromDate, cwToDate));
+            return;
+        }
+        // ─── END DUMMY DATA ──────────────────────────────────────────────
         setReportLoading(true);
         try {
             const res = await axios.get(GetWorkdoneClassWise, {
@@ -590,6 +779,175 @@ export default function WorkDonePage() {
         );
         return Array.from(map.entries()).sort((a, b) => a[0] - b[0]).map(([number, info]) => ({ number, ...info }));
     }, [classData, periods]);
+
+    // ── Calendar-grid helpers for the transposed views (rows = teachers/periods, cols = days) ─
+    // Sort key: "DD-MM-YYYY" → numeric YYYYMMDD
+    const sortableDate = (s) => {
+        if (!s) return 0;
+        const parts = String(s).split('-').map(Number);
+        if (parts.length !== 3) return 0;
+        return parts[2] * 10000 + parts[1] * 100 + parts[0];
+    };
+
+    // Union of dates across all teachers; sorted ascending.
+    const teacherDateCols = useMemo(() => {
+        const set = new Set();
+        (teacherData?.teachers || []).forEach((t) => (t.days || []).forEach((d) => set.add(d.date)));
+        return [...set].sort((a, b) => sortableDate(a) - sortableDate(b));
+    }, [teacherData]);
+
+    // Lookup: rollNumber → (date → day record)
+    const teacherDayMap = useMemo(() => {
+        const map = new Map();
+        (teacherData?.teachers || []).forEach((t) => {
+            map.set(t.rollNumber, new Map((t.days || []).map((d) => [d.date, d])));
+        });
+        return map;
+    }, [teacherData]);
+
+    // Class-wise: ALWAYS show every date in the selected range (cwFromDate → cwToDate),
+    // not just the dates the API returned. Missing dates render as empty columns.
+    const classDateCols = useMemo(() => {
+        if (!cwFromDate || !cwToDate) return (classData?.days || []).map((d) => d.date);
+        const out = [];
+        let cursor = cwFromDate;
+        const guard = 366; // safety cap
+        for (let i = 0; i < guard; i++) {
+            out.push(toDDMMYYYY(cursor));
+            if (cursor === cwToDate) break;
+            cursor = shiftIso(cursor, 1);
+        }
+        return out;
+    }, [cwFromDate, cwToDate, classData]);
+
+    // For class-wise: rollup by date → periodNumber → entries
+    // API shape: classData.days[].periods[].entries[]  (each entry = one teacher who taught
+    // that class in that period). Flatten so each cell can iterate entries directly.
+    const classDayPeriodMap = useMemo(() => {
+        const map = new Map();
+        (classData?.days || []).forEach((day) => {
+            const inner = new Map();
+            (day.periods || []).forEach((p) => {
+                const num = p.periodNumber;
+                if (!inner.has(num)) inner.set(num, []);
+                const innerEntries = Array.isArray(p.entries) ? p.entries : [];
+                if (innerEntries.length === 0) {
+                    // Period present but no entry → leave the bucket empty (rendering will treat it as "no entries")
+                    return;
+                }
+                innerEntries.forEach((e) => {
+                    inner.get(num).push({
+                        ...e,
+                        periodNumber: p.periodNumber,
+                        periodName: p.name,
+                        startTime: p.startTime,
+                        endTime: p.endTime,
+                    });
+                });
+            });
+            map.set(day.date, inner);
+        });
+        return map;
+    }, [classData]);
+
+    // Is a date a weekend? (only the visual stripe styling — pure presentation)
+    const isWeekendDate = (date) => {
+        const name = dayNameOf(date);
+        return name === 'Sun' || name === 'Sat';
+    };
+
+    // "08:00" → "08:00 AM" / "13:30" → "01:30 PM"
+    const toAmPm = (timeStr) => {
+        if (!timeStr) return '';
+        const m = String(timeStr).match(/^(\d{1,2}):(\d{2})/);
+        if (!m) return timeStr;
+        let h = Number(m[1]) || 0;
+        const period = h >= 12 ? 'PM' : 'AM';
+        h = h % 12 || 12;
+        return `${String(h).padStart(2, '0')}:${m[2]} ${period}`;
+    };
+
+    // Minutes between two "HH:MM" strings (handles next-day wrap)
+    const minutesBetween = (start, end) => {
+        const a = String(start || '').match(/^(\d{1,2}):(\d{2})/);
+        const b = String(end || '').match(/^(\d{1,2}):(\d{2})/);
+        if (!a || !b) return 0;
+        const sa = Number(a[1]) * 60 + Number(a[2]);
+        const sb = Number(b[1]) * 60 + Number(b[2]);
+        return Math.max(0, sb - sa);
+    };
+
+    // ISO week number from "DD-MM-YYYY" or "YYYY-MM-DD"
+    const isoWeekOfDate = (s) => {
+        if (!s) return null;
+        const parts = String(s).split('-');
+        if (parts.length !== 3) return null;
+        const iso = parts[0].length === 4 ? `${parts[0]}-${parts[1]}-${parts[2]}` : `${parts[2]}-${parts[1]}-${parts[0]}`;
+        const d = new Date(`${iso}T00:00:00`);
+        if (Number.isNaN(d.getTime())) return null;
+        d.setHours(0, 0, 0, 0);
+        d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
+        const week1 = new Date(d.getFullYear(), 0, 4);
+        return Math.round(((d - week1) / 86400000 + 3) / 7) + 1;
+    };
+
+    // Style + icon per leave type (matches the image visual language)
+    const leaveStyle = (label) => {
+        const l = String(label || '').toLowerCase();
+        if (l.includes('sick')) {
+            return {
+                Icon: HealingIcon,
+                color: '#C2410C',
+                bg: 'repeating-linear-gradient(45deg, #FFF7ED 0 8px, #FED7AA 8px 16px)',
+            };
+        }
+        if (l.includes('casual')) {
+            return {
+                Icon: FlightTakeoffIcon,
+                color: '#2563EB',
+                bg: '#EFF6FF',
+            };
+        }
+        // Generic leave fallback
+        return {
+            Icon: EventBusyIcon,
+            color: '#92400E',
+            bg: 'repeating-linear-gradient(45deg, #FFFBEB 0 8px, #FEF3C7 8px 16px)',
+        };
+    };
+
+    // Compute summary for a teacher's day (totals + first/last period time range)
+    const summarizeTeacherDay = (dayRec, totalSlots) => {
+        if (!dayRec) return { kind: 'empty' };
+        // API may return 'leave' or 'leave_plan' (Leave Plan saved for a future date)
+        if (dayRec.entryType === 'leave' || dayRec.entryType === 'leave_plan') {
+            return { kind: 'leave', label: dayRec.leaveType || (dayRec.entryType === 'leave_plan' ? 'Leave Plan' : 'Leave') };
+        }
+        // Any period that's either teaching (has subject/topic) OR explicitly marked free —
+        // free periods belong to the day's time range too.
+        const all = (dayRec.periods || []).filter((p) =>
+            p && (p.isFreePeriod || p.subject || p.topicActivity || p.topicTaught || p.workDone)
+        );
+        if (all.length === 0) return { kind: 'empty' };
+        const sorted = [...all].sort((a, b) => (a.periodNumber || 0) - (b.periodNumber || 0));
+        const first = sorted[0];
+        const last = sorted[sorted.length - 1];
+        const teachingPeriods = all.filter((p) => !p.isFreePeriod);
+        const subjects = [...new Set(teachingPeriods.map((p) => p.subject).filter(Boolean))];
+        // Exact break time: total span − sum of every period's individual duration.
+        const totalSpan = minutesBetween(first?.startTime, last?.endTime);
+        const periodMins = all.reduce((s, p) => s + minutesBetween(p.startTime, p.endTime), 0);
+        const breakMins = Math.max(0, totalSpan - periodMins);
+        return {
+            kind: 'work',
+            filled: teachingPeriods.length,
+            total: totalSlots,
+            startTime: first?.startTime,
+            endTime: last?.endTime,
+            subjects,
+            breakMins,
+        };
+    };
 
     // For a given day + period column, the entries logged in that period.
     const classDayEntries = (day, periodNumber) =>
@@ -673,21 +1031,14 @@ export default function WorkDonePage() {
                                 <TextField {...params} placeholder="All staff" sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px', height: 36, fontSize: 12.5, fontWeight: 600 } }} />
                             )}
                         />
-                        <FormControl size="small" sx={{ width: 140 }}>
-                            <Select value={datePreset} onChange={(e) => applyPreset(e.target.value)} sx={{ borderRadius: '8px', height: 36, fontSize: 12.5, fontWeight: 600 }}>
-                                <MenuItem value="today" sx={{ fontSize: 13 }}>Today</MenuItem>
-                                <MenuItem value="7" sx={{ fontSize: 13 }}>Last 7 Days</MenuItem>
-                                <MenuItem value="15" sx={{ fontSize: 13 }}>Last 15 Days</MenuItem>
-                                <MenuItem value="custom" sx={{ fontSize: 13 }}>Custom</MenuItem>
-                            </Select>
-                        </FormControl>
-                        <DateRangeNav from={fromDate} to={toDate} onChange={(f, t) => { setFromDate(f); setToDate(t); setDatePreset('custom'); }} />
-                        {datePreset === 'custom' && (
-                            <>
-                                <TextField type="date" size="small" value={fromDate} onChange={(e) => setFromDate(e.target.value)} sx={{ width: 140, '& .MuiOutlinedInput-root': { borderRadius: '8px', height: 36, fontSize: 12.5 } }} />
-                                <TextField type="date" size="small" value={toDate} onChange={(e) => setToDate(e.target.value)} sx={{ width: 140, '& .MuiOutlinedInput-root': { borderRadius: '8px', height: 36, fontSize: 12.5 } }} />
-                            </>
-                        )}
+                        <TextField
+                            type="date"
+                            size="small"
+                            value={fromDate}
+                            onChange={(e) => { setFromDate(e.target.value); setToDate(e.target.value); setDatePreset('custom'); }}
+                            sx={{ width: 170, '& .MuiOutlinedInput-root': { borderRadius: '8px', height: 36, fontSize: 13, fontWeight: 600 } }}
+                            slotProps={{ input: { startAdornment: (<InputAdornment position="start"><CalendarTodayIcon sx={{ fontSize: 15, color: '#6B7280' }} /></InputAdornment>) } }}
+                        />
                     </Box>
                 )}
 
@@ -751,10 +1102,18 @@ export default function WorkDonePage() {
                                     fullWidth
                                     value={selectedDate}
                                     onChange={(e) => setSelectedDate(e.target.value)}
+                                    // Today Plan → today or past only.  Leave Plan → tomorrow or later only.
+                                    slotProps={{
+                                        htmlInput: entryType === 'leave'
+                                            ? { min: tomorrowIso }
+                                            : { max: todayIso },
+                                    }}
                                     sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px', height: 36, fontSize: 13, fontWeight: 600 } }}
                                 />
                                 <Typography sx={{ fontSize: 10.5, color: PRIMARY_DARK, mt: 0.3, fontWeight: 700 }}>
-                                    {dayName}{selectedDate > toIsoDate(today) ? ' · Future (plan ahead)' : ''}
+                                    {dayName}
+                                    {entryType === 'leave' && selectedDate > todayIso && ' · Future (plan ahead)'}
+                                    {entryType === 'normal' && selectedDate < todayIso && ' · Past (back-fill)'}
                                 </Typography>
                             </Grid>
                             <Grid size={{ xs: 12, md: 5 }}>
@@ -790,32 +1149,18 @@ export default function WorkDonePage() {
                             </Grid>
                         </Grid>
 
-                        {/* Progress + add period */}
-                        <Grid container spacing={1.5} sx={{ mb: 1.5 }}>
-                            <Grid size={{ xs: 12, md: 8 }}>
-                                <Box sx={{ p: 1.4, borderRadius: '10px', border: `1px solid ${PRIMARY_BORDER}`, bgcolor: PRIMARY_LIGHT, display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
-                                        <CheckCircleOutlineIcon sx={{ fontSize: 18, color: PRIMARY_DARK }} />
-                                        <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: PRIMARY_DARK }}>
-                                            {filledCount} / {periods.length} periods filled · {completion}%
-                                        </Typography>
-                                    </Box>
-                                    <Box sx={{ flex: 1, height: 6, borderRadius: '4px', bgcolor: '#fff', overflow: 'hidden', minWidth: 120 }}>
-                                        <Box sx={{ width: `${completion}%`, height: '100%', bgcolor: PRIMARY, transition: 'width 0.3s' }} />
-                                    </Box>
-                                </Box>
-                            </Grid>
-                            <Grid size={{ xs: 12, md: 4 }}>
-                                <Button
-                                    onClick={openAddPeriod}
-                                    fullWidth
-                                    startIcon={<AddIcon sx={{ fontSize: 16 }} />}
-                                    sx={{ textTransform: 'none', fontSize: 12.5, fontWeight: 700, height: 40, border: '1px dashed #9CA3AF', color: '#374151', borderRadius: '8px', '&:hover': { bgcolor: '#F9FAFB', borderColor: PRIMARY_DARK, color: PRIMARY_DARK } }}
-                                >
-                                    Add Extra Period
-                                </Button>
-                            </Grid>
-                        </Grid>
+                        {/* Progress */}
+                        <Box sx={{ mb: 1.5, p: 1.4, borderRadius: '10px', border: `1px solid ${PRIMARY_BORDER}`, bgcolor: PRIMARY_LIGHT, display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                                <CheckCircleOutlineIcon sx={{ fontSize: 18, color: PRIMARY_DARK }} />
+                                <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: PRIMARY_DARK }}>
+                                    {filledCount} / {periods.length} periods filled · {completion}%
+                                </Typography>
+                            </Box>
+                            <Box sx={{ flex: 1, height: 6, borderRadius: '4px', bgcolor: '#fff', overflow: 'hidden', minWidth: 120 }}>
+                                <Box sx={{ width: `${completion}%`, height: '100%', bgcolor: PRIMARY, transition: 'width 0.3s' }} />
+                            </Box>
+                        </Box>
 
                         {/* Status legend */}
                         <Box sx={{ p: 1.2, borderRadius: '8px', border: '1px solid #E5E7EB', bgcolor: '#FAFAFA', mb: 1.5 }}>
@@ -1030,56 +1375,165 @@ export default function WorkDonePage() {
                         ) : (
                             <>
                                 <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#6B7280', mb: 1 }}>
-                                    {teacherList.length} staff · {teacherData?.fromDate} → {teacherData?.toDate}
+                                    {(teacherData?.filledCount ?? teacherList.filter((t) => t.filled).length)} of {(teacherData?.teacherCount ?? teacherList.length)} staff filled · {teacherData?.fromDate || toDDMMYYYY(fromDate)} ({dayNameOf(fromDate)})
                                 </Typography>
-                                <TableContainer sx={{ border: '1px solid #E2E8F0', borderRadius: '14px', maxHeight: 'calc(86vh - 320px)', overflowX: 'auto' }}>
-                                    <Table stickyHeader size="small" sx={{ width: 'auto', borderCollapse: 'separate', borderSpacing: 0 }}>
+                                <TableContainer sx={{ border: '1px solid #E5E7EB', borderRadius: '12px', overflowX: 'auto', bgcolor: '#fff' }}>
+                                    <Table size="small" sx={{ width: 'auto', borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'fixed' }}>
                                         <TableHead>
                                             <TableRow>
-                                                <TableCell sx={{ position: 'sticky', left: 0, top: 0, zIndex: 4, width: 200, minWidth: 200, bgcolor: '#fff', borderBottom: '1px solid #EAECEF', borderRight: '1px solid #EAECEF' }}>
-                                                    <Typography sx={{ fontSize: 12, fontWeight: 800, color: '#0F172A', textTransform: 'uppercase', letterSpacing: 0.5 }}>Staff</Typography>
+                                                <TableCell sx={{ position: 'sticky', left: 0, top: 0, zIndex: 4, width: 210, minWidth: 210, bgcolor: '#F9FAFB', borderBottom: '1px solid #E5E7EB', borderRight: '1px solid #E5E7EB', p: '18px 20px' }}>
+                                                    <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#374151' }}>
+                                                        Staff
+                                                    </Typography>
+                                                    <Typography sx={{ fontSize: 11, color: '#94A3B8', fontWeight: 600, mt: 0.3 }}>
+                                                        {teacherPeriodCols.length} {teacherPeriodCols.length === 1 ? 'period' : 'periods'}
+                                                    </Typography>
                                                 </TableCell>
-                                                {teacherPeriodCols.map((c) => (
-                                                    <TableCell key={c.number} sx={{ width: 190, minWidth: 190, bgcolor: '#fff', borderBottom: '1px solid #EAECEF', borderRight: '1px solid #F1F3F5' }}>
-                                                        <ReportPeriodHead name={c.name} startTime={c.startTime} endTime={c.endTime} />
-                                                    </TableCell>
-                                                ))}
+                                                {teacherPeriodCols.map((pc) => {
+                                                    const colTheme = periodColor(pc.number);
+                                                    return (
+                                                        <TableCell key={pc.number} sx={{ width: 210, minWidth: 210, bgcolor: '#F9FAFB', borderBottom: '1px solid #E5E7EB', borderRight: '1px solid #E5E7EB', borderTop: `3px solid ${colTheme.color}`, p: '18px 18px' }}>
+                                                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                                <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>
+                                                                    {pc.name}
+                                                                </Typography>
+                                                                <EditOutlinedIcon sx={{ fontSize: 14, color: '#9CA3AF' }} />
+                                                            </Box>
+                                                            {(pc.startTime || pc.endTime) && (
+                                                                <Typography sx={{ fontSize: 11, color: '#9CA3AF', fontWeight: 500, mt: 0.4 }}>
+                                                                    {pc.startTime} – {pc.endTime}
+                                                                </Typography>
+                                                            )}
+                                                        </TableCell>
+                                                    );
+                                                })}
                                             </TableRow>
                                         </TableHead>
                                         <TableBody>
-                                            {teacherRows.map((r, idx) => {
-                                                const d = r.day;
-                                                const dayPeriods = d?.periods || [];
+                                            {teacherList
+                                                // Show only teachers that have a work record or leave on the selected day.
+                                                // Prefer the API's `filled` flag; fall back to scanning the day map.
+                                                .filter((t) => {
+                                                    if (t.filled === true) return true;
+                                                    if (t.filled === false) return false;
+                                                    const dm = teacherDayMap.get(t.rollNumber) || new Map();
+                                                    const r = dm.get(toDDMMYYYY(fromDate)) || (t.days || [])[0];
+                                                    if (!r) return false;
+                                                    const s = summarizeTeacherDay(r, teacherPeriodCols.length);
+                                                    return s.kind === 'work' || s.kind === 'leave';
+                                                })
+                                                .map((t) => {
+                                                const dayMap = teacherDayMap.get(t.rollNumber) || new Map();
+                                                // Single-date view: pick the one matching day (or first day available)
+                                                const selectedDmy = toDDMMYYYY(fromDate);
+                                                const day = dayMap.get(selectedDmy) || (t.days || [])[0] || null;
+                                                const summary = summarizeTeacherDay(day, teacherPeriodCols.length);
+                                                const isWeekend = isWeekendDate(selectedDmy);
+                                                // Per-period lookup for this teacher on the selected date
+                                                const periodLookup = new Map();
+                                                (day?.periods || []).forEach((p) => periodLookup.set(p.periodNumber, p));
+                                                const shifts = summary.kind === 'work' ? 1 : 0;
+                                                const totalMinutes = summary.kind === 'work' ? minutesBetween(summary.startTime, summary.endTime) : 0;
+                                                const hours = Math.round(totalMinutes / 60);
+
                                                 return (
-                                                    <TableRow key={`${r.rollNumber}-${d?.date || idx}`} sx={{ '&:hover': { bgcolor: '#FAFBFC' } }}>
-                                                        <TableCell sx={{ position: 'sticky', left: 0, zIndex: 1, bgcolor: '#fff', borderRight: '1px solid #EAECEF', borderBottom: '1px solid #F1F3F5', verticalAlign: 'top' }}>
-                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                                <Box sx={{ width: 30, height: 30, borderRadius: '50%', flexShrink: 0, bgcolor: colorForSubject(r.teacherName), color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800 }}>
-                                                                    {getInitials(r.teacherName)}
-                                                                </Box>
-                                                                <Box sx={{ minWidth: 0 }}>
-                                                                    <Typography sx={{ fontSize: 12.5, fontWeight: 800, color: '#0F172A', lineHeight: 1.2 }} noWrap>{r.teacherName}</Typography>
-                                                                    <Typography sx={{ fontSize: 10, color: '#94A3B8', fontFamily: 'monospace' }}>#{r.rollNumber}</Typography>
-                                                                </Box>
-                                                            </Box>
-                                                            {d && (
-                                                                <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.4, mt: 0.6 }}>
-                                                                    <Typography sx={{ fontSize: 10.5, color: '#475569', fontWeight: 700 }}>{d.date} · {dayNameOf(d.date)}</Typography>
-                                                                    <Chip label={`${dayPeriods.length}/${teacherPeriodCols.length} filled`} size="small" sx={{ height: 18, fontSize: 9.5, fontWeight: 700, bgcolor: '#F1F5F9', color: '#475569', border: '1px solid #E2E8F0' }} />
-                                                                    {d.entryType === 'leave' && (
-                                                                        <Chip label="Leave" size="small" sx={{ height: 18, fontSize: 9.5, fontWeight: 800, bgcolor: '#FFF7ED', color: '#C2410C', border: '1px solid #FED7AA' }} />
-                                                                    )}
-                                                                </Box>
+                                                    <TableRow key={t.rollNumber}>
+                                                        <TableCell sx={{ position: 'sticky', left: 0, zIndex: 1, bgcolor: '#fff', borderRight: '1px solid #E5E7EB', borderBottom: '1px solid #E5E7EB', verticalAlign: 'middle', p: '20px 22px', height: 130 }}>
+                                                            <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#111827', lineHeight: 1.3 }} noWrap>{t.teacherName}</Typography>
+                                                            {(hours > 0 || shifts > 0) && (
+                                                                <Typography sx={{ fontSize: 12, color: '#9CA3AF', fontWeight: 500, mt: 0.7 }} noWrap>
+                                                                    {hours} hours{'  '}{shifts} {shifts === 1 ? 'shift' : 'shifts'}
+                                                                </Typography>
                                                             )}
                                                         </TableCell>
-                                                        {teacherPeriodCols.map((c) => {
-                                                            const entry = dayPeriods.find((x) => x.periodNumber === c.number);
-                                                            return (
-                                                                <TableCell key={c.number} sx={{ verticalAlign: 'top', borderRight: '1px solid #F1F3F5', borderBottom: '1px solid #F1F3F5', p: 0.8 }}>
-                                                                    {entry ? <EntryCard entry={entry} color={periodColor(c.number)} showClass /> : <EmptyCell />}
-                                                                </TableCell>
-                                                            );
-                                                        })}
+                                                        {/* WEEKEND — entire row spans across all period columns */}
+                                                        {isWeekend && summary.kind === 'empty' ? (
+                                                            <TableCell colSpan={teacherPeriodCols.length} sx={{ borderRight: '1px solid #E5E7EB', borderBottom: '1px solid #E5E7EB', p: 0, background: 'repeating-linear-gradient(45deg, #F0FDF4 0 8px, #DCFCE7 8px 16px)' }}>
+                                                                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 130, height: 130, py: 1 }}>
+                                                                    <CalendarMonthIcon sx={{ fontSize: 26, color: '#16A34A', mb: 0.7 }} />
+                                                                    <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#16A34A' }}>Weekend</Typography>
+                                                                </Box>
+                                                            </TableCell>
+                                                        ) : summary.kind === 'leave' ? (
+                                                            /* LEAVE DAY — single merged cell across all period columns */
+                                                            (() => {
+                                                                const ls = leaveStyle(summary.label);
+                                                                const LeaveIcon = ls.Icon;
+                                                                return (
+                                                                    <TableCell colSpan={teacherPeriodCols.length} sx={{ borderRight: '1px solid #E5E7EB', borderBottom: '1px solid #E5E7EB', p: 0, background: ls.bg }}>
+                                                                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 130, height: 130, py: 1, px: 1 }}>
+                                                                            <LeaveIcon sx={{ fontSize: 26, color: ls.color, mb: 0.7 }} />
+                                                                            <Typography sx={{ fontSize: 13, fontWeight: 700, color: ls.color, textAlign: 'center' }}>{summary.label}</Typography>
+                                                                        </Box>
+                                                                    </TableCell>
+                                                                );
+                                                            })()
+                                                        ) : (
+                                                            teacherPeriodCols.map((pc) => {
+                                                                const period = periodLookup.get(pc.number);
+                                                                const colTheme = periodColor(pc.number);
+
+                                                                // ── Empty (no period entry for this teacher) ──
+                                                                if (!period) {
+                                                                    return (
+                                                                        <TableCell key={pc.number} sx={{ borderRight: '1px solid #E5E7EB', borderBottom: '1px solid #E5E7EB', p: 0, minHeight: 130, height: 130 }} />
+                                                                    );
+                                                                }
+
+                                                                // ── Free Period ──
+                                                                if (period.isFreePeriod) {
+                                                                    return (
+                                                                        <TableCell key={pc.number} sx={{ borderRight: '1px solid #E5E7EB', borderBottom: '1px solid #E5E7EB', p: 0, background: '#F9FAFB' }}>
+                                                                            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 130, height: 130, py: 1 }}>
+                                                                                <Box sx={{ width: 28, height: 28, borderRadius: '50%', bgcolor: '#E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 0.6 }}>
+                                                                                    <Typography sx={{ fontSize: 10, fontWeight: 800, color: '#6B7280' }}>F</Typography>
+                                                                                </Box>
+                                                                                <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#6B7280' }}>Free Period</Typography>
+                                                                            </Box>
+                                                                        </TableCell>
+                                                                    );
+                                                                }
+
+                                                                // ── Work entry — subject + grade·section + topic + page ref + status codes ──
+                                                                const subj = period.subject || '—';
+                                                                const topic = period.topicActivity || period.topicTaught || '';
+                                                                const pageRef = period.pageReference || '';
+                                                                const statusCodes = Array.isArray(period.statusCodes) ? period.statusCodes : [];
+                                                                return (
+                                                                    <TableCell key={pc.number} sx={{ borderRight: '1px solid #E5E7EB', borderBottom: '1px solid #E5E7EB', p: 0, verticalAlign: 'top' }}>
+                                                                        <Box sx={{ display: 'flex', alignItems: 'stretch', minHeight: 130, height: 130 }}>
+                                                                            <Box sx={{ width: 4, bgcolor: colTheme.color, flexShrink: 0 }} />
+                                                                            <Box sx={{ flex: 1, p: '14px 14px', display: 'flex', flexDirection: 'column', gap: 0.4, minWidth: 0 }}>
+                                                                                <Typography sx={{ fontSize: 13.5, fontWeight: 800, color: colTheme.color, lineHeight: 1.2 }} noWrap>{subj}</Typography>
+                                                                                {(period.grade || period.section) && (
+                                                                                    <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: '#374151', lineHeight: 1.2 }} noWrap>
+                                                                                        {period.grade || ''}{period.section ? ` · ${period.section}` : ''}
+                                                                                    </Typography>
+                                                                                )}
+                                                                                {topic && (
+                                                                                    <Typography sx={{ fontSize: 11, color: '#6B7280', lineHeight: 1.3 }} noWrap title={topic}>{topic}</Typography>
+                                                                                )}
+                                                                                {pageRef && (
+                                                                                    <Typography sx={{ fontSize: 10.5, color: '#9CA3AF', fontWeight: 600 }} noWrap>Pg {pageRef}</Typography>
+                                                                                )}
+                                                                                {statusCodes.length > 0 && (
+                                                                                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.3, mt: 'auto' }}>
+                                                                                        {statusCodes.map((code) => {
+                                                                                            const meta = statusMeta(code);
+                                                                                            return (
+                                                                                                <Box key={code} sx={{ fontSize: 9.5, fontWeight: 800, px: 0.6, py: 0.15, borderRadius: '3px', bgcolor: meta.bg, color: meta.color, letterSpacing: 0.3 }}>
+                                                                                                    {code}
+                                                                                                </Box>
+                                                                                            );
+                                                                                        })}
+                                                                                    </Box>
+                                                                                )}
+                                                                            </Box>
+                                                                        </Box>
+                                                                    </TableCell>
+                                                                );
+                                                            })
+                                                        )}
                                                     </TableRow>
                                                 );
                                             })}
@@ -1102,52 +1556,127 @@ export default function WorkDonePage() {
                                             {classData?.grade || cwGradeSign} · Section {classData?.section || cwSection}
                                             <Box component="span" sx={{ fontWeight: 600, color: '#6B7280', ml: 1 }}>{classData?.fromDate || toDDMMYYYY(cwFromDate)} → {classData?.toDate || toDDMMYYYY(cwToDate)}</Box>
                                         </Typography>
-                                        <TableContainer sx={{ border: '1px solid #E2E8F0', borderRadius: '14px', maxHeight: 'calc(86vh - 320px)', overflowX: 'auto' }}>
-                                            <Table stickyHeader size="small" sx={{ width: 'auto', borderCollapse: 'separate', borderSpacing: 0 }}>
+                                        <TableContainer sx={{ border: '1px solid #E5E7EB', borderRadius: '12px', overflowX: 'auto', bgcolor: '#fff' }}>
+                                            <Table size="small" sx={{ width: 'auto', borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'fixed' }}>
                                                 <TableHead>
                                                     <TableRow>
-                                                        <TableCell sx={{ position: 'sticky', left: 0, top: 0, zIndex: 4, width: 150, minWidth: 150, bgcolor: '#fff', borderBottom: '1px solid #EAECEF', borderRight: '1px solid #EAECEF' }}>
-                                                            <Typography sx={{ fontSize: 12, fontWeight: 800, color: '#0F172A', textTransform: 'uppercase', letterSpacing: 0.5 }}>Date / Day</Typography>
+                                                        <TableCell sx={{ position: 'sticky', left: 0, top: 0, zIndex: 4, width: 210, minWidth: 210, bgcolor: '#F9FAFB', borderBottom: '1px solid #E5E7EB', borderRight: '1px solid #E5E7EB', p: '18px 20px' }}>
+                                                            <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#374151' }}>Date</Typography>
+                                                            <Typography sx={{ fontSize: 11, color: '#94A3B8', fontWeight: 600, mt: 0.3 }}>{classDateCols.length} {classDateCols.length === 1 ? 'day' : 'days'}</Typography>
                                                         </TableCell>
-                                                        {classPeriodCols.map((c) => (
-                                                            <TableCell key={c.number} sx={{ width: 200, minWidth: 200, bgcolor: '#fff', borderBottom: '1px solid #EAECEF', borderRight: '1px solid #F1F3F5' }}>
-                                                                <ReportPeriodHead name={c.name} startTime={c.startTime} endTime={c.endTime} />
-                                                            </TableCell>
-                                                        ))}
+                                                        {classPeriodCols.map((pc) => {
+                                                            const colTheme = periodColor(pc.number);
+                                                            return (
+                                                                <TableCell key={pc.number} sx={{ width: 210, minWidth: 210, bgcolor: '#F9FAFB', borderBottom: '1px solid #E5E7EB', borderRight: '1px solid #E5E7EB', borderTop: `3px solid ${colTheme.color}`, p: '18px 18px' }}>
+                                                                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                                        <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>
+                                                                            {pc.name}
+                                                                        </Typography>
+                                                                        <EditOutlinedIcon sx={{ fontSize: 14, color: '#9CA3AF' }} />
+                                                                    </Box>
+                                                                    {(pc.startTime || pc.endTime) && (
+                                                                        <Typography sx={{ fontSize: 11, color: '#9CA3AF', fontWeight: 500, mt: 0.4 }}>
+                                                                            {pc.startTime} – {pc.endTime}
+                                                                        </Typography>
+                                                                    )}
+                                                                </TableCell>
+                                                            );
+                                                        })}
                                                     </TableRow>
                                                 </TableHead>
                                                 <TableBody>
-                                                    {!classData?.days?.length ? (
+                                                    {classDateCols.length === 0 ? (
                                                         <TableRow>
                                                             <TableCell colSpan={classPeriodCols.length + 1} sx={{ textAlign: 'center', py: 5, color: '#9CA3AF', fontSize: 13, fontWeight: 600 }}>
-                                                                No work done records for this class in the selected range.
+                                                                No dates in the selected range.
                                                             </TableCell>
                                                         </TableRow>
-                                                    ) : classData.days.map((day) => (
-                                                        <TableRow key={day.date} sx={{ '&:hover': { bgcolor: '#FAFBFC' } }}>
-                                                            <TableCell sx={{ position: 'sticky', left: 0, zIndex: 1, bgcolor: '#fff', borderRight: '1px solid #EAECEF', borderBottom: '1px solid #F1F3F5', verticalAlign: 'top' }}>
-                                                                <Typography sx={{ fontSize: 12.5, fontWeight: 800, color: '#0F172A' }}>{day.date}</Typography>
-                                                                <Typography sx={{ fontSize: 10.5, color: '#475569', fontWeight: 700 }}>{dayNameOf(day.date)}</Typography>
-                                                            </TableCell>
-                                                            {classPeriodCols.map((c) => {
-                                                                const entries = classDayEntries(day, c.number);
-                                                                const pc = periodColor(c.number);
-                                                                return (
-                                                                    <TableCell key={c.number} sx={{ verticalAlign: 'top', borderRight: '1px solid #F1F3F5', borderBottom: '1px solid #F1F3F5', p: 0.8 }}>
-                                                                        {entries.length ? (
-                                                                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.6 }}>
-                                                                                {entries.map((e, i) => (
-                                                                                    <EntryCard key={`${e.rollNumber}-${i}`} entry={e} color={pc} showTeacher />
-                                                                                ))}
-                                                                            </Box>
-                                                                        ) : (
-                                                                            <EmptyCell />
-                                                                        )}
+                                                    ) : classDateCols.map((date) => {
+                                                        const entriesByPeriod = classDayPeriodMap.get(date) || new Map();
+                                                        const weekend = isWeekendDate(date);
+                                                        const dn = dayNameOf(date);
+                                                        const [dd, mm, yyyy] = String(date).split('-');
+                                                        const monthShort = MONTHS_SHORT[(Number(mm) || 1) - 1] || '';
+                                                        // Has any data on this date?
+                                                        const hasAny = [...entriesByPeriod.values()].some((arr) => Array.isArray(arr) && arr.length > 0);
+                                                        return (
+                                                            <TableRow key={date} sx={{ '&:hover': { bgcolor: '#FAFBFC' } }}>
+                                                                <TableCell sx={{ position: 'sticky', left: 0, zIndex: 1, bgcolor: '#fff', borderRight: '1px solid #E5E7EB', borderBottom: '1px solid #E5E7EB', verticalAlign: 'middle', p: '20px 22px', height: 130 }}>
+                                                                    <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#111827', lineHeight: 1.3 }} noWrap>
+                                                                        {dd} {monthShort} {yyyy}
+                                                                    </Typography>
+                                                                    <Typography sx={{ fontSize: 12, color: '#9CA3AF', fontWeight: 500, mt: 0.7 }} noWrap>
+                                                                        {dn}
+                                                                    </Typography>
+                                                                </TableCell>
+                                                                {/* WEEKEND — entire row spans across all period columns */}
+                                                                {weekend && !hasAny ? (
+                                                                    <TableCell colSpan={classPeriodCols.length} sx={{ borderRight: '1px solid #E5E7EB', borderBottom: '1px solid #E5E7EB', p: 0, background: 'repeating-linear-gradient(45deg, #F0FDF4 0 8px, #DCFCE7 8px 16px)' }}>
+                                                                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 130, height: 130, py: 1 }}>
+                                                                            <CalendarMonthIcon sx={{ fontSize: 26, color: '#16A34A', mb: 0.7 }} />
+                                                                            <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#16A34A' }}>Weekend</Typography>
+                                                                        </Box>
                                                                     </TableCell>
-                                                                );
-                                                            })}
-                                                        </TableRow>
-                                                    ))}
+                                                                ) : (
+                                                                    classPeriodCols.map((pc) => {
+                                                                        const colTheme = periodColor(pc.number);
+                                                                        const entries = entriesByPeriod.get(pc.number) || [];
+                                                                        if (entries.length === 0) {
+                                                                            return (
+                                                                                <TableCell key={pc.number} sx={{ borderRight: '1px solid #E5E7EB', borderBottom: '1px solid #E5E7EB', p: 0, minHeight: 130, height: 130 }} />
+                                                                            );
+                                                                        }
+                                                                        return (
+                                                                            <TableCell key={pc.number} sx={{ borderRight: '1px solid #E5E7EB', borderBottom: '1px solid #E5E7EB', p: 0, verticalAlign: 'top' }}>
+                                                                                <Box sx={{ display: 'flex', alignItems: 'stretch', minHeight: 130, height: '100%' }}>
+                                                                                    <Box sx={{ width: 4, bgcolor: colTheme.color, flexShrink: 0 }} />
+                                                                                    <Box sx={{ flex: 1, p: '14px 14px', display: 'flex', flexDirection: 'column', gap: 0.5, minWidth: 0 }}>
+                                                                                        {entries.map((e, i) => {
+                                                                                            const subj = e.subject || e.topicActivity || e.topicTaught || '—';
+                                                                                            const topic = e.topicActivity || e.topicTaught || '';
+                                                                                            const pageRef = e.pageReference || e.pageRef || '';
+                                                                                            const statusCodes = Array.isArray(e.statusCodes) ? e.statusCodes : [];
+                                                                                            return (
+                                                                                                <Box key={`${e.rollNumber || i}-${i}`} sx={{ display: 'flex', flexDirection: 'column', gap: 0.4, minWidth: 0, ...(i > 0 ? { borderTop: '1px dashed #E5E7EB', pt: 0.7 } : {}) }}>
+                                                                                                    <Typography sx={{ fontSize: 13.5, fontWeight: 800, color: colTheme.color, lineHeight: 1.2 }} noWrap>{subj}</Typography>
+                                                                                                    {e.teacherName && (
+                                                                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
+                                                                                                            <Box sx={{ width: 18, height: 18, borderRadius: '50%', flexShrink: 0, bgcolor: colorForSubject(e.teacherName), color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9.5, fontWeight: 800 }}>
+                                                                                                                {getInitials(e.teacherName)}
+                                                                                                            </Box>
+                                                                                                            <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: '#374151' }} noWrap>{e.teacherName}</Typography>
+                                                                                                        </Box>
+                                                                                                    )}
+                                                                                                    {topic && (
+                                                                                                        <Typography sx={{ fontSize: 11, color: '#6B7280', lineHeight: 1.3 }} noWrap title={topic}>{topic}</Typography>
+                                                                                                    )}
+                                                                                                    {pageRef && (
+                                                                                                        <Typography sx={{ fontSize: 10.5, color: '#9CA3AF', fontWeight: 600 }} noWrap>Pg {pageRef}</Typography>
+                                                                                                    )}
+                                                                                                    {statusCodes.length > 0 && (
+                                                                                                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.3, mt: 'auto' }}>
+                                                                                                            {statusCodes.map((code) => {
+                                                                                                                const meta = statusMeta(code);
+                                                                                                                return (
+                                                                                                                    <Box key={code} sx={{ fontSize: 9.5, fontWeight: 800, px: 0.6, py: 0.15, borderRadius: '3px', bgcolor: meta.bg, color: meta.color, letterSpacing: 0.3 }}>
+                                                                                                                        {code}
+                                                                                                                    </Box>
+                                                                                                                );
+                                                                                                            })}
+                                                                                                        </Box>
+                                                                                                    )}
+                                                                                                </Box>
+                                                                                            );
+                                                                                        })}
+                                                                                    </Box>
+                                                                                </Box>
+                                                                            </TableCell>
+                                                                        );
+                                                                    })
+                                                                )}
+                                                            </TableRow>
+                                                        );
+                                                    })}
                                                 </TableBody>
                                             </Table>
                                         </TableContainer>

@@ -84,12 +84,6 @@ const ConsentFormFetchAll = `${baseApiurl}/ConsentAll/ConsentFormFetchAll`;
 const updateConsentForm = `${baseApiurl}/ConsentForm/updateConsentForm`;
 const GetConsentFormById = `${baseApiurl}/feedBack/GetConsentFormById`;
 
-// Contact Details
-const getContactDetails = `${baseApiurl}communicationActivityDashboard/getContactDetails`;
-const postContactDetails = `${baseApiurl}communicationActivityDashboard/postContactDetails`;
-const updateContactDetailsById = `${baseApiurl}communicationActivityDashboard/updateContactDetailsById`;
-const deleteContactDetailsById = `${baseApiurl}communicationActivityDashboard/deleteContactDetailsById`;
-
 // Time Tables
 const timeTable = `${baseApiurl}timeTable/`;
 const TimeTableFetch = `${timeTable}TimeTableFetch`;
@@ -459,6 +453,7 @@ const deleteTranspoartFeesStructure = `${transpoartFee}deleteTranspoartFeesStruc
 // Worl Done 
 const GetWorkdoneClassWise = `${baseApiurl}WorkDoneReport/GetWorkdoneClassWise`;
 const GetWorkdoneTeacherWise = `${baseApiurl}WorkDoneReport/GetWorkdoneTeacherWise`;
+const GetIndividualTeacherWorkDone = `${baseApiurl}WorkDoneReport/GetIndividualTeacherWorkDone`;
 const PostWorkdoneReport = `${baseApiurl}WorkDoneReport/PostWorkdoneReport`;
 
 const GetWorkdonePeriods = `${baseApiurl}WorkDoneSettings/GetWorkdonePeriods`;
@@ -862,10 +857,6 @@ export {
     TriggerManualSync,
     GetBiometricMappings,
     fetchDashboard,
-    getContactDetails,
-    postContactDetails,
-    updateContactDetailsById,
-    deleteContactDetailsById,
     PostBiometricMappings,
     UpdateBiometricMappings,
     PostTeachersManualAttendance,
@@ -876,6 +867,7 @@ export {
     GetExitFeesSummary,
     GetWorkdoneClassWise,
     GetWorkdoneTeacherWise,
+    GetIndividualTeacherWorkDone,
     PostWorkdoneReport,
     GetWorkdonePeriods,
     PostWorkdonePeriods,
