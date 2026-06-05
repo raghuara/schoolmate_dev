@@ -247,7 +247,14 @@ export default function ExpensePage() {
 
     const handleAllocDenomChange = (denom, value) => {
         const num = value === '' ? 0 : Math.max(0, parseInt(value, 10) || 0);
-        setAllocDenominations((prev) => ({ ...prev, [denom]: num }));
+        const maxAmount = parseFloat(newAllocation.amount) || 0;
+        if (maxAmount > 0) {
+            const otherTotal = ALLOC_DENOMS.reduce((sum, d) => d === denom ? sum : sum + d * (allocDenominations[d] || 0), 0);
+            const maxQty = Math.floor((maxAmount - otherTotal) / denom);
+            setAllocDenominations((prev) => ({ ...prev, [denom]: Math.min(num, Math.max(0, maxQty)) }));
+        } else {
+            setAllocDenominations((prev) => ({ ...prev, [denom]: num }));
+        }
     };
 
     // New expense request form
@@ -270,7 +277,14 @@ export default function ExpensePage() {
 
     const handleDenominationChange = (denom, value) => {
         const num = value === '' ? 0 : Math.max(0, parseInt(value, 10) || 0);
-        setDenominations((prev) => ({ ...prev, [denom]: num }));
+        const maxAmount = parseFloat(newRequest.amount) || 0;
+        if (maxAmount > 0) {
+            const otherTotal = DENOMINATIONS.reduce((sum, d) => d === denom ? sum : sum + d * (denominations[d] || 0), 0);
+            const maxQty = Math.floor((maxAmount - otherTotal) / denom);
+            setDenominations((prev) => ({ ...prev, [denom]: Math.min(num, Math.max(0, maxQty)) }));
+        } else {
+            setDenominations((prev) => ({ ...prev, [denom]: num }));
+        }
     };
 
     const [approvalAction, setApprovalAction] = useState("");
@@ -341,6 +355,19 @@ export default function ExpensePage() {
             return;
         }
 
+        if (newRequest.paymentMethod === 'Cash') {
+            if (denominationTotal === 0) {
+                setMessage("Please enter the cash denomination breakdown");
+                setOpen(true); setColor(false); setStatus(false);
+                return;
+            }
+            if (denominationTotal !== parseFloat(newRequest.amount)) {
+                setMessage(`Denomination total (₹${denominationTotal.toLocaleString('en-IN')}) does not match the expense amount (₹${parseFloat(newRequest.amount).toLocaleString('en-IN')})`);
+                setOpen(true); setColor(false); setStatus(false);
+                return;
+            }
+        }
+
         setIsLoading(true);
         try {
             const sendData = {
@@ -352,6 +379,21 @@ export default function ExpensePage() {
                 paymentMethod: newRequest.paymentMethod,
                 remarks: newRequest.remarks,
             };
+
+            if (newRequest.paymentMethod === 'Cash') {
+                sendData.outwardsDinomination = {
+                    outWards2000: denominations[2000] || 0,
+                    outWards500: denominations[500] || 0,
+                    outWards200: denominations[200] || 0,
+                    outWards100: denominations[100] || 0,
+                    outWards50: denominations[50] || 0,
+                    outWards20: denominations[20] || 0,
+                    outWards10: denominations[10] || 0,
+                    outWards5: denominations[5] || 0,
+                    outWards2: denominations[2] || 0,
+                    outWards1: denominations[1] || 0,
+                };
+            }
 
             await axios.post(postExpence, sendData, {
                 headers: { Authorization: `Bearer ${token}` },
@@ -367,6 +409,7 @@ export default function ExpensePage() {
                 requestedBy: userName,
                 requestedByEmail: ""
             });
+            setDenominations(DENOMINATIONS.reduce((acc, d) => ({ ...acc, [d]: 0 }), {}));
             setMessage(userType === "superadmin" ? "Expense added successfully!" : "Expense request submitted successfully!");
             setOpen(true); setColor(true); setStatus(true);
             fetchDashboardData();
@@ -435,13 +478,53 @@ export default function ExpensePage() {
             return;
         }
 
+        if (newAllocation.paymentMethod === 'Cash') {
+            if (allocDenomTotal === 0) {
+                setMessage("Please enter the cash denomination breakdown");
+                setOpen(true); setColor(false); setStatus(false);
+                return;
+            }
+            if (allocDenomTotal !== parseFloat(newAllocation.amount)) {
+                setMessage(`Denomination total (₹${allocDenomTotal.toLocaleString('en-IN')}) does not match the allocation amount (₹${parseFloat(newAllocation.amount).toLocaleString('en-IN')})`);
+                setOpen(true); setColor(false); setStatus(false);
+                return;
+            }
+        }
+
         setIsLoading(true);
         try {
+            const todayDate = new Date();
+            const dd = String(todayDate.getDate()).padStart(2, '0');
+            const mm = String(todayDate.getMonth() + 1).padStart(2, '0');
+            const yyyy = todayDate.getFullYear();
+
             const sendData = {
                 createdByRollNumber: rollNumber,
                 fundAmount: parseFloat(newAllocation.amount),
+                date: `${dd}-${mm}-${yyyy}`,
                 description: newAllocation.notes,
+                paymentMethod: newAllocation.paymentMethod || '',
+                remarks: newAllocation.notes || '',
             };
+
+            if (newAllocation.paymentMethod === 'Cash') {
+                sendData.inwardsDinomination = {
+                    inWards2000: allocDenominations[2000] || 0,
+                    inWards500: allocDenominations[500] || 0,
+                    inWards200: allocDenominations[200] || 0,
+                    inWards100: allocDenominations[100] || 0,
+                    inWards50: allocDenominations[50] || 0,
+                    inWards20: allocDenominations[20] || 0,
+                    inWards10: allocDenominations[10] || 0,
+                    inWards5: allocDenominations[5] || 0,
+                    inWards2: allocDenominations[2] || 0,
+                    inWards1: allocDenominations[1] || 0,
+                };
+                sendData.outwardsDinomination = {
+                    outWards2000: 0, outWards500: 0, outWards200: 0, outWards100: 0, outWards50: 0,
+                    outWards20: 0, outWards10: 0, outWards5: 0, outWards2: 0, outWards1: 0,
+                };
+            }
 
             await axios.post(postFund, sendData, {
                 headers: {
@@ -455,7 +538,8 @@ export default function ExpensePage() {
             });
 
             setOpenAllocationDialog(false);
-            setNewAllocation({ amount: "", notes: "" });
+            setNewAllocation({ amount: "", paymentMethod: "", notes: "" });
+            setAllocDenominations(ALLOC_DENOMS.reduce((acc, d) => ({ ...acc, [d]: 0 }), {}));
             setMessage(userType === "superadmin" ? "Allocation added successfully!" : "Allocation requested successfully!");
             setOpen(true); setColor(true); setStatus(true);
             fetchDashboardData();
