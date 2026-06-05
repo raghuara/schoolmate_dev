@@ -32,9 +32,12 @@ import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import PieChartIcon from '@mui/icons-material/PieChart';
+import FactCheckOutlinedIcon from '@mui/icons-material/FactCheckOutlined';
+import DashboardOutlinedIcon from '@mui/icons-material/DashboardOutlined';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { selectWebsiteSettings } from '../../Redux/Slices/websiteSettingsSlice';
+import PostViewTracking from './PostViewTracking';
 import {
     ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid,
     Tooltip as RTooltip, BarChart, Bar, Cell, PieChart, Pie,
@@ -209,6 +212,7 @@ export default function CommunicationDashboard() {
     const isTeacher = user?.userType === 'teacher';
     const presets = useMemo(() => buildPresets(), []);
 
+    const [viewMode, setViewMode] = useState('dashboard'); // 'dashboard' | 'tracking'
     const [activePreset, setActivePreset] = useState('last30');
     const [fromDate, setFromDate] = useState(presets.find(p => p.key === 'last30').from);
     const [toDate, setToDate]     = useState(presets.find(p => p.key === 'last30').to);
@@ -557,6 +561,28 @@ export default function CommunicationDashboard() {
                         </Box>
                     </Grid>
                     <Grid size={{ xs: 12, sm: 12, md: 7, lg: 7 }} sx={{ display: 'flex', justifyContent: { md: 'flex-end', xs: 'flex-start' }, alignItems: 'center', gap: 0.7, flexWrap: 'wrap' }}>
+                        {/* View Tracking toggle — opens the per-student post-view tracking screen */}
+                        <Box
+                            onClick={() => setViewMode(viewMode === 'tracking' ? 'dashboard' : 'tracking')}
+                            sx={{
+                                display: 'flex', alignItems: 'center', gap: 0.6,
+                                px: 1.3, height: 30, borderRadius: '7px',
+                                bgcolor: viewMode === 'tracking' ? PRIMARY : '#fff',
+                                border: `1px solid ${viewMode === 'tracking' ? PRIMARY : '#ddd'}`,
+                                color: viewMode === 'tracking' ? '#fff' : '#374151',
+                                cursor: 'pointer', userSelect: 'none',
+                                '&:hover': { bgcolor: viewMode === 'tracking' ? PRIMARY_DARK : '#fafafa' },
+                            }}
+                        >
+                            {viewMode === 'tracking'
+                                ? <DashboardOutlinedIcon sx={{ fontSize: 16 }} />
+                                : <FactCheckOutlinedIcon sx={{ fontSize: 16, color: PRIMARY }} />}
+                            <Typography sx={{ fontSize: 12, fontWeight: 700, color: 'inherit' }}>
+                                {viewMode === 'tracking' ? 'Dashboard' : 'View Tracking'}
+                            </Typography>
+                        </Box>
+
+                        {viewMode === 'dashboard' && (<>
                         {/* Date range preset — dropdown */}
                         <Box
                             onClick={(e) => setDateAnchor(e.currentTarget)}
@@ -634,11 +660,15 @@ export default function CommunicationDashboard() {
                                 />
                             </>
                         )}
+                        </>)}
                     </Grid>
                 </Grid>
             </Box>
 
             <Box sx={{ pt: "75px", pb:2, px:2}}>
+                {viewMode === 'tracking' ? (
+                    <PostViewTracking />
+                ) : (<>
                 {/* ═══ ACTION BAR: search + result count + export ═══ */}
                 <Box sx={{
                 }}>
@@ -1481,6 +1511,7 @@ export default function CommunicationDashboard() {
                         </Box>
                     )}
                 </Card>
+                </>)}
             </Box>
         </Box>
     );

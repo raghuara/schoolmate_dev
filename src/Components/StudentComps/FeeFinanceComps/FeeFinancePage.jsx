@@ -5,6 +5,9 @@ import { selectWebsiteSettings } from '../../../Redux/Slices/websiteSettingsSlic
 import { useSelector } from 'react-redux';
 import { selectGrades } from '../../../Redux/Slices/DropdownController';
 import { Link, useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import SnackBar from '../../SnackBar';
+import { teamManagementGet, moveToAccounts, moveToBilling } from '../../../Api/Api';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import PersonAddAlt1Icon from '@mui/icons-material/PersonAddAlt1';
 import PostAddIcon from '@mui/icons-material/PostAdd';
@@ -33,16 +36,6 @@ import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
 import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined';
 import WorkOutlineIcon from '@mui/icons-material/WorkOutline';
 
-const initialStaff = [
-    { id: 1, name: "Ravi Kumar", rollNumber: "890707", role: "billing", email: "ravi.k@school.in", joined: "2023-04-12", designation: "Admin Staff" },
-    { id: 2, name: "Priya Sharma", rollNumber: "890712", role: "billing", email: "priya.s@school.in", joined: "2022-08-01", designation: "Admin Staff" },
-    { id: 3, name: "Suresh Reddy", rollNumber: "890720", role: "accounts", email: "suresh.r@school.in", joined: "2021-06-15", designation: "Senior Admin" },
-    { id: 4, name: "Lakshmi Iyer", rollNumber: "890734", role: "billing", email: "lakshmi.i@school.in", joined: "2023-11-03", designation: "Admin Staff" },
-    { id: 5, name: "Anil Verma", rollNumber: "890751", role: "accounts", email: "anil.v@school.in", joined: "2020-09-22", designation: "Senior Admin" },
-    { id: 6, name: "Meena Joshi", rollNumber: "890768", role: "billing", email: "meena.j@school.in", joined: "2024-02-14", designation: "Admin Staff" },
-    { id: 7, name: "Kiran Nair", rollNumber: "890772", role: "billing", email: "kiran.n@school.in", joined: "2024-07-08", designation: "Admin Staff" },
-];
-
 const initialApprovals = [
     {
         id: "PAY-2026-001",
@@ -51,7 +44,7 @@ const initialApprovals = [
         section: "A",
         rollNumber: "S2024-088",
         amount: 25000,
-        method: "NEFT",
+        method: "Net Banking",
         referenceId: "UTIB202605294532",
         paymentDate: "2026-05-27",
         submittedBy: "Parent · Rohit Patel",
@@ -68,7 +61,7 @@ const initialApprovals = [
         section: "B",
         rollNumber: "S2022-145",
         amount: 18500,
-        method: "UPI - Direct",
+        method: "UPI",
         referenceId: "532012584451@ybl",
         paymentDate: "2026-05-28",
         submittedBy: "Parent · Meera Sharma",
@@ -102,14 +95,14 @@ const initialApprovals = [
         section: "A",
         rollNumber: "S2023-067",
         amount: 22000,
-        method: "Bank Transfer",
+        method: "Card",
         referenceId: "TRX98745632",
         paymentDate: "2026-05-29",
         submittedBy: "Billing · Lakshmi Iyer",
         submittedDate: "2026-05-29",
         proofType: "screenshot",
         status: "pending",
-        note: "Direct deposit to school account - ICICI Bank",
+        note: "Credit/Debit card payment - ICICI Bank",
         source: "Billing Screen",
     },
     {
@@ -132,11 +125,20 @@ const initialApprovals = [
 ];
 
 const PAYMENT_METHOD_COLORS = {
-    'NEFT': { bg: '#E3F2FD', color: '#1565C0' },
-    'UPI - Direct': { bg: '#F3E5F5', color: '#7B1FA2' },
+    'UPI': { bg: '#F3E5F5', color: '#7B1FA2' },
+    'Net Banking': { bg: '#E3F2FD', color: '#1565C0' },
     'Cheque': { bg: '#FFF3E0', color: '#E65100' },
-    'Bank Transfer': { bg: '#E0F7FA', color: '#00838F' },
+    'Card': { bg: '#FDECEA', color: '#C62828' },
 };
+
+// Payment method filters — order & labels mirror the Billing Screen's payment options
+const METHOD_FILTERS = [
+    { value: 'all', label: 'All Methods' },
+    { value: 'UPI', label: 'UPI' },
+    { value: 'Net Banking', label: 'Net Banking' },
+    { value: 'Cheque', label: 'Cheque' },
+    { value: 'Card', label: 'Card' },
+];
 
 const formatCurrency = (n) =>
     new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n);
@@ -216,31 +218,87 @@ export default function FeeFinancePage() {
     const user = useSelector((state) => state.auth);
     const userType = user.userType;
 
+    const token = "123";
     const [activeTab, setActiveTab] = useState(0);
 
-    const [staff, setStaff] = useState(initialStaff);
+    const [staff, setStaff] = useState([]);
     const [staffSearch, setStaffSearch] = useState("");
     const [staffRoleFilter, setStaffRoleFilter] = useState("all");
+    const [teamCounts, setTeamCounts] = useState({ billing: 0, accounts: 0, total: 0 });
+    const [teamLoading, setTeamLoading] = useState(false);
+    const [movingRoll, setMovingRoll] = useState(null);
+
+    const [snackOpen, setSnackOpen] = useState(false);
+    const [snackStatus, setSnackStatus] = useState(false);
+    const [snackColor, setSnackColor] = useState(false);
+    const [snackMessage, setSnackMessage] = useState('');
+    const showSnack = (msg, ok) => { setSnackMessage(msg); setSnackColor(ok); setSnackStatus(ok); setSnackOpen(true); };
 
     const [approvals, setApprovals] = useState(initialApprovals);
     const [approvalSearch, setApprovalSearch] = useState("");
     const [approvalMethodFilter, setApprovalMethodFilter] = useState("all");
     const [proofDialog, setProofDialog] = useState({ open: false, item: null });
 
-    const billingCount = useMemo(() => staff.filter((s) => s.role === 'billing').length, [staff]);
-    const accountsCount = useMemo(() => staff.filter((s) => s.role === 'accounts').length, [staff]);
+    const billingCount = teamCounts.billing;
+    const accountsCount = teamCounts.accounts;
 
     const filteredStaff = useMemo(() => {
         const q = staffSearch.trim().toLowerCase();
-        return staff.filter((s) => {
-            const matchRole = staffRoleFilter === 'all' ? true : s.role === staffRoleFilter;
-            const matchSearch = !q || s.name.toLowerCase().includes(q) || s.rollNumber.toLowerCase().includes(q) || (s.email || '').toLowerCase().includes(q);
-            return matchRole && matchSearch;
-        });
-    }, [staff, staffSearch, staffRoleFilter]);
+        if (!q) return staff;
+        return staff.filter((s) => s.name.toLowerCase().includes(q) || s.rollNumber.toLowerCase().includes(q));
+    }, [staff, staffSearch]);
 
-    const toggleStaffRole = (id) => {
-        setStaff((prev) => prev.map((s) => s.id === id ? { ...s, role: s.role === 'billing' ? 'accounts' : 'billing' } : s));
+    // ── Team Management — fetch users by Filter (all | billing | accounts) ──
+    const fetchTeam = async (filter) => {
+        setTeamLoading(true);
+        try {
+            const res = await axios.get(teamManagementGet, {
+                params: { Filter: filter },
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const data = res?.data || {};
+            const users = Array.isArray(data.users) ? data.users : [];
+            setStaff(users.map((u) => ({
+                id: u.id,
+                name: u.name || '—',
+                rollNumber: String(u.rollNumber || ''),
+                role: u.financeUserType === 'accounts' ? 'accounts' : 'billing',
+                designation: u.userType === 'admin' ? 'Admin' : 'Staff',
+                initials: u.initials || getInitials(u.name),
+            })));
+            setTeamCounts({
+                billing: Number(data.billingTeamCount) || 0,
+                accounts: Number(data.accountsTeamCount) || 0,
+                total: Number(data.totalAdminStaff) || 0,
+            });
+        } catch (err) {
+            setStaff([]);
+            showSnack('Failed to load team members.', false);
+        } finally {
+            setTeamLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (activeTab === 1) fetchTeam(staffRoleFilter);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTab, staffRoleFilter]);
+
+    // Move a staff member between Billing and Accounts, then refresh the list
+    const handleMoveStaff = async (rollNumber, toAccounts) => {
+        setMovingRoll(rollNumber);
+        try {
+            await axios.put(toAccounts ? moveToAccounts : moveToBilling, null, {
+                params: { RollNumber: rollNumber },
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            showSnack(toAccounts ? 'Moved to Accounts team.' : 'Moved to Billing team.', true);
+            await fetchTeam(staffRoleFilter);
+        } catch (err) {
+            showSnack('Failed to move staff member.', false);
+        } finally {
+            setMovingRoll(null);
+        }
     };
 
     const filteredApprovals = useMemo(() => {
@@ -256,7 +314,7 @@ export default function FeeFinancePage() {
     const pendingTotal = useMemo(() => approvals.filter((a) => a.status === 'pending').reduce((sum, a) => sum + a.amount, 0), [approvals]);
     const pendingCount = useMemo(() => approvals.filter((a) => a.status === 'pending').length, [approvals]);
     const chequeCount = useMemo(() => approvals.filter((a) => a.status === 'pending' && a.method === 'Cheque').length, [approvals]);
-    const directCount = useMemo(() => approvals.filter((a) => a.status === 'pending' && (a.method === 'UPI - Direct' || a.method === 'NEFT' || a.method === 'Bank Transfer')).length, [approvals]);
+    const directCount = useMemo(() => approvals.filter((a) => a.status === 'pending' && (a.method === 'UPI' || a.method === 'Net Banking' || a.method === 'Card')).length, [approvals]);
 
     const handleApprovalAction = (id, action) => {
         setApprovals((prev) => prev.map((a) => a.id === id ? { ...a, status: action } : a));
@@ -314,6 +372,7 @@ export default function FeeFinancePage() {
 
     return (
         <Box sx={{ border: "1px solid #ccc", borderRadius: "20px", p: 2, height: "86vh" }}>
+            <SnackBar open={snackOpen} color={snackColor} setOpen={setSnackOpen} status={snackStatus} message={snackMessage} />
             <Box sx={{ display: "flex", justifyContent: "space-between" }}>
                 <Grid container spacing={2} sx={{ width: "100%" }}>
                     <Grid
@@ -623,7 +682,7 @@ export default function FeeFinancePage() {
                                 </Box>
                                 <Box>
                                     <Typography sx={{ fontSize: 11, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.4 }}>Total Admin Staff</Typography>
-                                    <Typography sx={{ fontSize: 20, fontWeight: 800, color: '#111827', lineHeight: 1.2 }}>{staff.length}</Typography>
+                                    <Typography sx={{ fontSize: 20, fontWeight: 800, color: '#111827', lineHeight: 1.2 }}>{teamCounts.total}</Typography>
                                 </Box>
                             </Box>
                         </Grid>
@@ -632,7 +691,7 @@ export default function FeeFinancePage() {
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, mb: 2, flexWrap: 'wrap' }}>
                         <Box sx={{ display: 'flex', gap: 1 }}>
                             {[
-                                { key: 'all', label: `All (${staff.length})` },
+                                { key: 'all', label: `All (${teamCounts.total})` },
                                 { key: 'billing', label: `Billing (${billingCount})` },
                                 { key: 'accounts', label: `Accounts (${accountsCount})` },
                             ].map((f) => (
@@ -677,7 +736,9 @@ export default function FeeFinancePage() {
                         {filteredStaff.length === 0 && (
                             <Grid size={{ xs: 12 }}>
                                 <Box sx={{ p: 4, textAlign: 'center', borderRadius: '10px', border: '1px dashed #E5E7EB', bgcolor: '#FAFAFA' }}>
-                                    <Typography sx={{ fontSize: 13, color: '#6B7280', fontWeight: 600 }}>No staff match your filters.</Typography>
+                                    <Typography sx={{ fontSize: 13, color: '#6B7280', fontWeight: 600 }}>
+                                        {teamLoading ? 'Loading team members…' : 'No staff match your filters.'}
+                                    </Typography>
                                 </Box>
                             </Grid>
                         )}
@@ -701,7 +762,7 @@ export default function FeeFinancePage() {
                                             bgcolor: isAccounts ? '#00838F' : '#E30053',
                                             color: '#fff', fontSize: 14, fontWeight: 700,
                                         }}>
-                                            {getInitials(s.name)}
+                                            {s.initials || getInitials(s.name)}
                                         </Avatar>
                                         <Box sx={{ flex: 1, minWidth: 0 }}>
                                             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
@@ -723,10 +784,10 @@ export default function FeeFinancePage() {
                                                 <WorkOutlineIcon sx={{ fontSize: 13, color: '#9CA3AF' }} />
                                                 <Typography sx={{ fontSize: 11.5, color: '#6B7280', fontWeight: 600 }} noWrap>{s.designation}</Typography>
                                             </Box>
-                                            <Typography sx={{ fontSize: 11, color: '#9CA3AF', mt: 0.3 }} noWrap>{s.email}</Typography>
                                             <Button
-                                                onClick={() => toggleStaffRole(s.id)}
+                                                onClick={() => handleMoveStaff(s.rollNumber, !isAccounts)}
                                                 size="small"
+                                                disabled={movingRoll === s.rollNumber}
                                                 startIcon={<SwapHorizIcon sx={{ fontSize: 14 }} />}
                                                 sx={{
                                                     mt: 1,
@@ -746,7 +807,7 @@ export default function FeeFinancePage() {
                                                     },
                                                 }}
                                             >
-                                                Move to {isAccounts ? 'Billing' : 'Accounts'}
+                                                {movingRoll === s.rollNumber ? 'Moving…' : `Move to ${isAccounts ? 'Billing' : 'Accounts'}`}
                                             </Button>
                                         </Box>
                                     </Box>
@@ -808,22 +869,22 @@ export default function FeeFinancePage() {
 
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, mb: 2, flexWrap: 'wrap' }}>
                         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                            {['all', 'NEFT', 'UPI - Direct', 'Cheque', 'Bank Transfer'].map((m) => (
+                            {METHOD_FILTERS.map((m) => (
                                 <Chip
-                                    key={m}
-                                    label={m === 'all' ? 'All Methods' : m}
-                                    onClick={() => setApprovalMethodFilter(m)}
+                                    key={m.value}
+                                    label={m.label}
+                                    onClick={() => setApprovalMethodFilter(m.value)}
                                     sx={{
                                         height: 30,
                                         fontSize: 12,
                                         fontWeight: 700,
                                         borderRadius: '8px',
                                         cursor: 'pointer',
-                                        bgcolor: approvalMethodFilter === m ? '#000' : '#fff',
-                                        color: approvalMethodFilter === m ? '#fff' : '#374151',
+                                        bgcolor: approvalMethodFilter === m.value ? '#000' : '#fff',
+                                        color: approvalMethodFilter === m.value ? '#fff' : '#374151',
                                         border: '1px solid',
-                                        borderColor: approvalMethodFilter === m ? '#000' : '#E5E7EB',
-                                        '&:hover': { bgcolor: approvalMethodFilter === m ? '#000' : '#F9FAFB' },
+                                        borderColor: approvalMethodFilter === m.value ? '#000' : '#E5E7EB',
+                                        '&:hover': { bgcolor: approvalMethodFilter === m.value ? '#000' : '#F9FAFB' },
                                     }}
                                 />
                             ))}

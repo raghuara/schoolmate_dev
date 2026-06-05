@@ -299,6 +299,13 @@ const getFeesById = `${schoolFee}getFeesById`;
 const GetConcessionLog = `${baseApiurl}schoolFeesBilling/GetConcessionLog`;
 const getUserConcessionDetails = `${baseApiurl}schoolFeesBilling/getUserConcessionDetails`;
 
+const teamManagementGet = `${baseApiurl}teamManagementGet`;
+const moveToAccounts = `${baseApiurl}moveToAccounts`;
+const moveToBilling = `${baseApiurl}moveToBilling`;
+const paymentApprovalsGet = `${baseApiurl}paymentApprovalsGet`;
+const paymentApprovalUpdate = `${baseApiurl}paymentApprovalUpdate`;
+
+
 // Finance Dashboard 
 const finance = `${baseApiurl}finance/`;
 const overView = `${finance}overView`;
@@ -878,4 +885,9 @@ export {
     postContactDetails,
     updateContactDetailsById,
     deleteContactDetailsById,
+    teamManagementGet,
+    moveToAccounts,
+    moveToBilling,
+    paymentApprovalsGet,
+    paymentApprovalUpdate,
 }
