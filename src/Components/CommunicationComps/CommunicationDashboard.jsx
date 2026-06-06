@@ -540,7 +540,9 @@ export default function CommunicationDashboard() {
                             bgcolor: '#fff', border: '1px solid #ddd',
                             display: 'flex', alignItems: 'center', justifyContent: 'center', mr: 1.2,
                         }}>
-                            <HubIcon sx={{ color: websiteSettings.mainColor || PRIMARY, fontSize: 20 }} />
+                            {viewMode === 'tracking'
+                                ? <FactCheckOutlinedIcon sx={{ color: websiteSettings.mainColor || PRIMARY, fontSize: 20 }} />
+                                : <HubIcon sx={{ color: websiteSettings.mainColor || PRIMARY, fontSize: 20 }} />}
                         </Box>
                         <Box sx={{ minWidth: 0, flex: 1 }}>
                             <Typography sx={{
@@ -549,14 +551,16 @@ export default function CommunicationDashboard() {
                                 lineHeight: 1.1,
                                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                             }}>
-                                Communication Dashboard
+                                {viewMode === 'tracking' ? 'View Tracking' : 'Communication Dashboard'}
                             </Typography>
                             <Typography sx={{
                                 fontSize: 11, color: '#666', mt: 0.2,
                                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                                 display: { xs: 'none', sm: 'block' },
                             }}>
-                                Overview of all communication activity
+                                {viewMode === 'tracking'
+                                    ? 'Track who viewed each post — by class & section'
+                                    : 'Overview of all communication activity'}
                             </Typography>
                         </Box>
                     </Grid>

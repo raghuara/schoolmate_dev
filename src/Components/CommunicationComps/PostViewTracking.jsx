@@ -15,6 +15,8 @@ import MessageIcon from '@mui/icons-material/Message';
 import StickyNote2Icon from '@mui/icons-material/StickyNote2';
 import LibraryBooksIcon from '@mui/icons-material/LibraryBooks';
 import GradingIcon from '@mui/icons-material/Grading';
+import AssignmentIcon from '@mui/icons-material/Assignment';
+import PeopleAltOutlinedIcon from '@mui/icons-material/PeopleAltOutlined';
 import { useSelector } from 'react-redux';
 import axios from 'axios';
 import { selectGrades } from '../../Redux/Slices/DropdownController';
@@ -29,34 +31,39 @@ const TRACK_TABS = [
     { key: 'news', label: 'News', icon: NewspaperIcon, color: '#2563EB' },
     { key: 'messages', label: 'Messages', icon: MessageIcon, color: '#059669' },
     { key: 'circulars', label: 'Circulars', icon: StickyNote2Icon, color: '#D97706' },
+    { key: 'homework', label: 'Homework', icon: AssignmentIcon, color: '#DB2777' },
     { key: 'studymaterials', label: 'Study Materials', icon: LibraryBooksIcon, color: '#0891B2' },
     { key: 'marks', label: 'Marks', icon: GradingIcon, color: '#7C3AED' },
 ];
 
 // NOTE: Placeholder post lists per tab. Swap these for the real list APIs
 // (e.g. NewsFetch / MessageFetch / CircularFetch ...) when available — keep the
-// same shape: { id, title, createdOn, audience }.
+// same shape: { id, title, createdOn, audience, sentTo, viewed }.
 const MOCK_POSTS = {
     news: [
-        { id: 'n1', title: 'Annual Sports Day Announcement', createdOn: '12 Aug 2024', audience: 'All Students' },
-        { id: 'n2', title: 'Holiday Notice – Independence Day', createdOn: '10 Aug 2024', audience: 'All Students' },
-        { id: 'n3', title: 'Parent-Teacher Meeting Schedule', createdOn: '05 Aug 2024', audience: 'All Students' },
+        { id: 'n1', title: 'Annual Sports Day Announcement', createdOn: '12 Aug 2024', audience: 'All Students', sentTo: 420, viewed: 312 },
+        { id: 'n2', title: 'Holiday Notice – Independence Day', createdOn: '10 Aug 2024', audience: 'All Students', sentTo: 420, viewed: 198 },
+        { id: 'n3', title: 'Parent-Teacher Meeting Schedule', createdOn: '05 Aug 2024', audience: 'All Students', sentTo: 420, viewed: 405 },
     ],
     messages: [
-        { id: 'm1', title: 'Fee Reminder for August', createdOn: '11 Aug 2024', audience: 'All Students' },
-        { id: 'm2', title: 'Bus Route Change Notice', createdOn: '08 Aug 2024', audience: 'All Students' },
+        { id: 'm1', title: 'Fee Reminder for August', createdOn: '11 Aug 2024', audience: 'All Students', sentTo: 380, viewed: 260 },
+        { id: 'm2', title: 'Bus Route Change Notice', createdOn: '08 Aug 2024', audience: 'Grade VI–VIII', sentTo: 120, viewed: 96 },
     ],
     circulars: [
-        { id: 'c1', title: 'Uniform Policy Update', createdOn: '09 Aug 2024', audience: 'All Students' },
-        { id: 'c2', title: 'Exam Guidelines Circular', createdOn: '03 Aug 2024', audience: 'All Students' },
+        { id: 'c1', title: 'Uniform Policy Update', createdOn: '09 Aug 2024', audience: 'All Students', sentTo: 420, viewed: 150 },
+        { id: 'c2', title: 'Exam Guidelines Circular', createdOn: '03 Aug 2024', audience: 'All Students', sentTo: 250, viewed: 240 },
+    ],
+    homework: [
+        { id: 'h1', title: 'Maths – Algebra Worksheet', createdOn: '12 Aug 2024', audience: 'Grade VIII · A', sentTo: 42, viewed: 30 },
+        { id: 'h2', title: 'English – Essay Submission', createdOn: '09 Aug 2024', audience: 'Grade IX · B', sentTo: 38, viewed: 35 },
     ],
     studymaterials: [
-        { id: 's1', title: 'Maths – Chapter 5 Notes', createdOn: '10 Aug 2024', audience: 'All Students' },
-        { id: 's2', title: 'Science Lab Manual', createdOn: '06 Aug 2024', audience: 'All Students' },
+        { id: 's1', title: 'Maths – Chapter 5 Notes', createdOn: '10 Aug 2024', audience: 'All Students', sentTo: 420, viewed: 210 },
+        { id: 's2', title: 'Science Lab Manual', createdOn: '06 Aug 2024', audience: 'All Students', sentTo: 420, viewed: 118 },
     ],
     marks: [
-        { id: 'k1', title: 'Unit Test 1 Results', createdOn: '12 Aug 2024', audience: 'All Students' },
-        { id: 'k2', title: 'Mid-Term Marks Published', createdOn: '02 Aug 2024', audience: 'All Students' },
+        { id: 'k1', title: 'Unit Test 1 Results', createdOn: '12 Aug 2024', audience: 'All Students', sentTo: 420, viewed: 390 },
+        { id: 'k2', title: 'Mid-Term Marks Published', createdOn: '02 Aug 2024', audience: 'All Students', sentTo: 420, viewed: 360 },
     ],
 };
 
@@ -74,6 +81,7 @@ export default function PostViewTracking() {
     // Detail-view filters
     const [classSign, setClassSign] = useState('');
     const [sections, setSections] = useState([]); // multi-select
+    const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'viewed' | 'notviewed'
     const [search, setSearch] = useState('');
 
     // Master student list (getUsersByUserType?userType=student) — grouped by grade, fetched once
@@ -135,15 +143,13 @@ export default function PostViewTracking() {
         return q ? list.filter(p => p.title.toLowerCase().includes(q)) : list;
     }, [activeTab, postSearch]);
 
-    // ── Student rows for the selected post ───────────────────────────────────
-    const rows = useMemo(() => {
+    // All students for the class+sections (before the status filter) — used for the counts
+    const classRows = useMemo(() => {
         if (!classSign) return [];
         const group = studentGroups.find(g => String(g.grade || '').toLowerCase() === String(classSign).toLowerCase());
         const secSet = new Set(sections.map(String));
-        const q = search.trim().toLowerCase();
         return (group?.users || [])
             .filter(u => sections.length === 0 || secSet.has(String(u.section)))
-            .filter(u => !q || (u.name || '').toLowerCase().includes(q) || String(u.rollNumber || '').toLowerCase().includes(q))
             .map(u => {
                 const viewedAt = viewedMap[u.rollNumber] || null;
                 return {
@@ -155,15 +161,40 @@ export default function PostViewTracking() {
                     viewedAt,
                 };
             });
-    }, [studentGroups, classSign, sections, search, viewedMap]);
+    }, [studentGroups, classSign, sections, viewedMap]);
 
-    const viewedCount = rows.filter(r => r.viewed).length;
+    const viewedCount = classRows.filter(r => r.viewed).length;
+    const notViewedCount = classRows.length - viewedCount;
+
+    // ── Student rows for the selected post (status + search applied) ──────────
+    const rows = useMemo(() => {
+        const q = search.trim().toLowerCase();
+        return classRows
+            .filter(r => statusFilter === 'all' ? true : statusFilter === 'viewed' ? r.viewed : !r.viewed)
+            .filter(r => !q || r.name.toLowerCase().includes(q) || r.rollNumber.toLowerCase().includes(q));
+    }, [classRows, statusFilter, search]);
+
+    // Default the detail filters to the first class + all its sections (school-agnostic)
+    const applyDefaultClass = () => {
+        if (grades.length > 0) {
+            setClassSign(grades[0].sign);
+            setSections(grades[0].sections || []);
+        }
+    };
 
     const openPost = (post) => {
         setSelectedPost(post);
         setSearch('');
+        setStatusFilter('all');
+        applyDefaultClass();
     };
     const backToList = () => setSelectedPost(null);
+
+    // If grades load after the detail view is already open, default the class then
+    useEffect(() => {
+        if (selectedPost && grades.length > 0 && !classSign) applyDefaultClass();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedPost, grades, classSign]);
 
     return (
         <Box>
@@ -223,7 +254,7 @@ export default function PostViewTracking() {
                         <Table size="small" stickyHeader>
                             <TableHead>
                                 <TableRow>
-                                    {['#', `${tab.label} Title`, 'Audience', 'Published', 'View Status'].map(h => (
+                                    {['#', `${tab.label} Title`, 'Audience', 'Sent To', 'Viewed', 'Not Viewed', 'Published', 'View Status'].map(h => (
                                         <TableCell key={h} sx={{ fontWeight: 700, fontSize: 10.5, color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.4, bgcolor: '#fff', py: 1.3, borderBottom: `1px solid ${BORDER}`, whiteSpace: 'nowrap' }}>
                                             {h}
                                         </TableCell>
@@ -233,7 +264,7 @@ export default function PostViewTracking() {
                             <TableBody>
                                 {postList.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={5} align="center" sx={{ py: 7, borderBottom: 'none' }}>
+                                        <TableCell colSpan={8} align="center" sx={{ py: 7, borderBottom: 'none' }}>
                                             <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#9CA3AF' }}>No {tab.label.toLowerCase()} found</Typography>
                                         </TableCell>
                                     </TableRow>
@@ -252,6 +283,18 @@ export default function PostViewTracking() {
                                         </TableCell>
                                         <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
                                             <Chip size="small" label={p.audience} sx={{ height: 22, fontSize: 11, fontWeight: 600, bgcolor: '#F3F4F6', color: '#374151' }} />
+                                        </TableCell>
+                                        <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
+                                            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                                                <PeopleAltOutlinedIcon sx={{ fontSize: 15, color: '#6B7280' }} />
+                                                <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#374151' }}>{p.sentTo ?? 0}</Typography>
+                                            </Box>
+                                        </TableCell>
+                                        <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
+                                            <Chip size="small" icon={<VisibilityOutlinedIcon sx={{ fontSize: '14px !important' }} />} label={p.viewed ?? 0} sx={{ height: 22, fontSize: 11.5, fontWeight: 700, bgcolor: '#ECFDF5', color: '#047857', '& .MuiChip-icon': { color: '#047857' } }} />
+                                        </TableCell>
+                                        <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
+                                            <Chip size="small" icon={<VisibilityOffOutlinedIcon sx={{ fontSize: '14px !important' }} />} label={Math.max(0, (p.sentTo ?? 0) - (p.viewed ?? 0))} sx={{ height: 22, fontSize: 11.5, fontWeight: 700, bgcolor: '#FFF7ED', color: '#C2410C', '& .MuiChip-icon': { color: '#C2410C' } }} />
                                         </TableCell>
                                         <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
                                             <Typography sx={{ fontSize: 12, color: '#6B7280', whiteSpace: 'nowrap' }}>{p.createdOn}</Typography>
@@ -305,7 +348,7 @@ export default function PostViewTracking() {
                                 <Select
                                     value={classSign}
                                     displayEmpty
-                                    onChange={(e) => { setClassSign(e.target.value); setSections([]); }}
+                                    onChange={(e) => { const v = e.target.value; setClassSign(v); const g = grades.find(x => x.sign === v); setSections(g?.sections || []); }}
                                     renderValue={(v) => (v ? v : 'Select class')}
                                     sx={{ borderRadius: '8px', height: 38, fontSize: 13, fontWeight: 600, textTransform: 'uppercase' }}
                                 >
@@ -364,15 +407,41 @@ export default function PostViewTracking() {
                                         {tab.label} View Tracking
                                     </Typography>
                                     <Typography sx={{ fontSize: 11.5, color: '#6B7280' }}>
-                                        {rows.length > 0 ? `${viewedCount} of ${rows.length} students viewed` : 'Pick a class to load students'}
+                                        {classRows.length > 0 ? `${viewedCount} of ${classRows.length} students viewed` : 'Pick a class to load students'}
                                     </Typography>
                                 </Box>
                             </Box>
-                            <TextField
-                                size="small"
-                                placeholder="Search name or roll no..."
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                                {/* Status filter — Viewed / Not Viewed */}
+                                <Box sx={{ display: 'flex', gap: 0.5 }}>
+                                    {[
+                                        { key: 'all', label: `All (${classRows.length})`, color: '#374151' },
+                                        { key: 'viewed', label: `Viewed (${viewedCount})`, color: '#047857' },
+                                        { key: 'notviewed', label: `Not Viewed (${notViewedCount})`, color: '#C2410C' },
+                                    ].map((f) => {
+                                        const active = statusFilter === f.key;
+                                        return (
+                                            <Chip
+                                                key={f.key}
+                                                label={f.label}
+                                                size="small"
+                                                onClick={() => setStatusFilter(f.key)}
+                                                sx={{
+                                                    height: 28, fontSize: 11.5, fontWeight: 700, borderRadius: '8px', cursor: 'pointer',
+                                                    bgcolor: active ? f.color : '#fff',
+                                                    color: active ? '#fff' : '#6B7280',
+                                                    border: `1px solid ${active ? f.color : '#E5E7EB'}`,
+                                                    '&:hover': { bgcolor: active ? f.color : '#F9FAFB' },
+                                                }}
+                                            />
+                                        );
+                                    })}
+                                </Box>
+                                <TextField
+                                    size="small"
+                                    placeholder="Search name or roll no..."
+                                    value={search}
+                                    onChange={(e) => setSearch(e.target.value)}
                                 slotProps={{
                                     input: {
                                         startAdornment: (<InputAdornment position="start"><SearchIcon sx={{ fontSize: 16, color: '#9CA3AF' }} /></InputAdornment>),
@@ -384,11 +453,12 @@ export default function PostViewTracking() {
                                     },
                                 }}
                                 sx={{ width: { xs: '100%', sm: 280 }, '& .MuiOutlinedInput-root': { height: 34, fontSize: 12.5, borderRadius: 999, bgcolor: '#fff', '& fieldset': { borderColor: '#D1D5DB' } } }}
-                            />
+                                />
+                            </Box>
                         </Box>
 
-                        <TableContainer sx={{ maxHeight: '48vh' }}>
-                            <Table size="small" stickyHeader>
+                        <TableContainer>
+                            <Table size="small">
                                 <TableHead>
                                     <TableRow>
                                         {['#', 'ROLL NO', 'STUDENT', 'CLASS', 'ACKNOWLEDGEMENT', 'VIEWED TIME'].map(h => (
