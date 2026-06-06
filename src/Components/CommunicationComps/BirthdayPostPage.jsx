@@ -60,12 +60,12 @@ export default function BirthdayPostPage() {
     const [message, setMessage] = useState('');
 
     // Instagram post info — populated by the BirthdayInstagramPost API.
-    // viewedRollNumbers stays [] until the backend ships the acknowledgement-tracking
-    // endpoint that records mobile-app views.
     const [postInfo, setPostInfo] = useState({
         postUrl: '',
         images: [],          // array of { imageUrl, thumbnailUrl } from the API
         viewedRollNumbers: [],
+        apiTotalStudents: null,  // top-level data.totalStudents (authoritative count)
+        apiViewedCount: null,    // top-level data.viewedCount (authoritative count)
     });
     const [currentImageIdx, setCurrentImageIdx] = useState(0);
 
@@ -83,15 +83,24 @@ export default function BirthdayPostPage() {
             });
             const data = res.data || {};
 
-            const list = (data.students || []).map(s => ({
-                rollNumber: String(s.rollNumber),
-                name: s.name || '—',
-                grade: s.grade || '',
-                section: s.section || '',
-                photoUrl: s.profilePhoto || '',
-                acknowledged: !!s.acknowledged || s.acknowledgementStatus === 'seen',
-                viewedAtIst: s.viewedAtIst || null,
-            }));
+            // Build the "viewed" set from data.viewedRollNumbers so the per-student
+            // acknowledged flag honours BOTH the row-level field AND the top-level list.
+            const viewedRolls = new Set((data.viewedRollNumbers || []).map(String));
+
+            const list = (data.students || []).map(s => {
+                const roll = String(s.rollNumber);
+                return {
+                    rollNumber: roll,
+                    name: s.name || '—',
+                    grade: s.grade || '',
+                    section: s.section || '',
+                    photoUrl: s.profilePhoto || '',
+                    acknowledged: !!s.acknowledged
+                        || s.acknowledgementStatus === 'seen'
+                        || viewedRolls.has(roll),
+                    viewedAtIst: s.viewedAtIst || null,
+                };
+            });
             setStudents(list);
 
             setCurrentImageIdx(0);
@@ -101,9 +110,11 @@ export default function BirthdayPostPage() {
                     postUrl: data.instagramPermalink,
                     images: data.instagramImages || [],
                     viewedRollNumbers: data.viewedRollNumbers || [],
+                    apiTotalStudents: typeof data.totalStudents === 'number' ? data.totalStudents : null,
+                    apiViewedCount: typeof data.viewedCount === 'number' ? data.viewedCount : null,
                 });
             } else {
-                setPostInfo({ postUrl: '', images: [], viewedRollNumbers: [] });
+                setPostInfo({ postUrl: '', images: [], viewedRollNumbers: [], apiTotalStudents: null, apiViewedCount: null });
             }
         } catch (error) {
             console.error('Failed to load Instagram birthday post:', error);
@@ -122,11 +133,6 @@ export default function BirthdayPostPage() {
         setCurrentImageIdx(i => (i < postInfo.images.length - 1 ? i + 1 : 0));
     };
 
-    const viewedSet = useMemo(
-        () => new Set(postInfo.viewedRollNumbers),
-        [postInfo.viewedRollNumbers]
-    );
-
     const filteredStudents = useMemo(() => {
         const q = search.trim().toLowerCase();
         if (!q) return students;
@@ -136,8 +142,11 @@ export default function BirthdayPostPage() {
         );
     }, [students, search]);
 
-    const viewedCount = students.filter(s => viewedSet.has(s.rollNumber)).length;
-    const totalCount = students.length;
+    // Prefer the API-provided top-level counts (data.totalStudents / data.viewedCount).
+    // Fall back to deriving from the per-student records only when the API omits them.
+    const clientViewedCount = students.filter(s => s.acknowledged).length;
+    const totalCount = postInfo.apiTotalStudents ?? students.length;
+    const viewedCount = postInfo.apiViewedCount ?? clientViewedCount;
     const viewRate = totalCount > 0 ? Math.round((viewedCount / totalCount) * 100) : 0;
 
     const showSnack = (msg, success) => {

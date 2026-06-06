@@ -49,6 +49,26 @@ const STATUS_INDICATORS = [
     { code: 'S.B', label: 'Scrap Book', color: '#AD1457', bg: '#FCE4EC' },
 ];
 
+// Compact legend mapping each status code to its meaning — reused across all three tabs.
+const StatusLegend = () => (
+    <Box sx={{ p: 1.2, borderRadius: '8px', border: '1px solid #E5E7EB', bgcolor: '#FAFAFA', mb: 1.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, mb: 0.6 }}>
+            <InfoOutlinedIcon sx={{ fontSize: 14, color: '#6B7280' }} />
+            <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                Status Indicator Legend
+            </Typography>
+        </Box>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.6 }}>
+            {STATUS_INDICATORS.map((s) => (
+                <Box key={s.code} sx={{ display: 'flex', alignItems: 'center', gap: 0.4, px: 0.8, py: 0.2, borderRadius: '6px', bgcolor: s.bg, border: `1px solid ${s.color}33` }}>
+                    <Typography sx={{ fontSize: 10.5, fontWeight: 800, color: s.color, fontFamily: 'monospace' }}>{s.code}</Typography>
+                    <Typography sx={{ fontSize: 10, color: s.color, fontWeight: 600 }}>{s.label}</Typography>
+                </Box>
+            ))}
+        </Box>
+    </Box>
+);
+
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 // The logged-in staff's own periods (their timetable). Comes from backend later.
@@ -147,80 +167,6 @@ const toDDMMYYYY = (iso) => {
     const [y, m, d] = iso.split('-');
     return `${d}-${m}-${y}`;
 };
-
-// ╔════════════════════════════════════════════════════════════════════╗
-// ║ DUMMY DATA FOR CLASS-WISE (PREKG · A1) — REMOVE THIS BLOCK LATER   ║
-// ║ Used to preview the Class-wise table without backend data.         ║
-// ║ Delete: this function + the early-return inside fetchClassWise.    ║
-// ╚════════════════════════════════════════════════════════════════════╝
-const DUMMY_CLASSWISE_SUBJECTS = [
-    { subject: 'EVS',         topic: 'Natural Disasters',     page: '11', teacher: 'Aarav Rao',     codes: ['AC', 'R'] },
-    { subject: 'English',     topic: 'Phonics — Letter B',    page: '5',  teacher: 'Priya Sharma',  codes: ['T', 'W'] },
-    { subject: 'Maths',       topic: 'Counting 1–10',         page: '15', teacher: 'Aarav Rao',     codes: ['T', 'C.W'] },
-    { subject: 'Art & Craft', topic: 'Paper folding',         page: '-',  teacher: 'Meera Iyer',    codes: ['AC'] },
-    { subject: 'Story Time',  topic: 'The Hungry Caterpillar', page: '20', teacher: 'Priya Sharma', codes: ['T'] },
-    { subject: 'Rhymes',      topic: 'Twinkle Twinkle',       page: '8',  teacher: 'Meera Iyer',    codes: ['R', 'P'] },
-    { subject: 'Drawing',     topic: 'Free-hand circles',     page: '-',  teacher: 'Meera Iyer',    codes: ['AC'] },
-    { subject: 'Music',       topic: 'Sing-along',            page: '-',  teacher: 'Karan Mehta',   codes: ['AC', 'P'] },
-];
-const DUMMY_PERIODS_META = [
-    { number: 1, name: 'Period 1', startTime: '08:30', endTime: '09:15' },
-    { number: 2, name: 'Period 2', startTime: '09:15', endTime: '10:00' },
-    { number: 3, name: 'Period 3', startTime: '10:00', endTime: '10:45' },
-    { number: 4, name: 'Period 4', startTime: '11:00', endTime: '11:45' },
-    { number: 5, name: 'Period 5', startTime: '11:45', endTime: '12:30' },
-    { number: 6, name: 'Period 6', startTime: '13:15', endTime: '14:00' },
-    { number: 7, name: 'Period 7', startTime: '14:00', endTime: '14:45' },
-    { number: 8, name: 'Period 8', startTime: '14:45', endTime: '15:30' },
-];
-const buildDummyClasswiseData = (fromIso, toIso) => {
-    const days = [];
-    let cursor = fromIso;
-    const guard = 366;
-    for (let i = 0; i < guard; i++) {
-        const dateStr = toDDMMYYYY(cursor);
-        const periods = DUMMY_PERIODS_META.map((meta) => {
-            // Make some slots intentionally empty so the table looks realistic
-            const skip = (meta.number === 6 && i % 3 === 0) || (meta.number === 8 && i % 2 === 0);
-            if (skip) {
-                return { periodNumber: meta.number, name: meta.name, startTime: meta.startTime, endTime: meta.endTime, entries: [] };
-            }
-            const s = DUMMY_CLASSWISE_SUBJECTS[(i + meta.number) % DUMMY_CLASSWISE_SUBJECTS.length];
-            return {
-                periodNumber: meta.number,
-                name: meta.name,
-                startTime: meta.startTime,
-                endTime: meta.endTime,
-                entries: [{
-                    subject: s.subject,
-                    topicActivity: s.topic,
-                    pageReference: s.page,
-                    statusCodes: s.codes,
-                    teacherName: s.teacher,
-                    rollNumber: 'DUMMY-' + s.teacher.replace(/\s+/g, ''),
-                }],
-            };
-        });
-        days.push({ date: dateStr, periods });
-        if (cursor === toIso) break;
-        const [y, m, d] = cursor.split('-').map(Number);
-        const next = new Date(y, m - 1, d);
-        next.setDate(next.getDate() + 1);
-        const ny = next.getFullYear();
-        const nm = String(next.getMonth() + 1).padStart(2, '0');
-        const nd = String(next.getDate()).padStart(2, '0');
-        cursor = `${ny}-${nm}-${nd}`;
-    }
-    return {
-        error: false,
-        grade: 'PREKG',
-        section: 'A1',
-        fromDate: toDDMMYYYY(fromIso),
-        toDate: toDDMMYYYY(toIso),
-        days,
-    };
-};
-// ╚════════════════════════════════════════════════════════════════════╝
 
 const statusMeta = (code) =>
     STATUS_INDICATORS.find((s) => s.code === code) || { code, color: '#374151', bg: '#F3F4F6' };
@@ -325,6 +271,9 @@ export default function WorkDonePage() {
     const userType = user?.userType;
     const isAdmin = userType === 'superadmin' || userType === 'admin';
     const isTeacher = userType === 'teacher';
+    // superadmin / admin / staff all see the same reports + period settings.
+    // Teachers only see Daily Entry.
+    const canSeeReports = isAdmin || userType === 'staff';
     const token = '123';
     const academicYear = useSelector(selectAcademicYear);
 
@@ -700,12 +649,6 @@ export default function WorkDonePage() {
 
     const fetchClassWise = async () => {
         if (!cwGradeSign || !cwSection || !cwFromDate || !cwToDate) { setClassData(null); return; }
-        // ─── DUMMY DATA FOR PREKG · A1 — REMOVE THIS IF/BLOCK LATER ──────
-        if (String(cwGradeSign).toUpperCase() === 'PREKG' && String(cwSection).toUpperCase() === 'A1') {
-            setClassData(buildDummyClasswiseData(cwFromDate, cwToDate));
-            return;
-        }
-        // ─── END DUMMY DATA ──────────────────────────────────────────────
         setReportLoading(true);
         try {
             const res = await axios.get(GetWorkdoneClassWise, {
@@ -974,7 +917,7 @@ export default function WorkDonePage() {
                     </Box>
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    {isAdmin && (
+                    {canSeeReports && (
                         <Button
                             onClick={() => navigate('/dashboardmenu/workdone/settings')}
                             startIcon={<SettingsIcon sx={{ fontSize: 16 }} />}
@@ -983,7 +926,7 @@ export default function WorkDonePage() {
                             Period Settings
                         </Button>
                     )}
-                    {activeTab === 0 && (
+                    {isTeacher && activeTab === 0 && (
                         <Button
                             onClick={handleSaveAll}
                             disabled={saving}
@@ -1011,10 +954,9 @@ export default function WorkDonePage() {
                         '& .MuiTabs-indicator': { backgroundColor: PRIMARY, height: 3, borderRadius: '3px 3px 0 0' },
                     }}
                 >
-                    {/* {isTeacher && <Tab value={0} icon={<EventNoteIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Daily Entry" />} */}
-                    {<Tab value={0} icon={<EventNoteIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Daily Entry" />}
-                    <Tab value={1} icon={<PersonOutlineIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Teacher-wise" />
-                    <Tab value={2} icon={<ClassOutlinedIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Class-wise" />
+                    {isTeacher && <Tab value={0} icon={<EventNoteIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Daily Entry" />}
+                    {canSeeReports && <Tab value={1} icon={<PersonOutlineIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Teacher-wise" />}
+                    {canSeeReports && <Tab value={2} icon={<ClassOutlinedIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Class-wise" />}
                 </Tabs>
 
                 {/* Per-tab filters — aligned to the right of the tab bar to keep the table area tall */}
@@ -1022,11 +964,13 @@ export default function WorkDonePage() {
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, flexWrap: 'wrap', pb: 0.6 }}>
                         <Autocomplete
                             size="small"
-                            options={staffOptions}
-                            getOptionLabel={(o) => (o ? `${o.name || ''} (${o.rollNumber || ''})` : '')}
+                            options={(teacherData?.teachers || []).length > 0
+                                ? (teacherData.teachers).map((t) => ({ name: t.teacherName, rollNumber: t.rollNumber }))
+                                : staffOptions}
+                            getOptionLabel={(o) => (o ? `${o.name || o.teacherName || ''} (${o.rollNumber || ''})` : '')}
                             isOptionEqualToValue={(o, v) => o.rollNumber === v.rollNumber}
                             onChange={(_, v) => setStaffRoll(v?.rollNumber || '')}
-                            sx={{ width: 230 }}
+                            sx={{ width: 260 }}
                             renderInput={(params) => (
                                 <TextField {...params} placeholder="All staff" sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px', height: 36, fontSize: 12.5, fontWeight: 600 } }} />
                             )}
@@ -1089,7 +1033,7 @@ export default function WorkDonePage() {
                 )}
             </Box>
 
-            <Box sx={{ flex: 1, overflowY: 'auto', mt: 1.5, pr: 0.5 }}>
+            <Box sx={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', mt: 1.5, pr: 0.5 }}>
                 {/* ───────────────── DAILY ENTRY ───────────────── */}
                 {activeTab === 0 && (
                     <>
@@ -1163,20 +1107,7 @@ export default function WorkDonePage() {
                         </Box>
 
                         {/* Status legend */}
-                        <Box sx={{ p: 1.2, borderRadius: '8px', border: '1px solid #E5E7EB', bgcolor: '#FAFAFA', mb: 1.5 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, mb: 0.6 }}>
-                                <InfoOutlinedIcon sx={{ fontSize: 14, color: '#6B7280' }} />
-                                <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.5 }}>Status Indicator Legend</Typography>
-                            </Box>
-                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.6 }}>
-                                {STATUS_INDICATORS.map((s) => (
-                                    <Box key={s.code} sx={{ display: 'flex', alignItems: 'center', gap: 0.4, px: 0.8, py: 0.2, borderRadius: '6px', bgcolor: s.bg, border: `1px solid ${s.color}33` }}>
-                                        <Typography sx={{ fontSize: 10.5, fontWeight: 800, color: s.color, fontFamily: 'monospace' }}>{s.code}</Typography>
-                                        <Typography sx={{ fontSize: 10, color: s.color, fontWeight: 600 }}>{s.label}</Typography>
-                                    </Box>
-                                ))}
-                            </Box>
-                        </Box>
+                        <StatusLegend />
 
                         {/* Period cards */}
                         <Grid container spacing={1.5}>
@@ -1377,30 +1308,31 @@ export default function WorkDonePage() {
                                 <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#6B7280', mb: 1 }}>
                                     {(teacherData?.filledCount ?? teacherList.filter((t) => t.filled).length)} of {(teacherData?.teacherCount ?? teacherList.length)} staff filled · {teacherData?.fromDate || toDDMMYYYY(fromDate)} ({dayNameOf(fromDate)})
                                 </Typography>
+                                <StatusLegend />
                                 <TableContainer sx={{ border: '1px solid #E5E7EB', borderRadius: '12px', overflowX: 'auto', bgcolor: '#fff' }}>
                                     <Table size="small" sx={{ width: 'auto', borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'fixed' }}>
                                         <TableHead>
                                             <TableRow>
-                                                <TableCell sx={{ position: 'sticky', left: 0, top: 0, zIndex: 4, width: 210, minWidth: 210, bgcolor: '#F9FAFB', borderBottom: '1px solid #E5E7EB', borderRight: '1px solid #E5E7EB', p: '18px 20px' }}>
-                                                    <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#374151' }}>
+                                                <TableCell sx={{ position: 'sticky', left: 0, top: 0, zIndex: 4, width: 170, minWidth: 170, bgcolor: '#F9FAFB', borderBottom: '1px solid #E5E7EB', borderRight: '1px solid #E5E7EB', p: '12px 14px' }}>
+                                                    <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#374151' }}>
                                                         Staff
                                                     </Typography>
-                                                    <Typography sx={{ fontSize: 11, color: '#94A3B8', fontWeight: 600, mt: 0.3 }}>
+                                                    <Typography sx={{ fontSize: 10, color: '#94A3B8', fontWeight: 600, mt: 0.2 }}>
                                                         {teacherPeriodCols.length} {teacherPeriodCols.length === 1 ? 'period' : 'periods'}
                                                     </Typography>
                                                 </TableCell>
                                                 {teacherPeriodCols.map((pc) => {
                                                     const colTheme = periodColor(pc.number);
                                                     return (
-                                                        <TableCell key={pc.number} sx={{ width: 210, minWidth: 210, bgcolor: '#F9FAFB', borderBottom: '1px solid #E5E7EB', borderRight: '1px solid #E5E7EB', borderTop: `3px solid ${colTheme.color}`, p: '18px 18px' }}>
+                                                        <TableCell key={pc.number} sx={{ width: 170, minWidth: 170, bgcolor: '#F9FAFB', borderBottom: '1px solid #E5E7EB', borderRight: '1px solid #E5E7EB', borderTop: `2.5px solid ${colTheme.color}`, p: '12px 12px' }}>
                                                             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                                                <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>
+                                                                <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#111827' }}>
                                                                     {pc.name}
                                                                 </Typography>
-                                                                <EditOutlinedIcon sx={{ fontSize: 14, color: '#9CA3AF' }} />
+                                                                <EditOutlinedIcon sx={{ fontSize: 13, color: '#9CA3AF' }} />
                                                             </Box>
                                                             {(pc.startTime || pc.endTime) && (
-                                                                <Typography sx={{ fontSize: 11, color: '#9CA3AF', fontWeight: 500, mt: 0.4 }}>
+                                                                <Typography sx={{ fontSize: 10, color: '#9CA3AF', fontWeight: 500, mt: 0.3 }}>
                                                                     {pc.startTime} – {pc.endTime}
                                                                 </Typography>
                                                             )}
@@ -1411,17 +1343,8 @@ export default function WorkDonePage() {
                                         </TableHead>
                                         <TableBody>
                                             {teacherList
-                                                // Show only teachers that have a work record or leave on the selected day.
-                                                // Prefer the API's `filled` flag; fall back to scanning the day map.
-                                                .filter((t) => {
-                                                    if (t.filled === true) return true;
-                                                    if (t.filled === false) return false;
-                                                    const dm = teacherDayMap.get(t.rollNumber) || new Map();
-                                                    const r = dm.get(toDDMMYYYY(fromDate)) || (t.days || [])[0];
-                                                    if (!r) return false;
-                                                    const s = summarizeTeacherDay(r, teacherPeriodCols.length);
-                                                    return s.kind === 'work' || s.kind === 'leave';
-                                                })
+                                                // Show ALL teachers from the API. When a teacher is picked in the
+                                                // Staff dropdown, `teacherList` is already narrowed to that one row.
                                                 .map((t) => {
                                                 const dayMap = teacherDayMap.get(t.rollNumber) || new Map();
                                                 // Single-date view: pick the one matching day (or first day available)
@@ -1438,10 +1361,10 @@ export default function WorkDonePage() {
 
                                                 return (
                                                     <TableRow key={t.rollNumber}>
-                                                        <TableCell sx={{ position: 'sticky', left: 0, zIndex: 1, bgcolor: '#fff', borderRight: '1px solid #E5E7EB', borderBottom: '1px solid #E5E7EB', verticalAlign: 'middle', p: '20px 22px', height: 130 }}>
-                                                            <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#111827', lineHeight: 1.3 }} noWrap>{t.teacherName}</Typography>
+                                                        <TableCell sx={{ position: 'sticky', left: 0, zIndex: 1, bgcolor: '#fff', borderRight: '1px solid #E5E7EB', borderBottom: '1px solid #E5E7EB', verticalAlign: 'middle', p: '12px 14px', height: 100 }}>
+                                                            <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#111827', lineHeight: 1.3 }} noWrap>{t.teacherName}</Typography>
                                                             {(hours > 0 || shifts > 0) && (
-                                                                <Typography sx={{ fontSize: 12, color: '#9CA3AF', fontWeight: 500, mt: 0.7 }} noWrap>
+                                                                <Typography sx={{ fontSize: 11, color: '#9CA3AF', fontWeight: 500, mt: 0.4 }} noWrap>
                                                                     {hours} hours{'  '}{shifts} {shifts === 1 ? 'shift' : 'shifts'}
                                                                 </Typography>
                                                             )}
@@ -1449,7 +1372,7 @@ export default function WorkDonePage() {
                                                         {/* WEEKEND — entire row spans across all period columns */}
                                                         {isWeekend && summary.kind === 'empty' ? (
                                                             <TableCell colSpan={teacherPeriodCols.length} sx={{ borderRight: '1px solid #E5E7EB', borderBottom: '1px solid #E5E7EB', p: 0, background: 'repeating-linear-gradient(45deg, #F0FDF4 0 8px, #DCFCE7 8px 16px)' }}>
-                                                                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 130, height: 130, py: 1 }}>
+                                                                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 100, height: 100, py: 1 }}>
                                                                     <CalendarMonthIcon sx={{ fontSize: 26, color: '#16A34A', mb: 0.7 }} />
                                                                     <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#16A34A' }}>Weekend</Typography>
                                                                 </Box>
@@ -1461,9 +1384,9 @@ export default function WorkDonePage() {
                                                                 const LeaveIcon = ls.Icon;
                                                                 return (
                                                                     <TableCell colSpan={teacherPeriodCols.length} sx={{ borderRight: '1px solid #E5E7EB', borderBottom: '1px solid #E5E7EB', p: 0, background: ls.bg }}>
-                                                                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 130, height: 130, py: 1, px: 1 }}>
-                                                                            <LeaveIcon sx={{ fontSize: 26, color: ls.color, mb: 0.7 }} />
-                                                                            <Typography sx={{ fontSize: 13, fontWeight: 700, color: ls.color, textAlign: 'center' }}>{summary.label}</Typography>
+                                                                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 100, height: 100, py: 1, px: 1 }}>
+                                                                            <LeaveIcon sx={{ fontSize: 20, color: ls.color, mb: 0.4 }} />
+                                                                            <Typography sx={{ fontSize: 11, fontWeight: 700, color: ls.color, textAlign: 'center' }}>{summary.label}</Typography>
                                                                         </Box>
                                                                     </TableCell>
                                                                 );
@@ -1476,7 +1399,7 @@ export default function WorkDonePage() {
                                                                 // ── Empty (no period entry for this teacher) ──
                                                                 if (!period) {
                                                                     return (
-                                                                        <TableCell key={pc.number} sx={{ borderRight: '1px solid #E5E7EB', borderBottom: '1px solid #E5E7EB', p: 0, minHeight: 130, height: 130 }} />
+                                                                        <TableCell key={pc.number} sx={{ borderRight: '1px solid #E5E7EB', borderBottom: '1px solid #E5E7EB', p: 0, minHeight: 100, height: 100 }} />
                                                                     );
                                                                 }
 
@@ -1484,7 +1407,7 @@ export default function WorkDonePage() {
                                                                 if (period.isFreePeriod) {
                                                                     return (
                                                                         <TableCell key={pc.number} sx={{ borderRight: '1px solid #E5E7EB', borderBottom: '1px solid #E5E7EB', p: 0, background: '#F9FAFB' }}>
-                                                                            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 130, height: 130, py: 1 }}>
+                                                                            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 100, height: 100, py: 1 }}>
                                                                                 <Box sx={{ width: 28, height: 28, borderRadius: '50%', bgcolor: '#E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 0.6 }}>
                                                                                     <Typography sx={{ fontSize: 10, fontWeight: 800, color: '#6B7280' }}>F</Typography>
                                                                                 </Box>
@@ -1501,27 +1424,27 @@ export default function WorkDonePage() {
                                                                 const statusCodes = Array.isArray(period.statusCodes) ? period.statusCodes : [];
                                                                 return (
                                                                     <TableCell key={pc.number} sx={{ borderRight: '1px solid #E5E7EB', borderBottom: '1px solid #E5E7EB', p: 0, verticalAlign: 'top' }}>
-                                                                        <Box sx={{ display: 'flex', alignItems: 'stretch', minHeight: 130, height: 130 }}>
-                                                                            <Box sx={{ width: 4, bgcolor: colTheme.color, flexShrink: 0 }} />
-                                                                            <Box sx={{ flex: 1, p: '14px 14px', display: 'flex', flexDirection: 'column', gap: 0.4, minWidth: 0 }}>
-                                                                                <Typography sx={{ fontSize: 13.5, fontWeight: 800, color: colTheme.color, lineHeight: 1.2 }} noWrap>{subj}</Typography>
+                                                                        <Box sx={{ display: 'flex', alignItems: 'stretch', minHeight: 100, height: 100 }}>
+                                                                            <Box sx={{ width: 3, bgcolor: colTheme.color, flexShrink: 0 }} />
+                                                                            <Box sx={{ flex: 1, p: '10px 10px', display: 'flex', flexDirection: 'column', gap: 0.3, minWidth: 0 }}>
+                                                                                <Typography sx={{ fontSize: 12, fontWeight: 800, color: colTheme.color, lineHeight: 1.2 }} noWrap>{subj}</Typography>
                                                                                 {(period.grade || period.section) && (
-                                                                                    <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: '#374151', lineHeight: 1.2 }} noWrap>
+                                                                                    <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: '#374151', lineHeight: 1.2 }} noWrap>
                                                                                         {period.grade || ''}{period.section ? ` · ${period.section}` : ''}
                                                                                     </Typography>
                                                                                 )}
                                                                                 {topic && (
-                                                                                    <Typography sx={{ fontSize: 11, color: '#6B7280', lineHeight: 1.3 }} noWrap title={topic}>{topic}</Typography>
+                                                                                    <Typography sx={{ fontSize: 10, color: '#6B7280', lineHeight: 1.3 }} noWrap title={topic}>{topic}</Typography>
                                                                                 )}
                                                                                 {pageRef && (
-                                                                                    <Typography sx={{ fontSize: 10.5, color: '#9CA3AF', fontWeight: 600 }} noWrap>Pg {pageRef}</Typography>
+                                                                                    <Typography sx={{ fontSize: 9.5, color: '#9CA3AF', fontWeight: 600 }} noWrap>Pg {pageRef}</Typography>
                                                                                 )}
                                                                                 {statusCodes.length > 0 && (
-                                                                                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.3, mt: 'auto' }}>
+                                                                                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.2, mt: 'auto' }}>
                                                                                         {statusCodes.map((code) => {
                                                                                             const meta = statusMeta(code);
                                                                                             return (
-                                                                                                <Box key={code} sx={{ fontSize: 9.5, fontWeight: 800, px: 0.6, py: 0.15, borderRadius: '3px', bgcolor: meta.bg, color: meta.color, letterSpacing: 0.3 }}>
+                                                                                                <Box key={code} sx={{ fontSize: 8.5, fontWeight: 800, px: 0.5, py: 0.1, borderRadius: '3px', bgcolor: meta.bg, color: meta.color, letterSpacing: 0.3 }}>
                                                                                                     {code}
                                                                                                 </Box>
                                                                                             );
@@ -1556,26 +1479,27 @@ export default function WorkDonePage() {
                                             {classData?.grade || cwGradeSign} · Section {classData?.section || cwSection}
                                             <Box component="span" sx={{ fontWeight: 600, color: '#6B7280', ml: 1 }}>{classData?.fromDate || toDDMMYYYY(cwFromDate)} → {classData?.toDate || toDDMMYYYY(cwToDate)}</Box>
                                         </Typography>
+                                        <StatusLegend />
                                         <TableContainer sx={{ border: '1px solid #E5E7EB', borderRadius: '12px', overflowX: 'auto', bgcolor: '#fff' }}>
                                             <Table size="small" sx={{ width: 'auto', borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'fixed' }}>
                                                 <TableHead>
                                                     <TableRow>
-                                                        <TableCell sx={{ position: 'sticky', left: 0, top: 0, zIndex: 4, width: 210, minWidth: 210, bgcolor: '#F9FAFB', borderBottom: '1px solid #E5E7EB', borderRight: '1px solid #E5E7EB', p: '18px 20px' }}>
-                                                            <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#374151' }}>Date</Typography>
-                                                            <Typography sx={{ fontSize: 11, color: '#94A3B8', fontWeight: 600, mt: 0.3 }}>{classDateCols.length} {classDateCols.length === 1 ? 'day' : 'days'}</Typography>
+                                                        <TableCell sx={{ position: 'sticky', left: 0, top: 0, zIndex: 4, width: 150, minWidth: 150, bgcolor: '#F9FAFB', borderBottom: '1px solid #E5E7EB', borderRight: '1px solid #E5E7EB', p: '12px 14px' }}>
+                                                            <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#374151' }}>Date</Typography>
+                                                            <Typography sx={{ fontSize: 10, color: '#94A3B8', fontWeight: 600, mt: 0.2 }}>{classDateCols.length} {classDateCols.length === 1 ? 'day' : 'days'}</Typography>
                                                         </TableCell>
                                                         {classPeriodCols.map((pc) => {
                                                             const colTheme = periodColor(pc.number);
                                                             return (
-                                                                <TableCell key={pc.number} sx={{ width: 210, minWidth: 210, bgcolor: '#F9FAFB', borderBottom: '1px solid #E5E7EB', borderRight: '1px solid #E5E7EB', borderTop: `3px solid ${colTheme.color}`, p: '18px 18px' }}>
+                                                                <TableCell key={pc.number} sx={{ width: 170, minWidth: 170, bgcolor: '#F9FAFB', borderBottom: '1px solid #E5E7EB', borderRight: '1px solid #E5E7EB', borderTop: `2.5px solid ${colTheme.color}`, p: '12px 12px' }}>
                                                                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                                                        <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>
+                                                                        <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#111827' }}>
                                                                             {pc.name}
                                                                         </Typography>
-                                                                        <EditOutlinedIcon sx={{ fontSize: 14, color: '#9CA3AF' }} />
+                                                                        <EditOutlinedIcon sx={{ fontSize: 13, color: '#9CA3AF' }} />
                                                                     </Box>
                                                                     {(pc.startTime || pc.endTime) && (
-                                                                        <Typography sx={{ fontSize: 11, color: '#9CA3AF', fontWeight: 500, mt: 0.4 }}>
+                                                                        <Typography sx={{ fontSize: 10, color: '#9CA3AF', fontWeight: 500, mt: 0.3 }}>
                                                                             {pc.startTime} – {pc.endTime}
                                                                         </Typography>
                                                                     )}
@@ -1601,20 +1525,20 @@ export default function WorkDonePage() {
                                                         const hasAny = [...entriesByPeriod.values()].some((arr) => Array.isArray(arr) && arr.length > 0);
                                                         return (
                                                             <TableRow key={date} sx={{ '&:hover': { bgcolor: '#FAFBFC' } }}>
-                                                                <TableCell sx={{ position: 'sticky', left: 0, zIndex: 1, bgcolor: '#fff', borderRight: '1px solid #E5E7EB', borderBottom: '1px solid #E5E7EB', verticalAlign: 'middle', p: '20px 22px', height: 130 }}>
-                                                                    <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#111827', lineHeight: 1.3 }} noWrap>
-                                                                        {dd} {monthShort} {yyyy}
-                                                                    </Typography>
-                                                                    <Typography sx={{ fontSize: 12, color: '#9CA3AF', fontWeight: 500, mt: 0.7 }} noWrap>
-                                                                        {dn}
-                                                                    </Typography>
+                                                                <TableCell sx={{ position: 'sticky', left: 0, zIndex: 1, bgcolor: '#fff', borderRight: '1px solid #E5E7EB', borderBottom: '1px solid #E5E7EB', verticalAlign: 'middle', p: '12px 14px', height: 100 }}>
+                                                                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                                        <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#111827', lineHeight: 1.3 }} noWrap>
+                                                                            {dd} {String(dn).slice(0, 3)}
+                                                                        </Typography>
+                                                                        <CalendarTodayIcon sx={{ fontSize: 13, color: '#9CA3AF' }} />
+                                                                    </Box>
                                                                 </TableCell>
                                                                 {/* WEEKEND — entire row spans across all period columns */}
                                                                 {weekend && !hasAny ? (
                                                                     <TableCell colSpan={classPeriodCols.length} sx={{ borderRight: '1px solid #E5E7EB', borderBottom: '1px solid #E5E7EB', p: 0, background: 'repeating-linear-gradient(45deg, #F0FDF4 0 8px, #DCFCE7 8px 16px)' }}>
-                                                                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 130, height: 130, py: 1 }}>
-                                                                            <CalendarMonthIcon sx={{ fontSize: 26, color: '#16A34A', mb: 0.7 }} />
-                                                                            <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#16A34A' }}>Weekend</Typography>
+                                                                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 100, height: 100, py: 1 }}>
+                                                                            <CalendarMonthIcon sx={{ fontSize: 20, color: '#16A34A', mb: 0.4 }} />
+                                                                            <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#16A34A' }}>Weekend</Typography>
                                                                         </Box>
                                                                     </TableCell>
                                                                 ) : (
@@ -1623,14 +1547,14 @@ export default function WorkDonePage() {
                                                                         const entries = entriesByPeriod.get(pc.number) || [];
                                                                         if (entries.length === 0) {
                                                                             return (
-                                                                                <TableCell key={pc.number} sx={{ borderRight: '1px solid #E5E7EB', borderBottom: '1px solid #E5E7EB', p: 0, minHeight: 130, height: 130 }} />
+                                                                                <TableCell key={pc.number} sx={{ borderRight: '1px solid #E5E7EB', borderBottom: '1px solid #E5E7EB', p: 0, minHeight: 100, height: 100 }} />
                                                                             );
                                                                         }
                                                                         return (
                                                                             <TableCell key={pc.number} sx={{ borderRight: '1px solid #E5E7EB', borderBottom: '1px solid #E5E7EB', p: 0, verticalAlign: 'top' }}>
-                                                                                <Box sx={{ display: 'flex', alignItems: 'stretch', minHeight: 130, height: '100%' }}>
-                                                                                    <Box sx={{ width: 4, bgcolor: colTheme.color, flexShrink: 0 }} />
-                                                                                    <Box sx={{ flex: 1, p: '14px 14px', display: 'flex', flexDirection: 'column', gap: 0.5, minWidth: 0 }}>
+                                                                                <Box sx={{ display: 'flex', alignItems: 'stretch', minHeight: 100, height: '100%' }}>
+                                                                                    <Box sx={{ width: 3, bgcolor: colTheme.color, flexShrink: 0 }} />
+                                                                                    <Box sx={{ flex: 1, p: '10px 10px', display: 'flex', flexDirection: 'column', gap: 0.3, minWidth: 0 }}>
                                                                                         {entries.map((e, i) => {
                                                                                             const subj = e.subject || e.topicActivity || e.topicTaught || '—';
                                                                                             const topic = e.topicActivity || e.topicTaught || '';
@@ -1638,27 +1562,27 @@ export default function WorkDonePage() {
                                                                                             const statusCodes = Array.isArray(e.statusCodes) ? e.statusCodes : [];
                                                                                             return (
                                                                                                 <Box key={`${e.rollNumber || i}-${i}`} sx={{ display: 'flex', flexDirection: 'column', gap: 0.4, minWidth: 0, ...(i > 0 ? { borderTop: '1px dashed #E5E7EB', pt: 0.7 } : {}) }}>
-                                                                                                    <Typography sx={{ fontSize: 13.5, fontWeight: 800, color: colTheme.color, lineHeight: 1.2 }} noWrap>{subj}</Typography>
+                                                                                                    <Typography sx={{ fontSize: 12, fontWeight: 800, color: colTheme.color, lineHeight: 1.2 }} noWrap>{subj}</Typography>
                                                                                                     {e.teacherName && (
-                                                                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
-                                                                                                            <Box sx={{ width: 18, height: 18, borderRadius: '50%', flexShrink: 0, bgcolor: colorForSubject(e.teacherName), color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9.5, fontWeight: 800 }}>
+                                                                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                                                                            <Box sx={{ width: 15, height: 15, borderRadius: '50%', flexShrink: 0, bgcolor: colorForSubject(e.teacherName), color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8.5, fontWeight: 800 }}>
                                                                                                                 {getInitials(e.teacherName)}
                                                                                                             </Box>
-                                                                                                            <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: '#374151' }} noWrap>{e.teacherName}</Typography>
+                                                                                                            <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: '#374151' }} noWrap>{e.teacherName}</Typography>
                                                                                                         </Box>
                                                                                                     )}
                                                                                                     {topic && (
-                                                                                                        <Typography sx={{ fontSize: 11, color: '#6B7280', lineHeight: 1.3 }} noWrap title={topic}>{topic}</Typography>
+                                                                                                        <Typography sx={{ fontSize: 10, color: '#6B7280', lineHeight: 1.3 }} noWrap title={topic}>{topic}</Typography>
                                                                                                     )}
                                                                                                     {pageRef && (
-                                                                                                        <Typography sx={{ fontSize: 10.5, color: '#9CA3AF', fontWeight: 600 }} noWrap>Pg {pageRef}</Typography>
+                                                                                                        <Typography sx={{ fontSize: 9.5, color: '#9CA3AF', fontWeight: 600 }} noWrap>Pg {pageRef}</Typography>
                                                                                                     )}
                                                                                                     {statusCodes.length > 0 && (
-                                                                                                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.3, mt: 'auto' }}>
+                                                                                                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.2, mt: 'auto' }}>
                                                                                                             {statusCodes.map((code) => {
                                                                                                                 const meta = statusMeta(code);
                                                                                                                 return (
-                                                                                                                    <Box key={code} sx={{ fontSize: 9.5, fontWeight: 800, px: 0.6, py: 0.15, borderRadius: '3px', bgcolor: meta.bg, color: meta.color, letterSpacing: 0.3 }}>
+                                                                                                                    <Box key={code} sx={{ fontSize: 8.5, fontWeight: 800, px: 0.5, py: 0.1, borderRadius: '3px', bgcolor: meta.bg, color: meta.color, letterSpacing: 0.3 }}>
                                                                                                                         {code}
                                                                                                                     </Box>
                                                                                                                 );
