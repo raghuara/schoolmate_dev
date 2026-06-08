@@ -410,11 +410,19 @@ export default function WorkDonePage() {
     // Date boundaries by mode:
     //   Today Plan (normal) → today or earlier (no future planning here)
     //   Leave Plan (leave)  → tomorrow or later (future-only)
-    // Auto-correct the date when the user toggles between modes if it falls outside the allowed range.
+    // Auto-correct the date when the user toggles between modes if it falls outside the allowed range,
+    // and surface a snackbar explaining why so the toggle never feels like it "did nothing".
     // eslint-disable-next-line react-hooks/rules-of-hooks
     useEffect(() => {
-        if (entryType === 'leave' && selectedDate <= todayIso) {
-            setSelectedDate(tomorrowIso);
+        if (entryType === 'leave') {
+            if (selectedDate <= todayIso) {
+                setSelectedDate(tomorrowIso);
+                setSnack({
+                    open: true,
+                    ok: true,
+                    msg: 'Leave Plan must be a future date — date moved to tomorrow. Add the period plan for your substitute and click Save Leave Plan.',
+                });
+            }
         } else if (entryType === 'normal' && selectedDate > todayIso) {
             setSelectedDate(todayIso);
         }
@@ -515,8 +523,9 @@ export default function WorkDonePage() {
                 const data = res?.data;
                 console.log('[WorkDone] GET response for', toDDMMYYYY(selectedDate), '→', data);
                 if (!data || data.error) {
+                    // No data for this date — clear the form but DON'T overwrite the
+                    // user's current entryType toggle (would fight the date-mode useEffect).
                     setEntries((prev) => ({ ...prev, [selectedDate]: {} }));
-                    setEntryType('normal');
                     return;
                 }
                 // Be defensive about response shape — backend may wrap differently.
@@ -554,18 +563,24 @@ export default function WorkDonePage() {
                 }
                 console.log('[WorkDone] parsed dayMap →', dayMap);
                 setEntries((prev) => ({ ...prev, [selectedDate]: dayMap }));
-                if (apiEntries.some((e) => isLeave(e.entryType))) {
-                    setEntryType('leave');
-                } else {
-                    setEntryType('normal');
+                // Only reflect the API's entryType when it actually returned an entry.
+                // Otherwise keep the user's current toggle (so picking "Leave Plan" doesn't
+                // flip back to "Today Plan" the instant a 404/empty response comes back).
+                if (main) {
+                    if (apiEntries.some((e) => isLeave(e.entryType))) {
+                        setEntryType('leave');
+                    } else if (apiEntries.some((e) => isNormal(e.entryType))) {
+                        setEntryType('normal');
+                    }
                 }
             } catch (err) {
                 if (cancelled) return;
                 // 404 = "no record yet for this date" — that's a normal state, not a failure.
                 // Treat it as empty: clear the date's entries and switch back to normal mode.
                 if (err?.response?.status === 404) {
+                    // "No record yet" is a normal state — clear the form but keep the
+                    // user's current entryType toggle (so Leave Plan stays Leave Plan).
                     setEntries((prev) => ({ ...prev, [selectedDate]: {} }));
-                    setEntryType('normal');
                     return;
                 }
                 console.error('Failed to load daily work done:', err);
@@ -685,9 +700,12 @@ export default function WorkDonePage() {
                 headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
             });
             if (res.data?.error) throw new Error(res.data.message || 'Save failed');
+            // "Updated successfully" if the date already had saved entries, else "Saved successfully".
+            const wasExistingRecord = Object.keys(entries[selectedDate] || {}).length > 0;
+            const label = entryType === 'leave' ? 'Leave plan' : "Today's work";
             setSnack({
                 open: true, ok: true,
-                msg: `${entryType === 'leave' ? 'Leave plan' : "Today's work"} saved (${payloadPeriods.length} period${payloadPeriods.length !== 1 ? 's' : ''}).`,
+                msg: `${label} ${wasExistingRecord ? 'updated' : 'saved'} successfully.`,
             });
         } catch (err) {
             setSnack({ open: true, ok: false, msg: err?.response?.data?.message || err.message || 'Failed to save work done.' });
@@ -1206,7 +1224,7 @@ export default function WorkDonePage() {
                                     <InfoOutlinedIcon sx={{ fontSize: 15, color: entryType === 'leave' ? '#C2410C' : '#6B7280' }} />
                                     <Typography sx={{ fontSize: 11, color: entryType === 'leave' ? '#9A3412' : '#6B7280', fontWeight: 600, lineHeight: 1.25 }}>
                                         {entryType === 'leave'
-                                            ? 'Leave Plan — what a substitute should cover while you’re away.'
+                                            ? 'Leave Plan — must be a future date. Fill what a substitute should cover, then Save.'
                                             : 'Today Plan — record the work done for each period.'}
                                     </Typography>
                                 </Box>
@@ -1475,15 +1493,28 @@ export default function WorkDonePage() {
                                                     // Per-period lookup for this teacher on the selected date
                                                     const periodLookup = new Map();
                                                     (day?.periods || []).forEach((p) => periodLookup.set(p.periodNumber, p));
+                                                    // Leave-plan visuals: when the teacher is on leave, we still render
+                                                    // each saved period (the substitute work plan) but flag the row.
+                                                    const isLeaveDay = summary.kind === 'leave';
+                                                    const ls = isLeaveDay ? leaveStyle(summary.label) : null;
+                                                    const LeaveIcon = ls?.Icon;
                                                     const shifts = summary.kind === 'work' ? 1 : 0;
                                                     const totalMinutes = summary.kind === 'work' ? minutesBetween(summary.startTime, summary.endTime) : 0;
                                                     const hours = Math.round(totalMinutes / 60);
 
                                                     return (
-                                                        <TableRow key={t.rollNumber}>
-                                                            <TableCell sx={{ position: 'sticky', left: 0, zIndex: 1, bgcolor: '#fff', borderRight: '1px solid #E5E7EB', borderBottom: '1px solid #E5E7EB', verticalAlign: 'middle', p: '12px 14px', height: 100 }}>
+                                                        <TableRow key={t.rollNumber} sx={isLeaveDay ? { bgcolor: '#FFFBEB', '& > td': { bgcolor: '#FFFBEB' } } : undefined}>
+                                                            <TableCell sx={{ position: 'sticky', left: 0, zIndex: 1, bgcolor: isLeaveDay ? '#FEF3C7' : '#fff', borderRight: '1px solid #E5E7EB', borderBottom: '1px solid #E5E7EB', borderLeft: isLeaveDay ? `4px solid ${ls.color}` : undefined, verticalAlign: 'middle', p: '12px 14px', height: 100 }}>
                                                                 <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#111827', lineHeight: 1.3 }} noWrap>{t.teacherName}</Typography>
-                                                                {(hours > 0 || shifts > 0) && (
+                                                                {isLeaveDay && (
+                                                                    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.4, mt: 0.5, px: 0.7, py: 0.2, borderRadius: '4px', bgcolor: '#fff', border: `1px solid ${ls.color}55` }}>
+                                                                        <LeaveIcon sx={{ fontSize: 12, color: ls.color }} />
+                                                                        <Typography sx={{ fontSize: 9.5, fontWeight: 800, color: ls.color, letterSpacing: 0.2, textTransform: 'uppercase' }} noWrap>
+                                                                            {/plan/i.test(summary.label) ? summary.label : `${summary.label} Plan`}
+                                                                        </Typography>
+                                                                    </Box>
+                                                                )}
+                                                                {!isLeaveDay && (hours > 0 || shifts > 0) && (
                                                                     <Typography sx={{ fontSize: 11, color: '#9CA3AF', fontWeight: 500, mt: 0.4 }} noWrap>
                                                                         {hours} hours{'  '}{shifts} {shifts === 1 ? 'shift' : 'shifts'}
                                                                     </Typography>
@@ -1497,24 +1528,74 @@ export default function WorkDonePage() {
                                                                         <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#16A34A' }}>Weekend</Typography>
                                                                     </Box>
                                                                 </TableCell>
-                                                            ) : summary.kind === 'leave' ? (
-                                                                /* LEAVE DAY — single merged cell across all period columns */
-                                                                (() => {
-                                                                    const ls = leaveStyle(summary.label);
-                                                                    const LeaveIcon = ls.Icon;
+                                                            ) : (
+                                                                /* WORK or LEAVE-PLAN day — render each period cell normally.
+                                                                   On a leave day the row's sticky cell already carries the
+                                                                   "<Type> Plan" chip + colored left bar to flag it. */
+                                                                teacherPeriodCols.map((pc) => {
+                                                                    const period = periodLookup.get(pc.number);
+                                                                    const colTheme = periodColor(pc.number);
+
+                                                                    // ── Empty (no period entry for this teacher) ──
+                                                                    if (!period) {
+                                                                        return (
+                                                                            <TableCell key={pc.number} sx={{ borderRight: '1px solid #E5E7EB', borderBottom: '1px solid #E5E7EB', p: 0, minHeight: 100, height: 100 }} />
+                                                                        );
+                                                                    }
+
+                                                                    // ── Free Period ──
+                                                                    if (period.isFreePeriod) {
+                                                                        return (
+                                                                            <TableCell key={pc.number} sx={{ borderRight: '1px solid #E5E7EB', borderBottom: '1px solid #E5E7EB', p: 0, background: '#F9FAFB' }}>
+                                                                                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 100, height: 100, py: 1 }}>
+                                                                                    <Box sx={{ width: 28, height: 28, borderRadius: '50%', bgcolor: '#E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 0.6 }}>
+                                                                                        <Typography sx={{ fontSize: 10, fontWeight: 800, color: '#6B7280' }}>F</Typography>
+                                                                                    </Box>
+                                                                                    <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#6B7280' }}>Free Period</Typography>
+                                                                                </Box>
+                                                                            </TableCell>
+                                                                        );
+                                                                    }
+
+                                                                    // ── Work entry — subject + grade·section + topic + page ref + status codes ──
+                                                                    const subj = period.subject || '—';
+                                                                    const topic = period.topicActivity || period.topicTaught || '';
+                                                                    const pageRef = period.pageReference || '';
+                                                                    const statusCodes = Array.isArray(period.statusCodes) ? period.statusCodes : [];
                                                                     return (
-                                                                        <TableCell colSpan={teacherPeriodCols.length} sx={{ borderRight: '1px solid #E5E7EB', borderBottom: '1px solid #E5E7EB', p: 0, background: ls.bg }}>
-                                                                            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 100, height: 100, py: 1, px: 1 }}>
-                                                                                <LeaveIcon sx={{ fontSize: 20, color: ls.color, mb: 0.4 }} />
-                                                                                <Typography sx={{ fontSize: 11, fontWeight: 700, color: ls.color, textAlign: 'center' }}>{summary.label}</Typography>
+                                                                        <TableCell key={pc.number} sx={{ borderRight: '1px solid #E5E7EB', borderBottom: '1px solid #E5E7EB', p: 0, verticalAlign: 'top' }}>
+                                                                            <Box sx={{ display: 'flex', alignItems: 'stretch', minHeight: 100, height: 100 }}>
+                                                                                <Box sx={{ width: 3, bgcolor: colTheme.color, flexShrink: 0 }} />
+                                                                                <Box sx={{ flex: 1, p: '10px 10px', display: 'flex', flexDirection: 'column', gap: 0.3, minWidth: 0 }}>
+                                                                                    <Typography sx={{ fontSize: 12, fontWeight: 800, color: colTheme.color, lineHeight: 1.2 }} noWrap>{subj}</Typography>
+                                                                                    {(period.grade || period.section) && (
+                                                                                        <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: '#374151', lineHeight: 1.2 }} noWrap>
+                                                                                            {period.grade || ''}{period.section ? ` · ${period.section}` : ''}
+                                                                                        </Typography>
+                                                                                    )}
+                                                                                    {topic && (
+                                                                                        <Typography sx={{ fontSize: 10, color: '#6B7280', lineHeight: 1.3 }} noWrap title={topic}>{topic}</Typography>
+                                                                                    )}
+                                                                                    {pageRef && (
+                                                                                        <Typography sx={{ fontSize: 9.5, color: '#9CA3AF', fontWeight: 600 }} noWrap>Pg {pageRef}</Typography>
+                                                                                    )}
+                                                                                    {statusCodes.length > 0 && (
+                                                                                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.2, mt: 'auto' }}>
+                                                                                            {statusCodes.map((code) => {
+                                                                                                const meta = statusMeta(code);
+                                                                                                return (
+                                                                                                    <Box key={code} sx={{ fontSize: 8.5, fontWeight: 800, px: 0.5, py: 0.1, borderRadius: '3px', bgcolor: meta.bg, color: meta.color, letterSpacing: 0.3 }}>
+                                                                                                        {code}
+                                                                                                    </Box>
+                                                                                                );
+                                                                                            })}
+                                                                                        </Box>
+                                                                                    )}
+                                                                                </Box>
                                                                             </Box>
                                                                         </TableCell>
                                                                     );
-                                                                })()
-                                                            ) : (
-                                                                teacherPeriodCols.map((pc) => (
-                                                                    <TeacherWorkCell key={pc.number} pc={pc} period={periodLookup.get(pc.number)} />
-                                                                ))
+                                                                })
                                                             )}
                                                         </TableRow>
                                                     );
@@ -1601,9 +1682,61 @@ export default function WorkDonePage() {
                                                                 </Box>
                                                             </TableCell>
                                                         ) : (
-                                                            classPeriodCols.map((pc) => (
-                                                                <ClassWorkCell key={pc.number} pc={pc} entries={entriesByPeriod.get(pc.number) || []} />
-                                                            ))
+                                                            classPeriodCols.map((pc) => {
+                                                                const colTheme = periodColor(pc.number);
+                                                                const entries = entriesByPeriod.get(pc.number) || [];
+                                                                if (entries.length === 0) {
+                                                                    return (
+                                                                        <TableCell key={pc.number} sx={{ borderRight: '1px solid #E5E7EB', borderBottom: '1px solid #E5E7EB', p: 0, minHeight: 100, height: 100 }} />
+                                                                    );
+                                                                }
+                                                                return (
+                                                                    <TableCell key={pc.number} sx={{ borderRight: '1px solid #E5E7EB', borderBottom: '1px solid #E5E7EB', p: 0, verticalAlign: 'top' }}>
+                                                                        <Box sx={{ display: 'flex', alignItems: 'stretch', minHeight: 100, height: '100%' }}>
+                                                                            <Box sx={{ width: 3, bgcolor: colTheme.color, flexShrink: 0 }} />
+                                                                            <Box sx={{ flex: 1, p: '10px 10px', display: 'flex', flexDirection: 'column', gap: 0.3, minWidth: 0 }}>
+                                                                                {entries.map((e, i) => {
+                                                                                    const subj = e.subject || e.topicActivity || e.topicTaught || '—';
+                                                                                    const topic = e.topicActivity || e.topicTaught || '';
+                                                                                    const pageRef = e.pageReference || e.pageRef || '';
+                                                                                    const statusCodes = Array.isArray(e.statusCodes) ? e.statusCodes : [];
+                                                                                    return (
+                                                                                        <Box key={`${e.rollNumber || i}-${i}`} sx={{ display: 'flex', flexDirection: 'column', gap: 0.4, minWidth: 0, ...(i > 0 ? { borderTop: '1px dashed #E5E7EB', pt: 0.7 } : {}) }}>
+                                                                                            <Typography sx={{ fontSize: 12, fontWeight: 800, color: colTheme.color, lineHeight: 1.2 }} noWrap>{subj}</Typography>
+                                                                                            {e.teacherName && (
+                                                                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                                                                    <Box sx={{ width: 15, height: 15, borderRadius: '50%', flexShrink: 0, bgcolor: colorForSubject(e.teacherName), color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8.5, fontWeight: 800 }}>
+                                                                                                        {getInitials(e.teacherName)}
+                                                                                                    </Box>
+                                                                                                    <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: '#374151' }} noWrap>{e.teacherName}</Typography>
+                                                                                                </Box>
+                                                                                            )}
+                                                                                            {topic && (
+                                                                                                <Typography sx={{ fontSize: 10, color: '#6B7280', lineHeight: 1.3 }} noWrap title={topic}>{topic}</Typography>
+                                                                                            )}
+                                                                                            {pageRef && (
+                                                                                                <Typography sx={{ fontSize: 9.5, color: '#9CA3AF', fontWeight: 600 }} noWrap>Pg {pageRef}</Typography>
+                                                                                            )}
+                                                                                            {statusCodes.length > 0 && (
+                                                                                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.2, mt: 'auto' }}>
+                                                                                                    {statusCodes.map((code) => {
+                                                                                                        const meta = statusMeta(code);
+                                                                                                        return (
+                                                                                                            <Box key={code} sx={{ fontSize: 8.5, fontWeight: 800, px: 0.5, py: 0.1, borderRadius: '3px', bgcolor: meta.bg, color: meta.color, letterSpacing: 0.3 }}>
+                                                                                                                {code}
+                                                                                                            </Box>
+                                                                                                        );
+                                                                                                    })}
+                                                                                                </Box>
+                                                                                            )}
+                                                                                        </Box>
+                                                                                    );
+                                                                                })}
+                                                                            </Box>
+                                                                        </Box>
+                                                                    </TableCell>
+                                                                );
+                                                            })
                                                         )}
                                                     </TableRow>
                                                 );
