@@ -37,6 +37,7 @@ const getContactDetails = `${baseApiurl}communicationActivityDashboard/getContac
 const postContactDetails = `${baseApiurl}communicationActivityDashboard/postContactDetails`;
 const updateContactDetailsById = `${baseApiurl}communicationActivityDashboard/updateContactDetailsById`;
 const deleteContactDetailsById = `${baseApiurl}communicationActivityDashboard/deleteContactDetailsById`;
+
 // News
 const News = `${baseApiurl}news/`;
 const postNews = `${News}postNews`;

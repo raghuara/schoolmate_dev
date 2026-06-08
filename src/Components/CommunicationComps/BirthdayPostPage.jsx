@@ -60,12 +60,12 @@ export default function BirthdayPostPage() {
     const [message, setMessage] = useState('');
 
     // Instagram post info — populated by the BirthdayInstagramPost API.
+    // viewedRollNumbers stays [] until the backend ships the acknowledgement-tracking
+    // endpoint that records mobile-app views.
     const [postInfo, setPostInfo] = useState({
         postUrl: '',
         images: [],          // array of { imageUrl, thumbnailUrl } from the API
         viewedRollNumbers: [],
-        apiTotalStudents: null,  // top-level data.totalStudents (authoritative count)
-        apiViewedCount: null,    // top-level data.viewedCount (authoritative count)
     });
     const [currentImageIdx, setCurrentImageIdx] = useState(0);
 
@@ -83,24 +83,15 @@ export default function BirthdayPostPage() {
             });
             const data = res.data || {};
 
-            // Build the "viewed" set from data.viewedRollNumbers so the per-student
-            // acknowledged flag honours BOTH the row-level field AND the top-level list.
-            const viewedRolls = new Set((data.viewedRollNumbers || []).map(String));
-
-            const list = (data.students || []).map(s => {
-                const roll = String(s.rollNumber);
-                return {
-                    rollNumber: roll,
-                    name: s.name || '—',
-                    grade: s.grade || '',
-                    section: s.section || '',
-                    photoUrl: s.profilePhoto || '',
-                    acknowledged: !!s.acknowledged
-                        || s.acknowledgementStatus === 'seen'
-                        || viewedRolls.has(roll),
-                    viewedAtIst: s.viewedAtIst || null,
-                };
-            });
+            const list = (data.students || []).map(s => ({
+                rollNumber: String(s.rollNumber),
+                name: s.name || '—',
+                grade: s.grade || '',
+                section: s.section || '',
+                photoUrl: s.profilePhoto || '',
+                acknowledged: !!s.acknowledged || s.acknowledgementStatus === 'seen',
+                viewedAtIst: s.viewedAtIst || null,
+            }));
             setStudents(list);
 
             setCurrentImageIdx(0);
@@ -110,11 +101,9 @@ export default function BirthdayPostPage() {
                     postUrl: data.instagramPermalink,
                     images: data.instagramImages || [],
                     viewedRollNumbers: data.viewedRollNumbers || [],
-                    apiTotalStudents: typeof data.totalStudents === 'number' ? data.totalStudents : null,
-                    apiViewedCount: typeof data.viewedCount === 'number' ? data.viewedCount : null,
                 });
             } else {
-                setPostInfo({ postUrl: '', images: [], viewedRollNumbers: [], apiTotalStudents: null, apiViewedCount: null });
+                setPostInfo({ postUrl: '', images: [], viewedRollNumbers: [] });
             }
         } catch (error) {
             console.error('Failed to load Instagram birthday post:', error);
@@ -133,6 +122,11 @@ export default function BirthdayPostPage() {
         setCurrentImageIdx(i => (i < postInfo.images.length - 1 ? i + 1 : 0));
     };
 
+    const viewedSet = useMemo(
+        () => new Set(postInfo.viewedRollNumbers),
+        [postInfo.viewedRollNumbers]
+    );
+
     const filteredStudents = useMemo(() => {
         const q = search.trim().toLowerCase();
         if (!q) return students;
@@ -142,11 +136,11 @@ export default function BirthdayPostPage() {
         );
     }, [students, search]);
 
-    // Prefer the API-provided top-level counts (data.totalStudents / data.viewedCount).
-    // Fall back to deriving from the per-student records only when the API omits them.
-    const clientViewedCount = students.filter(s => s.acknowledged).length;
-    const totalCount = postInfo.apiTotalStudents ?? students.length;
-    const viewedCount = postInfo.apiViewedCount ?? clientViewedCount;
+    // A student counts as "viewed" if their own acknowledged flag is set (same
+    // source the table's "Seen" badge uses) OR their roll is in viewedRollNumbers.
+    // Counting only viewedRollNumbers made the KPI read 0/8 while the table showed "Seen".
+    const viewedCount = students.filter(s => s.acknowledged || viewedSet.has(s.rollNumber)).length;
+    const totalCount = students.length;
     const viewRate = totalCount > 0 ? Math.round((viewedCount / totalCount) * 100) : 0;
 
     const showSnack = (msg, success) => {
@@ -636,7 +630,7 @@ export default function BirthdayPostPage() {
                 )}
 
                 {/* View-tracking notice — shows when there IS a post but no acknowledgement data yet */}
-                {hasPost && filteredStudents.length > 0 && postInfo.viewedRollNumbers.length === 0 && (
+                {hasPost && filteredStudents.length > 0 && viewedCount === 0 && (
                     <Box sx={{
                         px: 2, py: 1,
                         borderTop: '1px solid #E8DDEA',
