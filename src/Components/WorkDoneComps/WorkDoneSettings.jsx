@@ -16,7 +16,6 @@ import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import SaveOutlinedIcon from '@mui/icons-material/SaveOutlined';
-import RestoreOutlinedIcon from '@mui/icons-material/RestoreOutlined';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import CloseIcon from '@mui/icons-material/Close';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
@@ -28,17 +27,6 @@ const PRIMARY = '#0891B2';
 const PRIMARY_LIGHT = '#ECFEFF';
 const PRIMARY_DARK = '#0E7490';
 const PRIMARY_BORDER = '#A5F3FC';
-
-const DEFAULT_PERIODS = [
-    { id: 1, name: 'Period 1', startTime: '08:30', endTime: '09:15' },
-    { id: 2, name: 'Period 2', startTime: '09:15', endTime: '10:00' },
-    { id: 3, name: 'Period 3', startTime: '10:00', endTime: '10:45' },
-    { id: 4, name: 'Period 4', startTime: '11:00', endTime: '11:45' },
-    { id: 5, name: 'Period 5', startTime: '11:45', endTime: '12:30' },
-    { id: 6, name: 'Period 6', startTime: '13:15', endTime: '14:00' },
-    { id: 7, name: 'Period 7', startTime: '14:00', endTime: '14:45' },
-    { id: 8, name: 'Period 8', startTime: '14:45', endTime: '15:30' },
-];
 
 const DEFAULT_FLAGS = {
     allowTeacherAddPeriod: true,
@@ -60,7 +48,7 @@ export default function WorkDoneSettings() {
     const rollNumber = user?.rollNumber || '';
     const userType = user?.userType || '';
 
-    const [periods, setPeriods] = useState(DEFAULT_PERIODS);
+    const [periods, setPeriods] = useState([]);
     const [flags, setFlags] = useState(DEFAULT_FLAGS);
     const [dialog, setDialog] = useState({ open: false, mode: 'add', period: null });
     const [form, setForm] = useState({ name: '', startTime: '', endTime: '' });
@@ -71,7 +59,9 @@ export default function WorkDoneSettings() {
 
     // Custom period-subjects — loaded from the API (no dummy fallback)
     const [customSubjects, setCustomSubjects] = useState([]);
+    const [savedSubjects, setSavedSubjects] = useState([]); // already persisted — shown as read-only (no delete)
     const [newSubject, setNewSubject] = useState('');
+    const [confirmSaveOpen, setConfirmSaveOpen] = useState(false);
 
     const addCustomSubject = () => {
         const v = newSubject.trim();
@@ -101,11 +91,13 @@ export default function WorkDoneSettings() {
                         .slice()
                         .sort((a, b) => (a.sortOrder ?? a.periodNumber) - (b.sortOrder ?? b.periodNumber))
                         .map((p) => ({ id: p.periodNumber, name: p.name || `Period ${p.periodNumber}`, startTime: p.startTime || '', endTime: p.endTime || '' }));
-                    setPeriods(apiPeriods.length ? apiPeriods : DEFAULT_PERIODS);
+                    setPeriods(apiPeriods);
                 }
 
                 if (subjectsRes.status === 'fulfilled' && !subjectsRes.value.data?.error) {
-                    setCustomSubjects(subjectsRes.value.data?.subjects || []);
+                    const loadedSubjects = subjectsRes.value.data?.subjects || [];
+                    setCustomSubjects(loadedSubjects);
+                    setSavedSubjects(loadedSubjects);
                 }
             } catch {
                 /* keep current state on failure */
@@ -209,11 +201,6 @@ export default function WorkDoneSettings() {
         });
     };
 
-    const resetDefaults = () => {
-        setPeriods(DEFAULT_PERIODS);
-        setFlags(DEFAULT_FLAGS);
-        setCustomSubjects([]);
-    };
     const authHeaders = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 
     const savePeriods = async () => {
@@ -246,13 +233,15 @@ export default function WorkDoneSettings() {
             setSnack({ open: true, ok: false, msg: 'Academic year not set. Pick it in the dashboard header.' });
             return;
         }
+        setConfirmSaveOpen(false);
         setSavingSubjects(true);
         try {
             const res = await axios.post(SaveCustomWorkdoneSubjects, {
                 academicYear, rollNumber: String(rollNumber), userType, subjects: customSubjects,
             }, { headers: authHeaders });
             if (res.data?.error) throw new Error(res.data.message || 'Failed to save custom period names');
-            setSnack({ open: true, ok: true, msg: 'Custom period names saved.' });
+            setSavedSubjects([...customSubjects]);
+            setSnack({ open: true, ok: true, msg: 'Custom subjects saved.' });
         } catch (err) {
             setSnack({ open: true, ok: false, msg: err?.response?.data?.message || err.message || 'Failed to save custom period names.' });
         } finally {
@@ -297,19 +286,6 @@ export default function WorkDoneSettings() {
                             School-wide configuration · Applies to every teacher and grade
                         </Typography>
                     </Box>
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Button
-                        onClick={resetDefaults}
-                        startIcon={<RestoreOutlinedIcon sx={{ fontSize: 16 }} />}
-                        sx={{
-                            textTransform: 'none', fontSize: 12.5, fontWeight: 700,
-                            border: '1px solid #E5E7EB', color: '#374151', borderRadius: '8px',
-                            px: 1.6, height: 34, '&:hover': { bgcolor: '#F9FAFB' },
-                        }}
-                    >
-                        Reset Defaults
-                    </Button>
                 </Box>
             </Box>
 
@@ -388,7 +364,14 @@ export default function WorkDoneSettings() {
                 </Box>
 
                 <Grid container spacing={1}>
-                    {periods.map((p, idx) => (
+                    {periods.length === 0 ? (
+                        <Grid size={{ xs: 12 }}>
+                            <Box sx={{ p: 4, textAlign: 'center', borderRadius: '10px', border: '1px dashed #E5E7EB', bgcolor: '#FAFAFA' }}>
+                                <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#374151' }}>No periods created yet</Typography>
+                                <Typography sx={{ fontSize: 12, color: '#9CA3AF', mt: 0.5 }}>Click “Add Period” to create your first period.</Typography>
+                            </Box>
+                        </Grid>
+                    ) : periods.map((p, idx) => (
                         <Grid size={{ xs: 12, md: 6 }} key={p.id}>
                             <Box sx={{
                                 p: 1.2, borderRadius: '10px',
@@ -449,7 +432,7 @@ export default function WorkDoneSettings() {
                         </Typography>
                     </Box>
                     <Button
-                        onClick={saveSubjects}
+                        onClick={() => setConfirmSaveOpen(true)}
                         disabled={savingSubjects || loading}
                         startIcon={savingSubjects ? <CircularProgress size={13} sx={{ color: '#fff' }} /> : <SaveOutlinedIcon sx={{ fontSize: 16 }} />}
                         variant="contained"
@@ -461,7 +444,7 @@ export default function WorkDoneSettings() {
                             '&.Mui-disabled': { bgcolor: '#9CA3AF', color: '#fff' },
                         }}
                     >
-                        {savingSubjects ? 'Saving…' : 'Save Names'}
+                        {savingSubjects ? 'Saving…' : 'Save Subjects'}
                     </Button>
                 </Box>
                 <Box sx={{ display: 'flex', gap: 1, mb: 1.2, flexWrap: 'wrap' }}>
@@ -486,22 +469,60 @@ export default function WorkDoneSettings() {
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.8, mb: 1 }}>
                     {customSubjects.length === 0 ? (
                         <Typography sx={{ fontSize: 12, color: '#9CA3AF', fontStyle: 'italic' }}>No custom periods yet.</Typography>
-                    ) : customSubjects.map((s) => (
-                        <Chip
-                            key={s}
-                            label={s}
-                            onDelete={() => removeCustomSubject(s)}
-                            deleteIcon={<DeleteOutlineIcon sx={{ fontSize: '16px !important' }} />}
-                            sx={{
-                                height: 30, fontSize: 12.5, fontWeight: 700,
-                                bgcolor: PRIMARY_LIGHT, color: PRIMARY_DARK, border: `1px solid ${PRIMARY_BORDER}`,
-                                '& .MuiChip-deleteIcon': { color: `${PRIMARY_DARK}99`, '&:hover': { color: '#DC2626' } },
-                            }}
-                        />
-                    ))}
+                    ) : customSubjects.map((s) => {
+                        const isSaved = savedSubjects.includes(s);
+                        return (
+                            <Chip
+                                key={s}
+                                label={s}
+                                // Saved subjects are permanent — no delete. Only newly added (unsaved) ones can be removed.
+                                {...(isSaved ? {} : {
+                                    onDelete: () => removeCustomSubject(s),
+                                    deleteIcon: <DeleteOutlineIcon sx={{ fontSize: '16px !important' }} />,
+                                })}
+                                sx={{
+                                    height: 30, fontSize: 12.5, fontWeight: 700,
+                                    bgcolor: PRIMARY_LIGHT, color: PRIMARY_DARK, border: `1px solid ${PRIMARY_BORDER}`,
+                                    '& .MuiChip-deleteIcon': { color: `${PRIMARY_DARK}99`, '&:hover': { color: '#DC2626' } },
+                                }}
+                            />
+                        );
+                    })}
                 </Box>
 
             </Box>
+
+            {/* Confirm — custom subjects are permanent once saved */}
+            <Dialog open={confirmSaveOpen} onClose={() => !savingSubjects && setConfirmSaveOpen(false)} maxWidth="xs" fullWidth slotProps={{ paper: { sx: { borderRadius: '12px' } } }}>
+                <DialogTitle sx={{ p: 2, pb: 1, fontSize: 16, fontWeight: 800 }}>Save custom subjects?</DialogTitle>
+                <DialogContent sx={{ px: 2, pb: 1 }}>
+                    <Box sx={{ display: 'flex', gap: 1.2, p: 1.4, borderRadius: '10px', bgcolor: '#FFF7ED', border: '1px solid #FED7AA' }}>
+                        <InfoOutlinedIcon sx={{ fontSize: 20, color: '#C2410C', mt: 0.2, flexShrink: 0 }} />
+                        <Typography sx={{ fontSize: 13, color: '#9A3412', fontWeight: 600, lineHeight: 1.45 }}>
+                            Once saved, these subjects <strong>cannot be edited or deleted</strong>. Please double-check the list before continuing. Are you sure you want to save?
+                        </Typography>
+                    </Box>
+                </DialogContent>
+                <DialogActions sx={{ px: 2, pb: 2, gap: 1 }}>
+                    <Button
+                        onClick={() => setConfirmSaveOpen(false)}
+                        disabled={savingSubjects}
+                        sx={{ textTransform: 'none', fontWeight: 700, color: '#374151', border: '1px solid #E5E7EB', borderRadius: '8px', px: 2, height: 34 }}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        onClick={saveSubjects}
+                        disabled={savingSubjects}
+                        variant="contained"
+                        disableElevation
+                        startIcon={savingSubjects ? <CircularProgress size={14} sx={{ color: '#fff' }} /> : <SaveOutlinedIcon sx={{ fontSize: 16 }} />}
+                        sx={{ textTransform: 'none', fontWeight: 700, bgcolor: PRIMARY, '&:hover': { bgcolor: PRIMARY_DARK }, borderRadius: '8px', px: 2, height: 34, '&.Mui-disabled': { bgcolor: '#9CA3AF', color: '#fff' } }}
+                    >
+                        {savingSubjects ? 'Saving…' : 'Yes, Save'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
 
             <Dialog open={dialog.open} onClose={() => setDialog({ open: false, mode: 'add', period: null })} maxWidth="xs" fullWidth slotProps={{ paper: { sx: { borderRadius: '12px' } } }}>
                 <DialogTitle sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

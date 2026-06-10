@@ -32,6 +32,10 @@ const GetTeachersAttendance = `${baseApiurl}teachersattendance/GetTeachersAttend
 
 // Communication 
 const fetchDashboard = `${baseApiurl}communicationActivityDashboard/fetchDashboard`;
+const viewTracking = `${baseApiurl}communicationActivityDashboard/viewTracking`;
+const viewTrackingStatus = `${baseApiurl}communicationActivityDashboard/viewTrackingStatus`;
+
+
 // Contact Details
 const getContactDetails = `${baseApiurl}communicationActivityDashboard/getContactDetails`;
 const postContactDetails = `${baseApiurl}communicationActivityDashboard/postContactDetails`;
@@ -865,6 +869,8 @@ export {
     TriggerManualSync,
     GetBiometricMappings,
     fetchDashboard,
+    viewTracking,
+    viewTrackingStatus,
     PostBiometricMappings,
     UpdateBiometricMappings,
     PostTeachersManualAttendance,

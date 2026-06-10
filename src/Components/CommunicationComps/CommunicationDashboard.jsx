@@ -402,8 +402,35 @@ export default function CommunicationDashboard() {
     const pieTotal     = data.pieTotal;
 
     // ── Exports ────────────────────────────────────────────────────────────
+    // Per-module counts (Total / Approved / Pending / Rejected) for the export summary
+    const buildModuleSummary = () => ACTIVITY_TYPES.map((key) => {
+        const k = kpis[key] || { total: 0, approved: 0, pending: 0, rejected: 0 };
+        const noApproval = NO_APPROVAL_MODULES.has(key);
+        return {
+            label: FEATURE_CONFIG[key]?.label || key,
+            total: k.total,
+            approved: noApproval ? '-' : k.approved,
+            pending: noApproval ? '-' : k.pending,
+            rejected: noApproval ? '-' : k.rejected,
+        };
+    });
+
     const handleExportExcel = () => {
         setExportAnchor(null);
+        const wb = XLSX.utils.book_new();
+
+        // Sheet 1 — Module Summary (counts per module)
+        const summary = buildModuleSummary();
+        const sumAoa = [
+            ['Module', 'Total', 'Approved', 'Pending', 'Rejected'],
+            ...summary.map((m) => [m.label, m.total, m.approved, m.pending, m.rejected]),
+            ['TOTAL', heroSummary.total, heroSummary.approved, heroSummary.pending, heroSummary.rejected],
+        ];
+        const sumWs = XLSX.utils.aoa_to_sheet(sumAoa);
+        sumWs['!cols'] = [{ wch: 20 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }];
+        XLSX.utils.book_append_sheet(wb, sumWs, 'Module Summary');
+
+        // Sheet 2 — Activity rows
         const headers = ['S.No', 'Type', 'Title', 'Created By', 'Role', 'Status', 'Date/Time'];
         const rows = filteredActivity.map((r, i) => [
             i + 1, FEATURE_CONFIG[r.type]?.label || r.type,
@@ -411,27 +438,55 @@ export default function CommunicationDashboard() {
         ]);
         const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
         ws['!cols'] = [{ wch: 6 }, { wch: 16 }, { wch: 30 }, { wch: 18 }, { wch: 12 }, { wch: 10 }, { wch: 22 }];
-        const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'Communication Activity');
+
         const tag = fromDate && toDate ? `${fromDate}_to_${toDate}` : 'all-time';
         XLSX.writeFile(wb, `Communication_Activity_${tag}.xlsx`);
     };
 
     const handleExportPDF = () => {
         setExportAnchor(null);
+        const summary = buildModuleSummary();
         const html = `
             <html><head><title>Communication Activity</title>
             <style>
                 body { font-family: -apple-system, Segoe UI, sans-serif; padding: 24px; color: #111; }
                 h1 { font-size: 20px; margin: 0 0 4px; }
-                .sub { color: #666; font-size: 12px; margin-bottom: 16px; }
-                table { width: 100%; border-collapse: collapse; font-size: 12px; }
+                h2 { font-size: 14px; margin: 18px 0 6px; color: #111; }
+                .sub { color: #666; font-size: 12px; margin-bottom: 8px; }
+                table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 8px; }
                 th, td { padding: 6px 8px; border: 1px solid #E5E7EB; text-align: left; }
                 th { background: #ECFDF5; color: #047857; text-transform: uppercase; letter-spacing: 0.5px; font-size: 10px; }
                 tr:nth-child(even) td { background: #FAFAFA; }
+                tr.grand td { background: #ECFDF5; font-weight: 700; color: #047857; }
             </style></head><body>
                 <h1>Communication Activity Report</h1>
                 <div class="sub">Range: ${fromDate || '—'} → ${toDate || '—'} · ${filteredActivity.length} records</div>
+
+                <h2>Module Summary</h2>
+                <table>
+                    <thead><tr><th>Module</th><th>Total</th><th>Approved</th><th>Pending</th><th>Rejected</th></tr></thead>
+                    <tbody>
+                        ${summary.map((m) => `
+                            <tr>
+                                <td>${m.label}</td>
+                                <td>${m.total}</td>
+                                <td>${m.approved}</td>
+                                <td>${m.pending}</td>
+                                <td>${m.rejected}</td>
+                            </tr>
+                        `).join('')}
+                        <tr class="grand">
+                            <td>TOTAL</td>
+                            <td>${heroSummary.total}</td>
+                            <td>${heroSummary.approved}</td>
+                            <td>${heroSummary.pending}</td>
+                            <td>${heroSummary.rejected}</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h2>Recent Activity</h2>
                 <table>
                     <thead><tr><th>#</th><th>Type</th><th>Title</th><th>Created By</th><th>Role</th><th>Status</th><th>Date/Time</th></tr></thead>
                     <tbody>
@@ -450,11 +505,24 @@ export default function CommunicationDashboard() {
                 </table>
             </body></html>
         `;
-        const w = window.open('', '_blank', 'noopener,noreferrer');
-        if (!w) return;
-        w.document.write(html);
-        w.document.close();
-        setTimeout(() => w.print(), 250);
+        // Print via a hidden iframe — reliable across browsers (avoids popup blockers
+        // and the `noopener` window.open() returning null).
+        const iframe = document.createElement('iframe');
+        iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+        document.body.appendChild(iframe);
+        const doc = iframe.contentWindow?.document || iframe.contentDocument;
+        doc.open();
+        doc.write(html);
+        doc.close();
+        const removeIframe = () => { if (iframe.parentNode) iframe.parentNode.removeChild(iframe); };
+        setTimeout(() => {
+            const win = iframe.contentWindow;
+            win.onafterprint = removeIframe;
+            win.focus();
+            win.print();
+            // Fallback cleanup if onafterprint never fires
+            setTimeout(removeIframe, 60000);
+        }, 300);
     };
 
     const STATUS_STYLE = {
@@ -532,7 +600,7 @@ export default function CommunicationDashboard() {
             }}>
                 <Grid container alignItems="center" spacing={1}>
                     <Grid size={{ xs: 12, sm: 12, md: 5, lg: 5 }} sx={{ display: 'flex', alignItems: 'center' }}>
-                        <IconButton onClick={() => navigate(-1)} sx={{ width: 30, height: 30, mr: 1 }}>
+                        <IconButton onClick={() => (viewMode === 'tracking' ? setViewMode('dashboard') : navigate(-1))} sx={{ width: 30, height: 30, mr: 1 }}>
                             <ArrowBackIcon sx={{ fontSize: 18, color: '#000' }} />
                         </IconButton>
                         <Box sx={{

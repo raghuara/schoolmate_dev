@@ -1,8 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Dialog, IconButton, Box, Typography, Grid, TextField, Button, } from "@mui/material";
+import { Dialog, IconButton, Box, Typography, Grid, TextField, Button, InputAdornment } from "@mui/material";
 import Loader from "../../Loader";
 import { Link, useNavigate } from "react-router-dom";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import Diversity3Icon from '@mui/icons-material/Diversity3';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import CallMergeIcon from '@mui/icons-material/CallMerge';
 import { useDispatch, useSelector } from "react-redux";
 import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlice";
 import SnackBar from "../../SnackBar";
@@ -19,6 +22,7 @@ export default function MergeSiblingsPage() {
     const [isLoading, setIsLoading] = useState(false);
     const dispatch = useDispatch();
     const websiteSettings = useSelector(selectWebsiteSettings);
+    const accent = websiteSettings.mainColor || "#E60154";
     const [siblings, setSiblings] = useState(["", "", "", ""]);
     const [open, setOpen] = useState(false);
     const [status, setStatus] = useState(false);
@@ -109,60 +113,71 @@ export default function MergeSiblingsPage() {
                         </Grid>
                     </Grid>
                 </Grid>
-                <Box sx={{ px: 2, py: 2 }}>
-                    <Box
-                        sx={{
-                            borderRadius: 2,
-                            border: "1px solid #ccc",
-                            p: 3,
-                            height: "70vh",
-                            position: "relative"
-                        }}
-                    >
-                        <Typography sx={{ fontWeight: 600, fontSize: "16px", mb: 2 }}>
-                            Enter Sibling Details
-                        </Typography>
+                <Box sx={{ px: 2, py: 2.5 }}>
+                    <Box sx={{ maxWidth: 760, mx: "auto", borderRadius: "14px", border: "1px solid #E5E7EB", bgcolor: "#fff", overflow: "hidden", boxShadow: "0 1px 2px rgba(16,24,40,0.04)" }}>
+                        {/* Card header */}
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, px: 3, py: 2, bgcolor: "#FAFAFB", borderBottom: "1px solid #EEF0F2" }}>
+                            <Box sx={{ width: 42, height: 42, borderRadius: "12px", bgcolor: `${accent}1A`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                <Diversity3Icon sx={{ fontSize: 24, color: accent }} />
+                            </Box>
+                            <Box>
+                                <Typography sx={{ fontSize: 16, fontWeight: 700, color: "#111827" }}>Merge Siblings</Typography>
+                                <Typography sx={{ fontSize: 12.5, color: "#6B7280" }}>Link students who are siblings by entering their roll numbers.</Typography>
+                            </Box>
+                        </Box>
 
-                        <Grid container spacing={2}>
-                            {siblings.map((sibling, index) => (
-                                <Grid item xs={12} sm={6} md={4} lg={3} key={index}>
-                                    <TextField
-                                        fullWidth
-                                        label={`Sibling ${index + 1} Roll Number`}
-                                        size="small"
-                                        value={sibling}
-                                        onChange={(e) => handleChange(index, e.target.value)}
-                                    />
-                                </Grid>
-                            ))}
-                        </Grid>
+                        {/* Info banner */}
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1, mx: 3, mt: 2.5, px: 1.4, py: 1, borderRadius: "8px", bgcolor: "#EFF6FF", border: "1px solid #BFDBFE" }}>
+                            <InfoOutlinedIcon sx={{ fontSize: 17, color: "#2563EB" }} />
+                            <Typography sx={{ fontSize: 12, color: "#1E40AF", fontWeight: 600 }}>
+                                Enter at least 2 roll numbers to merge them as siblings. Up to 4 can be linked at once.
+                            </Typography>
+                        </Box>
 
-                        <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 3, gap: 2, position: "absolute", bottom: "20px", right: "20px" }}>
+                        {/* Sibling inputs */}
+                        <Box sx={{ px: 3, py: 2.5 }}>
+                            <Grid container spacing={2}>
+                                {siblings.map((sibling, index) => (
+                                    <Grid size={{ xs: 12, sm: 6 }} key={index}>
+                                        <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: "#6B7280", mb: 0.5 }}>
+                                            Sibling {index + 1} {index < 2 && <span style={{ color: "#EF4444" }}>*</span>}
+                                        </Typography>
+                                        <TextField
+                                            fullWidth
+                                            size="small"
+                                            placeholder="Enter roll number"
+                                            value={sibling}
+                                            onChange={(e) => handleChange(index, e.target.value)}
+                                            InputProps={{
+                                                startAdornment: (
+                                                    <InputAdornment position="start">
+                                                        <Box sx={{ width: 22, height: 22, borderRadius: "50%", bgcolor: sibling ? accent : "#E5E7EB", color: sibling ? "#fff" : "#9CA3AF", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, flexShrink: 0 }}>
+                                                            {index + 1}
+                                                        </Box>
+                                                    </InputAdornment>
+                                                ),
+                                            }}
+                                            sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+                                        />
+                                    </Grid>
+                                ))}
+                            </Grid>
+                        </Box>
+
+                        {/* Footer */}
+                        <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1.2, px: 3, py: 2, borderTop: "1px solid #EEF0F2", bgcolor: "#FAFAFB" }}>
                             <Button
-                                style={{
-                                    background: "#F2F2F2",
-                                    border: "1px solid #ddd",
-                                    padding: "6px 18px",
-                                    borderRadius: "6px",
-                                    cursor: "pointer",
-                                }}
                                 onClick={() => navigate(-1)}
+                                sx={{ textTransform: "none", fontWeight: 700, color: "#374151", border: "1px solid #E5E7EB", borderRadius: "8px", px: 2.4, height: 38, "&:hover": { bgcolor: "#fff" } }}
                             >
                                 Cancel
                             </Button>
                             <Button
                                 onClick={handleSubmit}
-                                style={{
-                                    background: websiteSettings.mainColor,
-                                    color: websiteSettings.textColor,
-                                    border: "none",
-                                    padding: "6px 18px",
-                                    borderRadius: "6px",
-                                    cursor: "pointer",
-                                }}
-
+                                startIcon={<CallMergeIcon sx={{ fontSize: 18 }} />}
+                                sx={{ textTransform: "none", fontWeight: 700, bgcolor: accent, color: websiteSettings.textColor || "#fff", borderRadius: "8px", px: 2.6, height: 38, "&:hover": { bgcolor: accent, filter: "brightness(0.92)" } }}
                             >
-                                Save
+                                Merge Siblings
                             </Button>
                         </Box>
                     </Box>

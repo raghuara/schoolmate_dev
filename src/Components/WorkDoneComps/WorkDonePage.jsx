@@ -4,6 +4,9 @@ import {
     Divider, FormControl, FormControlLabel, Grid, IconButton, InputAdornment, MenuItem,
     Select, Switch, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tabs, TextField, Typography
 } from '@mui/material';
+import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import dayjs from 'dayjs';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import axios from 'axios';
@@ -415,12 +418,13 @@ export default function WorkDonePage() {
     // eslint-disable-next-line react-hooks/rules-of-hooks
     useEffect(() => {
         if (entryType === 'leave') {
+            // Don't auto-jump to a future date (it could land on a Sunday/holiday).
+            // Just prompt the user to pick a valid future date themselves.
             if (selectedDate <= todayIso) {
-                setSelectedDate(tomorrowIso);
                 setSnack({
                     open: true,
-                    ok: true,
-                    msg: 'Leave Plan must be a future date — date moved to tomorrow. Add the period plan for your substitute and click Save Leave Plan.',
+                    ok: false,
+                    msg: 'Please choose a future date for the leave plan.',
                 });
             }
         } else if (entryType === 'normal' && selectedDate > todayIso) {
@@ -1113,14 +1117,17 @@ export default function WorkDonePage() {
                                 <TextField {...params} placeholder="All staff" sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px', height: 36, fontSize: 12.5, fontWeight: 600 } }} />
                             )}
                         />
-                        <TextField
-                            type="date"
-                            size="small"
-                            value={fromDate}
-                            onChange={(e) => { setFromDate(e.target.value); setToDate(e.target.value); setDatePreset('custom'); }}
-                            sx={{ width: 170, '& .MuiOutlinedInput-root': { borderRadius: '8px', height: 36, fontSize: 13, fontWeight: 600 } }}
-                            slotProps={{ input: { startAdornment: (<InputAdornment position="start"><CalendarTodayIcon sx={{ fontSize: 15, color: '#6B7280' }} /></InputAdornment>) } }}
-                        />
+                        <LocalizationProvider dateAdapter={AdapterDayjs}>
+                            <DatePicker
+                                value={fromDate ? dayjs(fromDate) : null}
+                                format="DD-MM-YYYY"
+                                onChange={(newVal) => {
+                                    const v = newVal && newVal.isValid() ? newVal.format('YYYY-MM-DD') : '';
+                                    setFromDate(v); setToDate(v); setDatePreset('custom');
+                                }}
+                                slotProps={{ textField: { size: 'small', sx: { width: 180, '& .MuiOutlinedInput-root': { borderRadius: '8px', height: 36, fontSize: 13, fontWeight: 600 } } } }}
+                            />
+                        </LocalizationProvider>
                     </Box>
                 )}
 
@@ -1175,23 +1182,26 @@ export default function WorkDonePage() {
                 {/* ───────────────── DAILY ENTRY ───────────────── */}
                 {activeTab === 0 && (
                     <>
-                        <Grid container spacing={1.5} sx={{ mb: 1.5 }} alignItems="flex-end">
+                        <Grid container spacing={1.5} sx={{ mb: 1.5 }} alignItems="flex-start">
                             <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                                 <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.5, mb: 0.4 }}>Date</Typography>
-                                <TextField
-                                    type="date"
-                                    size="small"
-                                    fullWidth
-                                    value={selectedDate}
-                                    onChange={(e) => setSelectedDate(e.target.value)}
-                                    // Today Plan → today or past only.  Leave Plan → tomorrow or later only.
-                                    slotProps={{
-                                        htmlInput: entryType === 'leave'
-                                            ? { min: tomorrowIso }
-                                            : { max: todayIso },
-                                    }}
-                                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px', height: 36, fontSize: 13, fontWeight: 600 } }}
-                                />
+                                {/* Today Plan → today or past only.  Leave Plan → tomorrow or later only. */}
+                                <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                    <DatePicker
+                                        value={selectedDate ? dayjs(selectedDate) : null}
+                                        format="DD-MM-YYYY"
+                                        minDate={entryType === 'leave' ? dayjs(tomorrowIso) : undefined}
+                                        maxDate={entryType === 'normal' ? dayjs(todayIso) : undefined}
+                                        onChange={(newVal) => {
+                                            const v = newVal && newVal.isValid() ? newVal.format('YYYY-MM-DD') : '';
+                                            setSelectedDate(v);
+                                            if (entryType === 'leave' && v && v <= todayIso) {
+                                                setSnack({ open: true, ok: false, msg: 'Please choose a future date for the leave plan.' });
+                                            }
+                                        }}
+                                        slotProps={{ textField: { size: 'small', fullWidth: true, sx: { '& .MuiOutlinedInput-root': { borderRadius: '8px', height: 36, fontSize: 13, fontWeight: 600 } } } }}
+                                    />
+                                </LocalizationProvider>
                                 <Typography sx={{ fontSize: 10.5, color: PRIMARY_DARK, mt: 0.3, fontWeight: 700 }}>
                                     {dayName}
                                     {entryType === 'leave' && selectedDate > todayIso && ' · Future (plan ahead)'}
@@ -1220,8 +1230,10 @@ export default function WorkDonePage() {
                                 </Box>
                             </Grid>
                             <Grid size={{ xs: 12, md: 4 }}>
-                                <Box sx={{ p: 1.2, borderRadius: '8px', border: '1px solid', borderColor: entryType === 'leave' ? '#FED7AA' : '#E5E7EB', bgcolor: entryType === 'leave' ? '#FFF7ED' : '#FAFAFA', display: 'flex', alignItems: 'center', gap: 0.8, height: 36 }}>
-                                    <InfoOutlinedIcon sx={{ fontSize: 15, color: entryType === 'leave' ? '#C2410C' : '#6B7280' }} />
+                                {/* Hidden label keeps this box top-aligned with the Date / Entry Type fields */}
+                                <Typography aria-hidden sx={{ fontSize: 10.5, fontWeight: 700, mb: 0.4, visibility: 'hidden', textTransform: 'uppercase', letterSpacing: 0.5 }}>Note</Typography>
+                                <Box sx={{ p: 1.2, borderRadius: '8px', border: '1px solid', borderColor: entryType === 'leave' ? '#FED7AA' : '#E5E7EB', bgcolor: entryType === 'leave' ? '#FFF7ED' : '#FAFAFA', display: 'flex', alignItems: 'center', gap: 0.8, minHeight: 36 }}>
+                                    <InfoOutlinedIcon sx={{ fontSize: 15, color: entryType === 'leave' ? '#C2410C' : '#6B7280', flexShrink: 0 }} />
                                     <Typography sx={{ fontSize: 11, color: entryType === 'leave' ? '#9A3412' : '#6B7280', fontWeight: 600, lineHeight: 1.25 }}>
                                         {entryType === 'leave'
                                             ? 'Leave Plan — must be a future date. Fill what a substitute should cover, then Save.'

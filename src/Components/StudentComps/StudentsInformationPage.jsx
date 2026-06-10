@@ -19,6 +19,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useDispatch, useSelector } from "react-redux";
 import { selectWebsiteSettings } from "../../Redux/Slices/websiteSettingsSlice";
 import AddIcon from '@mui/icons-material/Add';
+import CallMergeIcon from '@mui/icons-material/CallMerge';
 import ImageIcon from '@mui/icons-material/Image';
 import SnackBar from "../SnackBar";
 import { selectGrades } from "../../Redux/Slices/DropdownController";
@@ -160,7 +161,7 @@ export default function StudentInformationPage() {
             {isLoading && <Loader />}
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
             <Box>
-                <Grid container sx={{ backgroundColor: "#F2F2F2", pt: 1, px: 2 }} >
+                <Grid container sx={{ backgroundColor: "#F2F2F2", pt: 1, px: 2,   borderBottom: "1px solid #ddd", }} >
                     <Grid
                         size={{
                             xs: 12,
@@ -361,50 +362,28 @@ export default function StudentInformationPage() {
                 </Grid>
                 {/* <Box hidden={value !== 0}> */}
                 <Box sx={{ marginTop: "-10px", px: 2 }}>
-                    <Box sx={{ display: "flex" }}>
-                        <Grid container sx={{ justifyContent: "space-between", width: "100%" }}>
-                            <Grid
-                                size={{
-                                    xs: 12,
-                                    sm: 12,
-                                    md: 5,
-                                    lg: 3
-                                }}>
-                                <Box sx={{ display: "flex", mt: 2.8, width: "200px", }}>
-                                    <Typography sx={{ fontSize: "12px", color: "#fff", backgroundColor: "#307EB9", padding: "0px 5px 0px 5px", borderRadius: "4px 0px 0px 0px", fontWeight: "600", }}>
-                                        {selectedClass} - {selectedClassSection}
-                                    </Typography>
-                                    {/* <Typography sx={{ fontSize: "12px", color: "#000", px: 1, }}>
-                                        Class Teacher - {attendanceData.classTeacher}
-                                    </Typography> */}
-                                </Box>
-                            </Grid>
-                            <Grid
-                                sx={{ display: "flex", justifyContent: "end" }}
-                                size={{
-                                    xs: 12,
-                                    sm: 12,
-                                    md: 7,
-                                    lg: 9
-                                }}>
-                                <Link to="merge-sibling">
-                                    <Button
-                                        sx={{
-                                            borderColor: "#A9A9A9",
-                                            backgroundColor: "#000",
-                                            py: 0.3,
-                                            width: "150px",
-                                            color: "#fff",
-                                            textTransform: "none",
-                                            border: "none",
-                                        }}
-                                    >
-                                        Merge Siblings
-                                    </Button>
-                                </Link>
-                            </Grid>
-
-                        </Grid>
+                    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1, flexWrap: "wrap", mt: 2, mb: 1.2 }}>
+                        <Typography sx={{ fontSize: "12px", color: "#fff", backgroundColor: "#307EB9", px: 1.2, py: 0.5, borderRadius: "6px", fontWeight: 700 }}>
+                            {selectedGrade?.sign || selectedClass} - {selectedSection || selectedClassSection}
+                        </Typography>
+                        <Button
+                            component={Link}
+                            to="merge-sibling"
+                            startIcon={<CallMergeIcon sx={{ fontSize: 18 }} />}
+                            sx={{
+                                backgroundColor: "#000",
+                                color: "#fff",
+                                textTransform: "none",
+                                fontWeight: 600,
+                                fontSize: "13px",
+                                borderRadius: "8px",
+                                px: 2,
+                                py: 0.6,
+                                "&:hover": { backgroundColor: "#222" },
+                            }}
+                        >
+                            Merge Siblings
+                        </Button>
                     </Box>
                     <TableContainer
                         sx={{

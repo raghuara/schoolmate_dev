@@ -13,6 +13,7 @@ import { postStudentAcademicInformation, postStudentDocumentInformation, postStu
 import axios from "axios";
 import DropDownList from "../../DropdownList";
 import { selectGrades } from "../../../Redux/Slices/DropdownController";
+import { selectAcademicYear } from "../../../Redux/Slices/academicYearSlice";
 import Loader from "../../Loader";
 import SnackBar from "../../SnackBar";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
@@ -23,7 +24,9 @@ import CloseIcon from "@mui/icons-material/Close";
 import RemoveIcon from '@mui/icons-material/Remove';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import KeyboardIcon from "@mui/icons-material/Keyboard";
+import PersonAddAlt1Icon from "@mui/icons-material/PersonAddAlt1";
 import TamilKeyboard from "../../Tools/TamilKeyBoardLayout";
+import ExistingStudentVerification from "./ExistingStudentVerification";
 
 // Compact Tamil-translate icon: small "A→அ" sized to match a regular icon button.
 const TamilTranslateIcon = () => (
@@ -66,10 +69,21 @@ export default function CreateStudentInfoPage() {
     const navigate = useNavigate()
     const dispatch = useDispatch();
     const grades = useSelector(selectGrades);
+    const academicYear = useSelector(selectAcademicYear);
     const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
     const [activeStep, setActiveStep] = useState(0);
     const [count, setCount] = useState(0);
+    const [verifyMode, setVerifyMode] = useState(false); // "Check Existing Student Records" toggle
     const websiteSettings = useSelector(selectWebsiteSettings);
+
+    const handleLoadExisting = () => {
+        // TODO: prefill the form fields from the chosen record (once the search API is wired)
+        setVerifyMode(false);
+        setMessage("Existing details loaded. Continue creating the student profile.");
+        setColor(true);
+        setStatus(true);
+        setOpen(true);
+    };
     const [changesHappended, setChangesHappended] = useState(false);
     const [value, setValue] = useState("");
     const [anchorEl, setAnchorEl] = useState(null);
@@ -649,7 +663,7 @@ export default function CreateStudentInfoPage() {
                 section: selectedSection,
                 RTEStudent: rteStudent,
                 oldOrNewAdmission: isNewStudent ? "new" : "old",
-                AcademicYear: `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
+                AcademicYear: academicYear,
                 DateOfAdmission: dateOfAdmission || "",
                 JoiningClass: joiningClass || "",
                 JoiningSection: joiningSection || "",
@@ -1310,34 +1324,78 @@ export default function CreateStudentInfoPage() {
         <Box sx={{ width: "100%" }}>
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
             {isLoading && <Loader />}
-            <Box sx={{ backgroundColor: "#f2f2f2", borderRadius: "10px 10px 10px 0px", px: 2 }}>
+            <Box sx={{ backgroundColor: "#f2f2f2", borderRadius: "10px 10px 10px 0px", px: 2,   borderBottom: "1px solid #ddd", }}>
                 <Grid container sx={{ py: 1.5 }}>
-                    <Grid size={{ xs: 12, md: 6, lg: 9 }} sx={{ display: "flex", alignItems: "center" }}>
-
-                        <IconButton onClick={() => navigate(-1)} sx={{ width: "27px", height: "27px", marginTop: "3px", mr: 1 }}>
+                    <Grid size={{ xs: 12 }} sx={{ display: "flex", alignItems: "center" }}>
+                        <IconButton onClick={() => navigate(-1)} sx={{ width: 30, height: 30, mr: 1 }}>
                             <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
                         </IconButton>
-                        <Typography sx={{ fontWeight: 600, fontSize: "20px" }}>Create Student Details</Typography>
-                    </Grid>
-                    <Grid size={{ xs: 12, md: 6, lg: 3 }} sx={{ display: "flex", justifyContent: "end", alignItems: "center" }}>
-                        <Typography sx={{ color: "#7F7F7F", fontSize: "16px" }}>
-                            Academic Year: {new Date().getFullYear()}-{new Date().getFullYear() + 1}
-                        </Typography>
+                        <Box sx={{ width: 38, height: 38, borderRadius: "10px", bgcolor: `${websiteSettings.mainColor || "#E60154"}1A`, display: "flex", alignItems: "center", justifyContent: "center", mr: 1.2 }}>
+                            <PersonAddAlt1Icon sx={{ fontSize: 22, color: websiteSettings.mainColor || "#E60154" }} />
+                        </Box>
+                        <Box>
+                            <Typography sx={{ fontWeight: 700, fontSize: "20px", lineHeight: 1.1, color: "#111" }}>Create Student Details</Typography>
+                            <Typography sx={{ fontSize: "11.5px", color: "#6B7280", mt: 0.2 }}>Add a new student profile step by step</Typography>
+                        </Box>
                     </Grid>
                 </Grid>
             </Box>
 
             <Box sx={{ maxHeight: "83vh", overflowY: "auto" }}>
-                <Box sx={{ mt: 4 }}>
-                    <Stepper activeStep={activeStep} alternativeLabel>
-                        {steps.map((label, index) => (
-                            <Step key={index}>
-                                <StepLabel>{isMobile ? "" : label}</StepLabel>
-                            </Step>
-                        ))}
-                    </Stepper>
+                {/* Check Existing Student Records — toggle */}
+                <Box sx={{ px: 2, pt: 2 }}>
+                    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2, p: 2, border: "1px solid #E5E7EB", borderRadius: "12px", flexWrap: "wrap" }}>
+                        <Box>
+                            <Typography sx={{ fontSize: 15, fontWeight: 700, color: "#111827" }}>Check Existing Student Records</Typography>
+                            <Typography sx={{ fontSize: 12, color: "#6B7280", mt: 0.2 }}>
+                                Search archived student records before creating a new student profile
+                            </Typography>
+                        </Box>
+                        <Switch
+                            checked={verifyMode}
+                            onChange={(e) => setVerifyMode(e.target.checked)}
+                            sx={{
+                                "& .MuiSwitch-switchBase.Mui-checked": { color: websiteSettings.mainColor || "#E60154" },
+                                "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": { backgroundColor: websiteSettings.mainColor || "#E60154" },
+                            }}
+                        />
+                    </Box>
                 </Box>
-                <Box sx={{ p: 2 }}>
+
+                {/* Verification view — shown only when the toggle is ON */}
+                {verifyMode && (
+                    <ExistingStudentVerification
+                        mainColor={websiteSettings.mainColor || "#E60154"}
+                        defaultAcademicYear={academicYear}
+                        onLoadExisting={handleLoadExisting}
+                    />
+                )}
+
+                <Box sx={{ px: 2, pt: 2, display: verifyMode ? "none" : "block" }}>
+                    <Box sx={{ p: 2, borderRadius: "14px", border: "1px solid #E5E7EB", bgcolor: "#fff" }}>
+                        <Stepper
+                            activeStep={activeStep}
+                            alternativeLabel
+                            sx={{
+                                "& .MuiStepConnector-line": { borderColor: "#E5E7EB" },
+                                "& .MuiStepLabel-label": { fontSize: "12.5px", fontWeight: 600, color: "#9CA3AF", mt: 0.6 },
+                                "& .MuiStepLabel-label.Mui-active": { color: "#111827", fontWeight: 700 },
+                                "& .MuiStepLabel-label.Mui-completed": { color: "#374151", fontWeight: 600 },
+                                "& .MuiStepIcon-root": { color: "#E5E7EB" },
+                                "& .MuiStepIcon-root.Mui-active": { color: websiteSettings.mainColor || "#E60154" },
+                                "& .MuiStepIcon-root.Mui-completed": { color: websiteSettings.mainColor || "#E60154" },
+                                "& .MuiStepIcon-text": { fill: "#fff", fontWeight: 700 },
+                            }}
+                        >
+                            {steps.map((label, index) => (
+                                <Step key={index}>
+                                    <StepLabel>{isMobile ? "" : label}</StepLabel>
+                                </Step>
+                            ))}
+                        </Stepper>
+                    </Box>
+                </Box>
+                <Box sx={{ p: 2, display: verifyMode ? "none" : "block" }}>
                     <Box pt={1}>
                         <Accordion sx={{ boxShadow: "none" }} defaultExpanded>
                             <AccordionSummary

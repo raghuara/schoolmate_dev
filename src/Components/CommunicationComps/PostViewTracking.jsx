@@ -9,7 +9,6 @@ import CloseIcon from '@mui/icons-material/Close';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import VisibilityOffOutlinedIcon from '@mui/icons-material/VisibilityOffOutlined';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import NewspaperIcon from '@mui/icons-material/Newspaper';
 import MessageIcon from '@mui/icons-material/Message';
 import StickyNote2Icon from '@mui/icons-material/StickyNote2';
@@ -19,92 +18,118 @@ import AssignmentIcon from '@mui/icons-material/Assignment';
 import PeopleAltOutlinedIcon from '@mui/icons-material/PeopleAltOutlined';
 import { useSelector } from 'react-redux';
 import axios from 'axios';
-import { selectGrades } from '../../Redux/Slices/DropdownController';
-import { getUsersByUserType } from '../../Api/Api';
+import { selectAcademicYear } from '../../Redux/Slices/academicYearSlice';
+import { viewTracking, viewTrackingStatus } from '../../Api/Api';
 
 const TOKEN = '123';
 const PRIMARY = '#059669';
 const BORDER = '#EDEFF2';
+const authHeaders = { Authorization: `Bearer ${TOKEN}` };
 
-// Tabs — each module whose "viewed / not viewed" we want to track per student.
+// Tabs — `module` is the value sent to the API's Module param.
 const TRACK_TABS = [
-    { key: 'news', label: 'News', icon: NewspaperIcon, color: '#2563EB' },
-    { key: 'messages', label: 'Messages', icon: MessageIcon, color: '#059669' },
-    { key: 'circulars', label: 'Circulars', icon: StickyNote2Icon, color: '#D97706' },
-    { key: 'homework', label: 'Homework', icon: AssignmentIcon, color: '#DB2777' },
-    { key: 'studymaterials', label: 'Study Materials', icon: LibraryBooksIcon, color: '#0891B2' },
-    { key: 'marks', label: 'Marks', icon: GradingIcon, color: '#7C3AED' },
+    { key: 'news', label: 'News', module: 'News', icon: NewspaperIcon, color: '#2563EB' },
+    { key: 'messages', label: 'Messages', module: 'Messages', icon: MessageIcon, color: '#059669' },
+    { key: 'circulars', label: 'Circulars', module: 'Circulars', icon: StickyNote2Icon, color: '#D97706' },
+    { key: 'homework', label: 'Homework', module: 'Homework', icon: AssignmentIcon, color: '#DB2777' },
+    { key: 'studymaterials', label: 'Study Materials', module: 'StudyMaterials', icon: LibraryBooksIcon, color: '#0891B2' },
+    { key: 'marks', label: 'Marks', module: 'Marks', icon: GradingIcon, color: '#7C3AED' },
 ];
-
-// NOTE: Placeholder post lists per tab. Swap these for the real list APIs
-// (e.g. NewsFetch / MessageFetch / CircularFetch ...) when available — keep the
-// same shape: { id, title, createdOn, audience, sentTo, viewed }.
-const MOCK_POSTS = {
-    news: [
-        { id: 'n1', title: 'Annual Sports Day Announcement', createdOn: '12 Aug 2024', audience: 'All Students', sentTo: 420, viewed: 312 },
-        { id: 'n2', title: 'Holiday Notice – Independence Day', createdOn: '10 Aug 2024', audience: 'All Students', sentTo: 420, viewed: 198 },
-        { id: 'n3', title: 'Parent-Teacher Meeting Schedule', createdOn: '05 Aug 2024', audience: 'All Students', sentTo: 420, viewed: 405 },
-    ],
-    messages: [
-        { id: 'm1', title: 'Fee Reminder for August', createdOn: '11 Aug 2024', audience: 'All Students', sentTo: 380, viewed: 260 },
-        { id: 'm2', title: 'Bus Route Change Notice', createdOn: '08 Aug 2024', audience: 'Grade VI–VIII', sentTo: 120, viewed: 96 },
-    ],
-    circulars: [
-        { id: 'c1', title: 'Uniform Policy Update', createdOn: '09 Aug 2024', audience: 'All Students', sentTo: 420, viewed: 150 },
-        { id: 'c2', title: 'Exam Guidelines Circular', createdOn: '03 Aug 2024', audience: 'All Students', sentTo: 250, viewed: 240 },
-    ],
-    homework: [
-        { id: 'h1', title: 'Maths – Algebra Worksheet', createdOn: '12 Aug 2024', audience: 'Grade VIII · A', sentTo: 42, viewed: 30 },
-        { id: 'h2', title: 'English – Essay Submission', createdOn: '09 Aug 2024', audience: 'Grade IX · B', sentTo: 38, viewed: 35 },
-    ],
-    studymaterials: [
-        { id: 's1', title: 'Maths – Chapter 5 Notes', createdOn: '10 Aug 2024', audience: 'All Students', sentTo: 420, viewed: 210 },
-        { id: 's2', title: 'Science Lab Manual', createdOn: '06 Aug 2024', audience: 'All Students', sentTo: 420, viewed: 118 },
-    ],
-    marks: [
-        { id: 'k1', title: 'Unit Test 1 Results', createdOn: '12 Aug 2024', audience: 'All Students', sentTo: 420, viewed: 390 },
-        { id: 'k2', title: 'Mid-Term Marks Published', createdOn: '02 Aug 2024', audience: 'All Students', sentTo: 420, viewed: 360 },
-    ],
-};
 
 const AVATAR_PALETTE = ['#0E7490', '#6D28D9', '#C2410C', '#047857', '#1D4ED8', '#BE185D', '#A16207', '#0F766E'];
 const avatarColorFor = (name = '') => AVATAR_PALETTE[((name.charCodeAt(0) || 0) + (name.charCodeAt(1) || 0)) % AVATAR_PALETTE.length];
 const getInitials = (name = '') => name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
 
 export default function PostViewTracking() {
-    const grades = useSelector(selectGrades) || [];
+    const academicYear = useSelector(selectAcademicYear);
 
     const [activeTab, setActiveTab] = useState('news');
-    const [selectedPost, setSelectedPost] = useState(null); // null → list view; object → tracking detail
-    const [postSearch, setPostSearch] = useState('');
-
-    // Detail-view filters
-    const [classSign, setClassSign] = useState('');
-    const [sections, setSections] = useState([]); // multi-select
-    const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'viewed' | 'notviewed'
-    const [search, setSearch] = useState('');
-
-    // Master student list (getUsersByUserType?userType=student) — grouped by grade, fetched once
-    const [studentGroups, setStudentGroups] = useState([]);
-    const [loading, setLoading] = useState(true);
-
-    // NOTE: the "viewed" data API is not wired yet. Once it returns the roll numbers
-    // who viewed the selected post, drop them in here ({ rollNumber: ISOdateTime }).
-    const [viewedMap] = useState({});
-
     const tab = TRACK_TABS.find(t => t.key === activeTab) || TRACK_TABS[0];
 
-    // Reset to the list whenever the tab changes
+    // ── List view (viewTracking) ─────────────────────────────────────────────
+    const [posts, setPosts] = useState([]);
+    const [postsLoading, setPostsLoading] = useState(false);
+    const [postSearch, setPostSearch] = useState('');
+
+    // ── Detail view (viewTrackingStatus) ─────────────────────────────────────
+    const [selectedPost, setSelectedPost] = useState(null);
+    const [detail, setDetail] = useState(null);
+    const [detailLoading, setDetailLoading] = useState(false);
+    const [grade, setGrade] = useState('');          // '' = all classes
+    const [sections, setSections] = useState([]);     // multi-select (only when a grade is chosen)
+    const [status, setStatus] = useState('All');      // 'All' | 'Viewed' | 'NotViewed'
+    const [search, setSearch] = useState('');
+
     const handleTabChange = (_, v) => {
         setActiveTab(v);
         setSelectedPost(null);
+        setDetail(null);
         setPostSearch('');
     };
 
+    // ── Fetch the post list whenever the module/academic year changes ─────────
+    useEffect(() => {
+        if (!academicYear) { setPosts([]); return undefined; }
+        let cancelled = false;
+        setPostsLoading(true);
+        axios.get(viewTracking, { params: { Module: tab.module, AcademicYear: academicYear }, headers: authHeaders })
+            .then((res) => {
+                if (cancelled) return;
+                const d = res?.data || {};
+                setPosts(!d.error && Array.isArray(d.data) ? d.data : []);
+            })
+            .catch(() => { if (!cancelled) setPosts([]); })
+            .finally(() => { if (!cancelled) setPostsLoading(false); });
+        return () => { cancelled = true; };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTab, academicYear]);
+
+    // ── Fetch the per-student status whenever the detail filters change ───────
+    useEffect(() => {
+        if (!selectedPost || !academicYear) return undefined;
+        let cancelled = false;
+        setDetailLoading(true);
+        const params = {
+            Module: tab.module,
+            ViewStatusId: selectedPost.viewStatusId,
+            AcademicYear: academicYear,
+            status: 'All', // fetch everyone once; Viewed / Not Viewed is filtered on the UI
+        };
+        if (grade) params.grade = grade;
+        if (grade && sections.length) params.sections = sections.join(',');
+        axios.get(viewTrackingStatus, { params, headers: authHeaders })
+            .then((res) => {
+                if (cancelled) return;
+                setDetail(res?.data?.error ? null : (res?.data || null));
+            })
+            .catch(() => { if (!cancelled) setDetail(null); })
+            .finally(() => { if (!cancelled) setDetailLoading(false); });
+        return () => { cancelled = true; };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedPost, grade, sections, academicYear]);
+
+    const openPost = (post) => {
+        setSelectedPost(post);
+        setDetail(null);
+        // Default to the first class this post was sent to, with all its sections selected
+        const firstGrade = post.audience?.[0];
+        setGrade(firstGrade?.grade || '');
+        setSections(firstGrade?.sections || []);
+        setStatus('All');
+        setSearch('');
+    };
+    const backToList = () => { setSelectedPost(null); setDetail(null); };
+
+    // Grade / section options come from the post's audience (or the detail response)
+    const audienceList = useMemo(
+        () => detail?.availableAudience || selectedPost?.audience || [],
+        [detail, selectedPost],
+    );
+    const gradeOptions = audienceList.map(a => a.grade);
     const sectionOptions = useMemo(() => {
-        const g = grades.find(gr => gr.sign === classSign);
-        return g?.sections || [];
-    }, [grades, classSign]);
+        const a = audienceList.find(x => x.grade === grade);
+        return a?.sections || [];
+    }, [audienceList, grade]);
 
     const allSectionsSelected = sectionOptions.length > 0 && sections.length === sectionOptions.length;
     const handleSectionChange = (e) => {
@@ -116,85 +141,28 @@ export default function PostViewTracking() {
         setSections(value);
     };
 
-    useEffect(() => {
-        let cancelled = false;
-        (async () => {
-            try {
-                const res = await axios.get(getUsersByUserType, {
-                    params: { userType: 'student' },
-                    headers: { Authorization: `Bearer ${TOKEN}` },
-                });
-                if (cancelled) return;
-                const data = res?.data || {};
-                setStudentGroups(Array.isArray(data.data) ? data.data : []);
-            } catch (err) {
-                if (!cancelled) setStudentGroups([]);
-            } finally {
-                if (!cancelled) setLoading(false);
-            }
-        })();
-        return () => { cancelled = true; };
-    }, []);
-
-    // ── Post list (filtered by title search) ─────────────────────────────────
     const postList = useMemo(() => {
-        const list = MOCK_POSTS[activeTab] || [];
         const q = postSearch.trim().toLowerCase();
-        return q ? list.filter(p => p.title.toLowerCase().includes(q)) : list;
-    }, [activeTab, postSearch]);
+        return q ? posts.filter(p => (p.title || '').toLowerCase().includes(q)) : posts;
+    }, [posts, postSearch]);
 
-    // All students for the class+sections (before the status filter) — used for the counts
-    const classRows = useMemo(() => {
-        if (!classSign) return [];
-        const group = studentGroups.find(g => String(g.grade || '').toLowerCase() === String(classSign).toLowerCase());
-        const secSet = new Set(sections.map(String));
-        return (group?.users || [])
-            .filter(u => sections.length === 0 || secSet.has(String(u.section)))
-            .map(u => {
-                const viewedAt = viewedMap[u.rollNumber] || null;
-                return {
-                    rollNumber: String(u.rollNumber),
-                    name: u.name || '—',
-                    grade: u.grade || classSign,
-                    section: u.section || '',
-                    viewed: Boolean(viewedAt),
-                    viewedAt,
-                };
-            });
-    }, [studentGroups, classSign, sections, viewedMap]);
+    // Counts come from the full fetched list so the chip totals stay stable across filters
+    const fSent = detail?.data?.length ?? 0;
+    const fViewed = useMemo(() => (detail?.data || []).filter(r => r.isViewed).length, [detail]);
+    const fNotViewed = fSent - fViewed;
 
-    const viewedCount = classRows.filter(r => r.viewed).length;
-    const notViewedCount = classRows.length - viewedCount;
-
-    // ── Student rows for the selected post (status + search applied) ──────────
     const rows = useMemo(() => {
+        const list = detail?.data || [];
+        const byStatus = status === 'All'
+            ? list
+            : status === 'Viewed'
+                ? list.filter(r => r.isViewed)
+                : list.filter(r => !r.isViewed);
         const q = search.trim().toLowerCase();
-        return classRows
-            .filter(r => statusFilter === 'all' ? true : statusFilter === 'viewed' ? r.viewed : !r.viewed)
-            .filter(r => !q || r.name.toLowerCase().includes(q) || r.rollNumber.toLowerCase().includes(q));
-    }, [classRows, statusFilter, search]);
-
-    // Default the detail filters to the first class + all its sections (school-agnostic)
-    const applyDefaultClass = () => {
-        if (grades.length > 0) {
-            setClassSign(grades[0].sign);
-            setSections(grades[0].sections || []);
-        }
-    };
-
-    const openPost = (post) => {
-        setSelectedPost(post);
-        setSearch('');
-        setStatusFilter('all');
-        applyDefaultClass();
-    };
-    const backToList = () => setSelectedPost(null);
-
-    // If grades load after the detail view is already open, default the class then
-    useEffect(() => {
-        if (selectedPost && grades.length > 0 && !classSign) applyDefaultClass();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedPost, grades, classSign]);
+        return q
+            ? byStatus.filter(r => (r.studentName || '').toLowerCase().includes(q) || String(r.rollNumber || '').toLowerCase().includes(q))
+            : byStatus;
+    }, [detail, status, search]);
 
     return (
         <Box>
@@ -218,8 +186,14 @@ export default function PostViewTracking() {
                 </Tabs>
             </Box>
 
+            {!academicYear && (
+                <Box sx={{ p: 4, textAlign: 'center', borderRadius: '12px', border: '1px dashed #E5E7EB', bgcolor: '#FAFAFA' }}>
+                    <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#6B7280' }}>Select an academic year in the dashboard header to view tracking.</Typography>
+                </Box>
+            )}
+
             {/* ════════════ POST LIST VIEW ════════════ */}
-            {!selectedPost && (
+            {academicYear && !selectedPost && (
                 <Box sx={{ border: `1px solid ${BORDER}`, borderRadius: '14px', bgcolor: '#fff', overflow: 'hidden' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, flexWrap: 'wrap', px: 2, py: 1.6, bgcolor: '#FAFBFC', borderBottom: `1px solid ${BORDER}` }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -262,16 +236,20 @@ export default function PostViewTracking() {
                                 </TableRow>
                             </TableHead>
                             <TableBody>
-                                {postList.length === 0 ? (
+                                {postsLoading ? (
+                                    <TableRow>
+                                        <TableCell colSpan={8} align="center" sx={{ py: 7, borderBottom: 'none' }}><CircularProgress size={26} sx={{ color: PRIMARY }} /></TableCell>
+                                    </TableRow>
+                                ) : postList.length === 0 ? (
                                     <TableRow>
                                         <TableCell colSpan={8} align="center" sx={{ py: 7, borderBottom: 'none' }}>
                                             <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#9CA3AF' }}>No {tab.label.toLowerCase()} found</Typography>
                                         </TableCell>
                                     </TableRow>
                                 ) : postList.map((p, idx) => (
-                                    <TableRow key={p.id} sx={{ '&:hover': { bgcolor: '#FAFBFC' } }}>
+                                    <TableRow key={p.viewStatusId ?? idx} sx={{ '&:hover': { bgcolor: '#FAFBFC' } }}>
                                         <TableCell sx={{ borderBottom: '1px solid #F3F4F6', width: 44 }}>
-                                            <Typography sx={{ fontSize: 12, color: '#9CA3AF', fontWeight: 500 }}>{idx + 1}</Typography>
+                                            <Typography sx={{ fontSize: 12, color: '#9CA3AF', fontWeight: 500 }}>{p.serialNo ?? idx + 1}</Typography>
                                         </TableCell>
                                         <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
                                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -282,7 +260,7 @@ export default function PostViewTracking() {
                                             </Box>
                                         </TableCell>
                                         <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
-                                            <Chip size="small" label={p.audience} sx={{ height: 22, fontSize: 11, fontWeight: 600, bgcolor: '#F3F4F6', color: '#374151' }} />
+                                            <Chip size="small" label={p.audienceLabel || '—'} sx={{ height: 22, fontSize: 11, fontWeight: 600, bgcolor: '#F3F4F6', color: '#374151' }} />
                                         </TableCell>
                                         <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
                                             <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
@@ -294,10 +272,10 @@ export default function PostViewTracking() {
                                             <Chip size="small" icon={<VisibilityOutlinedIcon sx={{ fontSize: '14px !important' }} />} label={p.viewed ?? 0} sx={{ height: 22, fontSize: 11.5, fontWeight: 700, bgcolor: '#ECFDF5', color: '#047857', '& .MuiChip-icon': { color: '#047857' } }} />
                                         </TableCell>
                                         <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
-                                            <Chip size="small" icon={<VisibilityOffOutlinedIcon sx={{ fontSize: '14px !important' }} />} label={Math.max(0, (p.sentTo ?? 0) - (p.viewed ?? 0))} sx={{ height: 22, fontSize: 11.5, fontWeight: 700, bgcolor: '#FFF7ED', color: '#C2410C', '& .MuiChip-icon': { color: '#C2410C' } }} />
+                                            <Chip size="small" icon={<VisibilityOffOutlinedIcon sx={{ fontSize: '14px !important' }} />} label={p.notViewed ?? Math.max(0, (p.sentTo ?? 0) - (p.viewed ?? 0))} sx={{ height: 22, fontSize: 11.5, fontWeight: 700, bgcolor: '#FFF7ED', color: '#C2410C', '& .MuiChip-icon': { color: '#C2410C' } }} />
                                         </TableCell>
                                         <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
-                                            <Typography sx={{ fontSize: 12, color: '#6B7280', whiteSpace: 'nowrap' }}>{p.createdOn}</Typography>
+                                            <Typography sx={{ fontSize: 12, color: '#6B7280', whiteSpace: 'nowrap' }}>{p.published || '—'}</Typography>
                                         </TableCell>
                                         <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
                                             <Button
@@ -324,7 +302,7 @@ export default function PostViewTracking() {
             )}
 
             {/* ════════════ TRACKING DETAIL VIEW ════════════ */}
-            {selectedPost && (
+            {academicYear && selectedPost && (
                 <Box>
                     {/* Back + post title */}
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.6, flexWrap: 'wrap' }}>
@@ -337,23 +315,23 @@ export default function PostViewTracking() {
                             {tab.label}
                         </Button>
                         <Typography sx={{ fontSize: 12, color: '#9CA3AF' }}>/</Typography>
-                        <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#101828' }}>{selectedPost.title}</Typography>
+                        <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#101828' }}>{detail?.title || selectedPost.title}</Typography>
                     </Box>
 
                     {/* Class + Section(s) filters */}
                     <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1.2, flexWrap: 'wrap', mb: 2 }}>
                         <Box>
                             <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.4, mb: 0.4 }}>Class</Typography>
-                            <FormControl size="small" sx={{ width: 130 }}>
+                            <FormControl size="small" sx={{ width: 150 }}>
                                 <Select
-                                    value={classSign}
+                                    value={grade}
                                     displayEmpty
-                                    onChange={(e) => { const v = e.target.value; setClassSign(v); const g = grades.find(x => x.sign === v); setSections(g?.sections || []); }}
-                                    renderValue={(v) => (v ? v : 'Select class')}
+                                    onChange={(e) => { const v = e.target.value; setGrade(v); const a = audienceList.find(x => x.grade === v); setSections(a?.sections || []); }}
+                                    renderValue={(v) => (v || 'Select class')}
                                     sx={{ borderRadius: '8px', height: 38, fontSize: 13, fontWeight: 600, textTransform: 'uppercase' }}
                                 >
-                                    {grades.map(g => (
-                                        <MenuItem key={g.sign} value={g.sign} sx={{ fontSize: 13, textTransform: 'uppercase', fontWeight: 600 }}>{g.sign}</MenuItem>
+                                    {gradeOptions.map(g => (
+                                        <MenuItem key={g} value={g} sx={{ fontSize: 13, textTransform: 'uppercase', fontWeight: 600 }}>{g}</MenuItem>
                                     ))}
                                 </Select>
                             </FormControl>
@@ -366,7 +344,7 @@ export default function PostViewTracking() {
                                     displayEmpty
                                     value={sections}
                                     onChange={handleSectionChange}
-                                    disabled={!classSign}
+                                    disabled={!grade}
                                     renderValue={(selected) => (
                                         selected.length === 0
                                             ? <Typography sx={{ fontSize: 13, color: '#9CA3AF' }}>All sections</Typography>
@@ -407,25 +385,25 @@ export default function PostViewTracking() {
                                         {tab.label} View Tracking
                                     </Typography>
                                     <Typography sx={{ fontSize: 11.5, color: '#6B7280' }}>
-                                        {classRows.length > 0 ? `${viewedCount} of ${classRows.length} students viewed` : 'Pick a class to load students'}
+                                        {fViewed} of {fSent} students viewed
                                     </Typography>
                                 </Box>
                             </Box>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                                {/* Status filter — Viewed / Not Viewed */}
+                                {/* Status filter — All / Viewed / Not Viewed (maps to API status param) */}
                                 <Box sx={{ display: 'flex', gap: 0.5 }}>
                                     {[
-                                        { key: 'all', label: `All (${classRows.length})`, color: '#374151' },
-                                        { key: 'viewed', label: `Viewed (${viewedCount})`, color: '#047857' },
-                                        { key: 'notviewed', label: `Not Viewed (${notViewedCount})`, color: '#C2410C' },
+                                        { key: 'All', label: `All (${fSent})`, color: '#374151' },
+                                        { key: 'Viewed', label: `Viewed (${fViewed})`, color: '#047857' },
+                                        { key: 'NotViewed', label: `Not Viewed (${fNotViewed})`, color: '#C2410C' },
                                     ].map((f) => {
-                                        const active = statusFilter === f.key;
+                                        const active = status === f.key;
                                         return (
                                             <Chip
                                                 key={f.key}
                                                 label={f.label}
                                                 size="small"
-                                                onClick={() => setStatusFilter(f.key)}
+                                                onClick={() => setStatus(f.key)}
                                                 sx={{
                                                     height: 28, fontSize: 11.5, fontWeight: 700, borderRadius: '8px', cursor: 'pointer',
                                                     bgcolor: active ? f.color : '#fff',
@@ -442,17 +420,17 @@ export default function PostViewTracking() {
                                     placeholder="Search name or roll no..."
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
-                                slotProps={{
-                                    input: {
-                                        startAdornment: (<InputAdornment position="start"><SearchIcon sx={{ fontSize: 16, color: '#9CA3AF' }} /></InputAdornment>),
-                                        endAdornment: search ? (
-                                            <InputAdornment position="end">
-                                                <IconButton size="small" onClick={() => setSearch('')} sx={{ p: 0.3 }}><CloseIcon sx={{ fontSize: 14, color: '#9CA3AF' }} /></IconButton>
-                                            </InputAdornment>
-                                        ) : null,
-                                    },
-                                }}
-                                sx={{ width: { xs: '100%', sm: 280 }, '& .MuiOutlinedInput-root': { height: 34, fontSize: 12.5, borderRadius: 999, bgcolor: '#fff', '& fieldset': { borderColor: '#D1D5DB' } } }}
+                                    slotProps={{
+                                        input: {
+                                            startAdornment: (<InputAdornment position="start"><SearchIcon sx={{ fontSize: 16, color: '#9CA3AF' }} /></InputAdornment>),
+                                            endAdornment: search ? (
+                                                <InputAdornment position="end">
+                                                    <IconButton size="small" onClick={() => setSearch('')} sx={{ p: 0.3 }}><CloseIcon sx={{ fontSize: 14, color: '#9CA3AF' }} /></IconButton>
+                                                </InputAdornment>
+                                            ) : null,
+                                        },
+                                    }}
+                                    sx={{ width: { xs: '100%', sm: 280 }, '& .MuiOutlinedInput-root': { height: 34, fontSize: 12.5, borderRadius: 999, bgcolor: '#fff', '& fieldset': { borderColor: '#D1D5DB' } } }}
                                 />
                             </Box>
                         </Box>
@@ -469,60 +447,53 @@ export default function PostViewTracking() {
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
-                                    {loading ? (
+                                    {detailLoading ? (
                                         <TableRow>
                                             <TableCell colSpan={6} align="center" sx={{ py: 6, borderBottom: 'none' }}><CircularProgress size={28} sx={{ color: PRIMARY }} /></TableCell>
-                                        </TableRow>
-                                    ) : !classSign ? (
-                                        <TableRow>
-                                            <TableCell colSpan={6} align="center" sx={{ py: 7, borderBottom: 'none' }}>
-                                                <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#9CA3AF' }}>Select a class to view students</Typography>
-                                                <Typography sx={{ fontSize: 11.5, color: '#9CA3AF', mt: 0.5 }}>Optionally narrow down by one or more sections.</Typography>
-                                            </TableCell>
                                         </TableRow>
                                     ) : rows.length === 0 ? (
                                         <TableRow>
                                             <TableCell colSpan={6} align="center" sx={{ py: 7, borderBottom: 'none' }}>
                                                 <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#9CA3AF' }}>No students found</Typography>
-                                                <Typography sx={{ fontSize: 11.5, color: '#9CA3AF', mt: 0.5 }}>Try a different class, section, or search.</Typography>
+                                                <Typography sx={{ fontSize: 11.5, color: '#9CA3AF', mt: 0.5 }}>Try a different class, section, status, or search.</Typography>
                                             </TableCell>
                                         </TableRow>
                                     ) : rows.map((r, idx) => {
-                                        const avColor = avatarColorFor(r.name);
+                                        const avColor = avatarColorFor(r.studentName);
                                         return (
-                                            <TableRow key={r.rollNumber} sx={{ '&:hover': { bgcolor: '#FAFBFC' } }}>
+                                            <TableRow key={r.rollNumber ?? idx} sx={{ '&:hover': { bgcolor: '#FAFBFC' } }}>
                                                 <TableCell sx={{ borderBottom: '1px solid #F3F4F6', width: 44 }}>
-                                                    <Typography sx={{ fontSize: 12, color: '#9CA3AF', fontWeight: 500 }}>{idx + 1}</Typography>
+                                                    <Typography sx={{ fontSize: 12, color: '#9CA3AF', fontWeight: 500 }}>{r.serialNo ?? idx + 1}</Typography>
                                                 </TableCell>
                                                 <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
                                                     <Typography sx={{ fontSize: 12.5, color: '#111827', fontWeight: 600, fontFamily: 'monospace' }}>{r.rollNumber}</Typography>
                                                 </TableCell>
                                                 <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
                                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                        <Avatar sx={{ width: 30, height: 30, bgcolor: `${avColor}15`, color: avColor, fontSize: 11, fontWeight: 700 }}>{getInitials(r.name)}</Avatar>
-                                                        <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>{r.name}</Typography>
+                                                        <Avatar sx={{ width: 30, height: 30, bgcolor: `${avColor}15`, color: avColor, fontSize: 11, fontWeight: 700 }}>{r.initials || getInitials(r.studentName)}</Avatar>
+                                                        <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>{r.studentName}</Typography>
                                                     </Box>
                                                 </TableCell>
                                                 <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
-                                                    <Chip size="small" label={`${r.grade} · ${r.section}`} sx={{ height: 22, fontSize: 11, fontWeight: 600, bgcolor: '#F3F4F6', color: '#374151' }} />
+                                                    <Chip size="small" label={r.classSection || `${r.grade} - ${r.section}`} sx={{ height: 22, fontSize: 11, fontWeight: 600, bgcolor: '#F3F4F6', color: '#374151' }} />
                                                 </TableCell>
                                                 <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
                                                     <Box sx={{
                                                         display: 'inline-flex', alignItems: 'center', gap: 0.5,
                                                         px: 1, py: 0.4, borderRadius: '999px',
-                                                        bgcolor: r.viewed ? '#ECFDF5' : '#FFF7ED',
-                                                        border: `1px solid ${r.viewed ? '#A7F3D0' : '#FED7AA'}`,
+                                                        bgcolor: r.isViewed ? '#ECFDF5' : '#FFF7ED',
+                                                        border: `1px solid ${r.isViewed ? '#A7F3D0' : '#FED7AA'}`,
                                                     }}>
-                                                        {r.viewed
+                                                        {r.isViewed
                                                             ? <VisibilityOutlinedIcon sx={{ fontSize: 14, color: '#047857' }} />
                                                             : <VisibilityOffOutlinedIcon sx={{ fontSize: 14, color: '#C2410C' }} />}
-                                                        <Typography sx={{ fontSize: 11, fontWeight: 700, color: r.viewed ? '#047857' : '#C2410C' }}>
-                                                            {r.viewed ? 'Viewed' : 'Not Viewed'}
+                                                        <Typography sx={{ fontSize: 11, fontWeight: 700, color: r.isViewed ? '#047857' : '#C2410C' }}>
+                                                            {r.acknowledgement || (r.isViewed ? 'Viewed' : 'Not Viewed')}
                                                         </Typography>
                                                     </Box>
                                                 </TableCell>
                                                 <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
-                                                    <Typography sx={{ fontSize: 12, color: '#6B7280' }}>{r.viewedAt || '--'}</Typography>
+                                                    <Typography sx={{ fontSize: 12, color: '#6B7280' }}>{r.viewedTimeText || '-'}</Typography>
                                                 </TableCell>
                                             </TableRow>
                                         );
@@ -530,13 +501,6 @@ export default function PostViewTracking() {
                                 </TableBody>
                             </Table>
                         </TableContainer>
-
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, px: 2, py: 1.2, bgcolor: '#FFFBEB', borderTop: `1px solid ${BORDER}` }}>
-                            <InfoOutlinedIcon sx={{ fontSize: 16, color: '#D97706' }} />
-                            <Typography sx={{ fontSize: 11.5, color: '#92400E', fontWeight: 600 }}>
-                                View tracking will appear here once the student mobile app records "post viewed" events.
-                            </Typography>
-                        </Box>
                     </Box>
                 </Box>
             )}
