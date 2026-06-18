@@ -3,7 +3,7 @@ import {
     Box, Typography, Button, Grid, IconButton, Divider,
     TextField, Switch, Autocomplete, Tooltip,
     Dialog, CircularProgress, Chip,
-    FormControl, InputLabel, Select, MenuItem, InputAdornment,
+    FormControl, InputLabel, Select, MenuItem,
     Tabs, Tab,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -27,6 +27,7 @@ import { useSelector } from 'react-redux';
 import axios from 'axios';
 import SnackBar from '../../SnackBar';
 import { selectWebsiteSettings } from '../../../Redux/Slices/websiteSettingsSlice';
+import { selectAcademicYear } from '../../../Redux/Slices/academicYearSlice';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
@@ -231,10 +232,9 @@ const INITIAL_CONFIG = {
     punctualityBonusAmount: '',
     lateArrivalThresholdMinutes: 15,
     emergencyLatesPerMonth: 1,
+    informedLeavesAllowed: 1,
     latePenaltyAmount: '',
     uninformedLeaveDisqualifies: true,
-    informedLeaveLateBalanceEnabled: false,
-    informedLeaveLateRatio: '1:1',
 
     // Leave Deduction
     deductionAppliesToPaidLeave: true,
@@ -272,19 +272,8 @@ const INITIAL_CONFIG = {
     defaultWorkingDays: [1, 2, 3, 4, 5, 6],
 };
 
-// ── Academic year helpers (India: Apr–Mar) ─────────────────────────────────
-// Returns current academic year + the past 2 (3 options total). No future years.
-const buildAcademicYears = () => {
-    const today = new Date();
-    const startYear = today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1;
-    return [-2, -1, 0]
-        .map((i) => {
-            const y = startYear + i;
-            return `${y}-${y + 1}`;
-        })
-        .reverse(); // newest first
-};
-
+// ── Academic year helper (India: Apr–Mar) ──────────────────────────────────
+// Fallback only — the active academic year comes from the dashboard (Redux).
 const getCurrentAcademicYear = () => {
     const today = new Date();
     const start = today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1;
@@ -484,9 +473,11 @@ export default function LeaveMasterScreen() {
     const [isSavingMaster, setIsSavingMaster] = useState(false);
     const [isLoadingMaster, setIsLoadingMaster] = useState(false);
 
-    // ── Academic Year filter (header-level scope) ───────────────────────────
-    const academicYears = useMemo(() => buildAcademicYears(), []);
-    const [academicYear, setAcademicYear] = useState(getCurrentAcademicYear);
+    // ── Academic Year scope ─────────────────────────────────────────────────
+    // Driven by the dashboard header's academic year (Redux). Falls back to the
+    // current academic year before the config has loaded. All policy / calendar
+    // API calls below are scoped to this value.
+    const academicYear = useSelector(selectAcademicYear) || getCurrentAcademicYear();
 
     // ── Header tabs (split content into 3 logical groups, each with its own save flow) ──
     // 0 → "Policy Setup":     sections that share one POST (handleSave)
@@ -566,14 +557,7 @@ export default function LeaveMasterScreen() {
     // we're inside the cycle-start month's first 20 days, and the current year has no policy yet.
     const [renewDialog, setRenewDialog] = useState({ open: false, prevPolicy: null, prevAY: null });
     const closeRenewDialog = () => setRenewDialog({ open: false, prevPolicy: null, prevAY: null });
-    const endMonth = computeEndMonth(startMonth);
-    const [acadStartYearStr, acadEndYearStr] = academicYear.split('-');
-    const acadStartYear = parseInt(acadStartYearStr, 10);
-    const acadEndYear = parseInt(acadEndYearStr, 10);
-    // If the cycle wraps past December, end month is in the next calendar year.
-    const cycleStartYear = acadStartYear;
-    const cycleEndYear = endMonth < startMonth ? acadEndYear : acadStartYear;
-    const cycleLabel = `${MONTH_NAMES_SHORT[startMonth - 1]} ${cycleStartYear} → ${MONTH_NAMES_SHORT[endMonth - 1]} ${cycleEndYear}`;
+    const endMonth = computeEndMonth(startMonth); // still sent in the save payload (defaults to the academic-year cycle)
 
     // ── Working Calendar State ─────────────────────────────────────────────
     const [calendarMonth, setCalendarMonth] = useState(dayjs());
@@ -917,8 +901,7 @@ export default function LeaveMasterScreen() {
         if (!d) return;
         setHasExistingPolicy(true);
 
-        // Academic year (header filter scope)
-        if (d.academicYear) setAcademicYear(d.academicYear);
+        // Academic year scope is driven by the dashboard header (Redux) — not overridden here.
 
         // Applicability period — new shape: { startMonth, endMonth, autoRenew, cycleLabel }
         const sm = Number(d.policyApplicabilityPeriod?.startMonth);
@@ -944,10 +927,9 @@ export default function LeaveMasterScreen() {
             punctualityBonusAmount: d.punctuality?.bonusAmount != null ? String(d.punctuality.bonusAmount) : '',
             lateArrivalThresholdMinutes: Number(d.punctuality?.lateThresholdMinutes) || 15,
             emergencyLatesPerMonth: Number(d.punctuality?.emergencyLatesAllowed) || 1,
+            informedLeavesAllowed: Number(d.punctuality?.informedLeavesAllowed) || 0,
             latePenaltyAmount: d.punctuality?.latePenaltyAmount != null ? String(d.punctuality.latePenaltyAmount) : '',
             uninformedLeaveDisqualifies: !!d.punctuality?.uninformedLeaveDisqualifies,
-            informedLeaveLateBalanceEnabled: !!d.punctuality?.informedLeavePlusLateBalance,
-            informedLeaveLateRatio: d.punctuality?.balanceRatio || '1:1',
 
             // Leave Salary Deduction
             deductionAppliesToPaidLeave: !!d.leaveSalaryDeduction?.appliesToPaidLeave,
@@ -1181,7 +1163,8 @@ export default function LeaveMasterScreen() {
             shiftName: (s.shiftName || `Shift ${i + 1}`).trim(),
             startTime: s.startTime || '',
             endTime:   s.endTime   || '',
-            gracePeriodMinutes: Number(s.gracePeriodMinutes) || 0,
+            // Grace period is common across shifts — send the shared value for every shift.
+            gracePeriodMinutes: Number(config.gracePeriodMinutes) || 0,
             lunchBreakMinutes:  Number(s.lunchBreakMinutes)  || 0,
             shortBreakMinutes:  Number(s.shortBreakMinutes)  || 0,
             displayOrder: i,
@@ -1199,10 +1182,9 @@ export default function LeaveMasterScreen() {
             bonusAmount: Number(config.punctualityBonusAmount) || 0,
             lateThresholdMinutes: Number(config.lateArrivalThresholdMinutes) || 0,
             emergencyLatesAllowed: Number(config.emergencyLatesPerMonth) || 0,
+            informedLeavesAllowed: Number(config.informedLeavesAllowed) || 0,
             latePenaltyAmount: Number(config.latePenaltyAmount) || 0,
             uninformedLeaveDisqualifies: !!config.uninformedLeaveDisqualifies,
-            informedLeavePlusLateBalance: !!config.informedLeaveLateBalanceEnabled,
-            balanceRatio: config.informedLeaveLateRatio || '1:1',
         },
         leaveSalaryDeduction: {
             appliesToPaidLeave: !!config.deductionAppliesToPaidLeave,
@@ -1646,46 +1628,6 @@ export default function LeaveMasterScreen() {
                             </Tabs>
                         </Grid>
 
-                        {/* Right: Academic year selector (Autocomplete) */}
-                        <Grid size={{ xs: 6, md: 3 }} sx={{
-                            display: 'flex', justifyContent: 'flex-end', alignItems: 'center',
-                            order: { xs: 2, md: 3 },
-                        }}>
-                            <Autocomplete
-                                size="small"
-                                disableClearable
-                                options={academicYears}
-                                value={academicYear}
-                                onChange={(_, v) => v && setAcademicYear(v)}
-                                isOptionEqualToValue={(o, v) => o === v}
-                                sx={{ width: 170 }}
-                                renderInput={(params) => (
-                                    <TextField
-                                        {...params}
-                                        placeholder="Academic Year"
-                                        slotProps={{
-                                            input: {
-                                                ...params.InputProps,
-                                                startAdornment: (
-                                                    <InputAdornment position="start" sx={{ ml: 0.5 }}>
-                                                        <CalendarMonthIcon sx={{ fontSize: 15, color: PRIMARY }} />
-                                                    </InputAdornment>
-                                                ),
-                                            },
-                                        }}
-                                        sx={{
-                                            '& .MuiOutlinedInput-root': {
-                                                height: 34, fontSize: 12.5, borderRadius: '8px',
-                                                bgcolor: '#fff', fontWeight: 700, color: PRIMARY_DARK,
-                                                '& fieldset': { borderColor: `${PRIMARY}30` },
-                                                '&:hover fieldset': { borderColor: PRIMARY },
-                                                '&.Mui-focused fieldset': { borderColor: PRIMARY },
-                                            },
-                                        }}
-                                    />
-                                )}
-                            />
-                        </Grid>
                     </Grid>
                 </Box>
 
@@ -1694,122 +1636,43 @@ export default function LeaveMasterScreen() {
 
                     {/* ─── TAB 0: POLICY SETUP ─── */}
                     {activeTab === 0 && (<>
-                    {/* ═══ Section 0: Policy Applicability Period ═══ */}
-                    <Section icon={CalendarMonthIcon} title="Policy Applicability Period" color="#7C3AED"
-                        subtitle="Pick the start month — the policy runs for 12 months. The year comes from the Academic Year selected in the header.">
-
-                        <Box sx={{
-                            display: 'flex',
-                            alignItems: { xs: 'stretch', sm: 'flex-end' },
-                            flexDirection: { xs: 'column', sm: 'row' },
-                            gap: 2,
-                            flexWrap: 'wrap',
-                        }}>
-                            {/* Start month — editable */}
-                            <Box sx={{ flex: 1, minWidth: 220 }}>
-                                <Typography sx={{ fontSize: '12px', fontWeight: 600, color: '#555', mb: 0.5 }}>
-                                    Starts In <span style={{ color: '#DC2626' }}>*</span>
-                                </Typography>
-                                <Autocomplete
-                                    size="small"
-                                    disableClearable
-                                    options={MONTH_NAMES.map((_, i) => i + 1)}
-                                    value={startMonth}
-                                    onChange={(_, v) => v && setStartMonth(v)}
-                                    getOptionLabel={(m) => MONTH_NAMES[m - 1] || ''}
-                                    isOptionEqualToValue={(o, v) => o === v}
-                                    renderInput={(params) => (
-                                        <TextField {...params} placeholder="Select start month"
-                                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '6px', fontSize: 14, height: 40 } }}
-                                        />
-                                    )}
-                                    renderOption={(props, m) => (
-                                        <Box component="li" {...props} key={m}
-                                            sx={{ display: 'flex', justifyContent: 'space-between !important', fontSize: 13 }}>
-                                            <Typography sx={{ fontSize: 13, fontWeight: m === startMonth ? 700 : 500 }}>
-                                                {MONTH_NAMES[m - 1]}
-                                            </Typography>
-                                            <Typography sx={{ fontSize: 10.5, color: '#9CA3AF', ml: 1 }}>
-                                                (Current Year)
-                                            </Typography>
-                                        </Box>
-                                    )}
-                                />
-                                <Typography sx={{ fontSize: 10, color: '#9CA3AF', mt: 0.5 }}>
-                                    {MONTH_NAMES[startMonth - 1]} <strong style={{ color: '#7C3AED' }}>(Current Year — {cycleStartYear})</strong>
-                                </Typography>
-                            </Box>
-
-                            {/* Arrow */}
-                            <Box sx={{
-                                display: { xs: 'none', sm: 'flex' },
-                                alignItems: 'center', justifyContent: 'center', pb: 3,
-                            }}>
-                                <Box sx={{
-                                    width: 32, height: 32, borderRadius: '50%',
-                                    bgcolor: '#F5F3FF', border: '1px solid #DDD6FE',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                }}>
-                                    <ArrowForwardIcon sx={{ fontSize: 16, color: '#7C3AED' }} />
-                                </Box>
-                            </Box>
-
-                            {/* End month — read-only, auto-calculated */}
-                            <Box sx={{ flex: 1, minWidth: 220 }}>
-                                <Typography sx={{ fontSize: '12px', fontWeight: 600, color: '#555', mb: 0.5 }}>
-                                    Ends In <span style={{ fontSize: 10, color: '#9CA3AF', fontWeight: 500 }}>(auto-calculated)</span>
-                                </Typography>
-                                <Box sx={{
-                                    height: 40, px: 1.5, borderRadius: '6px',
-                                    border: '1px solid #DDD6FE', bgcolor: '#F5F3FF',
-                                    display: 'flex', alignItems: 'center',
-                                    justifyContent: 'space-between', gap: 1,
-                                }}>
-                                    <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#5B21B6' }}>
-                                        {MONTH_NAMES[endMonth - 1]}
-                                    </Typography>
-                                    <Chip label="12 months" size="small"
-                                        sx={{ height: 20, fontSize: 10, fontWeight: 700, bgcolor: '#fff', color: '#7C3AED', border: '1px solid #DDD6FE' }} />
-                                </Box>
-                                <Typography sx={{ fontSize: 10, color: '#9CA3AF', mt: 0.5 }}>
-                                    {MONTH_NAMES[endMonth - 1]} <strong style={{ color: '#7C3AED' }}>({cycleEndYear === cycleStartYear ? 'Current Year' : 'Next Year'} — {cycleEndYear})</strong>
-                                </Typography>
-                            </Box>
-                        </Box>
-
-                        {/* Auto-renew toggle */}
-                        <Box sx={{ mt: 2 }}>
-                            <ToggleRow
-                                label="Auto-renew for the next academic year"
-                                description={
-                                    autoRenew
-                                        ? `When ${MONTH_NAMES[startMonth - 1]} comes around in the next academic year, this same policy will be cloned automatically — no manual setup needed.`
-                                        : 'The next academic year will start with a blank slate. You will be asked to either restore this year\'s data or create from scratch.'
-                                }
-                                checked={autoRenew}
-                                onChange={setAutoRenew}
-                            />
-                        </Box>
-
-                        {/* Summary banner */}
-                        <Box sx={{
-                            mt: 2, p: 1.5, borderRadius: '8px',
-                            bgcolor: '#F5F3FF', border: '1px solid #DDD6FE',
-                            display: 'flex', alignItems: 'flex-start', gap: 1,
-                        }}>
-                            <InfoOutlinedIcon sx={{ fontSize: 16, color: '#7C3AED', mt: 0.2, flexShrink: 0 }} />
-                            <Typography sx={{ fontSize: 11, color: '#5B21B6', lineHeight: 1.7 }}>
-                                Policy cycle: <strong>{cycleLabel}</strong> — runs for <strong>12 months</strong> within academic year <strong>{academicYear}</strong>.
-                                {autoRenew
-                                    ? <> Auto-renew is <strong>ON</strong> — the rules will roll forward to the next academic year automatically.</>
-                                    : <> Auto-renew is <strong>OFF</strong> — you'll be prompted to renew or recreate when the next cycle starts.</>}
-                            </Typography>
-                        </Box>
+                    {/* ═══ Section: Auto-Renew ═══ */}
+                    <Section icon={RestartAltIcon} title="Auto-Renew" color="#7C3AED"
+                        subtitle="Roll this policy over into the next academic year automatically.">
+                        <ToggleRow
+                            label="Auto-renew for the next academic year"
+                            description={
+                                autoRenew
+                                    ? 'This policy will roll forward to the next academic year automatically — no manual setup needed.'
+                                    : "The next academic year starts blank — you'll be prompted to renew or recreate when the next cycle starts."
+                            }
+                            checked={autoRenew}
+                            onChange={setAutoRenew}
+                        />
                     </Section>
 
                     {/* ═══ Section: Shift Timing & Work Hours ═══ */}
                     <Section icon={AccessTimeIcon} title="Shift Timing & Work Hours" color="#0891B2"
-                        subtitle="Add one or more shift schedules — each shift has its own timing, grace period, and breaks">
+                        subtitle="Add one or more shift schedules — timing and breaks are per shift; the grace period below is common and applies to every shift">
+
+                        {/* Common Grace Period — applies to all shifts */}
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap', p: 2, mb: 2, borderRadius: '10px', border: '1px solid #BAE6FD', bgcolor: '#F0F9FA' }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
+                                <AccessTimeIcon sx={{ fontSize: 22, color: '#0891B2' }} />
+                                <Box>
+                                    <Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#0E7490' }}>Grace Period — common for all shifts</Typography>
+                                    <Typography sx={{ fontSize: '11px', color: '#64748B' }}>A late mark is applied after this many minutes past each shift's start time.</Typography>
+                                </Box>
+                            </Box>
+                            <Box sx={{ width: 200 }}>
+                                <NumberField
+                                    label="Grace Period"
+                                    value={config.gracePeriodMinutes}
+                                    onChange={(v) => update('gracePeriodMinutes', v)}
+                                    suffix="minutes"
+                                />
+                            </Box>
+                        </Box>
 
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                             {(config.shifts || []).map((shift, idx) => {
@@ -1825,7 +1688,7 @@ export default function LeaveMasterScreen() {
                                     (Number(shift.shortBreakMinutes) || 0);
                                 const effectiveMinutes = Math.max(0, shiftMinutes - totalBreakMinutes);
                                 const lateAfter = startMins != null
-                                    ? (startMins + (Number(shift.gracePeriodMinutes) || 0)) % (24 * 60)
+                                    ? (startMins + (Number(config.gracePeriodMinutes) || 0)) % (24 * 60)
                                     : null;
                                 const lateAfterStr = lateAfter != null
                                     ? formatTime12(`${String(Math.floor(lateAfter / 60)).padStart(2, '0')}:${String(lateAfter % 60).padStart(2, '0')}`)
@@ -1889,7 +1752,7 @@ export default function LeaveMasterScreen() {
                                         {/* Shift fields */}
                                         <Box sx={{ p: 2 }}>
                                             <Grid container spacing={2}>
-                                                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2.4 }}>
+                                                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
                                                     <TimeField
                                                         label="Shift Start Time"
                                                         value={shift.startTime}
@@ -1897,7 +1760,7 @@ export default function LeaveMasterScreen() {
                                                         helperText={`Begins at ${formatTime12(shift.startTime)}`}
                                                     />
                                                 </Grid>
-                                                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2.4 }}>
+                                                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
                                                     <TimeField
                                                         label="Shift End Time"
                                                         value={shift.endTime}
@@ -1905,16 +1768,7 @@ export default function LeaveMasterScreen() {
                                                         helperText={`Ends at ${formatTime12(shift.endTime)}`}
                                                     />
                                                 </Grid>
-                                                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2.4 }}>
-                                                    <NumberField
-                                                        label="Grace Period"
-                                                        value={shift.gracePeriodMinutes}
-                                                        onChange={(v) => updateShift(idx, 'gracePeriodMinutes', v)}
-                                                        suffix="minutes"
-                                                        helperText={`Late after ${lateAfterStr}`}
-                                                    />
-                                                </Grid>
-                                                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2.4 }}>
+                                                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
                                                     <NumberField
                                                         label="Lunch Break"
                                                         value={shift.lunchBreakMinutes}
@@ -1923,7 +1777,7 @@ export default function LeaveMasterScreen() {
                                                         helperText="Excluded from working hours"
                                                     />
                                                 </Grid>
-                                                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2.4 }}>
+                                                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
                                                     <NumberField
                                                         label="Short / Tea Break"
                                                         value={shift.shortBreakMinutes}
@@ -1984,7 +1838,7 @@ export default function LeaveMasterScreen() {
                                                             {lateAfterStr}
                                                         </Typography>
                                                         <Typography sx={{ fontSize: '10px', color: '#64748B' }}>
-                                                            Grace: {shift.gracePeriodMinutes || 0} min
+                                                            Grace: {config.gracePeriodMinutes || 0} min
                                                         </Typography>
                                                     </Box>
                                                 </Grid>
@@ -2089,14 +1943,14 @@ export default function LeaveMasterScreen() {
                                             onChange={(v) => update('mandatoryDayAttendanceRequired', v)}
                                         />
                                     </Grid>
-                                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                                    {/* <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
                                         <ToggleRow
                                             label="Salary Deduction Still Applies"
                                             description="Leave deduction applies even if bonus is earned"
                                             checked={config.leaveDeductionStillApplies}
                                             onChange={(v) => update('leaveDeductionStillApplies', v)}
                                         />
-                                    </Grid>
+                                    </Grid> */}
                                 </Grid>
                             </Box>
                         )}
@@ -2145,7 +1999,7 @@ export default function LeaveMasterScreen() {
                                     </Grid>
                                     <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
                                         <NumberField
-                                            label="Emergency Lates Allowed"
+                                            label="Lates Allowed"
                                             value={config.emergencyLatesPerMonth}
                                             onChange={(v) => update('emergencyLatesPerMonth', v)}
                                             suffix="per month"
@@ -2153,16 +2007,22 @@ export default function LeaveMasterScreen() {
                                         />
                                     </Grid>
                                     <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
-                                        <AmountField
-                                            label="Late Penalty Amount"
-                                            value={config.latePenaltyAmount}
-                                            onChange={(v) => update('latePenaltyAmount', v)}
-                                            helperText="Deducted per extra late beyond allowed"
+                                        <NumberField
+                                            label="Informed Leaves Allowed"
+                                            value={config.informedLeavesAllowed}
+                                            onChange={(v) => update('informedLeavesAllowed', v)}
+                                            suffix="per month"
+                                            helperText="Informed leaves allowed without losing bonus"
                                         />
                                     </Grid>
-                                </Grid>
-
-                                <Grid container spacing={2} sx={{ mt: 1 }}>
+                                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+                                        <AmountField
+                                            label="Late Penalty Amount (per day)"
+                                            value={config.latePenaltyAmount}
+                                            onChange={(v) => update('latePenaltyAmount', v)}
+                                            helperText="Deducted per day for each extra late beyond allowed"
+                                        />
+                                    </Grid>
                                     <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
                                         <ToggleRow
                                             label="Uninformed Leave Disqualifies"
@@ -2171,33 +2031,6 @@ export default function LeaveMasterScreen() {
                                             onChange={(v) => update('uninformedLeaveDisqualifies', v)}
                                         />
                                     </Grid>
-                                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
-                                        <ToggleRow
-                                            label="Informed Leave + Late Balance"
-                                            description="1 Informed Leave (IL) + 1 Late = Accepted (balanced)"
-                                            checked={config.informedLeaveLateBalanceEnabled}
-                                            onChange={(v) => update('informedLeaveLateBalanceEnabled', v)}
-                                        />
-                                    </Grid>
-                                    {config.informedLeaveLateBalanceEnabled && (
-                                        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
-                                            <Box>
-                                                <Typography sx={{ fontSize: '12px', fontWeight: 600, color: '#555', mb: 0.5 }}>Balance Ratio</Typography>
-                                                <Autocomplete
-                                                    size="small"
-                                                    options={['1:1', '1:2', '2:1']}
-                                                    value={config.informedLeaveLateRatio}
-                                                    onChange={(_, v) => update('informedLeaveLateRatio', v || '1:1')}
-                                                    renderInput={(params) => (
-                                                        <TextField {...params} placeholder="Select ratio"
-                                                            sx={{ '& .MuiOutlinedInput-root': { fontSize: '13px', borderRadius: '6px', height: 36 } }}
-                                                        />
-                                                    )}
-                                                />
-                                                <Typography sx={{ fontSize: '10px', color: '#9CA3AF', mt: 0.3 }}>IL : Late ratio for balance</Typography>
-                                            </Box>
-                                        </Grid>
-                                    )}
                                 </Grid>
                             </Box>
                         )}

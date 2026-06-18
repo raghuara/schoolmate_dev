@@ -11,8 +11,91 @@ import { useDropzone } from "react-dropzone";
 import {FetchAllCalenderEvent, FetchAllSchoolCalenderEvents, } from "../../Api/Api";
 import SnackBar from "../SnackBar";
 import CloseIcon from "@mui/icons-material/Close";
+import EventBusyOutlinedIcon from "@mui/icons-material/EventBusyOutlined";
 import ReactPlayer from "react-player";
 import '../../Css/OverWrite.css'
+
+// Lightens an rgba color so it can be used as a card background.
+const tintColor = (rgba, alpha = 0.12) => {
+    if (!rgba || typeof rgba !== "string") return "#FAFAFA";
+    const m = rgba.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+    if (!m) return "#FAFAFA";
+    return `rgba(${m[1]}, ${m[2]}, ${m[3]}, ${alpha})`;
+};
+
+// Event card — matches the School Calendar design.
+const EventCard = ({ item, onViewImage, onPlayVideo }) => {
+    const accent = item.eventColor || "#9CA3AF";
+    const dateLabel = item.from === item.to ? item.from : `${item.from} → ${item.to}`;
+    return (
+        <Box sx={{
+            bgcolor: tintColor(item.eventColor, 0.08),
+            border: `1px solid ${tintColor(item.eventColor, 0.25)}`,
+            borderLeft: `4px solid ${accent}`,
+            borderRadius: "10px",
+            p: 1.5,
+            transition: "box-shadow 0.15s, transform 0.15s, background-color 0.15s",
+            "&:hover": {
+                bgcolor: tintColor(item.eventColor, 0.12),
+                boxShadow: `0 4px 12px ${accent}1F`,
+                transform: "translateY(-1px)",
+            },
+        }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.4, flexWrap: "wrap" }}>
+                <Box sx={{
+                    px: 1, py: 0.3, borderRadius: "6px",
+                    bgcolor: "#fff",
+                    color: accent,
+                    border: `1px solid ${tintColor(item.eventColor, 0.35)}`,
+                    fontSize: 11, fontWeight: 800, letterSpacing: 0.3,
+                    whiteSpace: "nowrap",
+                }}>
+                    {dateLabel}
+                </Box>
+                <Typography sx={{ fontSize: 14, fontWeight: 700, color: "#111", flex: 1, minWidth: 0 }} noWrap>
+                    {item.headLine}
+                </Typography>
+            </Box>
+            {item.description && (
+                <Typography sx={{ fontSize: 12.5, color: "#4B5563", mb: 1, lineHeight: 1.5 }}>
+                    {item.description}
+                </Typography>
+            )}
+            {item.filetype !== "empty" && (
+                <Box sx={{ mt: 0.5 }}>
+                    {item.filetype === "image" && (
+                        <Button
+                            size="small" variant="outlined"
+                            onClick={() => onViewImage(item.filepath)}
+                            sx={{
+                                textTransform: "none", fontSize: 11, fontWeight: 700,
+                                borderRadius: "20px", px: 1.5, py: 0.2, minWidth: 0,
+                                color: "#111", borderColor: "#D1D5DB",
+                                "&:hover": { borderColor: "#9CA3AF", bgcolor: "#F9FAFB" },
+                            }}
+                        >
+                            View Image
+                        </Button>
+                    )}
+                    {item.filetype === "link" && (
+                        <Button
+                            size="small" variant="outlined"
+                            onClick={() => onPlayVideo(item.filepath)}
+                            sx={{
+                                textTransform: "none", fontSize: 11, fontWeight: 700,
+                                borderRadius: "20px", px: 1.5, py: 0.2, minWidth: 0,
+                                color: "#111", borderColor: "#D1D5DB",
+                                "&:hover": { borderColor: "#9CA3AF", bgcolor: "#F9FAFB" },
+                            }}
+                        >
+                            Play Video
+                        </Button>
+                    )}
+                </Box>
+            )}
+        </Box>
+    );
+};
 
 export default function SchoolCalendarPage() {
     const today = dayjs();
@@ -117,6 +200,12 @@ export default function SchoolCalendarPage() {
             setIsLoading(false);
         }
     };
+
+    const eventColumns = [
+        { key: "completed", title: "Completed Events", color: "#7DC353", data: completedEvents, empty: "No completed events" },
+        { key: "today", title: "Today's Events", color: "#FF6B35", data: todayEvents, empty: "No events today" },
+        { key: "upcoming", title: "Upcoming Events", color: "#3457D5", data: upCommingEvents, empty: "No upcoming events" },
+    ];
 
     return (
         <Box sx={{ width: "100%" }}>
@@ -244,452 +333,37 @@ export default function SchoolCalendarPage() {
                             lg: 12
                         }}>
                         <Box p={2}>
-
-                            <Grid
-                                container
-                                sx={{
-                                    height: "100%",
-                                }}
-                                spacing={2}
-                            >
-                                 <Grid
-                                     size={{
-                                         sm: 12,
-                                         xs: 12,
-                                         lg: 4
-                                     }}>
-                                    <Typography sx={{ fontWeight: "600", fontSize: "16px", color: "#616161", pl: 2 }}>
-                                        Completed Events
-                                    </Typography>
-                                    <Box sx={{
-                                        pl: 2,
-                                        height: "76vh",
-                                        overflowY: "auto",
-                                       
-                                    }}>
-                                        {completedEvents.length === 0 ? (
-                                            <Box
-                                                sx={{
-                                                    textAlign: "center",
-                                                    mt: 2,
-                                                    backgroundColor: "rgba(219, 71, 0, 0.1)",
-                                                    padding: "10px",
-                                                    borderRadius: "5px",
-                                                }}
-                                            >
-                                                <Typography sx={{ fontSize: "14px", color: "#616161" }}>
-                                                No Completed Events
-                                                </Typography>
+                            <Grid container spacing={2}>
+                                {eventColumns.map((col) => (
+                                    <Grid key={col.key} size={{ xs: 12, sm: 6, lg: 4 }}>
+                                        {/* Column header */}
+                                        <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1.5, px: 1.5, py: 1, borderRadius: "10px", bgcolor: `${col.color}14`, border: `1px solid ${col.color}33` }}>
+                                            <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: col.color }} />
+                                            <Typography sx={{ fontWeight: 700, fontSize: 14, color: "#1F2937" }}>{col.title}</Typography>
+                                            <Box sx={{ ml: "auto", minWidth: 22, height: 20, px: 0.8, borderRadius: "10px", bgcolor: col.color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700 }}>
+                                                {col.data.length}
                                             </Box>
-                                        ) : (
-                                            completedEvents.map((item) => (
-                                                <Box key={item.id}>
-                                                    <Box
-                                                        sx={{
-                                                            position: "relative",
-                                                            backgroundColor: "rgba(219, 71, 0, 0.1)",
-                                                            display: "flex",
-                                                            py: 2,
-                                                            width: "90%",
-                                                            justifyContent: "flex-start",
-                                                            alignItems: "center",
-                                                            mt: 2,
-                                                            borderRadius: "5px",
-                                                            padding: "0 10px",
-                                                            minHeight: "100px",
-                                                        }}
-                                                    >
-                                                        <Box sx={{ display: "flex", alignItems: "center" }}>
-                                                            <Box
-                                                                sx={{
-                                                                    width: "30px",
-                                                                    height: "30px",
-                                                                     backgroundColor: item.eventColor,
-                                                                    display: "flex",
-                                                                    justifyContent: "center",
-                                                                    alignItems: "center",
-                                                                    color: "#fff",
-                                                                    borderRadius: "50%",
-                                                                    marginLeft: "-23px",
-                                                                    fontWeight: "600",
-                                                                }}
-                                                            >
-                                                                {item.from}
-                                                            </Box>
-                                                            {item.from !== item.to && (
-                                                                <>
-                                                                    <Typography sx={{ px: 0.5 }}>to</Typography>
-                                                                    <Box
-                                                                        sx={{
-                                                                            width: "30px",
-                                                                            height: "30px",
-                                                                             backgroundColor: item.eventColor,
-                                                                            display: "flex",
-                                                                            justifyContent: "center",
-                                                                            alignItems: "center",
-                                                                            color: "#fff",
-                                                                            borderRadius: "50%",
-                                                                            fontWeight: "600",
-                                                                        }}
-                                                                    >
-                                                                        {item.to}
-                                                                    </Box>
-                                                                </>
-                                                            )}
-                                                        </Box>
-
-                                                        <Box p={1} sx={{ flex: 1 }}>
-                                                            <Typography sx={{ fontSize: "8px", color: "#616161", textDecoration: "underline" }}>
-                                                                {item.headLine}
-                                                            </Typography>
-                                                            <Typography sx={{ fontSize: "12px", color: "#616161", pb:2 }}>
-                                                                {item.description}
-                                                            </Typography>
-                                                        </Box>
-                                                        {item.filetype !== "empty" &&
-                                                            <Box>
-                                                                {item.filetype === "image" &&
-                                                                    <Button
-                                                                        variant="outlined"
-                                                                        sx={{
-                                                                            textTransform: 'none',
-                                                                            padding: '0px 0',
-                                                                            borderRadius: '30px',
-                                                                            fontSize: '8px',
-                                                                            border: '1px solid black',
-                                                                            color: 'white',
-                                                                            fontWeight: "600",
-                                                                            backgroundColor: "#000",
-                                                                            position: "absolute",
-                                                                            bottom: "3px",
-                                                                            left: "3px",
-                                                                        }}
-                                                                        onClick={() => handleViewClick(item.filepath)}
-                                                                    >
-                                                                        View Image
-                                                                    </Button>
-                                                                }
-                                                                {item.filetype === "link" &&
-                                                                    <Button
-                                                                        variant="outlined"
-                                                                        sx={{
-                                                                            textTransform: 'none',
-                                                                            padding: '0px 0',
-                                                                            borderRadius: '30px',
-                                                                            fontSize: '8px',
-                                                                            border: '1px solid black',
-                                                                            color: 'white',
-                                                                            fontWeight: "600",
-                                                                            backgroundColor: "#000",
-                                                                            position: "absolute",
-                                                                            bottom: "3px",
-                                                                            left: "3px",
-                                                                        }}
-                                                                        onClick={() => handleVideoClick(item.filepath)}
-                                                                    >
-                                                                        Play Video
-                                                                    </Button>
-                                                                }
-                                                            </Box>
-                                                        }
-                                                     
-                                                    </Box>
+                                        </Box>
+                                        {/* Column events */}
+                                        <Box sx={{ height: "72vh", overflowY: "auto", pr: 0.5, display: "flex", flexDirection: "column", gap: 1.5 }}>
+                                            {col.data.length === 0 ? (
+                                                <Box sx={{ textAlign: "center", mt: 1, py: 4, px: 2, borderRadius: "12px", border: "1px dashed #E5E7EB", bgcolor: "#FAFBFC" }}>
+                                                    <EventBusyOutlinedIcon sx={{ fontSize: 30, color: "#CBD5E1", mb: 0.5 }} />
+                                                    <Typography sx={{ fontSize: 13, color: "#9CA3AF", fontWeight: 600 }}>{col.empty}</Typography>
                                                 </Box>
-                                            )))}
-                                    </Box>
-                                </Grid>
-                                <Grid
-                                    size={{
-                                        sm: 12,
-                                        xs: 12,
-                                        lg: 4
-                                    }}>
-                                    <Typography sx={{ fontWeight: "600", fontSize: "16px", color: "#616161", pl: 2 }}>
-                                        Today's Events
-                                    </Typography>
-                                    <Box sx={{
-                                        pl: 2,
-                                        height: "76vh",
-                                        overflowY: "auto",
-                                    }}>
-                                        {todayEvents.length === 0 ? (
-                                            <Box
-                                                sx={{
-                                                    textAlign: "center",
-                                                    mt: 2,
-                                                    backgroundColor: "rgba(219, 71, 0, 0.1)",
-                                                    padding: "10px",
-                                                    borderRadius: "5px",
-                                                }}
-                                            >
-                                                <Typography sx={{ fontSize: "14px", color: "#616161" }}>
-                                                    No events today
-                                                </Typography>
-                                            </Box>
-                                        ) : (
-                                            todayEvents.map((item) => (
-                                                <Box key={item.id}>
-                                                    <Box
-                                                        sx={{
-                                                            position: "relative",
-                                                            backgroundColor: "rgba(219, 71, 0, 0.1)",
-                                                            display: "flex",
-                                                            py: 2,
-                                                            width: "90%",
-                                                            justifyContent: "flex-start",
-                                                            alignItems: "center",
-                                                            mt: 2,
-                                                            borderRadius: "5px",
-                                                            padding: "0 10px",
-                                                            minHeight: "100px",
-                                                        }}
-                                                    >
-                                                        <Box sx={{ display: "flex", alignItems: "center" }}>
-                                                            <Box
-                                                                sx={{
-                                                                    width: "30px",
-                                                                    height: "30px",
-                                                                     backgroundColor: item.eventColor,
-                                                                    display: "flex",
-                                                                    justifyContent: "center",
-                                                                    alignItems: "center",
-                                                                    color: "#fff",
-                                                                    borderRadius: "50%",
-                                                                    marginLeft: "-23px",
-                                                                    fontWeight: "600",
-                                                                }}
-                                                            >
-                                                                {item.from}
-                                                            </Box>
-                                                            {item.from !== item.to && (
-                                                                <>
-                                                                    <Typography sx={{ px: 0.5 }}>to</Typography>
-                                                                    <Box
-                                                                        sx={{
-                                                                            width: "30px",
-                                                                            height: "30px",
-                                                                             backgroundColor: item.eventColor,
-                                                                            display: "flex",
-                                                                            justifyContent: "center",
-                                                                            alignItems: "center",
-                                                                            color: "#fff",
-                                                                            borderRadius: "50%",
-                                                                            fontWeight: "600",
-                                                                        }}
-                                                                    >
-                                                                        {item.to}
-                                                                    </Box>
-                                                                </>
-                                                            )}
-                                                        </Box>
-
-                                                        <Box p={1} sx={{ flex: 1 }}>
-                                                            <Typography sx={{ fontSize: "8px", color: "#616161", textDecoration: "underline" }}>
-                                                                {item.headLine}
-                                                            </Typography>
-                                                            <Typography sx={{ fontSize: "12px", color: "#616161", pb:2 }}>
-                                                                {item.description}
-                                                            </Typography>
-                                                        </Box>
-                                                        {item.filetype !== "empty" &&
-                                                            <Box>
-                                                                {item.filetype === "image" &&
-                                                                    <Button
-                                                                        variant="outlined"
-                                                                        sx={{
-                                                                            textTransform: 'none',
-                                                                            padding: '0px 0',
-                                                                            borderRadius: '30px',
-                                                                            fontSize: '8px',
-                                                                            border: '1px solid black',
-                                                                            color: 'white',
-                                                                            fontWeight: "600",
-                                                                            backgroundColor: "#000",
-                                                                            position: "absolute",
-                                                                            bottom: "3px",
-                                                                            left: "3px",
-                                                                        }}
-                                                                        onClick={() => handleViewClick(item.filepath)}
-                                                                    >
-                                                                        View Image
-                                                                    </Button>
-                                                                }
-                                                                {item.filetype === "link" &&
-                                                                    <Button
-                                                                        variant="outlined"
-                                                                        sx={{
-                                                                            textTransform: 'none',
-                                                                            padding: '0px 0',
-                                                                            borderRadius: '30px',
-                                                                            fontSize: '8px',
-                                                                            border: '1px solid black',
-                                                                            color: 'white',
-                                                                            fontWeight: "600",
-                                                                            backgroundColor: "#000",
-                                                                            position: "absolute",
-                                                                            bottom: "3px",
-                                                                            left: "3px",
-                                                                        }}
-                                                                        onClick={() => handleVideoClick(item.filepath)}
-                                                                    >
-                                                                        Play Video
-                                                                    </Button>
-                                                                }
-                                                            </Box>
-                                                        }
-                                                    </Box>
-                                                </Box>
-                                            ))
-                                        )}
-                                    </Box>
-                                </Grid>
-                               
-                                <Grid
-                                    size={{
-                                        sm: 12,
-                                        xs: 12,
-                                        lg: 4
-                                    }}>
-                                    <Typography sx={{ fontWeight: "600", fontSize: "16px", color: "#616161", pl: 2 }}>
-                                        Upcoming Events
-                                    </Typography>
-                                    <Box sx={{
-                                        pl: 2,
-                                        height: "76vh",
-                                        overflowY: "auto",
-                                       
-                                    }}>
-                                        {upCommingEvents.length === 0 ? (
-                                            <Box
-                                                sx={{
-                                                    textAlign: "center",
-                                                    mt: 2,
-                                                    backgroundColor: "rgba(219, 71, 0, 0.1)",
-                                                    padding: "10px",
-                                                    borderRadius: "5px",
-                                                }}
-                                            >
-                                                <Typography sx={{ fontSize: "14px", color: "#616161" }}>
-                                                    No Upcoming Events
-                                                </Typography>
-                                            </Box>
-                                        ) : (
-                                            upCommingEvents.map((item) => (
-                                                <Box key={item.id}>
-                                                    <Box
-                                                        sx={{
-                                                            position: "relative",
-                                                            backgroundColor: "rgba(219, 71, 0, 0.1)",
-                                                            display: "flex",
-                                                            py: 2,
-                                                            width: "90%",
-                                                            justifyContent: "flex-start",
-                                                            alignItems: "center",
-                                                            mt: 2,
-                                                            borderRadius: "5px",
-                                                            padding: "0 10px",
-                                                            minHeight: "100px",
-                                                        }}
-                                                    >
-                                                        <Box sx={{ display: "flex", alignItems: "center" }}>
-                                                            <Box
-                                                                sx={{
-                                                                    width: "30px",
-                                                                    height: "30px",
-                                                                     backgroundColor: item.eventColor,
-                                                                    display: "flex",
-                                                                    justifyContent: "center",
-                                                                    alignItems: "center",
-                                                                    color: "#fff",
-                                                                    borderRadius: "50%",
-                                                                    marginLeft: "-23px",
-                                                                    fontWeight: "600",
-                                                                }}
-                                                            >
-                                                                {item.from}
-                                                            </Box>
-                                                            {item.from !== item.to && (
-                                                                <>
-                                                                    <Typography sx={{ px: 0.5 }}>to</Typography>
-                                                                    <Box
-                                                                        sx={{
-                                                                            width: "30px",
-                                                                            height: "30px",
-                                                                             backgroundColor: item.eventColor,
-                                                                            display: "flex",
-                                                                            justifyContent: "center",
-                                                                            alignItems: "center",
-                                                                            color: "#fff",
-                                                                            borderRadius: "50%",
-                                                                            fontWeight: "600",
-                                                                        }}
-                                                                    >
-                                                                        {item.to}
-                                                                    </Box>
-                                                                </>
-                                                            )}
-                                                        </Box>
-
-                                                        <Box p={1} sx={{ flex: 1 }}>
-                                                            <Typography sx={{ fontSize: "8px", color: "#616161", textDecoration: "underline" }}>
-                                                                {item.headLine}
-                                                            </Typography>
-                                                            <Typography sx={{ fontSize: "12px", color: "#616161", pb:2 }}>
-                                                                {item.description}
-                                                            </Typography>
-                                                        </Box>
-                                                        {item.filetype !== "empty" &&
-                                                            <Box>
-                                                                {item.filetype === "image" &&
-                                                                    <Button
-                                                                        variant="outlined"
-                                                                        sx={{
-                                                                            textTransform: 'none',
-                                                                            padding: '0px 0',
-                                                                            borderRadius: '30px',
-                                                                            fontSize: '8px',
-                                                                            border: '1px solid black',
-                                                                            color: 'white',
-                                                                            fontWeight: "600",
-                                                                            backgroundColor: "#000",
-                                                                            position: "absolute",
-                                                                            bottom: "3px",
-                                                                            left: "3px",
-                                                                        }}
-                                                                        onClick={() => handleViewClick(item.filepath)}
-                                                                    >
-                                                                        View Image
-                                                                    </Button>
-                                                                }
-                                                                {item.filetype === "link" &&
-                                                                    <Button
-                                                                        variant="outlined"
-                                                                        sx={{
-                                                                            textTransform: 'none',
-                                                                            padding: '0px 0',
-                                                                            borderRadius: '30px',
-                                                                            fontSize: '8px',
-                                                                            border: '1px solid black',
-                                                                            color: 'white',
-                                                                            fontWeight: "600",
-                                                                            backgroundColor: "#000",
-                                                                            position: "absolute",
-                                                                            bottom: "3px",
-                                                                            left: "3px",
-                                                                        }}
-                                                                        onClick={() => handleVideoClick(item.filepath)}
-                                                                    >
-                                                                        Play Video
-                                                                    </Button>
-                                                                }
-                                                            </Box>
-                                                        }
-                                                     
-                                                    </Box>
-                                                </Box>
-                                            )))}
-                                    </Box>
-                                </Grid>
+                                            ) : (
+                                                col.data.map((item) => (
+                                                    <EventCard
+                                                        key={item.id}
+                                                        item={item}
+                                                        onViewImage={handleViewClick}
+                                                        onPlayVideo={handleVideoClick}
+                                                    />
+                                                ))
+                                            )}
+                                        </Box>
+                                    </Grid>
+                                ))}
                             </Grid>
                         </Box>
                     </Grid>

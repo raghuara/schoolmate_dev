@@ -232,6 +232,10 @@ const UpdatePromotedStudents = `${baseApiurl}studentPromotion/UpdatePromotedStud
 const IssueStudentTC = `${baseApiurl}studentPromotion/IssueStudentTC`;
 const DiscontinueStudent = `${baseApiurl}studentPromotion/DiscontinueStudent`;
 
+const GetOverallLeaveDetails = `${baseApiurl}studentLeave/GetOverallLeaveDetails`;
+const StudentsOnLeaveToday = `${baseApiurl}studentLeave/StudentsOnLeaveToday`;
+const LeaveApproval = `${baseApiurl}studentLeave/LeaveApproval`;
+
 // Staff Information
 const staffManagement = `${baseApiurl}staffManagement/`;
 const GetStaffInformation = `${staffManagement}GetStaffInformation`;
@@ -898,4 +902,7 @@ export {
     moveToBilling,
     paymentApprovalsGet,
     paymentApprovalUpdate,
+    GetOverallLeaveDetails,
+    StudentsOnLeaveToday,
+    LeaveApproval
 }

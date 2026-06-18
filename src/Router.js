@@ -54,6 +54,8 @@ import WorkDoneSettings from "./Components/WorkDoneComps/WorkDoneSettings";
 import SchedulePage from "./Components/MyProjects/SchedulePage";
 import DraftPage from "./Components/MyProjects/DraftPage";
 import ApprovalPage from "./Components/Approvals/ApprovalPage";
+import StudentLeaveApprovalPage from "./Components/Approvals/ApprovalPages/StudentLeaveApprovalPage";
+import OnLeaveStudentsPage from "./Components/Approvals/ApprovalPages/OnLeaveStudentsPage";
 import NewsApprovalPage from "./Components/Approvals/ApprovalPages/NewsApprovalPage";
 import ApprovalStatusPage from "./Components/MyProjects/ApprovalStatusComps/ApprovalStatusPage";
 import ApprovalStatusNewsPage from "./Components/MyProjects/ApprovalStatusComps/CommunicationStatusComps/ApprovalStatusNews";
@@ -91,6 +93,18 @@ import ExportAttendancePage from "./Components/CommunicationComps/AttendanceComp
 import HomeworkApprovalPage from "./Components/Approvals/ApprovalPages/HomeworkApprovalPage";
 import ApprovalStatusHomeworkPage from "./Components/MyProjects/ApprovalStatusComps/CommunicationStatusComps/ApprovalStatusHomework";
 import AccessControlPage from "./Components/AccessControlComps/AccessControlPage";
+import RolesPermissionsPage from "./Components/AccessControlComps/RolesPermissionsPage";
+import FeaturePermissionsPage from "./Components/AccessControlComps/FeaturePermissionsPage";
+import ProfileConfigPage from "./Components/AccessControlComps/ModuleAccessConfigure/ProfileConfigPage";
+import CommunicationConfigPage from "./Components/AccessControlComps/ModuleAccessConfigure/CommunicationConfigPage";
+import FinanceConfigPage from "./Components/AccessControlComps/ModuleAccessConfigure/FinanceConfigPage";
+import LeaveConfigPage from "./Components/AccessControlComps/ModuleAccessConfigure/LeaveConfigPage";
+import TransportConfigPage from "./Components/AccessControlComps/ModuleAccessConfigure/TransportConfigPage";
+import InventoryConfigPage from "./Components/AccessControlComps/ModuleAccessConfigure/InventoryConfigPage";
+import PurchaseConfigPage from "./Components/AccessControlComps/ModuleAccessConfigure/PurchaseConfigPage";
+import ApprovalsConfigPage from "./Components/AccessControlComps/ModuleAccessConfigure/ApprovalsConfigPage";
+import AccessConfigPage from "./Components/AccessControlComps/ModuleAccessConfigure/AccessConfigPage";
+import MyProjectsConfigPage from "./Components/AccessControlComps/ModuleAccessConfigure/MyProjectsConfigPage";
 import StudentPromotionPage from "./Components/AccessControlComps/StudentPromotionPage";
 import IssueTcPage from "./Components/AccessControlComps/IssueTcPage";
 import UsersPage from "./Components/AccessControlComps/UsersPage";
@@ -146,6 +160,7 @@ import ComplianceSettings from "./Components/LeaveAttendanceComps/PayrollComps/C
 import ApprovePayroll from "./Components/LeaveAttendanceComps/PayrollComps/ApprovePayroll";
 import BankReports from "./Components/LeaveAttendanceComps/PayrollComps/BankReports";
 import SalaryRegister from "./Components/LeaveAttendanceComps/PayrollComps/SalaryRegister";
+import MarkSalaryCreditedPage from "./Components/LeaveAttendanceComps/PayrollComps/MarkSalaryCreditedPage";
 import LeavePolicy from "./Components/LeaveAttendanceComps/PayrollComps/LeavePolicy";
 import LeaveMasterScreen from "./Components/LeaveAttendanceComps/PayrollComps/LeaveMasterScreen";
 import LeaveAttendancePage from "./Components/LeaveAttendanceComps/LeaveAttendancePage";
@@ -320,6 +335,7 @@ export default function RouterPage() {
                 <Route path="Leave/payroll/approve-payroll" element={<ApprovePayroll />} />
                 <Route path="Leave/payroll/bank-reports" element={<BankReports />} />
                 <Route path="Leave/payroll/salary-register" element={<SalaryRegister />} />
+                <Route path="Leave/payroll/salary-credit" element={<MarkSalaryCreditedPage />} />
                 <Route path="Leave/payroll/leave-policy" element={<LeavePolicy />} />
                 <Route path="Leave/payroll/leave-policy/leave-master" element={<LeaveMasterScreen />} />
 
@@ -394,6 +410,8 @@ export default function RouterPage() {
                 <Route path="approvals/messages" element={<MessagesApprovalPage />} />
                 <Route path="approvals/circulars" element={<CircularsApprovalPage />} />
                 <Route path="approvals/homework" element={<HomeworkApprovalPage />} />
+                <Route path="approvals/student-leave" element={<StudentLeaveApprovalPage />} />
+                <Route path="approvals/on-leave" element={<OnLeaveStudentsPage />} />
 
                 <Route path="approvals/news/edit" element={<NewsApprovalEditPage />} />
                 <Route path="approvals/messages/edit" element={<MessagesApprovalEditPage />} />
@@ -409,6 +427,18 @@ export default function RouterPage() {
 
                 {/* Access Control */}
                 <Route path="access" element={<AccessControlPage />} />
+                <Route path="access/roles-permissions" element={<RolesPermissionsPage />} />
+                <Route path="access/feature-permissions" element={<FeaturePermissionsPage />} />
+                <Route path="access/config/profile" element={<ProfileConfigPage />} />
+                <Route path="access/config/communication" element={<CommunicationConfigPage />} />
+                <Route path="access/config/finance" element={<FinanceConfigPage />} />
+                <Route path="access/config/leave" element={<LeaveConfigPage />} />
+                <Route path="access/config/transport" element={<TransportConfigPage />} />
+                <Route path="access/config/inventory" element={<InventoryConfigPage />} />
+                <Route path="access/config/purchase" element={<PurchaseConfigPage />} />
+                <Route path="access/config/approvals" element={<ApprovalsConfigPage />} />
+                <Route path="access/config/access" element={<AccessConfigPage />} />
+                <Route path="access/config/myprojects" element={<MyProjectsConfigPage />} />
 
                 <Route path="access/users" element={<UsersPage />} />
                 <Route path="access/useractivity" element={<UserActivityPage />} />

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Dialog, IconButton, Box, Typography, ThemeProvider, createTheme, Button, Grid, Tabs, Tab, DialogContent, DialogActions, TextField, InputAdornment, FormControl, FormLabel, RadioGroup, FormControlLabel, Radio, Autocomplete, Snackbar } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import { display, keyframes, useMediaQuery, useTheme } from "@mui/system";
@@ -8,7 +8,8 @@ import dayjs from "dayjs";
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import Loader from "../../Loader";
 import axios from "axios";
-import { DashboardStudentsAttendance, fetchAttendance, postAttendance, updateAttendance } from "../../../Api/Api";
+import { DashboardStudentsAttendance, fetchAttendance, postAttendance, updateAttendance, StudentsOnLeaveToday } from "../../../Api/Api";
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
@@ -81,6 +82,13 @@ export default function AddAttendancePage() {
     const [attendanceDataLoading, setAttendanceDataLoading] = useState(false);
     const [sortByNameAsc, setSortByNameAsc] = useState(false);
 
+    // Students with an approved leave for the selected date (StudentsOnLeaveToday API)
+    const [leaveStudents, setLeaveStudents] = useState([]);
+    const leaveRollSet = useMemo(
+        () => new Set(leaveStudents.map((s) => String(s.rollNumber))),
+        [leaveStudents]
+    );
+
     const selectedGrade = grades.find((grade) => grade.id === selectedGradeId);
     const sections = selectedGrade?.sections.map((section) => ({ sectionName: section })) || [];
     const sectionOptions = [{ sectionName: "All" }, ...sections];
@@ -104,9 +112,16 @@ export default function AddAttendancePage() {
         };
 
         filteredData.forEach(row => {
-            const status = row.attendanceAction?.toLowerCase() === "no data"
-                ? "present"
-                : row.attendanceAction?.toLowerCase() || "present";
+            const action = row.attendanceAction?.toLowerCase();
+            const onLeave = leaveRollSet.has(String(row.rollNumber));
+            // No attendance marked yet → default to "leave" when an approved leave exists, else "present".
+            // If attendance already marked, respect the saved value (teacher can still change it).
+            let status;
+            if (!action || action === "no data") {
+                status = onLeave ? "leave" : "present";
+            } else {
+                status = action;
+            }
 
             initialActions[row.rollNumber] = status;
             if (counts[status] !== undefined) {
@@ -116,7 +131,7 @@ export default function AddAttendancePage() {
 
         setSelectedActions(initialActions);
         setAttendanceData(counts);
-    }, [filteredData]);
+    }, [filteredData, leaveRollSet]);
 
     const handleAttendanceChange = (rollNumber, value) => {
         setSelectedActions((prev) => {
@@ -288,6 +303,24 @@ export default function AddAttendancePage() {
         fetchAttendanceTable()
         fetchStudentsGraphData();
     }, [formattedDate, selectedGradeId, selectedGradeSign, selectedSection, selectedFilter]);
+
+    // Approved leaves for the selected date — used to pre-select "Leave".
+    useEffect(() => {
+        const fetchStudentsOnLeave = async () => {
+            try {
+                const res = await axios.get(StudentsOnLeaveToday, {
+                    params: { fromDate: formattedDate, toDate: formattedDate },
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                setLeaveStudents(Array.isArray(res.data?.data) ? res.data.data : []);
+            } catch (error) {
+                console.error("StudentsOnLeaveToday failed:", error);
+                setLeaveStudents([]);
+            }
+        };
+        fetchStudentsOnLeave();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [formattedDate]);
 
     const fetchAttendanceTable = async () => {
         setAttendanceDataLoading(true);
@@ -1047,6 +1080,12 @@ export default function AddAttendancePage() {
                                                             (row.attendanceAction?.toLowerCase() === "no data" ? "Present" : row.attendanceAction)
                                                         )}
                                                     </Box>
+                                                    {leaveRollSet.has(String(row.rollNumber)) && (
+                                                        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0.3, mt: 0.5 }}>
+                                                            <CheckCircleIcon sx={{ fontSize: 13, color: "#16A34A" }} />
+                                                            <Typography sx={{ fontSize: 10.5, color: "#16A34A", fontWeight: 600 }}>Leave Applied</Typography>
+                                                        </Box>
+                                                    )}
                                                 </TableCell>
 
                                                 {/* <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center" }}>

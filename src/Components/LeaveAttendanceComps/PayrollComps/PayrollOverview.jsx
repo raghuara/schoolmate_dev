@@ -37,6 +37,7 @@ const payrollModules = [
     { color: '#00ACC1', icon: ReceiptLongIcon, text: 'Bank Details', description: 'Manage employee bank account details for salary disbursement and maintain records for payroll processing.', bgColor: '#E0F7FA', iconBgColor: '#00ACC11A', path: 'bank-reports' },
     { color: '#E30053', icon: DescriptionIcon, text: 'Audit-Ready Salary Register', description: 'View and export detailed salary breakdowns per employee including earnings, deductions, and net pay for each month.', bgColor: '#FCF8F9', iconBgColor: '#fbebf1', path: 'salary-register' },
     { color: '#FF9800', icon: TaskAltIcon, text: 'Run & Approve Payroll', description: 'Process monthly payroll, approve salary disbursement, and download professional payslips for employees.', bgColor: '#FFF4E6', iconBgColor: '#FF98001A', path: 'approve-payroll' },
+    { color: '#059669', icon: SavingsIcon, text: 'Mark Salary Credited', description: 'Record salary as credited for any month — including past-month salaries paid in the current month, with a credited-on date.', bgColor: '#ECFDF5', iconBgColor: '#0596691A', path: 'salary-credit' },
 ];
 
 // ─── Payroll Cycle Stages ───────────────────────────────────────────────────
