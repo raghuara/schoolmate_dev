@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
     Box, Typography, IconButton, Button, Avatar, Chip, TextField,
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
@@ -8,42 +8,55 @@ import EventBusyOutlinedIcon from "@mui/icons-material/EventBusyOutlined";
 import TodayOutlinedIcon from "@mui/icons-material/TodayOutlined";
 import { useNavigate, Navigate } from "react-router-dom";
 import { useSelector } from "react-redux";
+import axios from "axios";
+import Loader from "../../Loader";
+import { StudentsOnLeaveToday } from "../../../Api/Api";
 
 const ACCENT = "#3457D5";
+const TOKEN = "123";
 
 const getInitials = (n = "") => n.split(" ").map((p) => p[0]).filter(Boolean).slice(0, 2).join("").toUpperCase();
 const AVATAR_PALETTE = ["#0E7490", "#6D28D9", "#C2410C", "#047857", "#1D4ED8", "#BE185D", "#A16207", "#0F766E"];
 const colorFor = (s = "") => AVATAR_PALETTE[(s.charCodeAt(0) || 0) % AVATAR_PALETTE.length];
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
-const fmt = (iso) => (iso ? new Date(iso).toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" }) : "—");
-const daysBetween = (a, b) => Math.max(1, Math.round((new Date(b) - new Date(a)) / 86400000) + 1);
-
-// ── Mock approved leaves (replace with API: /api/leave/on-leave?from=&to=) ───
-const ON_LEAVE = [
-    { id: 1, name: "Aditya Sharma", grade: "Grade 4 - B", roll: "SM-2025-452", type: "Sick Leave", from: "2026-06-18", to: "2026-06-20" },
-    { id: 2, name: "Karthik Nair", grade: "Grade 8 - C", roll: "SM-2025-127", type: "Sick Leave", from: "2026-06-17", to: "2026-06-18" },
-    { id: 3, name: "Meera Iyer", grade: "Grade 3 - A", roll: "SM-2025-061", type: "Sick Leave", from: "2026-06-18", to: "2026-06-21" },
-    { id: 4, name: "Sara Khan", grade: "Grade 5 - A", roll: "SM-2025-289", type: "Medical Leave", from: "2026-06-16", to: "2026-06-16" },
-    { id: 5, name: "Ishaan Mehta", grade: "Grade 7 - A", roll: "SM-2025-410", type: "Casual Leave", from: "2026-06-22", to: "2026-06-23" },
-    { id: 6, name: "Ananya Rao", grade: "Grade 2 - B", roll: "SM-2025-077", type: "Sick Leave", from: "2026-06-19", to: "2026-06-25" },
-];
+const isoToDMY = (iso) => { const [y, m, d] = iso.split("-"); return `${d}-${m}-${y}`; }; // YYYY-MM-DD → DD-MM-YYYY (API format)
+const daysLabel = (row) => {
+    if (row.isHalfDay) return "Half day";
+    const n = Number(row.totalDays) || 0;
+    return `${n % 1 === 0 ? n : n.toFixed(1)} ${n > 1 ? "days" : "day"}`;
+};
 
 export default function OnLeaveStudentsPage() {
     const navigate = useNavigate();
     const user = useSelector((state) => state.auth);
     const userType = user.userType;
+    const isExpanded = useSelector((state) => state.sidebar.isExpanded);
 
     const [fromDate, setFromDate] = useState(todayISO());
     const [toDate, setToDate] = useState(todayISO());
-    const isExpanded = useSelector((state) => state.sidebar.isExpanded);
-    // Leaves overlapping the selected [from, to] range.
-    const filtered = useMemo(() => {
-        if (!fromDate || !toDate) return [];
-        return ON_LEAVE
-            .filter((l) => l.from <= toDate && l.to >= fromDate)
-            .sort((a, b) => (a.from < b.from ? -1 : 1));
+    const [data, setData] = useState([]);
+    const [isLoading, setIsLoading] = useState(false);
+
+    // ── StudentsOnLeaveToday — approved leaves overlapping the date range ──────
+    const fetchOnLeave = useCallback(async () => {
+        if (!fromDate || !toDate) return;
+        setIsLoading(true);
+        try {
+            const res = await axios.get(StudentsOnLeaveToday, {
+                params: { fromDate: isoToDMY(fromDate), toDate: isoToDMY(toDate) },
+                headers: { Authorization: `Bearer ${TOKEN}` },
+            });
+            setData(Array.isArray(res.data?.data) ? res.data.data : []);
+        } catch (err) {
+            console.error("StudentsOnLeaveToday failed:", err);
+            setData([]);
+        } finally {
+            setIsLoading(false);
+        }
     }, [fromDate, toDate]);
+
+    useEffect(() => { fetchOnLeave(); }, [fetchOnLeave]);
 
     const setToday = () => { setFromDate(todayISO()); setToDate(todayISO()); };
 
@@ -55,6 +68,7 @@ export default function OnLeaveStudentsPage() {
 
     return (
         <Box sx={{ width: "100%" }}>
+            {isLoading && <Loader />}
             {/* Header */}
             <Box sx={{
                 position: "fixed",
@@ -67,8 +81,8 @@ export default function OnLeaveStudentsPage() {
                 zIndex: 1200,
                 transition: "left 0.3s ease-in-out",
                 overflow: 'hidden',
-                display:"flex", 
-                py:1
+                display: "flex",
+                py: 1,
             }}>
                 <IconButton onClick={() => navigate(-1)} sx={{ width: 32, height: 32 }}>
                     <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
@@ -82,7 +96,7 @@ export default function OnLeaveStudentsPage() {
                 </Box>
             </Box>
 
-            <Box sx={{ px: 2,pb:2, pt:"70px"  }}>
+            <Box sx={{ px: 2, pb: 2, pt: "70px" }}>
                 {/* Date range filter */}
                 <Box sx={{ display: "flex", alignItems: "flex-end", gap: 1.5, flexWrap: "wrap", p: 2, mb: 2, borderRadius: "12px", border: "1px solid #E5E7EB", bgcolor: "#fff" }}>
                     <Box>
@@ -114,7 +128,7 @@ export default function OnLeaveStudentsPage() {
                     </Button>
                     <Box sx={{ ml: { sm: "auto" }, display: "flex", alignItems: "center", gap: 1, px: 1.5, py: 0.9, borderRadius: "10px", bgcolor: `${ACCENT}0A`, border: `1px solid ${ACCENT}26` }}>
                         <Typography sx={{ fontSize: 12, color: "#6B7280", fontWeight: 600 }}>On leave</Typography>
-                        <Typography sx={{ fontSize: 16, fontWeight: 800, color: ACCENT }}>{filtered.length}</Typography>
+                        <Typography sx={{ fontSize: 16, fontWeight: 800, color: ACCENT }}>{data.length}</Typography>
                     </Box>
                 </Box>
 
@@ -129,36 +143,33 @@ export default function OnLeaveStudentsPage() {
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {filtered.length === 0 ? (
+                            {data.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={4} sx={{ textAlign: "center", py: 5, color: "#9CA3AF", fontSize: 13, fontWeight: 600 }}>
-                                        No students on leave for this date range.
+                                        {isLoading ? "Loading…" : "No students on leave for this date range."}
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                filtered.map((row) => {
-                                    const days = daysBetween(row.from, row.to);
-                                    return (
-                                        <TableRow key={row.id} hover sx={{ "&:last-child td": { borderBottom: "none" } }}>
-                                            <TableCell sx={{ borderBottom: "1px solid #F1F3F5", py: 1.2 }}>
-                                                <Box sx={{ display: "flex", alignItems: "center", gap: 1.2 }}>
-                                                    <Avatar sx={{ width: 34, height: 34, fontSize: 12, fontWeight: 700, bgcolor: `${colorFor(row.name)}22`, color: colorFor(row.name) }}>{getInitials(row.name)}</Avatar>
-                                                    <Box>
-                                                        <Typography sx={{ fontSize: 13, fontWeight: 700, color: "#111827" }}>{row.name}</Typography>
-                                                        <Typography sx={{ fontSize: 11, color: "#9CA3AF" }}>{row.grade} · {row.roll}</Typography>
-                                                    </Box>
+                                data.map((row) => (
+                                    <TableRow key={row.id} hover sx={{ "&:last-child td": { borderBottom: "none" } }}>
+                                        <TableCell sx={{ borderBottom: "1px solid #F1F3F5", py: 1.2 }}>
+                                            <Box sx={{ display: "flex", alignItems: "center", gap: 1.2 }}>
+                                                <Avatar sx={{ width: 34, height: 34, fontSize: 12, fontWeight: 700, bgcolor: `${colorFor(row.studentName)}22`, color: colorFor(row.studentName) }}>{getInitials(row.studentName)}</Avatar>
+                                                <Box>
+                                                    <Typography sx={{ fontSize: 13, fontWeight: 700, color: "#111827" }}>{row.studentName}</Typography>
+                                                    <Typography sx={{ fontSize: 11, color: "#9CA3AF" }}>{row.grade}{row.section ? ` - ${row.section}` : ""} · {row.rollNumber}</Typography>
                                                 </Box>
-                                            </TableCell>
-                                            <TableCell sx={{ borderBottom: "1px solid #F1F3F5", fontSize: 12.5, fontWeight: 600, color: "#374151" }}>{row.type}</TableCell>
-                                            <TableCell sx={{ borderBottom: "1px solid #F1F3F5", fontSize: 12, color: "#374151", whiteSpace: "nowrap" }}>
-                                                {fmt(row.from)}{row.from !== row.to ? `  →  ${fmt(row.to)}` : ""}
-                                            </TableCell>
-                                            <TableCell sx={{ borderBottom: "1px solid #F1F3F5" }}>
-                                                <Chip label={`${days} ${days > 1 ? "days" : "day"}`} size="small" sx={{ height: 20, fontSize: 10.5, fontWeight: 700, bgcolor: `${ACCENT}14`, color: ACCENT }} />
-                                            </TableCell>
-                                        </TableRow>
-                                    );
-                                })
+                                            </Box>
+                                        </TableCell>
+                                        <TableCell sx={{ borderBottom: "1px solid #F1F3F5", fontSize: 12.5, fontWeight: 600, color: "#374151" }}>{row.leaveType}</TableCell>
+                                        <TableCell sx={{ borderBottom: "1px solid #F1F3F5", fontSize: 12, color: "#374151", whiteSpace: "nowrap" }}>
+                                            {row.fromDate}{row.fromDate !== row.toDate ? `  →  ${row.toDate}` : ""}
+                                        </TableCell>
+                                        <TableCell sx={{ borderBottom: "1px solid #F1F3F5" }}>
+                                            <Chip label={daysLabel(row)} size="small" sx={{ height: 20, fontSize: 10.5, fontWeight: 700, bgcolor: `${ACCENT}14`, color: ACCENT }} />
+                                        </TableCell>
+                                    </TableRow>
+                                ))
                             )}
                         </TableBody>
                     </Table>

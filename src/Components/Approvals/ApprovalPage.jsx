@@ -11,6 +11,7 @@ import CircularsIcon from "../../Images/Icons/circulars.png";
 import HomeWorkIcon from "../../Images/Icons/class-homework 1.png";
 import { Link, Navigate, useLocation } from "react-router-dom";
 import { ApprovalStatusCircularFetch, ApprovalStatusHomeWorkFetch, ApprovalStatusMessageFetch, ApprovalStatusNewsFetch, GetOverallLeaveDetails } from "../../Api/Api";
+import { selectAcademicYear } from "../../Redux/Slices/academicYearSlice";
 import axios from "axios";
 import NewspaperIcon from '@mui/icons-material/Newspaper';
 import MessageIcon from '@mui/icons-material/Message';
@@ -22,7 +23,6 @@ import SportsSoccerIcon from '@mui/icons-material/SportsSoccer';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import AddBoxIcon from '@mui/icons-material/AddBox';
 import EventBusyIcon from '@mui/icons-material/EventBusy';
-
 
 export default function ApprovalPage() {
     const [isLoading, setIsLoading] = useState(false);
@@ -37,6 +37,7 @@ export default function ApprovalPage() {
     const userName = user.name
     const websiteSettings = useSelector(selectWebsiteSettings);
     const version = useSelector(selectVersion);
+    const academicYear = useSelector(selectAcademicYear);
     const token = "123"
     const location = useLocation();
 
@@ -73,19 +74,16 @@ export default function ApprovalPage() {
         });
     }, []);
 
-    // Pending student-leave count → shown as a badge on the Student Leave card.
+    // Pending student-leave count → badge on the Student Leave card.
     useEffect(() => {
-        const pad = (n) => String(n).padStart(2, "0");
-        const d = new Date();
-        const today = `${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()}`;
         axios.get(GetOverallLeaveDetails, {
-            params: { fromDate: today, toDate: today, status: "all" },
+            params: { academicYear, status: "pending" },
             headers: { Authorization: `Bearer ${token}` },
         })
             .then((res) => setLeavePending(res.data?.cards?.pending || 0))
             .catch((err) => console.error("GetOverallLeaveDetails (count) failed:", err));
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [academicYear]);
 
     const handleChange = (event, newValue) => {
         setValue(newValue);

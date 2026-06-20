@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
-    Box, Typography, IconButton, Button, Avatar, Chip, Tooltip, Divider, Select, MenuItem,
+    Box, Typography, IconButton, Button, Avatar, Chip, Tooltip, Divider, CircularProgress,
     Dialog, DialogTitle, DialogContent, DialogActions, TextareaAutosize,
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
 } from "@mui/material";
@@ -11,13 +11,15 @@ import PendingActionsIcon from "@mui/icons-material/PendingActions";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
 import EventBusyOutlinedIcon from "@mui/icons-material/EventBusyOutlined";
+import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
+import HistoryToggleOffIcon from "@mui/icons-material/HistoryToggleOff";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import CloseIcon from "@mui/icons-material/Close";
 import { useNavigate, Navigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import axios from "axios";
 import SnackBar from "../../SnackBar";
-import Loader from "../../Loader";
+import { selectAcademicYear } from "../../../Redux/Slices/academicYearSlice";
 import { GetOverallLeaveDetails, StudentsOnLeaveToday, LeaveApproval } from "../../../Api/Api";
 
 const ACCENT = "#3457D5";
@@ -27,43 +29,70 @@ const getInitials = (n = "") => n.split(" ").map((p) => p[0]).filter(Boolean).sl
 const AVATAR_PALETTE = ["#0E7490", "#6D28D9", "#C2410C", "#047857", "#1D4ED8", "#BE185D", "#A16207", "#0F766E"];
 const colorFor = (s = "") => AVATAR_PALETTE[(s.charCodeAt(0) || 0) % AVATAR_PALETTE.length];
 
-// ── Date helpers ────────────────────────────────────────────────────────────
+// ── Helpers ─────────────────────────────────────────────────────────────────
 const pad = (n) => String(n).padStart(2, "0");
-const currentMonth = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; };
 const todayDMY = () => { const d = new Date(); return `${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()}`; };
-// YYYY-MM → { from: "01-MM-YYYY", to: "<lastDay>-MM-YYYY" } (API expects DD-MM-YYYY)
-const monthRange = (ym) => {
-    const [y, m] = ym.split("-").map(Number);
-    const last = new Date(y, m, 0).getDate();
-    return { from: `01-${pad(m)}-${y}`, to: `${pad(last)}-${pad(m)}-${y}` };
-};
-// Last 12 months (current first) for the dropdown.
-const buildMonths = () => {
-    const opts = [];
-    const now = new Date();
-    for (let i = 0; i < 12; i++) {
-        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        opts.push({ value: `${d.getFullYear()}-${pad(d.getMonth() + 1)}`, label: d.toLocaleString("en-US", { month: "long", year: "numeric" }) });
-    }
-    return opts;
-};
 const daysLabel = (row) => {
     if (row.isHalfDay) return "Half day";
     const n = Number(row.totalDays) || 0;
     return `${n % 1 === 0 ? n : n.toFixed(1)} ${n > 1 ? "days" : "day"}`;
 };
 
+// DD-MM-YYYY → Date (midnight). Returns null on bad input.
+const parseDMY = (s) => {
+    if (!s || typeof s !== "string") return null;
+    const [d, m, y] = s.split("-").map(Number);
+    const dt = new Date(y, (m || 1) - 1, d || 1);
+    return Number.isNaN(dt.getTime()) ? null : dt;
+};
+const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+const diffDays = (a, b) => Math.round((startOfDay(a) - startOfDay(b)) / 86400000);
+
+// "Applied N days ago" — colour gets warmer the longer a request waits.
+const appliedInfo = (appliedOn) => {
+    const dt = parseDMY(appliedOn);
+    if (!dt) return null;
+    const days = diffDays(new Date(), dt);
+    let text;
+    if (days <= 0) text = "Applied today";
+    else if (days === 1) text = "Applied 1 day ago";
+    else text = `Applied ${days} days ago`;
+    const color = days <= 1 ? "#16A34A" : days <= 3 ? "#EA580C" : "#DC2626";
+    return { text, color };
+};
+
+// A pending request whose leave start date is already in the past → missed / expired.
+const isExpiredLeave = (fromDate, statusKey) => {
+    if (statusKey === "expired") return true;          // backend already tagged it
+    if (statusKey !== "pending") return false;
+    const dt = parseDMY(fromDate);
+    return !!dt && diffDays(dt, new Date()) < 0;        // leave start date already passed
+};
+
+// Pending request whose leave start date is near / today → flag it (past = handled as Expired).
+const upcomingInfo = (fromDate, statusKey) => {
+    if (statusKey !== "pending") return null;
+    const dt = parseDMY(fromDate);
+    if (!dt) return null;
+    const days = diffDays(dt, new Date()); // start − today
+    if (days < 0) return null;                          // expired — shown via the Expired status
+    if (days === 0) return { text: "Starts today", color: "#DC2626", bg: "#FEE2E2" };
+    if (days <= 3) return { text: `Starts in ${days} ${days > 1 ? "days" : "day"}`, color: "#EA580C", bg: "#FFF7ED" };
+    return null;
+};
+
 const STATUS_META = {
     pending: { label: "Pending", color: "#EA580C", bg: "#FFF7ED", icon: PendingActionsIcon },
     approved: { label: "Approved", color: "#16A34A", bg: "#DCFCE7", icon: CheckCircleIcon },
     rejected: { label: "Rejected", color: "#DC2626", bg: "#FEE2E2", icon: CancelIcon },
+    expired: { label: "Expired", color: "#64748B", bg: "#F1F5F9", icon: HistoryToggleOffIcon },
 };
 
 const FILTERS = [
-    { key: "all", label: "All" },
     { key: "pending", label: "Pending" },
     { key: "approved", label: "Approved" },
     { key: "rejected", label: "Rejected" },
+    { key: "expired", label: "Expired" },
 ];
 
 export default function StudentLeaveApprovalPage() {
@@ -71,13 +100,12 @@ export default function StudentLeaveApprovalPage() {
     const user = useSelector((state) => state.auth);
     const userType = user.userType;
     const isExpanded = useSelector((state) => state.sidebar.isExpanded);
+    const academicYear = useSelector(selectAcademicYear);
 
-    const [filter, setFilter] = useState("all");
-    const [month, setMonth] = useState(currentMonth);
-    const months = useMemo(buildMonths, []);
+    const [filter, setFilter] = useState("pending");
 
     const [leaves, setLeaves] = useState([]);
-    const [cards, setCards] = useState({ pending: 0, approved: 0, rejected: 0 });
+    const [cards, setCards] = useState({ pending: 0, approved: 0, rejected: 0, expired: 0 });
     const [todayList, setTodayList] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
 
@@ -89,26 +117,36 @@ export default function StudentLeaveApprovalPage() {
     const [rejectReason, setRejectReason] = useState("");
     const [submitting, setSubmitting] = useState(false);
 
+    // Supporting-document (proof) viewer
+    const [proofUrl, setProofUrl] = useState(null);
+    const openProof = (url) => {
+        if (!url) return;
+        if (/\.pdf($|\?)/i.test(url)) { window.open(url, "_blank", "noopener"); return; } // PDFs open in a new tab
+        setProofUrl(url);
+    };
+    const closeProof = () => setProofUrl(null);
+
     // ── GetOverallLeaveDetails — cards + table for the selected month & status ──
     const fetchLeaves = useCallback(async () => {
         setIsLoading(true);
         try {
-            const { from, to } = monthRange(month);
             const res = await axios.get(GetOverallLeaveDetails, {
-                params: { fromDate: from, toDate: to, status: filter },
+                params: { academicYear, status: filter },
                 headers: { Authorization: `Bearer ${TOKEN}` },
             });
             const d = res.data || {};
-            setCards(d.cards || { pending: 0, approved: 0, rejected: 0 });
-            setLeaves(Array.isArray(d.leaves) ? d.leaves : []);
+            // No data / error response → reset counts so stale numbers don't linger.
+            setCards(d.error ? { pending: 0, approved: 0, rejected: 0, expired: 0 } : (d.cards || { pending: 0, approved: 0, rejected: 0, expired: 0 }));
+            setLeaves(!d.error && Array.isArray(d.leaves) ? d.leaves : []);
         } catch (err) {
             console.error("GetOverallLeaveDetails failed:", err);
             showSnack("Failed to load leave details.", false);
+            setCards({ pending: 0, approved: 0, rejected: 0, expired: 0 });
             setLeaves([]);
         } finally {
             setIsLoading(false);
         }
-    }, [month, filter]);
+    }, [filter, academicYear]);
 
     // ── StudentsOnLeaveToday — the "on leave today" panel ──────────────────────
     const fetchTodayOnLeave = useCallback(async () => {
@@ -143,8 +181,8 @@ export default function StudentLeaveApprovalPage() {
             showSnack(
                 action === "approve"
                     ? `Approved ${row.studentName}'s ${row.leaveType}.`
-                    : `Rejected ${row.studentName}'s ${row.leaveType}.`,
-                action === "approve"
+                    : `Rejected ${row.studentName}'s ${row.leaveType} successfully.`,
+                true
             );
             await Promise.all([fetchLeaves(), fetchTodayOnLeave()]);
         } catch (err) {
@@ -156,7 +194,15 @@ export default function StudentLeaveApprovalPage() {
         }
     };
 
-    const approve = (row) => submitAction(row, "approve");
+    // Approve confirmation
+    const [approveTarget, setApproveTarget] = useState(null);
+    const openApprove = (row) => setApproveTarget(row);
+    const closeApprove = () => setApproveTarget(null);
+    const confirmApprove = async () => {
+        const target = approveTarget;
+        setApproveTarget(null);
+        if (target) await submitAction(target, "approve");
+    };
 
     const openReject = (row) => { setRejectTarget(row); setRejectReason(""); };
     const closeReject = () => { setRejectTarget(null); setRejectReason(""); };
@@ -170,6 +216,9 @@ export default function StudentLeaveApprovalPage() {
         return <Navigate to="/dashboardmenu/dashboard" replace />;
     }
 
+    // Action (approve/reject) column is only relevant for pending requests.
+    const showAction = filter === "pending";
+
     const kpis = [
         { key: "pending", label: "Pending", value: cards.pending || 0, color: "#EA580C", bg: "#FFF7ED", icon: PendingActionsIcon },
         { key: "approved", label: "Approved", value: cards.approved || 0, color: "#16A34A", bg: "#DCFCE7", icon: CheckCircleIcon },
@@ -179,7 +228,6 @@ export default function StudentLeaveApprovalPage() {
 
     return (
         <Box sx={{ width: "100%" }}>
-            {isLoading && <Loader />}
             <SnackBar open={snack.open} color={snack.ok} setOpen={(v) => setSnack((s) => ({ ...s, open: v }))} status={snack.ok} message={snack.msg} />
 
             {/* Header */}
@@ -207,16 +255,6 @@ export default function StudentLeaveApprovalPage() {
                     <Typography sx={{ fontWeight: 700, fontSize: "19px", lineHeight: 1.1 }}>Student Leave Management</Typography>
                     <Typography sx={{ fontSize: 11.5, color: "#6B7280" }}>Review, approve or reject student leave requests</Typography>
                 </Box>
-                <Box sx={{ ml: "auto", display: "flex", alignItems: "center", gap: 1, alignSelf: "center" }}>
-                    <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: "#6B7280", display: { xs: "none", sm: "block" } }}>Month</Typography>
-                    <Select
-                        size="small" value={month}
-                        onChange={(e) => setMonth(e.target.value)}
-                        sx={{ fontSize: 12.5, fontWeight: 700, height: 36, bgcolor: "#fff", borderRadius: "8px", minWidth: 160, "& .MuiOutlinedInput-notchedOutline": { borderColor: "#E5E7EB" } }}
-                    >
-                        {months.map((m) => <MenuItem key={m.value} value={m.value} sx={{ fontSize: 13 }}>{m.label}</MenuItem>)}
-                    </Select>
-                </Box>
             </Box>
 
             <Box sx={{ px: 2, pb: 2, pt: "70px" }}>
@@ -225,14 +263,20 @@ export default function StudentLeaveApprovalPage() {
                     {kpis.map((k) => {
                         const Icon = k.icon;
                         return (
-                            <Box key={k.key} sx={{ flex: "1 1 180px", display: "flex", alignItems: "center", gap: 1.4, p: 1.6, borderRadius: "12px", border: "1px solid #E5E7EB", bgcolor: "#fff" }}>
-                                <Avatar sx={{ width: 40, height: 40, bgcolor: k.bg }}>
-                                    <Icon sx={{ fontSize: 22, color: k.color }} />
-                                </Avatar>
-                                <Box>
-                                    <Typography sx={{ fontSize: 22, fontWeight: 800, color: "#111827", lineHeight: 1.1 }}>{k.value}</Typography>
-                                    <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: 0.3 }}>{k.label}</Typography>
+                            <Box key={k.key} sx={{
+                                flex: "1 1 200px", p: 1.8, borderRadius: "14px",
+                                bgcolor: k.bg, border: `1px solid ${k.color}33`,
+                                display: "flex", flexDirection: "column", gap: 1,
+                                transition: "transform 0.2s, box-shadow 0.2s",
+                                "&:hover": { transform: "translateY(-2px)", boxShadow: `0 6px 16px ${k.color}22` },
+                            }}>
+                                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                                    <Typography sx={{ fontSize: 11, fontWeight: 800, color: "#6B7280", textTransform: "uppercase", letterSpacing: 0.5 }}>{k.label}</Typography>
+                                    <Box sx={{ width: 34, height: 34, borderRadius: "10px", bgcolor: `${k.color}22`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                        <Icon sx={{ fontSize: 19, color: k.color }} />
+                                    </Box>
                                 </Box>
+                                <Typography sx={{ fontSize: 28, fontWeight: 800, color: k.color, lineHeight: 1 }}>{k.value}</Typography>
                             </Box>
                         );
                     })}
@@ -297,23 +341,35 @@ export default function StudentLeaveApprovalPage() {
                     <Table sx={{ minWidth: 820 }}>
                         <TableHead>
                             <TableRow sx={{ bgcolor: "#F9FAFB" }}>
-                                {["Student", "Leave Type", "Duration", "Days", "Reason", "Status", "Action"].map((h) => (
+                                {["Student", "Leave Type", "Duration", "Days", "Applied On", "Reason", "Status", ...(showAction ? ["Action"] : [])].map((h) => (
                                     <TableCell key={h} sx={{ fontSize: 10.5, fontWeight: 800, color: "#6B7280", textTransform: "uppercase", letterSpacing: 0.4, borderBottom: "1px solid #E5E7EB", py: 1.2 }}>{h}</TableCell>
                                 ))}
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {leaves.length === 0 ? (
+                            {isLoading ? (
                                 <TableRow>
-                                    <TableCell colSpan={7} sx={{ textAlign: "center", py: 5, color: "#9CA3AF", fontSize: 13, fontWeight: 600 }}>
-                                        {isLoading ? "Loading…" : `No ${filter === "all" ? "" : filter} leave requests for this month.`}
+                                    <TableCell colSpan={showAction ? 8 : 7} sx={{ textAlign: "center", py: 5, borderBottom: "none" }}>
+                                        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1.2 }}>
+                                            <CircularProgress size={24} sx={{ color: ACCENT }} />
+                                            <Typography sx={{ fontSize: 13, color: "#6B7280", fontWeight: 600 }}>Loading…</Typography>
+                                        </Box>
+                                    </TableCell>
+                                </TableRow>
+                            ) : leaves.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={showAction ? 8 : 7} sx={{ textAlign: "center", py: 5, color: "#9CA3AF", fontSize: 13, fontWeight: 600 }}>
+                                        {`No ${filter} leave requests.`}
                                     </TableCell>
                                 </TableRow>
                             ) : (
                                 leaves.map((row) => {
                                     const statusKey = (row.status || "").toLowerCase();
-                                    const meta = STATUS_META[statusKey] || STATUS_META.pending;
+                                    const expired = isExpiredLeave(row.fromDate, statusKey);
+                                    const meta = expired ? STATUS_META.expired : (STATUS_META[statusKey] || STATUS_META.pending);
                                     const StatusIcon = meta.icon;
+                                    const applied = appliedInfo(row.appliedOn);
+                                    const upcoming = upcomingInfo(row.fromDate, statusKey);
                                     return (
                                         <TableRow key={row.id} hover sx={{ "&:last-child td": { borderBottom: "none" } }}>
                                             {/* Student */}
@@ -331,10 +387,22 @@ export default function StudentLeaveApprovalPage() {
                                             {/* Duration */}
                                             <TableCell sx={{ borderBottom: "1px solid #F1F3F5", fontSize: 12, color: "#374151", whiteSpace: "nowrap" }}>
                                                 {row.fromDate}{row.fromDate !== row.toDate ? ` → ${row.toDate}` : ""}
+                                                {upcoming && (
+                                                    <Box sx={{ mt: 0.4 }}>
+                                                        <Chip label={upcoming.text} size="small" sx={{ height: 19, fontSize: 9.5, fontWeight: 800, bgcolor: upcoming.bg, color: upcoming.color }} />
+                                                    </Box>
+                                                )}
                                             </TableCell>
                                             {/* Days */}
                                             <TableCell sx={{ borderBottom: "1px solid #F1F3F5" }}>
-                                                <Chip label={daysLabel(row)} size="small" sx={{ height: 20, fontSize: 10.5, fontWeight: 700, bgcolor: `${ACCENT}14`, color: ACCENT }} />
+                                                <Chip label={daysLabel(row)} size="small" sx={{ height: 20, fontSize: 10.5, fontWeight: 700, bgcolor: row.isHalfDay ? "#7C3AED14" : `${ACCENT}14`, color: row.isHalfDay ? "#7C3AED" : ACCENT }} />
+                                            </TableCell>
+                                            {/* Applied on */}
+                                            <TableCell sx={{ borderBottom: "1px solid #F1F3F5", whiteSpace: "nowrap" }}>
+                                                <Typography sx={{ fontSize: 12, color: "#374151" }}>{row.appliedOn || "—"}</Typography>
+                                                {applied && (
+                                                    <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: applied.color, mt: 0.2 }}>{applied.text}</Typography>
+                                                )}
                                             </TableCell>
                                             {/* Reason */}
                                             <TableCell sx={{ borderBottom: "1px solid #F1F3F5", fontSize: 12, color: "#6B7280", maxWidth: 220 }}>
@@ -347,31 +415,44 @@ export default function StudentLeaveApprovalPage() {
                                                 {statusKey === "approved" && row.approvedByName && (
                                                     <Typography sx={{ fontSize: 10.5, color: "#16A34A", mt: 0.3 }}>By {row.approvedByName}{row.approvedOnDate ? ` · ${row.approvedOnDate}` : ""}</Typography>
                                                 )}
+                                                {row.supportingDocumentUrl && (
+                                                    <Button onClick={() => openProof(row.supportingDocumentUrl)} startIcon={<VisibilityOutlinedIcon sx={{ fontSize: 15 }} />}
+                                                        sx={{ mt: 0.5, textTransform: "none", fontWeight: 700, fontSize: 11, color: ACCENT, border: `1px solid ${ACCENT}40`, borderRadius: "7px", height: 26, px: 1, minWidth: 0, "&:hover": { bgcolor: `${ACCENT}0A`, borderColor: ACCENT } }}>
+                                                        Proof
+                                                    </Button>
+                                                )}
                                             </TableCell>
                                             {/* Status */}
                                             <TableCell sx={{ borderBottom: "1px solid #F1F3F5" }}>
                                                 <Chip icon={<StatusIcon sx={{ fontSize: "14px !important" }} />} label={meta.label} size="small"
                                                     sx={{ height: 22, fontSize: 10.5, fontWeight: 700, bgcolor: meta.bg, color: meta.color, "& .MuiChip-icon": { color: meta.color } }} />
                                             </TableCell>
-                                            {/* Action */}
-                                            <TableCell sx={{ borderBottom: "1px solid #F1F3F5" }}>
-                                                {statusKey === "pending" ? (
-                                                    <Box sx={{ display: "flex", gap: 0.8 }}>
-                                                        <Button onClick={() => approve(row)} disabled={submitting} startIcon={<CheckCircleOutlineIcon sx={{ fontSize: 16 }} />}
-                                                            sx={{ textTransform: "none", fontWeight: 700, fontSize: 11.5, bgcolor: "#16A34A", color: "#fff", borderRadius: "8px", height: 30, px: 1.2, boxShadow: "none", "&:hover": { bgcolor: "#15803D", boxShadow: "none" }, "&.Mui-disabled": { bgcolor: "#A7F3D0", color: "#fff" } }}>
-                                                            Approve
-                                                        </Button>
-                                                        <Button onClick={() => openReject(row)} disabled={submitting} startIcon={<HighlightOffIcon sx={{ fontSize: 16 }} />}
-                                                            sx={{ textTransform: "none", fontWeight: 700, fontSize: 11.5, color: "#DC2626", border: "1px solid #FCA5A5", borderRadius: "8px", height: 30, px: 1.2, "&:hover": { bgcolor: "#FEF2F2", borderColor: "#DC2626" } }}>
-                                                            Reject
-                                                        </Button>
-                                                    </Box>
-                                                ) : (
-                                                    <Typography sx={{ fontSize: 11.5, color: "#9CA3AF", fontStyle: "italic" }}>
-                                                        {meta.label}
-                                                    </Typography>
-                                                )}
-                                            </TableCell>
+                                            {/* Action — only for pending */}
+                                            {showAction && (
+                                                <TableCell sx={{ borderBottom: "1px solid #F1F3F5" }}>
+                                                    {expired ? (
+                                                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                                                            <HistoryToggleOffIcon sx={{ fontSize: 15, color: "#64748B" }} />
+                                                            <Typography sx={{ fontSize: 11, color: "#64748B", fontStyle: "italic" }}>Expired — not actioned</Typography>
+                                                        </Box>
+                                                    ) : statusKey === "pending" ? (
+                                                        <Box sx={{ display: "flex", gap: 0.8 }}>
+                                                            <Button onClick={() => openApprove(row)} disabled={submitting} startIcon={<CheckCircleOutlineIcon sx={{ fontSize: 16 }} />}
+                                                                sx={{ textTransform: "none", fontWeight: 700, fontSize: 11.5, color: "#16A34A", bgcolor: "#F0FDF4", border: "1px solid #16A34A55", borderRadius: "8px", height: 30, px: 1.2, boxShadow: "none", "&:hover": { bgcolor: "#DCFCE7", borderColor: "#16A34A", boxShadow: "none" }, "&.Mui-disabled": { color: "#86EFAC", borderColor: "#BBF7D0", bgcolor: "#F0FDF4" } }}>
+                                                                Approve
+                                                            </Button>
+                                                            <Button onClick={() => openReject(row)} disabled={submitting} startIcon={<HighlightOffIcon sx={{ fontSize: 16 }} />}
+                                                                sx={{ textTransform: "none", fontWeight: 700, fontSize: 11.5, color: "#DC2626", bgcolor: "#FEF2F2", border: "1px solid #FCA5A5", borderRadius: "8px", height: 30, px: 1.2, "&:hover": { bgcolor: "#FEE2E2", borderColor: "#DC2626" } }}>
+                                                                Reject
+                                                            </Button>
+                                                        </Box>
+                                                    ) : (
+                                                        <Typography sx={{ fontSize: 11.5, color: "#9CA3AF", fontStyle: "italic" }}>
+                                                            {meta.label}
+                                                        </Typography>
+                                                    )}
+                                                </TableCell>
+                                            )}
                                         </TableRow>
                                     );
                                 })
@@ -380,6 +461,32 @@ export default function StudentLeaveApprovalPage() {
                     </Table>
                 </TableContainer>
             </Box>
+
+            {/* Approve confirmation dialog */}
+            <Dialog open={Boolean(approveTarget)} onClose={closeApprove} maxWidth="xs" fullWidth slotProps={{ paper: { sx: { borderRadius: "14px" } } }}>
+                <DialogTitle sx={{ p: 2, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.2 }}>
+                        <Box sx={{ width: 34, height: 34, borderRadius: "9px", bgcolor: "#DCFCE7", color: "#16A34A", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            <CheckCircleIcon sx={{ fontSize: 19 }} />
+                        </Box>
+                        <Box>
+                            <Typography sx={{ fontSize: 15, fontWeight: 800, lineHeight: 1.1 }}>Approve Leave</Typography>
+                            <Typography sx={{ fontSize: 11.5, color: "#6B7280" }}>{approveTarget?.studentName} · {approveTarget?.leaveType}</Typography>
+                        </Box>
+                    </Box>
+                    <IconButton size="small" onClick={closeApprove}><CloseIcon sx={{ fontSize: 18 }} /></IconButton>
+                </DialogTitle>
+                <Divider />
+                <DialogContent sx={{ px: 2, pt: 2, pb: 1 }}>
+                    <Typography sx={{ fontSize: 13, color: "#374151" }}>
+                        Are you sure you want to approve this leave request? This action will mark the leave as <strong>approved</strong>.
+                    </Typography>
+                </DialogContent>
+                <DialogActions sx={{ px: 2, pb: 2, gap: 1 }}>
+                    <Button onClick={closeApprove} sx={{ textTransform: "none", fontWeight: 700, color: "#374151", border: "1px solid #E5E7EB", borderRadius: "8px", px: 2, height: 36 }}>Cancel</Button>
+                    <Button onClick={confirmApprove} disabled={submitting} variant="contained" disableElevation sx={{ textTransform: "none", fontWeight: 700, bgcolor: "#16A34A", color: "#fff", borderRadius: "8px", px: 2.4, height: 36, "&:hover": { bgcolor: "#15803D" } }}>Yes, Approve</Button>
+                </DialogActions>
+            </Dialog>
 
             {/* Reject reason dialog */}
             <Dialog open={Boolean(rejectTarget)} onClose={closeReject} maxWidth="xs" fullWidth slotProps={{ paper: { sx: { borderRadius: "14px" } } }}>
@@ -410,6 +517,23 @@ export default function StudentLeaveApprovalPage() {
                     <Button onClick={closeReject} sx={{ textTransform: "none", fontWeight: 700, color: "#374151", border: "1px solid #E5E7EB", borderRadius: "8px", px: 2, height: 36 }}>Cancel</Button>
                     <Button onClick={confirmReject} disabled={submitting} variant="contained" disableElevation sx={{ textTransform: "none", fontWeight: 700, bgcolor: "#DC2626", color: "#fff", borderRadius: "8px", px: 2.4, height: 36, "&:hover": { bgcolor: "#B91C1C" } }}>Reject Leave</Button>
                 </DialogActions>
+            </Dialog>
+
+            {/* Supporting document (proof) viewer */}
+            <Dialog open={Boolean(proofUrl)} onClose={closeProof} maxWidth="sm" fullWidth slotProps={{ paper: { sx: { borderRadius: "14px", overflow: "hidden" } } }}>
+                <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", p: 1.5, borderBottom: "1px solid #E5E7EB" }}>
+                    <Typography sx={{ fontSize: 14, fontWeight: 800 }}>Supporting Document</Typography>
+                    <IconButton size="small" onClick={closeProof}><CloseIcon sx={{ fontSize: 18 }} /></IconButton>
+                </Box>
+                <Box sx={{ p: 1.5, display: "flex", justifyContent: "center", alignItems: "center", bgcolor: "#0b0b0b", minHeight: 200 }}>
+                    {proofUrl && (
+                        <img
+                            src={proofUrl}
+                            alt="Supporting document"
+                            style={{ maxWidth: "100%", maxHeight: "70vh", objectFit: "contain", borderRadius: 8 }}
+                        />
+                    )}
+                </Box>
             </Dialog>
         </Box>
     );

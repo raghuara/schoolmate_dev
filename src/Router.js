@@ -410,6 +410,7 @@ export default function RouterPage() {
                 <Route path="approvals/messages" element={<MessagesApprovalPage />} />
                 <Route path="approvals/circulars" element={<CircularsApprovalPage />} />
                 <Route path="approvals/homework" element={<HomeworkApprovalPage />} />
+                
                 <Route path="approvals/student-leave" element={<StudentLeaveApprovalPage />} />
                 <Route path="approvals/on-leave" element={<OnLeaveStudentsPage />} />
 

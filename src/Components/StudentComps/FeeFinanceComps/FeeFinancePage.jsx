@@ -7,7 +7,7 @@ import { selectGrades } from '../../../Redux/Slices/DropdownController';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import SnackBar from '../../SnackBar';
-import { teamManagementGet, moveToAccounts, moveToBilling } from '../../../Api/Api';
+import { teamManagementGet, moveToAccounts, moveToBilling, paymentApprovalsGet, paymentApprovalUpdate } from '../../../Api/Api';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import PersonAddAlt1Icon from '@mui/icons-material/PersonAddAlt1';
 import PostAddIcon from '@mui/icons-material/PostAdd';
@@ -36,94 +36,6 @@ import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
 import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined';
 import WorkOutlineIcon from '@mui/icons-material/WorkOutline';
 
-const initialApprovals = [
-    {
-        id: "PAY-2026-001",
-        studentName: "Aarav Patel",
-        grade: "VIII",
-        section: "A",
-        rollNumber: "S2024-088",
-        amount: 25000,
-        method: "Net Banking",
-        referenceId: "UTIB202605294532",
-        paymentDate: "2026-05-27",
-        submittedBy: "Parent · Rohit Patel",
-        submittedDate: "2026-05-28",
-        proofType: "screenshot",
-        status: "pending",
-        note: "Term 1 fee payment via SBI NEFT",
-        source: "Parent Upload",
-    },
-    {
-        id: "PAY-2026-002",
-        studentName: "Diya Sharma",
-        grade: "X",
-        section: "B",
-        rollNumber: "S2022-145",
-        amount: 18500,
-        method: "UPI",
-        referenceId: "532012584451@ybl",
-        paymentDate: "2026-05-28",
-        submittedBy: "Parent · Meera Sharma",
-        submittedDate: "2026-05-28",
-        proofType: "screenshot",
-        status: "pending",
-        note: "Paid directly to school UPI ID",
-        source: "Parent Upload",
-    },
-    {
-        id: "PAY-2026-003",
-        studentName: "Vihaan Iyer",
-        grade: "VI",
-        section: "C",
-        rollNumber: "S2025-012",
-        amount: 32500,
-        method: "Cheque",
-        referenceId: "CHQ-456221",
-        paymentDate: "2026-05-26",
-        submittedBy: "Billing · Priya Sharma",
-        submittedDate: "2026-05-29",
-        proofType: "document",
-        status: "pending",
-        note: "HDFC Bank cheque - awaiting clearance confirmation",
-        source: "Billing Screen",
-    },
-    {
-        id: "PAY-2026-004",
-        studentName: "Sara Khan",
-        grade: "IX",
-        section: "A",
-        rollNumber: "S2023-067",
-        amount: 22000,
-        method: "Card",
-        referenceId: "TRX98745632",
-        paymentDate: "2026-05-29",
-        submittedBy: "Billing · Lakshmi Iyer",
-        submittedDate: "2026-05-29",
-        proofType: "screenshot",
-        status: "pending",
-        note: "Credit/Debit card payment - ICICI Bank",
-        source: "Billing Screen",
-    },
-    {
-        id: "PAY-2026-005",
-        studentName: "Arjun Menon",
-        grade: "XI",
-        section: "B",
-        rollNumber: "S2021-203",
-        amount: 41000,
-        method: "Cheque",
-        referenceId: "CHQ-902113",
-        paymentDate: "2026-05-25",
-        submittedBy: "Billing · Ravi Kumar",
-        submittedDate: "2026-05-29",
-        proofType: "document",
-        status: "pending",
-        note: "Axis Bank cheque - parent dropped at office",
-        source: "Billing Screen",
-    },
-];
-
 const PAYMENT_METHOD_COLORS = {
     'UPI': { bg: '#F3E5F5', color: '#7B1FA2' },
     'Net Banking': { bg: '#E3F2FD', color: '#1565C0' },
@@ -141,7 +53,20 @@ const METHOD_FILTERS = [
 ];
 
 const formatCurrency = (n) =>
-    new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n);
+    new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n || 0);
+
+// API paymentOption → friendly method label (also the key for PAYMENT_METHOD_COLORS & filters)
+const methodDisplay = (opt) => {
+    switch (opt) {
+        case 'UPI': return 'UPI';
+        case 'NetBanking': return 'Net Banking';
+        case 'Cheque': return 'Cheque';
+        case 'Card':
+        case 'DebitCard':
+        case 'CreditCard': return 'Card';
+        default: return opt || '—';
+    }
+};
 
 const getInitials = (name) =>
     String(name || '').split(' ').map((p) => p[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
@@ -234,10 +159,13 @@ export default function FeeFinancePage() {
     const [snackMessage, setSnackMessage] = useState('');
     const showSnack = (msg, ok) => { setSnackMessage(msg); setSnackColor(ok); setSnackStatus(ok); setSnackOpen(true); };
 
-    const [approvals, setApprovals] = useState(initialApprovals);
+    const [approvals, setApprovals] = useState([]);
     const [approvalSearch, setApprovalSearch] = useState("");
     const [approvalMethodFilter, setApprovalMethodFilter] = useState("all");
     const [proofDialog, setProofDialog] = useState({ open: false, item: null });
+    const [paySummary, setPaySummary] = useState({ pendingCount: 0, pendingAmount: 0, chequesCount: 0, directOnlineCount: 0 });
+    const [payLoading, setPayLoading] = useState(false);
+    const [payActioning, setPayActioning] = useState(null);
 
     const billingCount = teamCounts.billing;
     const accountsCount = teamCounts.accounts;
@@ -311,13 +239,101 @@ export default function FeeFinancePage() {
         });
     }, [approvals, approvalSearch, approvalMethodFilter]);
 
-    const pendingTotal = useMemo(() => approvals.filter((a) => a.status === 'pending').reduce((sum, a) => sum + a.amount, 0), [approvals]);
-    const pendingCount = useMemo(() => approvals.filter((a) => a.status === 'pending').length, [approvals]);
-    const chequeCount = useMemo(() => approvals.filter((a) => a.status === 'pending' && a.method === 'Cheque').length, [approvals]);
-    const directCount = useMemo(() => approvals.filter((a) => a.status === 'pending' && (a.method === 'UPI' || a.method === 'Net Banking' || a.method === 'Card')).length, [approvals]);
+    // Summary cards + tab badge come straight from the API summary.
+    const pendingTotal = paySummary.pendingAmount || 0;
+    const pendingCount = paySummary.pendingCount || 0;
+    const chequeCount = paySummary.chequesCount || 0;
+    const directCount = paySummary.directOnlineCount || 0;
 
-    const handleApprovalAction = (id, action) => {
-        setApprovals((prev) => prev.map((a) => a.id === id ? { ...a, status: action } : a));
+    // ── paymentApprovalsGet — pending payments + summary ──
+    const fetchPaymentApprovals = async () => {
+        setPayLoading(true);
+        try {
+            const res = await axios.get(paymentApprovalsGet, {
+                params: { Method: 'all' },
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const data = res?.data || {};
+            const mapped = (Array.isArray(data.payments) ? data.payments : []).map((p) => ({
+                id: p.billID,
+                paymentMethodID: p.paymentMethodID,
+                rollNumber: String(p.rollNumber || ''),
+                studentName: p.studentName,
+                grade: p.grade,
+                section: p.section,
+                amount: Number(p.totalPaidAmount) || 0,
+                method: methodDisplay(p.paymentOption),
+                feeType: p.feeType,
+                referenceId: p.reference || p.transactionID || '—',
+                paymentDate: p.paidDate,
+                submittedBy: p.submittedByRollNumber ? `Roll ${p.submittedByRollNumber}` : (p.paidFrom || '—'),
+                submittedDate: p.paidDate,
+                proofUrl: p.filePathForUPI || null,
+                proofType: p.filePathForUPI ? 'screenshot' : 'document',
+                status: (p.approvalStatus || '').toLowerCase(),
+                note: p.remark,
+                source: p.paidFrom ? (p.paidFrom.charAt(0).toUpperCase() + p.paidFrom.slice(1)) : 'System',
+            }));
+            setApprovals(mapped);
+            setPaySummary(data.summary || { pendingCount: 0, pendingAmount: 0, chequesCount: 0, directOnlineCount: 0 });
+        } catch (err) {
+            console.error('paymentApprovalsGet failed:', err);
+            setApprovals([]);
+            setPaySummary({ pendingCount: 0, pendingAmount: 0, chequesCount: 0, directOnlineCount: 0 });
+        } finally {
+            setPayLoading(false);
+        }
+    };
+
+    // Load on mount so the tab badge count is correct even before the tab is opened.
+    useEffect(() => {
+        fetchPaymentApprovals();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // ── paymentApprovalUpdate — approve / reject ──
+    const submitPaymentAction = async (item, status, reason = null) => {
+        if (!item) return;
+        setPayActioning(item.paymentMethodID);
+        try {
+            await axios.put(paymentApprovalUpdate, {
+                paymentMethodID: item.paymentMethodID,
+                rollNumber: user.rollNumber,
+                status,            // "Approved" | "Rejected"
+                reason: reason || null,
+            }, { headers: { Authorization: `Bearer ${token}` } });
+            showSnack(`Payment ${status === 'Approved' ? 'approved' : 'rejected'} successfully.`, true);
+            await fetchPaymentApprovals();
+        } catch (err) {
+            console.error('paymentApprovalUpdate failed:', err);
+            showSnack('Action failed. Please try again.', false);
+        } finally {
+            setPayActioning(null);
+        }
+    };
+
+    // Approve confirmation + Reject-with-reason dialogs
+    const [approveItem, setApproveItem] = useState(null);
+    const [rejectItem, setRejectItem] = useState(null);
+    const [rejectReasonText, setRejectReasonText] = useState("");
+
+    const openApprove = (item) => setApproveItem(item);
+    const closeApprove = () => setApproveItem(null);
+    const confirmApprove = async () => {
+        const it = approveItem;
+        setApproveItem(null);
+        await submitPaymentAction(it, 'Approved', null);
+    };
+
+    const openReject = (item) => { setRejectItem(item); setRejectReasonText(""); };
+    const closeReject = () => { setRejectItem(null); setRejectReasonText(""); };
+    const confirmReject = async () => {
+        if (!rejectReasonText.trim()) { showSnack('Please enter a reason for rejection.', false); return; }
+        const it = rejectItem;
+        const reason = rejectReasonText.trim();
+        setRejectItem(null);
+        setRejectReasonText("");
+        await submitPaymentAction(it, 'Rejected', reason);
     };
 
     const openProof = (item) => setProofDialog({ open: true, item });
@@ -498,7 +514,6 @@ export default function FeeFinancePage() {
                     label={
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
                             Team Management
-                            <Chip label={`${billingCount + accountsCount}`} size="small" sx={{ height: 18, fontSize: 10, fontWeight: 700, bgcolor: '#F3F4F6', color: '#374151' }} />
                         </Box>
                     }
                 />
@@ -912,7 +927,7 @@ export default function FeeFinancePage() {
                             <Grid size={{ xs: 12 }}>
                                 <Box sx={{ p: 4, textAlign: 'center', borderRadius: '10px', border: '1px dashed #E5E7EB', bgcolor: '#FAFAFA' }}>
                                     <VerifiedOutlinedIcon sx={{ fontSize: 32, color: '#9CA3AF', mb: 0.6 }} />
-                                    <Typography sx={{ fontSize: 13, color: '#6B7280', fontWeight: 600 }}>No pending payments waiting for approval.</Typography>
+                                    <Typography sx={{ fontSize: 13, color: '#6B7280', fontWeight: 600 }}>{payLoading ? 'Loading payment approvals…' : 'No pending payments waiting for approval.'}</Typography>
                                 </Box>
                             </Grid>
                         )}
@@ -1008,8 +1023,9 @@ export default function FeeFinancePage() {
                                                     </Button>
                                                 </Tooltip>
                                                 <Button
-                                                    onClick={() => handleApprovalAction(a.id, 'rejected')}
+                                                    onClick={() => openReject(a)}
                                                     size="small"
+                                                    disabled={payActioning === a.paymentMethodID}
                                                     startIcon={<CancelIcon sx={{ fontSize: 14 }} />}
                                                     sx={{
                                                         textTransform: 'none', fontSize: 11.5, fontWeight: 700,
@@ -1021,16 +1037,18 @@ export default function FeeFinancePage() {
                                                     Reject
                                                 </Button>
                                                 <Button
-                                                    onClick={() => handleApprovalAction(a.id, 'approved')}
+                                                    onClick={() => openApprove(a)}
                                                     size="small"
                                                     variant="contained"
                                                     disableElevation
+                                                    disabled={payActioning === a.paymentMethodID}
                                                     startIcon={<CheckCircleIcon sx={{ fontSize: 14 }} />}
                                                     sx={{
                                                         textTransform: 'none', fontSize: 11.5, fontWeight: 700,
                                                         bgcolor: '#15803D', color: '#fff',
                                                         borderRadius: '6px', height: 28, px: 1.2,
                                                         '&:hover': { bgcolor: '#166534' },
+                                                        '&.Mui-disabled': { bgcolor: '#A7F3D0', color: '#fff' },
                                                     }}
                                                 >
                                                     Approve
@@ -1057,26 +1075,35 @@ export default function FeeFinancePage() {
                     <IconButton size="small" onClick={closeProof}><CloseIcon sx={{ fontSize: 20 }} /></IconButton>
                 </DialogTitle>
                 <DialogContent sx={{ p: 2 }}>
-                    <Box sx={{
-                        width: '100%', minHeight: 280,
-                        borderRadius: '10px', border: '1px dashed #D1D5DB',
-                        bgcolor: '#FAFAFA',
-                        display: 'flex', flexDirection: 'column',
-                        alignItems: 'center', justifyContent: 'center',
-                        gap: 1, py: 4,
-                    }}>
-                        {proofDialog.item?.proofType === 'screenshot' ? (
-                            <ImageOutlinedIcon sx={{ fontSize: 56, color: '#9CA3AF' }} />
-                        ) : (
+                    {proofDialog.item?.proofUrl ? (
+                        <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', borderRadius: '10px', border: '1px solid #E5E7EB', bgcolor: '#0b0b0b', p: 1.5 }}>
+                            {/\.pdf($|\?)/i.test(proofDialog.item.proofUrl) ? (
+                                <Box sx={{ textAlign: 'center', py: 4 }}>
+                                    <DescriptionOutlinedIcon sx={{ fontSize: 56, color: '#9CA3AF', mb: 1 }} />
+                                    <Button onClick={() => window.open(proofDialog.item.proofUrl, '_blank', 'noopener')} variant="contained" disableElevation sx={{ textTransform: 'none', fontWeight: 700, bgcolor: '#374151' }}>Open PDF</Button>
+                                </Box>
+                            ) : (
+                                <img src={proofDialog.item.proofUrl} alt="Payment proof" style={{ maxWidth: '100%', maxHeight: '60vh', objectFit: 'contain', borderRadius: 8 }} />
+                            )}
+                        </Box>
+                    ) : (
+                        <Box sx={{
+                            width: '100%', minHeight: 280,
+                            borderRadius: '10px', border: '1px dashed #D1D5DB',
+                            bgcolor: '#FAFAFA',
+                            display: 'flex', flexDirection: 'column',
+                            alignItems: 'center', justifyContent: 'center',
+                            gap: 1, py: 4,
+                        }}>
                             <DescriptionOutlinedIcon sx={{ fontSize: 56, color: '#9CA3AF' }} />
-                        )}
-                        <Typography sx={{ fontSize: 13, color: '#6B7280', fontWeight: 600 }}>
-                            {proofDialog.item?.proofType === 'screenshot' ? 'Screenshot preview will load from the API.' : 'Cheque image / document preview will load from the API.'}
-                        </Typography>
-                        <Typography sx={{ fontSize: 11, color: '#9CA3AF', fontFamily: 'monospace' }}>
-                            Reference: {proofDialog.item?.referenceId}
-                        </Typography>
-                    </Box>
+                            <Typography sx={{ fontSize: 13, color: '#6B7280', fontWeight: 600 }}>
+                                No proof document attached for this payment.
+                            </Typography>
+                            <Typography sx={{ fontSize: 11, color: '#9CA3AF', fontFamily: 'monospace' }}>
+                                Reference: {proofDialog.item?.referenceId}
+                            </Typography>
+                        </Box>
+                    )}
                 </DialogContent>
                 <DialogActions sx={{ px: 2, pb: 2, gap: 1 }}>
                     <Button
@@ -1088,14 +1115,14 @@ export default function FeeFinancePage() {
                     {proofDialog.item && (
                         <>
                             <Button
-                                onClick={() => { handleApprovalAction(proofDialog.item.id, 'rejected'); closeProof(); }}
+                                onClick={() => { openReject(proofDialog.item); closeProof(); }}
                                 startIcon={<CancelIcon sx={{ fontSize: 16 }} />}
                                 sx={{ textTransform: 'none', fontWeight: 700, color: '#B91C1C', bgcolor: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '6px', px: 2, height: 34, '&:hover': { bgcolor: '#FEE2E2' } }}
                             >
                                 Reject
                             </Button>
                             <Button
-                                onClick={() => { handleApprovalAction(proofDialog.item.id, 'approved'); closeProof(); }}
+                                onClick={() => { openApprove(proofDialog.item); closeProof(); }}
                                 variant="contained"
                                 disableElevation
                                 startIcon={<CheckCircleIcon sx={{ fontSize: 16 }} />}
@@ -1105,6 +1132,63 @@ export default function FeeFinancePage() {
                             </Button>
                         </>
                     )}
+                </DialogActions>
+            </Dialog>
+
+            {/* Approve confirmation */}
+            <Dialog open={Boolean(approveItem)} onClose={closeApprove} maxWidth="xs" fullWidth slotProps={{ paper: { sx: { borderRadius: '12px' } } }}>
+                <DialogTitle sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
+                        <Box sx={{ width: 34, height: 34, borderRadius: '9px', bgcolor: '#E8F5E9', color: '#15803D', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <CheckCircleIcon sx={{ fontSize: 19 }} />
+                        </Box>
+                        <Box>
+                            <Typography sx={{ fontSize: 15, fontWeight: 800 }}>Approve Payment</Typography>
+                            <Typography sx={{ fontSize: 11.5, color: '#6B7280' }}>{approveItem?.studentName} · {formatCurrency(approveItem?.amount)}</Typography>
+                        </Box>
+                    </Box>
+                    <IconButton size="small" onClick={closeApprove}><CloseIcon sx={{ fontSize: 18 }} /></IconButton>
+                </DialogTitle>
+                <Divider />
+                <DialogContent sx={{ px: 2, pt: 2, pb: 1 }}>
+                    <Typography sx={{ fontSize: 13, color: '#374151' }}>
+                        Are you sure you want to approve this payment? This will mark it as <strong>approved</strong>.
+                    </Typography>
+                </DialogContent>
+                <DialogActions sx={{ px: 2, pb: 2, gap: 1 }}>
+                    <Button onClick={closeApprove} sx={{ textTransform: 'none', fontWeight: 700, color: '#374151', border: '1px solid #E5E7EB', borderRadius: '6px', px: 2, height: 34 }}>Cancel</Button>
+                    <Button onClick={confirmApprove} variant="contained" disableElevation sx={{ textTransform: 'none', fontWeight: 700, bgcolor: '#15803D', color: '#fff', borderRadius: '6px', px: 2, height: 34, '&:hover': { bgcolor: '#166534' } }}>Yes, Approve</Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Reject with reason */}
+            <Dialog open={Boolean(rejectItem)} onClose={closeReject} maxWidth="xs" fullWidth slotProps={{ paper: { sx: { borderRadius: '12px' } } }}>
+                <DialogTitle sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
+                        <Box sx={{ width: 34, height: 34, borderRadius: '9px', bgcolor: '#FEF2F2', color: '#B91C1C', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <CancelIcon sx={{ fontSize: 19 }} />
+                        </Box>
+                        <Box>
+                            <Typography sx={{ fontSize: 15, fontWeight: 800 }}>Reject Payment</Typography>
+                            <Typography sx={{ fontSize: 11.5, color: '#6B7280' }}>{rejectItem?.studentName} · {formatCurrency(rejectItem?.amount)}</Typography>
+                        </Box>
+                    </Box>
+                    <IconButton size="small" onClick={closeReject}><CloseIcon sx={{ fontSize: 18 }} /></IconButton>
+                </DialogTitle>
+                <Divider />
+                <DialogContent sx={{ px: 2, pt: 2, pb: 1 }}>
+                    <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.4, mb: 0.6 }}>Reason for Rejection *</Typography>
+                    <TextField
+                        fullWidth multiline minRows={3}
+                        value={rejectReasonText}
+                        onChange={(e) => setRejectReasonText(e.target.value)}
+                        placeholder="Enter the reason for rejecting this payment…"
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px', fontSize: 13 } }}
+                    />
+                </DialogContent>
+                <DialogActions sx={{ px: 2, pb: 2, gap: 1 }}>
+                    <Button onClick={closeReject} sx={{ textTransform: 'none', fontWeight: 700, color: '#374151', border: '1px solid #E5E7EB', borderRadius: '6px', px: 2, height: 34 }}>Cancel</Button>
+                    <Button onClick={confirmReject} variant="contained" disableElevation sx={{ textTransform: 'none', fontWeight: 700, bgcolor: '#B91C1C', color: '#fff', borderRadius: '6px', px: 2, height: 34, '&:hover': { bgcolor: '#991B1B' } }}>Reject Payment</Button>
                 </DialogActions>
             </Dialog>
         </Box>
