@@ -177,6 +177,7 @@ import CreatedEcaFees from "./Components/StudentComps/FeeFinanceComps/FeesStruct
 import CreatedExtraFees from "./Components/StudentComps/FeeFinanceComps/FeesStructure/CreatedExtraFees";
 import CommunicationDashboard from "./Components/CommunicationComps/CommunicationDashboard";
 import ContactDetails from "./Components/CommunicationComps/ContactDetails";
+import ChatPage from "./Components/CommunicationComps/ChatComps/ChatPage";
 
 
 export default function RouterPage() {
@@ -197,6 +198,7 @@ export default function RouterPage() {
         <Routes>
             <Route path={startUrl} element={<LoginPage />}></Route>
             <Route path="forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="chat" element={<ChatPage />} />
             <Route path="dashboardmenu" element={<DashBoardLayout />}>
                 <Route path="soon" element={<SoonPage />} />
 
@@ -227,6 +229,7 @@ export default function RouterPage() {
 
                 {/* Communication */}
                 <Route path="com-dashboard" element={<CommunicationDashboard />} />
+                <Route path="chats" element={<ChatPage embedded />} />
                 <Route path="news" element={<NewsPage />} />
                 <Route path="messages" element={<MessagesPage />} />
                 <Route path="circulars" element={<CircularsPage />} />

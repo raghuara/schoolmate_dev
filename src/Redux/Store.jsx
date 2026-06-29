@@ -11,6 +11,7 @@ import authReducer from './Slices/AuthSlice';
 import sidebarReducer from './Slices/sidebarSlice';
 import versionReducer from './Slices/versionSlice';
 import academicYearReducer from './Slices/academicYearSlice';
+import chatReducer from './Slices/chatSlice';
 
 const authPersistConfig = {
   key: 'auth',
@@ -59,6 +60,7 @@ const store = configureStore({
     sidebar: persistedSidebarReducer,
     version: persistedVersionReducer,
     academicYear: persistedAcademicYearReducer,
+    chat: chatReducer,
   },
 });
 

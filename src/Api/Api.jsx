@@ -1,6 +1,36 @@
 // UAT Link
 const baseApiurl = `https://schoolcommunicationwebapimsmsuat-dredbbfmhzergfhw.canadacentral-01.azurewebsites.net/api/`;
 
+
+// Chat Hub 
+const chatHubBaseUrl = `https://schoolcommunicationwebapimsmsuat-dredbbfmhzergfhw.canadacentral-01.azurewebsites.net`;
+
+
+const chathub = `${chatHubBaseUrl}/chathub`;
+
+const creategroup = `${chatHubBaseUrl}/api/chat/creategroup`;
+const fetchgroups = `${chatHubBaseUrl}/api/chat/fetchgroups`;
+const fetchgroupinfo = `${chatHubBaseUrl}/api/chat/fetchgroupinfo`;
+const sendmessage = `${chatHubBaseUrl}/api/chat/sendmessage`;
+const fetchmessages = `${chatHubBaseUrl}/api/chat/fetchmessages`;
+const searchusers = `${chatHubBaseUrl}/api/chat/searchusers`;
+const getchatusers = `${chatHubBaseUrl}/api/chat/getchatusers`;
+const updatememberrole = `${chatHubBaseUrl}/api/chat/updatememberrole`;
+const leavegroup = `${chatHubBaseUrl}/api/chat/leavegroup`;
+const deletegroup = `${chatHubBaseUrl}/api/chat/deletegroup`;
+const clearchat = `${chatHubBaseUrl}/api/chat/clearchat`;
+const editmessage = `${chatHubBaseUrl}/api/chat/editmessage`;
+const markread = `${chatHubBaseUrl}/api/chat/markread`;
+const pinmessage = `${chatHubBaseUrl}/api/chat/pinmessage`;
+const deletemessage = `${chatHubBaseUrl}/api/chat/deletemessage`;
+const updategroup = `${chatHubBaseUrl}/api/chat/updategroup`;
+const updategroupmembers = `${chatHubBaseUrl}/api/chat/updategroupmembers`;
+const mutegroup = `${chatHubBaseUrl}/api/chat/mutegroup`;
+const uploadfile = `${chatHubBaseUrl}/api/uploadfile`;
+const reactmessage = `${chatHubBaseUrl}/api/chat/reactmessage`;
+const messagereadinfo = `${chatHubBaseUrl}/api/chat/messagereadinfo`;
+const searchmessages = `${chatHubBaseUrl}/api/chat/searchmessages`;
+
 const Login = `${baseApiurl}Login`;
 
 // Common Apis 
@@ -34,6 +64,9 @@ const GetTeachersAttendance = `${baseApiurl}teachersattendance/GetTeachersAttend
 const fetchDashboard = `${baseApiurl}communicationActivityDashboard/fetchDashboard`;
 const viewTracking = `${baseApiurl}communicationActivityDashboard/viewTracking`;
 const viewTrackingStatus = `${baseApiurl}communicationActivityDashboard/viewTrackingStatus`;
+
+
+
 
 
 // Contact Details
@@ -904,5 +937,28 @@ export {
     paymentApprovalUpdate,
     GetOverallLeaveDetails,
     StudentsOnLeaveToday,
-    LeaveApproval
+    LeaveApproval,
+    creategroup,
+    fetchgroups,
+    fetchgroupinfo,
+    sendmessage,
+    fetchmessages,
+    searchusers,
+    getchatusers,
+    updatememberrole,
+    leavegroup,
+    deletegroup,
+    clearchat,
+    editmessage,
+    markread,
+    pinmessage,
+    deletemessage,
+    updategroup,
+    updategroupmembers,
+    mutegroup,
+    uploadfile,
+    chathub,
+    reactmessage,
+    messagereadinfo,
+    searchmessages,
 }

@@ -14,11 +14,11 @@ export default function DashBoardLayout() {
   const isMainMenuOpen = useSelector((state) => state.menu.isMainMenuOpen);
 
   return (
-    <Box component='div' sx={{ display: 'flex', minHeight: '100vh', overflow: 'hidden', backgroundColor: "#fff" }}>
-      
+    <Box component='div' sx={{ display: 'flex', minHeight: '100vh', overflow: 'hidden', backgroundColor: "#F6F6F8" }}>
+
       <SideBarPage  isMainMenuOpen={() => dispatch(isMainMenuOpen())}  />
-      
-      <Box component='main' sx={{ flexGrow: 1, overflow: 'hidden' }}>
+
+      <Box component='main' sx={{ flexGrow: 1, overflow: 'hidden', backgroundColor: "#F6F6F8", transition: 'width 0.3s ease-in-out' }}>
         <Box 
           sx={{
             position: 'fixed',

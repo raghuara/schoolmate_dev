@@ -3,6 +3,7 @@ import { Box, IconButton, useMediaQuery, useTheme, Typography, Dialog, DialogCon
 import MenuIcon from '@mui/icons-material/Menu';
 import CloseIcon from '@mui/icons-material/Close';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import ForumRoundedIcon from '@mui/icons-material/ForumRounded';
 import { useDispatch, useSelector } from 'react-redux';
 import { toggleMainMenu } from '../../Redux/Slices/MainMenuSlice';
 import productLogo from '../../Images/Login/SchoolMate Logo.png';
@@ -33,6 +34,23 @@ const CustomTooltip = styled(({ className, ...props }) => (
   },
 });
 
+const HintTooltip = styled(({ className, ...props }) => (
+  <Tooltip {...props} classes={{ popper: className }} />
+))({
+  [`& .${tooltipClasses.tooltip}`]: {
+    backgroundColor: '#4A6CF7',
+    color: '#fff',
+    fontSize: '0.8rem',
+    maxWidth: 230,
+    padding: '10px 14px',
+    borderRadius: '12px',
+    boxShadow: '0 6px 20px rgba(74,108,247,0.45)',
+  },
+  [`& .${tooltipClasses.arrow}`]: {
+    color: '#4A6CF7',
+  },
+});
+
 function DashbrdHeader() {
   const theme = useTheme();
   const navigate = useNavigate();
@@ -44,6 +62,25 @@ function DashbrdHeader() {
   const academicYearOptions = useSelector(selectAcademicYearOptions);
   const academicYearMeta = useSelector(selectAcademicYearMeta);
   const [openDrawer, setOpenDrawer] = useState(false);
+  const [chatHint, setChatHint] = useState(false);
+  const [chatHover, setChatHover] = useState(false);
+
+  useEffect(() => {
+    const showTimer = setTimeout(() => setChatHint(true), 600);
+    return () => clearTimeout(showTimer);
+  }, []);
+
+  useEffect(() => {
+    if (!chatHint) return;
+    const hide = () => setChatHint(false);
+    const timer = setTimeout(() => {
+      window.addEventListener('click', hide, { once: true });
+    }, 100);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('click', hide);
+    };
+  }, [chatHint]);
 
   const academicYearWindowLabel = (() => {
     if (!selectedAcademicYear || !academicYearMeta?.startMonthName || !academicYearMeta?.endMonthName) {
@@ -162,6 +199,53 @@ function DashbrdHeader() {
             {isMainMenuOpen ? <CloseIcon /> : <MenuIcon />}
           </IconButton>
         )}
+
+        <HintTooltip
+          open={chatHint}
+          arrow
+          placement="bottom-end"
+          title={
+            <Box>
+              <Typography sx={{ fontSize: 13, fontWeight: 700, mb: 0.3 }}>
+                💬 New! Staff Chat
+              </Typography>
+              <Typography sx={{ fontSize: 11.5, lineHeight: 1.35, color: 'rgba(255,255,255,0.9)' }}>
+                Message your staff and teams right here. Tap to open.
+              </Typography>
+            </Box>
+          }
+        >
+          <CustomTooltip
+            title={"Chats"}
+            arrow
+            placement="bottom"
+            open={chatHover && !chatHint}
+            disableHoverListener
+          >
+            <IconButton
+              onClick={() => {
+                setChatHint(false);
+                navigate("/dashboardmenu/chats");
+              }}
+              onMouseEnter={() => setChatHover(true)}
+              onMouseLeave={() => setChatHover(false)}
+              sx={{
+                backgroundColor: "#4A6CF7",
+                width: 40,
+                height: 40,
+                animation: 'chatPulse 1.6s ease-in-out infinite',
+                "&:hover": { backgroundColor: "#3a59d6" },
+                '@keyframes chatPulse': {
+                  '0%': { boxShadow: '0 0 0 0 rgba(74,108,247,0.5)' },
+                  '70%': { boxShadow: '0 0 0 9px rgba(74,108,247,0)' },
+                  '100%': { boxShadow: '0 0 0 0 rgba(74,108,247,0)' },
+                },
+              }}
+            >
+              <ForumRoundedIcon sx={{ fontSize: "20px", color: "#fff" }} />
+            </IconButton>
+          </CustomTooltip>
+        </HintTooltip>
 
         <CustomTooltip title={"Logout"} arrow placement="right-start">
           <IconButton

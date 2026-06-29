@@ -1,5 +1,14 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap');
+
 html {
   scroll-behavior: smooth;
+}
+
+.chat-emoji,
+.chat-emoji *,
+.chat-emoji input,
+.chat-emoji textarea {
+  font-family: 'Roboto', 'Segoe UI', 'Helvetica Neue', Arial, 'Noto Color Emoji', sans-serif !important;
 }
 body {
   margin: 0;

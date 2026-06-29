@@ -9,7 +9,8 @@ import '../../Css/Page.css';
 import '../../Css/OverWrite.css';
 import SubMenuPage from './SubMenu';
 import axios from 'axios';
-import { DashboardUsers } from '../../Api/Api';
+import { DashboardUsers, fetchgroups } from '../../Api/Api';
+import { selectChatUnreadTotal, setChatUnreadTotal } from '../../Redux/Slices/chatSlice';
 import SnackBar from '../SnackBar';
 import { useDispatch, useSelector } from 'react-redux';
 import { closeSubmenu, openSubmenu } from '../../Redux/Slices/SubMenuController';
@@ -30,6 +31,7 @@ import Inventory2Icon from '@mui/icons-material/Inventory2';
 import FolderCopyIcon from '@mui/icons-material/FolderCopy';
 import EditCalendarIcon from '@mui/icons-material/EditCalendar';
 import RealEstateAgentIcon from '@mui/icons-material/RealEstateAgent';
+import ForumRoundedIcon from '@mui/icons-material/ForumRounded';
 import { setSidebar, toggleSidebar } from '../../Redux/Slices/sidebarSlice';
 
 
@@ -72,10 +74,35 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
   const [imageError, setImageError] = useState(false);
 
   const isExpanded = useSelector((state) => state.sidebar.isExpanded);
+  const chatUnread = useSelector(selectChatUnreadTotal);
+
+  const refreshChatUnread = () => {
+    if (!rollNumber) return;
+    axios
+      .get(fetchgroups, { params: { rollNumber, userType }, headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => {
+        const total = (res.data?.groups || []).reduce((sum, g) => sum + (g.unreadCount || 0), 0);
+        dispatch(setChatUnreadTotal(total));
+      })
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    refreshChatUnread();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rollNumber, userType]);
+
+  useEffect(() => {
+    if (location.pathname !== '/dashboardmenu/chats') refreshChatUnread();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
 
   useEffect(() => {
     if (!isMobile) {
-      if (communicationActivePaths.includes(location.pathname)) {
+      if (location.pathname === '/dashboardmenu/chats') {
+        dispatch(closeSubmenu());
+        dispatch(setSidebar(false));
+      } else if (communicationActivePaths.includes(location.pathname)) {
         dispatch(setSidebar(false));
         dispatch(openSubmenu());
       } else if (
@@ -176,6 +203,15 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
     }
   };
 
+  const handleChatClick = () => {
+    dispatch(closeSubmenu());
+    dispatch(setSidebar(false));
+    navigate('/dashboardmenu/chats');
+    if (isMobile) {
+      dispatch(closeMainMenu());
+    }
+  };
+
   const handleMenuClick = (selectedValue, menu, path) => {
     setSelectedActive(selectedValue)
     setUnreadCount(0);
@@ -215,7 +251,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
         height: '100vh',
         display: 'flex',
         flexDirection: 'column',
-        width: isExpanded ? 260 : 80,
+        width: '100%',
         transition: 'width 0.3s ease-in-out',
         overflow: 'hidden',
       }}
@@ -334,7 +370,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
         <List sx={{ width: '100%' }}>
 
           {/* Dashboard Tab */}
-          <ListItem onClick={() => handleMenuClickOne('dashboard')} sx={{ borderRadius: 2, px: 3, paddingTop: '3px', paddingBottom: '3px' }}>
+          <ListItem onClick={() => handleMenuClickOne('dashboard')} sx={{ borderRadius: 2, px: 3, paddingTop: isExpanded ? '3px' : '11px', paddingBottom: isExpanded ? '3px' : '11px' }}>
 
             <CustomTooltip title={isExpanded ? "" : "Dashboard"} arrow placement="right-start">
               <Box
@@ -429,7 +465,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
 
           {/* Profile Tab */}
           {(userType === "superadmin" || userType === "admin" || userType === "staff") && (
-            <ListItem onClick={() => handleMenuClickOne('profile')} sx={{ borderRadius: 2, px: 3, paddingTop: '3px', paddingBottom: '3px' }}>
+            <ListItem onClick={() => handleMenuClickOne('profile')} sx={{ borderRadius: 2, px: 3, paddingTop: isExpanded ? '3px' : '11px', paddingBottom: isExpanded ? '3px' : '11px' }}>
               <CustomTooltip title={isExpanded ? "" : "Profile Management"} arrow placement="right-start">
                 <Box
                   sx={{
@@ -482,7 +518,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
 
           {/* Communication Tab */}
           {version.LITE && (
-            <ListItem onClick={() => handleMenuClick('communication', 'com-dashboard', 'com-dashboard')} sx={{ borderRadius: 2, px: 3, paddingTop: '3px', paddingBottom: '3px' }}>
+            <ListItem onClick={() => handleMenuClick('communication', 'com-dashboard', 'com-dashboard')} sx={{ borderRadius: 2, px: 3, paddingTop: isExpanded ? '3px' : '11px', paddingBottom: isExpanded ? '3px' : '11px' }}>
               <CustomTooltip title={isExpanded ? "" : "Communication"} arrow placement="right-start">
                 <Box
                   sx={{
@@ -555,8 +591,87 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
           )}
 
 
+          {/* Chats Tab */}
+          {version.LITE && (
+            <ListItem onClick={handleChatClick} sx={{ borderRadius: 2, px: 3, paddingTop: isExpanded ? '3px' : '11px', paddingBottom: isExpanded ? '3px' : '11px' }}>
+              <CustomTooltip title={isExpanded ? "" : "Chats"} arrow placement="right-start">
+                <Box
+                  sx={{
+                    display: 'flex',
+                    justifyContent: "center",
+                    alignItems: 'center',
+                    paddingTop: '2px',
+                    paddingBottom: '2px',
+                    borderRadius: '5px',
+                    boxShadow: isActive('/dashboardmenu/chats') ? '1px 1px 2px 0.5px rgba(0, 0, 0, 0.4)' : 'inherit',
+                    width: '100%',
+                    backgroundColor: isActive('/dashboardmenu/chats') ? websiteSettings.mainColor : 'inherit',
+                    color: isActive('/dashboardmenu/chats') ? websiteSettings.textColor : '#000',
+                    position: 'relative',
+                    cursor: "pointer",
+                    '&:hover': {
+                      backgroundColor: !isActive('/dashboardmenu/chats') ? websiteSettings.lightColor : 'none',
+                    }
+                  }}
+                >
+                  {isExpanded && (
+                    <Box
+                      sx={{
+                        width: '5px',
+                        backgroundColor: isActive('/dashboardmenu/chats') ? websiteSettings.darkColor : 'inherit',
+                        height: '100%',
+                        position: 'absolute',
+                        left: 0,
+                        top: 0,
+                        borderTopLeftRadius: '5px',
+                        borderBottomLeftRadius: '5px',
+                      }}
+                    />
+                  )}
+                  <ListItemIcon sx={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
+                    <ForumRoundedIcon style={{ color: isActive('/dashboardmenu/chats') ? websiteSettings.textColor : 'rgba(0, 0, 0, 0.7)' }} />
+                  </ListItemIcon>
+                  {isExpanded && (
+                    <ListItemText>
+                      <Typography className="activeSidebarText" sx={{ color: isActive('/dashboardmenu/chats') ? websiteSettings.textColor : '#000' }}>
+                        Chats
+                      </Typography>
+                    </ListItemText>
+                  )}
+                  {chatUnread > 0 && (
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        top: isExpanded ? '50%' : '-8px',
+                        right: isExpanded ? '10px' : '-22px',
+                        transform: isExpanded ? 'translateY(-50%)' : 'none',
+                        minWidth: '19px',
+                        height: '19px',
+                        padding: '0 6px',
+                        borderRadius: '10px',
+                        backgroundColor: '#1A1A1A',
+                        color: '#fff',
+                        border: !isExpanded ? '2px solid #fff' : 'none',
+                        boxShadow: !isExpanded ? '0 1px 3px rgba(0,0,0,0.3)' : 'none',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        lineHeight: 1,
+                        zIndex: 2,
+                      }}
+                    >
+                      {chatUnread > 99 ? '99+' : chatUnread}
+                    </Box>
+                  )}
+                </Box>
+              </CustomTooltip>
+            </ListItem>
+          )}
+
           <Box px={3}>
-            <hr style={{ color: "#fff" }} />
+            <hr style={{ border: "none", borderTop: "1px solid #e8dec9", margin: "6px 0" }} />
           </Box>
 
           {isExpanded ?
@@ -566,9 +681,8 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
               </Typography>
             </Box>
             :
-            <Box px={2}>
-
-              <Typography className="activeSidebarText" sx={{ fontWeight: "600", fontSize: "12px", textAlign: "center" }}>
+            <Box px={2} sx={{ py: 0.6 }}>
+              <Typography className="activeSidebarText" sx={{ fontWeight: "600", fontSize: "11px", textAlign: "center", color: "#9a8e70" }}>
                 ERP
               </Typography>
             </Box>
@@ -576,7 +690,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
 
           {/* Fee  Tab */}
           {version.PRO && (
-            <ListItem onClick={() => handleMenuClickOne('fee')} sx={{ borderRadius: 2, px: 3, paddingTop: '3px', paddingBottom: '3px' }}>
+            <ListItem onClick={() => handleMenuClickOne('fee')} sx={{ borderRadius: 2, px: 3, paddingTop: isExpanded ? '3px' : '11px', paddingBottom: isExpanded ? '3px' : '11px' }}>
               <CustomTooltip title={isExpanded ? "" : "Fee & Finance"} arrow placement="right-start">
                 <Box
                   sx={{
@@ -629,7 +743,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
 
           {/* Leave Tab */}
           {version.PRO && (
-            <ListItem onClick={() => handleMenuClickOne('leave')} sx={{ borderRadius: 2, px: 3, paddingTop: '3px', paddingBottom: '3px' }}>
+            <ListItem onClick={() => handleMenuClickOne('leave')} sx={{ borderRadius: 2, px: 3, paddingTop: isExpanded ? '3px' : '11px', paddingBottom: isExpanded ? '3px' : '11px' }}>
               <CustomTooltip title={isExpanded ? "" : "Leave & Payroll"} arrow placement="right-start">
                 <Box
                   sx={{
@@ -682,7 +796,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
 
           {/* Transport Tab */}
           {(version.PRO || version.PLUS) && (userType === "superadmin" || userType === "admin" || userType === "staff") && (
-            <ListItem onClick={() => handleMenuClickOne('transport')} sx={{ borderRadius: 2, px: 3, paddingTop: '3px', paddingBottom: '3px' }}>
+            <ListItem onClick={() => handleMenuClickOne('transport')} sx={{ borderRadius: 2, px: 3, paddingTop: isExpanded ? '3px' : '11px', paddingBottom: isExpanded ? '3px' : '11px' }}>
               <CustomTooltip title={isExpanded ? "" : "Transport"} arrow placement="right-start">
                 <Box
                   sx={{
@@ -739,8 +853,8 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
             sx={{
               borderRadius: 2,
               px: 3,
-              paddingTop: '3px',
-              paddingBottom: '3px',
+              paddingTop: isExpanded ? '3px' : '11px',
+              paddingBottom: isExpanded ? '3px' : '11px',
               cursor: isDisabled ? 'not-allowed' : 'pointer',
               opacity: isDisabled ? 0.5 : 1,
               pointerEvents: isDisabled ? 'none' : 'auto',
@@ -835,8 +949,8 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
             sx={{
               borderRadius: 2,
               px: 3,
-              paddingTop: '3px',
-              paddingBottom: '3px',
+              paddingTop: isExpanded ? '3px' : '11px',
+              paddingBottom: isExpanded ? '3px' : '11px',
               cursor: isDisabled ? 'not-allowed' : 'pointer',
               opacity: isDisabled ? 0.5 : 1,
               pointerEvents: isDisabled ? 'none' : 'auto',
@@ -927,7 +1041,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
           </ListItem>
 
           {/* Assets Tab
-          <ListItem onClick={() => handleMenuClickOne('asset')} sx={{ borderRadius: 2, px: 3, paddingTop: '3px', paddingBottom: '3px' }}>
+          <ListItem onClick={() => handleMenuClickOne('asset')} sx={{ borderRadius: 2, px: 3, paddingTop: isExpanded ? '3px' : '11px', paddingBottom: isExpanded ? '3px' : '11px' }}>
             <CustomTooltip title={isExpanded ? "" : "Assets"} arrow placement="right-start">
               <Box
                 sx={{
@@ -980,7 +1094,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
 
           <Box sx={{ backgroundColor: websiteSettings.backgroundColor }}>
             <Box px={3}>
-              <hr style={{ color: "#fff" }} />
+              <hr style={{ border: "none", borderTop: "1px solid #e8dec9", margin: "6px 0" }} />
             </Box>
 
             {userType !== "teacher" &&
@@ -992,9 +1106,8 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
                     </Typography>
                   </Box>
                   :
-                  <Box px={2}>
-
-                    <Typography className="activeSidebarText" sx={{ fontWeight: "600", fontSize: "12px" }}>
+                  <Box px={2} sx={{ py: 0.6 }}>
+                    <Typography className="activeSidebarText" sx={{ fontWeight: "600", fontSize: "11px", textAlign: "center", color: "#9a8e70" }}>
                       Manage
                     </Typography>
                   </Box>
@@ -1004,7 +1117,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
 
             {/* My Project Tab */}
             {version.LITE && (userType === "superadmin" || userType === "admin"|| userType === "teacher"  ) && (
-              <ListItem onClick={() => handleMenuClickOne('myprojects')} sx={{ borderRadius: 2, px: 3, paddingTop: '3px', paddingBottom: '3px' }}>
+              <ListItem onClick={() => handleMenuClickOne('myprojects')} sx={{ borderRadius: 2, px: 3, paddingTop: isExpanded ? '3px' : '11px', paddingBottom: isExpanded ? '3px' : '11px' }}>
                 <CustomTooltip title={isExpanded ? "" : "My Projects"} arrow placement="right-start">
                   <Box
                     sx={{
@@ -1058,7 +1171,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
             {/* Approvals Tab */}
 
             {(userType === "superadmin" || userType === "admin") && (
-              <ListItem onClick={() => handleMenuClickOne('approvals')} sx={{ borderRadius: 2, px: 3, paddingTop: '3px', paddingBottom: '3px' }}>
+              <ListItem onClick={() => handleMenuClickOne('approvals')} sx={{ borderRadius: 2, px: 3, paddingTop: isExpanded ? '3px' : '11px', paddingBottom: isExpanded ? '3px' : '11px' }}>
                 <CustomTooltip title={isExpanded ? "" : "Approvals"} arrow placement="right-start">
                   <Box
                     sx={{
@@ -1133,7 +1246,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
             )}
 
             {(userType === "superadmin" || userType === "admin" || userType === "staff") && (
-              <ListItem onClick={() => handleMenuClickOne('access')} sx={{ borderRadius: 2, px: 3, paddingTop: '3px', paddingBottom: '3px' }}>
+              <ListItem onClick={() => handleMenuClickOne('access')} sx={{ borderRadius: 2, px: 3, paddingTop: isExpanded ? '3px' : '11px', paddingBottom: isExpanded ? '3px' : '11px' }}>
                 <CustomTooltip title={isExpanded ? "" : "Access Control"} arrow placement="right-start">
                   <Box
                     sx={{
@@ -1283,7 +1396,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
             marginTop: isMobile ? 0 : "60px",
             boxSizing: 'border-box',
             border: "none",
-            bgcolor: '#fff',
+            bgcolor: websiteSettings.backgroundColor,
             // boxShadow: '0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19)',
             transition: 'width 0.3s ease-in-out',
 
