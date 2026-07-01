@@ -45,6 +45,8 @@ import PushPinOutlinedIcon from '@mui/icons-material/PushPinOutlined';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import PersonAddAlt1RoundedIcon from '@mui/icons-material/PersonAddAlt1Rounded';
 import PersonRemoveRoundedIcon from '@mui/icons-material/PersonRemoveRounded';
+import PermMediaRoundedIcon from '@mui/icons-material/PermMediaRounded';
+import SmartDisplayRoundedIcon from '@mui/icons-material/SmartDisplayRounded';
 import NotificationsOffRoundedIcon from '@mui/icons-material/NotificationsOffRounded';
 import NotificationsActiveRoundedIcon from '@mui/icons-material/NotificationsActiveRounded';
 import PhotoCameraRoundedIcon from '@mui/icons-material/PhotoCameraRounded';
@@ -76,7 +78,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { selectWebsiteSettings } from '../../../Redux/Slices/websiteSettingsSlice';
 import { setChatUnreadTotal } from '../../../Redux/Slices/chatSlice';
-import { creategroup, fetchgroups, fetchgroupinfo, sendmessage, fetchmessages, getchatusers, markread, pinmessage, deletemessage, updategroup, updategroupmembers, mutegroup, updatememberrole, leavegroup, deletegroup, clearchat, editmessage, reactmessage, messagereadinfo, searchmessages, chathub } from '../../../Api/Api';
+import { creategroup, fetchgroups, fetchgroupinfo, sendmessage, fetchmessages, getchatusers, markread, pinmessage, deletemessage, updategroup, updategroupmembers, mutegroup, updatememberrole, leavegroup, deletegroup, clearchat, editmessage, reactmessage, messagereadinfo, searchmessages, fetchmedia, chathub } from '../../../Api/Api';
 import DashbrdHeader from '../../DashBoard/DashBoardHeader';
 import chatBg from '../../../Images/chat-background.png';
 import productLogo from '../../../Images/Login/SchoolMate Logo.png';
@@ -85,6 +87,7 @@ const MINE = '#2E2E2E';
 const DARK_TEXT = '#1A1A1A';
 
 const FORWARD_ENABLED = false;
+const MUTE_ENABLED = false;
 
 const MAX_FILE_MB = 25;
 const MAX_FILE_SIZE = MAX_FILE_MB * 1024 * 1024;
@@ -104,6 +107,59 @@ const ALLOWED_ACCEPT = [...ALLOWED_EXTENSIONS].map((e) => `.${e}`).join(',');
 const getExtension = (name) => {
     const m = String(name || '').toLowerCase().match(/\.([a-z0-9]+)(?:\?|$)/);
     return m ? m[1] : '';
+};
+
+const copyTextToClipboard = async (text) => {
+    const str = String(text ?? '');
+    if (navigator.clipboard && window.isSecureContext) {
+        try {
+            await navigator.clipboard.writeText(str);
+            return true;
+        } catch (e) {
+            // fall through to the legacy method below
+        }
+    }
+    try {
+        const ta = document.createElement('textarea');
+        ta.value = str;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.top = '-9999px';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        return ok;
+    } catch (e) {
+        return false;
+    }
+};
+
+const linkify = (text, mine) => {
+    const str = String(text || '');
+    if (!str) return str;
+    return str.split(/(https?:\/\/[^\s]+|www\.[^\s]+)/gi).map((part, i) => {
+        if (!part) return null;
+        if (/^(https?:\/\/|www\.)/i.test(part)) {
+            const href = /^https?:\/\//i.test(part) ? part : `https://${part}`;
+            return (
+                <Box
+                    component="a"
+                    key={i}
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    sx={{ color: mine ? '#9CD2FF' : '#1B74E4', textDecoration: 'underline', wordBreak: 'break-all' }}
+                >
+                    {part}
+                </Box>
+            );
+        }
+        return part;
+    });
 };
 
 const classifyFile = (fileName) => {
@@ -393,6 +449,10 @@ export default function ChatPage({ embedded = false }) {
     const [editingDesc, setEditingDesc] = useState(false);
 
     const [infoOpen, setInfoOpen] = useState(false);
+    const [media, setMedia] = useState([]);
+    const [mediaLoading, setMediaLoading] = useState(false);
+    const [mediaHasMore, setMediaHasMore] = useState(false);
+    const [mediaLoadingMore, setMediaLoadingMore] = useState(false);
     const [manageOpen, setManageOpen] = useState(false);
     const [manageSearch, setManageSearch] = useState('');
     const [manageAdd, setManageAdd] = useState([]);
@@ -460,7 +520,8 @@ export default function ChatPage({ embedded = false }) {
             return {
                 id: m.messageId,
                 type: 'system',
-                text: m.systemEventType === 'message_pinned' ? `📌 ${m.messageText}` : m.messageText,
+                text: m.messageText,
+                systemEventType: m.systemEventType,
                 senderRollNumber: m.senderRollNumber,
                 senderName: m.senderName,
                 time: timePart(m.sentOn),
@@ -747,6 +808,14 @@ export default function ChatPage({ embedded = false }) {
 
     const downloadFile = async (url, name) => {
         if (!url) return;
+        let fileName = name;
+        if (!fileName) {
+            try {
+                fileName = decodeURIComponent(String(url).split('?')[0].split('/').pop()) || 'download';
+            } catch {
+                fileName = 'download';
+            }
+        }
         try {
             const res = await fetch(url, { mode: 'cors' });
             if (!res.ok) throw new Error('fetch failed');
@@ -754,7 +823,7 @@ export default function ChatPage({ embedded = false }) {
             const objUrl = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = objUrl;
-            a.download = name || 'download';
+            a.download = fileName;
             document.body.appendChild(a);
             a.click();
             a.remove();
@@ -804,6 +873,49 @@ export default function ChatPage({ embedded = false }) {
             setActiveGroupInfo(res.data?.group || null);
         } catch (e) {
             console.log(e);
+        }
+    };
+
+    const MEDIA_PAGE_SIZE = 20;
+
+    const loadMedia = async (groupId) => {
+        if (!groupId) return;
+        setMediaLoading(true);
+        try {
+            const res = await axios.get(fetchmedia, {
+                params: { groupId, rollNumber, userType },
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            setMedia(res.data?.media || []);
+            setMediaHasMore(Boolean(res.data?.hasMore));
+        } catch (e) {
+            console.log(e);
+        } finally {
+            setMediaLoading(false);
+        }
+    };
+
+    const loadMoreMedia = async () => {
+        const gid = activeIdRef.current;
+        const ids = media.map((m) => m.messageId).filter((x) => typeof x === 'number');
+        if (!gid || mediaLoadingMore || !mediaHasMore || ids.length === 0) return;
+        const before = Math.min(...ids);
+        setMediaLoadingMore(true);
+        try {
+            const res = await axios.get(fetchmedia, {
+                params: { groupId: gid, rollNumber, userType, pageSize: MEDIA_PAGE_SIZE, before },
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const more = res.data?.media || [];
+            setMedia((prev) => {
+                const seen = new Set(prev.map((x) => x.messageId));
+                return [...prev, ...more.filter((x) => !seen.has(x.messageId))];
+            });
+            setMediaHasMore(Boolean(res.data?.hasMore));
+        } catch (e) {
+            console.log(e);
+        } finally {
+            setMediaLoadingMore(false);
         }
     };
 
@@ -864,6 +976,8 @@ export default function ChatPage({ embedded = false }) {
         setSearchHasMore(false);
         setNewMsgCount(0);
         setUnreadDivider(null);
+        setMedia([]);
+        setMediaHasMore(false);
         keepPosRef.current = false;
         if (activeId) {
             loadMessages(activeId);
@@ -887,6 +1001,11 @@ export default function ChatPage({ embedded = false }) {
         if (groupOpen || manageOpen) loadChatUsers();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [groupOpen, manageOpen]);
+
+    useEffect(() => {
+        if (infoOpen && activeId) loadMedia(activeId);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [infoOpen, activeId]);
 
     useEffect(() => {
         if (!searchOpen) return;
@@ -1479,13 +1598,9 @@ export default function ChatPage({ embedded = false }) {
             }
             return;
         }
-        try {
-            await navigator.clipboard.writeText(m.text || m.caption || '');
-            showCopied();
-        } catch (e) {
-            console.log(e);
-            showSnack('Could not copy', 'error');
-        }
+        const ok = await copyTextToClipboard(m.text || m.caption || '');
+        if (ok) showCopied();
+        else showSnack('Could not copy', 'error');
     };
 
     const handleDeleteMessage = async () => {
@@ -2122,6 +2237,18 @@ export default function ChatPage({ embedded = false }) {
         return 'This message was deleted';
     };
 
+    const systemIcon = (type) => {
+        const sx = { fontSize: 13, color: '#7a6a3a', flexShrink: 0 };
+        switch (type) {
+            case 'member_added': return <PersonAddAlt1RoundedIcon sx={sx} />;
+            case 'member_removed': return <PersonRemoveRoundedIcon sx={sx} />;
+            case 'member_left': return <LogoutRoundedIcon sx={sx} />;
+            case 'message_pinned': return <PushPinRoundedIcon sx={sx} />;
+            case 'message_unpinned': return <PushPinOutlinedIcon sx={sx} />;
+            default: return <InfoOutlinedIcon sx={sx} />;
+        }
+    };
+
     return (
         <Box className="chat-emoji" sx={{ minHeight: embedded ? 'auto' : '100vh', backgroundColor: '#F6F6F8' }}>
             {!embedded && (
@@ -2440,7 +2567,7 @@ export default function ChatPage({ embedded = false }) {
                                                 <PersonAddAlt1RoundedIcon sx={{ fontSize: 19, color: '#5a5a5a' }} /> Manage Members
                                             </MenuItem>
                                         )}
-                                        {activeChat.isMuted ? (
+                                        {MUTE_ENABLED && (activeChat.isMuted ? (
                                             <MenuItem onClick={() => handleMute(0)} onMouseEnter={() => setHeaderMuteSubAnchor(null)} sx={{ fontSize: '14px', gap: 1.2, color: DARK_TEXT }}>
                                                 <NotificationsActiveRoundedIcon sx={{ fontSize: 19, color: '#5a5a5a' }} /> Unmute
                                             </MenuItem>
@@ -2454,7 +2581,7 @@ export default function ChatPage({ embedded = false }) {
                                                 </Box>
                                                 <ChevronRightRoundedIcon sx={{ fontSize: 18, color: '#999' }} />
                                             </MenuItem>
-                                        )}
+                                        ))}
                                         <Divider sx={{ my: 0.5 }} />
                                         <MenuItem onClick={handleClearChat} onMouseEnter={() => setHeaderMuteSubAnchor(null)} sx={{ fontSize: '14px', gap: 1.2, color: DARK_TEXT }}>
                                             <DeleteSweepRoundedIcon sx={{ fontSize: 19, color: '#5a5a5a' }} /> Clear chat
@@ -2547,18 +2674,23 @@ export default function ChatPage({ embedded = false }) {
                                                 <React.Fragment key={m.id}>
                                                     {dividerEl}
                                                     <Box sx={{ display: 'flex', justifyContent: 'center', my: 1 }}>
-                                                        <Typography
+                                                        <Box
                                                             sx={{
-                                                                fontSize: '11px',
-                                                                color: '#7a6a3a',
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                gap: 0.6,
                                                                 backgroundColor: ACCENT_SOFT,
                                                                 px: 1.5,
                                                                 py: 0.4,
                                                                 borderRadius: '10px',
+                                                                maxWidth: '85%',
                                                             }}
                                                         >
-                                                            {m.text}
-                                                        </Typography>
+                                                            {systemIcon(m.systemEventType)}
+                                                            <Typography sx={{ fontSize: '11px', color: '#7a6a3a', textAlign: 'center' }}>
+                                                                {m.text}
+                                                            </Typography>
+                                                        </Box>
                                                     </Box>
                                                 </React.Fragment>
                                             );
@@ -2637,7 +2769,7 @@ export default function ChatPage({ embedded = false }) {
                                                     )}
 
                                                     {!m.isDeleted && m.type === 'text' && (
-                                                        <Typography sx={{ fontSize: '14px', lineHeight: 1.4 }}>{m.text}</Typography>
+                                                        <Typography sx={{ fontSize: '14px', lineHeight: 1.4, whiteSpace: 'pre-wrap' }}>{linkify(m.text, mine)}</Typography>
                                                     )}
 
                                                     {!m.isDeleted && m.type === 'image' && (
@@ -2649,8 +2781,8 @@ export default function ChatPage({ embedded = false }) {
                                                                 style={{ maxWidth: '240px', borderRadius: '10px', display: 'block', cursor: 'pointer' }}
                                                             />
                                                             {m.caption && (
-                                                                <Typography sx={{ fontSize: '14px', lineHeight: 1.4, px: 1, pt: 0.8 }}>
-                                                                    {m.caption}
+                                                                <Typography sx={{ fontSize: '14px', lineHeight: 1.4, px: 1, pt: 0.8, whiteSpace: 'pre-wrap' }}>
+                                                                    {linkify(m.caption, mine)}
                                                                 </Typography>
                                                             )}
                                                         </Box>
@@ -2687,8 +2819,8 @@ export default function ChatPage({ embedded = false }) {
                                                                 </IconButton>
                                                             </Box>
                                                             {m.caption && (
-                                                                <Typography sx={{ fontSize: '14px', lineHeight: 1.4, pt: 0.6 }}>
-                                                                    {m.caption}
+                                                                <Typography sx={{ fontSize: '14px', lineHeight: 1.4, pt: 0.6, whiteSpace: 'pre-wrap' }}>
+                                                                    {linkify(m.caption, mine)}
                                                                 </Typography>
                                                             )}
                                                         </Box>
@@ -3484,7 +3616,7 @@ export default function ChatPage({ embedded = false }) {
                         <CloseIcon />
                     </IconButton>
                     <IconButton
-                        onClick={(e) => { e.stopPropagation(); downloadFile(viewerImage, 'image'); }}
+                        onClick={(e) => { e.stopPropagation(); downloadFile(viewerImage); }}
                         sx={{ position: 'absolute', top: 16, right: 64, color: '#fff', backgroundColor: 'rgba(255,255,255,0.12)', '&:hover': { backgroundColor: 'rgba(255,255,255,0.25)' } }}
                     >
                         <DownloadRoundedIcon />
@@ -3716,7 +3848,7 @@ export default function ChatPage({ embedded = false }) {
                 transformOrigin={{ vertical: 'top', horizontal: 'right' }}
                 slotProps={menuSlot(220)}
             >
-                {listMenuGroup?.isMuted ? (
+                {MUTE_ENABLED && (listMenuGroup?.isMuted ? (
                     <MenuItem onClick={() => chooseMute(0)} sx={{ fontSize: '14px', gap: 1.2, color: DARK_TEXT }}>
                         <NotificationsActiveRoundedIcon sx={{ fontSize: 19, color: '#5a5a5a' }} /> Unmute notifications
                     </MenuItem>
@@ -3727,8 +3859,8 @@ export default function ChatPage({ embedded = false }) {
                         </Box>
                         <ChevronRightRoundedIcon sx={{ fontSize: 18, color: '#999' }} />
                     </MenuItem>
-                )}
-                <Divider sx={{ my: 0.5 }} />
+                ))}
+                {MUTE_ENABLED && <Divider sx={{ my: 0.5 }} />}
                 <MenuItem onMouseEnter={() => setMuteSubAnchor(null)} onClick={() => { const g = listMenuGroup; closeListMenu(); clearChatById(g?.id); }} sx={{ fontSize: '14px', gap: 1.2, color: DARK_TEXT }}>
                     <DeleteSweepRoundedIcon sx={{ fontSize: 19, color: '#5a5a5a' }} /> Clear chat
                 </MenuItem>
@@ -3986,6 +4118,80 @@ export default function ChatPage({ embedded = false }) {
 
                             <Divider />
 
+                            <Box sx={{ px: 2.5, py: 2 }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.2 }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                        <PermMediaRoundedIcon sx={{ fontSize: 18, color: ACCENT }} />
+                                        <Typography sx={fieldLabelSx}>Media, docs & links</Typography>
+                                    </Box>
+                                    {media.length > 0 && (
+                                        <Typography sx={{ fontSize: '12px', fontWeight: 700, color: '#999' }}>
+                                            {media.length}{mediaHasMore ? '+' : ''}
+                                        </Typography>
+                                    )}
+                                </Box>
+
+                                {mediaLoading && media.length === 0 ? (
+                                    <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+                                        <CircularProgress size={22} sx={{ color: ACCENT }} />
+                                    </Box>
+                                ) : media.length === 0 ? (
+                                    <Typography sx={{ fontSize: '13px', color: '#aaa' }}>No media shared yet</Typography>
+                                ) : (
+                                    <Box
+                                        onScroll={(e) => {
+                                            const el = e.currentTarget;
+                                            if (el.scrollWidth - el.scrollLeft - el.clientWidth < 80) loadMoreMedia();
+                                        }}
+                                        sx={{ display: 'flex', gap: 1, overflowX: 'auto', pb: 0.5, '&::-webkit-scrollbar': { height: 6 }, '&::-webkit-scrollbar-thumb': { backgroundColor: '#ddd', borderRadius: 3 } }}
+                                    >
+                                        {media.map((item) => {
+                                            const ft = (item.filetype || '').toLowerCase();
+                                            const isImg = ft.startsWith('image');
+                                            const isAud = ft.startsWith('audio');
+                                            const isVid = ft.startsWith('video');
+                                            if (isImg) {
+                                                return (
+                                                    <Box
+                                                        key={item.messageId}
+                                                        component="img"
+                                                        src={item.filepath}
+                                                        alt={item.filename}
+                                                        onClick={() => setViewerImage(item.filepath)}
+                                                        sx={{ width: 72, height: 72, borderRadius: '10px', objectFit: 'cover', flexShrink: 0, cursor: 'pointer', border: '1px solid #eee' }}
+                                                    />
+                                                );
+                                            }
+                                            const Icon = isAud ? MicRoundedIcon : isVid ? SmartDisplayRoundedIcon : InsertDriveFileRoundedIcon;
+                                            const onTileClick = isVid
+                                                ? () => window.open(item.filepath, '_blank', 'noopener')
+                                                : isAud
+                                                ? () => downloadFile(item.filepath, item.filename)
+                                                : () => setDocViewer({ url: item.filepath, name: item.filename });
+                                            return (
+                                                <Box
+                                                    key={item.messageId}
+                                                    onClick={onTileClick}
+                                                    sx={{ width: 72, height: 72, borderRadius: '10px', flexShrink: 0, cursor: 'pointer', backgroundColor: ACCENT_SOFT, border: '1px solid #eee', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0.4, p: 0.5, '&:hover': { backgroundColor: ACCENT_SOFT_HOVER } }}
+                                                >
+                                                    <Icon sx={{ fontSize: 24, color: ACCENT }} />
+                                                    <Typography sx={{ fontSize: '9px', color: '#777', maxWidth: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', px: 0.3 }}>
+                                                        {item.filename || 'file'}
+                                                    </Typography>
+                                                </Box>
+                                            );
+                                        })}
+                                        {mediaLoadingMore && (
+                                            <Box sx={{ width: 72, height: 72, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                <CircularProgress size={20} sx={{ color: ACCENT }} />
+                                            </Box>
+                                        )}
+                                    </Box>
+                                )}
+                            </Box>
+
+                            <Divider />
+
                             {(activeGroupInfo?.createdBy || activeGroupInfo?.createdOn) && (
                                 <>
                                     <Box sx={{ px: 2.5, py: 1.5 }}>
@@ -4071,21 +4277,25 @@ export default function ChatPage({ embedded = false }) {
                                 </MenuItem>
                             </Menu>
 
-                            <Divider />
+                            {MUTE_ENABLED && (
+                                <>
+                                    <Divider />
 
-                            <Box
-                                onClick={() => handleMute(activeChat.isMuted ? 0 : 8)}
-                                sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2.5, py: 1.8, cursor: 'pointer', '&:hover': { backgroundColor: '#FAFAFA' } }}
-                            >
-                                {activeChat.isMuted ? (
-                                    <NotificationsActiveRoundedIcon sx={{ color: ACCENT }} />
-                                ) : (
-                                    <NotificationsOffRoundedIcon sx={{ color: ACCENT }} />
-                                )}
-                                <Typography sx={{ fontSize: '14px', color: DARK_TEXT }}>
-                                    {activeChat.isMuted ? 'Unmute notifications' : 'Mute notifications'}
-                                </Typography>
-                            </Box>
+                                    <Box
+                                        onClick={() => handleMute(activeChat.isMuted ? 0 : 8)}
+                                        sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2.5, py: 1.8, cursor: 'pointer', '&:hover': { backgroundColor: '#FAFAFA' } }}
+                                    >
+                                        {activeChat.isMuted ? (
+                                            <NotificationsActiveRoundedIcon sx={{ color: ACCENT }} />
+                                        ) : (
+                                            <NotificationsOffRoundedIcon sx={{ color: ACCENT }} />
+                                        )}
+                                        <Typography sx={{ fontSize: '14px', color: DARK_TEXT }}>
+                                            {activeChat.isMuted ? 'Unmute notifications' : 'Mute notifications'}
+                                        </Typography>
+                                    </Box>
+                                </>
+                            )}
 
                             {!isGroupCreator && (
                                 <>

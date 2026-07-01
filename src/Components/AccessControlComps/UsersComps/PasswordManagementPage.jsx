@@ -27,8 +27,8 @@ import dayjs from "dayjs";
 const USER_TYPE_COLORS = {
     Student: { color: "#1976D2", bg: "#E3F2FD" },
     Teacher: { color: "#388E3C", bg: "#E8F5E9" },
-    Staff:   { color: "#F57C00", bg: "#FFF3E0" },
-    Parent:  { color: "#8E24AA", bg: "#F3E5F5" },
+    Staff: { color: "#F57C00", bg: "#FFF3E0" },
+    Parent: { color: "#8E24AA", bg: "#F3E5F5" },
 };
 
 const ROWS_OPTIONS = [10, 25, 50, 100];
@@ -215,8 +215,14 @@ export default function PasswordManagementPage() {
             const res = await axios.get(UsersPassword, {
                 headers: { Authorization: `Bearer ${token}` },
             });
-            setPasswords(res.data);
-            setFilteredData(res.data);
+            const data =
+                user?.userType === "admin"
+                    ? res.data.filter((item) => item.userType?.toLowerCase() === "student")
+                    : res.data;
+
+            setPasswords(data);
+            setFilteredData(data);
+            
             setPage(0);
         } catch (error) {
             console.error(error);
@@ -304,9 +310,7 @@ export default function PasswordManagementPage() {
         }
     };
 
-    // Route guard — only superadmin can access this page.
-    // Placed AFTER all hooks to comply with react-hooks/rules-of-hooks.
-    if (user?.userType !== "superadmin") {
+    if (user?.userType !== "superadmin" && user?.userType !== "admin") {
         return <Navigate to="/dashboardmenu/dashboard" replace />;
     }
 

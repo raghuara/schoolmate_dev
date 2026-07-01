@@ -2,6 +2,15 @@
 const baseApiurl = `https://schoolcommunicationwebapimsmsuat-dredbbfmhzergfhw.canadacentral-01.azurewebsites.net/api/`;
 
 
+
+
+
+
+
+
+
+
+
 // Chat Hub 
 const chatHubBaseUrl = `https://schoolcommunicationwebapimsmsuat-dredbbfmhzergfhw.canadacentral-01.azurewebsites.net`;
 
@@ -10,6 +19,7 @@ const chathub = `${chatHubBaseUrl}/chathub`;
 
 const creategroup = `${chatHubBaseUrl}/api/chat/creategroup`;
 const fetchgroups = `${chatHubBaseUrl}/api/chat/fetchgroups`;
+const fetchmedia = `${chatHubBaseUrl}/api/chat/fetchmedia`;
 const fetchgroupinfo = `${chatHubBaseUrl}/api/chat/fetchgroupinfo`;
 const sendmessage = `${chatHubBaseUrl}/api/chat/sendmessage`;
 const fetchmessages = `${chatHubBaseUrl}/api/chat/fetchmessages`;
@@ -961,4 +971,5 @@ export {
     reactmessage,
     messagereadinfo,
     searchmessages,
+    fetchmedia,
 }
