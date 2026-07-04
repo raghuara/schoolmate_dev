@@ -29,7 +29,7 @@ const AppContent = () => {
   }, [auth, dispatch]);
 
   useEffect(() => {
-    generateToken();
+    // generateToken(); // push notifications disabled — re-enable later
 
     initSessionListener(() => {
       dispatch(logout());
@@ -44,7 +44,7 @@ const AppContent = () => {
 function App() {
 
   useEffect(() => {
-    generateToken();
+    // generateToken(); // push notifications disabled — re-enable later
 
     // const unsubscribe = onMessage(messaging, (payload) => {
     //   console.log("Foreground Notification Received:", payload);

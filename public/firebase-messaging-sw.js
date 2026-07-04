@@ -13,16 +13,16 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-messaging.onBackgroundMessage((payload) => {
-    console.log("Background message received:", payload);
+// Push notifications disabled — re-enable later
+// messaging.onBackgroundMessage((payload) => {
+//     console.log("Background message received:", payload);
 
-    const notificationTitle = payload.notification?.title || "New Notification";
-    const notificationOptions = {
-        body: payload.notification?.body || "You have a new message.",
-        icon: "/Images/MSMSLogo.png",
-        image:"/Images/MSMSLogo.png",
-    };
+//     const notificationTitle = payload.notification?.title || "New Notification";
+//     const notificationOptions = {
+//         body: payload.notification?.body || "You have a new message.",
+//         icon: "/Images/MSMSLogo.png",
+//         image:"/Images/MSMSLogo.png",
+//     };
 
-    // self.registration.showNotification(notificationTitle, notificationOptions);
-});
-
+//     // self.registration.showNotification(notificationTitle, notificationOptions);
+// });

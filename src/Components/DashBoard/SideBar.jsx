@@ -1245,7 +1245,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
               </ListItem>
             )}
 
-            {(userType === "superadmin" || userType === "admin" || userType === "staff") && (
+            {String(userType || "").toLowerCase().replace(/\s/g, "") === "superadmin" && (
               <ListItem onClick={() => handleMenuClickOne('access')} sx={{ borderRadius: 2, px: 3, paddingTop: isExpanded ? '3px' : '11px', paddingBottom: isExpanded ? '3px' : '11px' }}>
                 <CustomTooltip title={isExpanded ? "" : "Access Control"} arrow placement="right-start">
                   <Box

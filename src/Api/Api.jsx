@@ -7,13 +7,10 @@ const baseApiurl = `https://schoolcommunicationwebapimsmsuat-dredbbfmhzergfhw.ca
 
 
 
+//----------------------------------- Chat Hub ----------------------------------
+//----------------------------------- xxxxxxxx ----------------------------------
 
-
-
-
-// Chat Hub 
-const chatHubBaseUrl = `https://schoolcommunicationwebapimsmsuat-dredbbfmhzergfhw.canadacentral-01.azurewebsites.net`;
-
+const chatHubBaseUrl = `https://araschoolchat-adawfycgb7bbgfat.centralindia-01.azurewebsites.net`;
 
 const chathub = `${chatHubBaseUrl}/chathub`;
 
@@ -40,6 +37,11 @@ const uploadfile = `${chatHubBaseUrl}/api/uploadfile`;
 const reactmessage = `${chatHubBaseUrl}/api/chat/reactmessage`;
 const messagereadinfo = `${chatHubBaseUrl}/api/chat/messagereadinfo`;
 const searchmessages = `${chatHubBaseUrl}/api/chat/searchmessages`;
+
+//-----------------------------------xxxxxxxx----------------------------------
+
+
+
 
 const Login = `${baseApiurl}Login`;
 
@@ -549,6 +551,16 @@ const PostAcademicYearConfig = `${baseApiurl}academicyear/PostAcademicYearConfig
 const GetAcademicYearConfig = `${baseApiurl}academicyear/GetAcademicYearConfig`;
 const GetExitFeesSummary = `${baseApiurl}studentExit/GetExitFeesSummary`;
 
+// Role based access 
+const UserTypes = `${baseApiurl}/UserTypes/`;
+const AddUserType = `${UserTypes}/AddUserType`;
+const GetAllUserTypes = `${UserTypes}/GetAllUserTypes`;
+const UpdateUsersUserType = `${UserTypes}/UpdateUsersUserType`;
+const GetNonStudentUsers = `${UserTypes}/GetNonStudentUsers`;
+const GetUserTypePermissions = `${UserTypes}/GetUserTypePermissions`;
+const UpdateUserTypePermissions = `${UserTypes}/UpdateUserTypePermissions`;
+
+
 // Class & Section Management
 const postGrade = `${baseApiurl}GradeValueFetch/postGrade`;
 const postSection = `${baseApiurl}GradeValueFetch/postSection`;
@@ -972,4 +984,10 @@ export {
     messagereadinfo,
     searchmessages,
     fetchmedia,
+    AddUserType,
+    GetAllUserTypes,
+    UpdateUsersUserType,
+    GetNonStudentUsers,
+    GetUserTypePermissions,
+    UpdateUserTypePermissions,
 }

@@ -379,7 +379,6 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
                                                     </Box>
                                                 );
                                             })()}
-                                            {cfg.approval && <Chip size="small" icon={<VerifiedOutlinedIcon sx={{ fontSize: "13px !important" }} />} label="Approval" sx={{ height: 20, fontSize: 10, fontWeight: 700, bgcolor: "#ECFDF5", color: "#047857", "& .MuiChip-icon": { color: "#047857" } }} />}
                                         </Box>
                                     </AccordionSummary>
                                     <AccordionDetails sx={{ p: 2 }}>
@@ -389,90 +388,6 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
                                             {viewHint(cfg, page)}
                                         </>)}
                                         {renderExtraOps(page, cfg)}
-
-                                        {pageApproval(page) && (<>
-                                            <Divider sx={{ my: 1.5 }} />
-
-                                            {/* Approval toggle */}
-                                            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
-                                                <Box>
-                                                    <Typography sx={{ fontSize: 13.5, fontWeight: 700, color: "#111827" }}>{approvalText[page]?.title || `Require approval for ${page}`}</Typography>
-                                                    <Typography sx={{ fontSize: 11.5, color: "#6B7280" }}>{approvalText[page]?.subtitle || `Set up multi-level approvers who must approve each ${nounS} before it is finalized.`}</Typography>
-                                                </Box>
-                                                <Switch checked={cfg.approval} onChange={() => toggleApproval(page)} sx={{ "& .MuiSwitch-switchBase.Mui-checked": { color: ACCENT }, "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": { backgroundColor: ACCENT } }} />
-                                            </Box>
-
-                                            {/* Approval builder */}
-                                            {cfg.approval && (
-                                                <Box sx={{ mt: 1.5 }}>
-                                                    <Typography sx={{ fontSize: 11, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: 0.4, mb: 0.8 }}>Approval levels (top → bottom)</Typography>
-
-                                                    {cfg.levels.length === 0 && (
-                                                        <Typography sx={{ fontSize: 12, color: "#9CA3AF", fontStyle: "italic", mb: 1 }}>No approval levels yet — add Level 1 (the final approver).</Typography>
-                                                    )}
-
-                                                    {cfg.levels.map((lvl, idx) => (
-                                                        <Box key={idx} sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-                                                            <Box sx={{ width: 26, height: 26, borderRadius: "50%", bgcolor: idx === 0 ? ACCENT : `${ACCENT}1A`, color: idx === 0 ? "#fff" : ACCENT, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, flexShrink: 0 }}>
-                                                                {idx + 1}
-                                                            </Box>
-                                                            <FormControl size="small" sx={{ width: 220 }}>
-                                                                <Select
-                                                                    value={lvl}
-                                                                    displayEmpty
-                                                                    onChange={(e) => setLevel(page, idx, e.target.value)}
-                                                                    renderValue={(v) => (v ? v : <Typography sx={{ fontSize: 13, color: "#9CA3AF" }}>Select user type</Typography>)}
-                                                                    sx={{ borderRadius: "8px", height: 36, fontSize: 13, fontWeight: 600 }}
-                                                                >
-                                                                    {roleOptions.filter((r) => r === lvl || !cfg.levels.includes(r)).map((r) => (
-                                                                        <MenuItem key={r} value={r} sx={{ fontSize: 13, fontWeight: 600 }}>{r}</MenuItem>
-                                                                    ))}
-                                                                </Select>
-                                                            </FormControl>
-                                                            <Typography sx={{ fontSize: 11, color: "#9CA3AF" }}>
-                                                                {idx === 0 ? "Final approver" : `Approves Level ${idx + 2}+ & Others`}
-                                                            </Typography>
-                                                            <Tooltip title="Remove level" arrow>
-                                                                <IconButton size="small" onClick={() => removeLevel(page, idx)} sx={{ ml: "auto" }}>
-                                                                    <DeleteOutlineIcon sx={{ fontSize: 17, color: "#DC2626" }} />
-                                                                </IconButton>
-                                                            </Tooltip>
-                                                        </Box>
-                                                    ))}
-
-                                                    <Button
-                                                        onClick={() => addLevel(page)}
-                                                        startIcon={<AddIcon sx={{ fontSize: 16 }} />}
-                                                        disabled={cfg.levels.length >= Math.min(3, roleOptions.length)}
-                                                        sx={{ textTransform: "none", fontWeight: 700, fontSize: 12.5, color: ACCENT, borderRadius: "8px", border: `1px dashed ${ACCENT}66`, px: 1.4, height: 32, mt: 0.5, "&:hover": { bgcolor: `${ACCENT}0A` } }}
-                                                    >
-                                                        Add approval level
-                                                    </Button>
-
-                                                    {/* Peer approval (Level 2+) */}
-                                                    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1, mt: 1.5, p: 1.2, borderRadius: "8px", bgcolor: "#F8FAFC", border: "1px solid #EEF0F2" }}>
-                                                        <Box>
-                                                            <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: "#111827" }}>Allow approval within the same level</Typography>
-                                                            <Typography sx={{ fontSize: 11, color: "#6B7280" }}>Members of Level 2 and below can approve each other (not Level 1).</Typography>
-                                                        </Box>
-                                                        <Switch checked={cfg.allowSameLevel} onChange={() => toggleSameLevel(page)} sx={{ "& .MuiSwitch-switchBase.Mui-checked": { color: "#0891B2" }, "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": { backgroundColor: "#0891B2" } }} />
-                                                    </Box>
-
-                                                    {/* Explanation */}
-                                                    {lines.length > 0 && (
-                                                        <Box sx={{ mt: 1.5, p: 1.4, borderRadius: "8px", bgcolor: "#EEF2FF", border: "1px solid #C7D2FE" }}>
-                                                            <Box sx={{ display: "flex", alignItems: "center", gap: 0.6, mb: 0.6 }}>
-                                                                <InfoOutlinedIcon sx={{ fontSize: 16, color: ACCENT }} />
-                                                                <Typography sx={{ fontSize: 11.5, fontWeight: 800, color: "#3730A3", textTransform: "uppercase", letterSpacing: 0.3 }}>How this approval works</Typography>
-                                                            </Box>
-                                                            {lines.map((l) => (
-                                                                <Typography key={l.k} sx={{ fontSize: 12, color: "#3730A3", lineHeight: 1.5, mb: 0.3 }}>• {l.t}</Typography>
-                                                            ))}
-                                                        </Box>
-                                                    )}
-                                                </Box>
-                                            )}
-                                        </>)}
                                     </AccordionDetails>
                                 </Accordion>
                             </Grid>

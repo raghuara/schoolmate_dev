@@ -1,7 +1,7 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import {
     Box, Grid, Typography, Button, TextField, InputAdornment, IconButton, Avatar, AvatarGroup, Chip,
-    Dialog, DialogTitle, DialogContent, DialogActions, Menu, MenuItem, Tooltip,
+    Dialog, DialogTitle, DialogContent, DialogActions, Menu, MenuItem, Tooltip, CircularProgress,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import SearchIcon from "@mui/icons-material/Search";
@@ -13,20 +13,41 @@ import ManageAccountsOutlinedIcon from "@mui/icons-material/ManageAccountsOutlin
 import TuneOutlinedIcon from "@mui/icons-material/TuneOutlined";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 import SnackBar from "../SnackBar";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
+import { fetchUserTypes as refreshUserTypesStore } from "../../Redux/Slices/userTypesSlice";
+import { AddUserType, GetAllUserTypes } from "../../Api/Api";
+import ApprovalFlowsTab from "./ApprovalFlowsTab";
 
-// NOTE: replace these mocks with the real master-access-control APIs when ready.
+const TOKEN = "123";
+
 // `system: true` → always present (cannot be removed). `isStudent: true` → the student
 // category: every student belongs here, so no user count / no "view & move" access.
-const INITIAL_ROLES = [
-    { id: 1, name: "Super Admin", createdOn: "Default", userCount: 5, system: true, fullAccess: true },
-    { id: 2, name: "Student", createdOn: "Default", userCount: 0, system: true, isStudent: true },
-    { id: 3, name: "Admin", createdOn: "1 June, 2026", userCount: 10 },
-    { id: 4, name: "Office Staffs", createdOn: "1 June, 2026", userCount: 15 },
-    { id: 5, name: "Teachers", createdOn: "1 June, 2026", userCount: 50 },
-    { id: 6, name: "Parent", createdOn: "1 June, 2026", userCount: 1500 },
-];
+const fmtDate = (s) => {
+    if (!s) return "";
+    const d = new Date(s);
+    if (isNaN(d.getTime())) return s;
+    return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+};
+
+// Map a GetAllUserTypes item to the role shape the UI uses.
+const mapUserType = (item) => {
+    const name = item.userType || "";
+    const key = name.toLowerCase().replace(/\s/g, "");
+    const isSuperAdmin = item.userTypeID === 1 || key === "superadmin";
+    const isStudent = key === "student";
+    return {
+        id: item.userTypeID,
+        name,
+        createdOn: fmtDate(item.createdDate),
+        userCount: Number(item.userCount) || 0,
+        users: Array.isArray(item.users) ? item.users : [],
+        system: isSuperAdmin || isStudent,
+        fullAccess: isSuperAdmin,
+        isStudent,
+    };
+};
 
 // Refined, professional accent colours — assigned stably per role name (no loud yellows).
 const CARD_COLORS = [
@@ -43,30 +64,49 @@ const AVATAR_PALETTE = ["#0E7490", "#6D28D9", "#C2410C", "#047857", "#1D4ED8", "
 const colorFor = (s = "") => AVATAR_PALETTE[(s.charCodeAt(0) || 0) % AVATAR_PALETTE.length];
 const getInitials = (n = "") => n.split(" ").map((p) => p[0]).filter(Boolean).slice(0, 2).join("").toUpperCase();
 
-// Mock members for a role (for the "View All access" + move flow)
-const buildMembers = (role) =>
-    Array.from({ length: Math.min(role.userCount, 8) }, (_, i) => ({
-        id: `${role.id}-${i + 1}`,
-        name: `${role.name.split(" ")[0]} Member ${i + 1}`,
-        rollNumber: `${role.id}${String(i + 1).padStart(4, "0")}`,
-    }));
+// Real members of a role, mapped from the API `users` array.
+const roleMembers = (role) =>
+    (role?.users || []).map((u) => ({ id: u.rollNumber, name: u.name, rollNumber: u.rollNumber }));
 
 export default function RolesPermissionsPage() {
     const navigate = useNavigate();
+    const dispatch = useDispatch();
     const accent = "#4338CA"; // professional indigo for the access-control module
 
-    const [roles, setRoles] = useState(INITIAL_ROLES);
+    const [roles, setRoles] = useState([]);
+    const [loadingRoles, setLoadingRoles] = useState(false);
     const [search, setSearch] = useState("");
+    const [mainTab, setMainTab] = useState(0); // 0 = User Types, 1 = Approval Flows
 
     // Create user-type dialog
     const [createOpen, setCreateOpen] = useState(false);
     const [newName, setNewName] = useState("");
     const [nameError, setNameError] = useState("");
+    const [isCreating, setIsCreating] = useState(false);
 
     const isExpanded = useSelector((state) => state.sidebar.isExpanded);
     // Snackbar
     const [snack, setSnack] = useState({ open: false, ok: true, msg: "" });
     const showSnack = (msg, ok = true) => setSnack({ open: true, ok, msg });
+
+    const fetchUserTypes = async () => {
+        setLoadingRoles(true);
+        try {
+            const res = await axios.get(GetAllUserTypes, { headers: { Authorization: `Bearer ${TOKEN}` } });
+            const rank = (r) => (r.fullAccess ? 0 : r.isStudent ? 1 : 2);
+            const list = (res?.data?.data || []).map(mapUserType).sort((a, b) => rank(a) - rank(b));
+            setRoles(list);
+        } catch (err) {
+            showSnack(err?.response?.data?.message || "Failed to load user types.", false);
+        } finally {
+            setLoadingRoles(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchUserTypes();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // Manage Users dialog
     const [usersOpen, setUsersOpen] = useState(false);
@@ -76,7 +116,7 @@ export default function RolesPermissionsPage() {
     const [moveAnchor, setMoveAnchor] = useState(null);
     const [moveMember, setMoveMember] = useState(null);
 
-    const openUsers = (role) => { setUsersRole(role); setUsersList(buildMembers(role)); setAddName(""); setUsersOpen(true); };
+    const openUsers = (role) => { setUsersRole(role); setUsersList(roleMembers(role)); setAddName(""); setUsersOpen(true); };
 
     // Add a user to the open role
     const handleAddUser = () => {
@@ -120,17 +160,34 @@ export default function RolesPermissionsPage() {
         if (nameError) setNameError("");
     };
 
-    const handleCreate = () => {
+    const handleCreate = async () => {
         const name = newName.trim();
         if (!name) { setNameError("Please enter a user type name."); return; }
         if (!/^[A-Za-z ]+$/.test(name)) { setNameError("Only alphabets are allowed (no numbers or special characters)."); return; }
         if (roles.some((r) => r.name.toLowerCase() === name.toLowerCase())) { setNameError("This user type already exists."); return; }
 
-        const id = Math.max(0, ...roles.map((r) => r.id)) + 1;
-        setRoles((prev) => [...prev, { id, name, createdOn: "Today", userCount: 0 }]);
-        setCreateOpen(false);
-        setNewName("");
-        showSnack(`User type "${name}" created.`);
+        setIsCreating(true);
+        try {
+            const res = await axios.post(
+                AddUserType,
+                { userType: name },
+                { headers: { Authorization: `Bearer ${TOKEN}` } }
+            );
+            const ok = !res?.data || res.data.error === false || res.status === 200 || res.status === 201;
+            if (!ok) {
+                showSnack(res?.data?.message || "Could not create the user type.", false);
+                return;
+            }
+            setCreateOpen(false);
+            setNewName("");
+            showSnack(res?.data?.message || `User type "${name}" created.`);
+            fetchUserTypes();
+            dispatch(refreshUserTypesStore());
+        } catch (err) {
+            showSnack(err?.response?.data?.message || "Failed to create the user type. Please try again.", false);
+        } finally {
+            setIsCreating(false);
+        }
     };
  
     return (
@@ -167,6 +224,7 @@ export default function RolesPermissionsPage() {
                     </Box>
                 </Box>
 
+                {mainTab === 0 && (
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
                     <TextField
                         size="small"
@@ -186,11 +244,35 @@ export default function RolesPermissionsPage() {
                         Create User Type
                     </Button>
                 </Box>
+                )}
             </Box>
 
-            {/* Role cards */}
+            {/* Content */}
             <Box sx={{ px: 2,pb:2, pt:"73px" }}>
-                {filteredRoles.length === 0 ? (
+                <Box sx={{ display: "flex", gap: 0.5, mb: 2, borderBottom: "1px solid #E5E7EB" }}>
+                    {[{ k: 0, label: "User Types" }, { k: 1, label: "Approval Flows" }].map((t) => (
+                        <Box
+                            key={t.k}
+                            onClick={() => setMainTab(t.k)}
+                            sx={{
+                                px: 2, py: 1, cursor: "pointer", fontSize: 13.5, fontWeight: 700,
+                                color: mainTab === t.k ? accent : "#6B7280",
+                                borderBottom: mainTab === t.k ? `2px solid ${accent}` : "2px solid transparent",
+                                mb: "-1px", transition: "color 0.2s",
+                            }}
+                        >
+                            {t.label}
+                        </Box>
+                    ))}
+                </Box>
+
+                {mainTab === 1 ? (
+                    <ApprovalFlowsTab showSnack={showSnack} />
+                ) : loadingRoles ? (
+                    <Box sx={{ p: 6, display: "flex", justifyContent: "center" }}>
+                        <CircularProgress size={30} sx={{ color: accent }} />
+                    </Box>
+                ) : filteredRoles.length === 0 ? (
                     <Box sx={{ p: 6, textAlign: "center", borderRadius: "12px", border: "1px dashed #E5E7EB", bgcolor: "#FAFAFA" }}>
                         <Typography sx={{ fontSize: 13, fontWeight: 600, color: "#9CA3AF" }}>No user types found</Typography>
                     </Box>
@@ -231,10 +313,10 @@ export default function RolesPermissionsPage() {
                                         <Typography sx={{ fontSize: 11.5, color: "#6B7280", lineHeight: 1.4 }}>
                                             Every student is automatically included in this category.
                                         </Typography>
-                                    ) : buildMembers(role).length > 0 ? (
+                                    ) : roleMembers(role).length > 0 ? (
                                         <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
                                             <AvatarGroup max={5} sx={{ "& .MuiAvatar-root": { width: 26, height: 26, fontSize: 10, fontWeight: 700, border: "2px solid #fff" } }}>
-                                                {buildMembers(role).map((m) => (
+                                                {roleMembers(role).map((m) => (
                                                     <Avatar key={m.id} sx={{ bgcolor: `${colorFor(m.name)}22`, color: colorFor(m.name) }}>{getInitials(m.name)}</Avatar>
                                                 ))}
                                             </AvatarGroup>
@@ -303,8 +385,17 @@ export default function RolesPermissionsPage() {
                     />
                 </DialogContent>
                 <DialogActions sx={{ px: 2, pb: 2, gap: 1 }}>
-                    <Button onClick={() => setCreateOpen(false)} sx={{ textTransform: "none", fontWeight: 700, color: "#374151", border: "1px solid #E5E7EB", borderRadius: "8px", px: 2, height: 36 }}>Cancel</Button>
-                    <Button onClick={handleCreate} variant="contained" disableElevation sx={{ textTransform: "none", fontWeight: 700, bgcolor: accent, color: "#fff", borderRadius: "8px", px: 2.4, height: 36, "&:hover": { bgcolor: accent, filter: "brightness(0.92)" } }}>Create</Button>
+                    <Button onClick={() => setCreateOpen(false)} disabled={isCreating} sx={{ textTransform: "none", fontWeight: 700, color: "#374151", border: "1px solid #E5E7EB", borderRadius: "8px", px: 2, height: 36 }}>Cancel</Button>
+                    <Button
+                        onClick={handleCreate}
+                        variant="contained"
+                        disableElevation
+                        disabled={isCreating}
+                        startIcon={isCreating ? <CircularProgress size={15} sx={{ color: "#fff" }} /> : null}
+                        sx={{ textTransform: "none", fontWeight: 700, bgcolor: accent, color: "#fff", borderRadius: "8px", px: 2.4, height: 36, "&:hover": { bgcolor: accent, filter: "brightness(0.92)" }, "&.Mui-disabled": { bgcolor: "#E5E7EB", color: "#9CA3AF" } }}
+                    >
+                        {isCreating ? "Creating…" : "Create"}
+                    </Button>
                 </DialogActions>
             </Dialog>
 

@@ -234,7 +234,7 @@ export default function FeeFinancePage() {
         return approvals.filter((a) => {
             if (a.status !== 'pending') return false;
             const matchMethod = approvalMethodFilter === 'all' ? true : a.method === approvalMethodFilter;
-            const matchSearch = !q || a.studentName.toLowerCase().includes(q) || a.referenceId.toLowerCase().includes(q) || a.id.toLowerCase().includes(q);
+            const matchSearch = !q || String(a.studentName || '').toLowerCase().includes(q) || String(a.referenceId || '').toLowerCase().includes(q) || String(a.id || '').toLowerCase().includes(q);
             return matchMethod && matchSearch;
         });
     }, [approvals, approvalSearch, approvalMethodFilter]);

@@ -128,22 +128,23 @@ export default function LoginPage() {
             setStatus(true);
             setMessage("Logged in successfully");
 
-            const { name, rollNumber, userType, grade, section } = res.data.data;
+            const { name, rollNumber, userType, grade, section, userTypePermissions } = res.data.data;
 
-            if (!["superadmin", "admin", "staff", "teacher"].includes(userType)) {
+            if (String(userType || "").toLowerCase().replace(/\s/g, "") === "student") {
                 setOpen(true);
                 setStatus(false);
                 setColor(false);
-                setMessage("Access denied. Only admins and staff can log in.");
+                setMessage("Access denied. Student accounts cannot log in to the web portal.");
                 setActivateError(true);
                 setActivateSuccess(false);
                 return;
             }
+            
             const sessionId = generateSessionId();
             localStorage.setItem("sessionId", sessionId);
             broadcastLogin(sessionId);
 
-            dispatch(loginSuccess({ name, rollNumber, userType, grade, section }));
+            dispatch(loginSuccess({ name, rollNumber, userType, grade, section, permissions: userTypePermissions, userTypeID: userTypePermissions?.userTypeID }));
 
             try {
                 const versionRes = await axios.get(VersionFetch, { headers: { Authorization: `Bearer ${token}` } });

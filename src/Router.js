@@ -37,6 +37,7 @@ import EditTimeTablesPage from "./Components/CommunicationComps/TimeTablesComps/
 import CreateHomeWorkPage from "./Components/CommunicationComps/HomeworkComps/CreateHomeWorkPage";
 import EditHomeWorkPage from "./Components/CommunicationComps/HomeworkComps/EditHomeWorkPage";
 import { fetchGradesData, selectGrades, selectGradesError, selectGradesLoading } from "./Redux/Slices/DropdownController";
+import { fetchUserTypes } from "./Redux/Slices/userTypesSlice";
 import { useDispatch, useSelector } from "react-redux";
 import Loader from "./Components/Loader";
 import CreateExamTimeTablesPage from "./Components/CommunicationComps/ExamTimeTablesComps/CreateExamTimeTables";
@@ -188,6 +189,7 @@ export default function RouterPage() {
 
     useEffect(() => {
         dispatch(fetchGradesData());
+        dispatch(fetchUserTypes());
     }, [dispatch]);
 
     // if (loading) return <div> <Loader /> </div>;

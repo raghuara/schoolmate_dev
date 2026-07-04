@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import {
     Box, Grid, Typography, Button, TextField, InputAdornment, IconButton, Switch, Chip,
     Avatar, AvatarGroup, Dialog, DialogTitle, DialogContent, Menu, MenuItem, Divider, Tooltip,
@@ -17,8 +17,23 @@ import DirectionsBusOutlinedIcon from "@mui/icons-material/DirectionsBusOutlined
 import WorkOutlineOutlinedIcon from "@mui/icons-material/WorkOutlineOutlined";
 import AdminPanelSettingsOutlinedIcon from "@mui/icons-material/AdminPanelSettingsOutlined";
 import { useNavigate, useLocation } from "react-router-dom";
+import axios from "axios";
 import SnackBar from "../SnackBar";
 import { useSelector } from "react-redux";
+import { GetUserTypePermissions } from "../../Api/Api";
+
+const TOKEN = "123";
+
+// Map each UI module to the backend `mainMenu` key returned by GetUserTypePermissions.
+const MODULE_TO_MAINMENU = {
+    profile: "profilemanagement",
+    communication: "communication",
+    finance: "feeandfinance",
+    leave: "leaveandpayroll",
+    transport: "transport",
+    myprojects: "myprojects",
+    access: "accesscontrol",
+};
 
 const ACCENT = "#4338CA";
 
@@ -51,8 +66,10 @@ export default function FeaturePermissionsPage() {
     const isSuperAdmin = (role.name || "").toLowerCase() === "super admin";
 
     const [search, setSearch] = useState("");
-    // Access map — super admin has everything; otherwise default all on (tweak as needed)
-    const [access, setAccess] = useState(() => Object.fromEntries(MODULES.map((m) => [m.key, true])));
+    // Access map — driven by GetUserTypePermissions (super admin always full).
+    const [access, setAccess] = useState(() => Object.fromEntries(MODULES.map((m) => [m.key, isSuperAdmin])));
+    const [permissions, setPermissions] = useState(null);
+    const [loadingPerms, setLoadingPerms] = useState(false);
 
     // Members / move
     const [membersOpen, setMembersOpen] = useState(false);
@@ -63,6 +80,35 @@ export default function FeaturePermissionsPage() {
     const isExpanded = useSelector((state) => state.sidebar.isExpanded);
     const [snack, setSnack] = useState({ open: false, ok: true, msg: "" });
     const showSnack = (msg, ok = true) => setSnack({ open: true, ok, msg });
+
+    const fetchPermissions = async () => {
+        if (role?.id == null) return;
+        setLoadingPerms(true);
+        try {
+            const res = await axios.post(
+                GetUserTypePermissions,
+                { userTypeID: role.id, userType: role.name },
+                { headers: { Authorization: `Bearer ${TOKEN}` } },
+            );
+            const data = res?.data?.data || null;
+            setPermissions(data);
+            const menus = data?.mainMenus || [];
+            // A module is enabled if its mainMenu is present in the response (super admin = all on).
+            setAccess(Object.fromEntries(MODULES.map((m) => {
+                const present = menus.some((x) => x.mainMenu === MODULE_TO_MAINMENU[m.key]);
+                return [m.key, isSuperAdmin ? true : present];
+            })));
+        } catch (err) {
+            showSnack(err?.response?.data?.message || "Failed to load permissions for this user type.", false);
+        } finally {
+            setLoadingPerms(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchPermissions();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [role?.id]);
 
     const toggle = (key) => {
         if (isSuperAdmin) { showSnack("Super Admin always has full access.", false); return; }
@@ -225,7 +271,7 @@ export default function FeaturePermissionsPage() {
                                     <Box sx={{ height: "1px", bgcolor: "#F1F3F5", mt: "auto", mb: 1.4 }} />
                                     <Button
                                         onClick={() => (on
-                                            ? navigate(`/dashboardmenu/access/config/${m.key}`, { state: { role, roles: allRoles } })
+                                            ? navigate(`/dashboardmenu/access/config/${m.key}`, { state: { role, roles: allRoles, permissions, mainMenu: MODULE_TO_MAINMENU[m.key] } })
                                             : showSnack(`Enable ${m.name} first.`, false))}
                                         endIcon={<ArrowForwardIcon sx={{ fontSize: 15 }} />}
                                         disabled={!on}

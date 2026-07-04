@@ -12,11 +12,12 @@ import sidebarReducer from './Slices/sidebarSlice';
 import versionReducer from './Slices/versionSlice';
 import academicYearReducer from './Slices/academicYearSlice';
 import chatReducer from './Slices/chatSlice';
+import userTypesReducer from './Slices/userTypesSlice';
 
 const authPersistConfig = {
   key: 'auth',
   storage,
-  whitelist: ['name', 'rollNumber', 'userType', 'grade', 'section', 'isAuthenticated'],
+  whitelist: ['name', 'rollNumber', 'userType', 'grade', 'section', 'isAuthenticated', 'userTypeID', 'permissions'],
 };
 
 const gradesPersistConfig = {
@@ -42,11 +43,18 @@ const academicYearPersistConfig = {
   whitelist: ['selectedYear', 'currentYear'],
 };
 
+const userTypesPersistConfig = {
+  key: 'userTypes',
+  storage,
+  whitelist: ['list', 'lastFetched'],
+};
+
 const persistedAuthReducer = persistReducer(authPersistConfig, authReducer);
 const persistedGradesReducer = persistReducer(gradesPersistConfig, gradesReducer);
 const persistedSidebarReducer = persistReducer(sidebarPersistConfig, sidebarReducer);
 const persistedVersionReducer = persistReducer(versionPersistConfig, versionReducer);
 const persistedAcademicYearReducer = persistReducer(academicYearPersistConfig, academicYearReducer);
+const persistedUserTypesReducer = persistReducer(userTypesPersistConfig, userTypesReducer);
 
 const store = configureStore({
   reducer: {
@@ -61,6 +69,7 @@ const store = configureStore({
     version: persistedVersionReducer,
     academicYear: persistedAcademicYearReducer,
     chat: chatReducer,
+    userTypes: persistedUserTypesReducer,
   },
 });
 

@@ -34,14 +34,14 @@ export default function AccessControlPage() {
     const items = [
         { color: "#A749CC", icon: Groups2Icon, text: "Users", desc: "Manage user accounts, roles and login access.", path: 'users', intimation: newsIntimation },
         // Academics + Student Promotion + Issue TC are restricted to superadmin only
-        ...(userType === "superadmin" ? [
+        ...(userType === "Super Admin" ? [
             { color: "#ED9146", icon: AutoStoriesIcon, text: "Academics", desc: "Configure classes, sections, subjects and exams.", path: 'academics', intimation: messageIntimation },
             { color: "#7DC353", icon: TrendingUpIcon, text: "Student Promotion", desc: "Promote students to the next academic year.", path: 'student-promotion', intimation: circularIntimation },
             { color: "#D97706", icon: SchoolIcon, text: "Issue TC", desc: "Issue transfer certificates for leaving students.", path: 'issue-tc', intimation: false },
         ] : []),
     ];
 
-    if (userType !== "superadmin" && userType !== "admin" && userType !== "staff") {
+    if (userType !== "Super Admin" && userType !== "admin" && userType !== "staff") {
         return <Navigate to="/dashboardmenu/dashboard" replace />;
     }
 
@@ -88,7 +88,7 @@ export default function AccessControlPage() {
             <Box>
                 <Box sx={{ px:2, pb:2, pt:"65px" }}>
                     {/* Roles & Permissions — the core module that governs all screen access */}
-                    {userType === "superadmin" && (
+                    {userType === "Super Admin" && (
                         <Link to="roles-permissions" state={{ value: 'N' }} style={{ textDecoration: 'none' }}>
                             <Box
                                 sx={{
