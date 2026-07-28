@@ -6,6 +6,7 @@ import { useTheme } from "@mui/material/styles";
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlice";
 import { useDispatch, useSelector } from "react-redux";
+import { findSubMenuPermissions } from "../../../Redux/Slices/AuthSlice";
 import { FindStaffManagementDetails, postStaffInformation, postStaffStudentInformation, } from "../../../Api/Api";
 import axios from "axios";
 import { selectGrades } from "../../../Redux/Slices/DropdownController";
@@ -29,9 +30,9 @@ export default function ViewStaffDetails() {
     const token = "123"
     const theme = useTheme();
     const user = useSelector((state) => state.auth);
+    const canEdit = (findSubMenuPermissions(user.permissions, "profilemanagement", "staffmanagement") || {}).edit === "Y";
     const nextId = useRef(2);
     const RollNumber = user.rollNumber
-    const userType = user.userType
     const userName = user.name
     const navigate = useNavigate()
     const dispatch = useDispatch();
@@ -259,19 +260,21 @@ export default function ViewStaffDetails() {
                         gap: { xs: 1, md: 2 },
                         flexWrap: "wrap"
                     }}> 
-                        <Button
-                            variant="outlined"
-                            startIcon={<EditIcon sx={{ fontSize: { xs: 16, md: 20 } }} />}
-                            onClick={() => handleEditClick(staffInfo?.[0]?.staffRollNumber)}
-                            sx={{
-                                textTransform: "none", fontSize: "13px", fontWeight: 600,
-                                color: "#1976d2", border: "1px solid #1976d2", borderRadius: "6px",
-                                px: 2, py: 0.4,
-                                "&:hover": { bgcolor: "#e3f2fd" }
-                            }}
-                        >
-                            {isMobile ? "" : "Edit"}
-                        </Button>
+                        {canEdit && (
+                            <Button
+                                variant="outlined"
+                                startIcon={<EditIcon sx={{ fontSize: { xs: 16, md: 20 } }} />}
+                                onClick={() => handleEditClick(staffInfo?.[0]?.staffRollNumber)}
+                                sx={{
+                                    textTransform: "none", fontSize: "13px", fontWeight: 600,
+                                    color: "#1976d2", border: "1px solid #1976d2", borderRadius: "6px",
+                                    px: 2, py: 0.4,
+                                    "&:hover": { bgcolor: "#e3f2fd" }
+                                }}
+                            >
+                                {isMobile ? "" : "Edit"}
+                            </Button>
+                        )}
                         
                         {/* <Button
                             variant="outlined"

@@ -182,7 +182,7 @@ export default function LeaveAttendanceMainPage() {
                         {moduleCards.filter(item => {
                             const adminGated = ["Payroll Management", "Leave Policy Master"];
                             if (!adminGated.includes(item.text)) return true;
-                            return ["superadmin", "admin", "staff"].includes(userType);
+                            return ["Super Admin", "admin", "staff"].includes(userType);
                         }).map((item, index) => {
                             const IconComponent = item.icon;
                             return (

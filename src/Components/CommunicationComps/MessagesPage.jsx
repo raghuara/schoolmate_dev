@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { selectWebsiteSettings } from "../../Redux/Slices/websiteSettingsSlice";
 import { useDispatch, useSelector } from "react-redux";
+import { findSubMenuPermissions } from "../../Redux/Slices/AuthSlice";
 import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
@@ -39,6 +40,10 @@ export default function MessagesPage() {
     const [imageUrl, setImageUrl] = useState('');
     const [messageData, setMessageData] = useState([]);
     const user = useSelector((state) => state.auth);
+    const messagePerms = findSubMenuPermissions(user.permissions, "communication", "message") || {};
+    const canCreate = messagePerms.create === "Y";
+    const canEdit = messagePerms.edit === "Y";
+    const canDelete = messagePerms.delete === "Y";
     const rollNumber = user.rollNumber
     const userType = user.userType
     const userName = user.name
@@ -351,7 +356,7 @@ export default function MessagesPage() {
                             md: 3,
                             lg: 2
                         }}>
-                        {userType !== "teacher" &&
+                        {canCreate &&
                             <>
                                 <Typography sx={{ fontWeight: "600", fontSize: "12px" }} >My Projects</Typography>
                                 <Switch
@@ -510,7 +515,7 @@ export default function MessagesPage() {
                                 </LocalizationProvider>
                             </ThemeProvider>
                         </Box>
-                        {userType !== "teacher" &&
+                        {canCreate &&
                             <Button
                                 onClick={handleCreateNews}
                                 variant="outlined"
@@ -684,7 +689,7 @@ export default function MessagesPage() {
 
                     </Box>
                 </Dialog>
-                {userType === "superadmin" &&
+                {canDelete &&
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', px: 2, alignItems: "center" }}>
                         {selectedMessageIds.length > 0 ? (
                             <Button
@@ -936,48 +941,7 @@ export default function MessagesPage() {
                                                         )}
 
                                                         {/* Edit and Delete Buttons */}
-                                                        {(userType !== "teacher" && userType !== "superadmin") && (
-                                                            (messageItem.isAlterAvilable === "Y" || isMyProject === "Y") &&
-                                                            <Box
-                                                                sx={{
-                                                                    position: "absolute",
-                                                                    bottom: "10px",
-                                                                    right: "10px",
-                                                                    display: "flex",
-                                                                    gap: 1,
-                                                                }}
-                                                            >
-                                                                <Button
-                                                                    variant="outlined"
-                                                                    sx={{
-                                                                        textTransform: "none",
-                                                                        padding: "2px 0",
-                                                                        borderRadius: "30px",
-                                                                        fontSize: "10px",
-                                                                        border: "1px solid black",
-                                                                        color: "black",
-                                                                        fontWeight: "600",
-                                                                    }}
-                                                                    onClick={() => handleEdit(messageItem.id)}
-                                                                >
-                                                                    <EditOutlinedIcon style={{ fontSize: "15px" }} />
-                                                                    &nbsp;Edit
-                                                                </Button>
-                                                                <IconButton
-                                                                    sx={{
-                                                                        border: "1px solid black",
-                                                                        width: "25px",
-                                                                        height: "25px",
-                                                                    }}
-                                                                    onClick={() => handleDelete(messageItem.id)}
-                                                                >
-                                                                    <DeleteOutlineOutlinedIcon
-                                                                        style={{ fontSize: "15px", color: "#000" }}
-                                                                    />
-                                                                </IconButton>
-                                                            </Box>
-                                                        )}
-                                                        {userType === "superadmin" &&
+                                                        {(messageItem.isAlterAvilable === "Y" || isMyProject === "Y") && (canEdit || canDelete) && (
                                                             <Box
                                                                 sx={{
                                                                     position: "absolute",
@@ -987,38 +951,42 @@ export default function MessagesPage() {
                                                                     gap: 1,
                                                                 }}
                                                             >
-                                                                <Button
-                                                                    variant="outlined"
-                                                                    sx={{
-                                                                        textTransform: 'none',
-                                                                        padding: '2px 0',
-                                                                        borderRadius: '30px',
-                                                                        fontSize: '10px',
-                                                                        border: '1px solid black',
-                                                                        color: 'black',
-                                                                        fontWeight: "600",
-                                                                        backgroundColor: "#fff"
-                                                                    }}
-                                                                    onClick={() => handleEdit(messageItem.id)}
-                                                                >
-                                                                    <EditOutlinedIcon style={{ fontSize: "15px" }} />
-                                                                    &nbsp;Edit
-                                                                </Button>
-                                                                <IconButton
-                                                                    sx={{
-                                                                        border: "1px solid black",
-                                                                        width: "25px",
-                                                                        height: "25px",
-                                                                        backgroundColor: "#fff",
-                                                                    }}
-                                                                    onClick={() => handleDelete(messageItem.id)}
-                                                                >
-                                                                    <DeleteOutlineOutlinedIcon
-                                                                        style={{ fontSize: "15px", color: "#000" }}
-                                                                    />
-                                                                </IconButton>
+                                                                {canEdit && (
+                                                                    <Button
+                                                                        variant="outlined"
+                                                                        sx={{
+                                                                            textTransform: 'none',
+                                                                            padding: '2px 0',
+                                                                            borderRadius: '30px',
+                                                                            fontSize: '10px',
+                                                                            border: '1px solid black',
+                                                                            color: 'black',
+                                                                            fontWeight: "600",
+                                                                            backgroundColor: "#fff"
+                                                                        }}
+                                                                        onClick={() => handleEdit(messageItem.id)}
+                                                                    >
+                                                                        <EditOutlinedIcon style={{ fontSize: "15px" }} />
+                                                                        &nbsp;Edit
+                                                                    </Button>
+                                                                )}
+                                                                {canDelete && (
+                                                                    <IconButton
+                                                                        sx={{
+                                                                            border: "1px solid black",
+                                                                            width: "25px",
+                                                                            height: "25px",
+                                                                            backgroundColor: "#fff",
+                                                                        }}
+                                                                        onClick={() => handleDelete(messageItem.id)}
+                                                                    >
+                                                                        <DeleteOutlineOutlinedIcon
+                                                                            style={{ fontSize: "15px", color: "#000" }}
+                                                                        />
+                                                                    </IconButton>
+                                                                )}
                                                             </Box>
-                                                        }
+                                                        )}
                                                     </Box>
                                                     <Box sx={{ display: "flex", justifyContent: "end" }}>
                                                         <Box

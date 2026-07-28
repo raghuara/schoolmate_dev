@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { selectWebsiteSettings } from "../../Redux/Slices/websiteSettingsSlice";
 import { useDispatch, useSelector } from "react-redux";
+import { findSubMenuPermissions } from "../../Redux/Slices/AuthSlice";
 import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
@@ -40,6 +41,10 @@ export default function CircularsPage() {
     const [imageUrl, setImageUrl] = useState('');
     const [circularsData, setCircularsData] = useState([]);
     const user = useSelector((state) => state.auth);
+    const circularPerms = findSubMenuPermissions(user.permissions, "communication", "circular") || {};
+    const canCreate = circularPerms.create === "Y";
+    const canEdit = circularPerms.edit === "Y";
+    const canDelete = circularPerms.delete === "Y";
     const rollNumber = user.rollNumber
     const userType = user.userType
     const userName = user.name
@@ -373,7 +378,7 @@ export default function CircularsPage() {
                             md: 3,
                             lg: 2
                         }}>
-                        {userType !== "teacher" &&
+                        {canCreate &&
                             <>
                                 <Typography sx={{ fontWeight: "600", fontSize: "12px" }} >My Projects</Typography>
                                 <Switch
@@ -531,7 +536,7 @@ export default function CircularsPage() {
                                 </LocalizationProvider>
                             </ThemeProvider>
                         </Box>
-                        {userType !== "teacher" &&
+                        {canCreate &&
                             <Button
                                 onClick={handleCreateCircular}
                                 variant="outlined"
@@ -701,7 +706,7 @@ export default function CircularsPage() {
                         </Box>
                     </Box>
                 </Dialog>
-                {userType === "superadmin" &&
+                {canDelete &&
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', px: 4, alignItems: "center" }}>
                         {selectedMessageIds.length > 0 ? (
                             <Button
@@ -1169,8 +1174,7 @@ export default function CircularsPage() {
                                                     </Grid>
 
                                                     {/* Edit and Delete Buttons */}
-                                                    {(userType !== "teacher" && userType !== "superadmin") && (
-                                                        circularItem.isAlterAvilable === "Y" &&
+                                                    {circularItem.isAlterAvilable === "Y" && (canEdit || canDelete) && (
                                                         <Box
                                                             sx={{
                                                                 position: "absolute",
@@ -1180,80 +1184,42 @@ export default function CircularsPage() {
                                                                 gap: 1,
                                                             }}
                                                         >
-                                                            <Button
-                                                                variant="outlined"
-                                                                sx={{
-                                                                    textTransform: 'none',
-                                                                    padding: '2px 0',
-                                                                    borderRadius: '30px',
-                                                                    fontSize: '10px',
-                                                                    border: '1px solid black',
-                                                                    color: 'black',
-                                                                    fontWeight: "600",
-                                                                    backgroundColor: "#fff"
-                                                                }}
-                                                                onClick={() => handleEdit(circularItem.id)}
-                                                            >
-                                                                <EditOutlinedIcon style={{ fontSize: "15px" }} />
-                                                                &nbsp;Edit
-                                                            </Button>
-                                                            <IconButton
-                                                                sx={{
-                                                                    border: "1px solid black",
-                                                                    width: "25px",
-                                                                    height: "25px",
-                                                                    backgroundColor: "#fff",
-                                                                }}
-                                                                onClick={() => handleDelete(circularItem.id)}
-                                                            >
-                                                                <DeleteOutlineOutlinedIcon
-                                                                    style={{ fontSize: "15px", color: "#000" }}
-                                                                />
-                                                            </IconButton>
+                                                            {canEdit && (
+                                                                <Button
+                                                                    variant="outlined"
+                                                                    sx={{
+                                                                        textTransform: 'none',
+                                                                        padding: '2px 0',
+                                                                        borderRadius: '30px',
+                                                                        fontSize: '10px',
+                                                                        border: '1px solid black',
+                                                                        color: 'black',
+                                                                        fontWeight: "600",
+                                                                        backgroundColor: "#fff"
+                                                                    }}
+                                                                    onClick={() => handleEdit(circularItem.id)}
+                                                                >
+                                                                    <EditOutlinedIcon style={{ fontSize: "15px" }} />
+                                                                    &nbsp;Edit
+                                                                </Button>
+                                                            )}
+                                                            {canDelete && (
+                                                                <IconButton
+                                                                    sx={{
+                                                                        border: "1px solid black",
+                                                                        width: "25px",
+                                                                        height: "25px",
+                                                                        backgroundColor: "#fff",
+                                                                    }}
+                                                                    onClick={() => handleDelete(circularItem.id)}
+                                                                >
+                                                                    <DeleteOutlineOutlinedIcon
+                                                                        style={{ fontSize: "15px", color: "#000" }}
+                                                                    />
+                                                                </IconButton>
+                                                            )}
                                                         </Box>
                                                     )}
-                                                    {userType === "superadmin" &&
-                                                        <Box
-                                                            sx={{
-                                                                position: "absolute",
-                                                                bottom: "16px",
-                                                                right: "16px",
-                                                                display: "flex",
-                                                                gap: 1,
-                                                            }}
-                                                        >
-                                                            <Button
-                                                                variant="outlined"
-                                                                sx={{
-                                                                    textTransform: 'none',
-                                                                    padding: '2px 0',
-                                                                    borderRadius: '30px',
-                                                                    fontSize: '10px',
-                                                                    border: '1px solid black',
-                                                                    color: 'black',
-                                                                    fontWeight: "600",
-                                                                    backgroundColor: "#fff"
-                                                                }}
-                                                                onClick={() => handleEdit(circularItem.id)}
-                                                            >
-                                                                <EditOutlinedIcon style={{ fontSize: "15px" }} />
-                                                                &nbsp;Edit
-                                                            </Button>
-                                                            <IconButton
-                                                                sx={{
-                                                                    border: "1px solid black",
-                                                                    width: "25px",
-                                                                    height: "25px",
-                                                                    backgroundColor: "#fff",
-                                                                }}
-                                                                onClick={() => handleDelete(circularItem.id)}
-                                                            >
-                                                                <DeleteOutlineOutlinedIcon
-                                                                    style={{ fontSize: "15px", color: "#000" }}
-                                                                />
-                                                            </IconButton>
-                                                        </Box>
-                                                    }
                                                 </Box>
                                                 <Box sx={{ display: "flex", justifyContent: "end" }}>
                                                     <Box

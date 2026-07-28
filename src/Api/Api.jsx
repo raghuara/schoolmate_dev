@@ -6,11 +6,10 @@ const baseApiurl = `https://schoolcommunicationwebapimsmsuat-dredbbfmhzergfhw.ca
 
 
 
-
 //----------------------------------- Chat Hub ----------------------------------
 //----------------------------------- xxxxxxxx ----------------------------------
 
-const chatHubBaseUrl = `https://araschoolchat-adawfycgb7bbgfat.centralindia-01.azurewebsites.net`;
+const chatHubBaseUrl = `https://schoolcommunicationwebapimsmsuat-dredbbfmhzergfhw.canadacentral-01.azurewebsites.net`;
 
 const chathub = `${chatHubBaseUrl}/chathub`;
 
@@ -68,9 +67,12 @@ const getDashboardSliders = `${baseApiurl}dashboardSliders/getDashboardSliders`;
 const deleteDashboardSlider = `${baseApiurl}dashboardSliders/deleteDashboardSlider`;
 const UsersPassword = `${baseApiurl}Dashboard/UsersPassword`;
 const updateUserPassword = `${baseApiurl}Dashboard/UpdateUserPassword`;
+const DashboardBirthdayUpdated = `${baseApiurl}Dashboard/DashboardBirthdayUpdated`;
+
 const PostTeachersManualAttendance = `${baseApiurl}teachersattendance/PostTeachersManualAttendance`;
 const GetTeachersAttendanceAudit = `${baseApiurl}teachersattendance/GetTeachersAttendanceAudit`;
 const GetTeachersAttendance = `${baseApiurl}teachersattendance/GetTeachersAttendance`;
+
 
 // Communication 
 const fetchDashboard = `${baseApiurl}communicationActivityDashboard/fetchDashboard`;
@@ -990,4 +992,5 @@ export {
     GetNonStudentUsers,
     GetUserTypePermissions,
     UpdateUserTypePermissions,
+    DashboardBirthdayUpdated
 }

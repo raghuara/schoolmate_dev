@@ -160,9 +160,6 @@ export default function EditExamTimeTablesPage() {
         }
     };
 
-    if (userType !== "superadmin" && userType !== "admin" && userType !== "staff") {
-        return <Navigate to="/dashboardmenu/examtimetables" replace />;
-    }
 
     return (
         <Box sx={{ width: "100%" }}>

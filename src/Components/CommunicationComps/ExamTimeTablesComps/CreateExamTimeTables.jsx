@@ -163,9 +163,6 @@ export default function CreateExamTimeTablesPage() {
             setIsLoading(false);
         }
     };
-    if (userType !== "superadmin" && userType !== "admin" && userType !== "staff") {
-        return <Navigate to="/dashboardmenu/examtimetables" replace />;
-    }
 
 
     return (

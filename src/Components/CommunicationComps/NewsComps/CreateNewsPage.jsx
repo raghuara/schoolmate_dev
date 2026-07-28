@@ -342,10 +342,6 @@ export default function CreateNewsPage() {
         }
     };
 
-    if (userType !== "superadmin" && userType !== "admin" && userType !== "staff") {
-        return <Navigate to="/dashboardmenu/news" replace />;
-    }
-
     return (
         <Box sx={{ width: "100%" }}>
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />

@@ -3,6 +3,7 @@ import axios from "axios";
 import React, { useEffect, useRef, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { selectWebsiteSettings } from "../../Redux/Slices/websiteSettingsSlice";
+import { findSubMenuPermissions } from "../../Redux/Slices/AuthSlice";
 import { useSelector } from "react-redux";
 import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
@@ -46,6 +47,8 @@ export default function FeedBackPage() {
     const rollNumber = user.rollNumber
     const userType = user.userType
     const userName = user.name
+    const feedbackPerms = findSubMenuPermissions(user.permissions, "communication", "feedback") || {};
+    const canCreate = feedbackPerms.create === "Y";
     const [isLoading, setIsLoading] = useState(false);
     const token = '123';
 
@@ -264,9 +267,6 @@ export default function FeedBackPage() {
         }
     };
 
-    if (userType !== "superadmin" && userType !== "admin" && userType !== "staff") {
-        return <Navigate to="/dashboardmenu/dashboard" replace />;
-    }
     return (
         <Box sx={{ width: "100%", }}>
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
@@ -365,6 +365,7 @@ export default function FeedBackPage() {
                                 Responses Received
                             </Button>
                         </Link>
+                        {canCreate && (
                         <Button
                             onClick={handleCreateNews}
                             variant="contained"
@@ -384,6 +385,7 @@ export default function FeedBackPage() {
                         >
                             New Feedback
                         </Button>
+                        )}
                     </Grid>
                 </Grid>
             </Box>

@@ -373,9 +373,6 @@ export default function CreateConsentFormsPage() {
         }
     };
 
-    if (userType !== "superadmin" && userType !== "admin" && userType !== "staff") {
-        return <Navigate to="/dashboardmenu/consentforms" replace />;
-    }
 
     return (
         <Box sx={{ width: "100%" }}>

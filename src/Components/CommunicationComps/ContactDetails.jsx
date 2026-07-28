@@ -11,6 +11,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { selectGrades } from '../../Redux/Slices/DropdownController';
 import { selectWebsiteSettings } from '../../Redux/Slices/websiteSettingsSlice';
+import { findSubMenuPermissions } from '../../Redux/Slices/AuthSlice';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import PersonAddAlt1Icon from '@mui/icons-material/PersonAddAlt1';
 import ContactPhoneIcon from '@mui/icons-material/ContactPhone';
@@ -35,6 +36,11 @@ export default function ContactDetails() {
     const websiteSettings = useSelector(selectWebsiteSettings);
     const academicYear = useSelector(selectAcademicYear);
     const authRollNumber = useSelector((state) => state?.auth?.rollNumber || '');
+    const user = useSelector((state) => state.auth);
+    const contactPerms = findSubMenuPermissions(user.permissions, "communication", "contactdetails") || {};
+    const canCreate = contactPerms.create === "Y";
+    const canEdit = contactPerms.edit === "Y";
+    const canDelete = contactPerms.delete === "Y";
     const mainColor = websiteSettings?.mainColor || '#E30053';
     const textColor = websiteSettings?.textColor || '#fff';
 
@@ -333,15 +339,17 @@ export default function ContactDetails() {
                         </Select>
                     </FormControl>
 
-                    <Button
-                        onClick={openCreate}
-                        startIcon={<PersonAddAlt1Icon sx={{ fontSize: 18 }} />}
-                        variant="contained"
-                        disableElevation
-                        sx={{ textTransform: 'none', fontSize: 13, fontWeight: 700, bgcolor: mainColor, color: textColor, borderRadius: '8px', px: 2, height: 36, '&:hover': { bgcolor: mainColor, filter: 'brightness(0.92)' } }}
-                    >
-                        Add Contact
-                    </Button>
+                    {canCreate && (
+                        <Button
+                            onClick={openCreate}
+                            startIcon={<PersonAddAlt1Icon sx={{ fontSize: 18 }} />}
+                            variant="contained"
+                            disableElevation
+                            sx={{ textTransform: 'none', fontSize: 13, fontWeight: 700, bgcolor: mainColor, color: textColor, borderRadius: '8px', px: 2, height: 36, '&:hover': { bgcolor: mainColor, filter: 'brightness(0.92)' } }}
+                        >
+                            Add Contact
+                        </Button>
+                    )}
                 </Box>
             </Box>
 
@@ -365,16 +373,20 @@ export default function ContactDetails() {
                                         />
                                     </Box>
                                     <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.2 }}>
-                                        <Tooltip title="Edit contact" arrow>
-                                            <IconButton size="small" onClick={() => openEdit(c)} sx={{ width: 28, height: 28, color: '#6B7280', '&:hover': { color: mainColor, bgcolor: `${mainColor}14` } }}>
-                                                <EditOutlinedIcon sx={{ fontSize: 16 }} />
-                                            </IconButton>
-                                        </Tooltip>
-                                        <Tooltip title="Delete contact" arrow>
-                                            <IconButton size="small" onClick={() => setDeleteTarget(c)} sx={{ width: 28, height: 28, color: '#9CA3AF', '&:hover': { color: '#DC2626', bgcolor: '#FEF2F2' } }}>
-                                                <DeleteOutlineIcon sx={{ fontSize: 16 }} />
-                                            </IconButton>
-                                        </Tooltip>
+                                        {canEdit && (
+                                            <Tooltip title="Edit contact" arrow>
+                                                <IconButton size="small" onClick={() => openEdit(c)} sx={{ width: 28, height: 28, color: '#6B7280', '&:hover': { color: mainColor, bgcolor: `${mainColor}14` } }}>
+                                                    <EditOutlinedIcon sx={{ fontSize: 16 }} />
+                                                </IconButton>
+                                            </Tooltip>
+                                        )}
+                                        {canDelete && (
+                                            <Tooltip title="Delete contact" arrow>
+                                                <IconButton size="small" onClick={() => setDeleteTarget(c)} sx={{ width: 28, height: 28, color: '#9CA3AF', '&:hover': { color: '#DC2626', bgcolor: '#FEF2F2' } }}>
+                                                    <DeleteOutlineIcon sx={{ fontSize: 16 }} />
+                                                </IconButton>
+                                            </Tooltip>
+                                        )}
                                     </Box>
                                 </Box>
                                 <Divider sx={{ mb: 1 }} />

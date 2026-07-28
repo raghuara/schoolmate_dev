@@ -242,9 +242,6 @@ export default function CreateTeacherTimeTablesPage() {
             setIsLoading(false);
         }
     };
-    if (userType !== "superadmin" && userType !== "admin" && userType !== "staff") {
-        return <Navigate to="/dashboardmenu/timetables" replace />;
-    }
     return (
         <Box sx={{ width: "100%" }}>
              {isLoading && <Loader />}

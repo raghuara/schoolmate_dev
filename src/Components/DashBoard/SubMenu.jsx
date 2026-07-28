@@ -7,31 +7,33 @@ import { closeMainMenu } from '../../Redux/Slices/MainMenuSlice';
 import { closeSubmenu } from '../../Redux/Slices/SubMenuController';
 import { selectWebsiteSettings } from '../../Redux/Slices/websiteSettingsSlice';
 import { selectCommunicationActivePaths, selectERPActivePaths } from '../../Redux/Slices/PathSlice';
+import { findSubMenuPermissions } from '../../Redux/Slices/AuthSlice';
 
 function SubMenuPage({active}) {
     const user = useSelector((state) => state.auth);
     const rollNumber = user.rollNumber
     const userType = user.userType
     const userName = user.name
+    const canViewComm = (subMenu) => (findSubMenuPermissions(user.permissions, "communication", subMenu) || {}).view === "Y";
 
     const communicationMenuItems = [
-        { path: '/dashboardmenu/com-dashboard', label: 'Dashboard' },
-        { path: '/dashboardmenu/news', label: 'News' },
-        { path: '/dashboardmenu/messages', label: 'Messages' },
-        { path: '/dashboardmenu/circulars', label: 'Circulars'},
+        ...(canViewComm("dashboard") ? [{ path: '/dashboardmenu/com-dashboard', label: 'Dashboard' }] : []),
+        ...(canViewComm("news") ? [{ path: '/dashboardmenu/news', label: 'News' }] : []),
+        ...(canViewComm("message") ? [{ path: '/dashboardmenu/messages', label: 'Messages' }] : []),
+        ...(canViewComm("circular") ? [{ path: '/dashboardmenu/circulars', label: 'Circulars' }] : []),
         // { path: '/dashboardmenu/consentforms', label: 'Consent Forms' },
-        { path: '/dashboardmenu/contact', label: 'Contact Details' },
-        { path: '/dashboardmenu/timetables', label: 'Timetables' },
-        { path: '/dashboardmenu/homework', label: 'Homework'},
-        { path: '/dashboardmenu/examtimetables', label: 'Exam Timetables'},
-        { path: '/dashboardmenu/studymaterials', label: 'Study Materials'},
-        { path: '/dashboardmenu/marks', label: 'Marks'},
+        ...(canViewComm("contactdetails") ? [{ path: '/dashboardmenu/contact', label: 'Contact Details' }] : []),
+        ...(canViewComm("timetable") ? [{ path: '/dashboardmenu/timetables', label: 'Timetables' }] : []),
+        ...(canViewComm("homework") ? [{ path: '/dashboardmenu/homework', label: 'Homework' }] : []),
+        ...(canViewComm("examtimetable") ? [{ path: '/dashboardmenu/examtimetables', label: 'Exam Timetables' }] : []),
+        ...(canViewComm("studymaterial") ? [{ path: '/dashboardmenu/studymaterials', label: 'Study Materials' }] : []),
+        ...(canViewComm("marks") ? [{ path: '/dashboardmenu/marks', label: 'Marks' }] : []),
         { path: '/dashboardmenu/schoolcalendar', label: 'School Calendar'},
         { path: '/dashboardmenu/events', label: 'Events'},
         { path: '/dashboardmenu/birthday-post', label: 'Birthday Post'},
-        ...(userType !== "teacher" ? [{ path: '/dashboardmenu/feedback', label: 'Feedback' }] : []),
+        ...(canViewComm("feedback") ? [{ path: '/dashboardmenu/feedback', label: 'Feedback' }] : []),
         { path: '/dashboardmenu/attendance', label: 'Attendance'},
-        ...(userType !== "teacher" ? [{ path: '/dashboardmenu/notification', label: 'Notification' }] : []),
+        ...((findSubMenuPermissions(user.permissions, "communication", "notification") || {}).create === "Y" ? [{ path: '/dashboardmenu/notification', label: 'Notification' }] : []),
     ];
 
     const transportMenuItems = [

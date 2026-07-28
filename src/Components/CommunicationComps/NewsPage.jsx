@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { selectWebsiteSettings } from "../../Redux/Slices/websiteSettingsSlice";
 import { useSelector } from "react-redux";
+import { findSubMenuPermissions } from "../../Redux/Slices/AuthSlice";
 import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
@@ -39,6 +40,10 @@ export default function NewsPage() {
     const rollNumber = user.rollNumber
     const userType = user.userType
     const userName = user.name
+    const newsPerms = findSubMenuPermissions(user.permissions, "communication", "news") || {};
+    const canCreate = newsPerms.create === "Y";
+    const canEdit = newsPerms.edit === "Y";
+    const canDelete = newsPerms.delete === "Y";
     const [isLoading, setIsLoading] = useState(false);
     const token = '123';
     const [searchQuery, setSearchQuery] = useState("");
@@ -320,7 +325,7 @@ export default function NewsPage() {
                     </Grid>
 
                     <Grid size={{ xs: 6, sm: 6, md: 3, lg: 2 }} sx={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
-                        {userType !== "teacher" &&
+                        {canCreate &&
                             <>
                                 <Typography sx={{ fontWeight: "600", fontSize: "12px" }} >My Projects</Typography>
                                 <Switch
@@ -465,7 +470,7 @@ export default function NewsPage() {
                                 </LocalizationProvider>
                             </ThemeProvider>
                         </Box>
-                        {userType !== "teacher" &&
+                        {canCreate &&
                             <Button
                                 onClick={handleCreateNews}
                                 variant="outlined"
@@ -1004,8 +1009,7 @@ export default function NewsPage() {
                                                     </Grid>
 
                                                     {/* Edit and Delete Buttons */}
-                                                    {(userType !== "teacher" && userType !== "superadmin") && (
-                                                        newsItem.isAlterAvilable === "Y" &&
+                                                    {newsItem.isAlterAvilable === "Y" && (canEdit || canDelete) && (
                                                         <Box
                                                             sx={{
                                                                 position: "absolute",
@@ -1015,80 +1019,42 @@ export default function NewsPage() {
                                                                 gap: 1,
                                                             }}
                                                         >
-                                                            <Button
-                                                                variant="outlined"
-                                                                sx={{
-                                                                    textTransform: 'none',
-                                                                    padding: '2px 0',
-                                                                    borderRadius: '30px',
-                                                                    fontSize: '10px',
-                                                                    border: '1px solid black',
-                                                                    color: 'black',
-                                                                    fontWeight: "600",
-                                                                    backgroundColor: "#fff"
-                                                                }}
-                                                                onClick={() => handleEdit(newsItem.id)}
-                                                            >
-                                                                <EditOutlinedIcon style={{ fontSize: "15px" }} />
-                                                                &nbsp;Edit
-                                                            </Button>
-                                                            <IconButton
-                                                                sx={{
-                                                                    border: "1px solid black",
-                                                                    width: "25px",
-                                                                    height: "25px",
-                                                                    backgroundColor: "#fff",
-                                                                }}
-                                                                onClick={() => handleDelete(newsItem.id)}
-                                                            >
-                                                                <DeleteOutlineOutlinedIcon
-                                                                    style={{ fontSize: "15px", color: "#000" }}
-                                                                />
-                                                            </IconButton>
+                                                            {canEdit && (
+                                                                <Button
+                                                                    variant="outlined"
+                                                                    sx={{
+                                                                        textTransform: 'none',
+                                                                        padding: '2px 0',
+                                                                        borderRadius: '30px',
+                                                                        fontSize: '10px',
+                                                                        border: '1px solid black',
+                                                                        color: 'black',
+                                                                        fontWeight: "600",
+                                                                        backgroundColor: "#fff"
+                                                                    }}
+                                                                    onClick={() => handleEdit(newsItem.id)}
+                                                                >
+                                                                    <EditOutlinedIcon style={{ fontSize: "15px" }} />
+                                                                    &nbsp;Edit
+                                                                </Button>
+                                                            )}
+                                                            {canDelete && (
+                                                                <IconButton
+                                                                    sx={{
+                                                                        border: "1px solid black",
+                                                                        width: "25px",
+                                                                        height: "25px",
+                                                                        backgroundColor: "#fff",
+                                                                    }}
+                                                                    onClick={() => handleDelete(newsItem.id)}
+                                                                >
+                                                                    <DeleteOutlineOutlinedIcon
+                                                                        style={{ fontSize: "15px", color: "#000" }}
+                                                                    />
+                                                                </IconButton>
+                                                            )}
                                                         </Box>
                                                     )}
-                                                    {userType === "superadmin" &&
-                                                        <Box
-                                                            sx={{
-                                                                position: "absolute",
-                                                                bottom: "16px",
-                                                                right: "16px",
-                                                                display: "flex",
-                                                                gap: 1,
-                                                            }}
-                                                        >
-                                                            <Button
-                                                                variant="outlined"
-                                                                sx={{
-                                                                    textTransform: 'none',
-                                                                    padding: '2px 0',
-                                                                    borderRadius: '30px',
-                                                                    fontSize: '10px',
-                                                                    border: '1px solid black',
-                                                                    color: 'black',
-                                                                    fontWeight: "600",
-                                                                    backgroundColor: "#fff"
-                                                                }}
-                                                                onClick={() => handleEdit(newsItem.id)}
-                                                            >
-                                                                <EditOutlinedIcon style={{ fontSize: "15px" }} />
-                                                                &nbsp;Edit
-                                                            </Button>
-                                                            <IconButton
-                                                                sx={{
-                                                                    border: "1px solid black",
-                                                                    width: "25px",
-                                                                    height: "25px",
-                                                                    backgroundColor: "#fff",
-                                                                }}
-                                                                onClick={() => handleDelete(newsItem.id)}
-                                                            >
-                                                                <DeleteOutlineOutlinedIcon
-                                                                    style={{ fontSize: "15px", color: "#000" }}
-                                                                />
-                                                            </IconButton>
-                                                        </Box>
-                                                    }
                                                 </Box>
                                                 <Box sx={{ display: "flex", justifyContent: "end", pb: 2 }}>
                                                     <Box

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useSelector } from "react-redux";
 import AddIcon from '@mui/icons-material/Add';
 import { selectGrades } from "../../Redux/Slices/DropdownController";
+import { findSubMenuPermissions } from "../../Redux/Slices/AuthSlice";
 import NewspaperIcon from '@mui/icons-material/Newspaper';
 import { useLocation, useNavigate } from "react-router-dom";
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
@@ -38,8 +39,8 @@ export default function StudyMaterialPage() {
     const grades = useSelector(selectGrades);
     const user = useSelector((state) => state.auth);
     const rollNumber = user.rollNumber
-    const userType = user.userType
     const userName = user.name
+    const canCreate = (findSubMenuPermissions(user.permissions, "communication", "studymaterial") || {}).create === "Y";
 
     const groupedGrades = grades.reduce((acc, item) => {
         const category = item.category || "Others";
@@ -77,7 +78,7 @@ export default function StudyMaterialPage() {
                 >
                     Study Materials
                 </Typography>
-                {userType !== "teacher" &&
+                {canCreate &&
                     <Button
                         onClick={handleCreateNews}
                         variant="outlined"

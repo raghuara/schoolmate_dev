@@ -556,9 +556,6 @@ export default function CreateNewsPage() {
         }
     };
 
-    if (userType !== "superadmin" && userType !== "admin" && userType !== "staff") {
-        return <Navigate to="/dashboardmenu/circulars" replace />;
-    }
 
     return (
         <Box sx={{ width: "100%" }}>

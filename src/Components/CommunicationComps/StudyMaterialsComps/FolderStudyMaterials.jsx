@@ -1,4 +1,4 @@
-import { Box, Grid, Typography, Button, IconButton, CardActionArea,  Dialog, DialogContent, TextField } from "@mui/material";
+import { Box, Grid, Typography, Button, IconButton, CardActionArea, Dialog, DialogContent, TextField, Tooltip } from "@mui/material";
 import { Link } from "react-router-dom";
 import { useSelector } from "react-redux";
 import AddIcon from '@mui/icons-material/Add';
@@ -12,9 +12,12 @@ import axios from "axios";
 import Loader from "../../Loader";
 import EditIcon from "@mui/icons-material/Edit";
 import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlice";
+import { findSubMenuPermissions } from "../../../Redux/Slices/AuthSlice";
 
 export default function FolderStudyMaterialPage() {
     const user = useSelector((state) => state.auth);
+    const studyPerms = findSubMenuPermissions(user.permissions, "communication", "studymaterial") || {};
+    const canEdit = studyPerms.edit === "Y";
     const rollNumber = user.rollNumber
     const userType = user.userType
     const userName = user.name
@@ -144,7 +147,7 @@ export default function FolderStudyMaterialPage() {
                     borderRadius: "10px 10px 10px 0px",
                     display: "flex",
                     justifyContent: "space-between",
-                    borderBottom:"1px solid #ddd",
+                    borderBottom: "1px solid #ddd",
                 }}
             >
                 <Box sx={{ display: "flex" }}>
@@ -159,12 +162,12 @@ export default function FolderStudyMaterialPage() {
                             fontSize: "20px",
                         }}
                     >
-                         Folders
+                        Folders
                     </Typography>
                 </Box>
             </Box>
             <Box sx={{ p: 2 }}>
-                <Typography sx={{fontSize:"16px", fontWeight:"600", pl:1}}> {grade || grades?.[0]?.sign || ""}</Typography>
+                <Typography sx={{ fontSize: "16px", fontWeight: "600", pl: 1 }}> {grade || grades?.[0]?.sign || ""}</Typography>
                 {folders.length === 0 && !isLoading ? (
                     <Box
                         sx={{
@@ -182,64 +185,103 @@ export default function FolderStudyMaterialPage() {
                 ) : (
                     <Grid container>
                         {folders.map((folder) => (
-                            <Grid size={{ lg: 2, md: 3, sm: 6 }} sx={{ position: "relative", p: 1 }}>
-                                <CardActionArea sx={{
-                                    width: "100%",
-                                    backgroundColor: "#fff",
-                                    borderWidth: "1px",
-                                    borderStyle: "solid",
-                                    borderColor: websiteSettings.mainColor,
-                                    borderRadius: "10px"
+                            <Grid
+                                key={folder.id}
+                                size={{ lg: 2, md: 3, sm: 6 }}
+                                sx={{
+                                    position: "relative",
+                                    p: 1,
                                 }}
-                                    onClick={() => handleClick(folder.folderName)}>
+                            >
+                                <CardActionArea
+                                    onClick={() => handleClick(folder.folderName)}
+                                    sx={{
+                                        width: "100%",
+                                        backgroundColor: "#fff",
+                                        border: `1px solid ${websiteSettings.mainColor}`,
+                                        borderRadius: "14px",
+                                        overflow: "hidden",
+                                        transition: "all .25s ease",
+                                        boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                                        minHeight: "220px",
+
+                                        "&:hover": {
+                                            transform: "translateY(-5px)",
+                                            boxShadow: "0 10px 25px rgba(0,0,0,0.15)",
+                                        },
+                                    }}
+                                >
                                     <Box
                                         sx={{
                                             display: "flex",
                                             flexDirection: "column",
                                             alignItems: "center",
-                                            mx: 1,
+                                            justifyContent: "space-between",
+                                            height: "100%",
+                                            py: 2,
+                                            px: 2,
                                         }}
                                     >
                                         <Box
                                             sx={{
-                                                borderRadius: "8px",
-                                                width: "100%",
                                                 display: "flex",
                                                 justifyContent: "center",
                                                 alignItems: "center",
-                                                overflow: "hidden",
+                                                width: "100%",
+                                                height: 140,
                                             }}
                                         >
                                             <img
                                                 src={FolderImage}
                                                 alt="folder"
-                                                style={{ width: "100%", height: "auto" }}
+                                                style={{
+                                                    width: "90px",
+                                                    height: "90px",
+                                                    objectFit: "contain",
+                                                }}
                                             />
-
                                         </Box>
-                                        <Typography
-                                            sx={{
-                                                mt: 0.5,
-                                                textAlign: "center",
-                                                fontWeight: 600,
-                                                fontSize: "14px",
-                                                color: "#444",
-                                                mb: 1
-                                            }}
-                                        >
-                                            {folder.folderName}
-                                        </Typography>
+
+                                        <Tooltip title={folder.folderName}>
+                                            <Typography
+                                                sx={{
+                                                    mt: 1,
+                                                    fontWeight: 600,
+                                                    fontSize: "15px",
+                                                    color: "#333",
+                                                    textAlign: "center",
+                                                    width: "100%",
+                                                    whiteSpace: "nowrap",
+                                                    overflow: "hidden",
+                                                    textOverflow: "ellipsis",
+                                                }}
+                                            >
+                                                {folder.folderName}
+                                            </Typography>
+                                        </Tooltip>
                                     </Box>
                                 </CardActionArea>
-                                {(userType === "superadmin" || userType === "admin" || userType === "staff") &&
-                                    <IconButton sx={{
-                                        position: "absolute",
-                                        bottom: "13px",
-                                        right: "13px",
-                                        width: "30px",
-                                        height: "30px",
-                                    }} onClick={() => handleRenameClick(folder.id)}>
-                                        <EditIcon style={{ fontSize: "18px" }} />
+                                {canEdit &&
+                                    <IconButton
+                                        onClick={() => handleRenameClick(folder.id)}
+                                        sx={{
+                                            position: "absolute",
+                                            top: "16px",
+                                            right: "16px",
+                                            zIndex: 2,
+                                            width: "28px",
+                                            height: "28px",
+                                            backgroundColor: "#fff",
+                                            border: `1px solid ${websiteSettings.mainColor}`,
+                                            boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
+                                            transition: "all 0.2s ease-in-out",
+                                            "&:hover": {
+                                                backgroundColor: websiteSettings.mainColor,
+                                                "& .edit-icon-svg": { color: websiteSettings.textColor || "#fff" },
+                                            },
+                                        }}
+                                    >
+                                        <EditIcon className="edit-icon-svg" sx={{ fontSize: "16px", color: websiteSettings.mainColor }} />
                                     </IconButton>
                                 }
                             </Grid>

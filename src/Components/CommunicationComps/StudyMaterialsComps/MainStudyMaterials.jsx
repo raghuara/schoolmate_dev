@@ -24,6 +24,7 @@ import UploadOutlinedIcon from '@mui/icons-material/UploadOutlined';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import folderImage from '../../../Images/PagesImage/folder.png';
 import HighlightOffIcon from '@mui/icons-material/HighlightOff';
+import { findSubMenuPermissions } from "../../../Redux/Slices/AuthSlice";
 
 export default function MainStudyMaterialsPage() {
     const location = useLocation();
@@ -37,6 +38,10 @@ export default function MainStudyMaterialsPage() {
     const [pdfUrl, setPdfUrl] = useState('');
     const [timeTableData, setTimeTableData] = useState([]);
     const user = useSelector((state) => state.auth);
+    const studyPerms = findSubMenuPermissions(user.permissions, "communication", "studymaterial") || {};
+    const canCreate = studyPerms.create === "Y";
+    const canEdit = studyPerms.edit === "Y";
+    const canDelete = studyPerms.delete === "Y";
     const rollNumber = user.rollNumber
     const userType = user.userType
     const userName = user.name
@@ -333,9 +338,11 @@ export default function MainStudyMaterialsPage() {
                         <Box sx={{ display: "flex", justifyContent: "space-between" }}>
                             <Box sx={{ display: "flex", alignItems: "center" }}>
                                 <img src={folderImage} width={"25px"} height={"20px"} alt="" />
-                                <Typography sx={{ fontSize: '19px', color: '#000', fontWeight: '600', pl: 1 }}>
-                                    {folderName}
-                                </Typography>
+                                <Tooltip title={folderName}>
+                                    <Typography sx={{ fontSize: '19px', color: '#000', fontWeight: '600', pl: 1, maxWidth: { xs: "160px", sm: "260px", md: "360px" }, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                        {folderName}
+                                    </Typography>
+                                </Tooltip>
                             </Box>
 
                             <Box
@@ -416,7 +423,7 @@ export default function MainStudyMaterialsPage() {
                             md: 6,
                             lg: 3
                         }}>
-                        {userType !== "teacher" &&
+                        {canCreate &&
                             <>
                                 <Typography sx={{ fontWeight: "600", fontSize: "12px" }} >My Projects</Typography>
                                 <Switch
@@ -1021,38 +1028,42 @@ export default function MainStudyMaterialsPage() {
                                                     </Box>
                                                 </Box>
                                                 <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
-                                                    <Button
-                                                        variant="outlined"
-                                                        onClick={() => handleEdit(table.id)}
-                                                        sx={{
-                                                            textTransform: 'none',
-                                                            width: '100px',
-                                                            height: '25px',
-                                                            mr: 1,
-                                                            borderRadius: '30px',
-                                                            fontSize: '10px',
-                                                            border: '1px solid black',
-                                                            color: 'black',
-                                                            fontWeight: '600',
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'center',
-                                                        }}
-                                                    >
-                                                        <EditOutlinedIcon style={{ fontSize: '15px' }} />
-                                                        &nbsp;Reupload
-                                                    </Button>
+                                                    {canEdit && (
+                                                        <Button
+                                                            variant="outlined"
+                                                            onClick={() => handleEdit(table.id)}
+                                                            sx={{
+                                                                textTransform: 'none',
+                                                                width: '100px',
+                                                                height: '25px',
+                                                                mr: 1,
+                                                                borderRadius: '30px',
+                                                                fontSize: '10px',
+                                                                border: '1px solid black',
+                                                                color: 'black',
+                                                                fontWeight: '600',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                            }}
+                                                        >
+                                                            <EditOutlinedIcon style={{ fontSize: '15px' }} />
+                                                            &nbsp;Reupload
+                                                        </Button>
+                                                    )}
 
-                                                    <IconButton
-                                                        onClick={() => handleDelete(table.id)}
-                                                        sx={{
-                                                            border: '1px solid black',
-                                                            width: '25px',
-                                                            height: '25px',
-                                                        }}
-                                                    >
-                                                        <DeleteOutlineOutlinedIcon style={{ fontSize: '15px', color: '#000' }} />
-                                                    </IconButton>
+                                                    {canDelete && (
+                                                        <IconButton
+                                                            onClick={() => handleDelete(table.id)}
+                                                            sx={{
+                                                                border: '1px solid black',
+                                                                width: '25px',
+                                                                height: '25px',
+                                                            }}
+                                                        >
+                                                            <DeleteOutlineOutlinedIcon style={{ fontSize: '15px', color: '#000' }} />
+                                                        </IconButton>
+                                                    )}
 
                                                 </Box>
                                             </Grid>
@@ -1088,27 +1099,31 @@ export default function MainStudyMaterialsPage() {
                                                         <Grid size={{ xs: 12, lg: 6 }}>
                                                             <Box sx={{ display: 'flex', justifyContent: { lg: 'flex-end', xs: "start" }, }}>
 
-                                                                <IconButton
-                                                                    onClick={() => handleEdit(table.id)}
-                                                                    sx={{
-                                                                        border: '1px solid black',
-                                                                        width: '25px',
-                                                                        height: '25px',
-                                                                        mr: 2
-                                                                    }}
-                                                                >
-                                                                    <UploadOutlinedIcon style={{ fontSize: '15px', color: '#000' }} />
-                                                                </IconButton>
-                                                                <IconButton
-                                                                    onClick={() => handleDelete(table.id)}
-                                                                    sx={{
-                                                                        border: '1px solid black',
-                                                                        width: '25px',
-                                                                        height: '25px',
-                                                                    }}
-                                                                >
-                                                                    <DeleteOutlineOutlinedIcon style={{ fontSize: '15px', color: '#000' }} />
-                                                                </IconButton>
+                                                                {canEdit && (
+                                                                    <IconButton
+                                                                        onClick={() => handleEdit(table.id)}
+                                                                        sx={{
+                                                                            border: '1px solid black',
+                                                                            width: '25px',
+                                                                            height: '25px',
+                                                                            mr: 2
+                                                                        }}
+                                                                    >
+                                                                        <UploadOutlinedIcon style={{ fontSize: '15px', color: '#000' }} />
+                                                                    </IconButton>
+                                                                )}
+                                                                {canDelete && (
+                                                                    <IconButton
+                                                                        onClick={() => handleDelete(table.id)}
+                                                                        sx={{
+                                                                            border: '1px solid black',
+                                                                            width: '25px',
+                                                                            height: '25px',
+                                                                        }}
+                                                                    >
+                                                                        <DeleteOutlineOutlinedIcon style={{ fontSize: '15px', color: '#000' }} />
+                                                                    </IconButton>
+                                                                )}
                                                                 <Box sx={{ px: 2 }}>|</Box>
                                                                 <Box sx={{ width: "100px", display: "flex", justifyContent: "center" }}>
                                                                     {table.fileType === "image" &&

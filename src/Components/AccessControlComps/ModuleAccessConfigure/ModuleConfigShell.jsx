@@ -1,8 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
     Box, Typography, Button, IconButton, Switch, Chip, Checkbox, FormControlLabel, FormGroup,
-    Accordion, AccordionSummary, AccordionDetails, FormControl, Select, MenuItem, Divider, Tooltip, Grid,
+    Accordion, AccordionSummary, AccordionDetails, FormControl, Select, MenuItem, Divider, Tooltip, Grid, CircularProgress,
 } from "@mui/material";
+import axios from "axios";
+import { UpdateUserTypePermissions, GetUserTypePermissions } from "../../../Api/Api";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import AddIcon from "@mui/icons-material/Add";
@@ -15,6 +17,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import SnackBar from "../../SnackBar";
 import { useSelector } from "react-redux";
 
+const TOKEN = "123";
 const ACCENT = "#4338CA";
 
 export const OPS = [
@@ -24,8 +27,6 @@ export const OPS = [
     { key: "delete", label: "Delete" },
 ];
 
-// What each operation implies. Enabling an op auto-enables (and locks-on) the ops it implies.
-//   Create → View,  Edit → Create + View,  Delete → View only (not Create/Edit).
 const IMPLIES = {
     create: ["view"],
     edit: ["create", "view"],
@@ -39,39 +40,25 @@ export const defaultPageConfig = () => ({
     allowSameLevel: false, // peer approval within the same level (Level 2+)
 });
 
-/**
- * Shared layout + state engine for a module's access-configuration page.
- *
- * Props:
- *  - moduleMeta : { key, name, color }
- *  - pages      : string[]                  pages/screens that belong to this module
- *  - opsKeys      : string[]                  default subset of OPS keys for this module's pages
- *  - approval     : boolean                   default: whether an approval flow applies
- *  - validate     : (config) => string|null   optional module-specific validation
- *  - extraOps     : { [page]: [{key,label}] } page-specific extra permission checkboxes
- *  - pageOverrides: { [page]: { opsKeys?, approval? } } per-page overrides of opsKeys / approval
- */
-export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view", "create", "edit", "delete"], approval = false, validate, extraOps = {}, extraOpsLabels = {}, pageOverrides = {}, approvalText = {}, approvalNoun = "post" }) {
+export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view", "create", "edit", "delete"], approval = false, validate, extraOps = {}, extraOpsLabels = {}, pageOverrides = {}, approvalText = {}, approvalNoun = "post", onSave }) {
     const nounS = approvalNoun;
     const nounP = `${approvalNoun}s`;
     const navigate = useNavigate();
     const location = useLocation();
     const role = location.state?.role || { id: 0, name: "Role" };
     const allRoles = location.state?.roles || [];
+    const mainMenuKey = location.state?.mainMenu || moduleMeta.key;
     const color = moduleMeta.color || ACCENT;
     const isExpanded = useSelector((state) => state.sidebar.isExpanded);
 
-    // Per-page resolvers (fall back to the module-level defaults)
     const pageOpsKeys = (page) => pageOverrides[page]?.opsKeys || opsKeys;
     const pageOps = (page) => OPS.filter((o) => pageOpsKeys(page).includes(o.key));
     const pageApproval = (page) => (pageOverrides[page]?.approval ?? approval);
 
-    // Selectable approver user-types (exclude the Student category)
     const roleOptions = (allRoles.length ? allRoles : [{ id: 1, name: "Admin" }, { id: 2, name: "Office Staffs" }, { id: 3, name: "Teachers" }, { id: 4, name: "Parent" }])
         .filter((r) => r.name !== "Student")
         .map((r) => r.name);
 
-    // Flatten extra ops for a page (handles flat items, grouped { items }, and a group { gate })
     const flatten = (list) => (list || []).flatMap((e) => (e.items ? [...(e.gate ? [e.gate] : []), ...e.items] : [e]));
     const flatExtraOps = (page) => flatten(extraOps[page]);
 
@@ -82,6 +69,7 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
     const [snack, setSnack] = useState({ open: false, ok: true, msg: "" });
     const showSnack = (msg, ok = true) => setSnack({ open: true, ok, msg });
     const [expandedPages, setExpandedPages] = useState({});
+    const [saving, setSaving] = useState(false);
 
     const setPage = (page, patch) => setConfig((prev) => ({ ...prev, [page]: { ...prev[page], ...patch } }));
 
@@ -89,14 +77,12 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
         const cur = config[page];
         const next = { [key]: !cur[key] };
         const keys = pageOpsKeys(page);
-        // Enabling an op auto-enables the ops it implies (Edit → Create + View, Delete → View)
         if (!cur[key] && IMPLIES[key]) {
             IMPLIES[key].forEach((k) => { if (keys.includes(k)) next[k] = true; });
         }
         setPage(page, next);
     };
 
-    // A gated group's toggle — turning it off also clears its child options
     const toggleGate = (page, gateKey, itemKeys) => {
         const turningOff = !!config[page][gateKey];
         const next = { [gateKey]: !config[page][gateKey] };
@@ -104,16 +90,13 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
         setPage(page, next);
     };
 
-    // An op is locked-on while another active op (within this page's ops) implies it
     const isLocked = (cfg, key, keys) =>
         keys.some((k) => k !== key && cfg[k] && (IMPLIES[k] || []).includes(key));
-    // An op can be locked at all only if some op in this page's ops implies it
     const isLockable = (key, keys) =>
         keys.some((k) => k !== key && (IMPLIES[k] || []).includes(key));
     const toggleApproval = (page) => setPage(page, { approval: !config[page].approval });
     const toggleSameLevel = (page) => setPage(page, { allowSameLevel: !config[page].allowSameLevel });
 
-    // "Allow all" — every operation + option checkbox key for a page (approval is excluded)
     const pageAllKeys = (page) => [...pageOpsKeys(page), ...flatExtraOps(page).map((e) => e.key)];
     const isPageAllOn = (page) => {
         const ks = pageAllKeys(page);
@@ -138,6 +121,7 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
         if (config[page].levels.length >= 3) return; // max 3 approval levels
         setPage(page, { levels: [...config[page].levels, ""] });
     };
+    
     const removeLevel = (page, idx) => setPage(page, { levels: config[page].levels.filter((_, i) => i !== idx) });
     const setLevel = (page, idx, value) => {
         const next = [...config[page].levels];
@@ -145,7 +129,6 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
         setPage(page, { levels: next });
     };
 
-    // Built-in validation, then any module-specific rules supplied by the page
     const runValidation = () => {
         for (const page of pages) {
             const c = config[page];
@@ -158,14 +141,94 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
         return null;
     };
 
-    const save = () => {
-        const err = runValidation();
-        if (err) return showSnack(err, false);
-        // TODO: POST the per-page permissions (+ approval hierarchy) for this role & module
-        showSnack(`Saved access configuration for ${moduleMeta.name} · ${role.name}.`);
+    const yn = (v) => (v ? "Y" : "N");
+    const subMenuKey = (page) => pageOverrides[page]?.subMenu || String(page).toLowerCase().replace(/[^a-z0-9]/g, "");
+    const buildPermissions = (page) => {
+        const c = config[page] || {};
+        const keys = [...pageOpsKeys(page), ...flatExtraOps(page).map((e) => e.key)];
+        return Object.fromEntries(keys.map((k) => [k, yn(c[k])]));
     };
 
-    // Human-readable approval explanation for a page
+    // Map a fetched GetUserTypePermissions payload onto this module's checkboxes.
+    // Same-key mapping: "Y" -> checked, "N" / null / missing -> unchecked.
+    const applyData = (data) => {
+        const menu = (data?.mainMenus || []).find((m) => m.mainMenu === mainMenuKey);
+        if (!menu) return; // nothing saved yet for this module — keep defaults
+        setConfig((prev) => {
+            const next = { ...prev };
+            pages.forEach((page) => {
+                const sm = (menu.subMenus || []).find((s) => s.subMenu === subMenuKey(page));
+                if (!sm) return;
+                const perms = sm.permissions || {};
+                const patch = {};
+                [...pageOpsKeys(page), ...flatExtraOps(page).map((e) => e.key)].forEach((k) => {
+                    patch[k] = perms[k] === "Y";
+                });
+                next[page] = { ...next[page], ...patch };
+            });
+            return next;
+        });
+    };
+
+    const fetchPermissions = async () => {
+        if (role?.id == null) return;
+        try {
+            const res = await axios.post(GetUserTypePermissions, { userTypeID: role.id, userType: role.name }, { headers: { Authorization: `Bearer ${TOKEN}` } });
+            applyData(res?.data?.data || null);
+        } catch (e) {
+            // keep current selections if the refresh fails
+        }
+    };
+
+    useEffect(() => {
+        // Seed instantly from the permissions FeaturePermissionsPage already fetched, then refresh.
+        if (location.state?.permissions) applyData(location.state.permissions);
+        fetchPermissions();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    const save = async () => {
+        const err = runValidation();
+        if (err) return showSnack(err, false);
+
+        const payload = {
+            data: {
+                userTypeID: role.id,
+                userType: role.name,
+                mainMenus: [
+                    {
+                        mainMenu: mainMenuKey,
+                        subMenus: pages.map((page) => ({
+                            subMenu: subMenuKey(page),
+                            permissions: buildPermissions(page),
+                        })),
+                    },
+                ],
+            },
+        };
+
+        setSaving(true);
+        try {
+            // If the wrapper page provides its own save handler, delegate the API call to it.
+            if (typeof onSave === "function") {
+                const res = await onSave(payload, { role, mainMenuKey });
+                if (res?.error === true) { showSnack(res?.message || "Could not save the configuration.", false); return; }
+                showSnack(res?.message || `Saved access configuration for ${moduleMeta.name} · ${role.name}.`);
+                await fetchPermissions(); // re-fetch so the screen shows the stored values
+            } else {
+                const res = await axios.put(UpdateUserTypePermissions, payload, { headers: { Authorization: `Bearer ${TOKEN}` } });
+                const ok = !res?.data || res.data.error === false || res.status === 200;
+                if (!ok) { showSnack(res?.data?.message || "Could not save the configuration.", false); return; }
+                showSnack(res?.data?.message || `Saved access configuration for ${moduleMeta.name} · ${role.name}.`);
+                await fetchPermissions(); // re-fetch so the screen shows the stored values
+            }
+        } catch (e) {
+            showSnack(e?.response?.data?.message || e?.message || "Failed to save the configuration. Please try again.", false);
+        } finally {
+            setSaving(false);
+        }
+    };
+
     const explain = (cfg) => {
         const levels = cfg.levels.filter(Boolean);
         const others = roleOptions.filter((r) => !levels.includes(r));
@@ -186,7 +249,6 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
         return lines;
     };
 
-    // Operation permissions rendered as professional checkbox chips
     const renderOps = (page, cfg) => {
         const keys = pageOpsKeys(page);
         return (
@@ -221,8 +283,6 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
         );
     };
 
-    // Page-specific extra permissions (e.g. "Merge Siblings" on Student Management)
-    // One option checkbox (used by both flat and grouped extra-op rendering)
     const extraCheckbox = (page, cfg, o) => {
         const active = !!cfg[o.key];
         return (
@@ -242,7 +302,6 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
         );
     };
 
-    // Extra permissions — supports flat items [{key,label}] or grouped [{group, items:[...]}]
     const renderExtraOps = (page, cfg) => {
         const extras = extraOps[page] || [];
         if (!extras.length) return null;
@@ -256,7 +315,6 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
                         if (!e.items) {
                             return <FormGroup key={e.key} row sx={{ gap: 1, mb: 1.2 }}>{extraCheckbox(page, cfg, e)}</FormGroup>;
                         }
-                        // Gated group: a toggle that reveals its child options only when enabled
                         if (e.gate) {
                             const gateOn = !!cfg[e.gate.key];
                             return (
@@ -303,7 +361,6 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
         <Box sx={{ width: "100%" }}>
             <SnackBar open={snack.open} color={snack.ok} setOpen={(v) => setSnack((s) => ({ ...s, open: v }))} status={snack.ok} message={snack.msg} />
 
-            {/* Header */}
             <Box sx={{
                 position: "fixed",
                 top: "60px",
@@ -332,8 +389,8 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
                         <Typography sx={{ fontSize: 11.5, color: "#6B7280" }}>Feature Permissions / {role.name} / {moduleMeta.name}</Typography>
                     </Box>
                 </Box>
-                <Button onClick={save} startIcon={<SaveOutlinedIcon sx={{ fontSize: 18 }} />} sx={{ textTransform: "none", fontWeight: 700, fontSize: 13, bgcolor: ACCENT, color: "#fff", borderRadius: "8px", height: 38, px: 2, "&:hover": { bgcolor: ACCENT, filter: "brightness(0.92)" } }}>
-                    Save Configuration
+                <Button onClick={save} disabled={saving} startIcon={saving ? <CircularProgress size={16} sx={{ color: "#fff" }} /> : <SaveOutlinedIcon sx={{ fontSize: 18 }} />} sx={{ textTransform: "none", fontWeight: 700, fontSize: 13, bgcolor: ACCENT, color: "#fff", borderRadius: "8px", height: 38, px: 2, "&:hover": { bgcolor: ACCENT, filter: "brightness(0.92)" }, "&.Mui-disabled": { bgcolor: "#C7C9D9", color: "#fff" } }}>
+                    {saving ? "Saving…" : "Save Configuration"}
                 </Button>
             </Box>
 

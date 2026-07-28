@@ -21,6 +21,7 @@ import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlic
 import ImageIcon from '@mui/icons-material/Image';
 import SnackBar from "../../SnackBar";
 import { selectGrades } from "../../../Redux/Slices/DropdownController";
+import { selectHasPermission } from "../../../Redux/Slices/AuthSlice";
 import fallbackImage from '../../../Images/PagesImage/dummy-image.jpg';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
@@ -30,6 +31,8 @@ export default function AddMarksPage() {
     const today = dayjs().format("DD-MM-YYYY");
     const token = '123';
     const user = useSelector((state) => state.auth);
+    const canCreateMarks = useSelector(selectHasPermission('communication', 'marks', 'create'));
+    const canEditMarks = useSelector(selectHasPermission('communication', 'marks', 'edit'));
     const rollNumber = user.rollNumber
     const userType = user.userType
     const userName = user.name
@@ -500,7 +503,17 @@ export default function AddMarksPage() {
 
 
 
+    const isUpdatingPostedMarks = isPosted === "Y";
+    const canSubmitMarks = isUpdatingPostedMarks ? canEditMarks : canCreateMarks;
+
     const handleSaveMarks = async (status) => {
+        if (!canSubmitMarks) {
+            setOpen(true);
+            setColor(false);
+            setStatus(false);
+            setMessage("You don't have permission to perform this action.");
+            return;
+        }
         setIsLoading(true);
 
         const all_marksRequest = getDataStudents.map((row) => {
@@ -1768,7 +1781,7 @@ export default function AddMarksPage() {
                     <Box sx={{ display: "flex", justifyContent: "center", gap: 2, position: "relative", bottom: "-10px" }}>
                         <Button
                             variant="outlined"
-                            disabled={isPosted === "Y"}
+                            disabled={isPosted === "Y" || !canCreateMarks}
                             onClick={() => handleSaveMarks('draft')}
                             sx={{
                                 backgroundColor: '#fff',
@@ -1800,7 +1813,7 @@ export default function AddMarksPage() {
                                 px: 3,
                                 boxShadow: "none",
                             }}
-                            disabled={!isFormValid()}
+                            disabled={!isFormValid() || !canSubmitMarks}
                         >
                             {isPosted === "N" ? "Publish" : "Update"}
                         </Button>

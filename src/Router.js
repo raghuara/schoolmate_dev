@@ -2,6 +2,7 @@ import React, { useEffect } from "react";
 import { Route, Routes } from "react-router-dom";
 import LoginPage from "./Pages/LoginPage";
 import DashBoardLayout from "./Components/DashBoard/DashBoardLayout";
+import RequirePermission from "./Components/AccessControlComps/RequirePermission";
 import DashBoardPage from "./Pages/DashBoardPage";
 import NewsPage from "./Components/CommunicationComps/NewsPage";
 import MessagesPage from "./Components/CommunicationComps/MessagesPage";
@@ -216,78 +217,78 @@ export default function RouterPage() {
                 <Route path="profile" element={<ProfileManagement />} />
 
                 <Route path="profile/student" element={<StudentPage />} />
-                <Route path="profile/student/information" element={<StudentInformationPage />} />
-                <Route path="profile/student/information/viewinfo" element={<StudentInfoPage />} />
-                <Route path="profile/student/information/create" element={<CreateStudentInfoPage />} />
-                <Route path="profile/student/information/edit" element={<EditStudentInfoPage />} />
-                <Route path="profile/student/information/merge-sibling" element={<MergeSiblingsPage />} />
+                <Route path="profile/student/information" element={<RequirePermission subMenu="studentmanagement" anyOf={["view", "create", "edit", "siblingapproval"]}><StudentInformationPage /></RequirePermission>} />
+                <Route path="profile/student/information/viewinfo" element={<RequirePermission subMenu="studentmanagement" anyOf={["view", "edit"]}><StudentInfoPage /></RequirePermission>} />
+                <Route path="profile/student/information/create" element={<RequirePermission subMenu="studentmanagement" anyOf={["create"]}><CreateStudentInfoPage /></RequirePermission>} />
+                <Route path="profile/student/information/edit" element={<RequirePermission subMenu="studentmanagement" anyOf={["edit"]}><EditStudentInfoPage /></RequirePermission>} />
+                <Route path="profile/student/information/merge-sibling" element={<RequirePermission subMenu="studentmanagement" anyOf={["siblingapproval"]}><MergeSiblingsPage /></RequirePermission>} />
 
-                <Route path="profile/staff" element={<StaffPage />} />
-                <Route path="profile/staff/create" element={<AddStaffDetails />} />
-                <Route path="profile/staff/view" element={<ViewStaffDetails />} />
-                <Route path="profile/staff/edit" element={<EditStaffDetails />} />
+                <Route path="profile/staff" element={<RequirePermission subMenu="staffmanagement" anyOf={["view", "create", "edit"]}><StaffPage /></RequirePermission>} />
+                <Route path="profile/staff/create" element={<RequirePermission subMenu="staffmanagement" anyOf={["create"]}><AddStaffDetails /></RequirePermission>} />
+                <Route path="profile/staff/view" element={<RequirePermission subMenu="staffmanagement" anyOf={["view", "edit"]}><ViewStaffDetails /></RequirePermission>} />
+                <Route path="profile/staff/edit" element={<RequirePermission subMenu="staffmanagement" anyOf={["edit"]}><EditStaffDetails /></RequirePermission>} />
 
                 {/* --------------------------------------------------------------------------------------------------- */}
 
                 {/* Communication */}
-                <Route path="com-dashboard" element={<CommunicationDashboard />} />
+                <Route path="com-dashboard" element={<RequirePermission mainMenu="communication" subMenu="dashboard" anyOf={["view"]}><CommunicationDashboard /></RequirePermission>} />
                 <Route path="chats" element={<ChatPage embedded />} />
-                <Route path="news" element={<NewsPage />} />
-                <Route path="messages" element={<MessagesPage />} />
-                <Route path="circulars" element={<CircularsPage />} />
+                <Route path="news" element={<RequirePermission mainMenu="communication" subMenu="news" anyOf={["view"]}><NewsPage /></RequirePermission>} />
+                <Route path="messages" element={<RequirePermission mainMenu="communication" subMenu="message" anyOf={["view"]}><MessagesPage /></RequirePermission>} />
+                <Route path="circulars" element={<RequirePermission mainMenu="communication" subMenu="circular" anyOf={["view"]}><CircularsPage /></RequirePermission>} />
                 <Route path="consentforms" element={<ConsentFormsPage />} />
-                <Route path="contact" element={<ContactDetails />} />
-                <Route path="timetables" element={<TimeTablePage />} />
-                <Route path="homework" element={<HomeWorkPage />} />
-                <Route path="examtimetables" element={<ExamTimeTablesPage />} />
-                <Route path="studymaterials" element={<StudyMaterialsPage />} />
+                <Route path="contact" element={<RequirePermission mainMenu="communication" subMenu="contactdetails" anyOf={["view"]}><ContactDetails /></RequirePermission>} />
+                <Route path="timetables" element={<RequirePermission mainMenu="communication" subMenu="timetable" anyOf={["view"]}><TimeTablePage /></RequirePermission>} />
+                <Route path="homework" element={<RequirePermission mainMenu="communication" subMenu="homework" anyOf={["view"]}><HomeWorkPage /></RequirePermission>} />
+                <Route path="examtimetables" element={<RequirePermission mainMenu="communication" subMenu="examtimetable" anyOf={["view"]}><ExamTimeTablesPage /></RequirePermission>} />
+                <Route path="studymaterials" element={<RequirePermission mainMenu="communication" subMenu="studymaterial" anyOf={["view"]}><StudyMaterialsPage /></RequirePermission>} />
                 <Route path="workdone" element={<WorkDonePage />} />
                 <Route path="workdone/settings" element={<WorkDoneSettings />} />
-                <Route path="marks" element={<MarksResultsPage />} />
+                <Route path="marks" element={<RequirePermission mainMenu="communication" subMenu="marks" anyOf={["view"]}><MarksResultsPage /></RequirePermission>} />
                 <Route path="schoolcalendar" element={<SchoolCalenderPage />} />
                 <Route path="events" element={<ImportantEventsPage />} />
                 <Route path="birthday-post" element={<BirthdayPostPage />} />
-                <Route path="feedback" element={<FeedBackPage />} />
+                <Route path="feedback" element={<RequirePermission mainMenu="communication" subMenu="feedback" anyOf={["view"]}><FeedBackPage /></RequirePermission>} />
                 <Route path="attendance" element={<AttendancePage />} />
-                <Route path="notification" element={<NotificationPage />} />
+                <Route path="notification" element={<RequirePermission mainMenu="communication" subMenu="notification" anyOf={["create"]}><NotificationPage /></RequirePermission>} />
 
 
                 {/* Communication Branches*/}
 
                 <Route path="dashboard/create" element={<DashboardCreatePage />} />
 
-                <Route path="news/create" element={<CreateNewsPage />} />
-                <Route path="news/edit" element={<EditNewsPage />} />
+                <Route path="news/create" element={<RequirePermission mainMenu="communication" subMenu="news" anyOf={["create"]}><CreateNewsPage /></RequirePermission>} />
+                <Route path="news/edit" element={<RequirePermission mainMenu="communication" subMenu="news" anyOf={["edit"]}><EditNewsPage /></RequirePermission>} />
 
-                <Route path="messages/create" element={<CreateMessagePage />} />
-                <Route path="messages/edit" element={<EditMessagePage />} />
+                <Route path="messages/create" element={<RequirePermission mainMenu="communication" subMenu="message" anyOf={["create"]}><CreateMessagePage /></RequirePermission>} />
+                <Route path="messages/edit" element={<RequirePermission mainMenu="communication" subMenu="message" anyOf={["edit"]}><EditMessagePage /></RequirePermission>} />
 
-                <Route path="circulars/create" element={<CreateCircularsPage />} />
-                <Route path="circulars/edit" element={<EditCircularsPage />} />
+                <Route path="circulars/create" element={<RequirePermission mainMenu="communication" subMenu="circular" anyOf={["create"]}><CreateCircularsPage /></RequirePermission>} />
+                <Route path="circulars/edit" element={<RequirePermission mainMenu="communication" subMenu="circular" anyOf={["edit"]}><EditCircularsPage /></RequirePermission>} />
 
                 <Route path="consentforms/create" element={<CreateConsentFormsPage />} />
                 {/* <Route path="consentforms/edit" element={<EditConsentFormsPage />} /> */}
                 <Route path="consentforms/responses" element={<ResponsesPage />} />
 
-                <Route path="timetables/create" element={<CreateTimeTablesPage />} />
-                <Route path="timetables/teachercreate" element={<CreateTeacherTimeTablesPage />} />
-                <Route path="timetables/edit" element={<EditTimeTablesPage />} />
+                <Route path="timetables/create" element={<RequirePermission mainMenu="communication" subMenu="timetable" anyOf={["create"]}><CreateTimeTablesPage /></RequirePermission>} />
+                <Route path="timetables/teachercreate" element={<RequirePermission mainMenu="communication" subMenu="timetable" anyOf={["create"]}><CreateTeacherTimeTablesPage /></RequirePermission>} />
+                <Route path="timetables/edit" element={<RequirePermission mainMenu="communication" subMenu="timetable" anyOf={["edit"]}><EditTimeTablesPage /></RequirePermission>} />
 
-                <Route path="homework/create" element={<CreateHomeWorkPage />} />
-                <Route path="homework/edit" element={<EditHomeWorkPage />} />
+                <Route path="homework/create" element={<RequirePermission mainMenu="communication" subMenu="homework" anyOf={["create"]}><CreateHomeWorkPage /></RequirePermission>} />
+                <Route path="homework/edit" element={<RequirePermission mainMenu="communication" subMenu="homework" anyOf={["edit"]}><EditHomeWorkPage /></RequirePermission>} />
 
-                <Route path="examtimetables/create" element={<CreateExamTimeTablesPage />} />
-                <Route path="examtimetables/edit" element={<EditExamTimeTablesPage />} />
+                <Route path="examtimetables/create" element={<RequirePermission mainMenu="communication" subMenu="examtimetable" anyOf={["create"]}><CreateExamTimeTablesPage /></RequirePermission>} />
+                <Route path="examtimetables/edit" element={<RequirePermission mainMenu="communication" subMenu="examtimetable" anyOf={["edit"]}><EditExamTimeTablesPage /></RequirePermission>} />
 
-                <Route path="studymaterials/main" element={<MainStudyMaterialsPage />} />
-                <Route path="studymaterials/folder" element={<FolderStudyMaterialsPage />} />
-                <Route path="studymaterials/create" element={<CreateStudyMaterialsPage />} />
-                <Route path="studymaterials/edit" element={<EditStudyMaterialsPage />} />
+                <Route path="studymaterials/main" element={<RequirePermission mainMenu="communication" subMenu="studymaterial" anyOf={["view"]}><MainStudyMaterialsPage /></RequirePermission>} />
+                <Route path="studymaterials/folder" element={<RequirePermission mainMenu="communication" subMenu="studymaterial" anyOf={["view"]}><FolderStudyMaterialsPage /></RequirePermission>} />
+                <Route path="studymaterials/create" element={<RequirePermission mainMenu="communication" subMenu="studymaterial" anyOf={["create"]}><CreateStudyMaterialsPage /></RequirePermission>} />
+                <Route path="studymaterials/edit" element={<RequirePermission mainMenu="communication" subMenu="studymaterial" anyOf={["edit"]}><EditStudyMaterialsPage /></RequirePermission>} />
 
-                <Route path="marks/addmarks" element={<AddMarksPage />} />
-                <Route path="marks/view" element={<ViewMarksPage />} />
+                <Route path="marks/addmarks" element={<RequirePermission mainMenu="communication" subMenu="marks" anyOf={["create", "edit"]}><AddMarksPage /></RequirePermission>} />
+                <Route path="marks/view" element={<RequirePermission mainMenu="communication" subMenu="marks" anyOf={["view"]}><ViewMarksPage /></RequirePermission>} />
 
-                <Route path="feedback/create" element={<CreateFeedBackPage />} />
+                <Route path="feedback/create" element={<RequirePermission mainMenu="communication" subMenu="feedback" anyOf={["create"]}><CreateFeedBackPage /></RequirePermission>} />
                 <Route path="feedback/responses" element={<ResponsesFeedBackPage />} />
                 <Route path="feedback/questions" element={<QuestionsFeedBackPage />} />
 

@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(awk -F: '{s+=$2} END {print s}')",
+      "Bash(node \"C:/Users/demom/AppData/Local/Temp/claude/c--Users-demom-React-Projects-schoolmate-dev/250e96f9-7082-4749-a0c5-c3bc5738e008/scratchpad/camelize-api-keys.js\" \"c:/Users/demom/React Projects/schoolmate_dev/src\")"
+    ]
+  }
+}

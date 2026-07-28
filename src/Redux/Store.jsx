@@ -17,7 +17,29 @@ import userTypesReducer from './Slices/userTypesSlice';
 const authPersistConfig = {
   key: 'auth',
   storage,
-  whitelist: ['name', 'rollNumber', 'userType', 'grade', 'section', 'isAuthenticated', 'userTypeID', 'permissions'],
+  whitelist: [
+    'name',
+    'rollNumber',
+    'userType',
+    'financeUserType',
+    'position',
+    'grade',
+    'gradeID',
+    'section',
+    'bloodGroup',
+    'studentPermanentNumber',
+    'fatherNameInEnglish',
+    'fatherMobileNumber',
+    'motherNameInEnglish',
+    'motherMobileNumber',
+    'guardianNameInEnglish',
+    'guardianMobileNumber',
+    'siblingCount',
+    'siblingDetails',
+    'isAuthenticated',
+    'userTypeID',
+    'permissions',
+  ],
 };
 
 const gradesPersistConfig = {

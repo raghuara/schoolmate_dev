@@ -370,9 +370,6 @@ export default function NotificationPage() {
         }
     };
 
-    if (userType !== "superadmin" && userType !== "admin" && userType !== "staff") {
-        return <Navigate to="/dashboardmenu/messages" replace />;
-    }
 
     return (
         <Box sx={{ width: "100%" }}>

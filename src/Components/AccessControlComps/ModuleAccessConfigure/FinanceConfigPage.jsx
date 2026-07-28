@@ -1,5 +1,9 @@
 import React from "react";
+import axios from "axios";
 import ModuleConfigShell from "./ModuleConfigShell";
+import { UpdateUserTypePermissions } from "../../../Api/Api";
+
+const TOKEN = "123";
 
 const MODULE = { key: "finance", name: "Fee & Finance", color: "#EA580C" };
 const PAGES = [
@@ -9,48 +13,45 @@ const PAGES = [
     "Additional Fee Management",
     "Expense",
     "Concession Log",
-    "Create Fee Structure",
+    "Create Fees Structure",
 ];
 
-// Per-page overrides. Dashboard is view-only; the rest use the module defaults.
+// `subMenu` + all permission keys MUST match the backend exactly.
 const PAGE_OVERRIDES = {
-    "Finance Dashboard": { opsKeys: [] },
-    "Billing Screen": { opsKeys: [] },
-    "ECA Management": { opsKeys: [] },
-    "Additional Fee Management": { opsKeys: [] },
-    "Expense": { opsKeys: [], approval: true },
-    "Concession Log": { opsKeys: ["view"] },
-    "Create Fee Structure": { opsKeys: ["view", "create", "edit"], approval: true },
+    "Finance Dashboard": { subMenu: "financedashboard", opsKeys: ["view"] },
+    "Billing Screen": { subMenu: "billingscreen", opsKeys: [] },
+    "ECA Management": { subMenu: "ecamanagement", opsKeys: [] },
+    "Additional Fee Management": { subMenu: "additionalfeemanagement", opsKeys: [] },
+    "Expense": { subMenu: "expense", opsKeys: [] },
+    "Concession Log": { subMenu: "concessionlog", opsKeys: ["view"] },
+    "Create Fees Structure": { subMenu: "createfeesstructure", opsKeys: ["view", "create", "edit"] },
 };
 
-// Page-specific extra permissions beyond the standard operations
 const EXTRA_OPS = {
     "Finance Dashboard": [
-        { key: "view", label: "View" },
-        { key: "sendReminder", label: "Send Reminder to Defaulters" },
-        { key: "allowReportTab", label: "Allow Report Tab" },
+        { key: "sendremindertodefaulters", label: "Send Reminder to Defaulters" },
+        { key: "allowreporttab", label: "Allow Report Tab" },
     ],
     "Billing Screen": [
-        { key: "allowBilling", label: "Allow Billing" },
-        { key: "allowConcession", label: "Allow Concession" },
+        { key: "allowbilling", label: "Allow Billing" },
+        { key: "allowconcession", label: "Allow Concession" },
     ],
     "ECA Management": [
-        { key: "allowMapStudent", label: "Allow Map Student" },
-        { key: "editStudent", label: "Edit Student" },
+        { key: "allowmapstudent", label: "Allow Map Student" },
+        { key: "editstudent", label: "Edit Student" },
     ],
     "Additional Fee Management": [
-        { key: "allowMapStudent", label: "Allow Map Student" },
-        { key: "editStudent", label: "Edit Student" },
+        { key: "allowmapstudent", label: "Allow Map Student" },
+        { key: "editstudent", label: "Edit Student" },
     ],
     "Expense": [
-        { key: "viewDashboard", label: "View Dashboard" },
-        { key: "viewHistory", label: "View History" },
-        { key: "allowAddBudget", label: "Allow Add Budget" },
-        { key: "allowAddExpense", label: "Allow Add Expense" },
+        { key: "viewdashboard", label: "View Dashboard" },
+        { key: "viewhistory", label: "View History" },
+        { key: "allowaddbudget", label: "Allow Add Budget" },
+        { key: "allowaddexpense", label: "Allow Add Expense" },
     ],
 };
 
-// Headings shown above each page's options (defaults to "Additional permissions")
 const EXTRA_OPS_LABELS = {
     "Finance Dashboard": "Dashboard Access",
     "Billing Screen": "Billing Access",
@@ -60,8 +61,12 @@ const EXTRA_OPS_LABELS = {
 };
 
 export default function FinanceConfigPage() {
-    // Add Finance-specific validation here if needed.
     const validate = () => null;
+
+    const handleSave = async (payload) => {
+        const res = await axios.put(UpdateUserTypePermissions, payload, { headers: { Authorization: `Bearer ${TOKEN}` } });
+        return res?.data;
+    };
 
     return (
         <ModuleConfigShell
@@ -73,6 +78,7 @@ export default function FinanceConfigPage() {
             pageOverrides={PAGE_OVERRIDES}
             extraOps={EXTRA_OPS}
             extraOpsLabels={EXTRA_OPS_LABELS}
+            onSave={handleSave}
         />
     );
 }

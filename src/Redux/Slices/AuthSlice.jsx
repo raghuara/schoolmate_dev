@@ -4,8 +4,21 @@ const initialState = {
     name: '',
     rollNumber: '',
     userType: '',
-    grade: '',
-    section: '',
+    financeUserType: null,
+    position: '',
+    grade: null,
+    gradeID: null,
+    section: null,
+    bloodGroup: null,
+    studentPermanentNumber: null,
+    fatherNameInEnglish: null,
+    fatherMobileNumber: null,
+    motherNameInEnglish: null,
+    motherMobileNumber: null,
+    guardianNameInEnglish: null,
+    guardianMobileNumber: null,
+    siblingCount: null,
+    siblingDetails: [],
     sessionId: '',
     isAuthenticated: false,
     userTypeID: null,
@@ -17,28 +30,56 @@ const authSlice = createSlice({
     initialState,
     reducers: {
         loginSuccess: (state, action) => {
-            const { name, rollNumber, userType, grade, section, sessionId, userTypeID, permissions } = action.payload;
-            state.name = name;
-            state.rollNumber = rollNumber;
-            state.userType = userType;
-            state.grade = grade;
-            state.section = section;
-            state.sessionId = sessionId;
+            const {
+                name,
+                rollNumber,
+                userType,
+                financeUserType,
+                position,
+                grade,
+                gradeID,
+                section,
+                bloodGroup,
+                studentPermanentNumber,
+                fatherNameInEnglish,
+                fatherMobileNumber,
+                motherNameInEnglish,
+                motherMobileNumber,
+                guardianNameInEnglish,
+                guardianMobileNumber,
+                siblingCount,
+                siblingDetails,
+                sessionId,
+                userTypeID,
+                permissions,
+            } = action.payload;
+
+            state.name = name ?? '';
+            state.rollNumber = rollNumber ?? '';
+            state.userType = userType ?? '';
+            state.financeUserType = financeUserType ?? null;
+            state.position = position ?? '';
+            state.grade = grade ?? null;
+            state.gradeID = gradeID ?? null;
+            state.section = section ?? null;
+            state.bloodGroup = bloodGroup ?? null;
+            state.studentPermanentNumber = studentPermanentNumber ?? null;
+            state.fatherNameInEnglish = fatherNameInEnglish ?? null;
+            state.fatherMobileNumber = fatherMobileNumber ?? null;
+            state.motherNameInEnglish = motherNameInEnglish ?? null;
+            state.motherMobileNumber = motherMobileNumber ?? null;
+            state.guardianNameInEnglish = guardianNameInEnglish ?? null;
+            state.guardianMobileNumber = guardianMobileNumber ?? null;
+            state.siblingCount = siblingCount ?? null;
+            state.siblingDetails = Array.isArray(siblingDetails) ? siblingDetails : [];
+            state.sessionId = sessionId ?? '';
             state.userTypeID = userTypeID ?? permissions?.userTypeID ?? null;
             state.permissions = permissions ?? null;
             state.isAuthenticated = true;
         },
-        logout: (state) => {
-            state.name = '';
-            state.rollNumber = '';
-            state.userType = '';
-            state.grade = '';
-            state.section = '';
-            state.sessionId = '';
-            state.userTypeID = null;
-            state.permissions = null;
-            state.isAuthenticated = false;
+        logout: () => {
             localStorage.removeItem("sessionId");
+            return { ...initialState };
         },
     },
 });
@@ -62,10 +103,33 @@ export const hasPermission = (permissions, mainMenu, subMenu, action = 'view') =
     return !!p && p[action] === 'Y';
 };
 
+// True when the sub menu grants at least one action.
+export const hasAnyPermission = (permissions, mainMenu, subMenu) => {
+    const p = findSubMenuPermissions(permissions, mainMenu, subMenu);
+    return !!p && Object.values(p).some((v) => v === 'Y');
+};
+
+// True when the main menu grants at least one action across any of its sub menus.
+export const hasMainMenuAccess = (permissions, mainMenu) => {
+    const mm = (permissions?.mainMenus || []).find((m) => m.mainMenu === mainMenu);
+    if (!mm) return false;
+    return (mm.subMenus || []).some((s) => Object.values(s.permissions || {}).some((v) => v === 'Y'));
+};
+
 // Selectors
 export const selectAuth = (state) => state.auth;
 export const selectPermissions = (state) => state.auth.permissions;
 export const selectUserTypeID = (state) => state.auth.userTypeID;
+export const selectUserType = (state) => state.auth.userType;
+export const selectFinanceUserType = (state) => state.auth.financeUserType;
+export const selectPosition = (state) => state.auth.position;
+export const selectSiblingDetails = (state) => state.auth.siblingDetails;
+export const selectSubMenuPermissions = (mainMenu, subMenu) => (state) =>
+    findSubMenuPermissions(state.auth.permissions, mainMenu, subMenu);
+export const selectHasAnyPermission = (mainMenu, subMenu) => (state) =>
+    hasAnyPermission(state.auth.permissions, mainMenu, subMenu);
+export const selectHasMainMenuAccess = (mainMenu) => (state) =>
+    hasMainMenuAccess(state.auth.permissions, mainMenu);
 // Curried selector: useSelector(selectHasPermission('feeandfinance', 'billingscreen', 'allowbilling'))
 export const selectHasPermission = (mainMenu, subMenu, action = 'view') => (state) =>
     hasPermission(state.auth.permissions, mainMenu, subMenu, action);

@@ -1,46 +1,43 @@
 import React from "react";
+import axios from "axios";
 import ModuleConfigShell from "./ModuleConfigShell";
+import { UpdateUserTypePermissions } from "../../../Api/Api";
+
+const TOKEN = "123";
 
 const MODULE = { key: "access", name: "Access Control", color: "#DC2626" };
 const PAGES = ["Users", "Academics", "Student Promotion", "Issue TC"];
 
-// Every page shows only its options (no standard view/create/edit/delete)
+// `subMenu` + all permission keys MUST match the backend exactly.
 const PAGE_OVERRIDES = {
-    "Users": { opsKeys: [] },
-    "Academics": { opsKeys: [] },
-    "Student Promotion": { opsKeys: [] },
-    "Issue TC": { opsKeys: [] },
+    "Users": { subMenu: "users", opsKeys: [] },
+    "Academics": { subMenu: "academics", opsKeys: [] },
+    "Student Promotion": { subMenu: "studentpromotion", opsKeys: [] },
+    "Issue TC": { subMenu: "issuetc", opsKeys: [] },
 };
 
 const EXTRA_OPS = {
     "Users": [
-        { key: "allowUserActivity", label: "Allow User Activity" },
-        {
-            group: "Password Management",
-            gate: { key: "allowPasswordManagement", label: "Allow Password Management" },
-            items: [
-                { key: "passwordStudent", label: "Student" },
-                { key: "passwordStaff", label: "Staff" },
-            ],
-        },
+        { key: "allowuseractivity", label: "Allow User Activity" },
+        { key: "allowpasswordmanagementstudent", label: "Allow Password Management for Student" },
+        { key: "allowpasswordmanagementstaff", label: "Allow Password Management for Staff" },
     ],
     "Academics": [
-        { key: "allowAcademicYear", label: "Allow Academic Year" },
-        { key: "allowClassSection", label: "Allow Class Section Management" },
-        { key: "allowExamManagement", label: "Allow Exam Management" },
-        { key: "allowSubjectManagement", label: "Allow Subject Management" },
+        { key: "allowacademicyear", label: "Allow Academic Year" },
+        { key: "allowclasssectionmanagement", label: "Allow Class Section Management" },
+        { key: "allowexammanagement", label: "Allow Exam Management" },
+        { key: "allowsubjectmanagement", label: "Allow Subject Management" },
     ],
     "Student Promotion": [
-        { key: "allowStudentPromotion", label: "Allow Student Promotion" },
-        { key: "allowEditPromoted", label: "Allow Edit Promoted Students" },
+        { key: "allowstudentpromotion", label: "Allow Student Promotion" },
+        { key: "alloweditpromotedstudents", label: "Allow Edit Promoted Students" },
     ],
     "Issue TC": [
-        { key: "allowIssueTc", label: "Allow Issue TC" },
-        { key: "allowDiscontinue", label: "Allow Discontinue" },
+        { key: "allowissuetc", label: "Allow Issue TC" },
+        { key: "allowdiscontinue", label: "Allow Discontinue" },
     ],
 };
 
-// "" hides the section heading; grouped entries carry their own sub-heading
 const EXTRA_OPS_LABELS = {
     "Users": "",
     "Academics": "",
@@ -49,8 +46,12 @@ const EXTRA_OPS_LABELS = {
 };
 
 export default function AccessConfigPage() {
-    // Add Access Control-specific validation here if needed.
     const validate = () => null;
+
+    const handleSave = async (payload) => {
+        const res = await axios.put(UpdateUserTypePermissions, payload, { headers: { Authorization: `Bearer ${TOKEN}` } });
+        return res?.data;
+    };
 
     return (
         <ModuleConfigShell
@@ -62,6 +63,7 @@ export default function AccessConfigPage() {
             pageOverrides={PAGE_OVERRIDES}
             extraOps={EXTRA_OPS}
             extraOpsLabels={EXTRA_OPS_LABELS}
+            onSave={handleSave}
         />
     );
 }

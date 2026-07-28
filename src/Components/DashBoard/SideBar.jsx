@@ -21,7 +21,7 @@ import { selectVersion } from '../../Redux/Slices/versionSlice';
 import HubIcon from '@mui/icons-material/Hub';
 import LockResetIcon from '@mui/icons-material/LockReset';
 import KeyIcon from '@mui/icons-material/Key';
-import { logout } from '../../Redux/Slices/AuthSlice';
+import { logout, findSubMenuPermissions } from '../../Redux/Slices/AuthSlice';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
@@ -45,6 +45,23 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
   const userType = user.userType
   const userName = user.name
   const token = "123"
+  const studentProfilePerms = findSubMenuPermissions(user.permissions, "profilemanagement", "studentmanagement");
+  const staffProfilePerms = findSubMenuPermissions(user.permissions, "profilemanagement", "staffmanagement");
+  const canViewComm = (sm) => (findSubMenuPermissions(user.permissions, "communication", sm) || {}).view === "Y";
+  const communicationLandingPath = ([
+    ["dashboard", "com-dashboard"],
+    ["news", "news"],
+    ["message", "messages"],
+    ["circular", "circulars"],
+    ["contactdetails", "contact"],
+    ["timetable", "timetables"],
+    ["homework", "homework"],
+    ["examtimetable", "examtimetables"],
+    ["studymaterial", "studymaterials"],
+  ].find(([sm]) => canViewComm(sm)) || [null, "schoolcalendar"])[1];
+  const hasProfileAccess =
+    (!!studentProfilePerms && ["view", "create", "edit", "siblingapproval"].some((k) => studentProfilePerms[k] === "Y")) ||
+    (!!staffProfilePerms && ["view", "create", "edit"].some((k) => staffProfilePerms[k] === "Y"));
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState(false);
@@ -464,7 +481,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
           </ListItem>
 
           {/* Profile Tab */}
-          {(userType === "superadmin" || userType === "admin" || userType === "staff") && (
+          {hasProfileAccess && (
             <ListItem onClick={() => handleMenuClickOne('profile')} sx={{ borderRadius: 2, px: 3, paddingTop: isExpanded ? '3px' : '11px', paddingBottom: isExpanded ? '3px' : '11px' }}>
               <CustomTooltip title={isExpanded ? "" : "Profile Management"} arrow placement="right-start">
                 <Box
@@ -518,7 +535,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
 
           {/* Communication Tab */}
           {version.LITE && (
-            <ListItem onClick={() => handleMenuClick('communication', 'com-dashboard', 'com-dashboard')} sx={{ borderRadius: 2, px: 3, paddingTop: isExpanded ? '3px' : '11px', paddingBottom: isExpanded ? '3px' : '11px' }}>
+            <ListItem onClick={() => handleMenuClick('communication', 'com-dashboard', communicationLandingPath)} sx={{ borderRadius: 2, px: 3, paddingTop: isExpanded ? '3px' : '11px', paddingBottom: isExpanded ? '3px' : '11px' }}>
               <CustomTooltip title={isExpanded ? "" : "Communication"} arrow placement="right-start">
                 <Box
                   sx={{
@@ -795,7 +812,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
           )}
 
           {/* Transport Tab */}
-          {(version.PRO || version.PLUS) && (userType === "superadmin" || userType === "admin" || userType === "staff") && (
+          {(version.PRO || version.PLUS) && (userType === "Super Admin" || userType === "admin" || userType === "staff") && (
             <ListItem onClick={() => handleMenuClickOne('transport')} sx={{ borderRadius: 2, px: 3, paddingTop: isExpanded ? '3px' : '11px', paddingBottom: isExpanded ? '3px' : '11px' }}>
               <CustomTooltip title={isExpanded ? "" : "Transport"} arrow placement="right-start">
                 <Box
@@ -1116,7 +1133,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
             }
 
             {/* My Project Tab */}
-            {version.LITE && (userType === "superadmin" || userType === "admin"|| userType === "teacher"  ) && (
+            {version.LITE && (userType === "Super Admin" || userType === "admin"|| userType === "teacher"  ) && (
               <ListItem onClick={() => handleMenuClickOne('myprojects')} sx={{ borderRadius: 2, px: 3, paddingTop: isExpanded ? '3px' : '11px', paddingBottom: isExpanded ? '3px' : '11px' }}>
                 <CustomTooltip title={isExpanded ? "" : "My Projects"} arrow placement="right-start">
                   <Box
@@ -1170,7 +1187,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
             )}
             {/* Approvals Tab */}
 
-            {(userType === "superadmin" || userType === "admin") && (
+            {(userType === "Super Admin" || userType === "admin") && (
               <ListItem onClick={() => handleMenuClickOne('approvals')} sx={{ borderRadius: 2, px: 3, paddingTop: isExpanded ? '3px' : '11px', paddingBottom: isExpanded ? '3px' : '11px' }}>
                 <CustomTooltip title={isExpanded ? "" : "Approvals"} arrow placement="right-start">
                   <Box
@@ -1245,7 +1262,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
               </ListItem>
             )}
 
-            {String(userType || "").toLowerCase().replace(/\s/g, "") === "superadmin" && (
+            {(userType === "Super Admin" || userType === "admin" || userType === "staff") && (
               <ListItem onClick={() => handleMenuClickOne('access')} sx={{ borderRadius: 2, px: 3, paddingTop: isExpanded ? '3px' : '11px', paddingBottom: isExpanded ? '3px' : '11px' }}>
                 <CustomTooltip title={isExpanded ? "" : "Access Control"} arrow placement="right-start">
                   <Box

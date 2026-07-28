@@ -577,9 +577,6 @@ export default function CreateFeedBackPage() {
             setIsLoading(false);
         }
     };
-    if (userType !== "superadmin" && userType !== "admin" && userType !== "staff") {
-        return <Navigate to="/dashboardmenu/dashboard" replace />;
-    }
 
     // Consistent input styles
     const fieldSx = {

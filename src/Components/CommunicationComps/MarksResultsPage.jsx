@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useSelector } from "react-redux";
 import AddIcon from '@mui/icons-material/Add';
 import { selectGrades } from "../../Redux/Slices/DropdownController";
+import { selectHasPermission } from "../../Redux/Slices/AuthSlice";
 import NewspaperIcon from '@mui/icons-material/Newspaper';
 import { useLocation, useNavigate } from "react-router-dom";
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
@@ -37,6 +38,7 @@ export default function MarksPage() {
     const navigate = useNavigate()
     const grades = useSelector(selectGrades);
     const user = useSelector((state) => state.auth);
+    const canCreateMarks = useSelector(selectHasPermission('communication', 'marks', 'create'));
     const rollNumber = user.rollNumber
     const userType = user.userType
     const userName = user.name
@@ -72,7 +74,8 @@ export default function MarksPage() {
                 >
                     Marks / Results
                 </Typography>
-               
+
+                {canCreateMarks && (
                     <Button
                         onClick={handleCreateNews}
                         variant="outlined"
@@ -91,7 +94,8 @@ export default function MarksPage() {
                         <AddIcon sx={{ fontSize: "20px" }} />
                         &nbsp;Marks
                     </Button>
-                
+                )}
+
             </Box>
             <Box sx={{ p: 2 }}>
                 <Box

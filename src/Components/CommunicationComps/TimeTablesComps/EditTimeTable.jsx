@@ -180,9 +180,6 @@ export default function EditTimeTablesPage() {
         }
     };
 
-    if (userType !== "superadmin" && userType !== "admin" && userType !== "staff") {
-        return <Navigate to="/dashboardmenu/timetables" replace />;
-    }
 
     return (
         <Box sx={{ width: "100%" }}>

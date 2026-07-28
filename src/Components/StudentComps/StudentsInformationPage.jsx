@@ -23,6 +23,7 @@ import CallMergeIcon from '@mui/icons-material/CallMerge';
 import ImageIcon from '@mui/icons-material/Image';
 import SnackBar from "../SnackBar";
 import { selectGrades } from "../../Redux/Slices/DropdownController";
+import { findSubMenuPermissions } from "../../Redux/Slices/AuthSlice";
 import avatarImage from '../../Images/PagesImage/avatar.png'
 
 export default function StudentInformationPage() {
@@ -32,8 +33,12 @@ export default function StudentInformationPage() {
     const token = '123';
     const user = useSelector((state) => state.auth);
     const rollNumber = user.rollNumber
-    const userType = user.userType
     const userName = user.name
+    const studentPerms = findSubMenuPermissions(user.permissions, "profilemanagement", "studentmanagement") || {};
+    const canView = studentPerms.view === "Y";
+    const canCreate = studentPerms.create === "Y";
+    const canEdit = studentPerms.edit === "Y";
+    const canMerge = studentPerms.siblingapproval === "Y";
     const [isLoading, setIsLoading] = useState(false);
     const [openImage, setOpenImage] = useState(false);
     const [imageUrl, setImageUrl] = useState('');
@@ -339,23 +344,25 @@ export default function StudentInformationPage() {
                                 size={{
                                     lg: 5
                                 }}>
-                                <Button
-                                    variant="outlined"
-                                    sx={{
-                                        borderColor: "#A9A9A9",
-                                        backgroundColor: "#000",
-                                        py: 0.3,
-                                        width: "100%",
-                                        color: "#fff",
-                                        textTransform: "none",
-                                        border: "none",
-                                        mb: 1
-                                    }}
-                                    onClick={handleUploadClick}
-                                >
-                                    <AddIcon sx={{ fontSize: "20px" }} />
-                                    &nbsp;Create Student Info
-                                </Button>
+                                {canCreate && (
+                                    <Button
+                                        variant="outlined"
+                                        sx={{
+                                            borderColor: "#A9A9A9",
+                                            backgroundColor: "#000",
+                                            py: 0.3,
+                                            width: "100%",
+                                            color: "#fff",
+                                            textTransform: "none",
+                                            border: "none",
+                                            mb: 1
+                                        }}
+                                        onClick={handleUploadClick}
+                                    >
+                                        <AddIcon sx={{ fontSize: "20px" }} />
+                                        &nbsp;Create Student Info
+                                    </Button>
+                                )}
                             </Grid>
                         </Grid>
                     </Grid>
@@ -366,25 +373,28 @@ export default function StudentInformationPage() {
                         <Typography sx={{ fontSize: "12px", color: "#fff", backgroundColor: "#307EB9", px: 1.2, py: 0.5, borderRadius: "6px", fontWeight: 700 }}>
                             {selectedGrade?.sign || selectedClass} - {selectedSection || selectedClassSection}
                         </Typography>
-                        <Button
-                            component={Link}
-                            to="merge-sibling"
-                            startIcon={<CallMergeIcon sx={{ fontSize: 18 }} />}
-                            sx={{
-                                backgroundColor: "#000",
-                                color: "#fff",
-                                textTransform: "none",
-                                fontWeight: 600,
-                                fontSize: "13px",
-                                borderRadius: "8px",
-                                px: 2,
-                                py: 0.6,
-                                "&:hover": { backgroundColor: "#222" },
-                            }}
-                        >
-                            Merge Siblings
-                        </Button>
+                        {canMerge && (
+                            <Button
+                                component={Link}
+                                to="merge-sibling"
+                                startIcon={<CallMergeIcon sx={{ fontSize: 18 }} />}
+                                sx={{
+                                    backgroundColor: "#000",
+                                    color: "#fff",
+                                    textTransform: "none",
+                                    fontWeight: 600,
+                                    fontSize: "13px",
+                                    borderRadius: "8px",
+                                    px: 2,
+                                    py: 0.6,
+                                    "&:hover": { backgroundColor: "#222" },
+                                }}
+                            >
+                                Merge Siblings
+                            </Button>
+                        )}
                     </Box>
+                    {canView ? (
                     <TableContainer
                         sx={{
                             border: "1px solid #E8DDEA",
@@ -444,9 +454,11 @@ export default function StudentInformationPage() {
                                             </Button>
                                         </TableCell>
                                         <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center" }}>
-                                            <Button onClick={() => handleViewInfo(row.rollNumber)} sx={{ color: "#000", textTransform: "none" }}>
-                                                View Info
-                                            </Button>
+                                            {(canView || canEdit) && (
+                                                <Button onClick={() => handleViewInfo(row.rollNumber)} sx={{ color: "#000", textTransform: "none" }}>
+                                                    View Info
+                                                </Button>
+                                            )}
                                         </TableCell>
                                     </TableRow>
                                 ))}
@@ -454,6 +466,13 @@ export default function StudentInformationPage() {
                         </Table>
                         <Box sx={{ height: '50px' }}></Box>
                     </TableContainer>
+                    ) : (
+                        <Box sx={{ mt: 4, textAlign: "center" }}>
+                            <Typography sx={{ fontSize: "14px", color: "#888" }}>
+                                You don't have permission to view student records.
+                            </Typography>
+                        </Box>
+                    )}
                 </Box>
                 <Dialog
                     open={openImage}

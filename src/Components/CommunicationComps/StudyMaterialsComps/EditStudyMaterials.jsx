@@ -197,9 +197,6 @@ export default function EditStudyMaterialsPage() {
         }
     };
 
-    if (userType !== "superadmin" && userType !== "admin" && userType !== "staff" && userType !== "teacher") {
-        return <Navigate to="/dashboardmenu/studymaterials" replace />;
-    }
 
 
     return (

@@ -312,9 +312,6 @@ export default function CreateStudyMaterialsPage() {
         }
     };
 
-    if (userType !== "superadmin" && userType !== "admin" && userType !== "staff" && userType !== "teacher") {
-        return <Navigate to="/dashboardmenu/studymaterials" replace />;
-    }
 
     return (
         <Box sx={{ width: "100%" }}>

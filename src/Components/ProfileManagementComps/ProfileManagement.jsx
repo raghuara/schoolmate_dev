@@ -1,6 +1,7 @@
 import { Box, Divider, Grid, IconButton, Typography } from '@mui/material'
 import React from 'react'
 import { useSelector } from 'react-redux';
+import { findSubMenuPermissions } from '../../Redux/Slices/AuthSlice';
 import { Link, useNavigate } from 'react-router-dom';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
@@ -16,7 +17,9 @@ const items = [
         iconBgColor: "#fbebf1",
         path: "student/information",
         disabled: false,
-        size: "35px"
+        size: "35px",
+        subMenu: "studentmanagement",
+        permissionKeys: ["view", "create", "edit", "siblingapproval"]
     },
     {
         color: "#8600BB",
@@ -26,14 +29,22 @@ const items = [
         iconBgColor: "#F7F0F9",
         path: "staff",
         disabled: false,
-        size: "30"
+        size: "30",
+        subMenu: "staffmanagement",
+        permissionKeys: ["view", "create", "edit",]
     },
 ];
 
 export default function ProfileManagement() {
     const navigate = useNavigate()
     const user = useSelector((state) => state.auth);
-    const userType = user.userType;
+
+    const hasAnyAccess = (item) => {
+        const perms = findSubMenuPermissions(user.permissions, "profilemanagement", item.subMenu);
+        return !!perms && item.permissionKeys.some((k) => perms[k] === "Y");
+    };
+
+    const visibleItems = items.filter(hasAnyAccess);
 
     return (
         <Box sx={{ border: "1px solid #ccc", borderRadius: "20px", p: 2, height: "86vh" }}>
@@ -58,7 +69,7 @@ export default function ProfileManagement() {
             <Divider sx={{ pt: 2 }} />
 
             <Grid container spacing={2} >
-                {items.filter(item => item.text !== "Staff" || userType === "superadmin" || userType === "admin").map((item, index) => {
+                {visibleItems.map((item, index) => {
                     const IconComponent = item.icon;
                     return (
                         <Grid

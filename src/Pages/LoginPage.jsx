@@ -123,12 +123,37 @@ export default function LoginPage() {
                     },
                 }
             );
-            setOpen(true);
-            setColor(true);
-            setStatus(true);
-            setMessage("Logged in successfully");
+            const { error, siblingCount, siblingDetails, data } = res.data || {};
 
-            const { name, rollNumber, userType, grade, section, userTypePermissions } = res.data.data;
+            if (error || !data) {
+                setOpen(true);
+                setStatus(true);
+                setColor(false);
+                setMessage(data?.message || "Incorrect username or password.");
+                setActivateError(true);
+                setActivateSuccess(false);
+                return;
+            }
+
+            const {
+                name,
+                rollNumber,
+                userType,
+                financeUserType,
+                position,
+                grade,
+                gradeID,
+                section,
+                bloodGroup,
+                studentPermanentNumber,
+                fatherNameInEnglish,
+                fatherMobileNumber,
+                motherNameInEnglish,
+                motherMobileNumber,
+                guardianNameInEnglish,
+                guardianMobileNumber,
+                userTypePermissions,
+            } = data;
 
             if (String(userType || "").toLowerCase().replace(/\s/g, "") === "student") {
                 setOpen(true);
@@ -139,12 +164,49 @@ export default function LoginPage() {
                 setActivateSuccess(false);
                 return;
             }
-            
+
+            if (!userTypePermissions?.mainMenus?.length) {
+                setOpen(true);
+                setStatus(true);
+                setColor(false);
+                setMessage("No modules assigned to your role. Please contact the administrator.");
+                setActivateError(true);
+                setActivateSuccess(false);
+                return;
+            }
+
+            setOpen(true);
+            setColor(true);
+            setStatus(true);
+            setMessage("Logged in successfully");
+
             const sessionId = generateSessionId();
             localStorage.setItem("sessionId", sessionId);
             broadcastLogin(sessionId);
 
-            dispatch(loginSuccess({ name, rollNumber, userType, grade, section, permissions: userTypePermissions, userTypeID: userTypePermissions?.userTypeID }));
+            dispatch(loginSuccess({
+                name,
+                rollNumber,
+                userType,
+                financeUserType,
+                position,
+                grade,
+                gradeID,
+                section,
+                bloodGroup,
+                studentPermanentNumber,
+                fatherNameInEnglish,
+                fatherMobileNumber,
+                motherNameInEnglish,
+                motherMobileNumber,
+                guardianNameInEnglish,
+                guardianMobileNumber,
+                siblingCount,
+                siblingDetails,
+                sessionId,
+                permissions: userTypePermissions,
+                userTypeID: userTypePermissions?.userTypeID,
+            }));
 
             try {
                 const versionRes = await axios.get(VersionFetch, { headers: { Authorization: `Bearer ${token}` } });
@@ -391,11 +453,11 @@ export default function LoginPage() {
                                     onChange={(e) => setPassword(e.target.value)}
                                     required
                                     autoComplete='off'
-                                    inputProps={{
-                                        onCopy: (e) => e.preventDefault(),
-                                        onPaste: (e) => e.preventDefault(),
-                                        onCut: (e) => e.preventDefault(),
-                                    }}
+                                    // inputProps={{
+                                    //     onCopy: (e) => e.preventDefault(),
+                                    //     onPaste: (e) => e.preventDefault(),
+                                    //     onCut: (e) => e.preventDefault(),
+                                    // }}
                                     InputProps={{
                                         endAdornment: (
                                             <InputAdornment position="end">

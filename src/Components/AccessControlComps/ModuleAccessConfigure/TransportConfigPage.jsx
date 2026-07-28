@@ -1,18 +1,24 @@
 import React from "react";
+import axios from "axios";
 import ModuleConfigShell from "./ModuleConfigShell";
+import { UpdateUserTypePermissions } from "../../../Api/Api";
+
+const TOKEN = "123";
 
 const MODULE = { key: "transport", name: "Transport", color: "#059669" };
-const PAGES = ["Vehicles details", "Route management", "Student Mapping"];
+// Page names normalize to the backend subMenu keys:
+//   "Vehicle Details" → vehicledetails, "Route Management" → routemanagement, "Student Mapping" → studentmapping
+const PAGES = ["Vehicle Details", "Route Management", "Student Mapping"];
 
-// Student Mapping shows only its options (no standard view/create/edit/delete)
 const PAGE_OVERRIDES = {
     "Student Mapping": { opsKeys: [] },
 };
 
+// Keys MUST match the backend permission keys exactly (lowercase).
 const EXTRA_OPS = {
     "Student Mapping": [
-        { key: "allowStudentMapping", label: "Allow Student Mapping" },
-        { key: "allowEditing", label: "Allow Editing" },
+        { key: "allowstudentmapping", label: "Allow Student Mapping" },
+        { key: "allowediting", label: "Allow Editing" },
     ],
 };
 
@@ -21,8 +27,12 @@ const EXTRA_OPS_LABELS = {
 };
 
 export default function TransportConfigPage() {
-    // Add Transport-specific validation here if needed.
     const validate = () => null;
+
+    const handleSave = async (payload) => {
+        const res = await axios.put(UpdateUserTypePermissions, payload, { headers: { Authorization: `Bearer ${TOKEN}` } });
+        return res?.data;
+    };
 
     return (
         <ModuleConfigShell
@@ -34,6 +44,7 @@ export default function TransportConfigPage() {
             pageOverrides={PAGE_OVERRIDES}
             extraOps={EXTRA_OPS}
             extraOpsLabels={EXTRA_OPS_LABELS}
+            onSave={handleSave}
         />
     );
 }

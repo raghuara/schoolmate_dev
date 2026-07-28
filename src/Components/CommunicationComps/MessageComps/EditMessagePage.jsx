@@ -327,9 +327,6 @@ export default function EditMessagesPage() {
         }
     };
 
-    if (userType !== "superadmin" && userType !== "admin" && userType !== "staff") {
-        return <Navigate to="/dashboardmenu/messages" replace />;
-    }
     return (
         <Box sx={{ width: "100%" }}>
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />

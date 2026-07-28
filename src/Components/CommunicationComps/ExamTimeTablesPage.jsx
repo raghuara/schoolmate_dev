@@ -9,6 +9,7 @@ import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined
 import CloseIcon from "@mui/icons-material/Close";
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import { selectWebsiteSettings } from "../../Redux/Slices/websiteSettingsSlice";
+import { findSubMenuPermissions } from "../../Redux/Slices/AuthSlice";
 import { DeleteExamTimeTable, DeleteTimeTable, ExamTimeTableFetch, GettingGrades, TimeTableFetch } from "../../Api/Api";
 import Loader from "../Loader";
 import SnackBar from "../SnackBar";
@@ -26,6 +27,11 @@ export default function TimeTablePage() {
     const [imageUrl, setImageUrl] = useState('');
     const [timeTableData, setTimeTableData] = useState([]);
     const user = useSelector((state) => state.auth);
+    const examPerms = findSubMenuPermissions(user.permissions, "communication", "examtimetable") || {};
+    const canView = examPerms.view === "Y";
+    const canCreate = examPerms.create === "Y";
+    const canEdit = examPerms.edit === "Y";
+    const canDelete = examPerms.delete === "Y";
     const rollNumber = user.rollNumber
     const userType = user.userType
     const userName = user.name
@@ -303,6 +309,7 @@ export default function TimeTablePage() {
                             </Box>
                         }
                     </Grid>
+                    {canView &&
                     <Grid
                         sx={{ display: "flex", justifyContent: "center", alignItems: "center", pb: 1 }}
                         size={{
@@ -400,6 +407,7 @@ export default function TimeTablePage() {
                             </Grid>
                         </Grid>
                     </Grid>
+                    }
 
                     <Grid
                         sx={{ display: "flex", justifyContent: "end", alignItems: "center" }}
@@ -409,7 +417,7 @@ export default function TimeTablePage() {
                             md: 3,
                             lg: 2.5
                         }}>
-                        {userType !== "teacher" &&
+                        {canCreate &&
                             <Button
                                 onClick={handleCreateNews}
                                 variant="outlined"
@@ -702,38 +710,42 @@ export default function TimeTablePage() {
                                             </Box>
                                         </Box>
                                         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
-                                            <Button
-                                                variant="outlined"
-                                                onClick={() => handleEdit(table.id)}
-                                                sx={{
-                                                    textTransform: 'none',
-                                                    width: '100px',
-                                                    height: '25px',
-                                                    mr: 1,
-                                                    borderRadius: '30px',
-                                                    fontSize: '10px',
-                                                    border: '1px solid black',
-                                                    color: 'black',
-                                                    fontWeight: '600',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                }}
-                                            >
-                                                <EditOutlinedIcon style={{ fontSize: '15px' }} />
-                                                &nbsp;Reupload
-                                            </Button>
+                                            {canEdit &&
+                                                <Button
+                                                    variant="outlined"
+                                                    onClick={() => handleEdit(table.id)}
+                                                    sx={{
+                                                        textTransform: 'none',
+                                                        width: '100px',
+                                                        height: '25px',
+                                                        mr: 1,
+                                                        borderRadius: '30px',
+                                                        fontSize: '10px',
+                                                        border: '1px solid black',
+                                                        color: 'black',
+                                                        fontWeight: '600',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                    }}
+                                                >
+                                                    <EditOutlinedIcon style={{ fontSize: '15px' }} />
+                                                    &nbsp;Reupload
+                                                </Button>
+                                            }
 
-                                            <IconButton
-                                                onClick={() => handleDelete(table.id)}
-                                                sx={{
-                                                    border: '1px solid black',
-                                                    width: '25px',
-                                                    height: '25px',
-                                                }}
-                                            >
-                                                <DeleteOutlineOutlinedIcon style={{ fontSize: '15px', color: '#000' }} />
-                                            </IconButton>
+                                            {canDelete &&
+                                                <IconButton
+                                                    onClick={() => handleDelete(table.id)}
+                                                    sx={{
+                                                        border: '1px solid black',
+                                                        width: '25px',
+                                                        height: '25px',
+                                                    }}
+                                                >
+                                                    <DeleteOutlineOutlinedIcon style={{ fontSize: '15px', color: '#000' }} />
+                                                </IconButton>
+                                            }
                                         </Box>
                                     </Grid>
                                 ))
@@ -784,27 +796,31 @@ export default function TimeTablePage() {
                                                 <Grid size={{ xs: 12, lg: 6 }}>
                                                     <Box sx={{ display: 'flex', justifyContent: { lg: 'flex-end', xs: "start" }, }}>
 
-                                                        <IconButton
-                                                            onClick={() => handleEdit(table.id)}
-                                                            sx={{
-                                                                border: '1px solid black',
-                                                                width: '25px',
-                                                                height: '25px',
-                                                                mr: 2
-                                                            }}
-                                                        >
-                                                            <UploadOutlinedIcon style={{ fontSize: '15px', color: '#000' }} />
-                                                        </IconButton>
-                                                        <IconButton
-                                                            onClick={() => handleDelete(table.id)}
-                                                            sx={{
-                                                                border: '1px solid black',
-                                                                width: '25px',
-                                                                height: '25px',
-                                                            }}
-                                                        >
-                                                            <DeleteOutlineOutlinedIcon style={{ fontSize: '15px', color: '#000' }} />
-                                                        </IconButton>
+                                                        {canEdit &&
+                                                            <IconButton
+                                                                onClick={() => handleEdit(table.id)}
+                                                                sx={{
+                                                                    border: '1px solid black',
+                                                                    width: '25px',
+                                                                    height: '25px',
+                                                                    mr: 2
+                                                                }}
+                                                            >
+                                                                <UploadOutlinedIcon style={{ fontSize: '15px', color: '#000' }} />
+                                                            </IconButton>
+                                                        }
+                                                        {canDelete &&
+                                                            <IconButton
+                                                                onClick={() => handleDelete(table.id)}
+                                                                sx={{
+                                                                    border: '1px solid black',
+                                                                    width: '25px',
+                                                                    height: '25px',
+                                                                }}
+                                                            >
+                                                                <DeleteOutlineOutlinedIcon style={{ fontSize: '15px', color: '#000' }} />
+                                                            </IconButton>
+                                                        }
                                                         <Box sx={{ px: 2 }}>|</Box>
                                                         <Box sx={{ width: "100px", display: "flex", justifyContent: "center" }}>
                                                             <Button

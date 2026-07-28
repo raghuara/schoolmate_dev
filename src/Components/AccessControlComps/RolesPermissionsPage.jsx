@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from "react";
 import {
     Box, Grid, Typography, Button, TextField, InputAdornment, IconButton, Avatar, AvatarGroup, Chip,
-    Dialog, DialogTitle, DialogContent, DialogActions, Menu, MenuItem, Tooltip, CircularProgress,
+    Dialog, DialogTitle, DialogContent, DialogActions, Menu, MenuItem, Tooltip, CircularProgress, Autocomplete,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import SearchIcon from "@mui/icons-material/Search";
@@ -17,7 +17,7 @@ import axios from "axios";
 import SnackBar from "../SnackBar";
 import { useSelector, useDispatch } from "react-redux";
 import { fetchUserTypes as refreshUserTypesStore } from "../../Redux/Slices/userTypesSlice";
-import { AddUserType, GetAllUserTypes } from "../../Api/Api";
+import { AddUserType, GetAllUserTypes, GetNonStudentUsers, UpdateUsersUserType } from "../../Api/Api";
 import ApprovalFlowsTab from "./ApprovalFlowsTab";
 
 const TOKEN = "123";
@@ -96,8 +96,10 @@ export default function RolesPermissionsPage() {
             const rank = (r) => (r.fullAccess ? 0 : r.isStudent ? 1 : 2);
             const list = (res?.data?.data || []).map(mapUserType).sort((a, b) => rank(a) - rank(b));
             setRoles(list);
+            return list;
         } catch (err) {
             showSnack(err?.response?.data?.message || "Failed to load user types.", false);
+            return null;
         } finally {
             setLoadingRoles(false);
         }
@@ -112,35 +114,99 @@ export default function RolesPermissionsPage() {
     const [usersOpen, setUsersOpen] = useState(false);
     const [usersRole, setUsersRole] = useState(null);
     const [usersList, setUsersList] = useState([]);
-    const [addName, setAddName] = useState("");
+    const [selectedToAdd, setSelectedToAdd] = useState([]);
+    const [assigning, setAssigning] = useState(false);
+    const [movingId, setMovingId] = useState(null);
     const [moveAnchor, setMoveAnchor] = useState(null);
     const [moveMember, setMoveMember] = useState(null);
 
-    const openUsers = (role) => { setUsersRole(role); setUsersList(roleMembers(role)); setAddName(""); setUsersOpen(true); };
+    // Assignable (non-student) users, loaded once and reused across dialog opens.
+    const [allUsers, setAllUsers] = useState([]);
+    const [usersLoaded, setUsersLoaded] = useState(false);
+    const [loadingUsers, setLoadingUsers] = useState(false);
 
-    // Add a user to the open role
-    const handleAddUser = () => {
-        const name = addName.trim();
-        if (!name) return;
-        const member = { id: `${usersRole.id}-new-${Date.now()}`, name, rollNumber: "Pending" };
-        setUsersList((prev) => [member, ...prev]);
-        setRoles((prev) => prev.map((r) => (r.id === usersRole.id ? { ...r, userCount: r.userCount + 1 } : r)));
-        setAddName("");
-        showSnack(`Added ${name} to ${usersRole.name}.`);
+    const fetchAssignableUsers = async () => {
+        if (usersLoaded || loadingUsers) return;
+        setLoadingUsers(true);
+        try {
+            const res = await axios.get(GetNonStudentUsers, { headers: { Authorization: `Bearer ${TOKEN}` } });
+            setAllUsers(res?.data?.data || []);
+            setUsersLoaded(true);
+        } catch (err) {
+            showSnack(err?.response?.data?.message || "Failed to load users.", false);
+        } finally {
+            setLoadingUsers(false);
+        }
+    };
+
+    const openUsers = (role) => {
+        setUsersRole(role);
+        setUsersList(roleMembers(role));
+        setSelectedToAdd([]);
+        setUsersOpen(true);
+        fetchAssignableUsers();
+    };
+
+    // Re-pull user types and re-seed the open dialog with fresh members.
+    const refreshOpenRole = async () => {
+        const list = await fetchUserTypes();
+        const fresh = (list || []).find((r) => r.id === usersRole?.id);
+        if (fresh) { setUsersRole(fresh); setUsersList(roleMembers(fresh)); }
+        dispatch(refreshUserTypesStore());
+    };
+
+    // Users not already in the open role.
+    const assignOptions = useMemo(() => {
+        const ids = new Set(usersList.map((m) => m.rollNumber));
+        return allUsers.filter((u) => !ids.has(u.rollNumber));
+    }, [allUsers, usersList]);
+
+    // Assign the selected users to the open role.
+    const handleAssign = async () => {
+        if (!selectedToAdd.length || !usersRole) return;
+        setAssigning(true);
+        try {
+            const rollNumbers = selectedToAdd.map((u) => u.rollNumber);
+            const res = await axios.put(
+                UpdateUsersUserType,
+                { userTypeID: usersRole.id, rollNumbers },
+                { headers: { Authorization: `Bearer ${TOKEN}` } },
+            );
+            const ok = !res?.data || res.data.error === false || res.status === 200;
+            if (!ok) { showSnack(res?.data?.message || "Could not assign users.", false); return; }
+            showSnack(res?.data?.message || `Assigned ${rollNumbers.length} user${rollNumbers.length > 1 ? "s" : ""} to ${usersRole.name}.`);
+            setSelectedToAdd([]);
+            await refreshOpenRole();
+        } catch (err) {
+            showSnack(err?.response?.data?.message || "Failed to assign users. Please try again.", false);
+        } finally {
+            setAssigning(false);
+        }
     };
 
     // Move a user to another role
     const openMove = (e, member) => { setMoveAnchor(e.currentTarget); setMoveMember(member); };
     const closeMove = () => { setMoveAnchor(null); setMoveMember(null); };
-    const handleMove = (target) => {
-        setUsersList((prev) => prev.filter((m) => m.id !== moveMember.id));
-        setRoles((prev) => prev.map((r) => {
-            if (r.id === usersRole.id) return { ...r, userCount: Math.max(0, r.userCount - 1) };
-            if (r.id === target.id) return { ...r, userCount: r.userCount + 1 };
-            return r;
-        }));
-        showSnack(`Moved ${moveMember.name} to ${target.name}.`);
+    const handleMove = async (target) => {
+        const member = moveMember;
         closeMove();
+        if (!member || !usersRole) return;
+        setMovingId(member.id);
+        try {
+            const res = await axios.put(
+                UpdateUsersUserType,
+                { userTypeID: target.id, rollNumbers: [member.rollNumber] },
+                { headers: { Authorization: `Bearer ${TOKEN}` } },
+            );
+            const ok = !res?.data || res.data.error === false || res.status === 200;
+            if (!ok) { showSnack(res?.data?.message || "Could not move the user.", false); return; }
+            showSnack(res?.data?.message || `Moved ${member.name} to ${target.name}.`);
+            await refreshOpenRole();
+        } catch (err) {
+            showSnack(err?.response?.data?.message || "Failed to move the user. Please try again.", false);
+        } finally {
+            setMovingId(null);
+        }
     };
 
     // Roles a member can be moved to (exclude current role and the auto student category)
@@ -415,22 +481,56 @@ export default function RolesPermissionsPage() {
                 </DialogTitle>
                 <DialogContent sx={{ px: 2, pb: 2 }}>
                     {/* Add user */}
-                    <Box sx={{ display: "flex", gap: 1, mb: 1.5 }}>
-                        <TextField
-                            fullWidth size="small"
-                            value={addName}
-                            onChange={(e) => setAddName(e.target.value)}
-                            onKeyDown={(e) => { if (e.key === "Enter") handleAddUser(); }}
-                            placeholder="Add user by name"
-                            sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px", height: 38, fontSize: 13 } }}
+                    <Box sx={{ display: "flex", gap: 1, mb: 1.5, alignItems: "flex-start" }}>
+                        <Autocomplete
+                            multiple
+                            size="small"
+                            fullWidth
+                            options={assignOptions}
+                            loading={loadingUsers}
+                            value={selectedToAdd}
+                            onChange={(e, val) => setSelectedToAdd(val)}
+                            getOptionLabel={(o) => o.name || o.rollNumber}
+                            isOptionEqualToValue={(o, v) => o.rollNumber === v.rollNumber}
+                            disableCloseOnSelect
+                            limitTags={2}
+                            noOptionsText={loadingUsers ? "Loading users…" : "No users to add"}
+                            renderOption={(props, o) => (
+                                <Box component="li" {...props} key={o.rollNumber} sx={{ display: "flex", gap: 1 }}>
+                                    <Avatar sx={{ width: 26, height: 26, fontSize: 10, fontWeight: 700, bgcolor: `${colorFor(o.name)}22`, color: colorFor(o.name) }}>{getInitials(o.name)}</Avatar>
+                                    <Box sx={{ minWidth: 0 }}>
+                                        <Typography sx={{ fontSize: 12.5, fontWeight: 600 }} noWrap>{o.name}</Typography>
+                                        <Typography sx={{ fontSize: 10.5, color: "#9CA3AF" }}>Roll No: {o.rollNumber}</Typography>
+                                    </Box>
+                                </Box>
+                            )}
+                            renderInput={(params) => (
+                                <TextField
+                                    {...params}
+                                    placeholder={selectedToAdd.length ? "" : "Search users to add"}
+                                    slotProps={{
+                                        input: {
+                                            ...params.InputProps,
+                                            endAdornment: (
+                                                <>
+                                                    {loadingUsers ? <CircularProgress size={16} sx={{ color: accent }} /> : null}
+                                                    {params.InputProps.endAdornment}
+                                                </>
+                                            ),
+                                        },
+                                    }}
+                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px", fontSize: 13 } }}
+                                />
+                            )}
+                            sx={{ flex: 1 }}
                         />
                         <Button
-                            onClick={handleAddUser}
-                            startIcon={<AddIcon sx={{ fontSize: 18 }} />}
-                            disabled={!addName.trim()}
-                            sx={{ textTransform: "none", fontWeight: 700, fontSize: 13, bgcolor: accent, color: "#fff", borderRadius: "10px", height: 38, px: 2, flexShrink: 0, boxShadow: "none", "&:hover": { bgcolor: accent, filter: "brightness(0.92)" }, "&.Mui-disabled": { bgcolor: "#E5E7EB", color: "#9CA3AF" } }}
+                            onClick={handleAssign}
+                            startIcon={assigning ? <CircularProgress size={15} sx={{ color: "#fff" }} /> : <AddIcon sx={{ fontSize: 18 }} />}
+                            disabled={!selectedToAdd.length || assigning}
+                            sx={{ textTransform: "none", fontWeight: 700, fontSize: 13, bgcolor: accent, color: "#fff", borderRadius: "10px", height: 40, px: 2, flexShrink: 0, boxShadow: "none", "&:hover": { bgcolor: accent, filter: "brightness(0.92)" }, "&.Mui-disabled": { bgcolor: "#E5E7EB", color: "#9CA3AF" } }}
                         >
-                            Add
+                            {assigning ? "Assigning…" : "Assign"}
                         </Button>
                     </Box>
 
@@ -444,13 +544,16 @@ export default function RolesPermissionsPage() {
                                         <Typography sx={{ fontSize: 11, color: "#9CA3AF" }}>Roll No: {m.rollNumber}</Typography>
                                     </Box>
                                     <Tooltip title="Move to another role" arrow>
-                                        <Button
-                                            onClick={(e) => openMove(e, m)}
-                                            startIcon={<SwapHorizIcon sx={{ fontSize: 16 }} />}
-                                            sx={{ textTransform: "none", fontWeight: 700, fontSize: 11.5, color: accent, border: `1px solid ${accent}40`, borderRadius: "8px", height: 30, px: 1.2, flexShrink: 0, "&:hover": { bgcolor: `${accent}0A`, borderColor: accent } }}
-                                        >
-                                            Move
-                                        </Button>
+                                        <span>
+                                            <Button
+                                                onClick={(e) => openMove(e, m)}
+                                                disabled={movingId === m.id}
+                                                startIcon={movingId === m.id ? <CircularProgress size={13} sx={{ color: accent }} /> : <SwapHorizIcon sx={{ fontSize: 16 }} />}
+                                                sx={{ textTransform: "none", fontWeight: 700, fontSize: 11.5, color: accent, border: `1px solid ${accent}40`, borderRadius: "8px", height: 30, px: 1.2, flexShrink: 0, "&:hover": { bgcolor: `${accent}0A`, borderColor: accent }, "&.Mui-disabled": { color: "#9CA3AF", borderColor: "#E5E7EB" } }}
+                                            >
+                                                {movingId === m.id ? "Moving…" : "Move"}
+                                            </Button>
+                                        </span>
                                     </Tooltip>
                                 </Box>
                             ))}
