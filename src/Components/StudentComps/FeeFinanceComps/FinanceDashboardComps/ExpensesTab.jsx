@@ -62,7 +62,7 @@ export default function ExpensesTab() {
         setIsLoading(true);
         try {
             const res = await axios.get(getAddedExpence, {
-                params: { RollNumber: rollNumber },
+                params: { rollNumber: rollNumber },
                 headers: { Authorization: `Bearer ${token}` },
             });
             setExpenseHistory(res.data.data ?? []);

@@ -65,9 +65,9 @@ export default function TransportFeeApprovalPage() {
         try {
             const response = await axios.get(approvalStatusCheckTranspoart, {
                 params: {
-                    RollNumber: rollNumber,
-                    Year: selectedYear,
-                    Status: "Requested"
+                    rollNumber: rollNumber,
+                    year: selectedYear,
+                    status: "Requested"
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -123,9 +123,9 @@ export default function TransportFeeApprovalPage() {
                     {
                         params: {
                             transpoartFeesID: id,
-                            RollNumber: rollNumber,
-                            Action: action,
-                            Reason: action === "accept" ? "" : (rejectReason || "")
+                            rollNumber: rollNumber,
+                            action: action,
+                            reason: action === "accept" ? "" : (rejectReason || "")
                         },
                         headers: {
                             Authorization: `Bearer ${token}`,

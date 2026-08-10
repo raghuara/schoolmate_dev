@@ -117,9 +117,9 @@ export default function AdditionalFeeApprovalStatus() {
         try {
             const res = await axios.get(approvalStatusCheckAdditional, {
                 params: {
-                    RollNumber: rollNumber,
-                    Year: selectedYear,
-                    Status: selectedStatus?.value,
+                    rollNumber: rollNumber,
+                    year: selectedYear,
+                    status: selectedStatus?.value,
                 },
 
                 headers: {
@@ -152,7 +152,7 @@ export default function AdditionalFeeApprovalStatus() {
             const res = await axios.delete(deleteAdditionalFeesStructure, {
                 params: {
                     additionalFeesID: deleteId,
-                    RollNumber: rollNumber,
+                    rollNumber: rollNumber,
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,

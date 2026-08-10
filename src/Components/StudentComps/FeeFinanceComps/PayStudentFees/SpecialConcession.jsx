@@ -412,7 +412,7 @@ export default function SpecialConcession() {
             console.log('[Concession] body:', JSON.stringify(payload, null, 2));
 
             const res = await axios.post(apiEndpoint, payload, {
-                params: { RollNumber: rollNumber, Year: selectedYear },
+                params: { rollNumber: rollNumber, year: selectedYear },
                 headers: {
                     Authorization: `Bearer ${token}`,
                     'Content-Type': 'application/json',

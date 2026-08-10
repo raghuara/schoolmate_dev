@@ -120,9 +120,9 @@ export default function ExtraCurricularFeeApprovalStatus() {
     try {
       const res = await axios.get(approvalStatusCheckEca, {
         params: {
-          RollNumber: rollNumber,
-          Year: selectedYear,
-          Status: selectedStatus?.value,
+          rollNumber: rollNumber,
+          year: selectedYear,
+          status: selectedStatus?.value,
         },
         headers: {
           Authorization: `Bearer ${token}`,
@@ -154,7 +154,7 @@ export default function ExtraCurricularFeeApprovalStatus() {
       const res = await axios.delete(deleteEcaFeesStructure, {
         params: {
           ecaFeesID: deleteId,
-          RollNumber: rollNumber,
+          rollNumber: rollNumber,
         },
         headers: {
           Authorization: `Bearer ${token}`,

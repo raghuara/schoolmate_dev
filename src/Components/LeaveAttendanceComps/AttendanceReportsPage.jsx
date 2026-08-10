@@ -168,10 +168,10 @@ export default function AttendanceReportsPage({ isEmbedded = false }) {
         try {
             const res = await axios.get(reportsLeaveManagement, {
                 params: {
-                    FromDate:         fromDate,
-                    ToDate:           toDate,
-                    Category:         mapCategoryToApi(categoryFilter === 'all' ? '' : categoryFilter),
-                    AttendanceStatus: statusFilter !== 'all' ? statusFilter : '',
+                    fromDate:         fromDate,
+                    toDate:           toDate,
+                    category:         mapCategoryToApi(categoryFilter === 'all' ? '' : categoryFilter),
+                    attendanceStatus: statusFilter !== 'all' ? statusFilter : '',
                 },
                 headers: { Authorization: `Bearer ${token}` },
             });
@@ -220,9 +220,9 @@ export default function AttendanceReportsPage({ isEmbedded = false }) {
         try {
             const res = await axios.get(reportsLeaveManagementFullReport, {
                 params: {
-                    RollNumber: staffId,
-                    FromDate:   fromDate,
-                    ToDate:     toDate,
+                    rollNumber: staffId,
+                    fromDate:   fromDate,
+                    toDate:     toDate,
                 },
                 headers: { Authorization: `Bearer ${token}` },
             });

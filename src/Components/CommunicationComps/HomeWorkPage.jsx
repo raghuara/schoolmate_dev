@@ -9,6 +9,7 @@ import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined
 import CloseIcon from "@mui/icons-material/Close";
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import { selectWebsiteSettings } from "../../Redux/Slices/websiteSettingsSlice";
+import { selectAcademicYear } from "../../Redux/Slices/academicYearSlice";
 import { DeleteHomeWork, DeleteTimeTable, GettingGrades, HomeWorkFetch, HomeWorkFetch01, TimeTableFetch } from "../../Api/Api";
 import Loader from "../Loader";
 import SnackBar from "../SnackBar";
@@ -27,6 +28,7 @@ import pdfDemo from '../../Images/PDF.png'
 export default function HomeWorkPage() {
     const navigate = useNavigate();
     const websiteSettings = useSelector(selectWebsiteSettings);
+    const academicYear = useSelector(selectAcademicYear);
     const [openAlert, setOpenAlert] = useState(false);
     const [openImage, setOpenImage] = useState(false);
     const [openPdf, setOpenPdf] = useState(false);
@@ -241,12 +243,13 @@ export default function HomeWorkPage() {
         try {
             const res = await axios.get(HomeWorkFetch01, {
                 params: {
-                    RollNumber: rollNumber,
-                    UserType: userType,
-                    Grade: selectedGradeId || "131",
+                    rollNumber: rollNumber,
+                    userType: userType,
+                    grade: selectedGradeId || "131",
                     section: selectedSection || "A1",
-                    IsMyProject: isMyProject,
-                    Date: formattedDate || "",
+                    isMyProject: isMyProject,
+                    date: formattedDate || "",
+                    academicYear: academicYear || "",
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -270,7 +273,7 @@ export default function HomeWorkPage() {
         try {
             const res = await axios.delete(DeleteHomeWork, {
                 params: {
-                    Id: id
+                    id: id
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,

@@ -7,6 +7,7 @@ import dayjs from "dayjs";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
+import { selectAcademicYear } from "../../../../Redux/Slices/academicYearSlice";
 import { selectWebsiteSettings } from "../../../../Redux/Slices/websiteSettingsSlice";
 import ReactPlayer from "react-player";
 import { FindMessage, GettingGrades, GetUsersBaseDetails, postNews, updateMessage } from "../../../../Api/Api";
@@ -24,6 +25,7 @@ export default function MessagesDraftEditPage() {
     const [heading, setHeading] = useState("");
     const [newsContentHTML, setNewsContentHTML] = useState("");
     const user = useSelector((state) => state.auth);
+    const academicYear = useSelector(selectAcademicYear);
     const rollNumber = user.rollNumber
     const userType = user.userType
     const userName = user.name
@@ -339,7 +341,8 @@ export default function MessagesDraftEditPage() {
         try {
             const res = await axios.get(FindMessage, {
                 params: {
-                    Id: id
+                    id: id,
+                    academicYear: academicYear || ''
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -490,6 +493,8 @@ export default function MessagesDraftEditPage() {
                         specific: "",
                     }),
             };
+
+            sendData.academicYear = academicYear || "";
 
             const res = await axios.put(updateMessage, sendData, {
                 headers: {

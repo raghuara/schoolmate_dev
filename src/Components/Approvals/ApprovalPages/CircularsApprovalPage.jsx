@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlice";
 import { useDispatch, useSelector } from "react-redux";
+import { selectAcademicYear } from "../../../Redux/Slices/academicYearSlice";
 import ReactPlayer from "react-player";
 import CloseIcon from "@mui/icons-material/Close";
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
@@ -31,6 +32,7 @@ export default function CircularsApprovalPage() {
     const [statusData, setStatusData] = useState([]);
     const [scheduleData, setScheduleData] = useState([]);
     const user = useSelector((state) => state.auth);
+    const academicYear = useSelector(selectAcademicYear);
     const rollNumber = user.rollNumber
     const userType = user.userType
     const userName = user.name
@@ -184,10 +186,11 @@ export default function CircularsApprovalPage() {
         try {
             const res = await axios.get(ApprovalStatusCircularFetch, {
                 params: {
-                    RollNumber: rollNumber,
-                    UserType: userType,
-                    Date: formattedDate || '',
-                    Screen: "approver"
+                    rollNumber: rollNumber,
+                    userType: userType,
+                    date: formattedDate || '',
+                    screen: "approver",
+                    academicYear: academicYear || ''
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -280,9 +283,9 @@ export default function CircularsApprovalPage() {
         try {
             const res = await axios.delete(DeleteCircular, {
                 params: {
-                    Id: id,
-                    RollNumber: rollNumber,
-                    UserType: userType,
+                    id: id,
+                    rollNumber: rollNumber,
+                    userType: userType,
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,

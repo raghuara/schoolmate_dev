@@ -10,6 +10,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlice";
+import { selectAcademicYear } from "../../../Redux/Slices/academicYearSlice";
 import ReactPlayer from "react-player";
 import { FindMessage, GettingGrades, postNews, updateMessage } from "../../../Api/Api";
 import SnackBar from "../../SnackBar";
@@ -65,6 +66,7 @@ export default function EditMessagesPage() {
     });
 
     const websiteSettings = useSelector(selectWebsiteSettings);
+    const academicYear = useSelector(selectAcademicYear);
 
     const theme = createTheme({
         palette: {
@@ -210,7 +212,8 @@ export default function EditMessagesPage() {
         try {
             const res = await axios.get(FindMessage, {
                 params: {
-                    Id: id
+                    id: id,
+                    academicYear: academicYear || '',
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -287,6 +290,7 @@ export default function EditMessagesPage() {
                 specific: isSpecific || "",
                 staffUserTypes: selectedStaffs || [],
                 specificUsers: specificUsers || [],
+                academicYear: academicYear || "",
             };
 
             const res = await axios.put(updateMessage, sendData, {

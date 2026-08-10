@@ -9,6 +9,7 @@ import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined
 import CloseIcon from "@mui/icons-material/Close";
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import { selectWebsiteSettings } from "../../Redux/Slices/websiteSettingsSlice";
+import { selectAcademicYear } from "../../Redux/Slices/academicYearSlice";
 import { findSubMenuPermissions } from "../../Redux/Slices/AuthSlice";
 import { DeleteExamTimeTable, DeleteTimeTable, ExamTimeTableFetch, GettingGrades, TimeTableFetch } from "../../Api/Api";
 import Loader from "../Loader";
@@ -22,6 +23,7 @@ import NoData from '../../Images/Login/No Data.png'
 export default function TimeTablePage() {
     const navigate = useNavigate();
     const websiteSettings = useSelector(selectWebsiteSettings);
+    const academicYear = useSelector(selectAcademicYear);
     const [openAlert, setOpenAlert] = useState(false);
     const [openImage, setOpenImage] = useState(false);
     const [imageUrl, setImageUrl] = useState('');
@@ -207,11 +209,12 @@ export default function TimeTablePage() {
         try {
             const res = await axios.get(ExamTimeTableFetch, {
                 params: {
-                    RollNumber: rollNumber,
-                    UserType: userType,
-                    Grade: selectedGrade || "",
-                    Exam: selectedExam || "",
-                    IsMyProject: isMyProject,
+                    rollNumber: rollNumber,
+                    userType: userType,
+                    grade: selectedGrade || "",
+                    exam: selectedExam || "",
+                    isMyProject: isMyProject,
+                    academicYear: academicYear || "",
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -231,7 +234,7 @@ export default function TimeTablePage() {
         try {
             const res = await axios.delete(DeleteExamTimeTable, {
                 params: {
-                    Id: id
+                    id: id
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,

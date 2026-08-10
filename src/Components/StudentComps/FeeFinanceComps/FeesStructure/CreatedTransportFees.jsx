@@ -129,9 +129,9 @@ export default function CreatedTransportFees() {
     try {
       const response = await axios.get(approvalStatusCheckTranspoart, {
         params: {
-          RollNumber: rollNumber,
-          Year: selectedYear,
-          Status: "Approved"
+          rollNumber: rollNumber,
+          year: selectedYear,
+          status: "Approved"
         },
         headers: {
           Authorization: `Bearer ${token}`,
@@ -226,7 +226,7 @@ export default function CreatedTransportFees() {
 
       const firstStopId = fee.stops[0].id;
       const response = await axios.get(transpoartFeeFetchID, {
-        params: { Id: firstStopId },
+        params: { id: firstStopId },
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -298,7 +298,7 @@ export default function CreatedTransportFees() {
         axios.delete(deleteTranspoartFeesStructure, {
           params: {
             transpoartFeesID: stop.id,
-            RollNumber: rollNumber
+            rollNumber: rollNumber
           },
           headers: {
             Authorization: `Bearer ${token}`,

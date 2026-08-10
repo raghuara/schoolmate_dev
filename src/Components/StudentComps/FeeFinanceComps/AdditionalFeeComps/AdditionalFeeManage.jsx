@@ -119,7 +119,7 @@ export default function AdditionalFeeManage() {
         try {
             const res = await axios.get(additionalFeeFetch, {
                 params: {
-                    Year: selectedYear
+                    year: selectedYear
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -139,7 +139,7 @@ export default function AdditionalFeeManage() {
         try {
             const res = await axios.get(additionalFeeFetchID, {
                 params: {
-                    Id: activityId,
+                    id: activityId,
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,

@@ -7,6 +7,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlice";
+import { selectAcademicYear } from "../../../Redux/Slices/academicYearSlice";
 import { FindStudyMaterial, GettingGrades, postHomeWork, postMessage, postNews, poststudyMaterial, postTimeTable, sectionsDropdown, TimeTableFetch, updateStudyMaterial } from "../../../Api/Api";
 import SnackBar from "../../SnackBar";
 import UploadFileIcon from '@mui/icons-material/UploadFile';
@@ -38,6 +39,7 @@ export default function EditStudyMaterialsPage() {
     const [selectedSection, setSelectedSection] = useState(null);
     const [folderName, setFolderName] = useState("");
     const websiteSettings = useSelector(selectWebsiteSettings);
+    const academicYear = useSelector(selectAcademicYear);
     const [sectionError, setSectionError] = useState(false);
     const [fileError, setFileError] = useState(false);
     const [gradeError, setGradeError] = useState(false);
@@ -131,7 +133,8 @@ export default function EditStudyMaterialsPage() {
         try {
             const res = await axios.get(FindStudyMaterial, {
                 params: {
-                    Id: id
+                    id: id,
+                    academicYear: academicYear || "",
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -162,15 +165,17 @@ export default function EditStudyMaterialsPage() {
         try {
 
             const sendData = new FormData();
-            sendData.append("Id", id);
-            sendData.append("UserType", userType);
-            sendData.append("RollNumber", rollNumber);
-            sendData.append("Subject", selectedSubject);
-            sendData.append("Heading", heading);
-            sendData.append("FileType", fileType || "");
-            sendData.append("File", uploadedFiles[0] || '');
-            sendData.append("UpdatedOn", todayDateTime);
-            sendData.append("Folder", folderName);
+            sendData.append("id", id);
+            sendData.append("userType", userType);
+            sendData.append("rollNumber", rollNumber);
+            sendData.append("subject", selectedSubject);
+            sendData.append("heading", heading);
+            sendData.append("fileType", fileType || "");
+            sendData.append("file", uploadedFiles[0] || '');
+            sendData.append("updatedOn", todayDateTime);
+            sendData.append("folder", folderName);
+
+            sendData.append("academicYear", academicYear || "");
 
             const res = await axios.put(updateStudyMaterial, sendData, {
                 headers: {

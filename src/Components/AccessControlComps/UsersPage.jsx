@@ -37,9 +37,6 @@ export default function UsersPage() {
       (item) => !item.accessOnly || allowedRoles.includes(userType)
     );
 
-    if (userType !== "superadmin" && userType !== "admin" && userType !== "staff") {
-        return <Navigate to="/dashboardmenu/dashboard" replace />;
-    }
 
     return (
         <Box sx={{ width: "100%", }}>

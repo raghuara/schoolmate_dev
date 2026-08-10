@@ -320,7 +320,7 @@ export default function ViewVehicleDetails() {
         setIsLoading(true);
         try {
             const res = await axios.get(findVehicleManagementDetails, {
-                params: { VehicleAssetID: vehicleId },
+                params: { vehicleAssetID: vehicleId },
                 headers: { Authorization: `Bearer ${token}` },
             });
             const data = res.data || {};
@@ -342,7 +342,7 @@ export default function ViewVehicleDetails() {
     const fetchSafetyComplianceDetails = async () => {
         try {
             const res = await axios.get(findVehicleSafetyComplianceInstallationDetail, {
-                params: { VehicleAssetID: vehicleId },
+                params: { vehicleAssetID: vehicleId },
                 headers: { Authorization: `Bearer ${token}` },
             });
             const data = res.data || {};

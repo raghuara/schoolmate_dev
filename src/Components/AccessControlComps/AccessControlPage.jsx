@@ -41,9 +41,6 @@ export default function AccessControlPage() {
         ] : []),
     ];
 
-    if (userType !== "Super Admin" && userType !== "admin" && userType !== "staff") {
-        return <Navigate to="/dashboardmenu/dashboard" replace />;
-    }
 
     return (
         <Box sx={{ width: "100%", }}>

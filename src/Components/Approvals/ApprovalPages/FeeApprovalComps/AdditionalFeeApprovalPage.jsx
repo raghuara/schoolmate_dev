@@ -121,8 +121,8 @@ export default function AdditionalFeeApprovalPage() {
         try {
             const res = await axios.get(additionalFeeFetch, {
                 params: {
-                    Year: selectedYear,
-                    Status: "Requested",
+                    year: selectedYear,
+                    status: "Requested",
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -158,9 +158,9 @@ export default function AdditionalFeeApprovalPage() {
                 {
                     params: {
                         additionalFeesID: id,
-                        RollNumber: rollNumber,
-                        Action: action,
-                        Reason: rejectReason || ""
+                        rollNumber: rollNumber,
+                        action: action,
+                        reason: rejectReason || ""
                     },
                     headers: {
                         Authorization: `Bearer ${token}`,

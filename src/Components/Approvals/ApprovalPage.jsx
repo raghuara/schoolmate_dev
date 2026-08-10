@@ -93,9 +93,9 @@ export default function ApprovalPage() {
         try {
             const res = await axios.get(endpoint, {
                 params: {
-                    RollNumber: rollNumber,
-                    UserType: userType,
-                    Screen: "approver",
+                    rollNumber: rollNumber,
+                    userType: userType,
+                    screen: "approver",
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,

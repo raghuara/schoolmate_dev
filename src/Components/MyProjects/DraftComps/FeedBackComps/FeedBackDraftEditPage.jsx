@@ -199,7 +199,7 @@ export default function FeedBackDraftEditPage() {
         try {
             const res = await axios.get(GetFeedBackDetailByID, {
                 params: {
-                    Id: id
+                    id: id
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,

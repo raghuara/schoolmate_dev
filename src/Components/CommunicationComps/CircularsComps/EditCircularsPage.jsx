@@ -12,6 +12,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlice";
+import { selectAcademicYear } from "../../../Redux/Slices/academicYearSlice";
 import ReactPlayer from "react-player";
 import { FindCircular, GettingGrades, postCircular, postNews, updateCircular } from "../../../Api/Api";
 import SnackBar from "../../SnackBar";
@@ -74,6 +75,7 @@ export default function EditNewsPage() {
 
 
     const websiteSettings = useSelector(selectWebsiteSettings);
+    const academicYear = useSelector(selectAcademicYear);
 
     const location = useLocation();
     const { id } = location.state || {};
@@ -306,7 +308,8 @@ export default function EditNewsPage() {
         try {
             const res = await axios.get(FindCircular, {
                 params: {
-                    Id: id
+                    id: id,
+                    academicYear: academicYear || '',
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -414,19 +417,19 @@ export default function EditNewsPage() {
         try {
             const sendData = new FormData();
 
-            sendData.append("Id", id);
-            sendData.append("RollNumber", rollNumber);
-            sendData.append("UserType", userType);
-            sendData.append("HeadLine", heading);
-            sendData.append("Circular", newsContentHTML);
-            sendData.append("File", uploadedFiles[0] || '');
-            sendData.append("FileType", fileType);
-            sendData.append("ScheduleOn", formattedDTValue || dateTimeValue || "");
-            sendData.append("UpdatedOn", todayDateTime || "");
-            sendData.append("Everyone", isEveryone || "");
-            sendData.append("Students", isStudents || "");
-            sendData.append("Staffs", isStaffs || "");
-            sendData.append("Specific", isSpecific || "");
+            sendData.append("id", id);
+            sendData.append("rollNumber", rollNumber);
+            sendData.append("userType", userType);
+            sendData.append("headLine", heading);
+            sendData.append("circular", newsContentHTML);
+            sendData.append("file", uploadedFiles[0] || '');
+            sendData.append("fileType", fileType);
+            sendData.append("scheduleOn", formattedDTValue || dateTimeValue || "");
+            sendData.append("updatedOn", todayDateTime || "");
+            sendData.append("everyone", isEveryone || "");
+            sendData.append("students", isStudents || "");
+            sendData.append("staffs", isStaffs || "");
+            sendData.append("specific", isSpecific || "");
 
             const { gradeSections } = getGradeSectionsPayload();
             gradeSections.forEach((item, index) => {
@@ -447,6 +450,8 @@ export default function EditNewsPage() {
                     sendData.append(`SpecificUsers[${index}]`, userId);
                 });
             }
+
+            sendData.append("academicYear", academicYear || "");
 
             const res = await axios.put(updateCircular, sendData, {
                 headers: {

@@ -232,10 +232,10 @@ export default function NewsPage() {
         try {
             const res = await axios.get(NewsFetch, {
                 params: {
-                    RollNumber: rollNumber,
-                    UserType: userType,
-                    Date: formattedDate || '',
-                    IsMyProject: isMyProject,
+                    rollNumber: rollNumber,
+                    userType: userType,
+                    date: formattedDate || '',
+                    isMyProject: isMyProject,
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -255,9 +255,9 @@ export default function NewsPage() {
         try {
             const res = await axios.delete(DeleteNewsApi, {
                 params: {
-                    Id: id,
-                    RollNumber: rollNumber,
-                    UserType: userType,
+                    id: id,
+                    rollNumber: rollNumber,
+                    userType: userType,
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,

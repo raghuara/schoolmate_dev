@@ -7,6 +7,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlice";
+import { selectAcademicYear } from "../../../Redux/Slices/academicYearSlice";
 import { FindHomeWork, updateHomeWork } from "../../../Api/Api";
 import SnackBar from "../../SnackBar";
 import UploadFileIcon from '@mui/icons-material/UploadFile';
@@ -36,6 +37,7 @@ export default function EditHomeWorkPage() {
     const [selectedGradeId, setSelectedGradeId] = useState(0);
     const [selectedSection, setSelectedSection] = useState(null);
     const websiteSettings = useSelector(selectWebsiteSettings);
+    const academicYear = useSelector(selectAcademicYear);
     const [DTValue, setDTValue] = useState(null);
     const [changesHappended, setChangesHappended] = useState(false);
     const [openAlert, setOpenAlert] = useState(false);
@@ -220,7 +222,8 @@ export default function EditHomeWorkPage() {
         try {
             const res = await axios.get(FindHomeWork, {
                 params: {
-                    Id: id
+                    id: id,
+                    academicYear: academicYear || "",
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -265,16 +268,18 @@ export default function EditHomeWorkPage() {
 
         try {
             const sendData = new FormData();
-            sendData.append("Id", id);
-            sendData.append("UserType", userType);
-            sendData.append("RollNumber", rollNumber);
-            sendData.append("HeadLine", heading);
-            sendData.append("FileType", fileType);
-            sendData.append("File", uploadedFiles[0] || '');
-            sendData.append("Status", status);
-            sendData.append("PostedOn", status === 'post' ? todayDateTime : "");
-            sendData.append("UpdatedOn", todayDateTime);
-            sendData.append("ScheduleOn", formattedDTValue || dateTimeValue || "");
+            sendData.append("id", id);
+            sendData.append("userType", userType);
+            sendData.append("rollNumber", rollNumber);
+            sendData.append("headLine", heading);
+            sendData.append("fileType", fileType);
+            sendData.append("file", uploadedFiles[0] || '');
+            sendData.append("status", status);
+            sendData.append("postedOn", status === 'post' ? todayDateTime : "");
+            sendData.append("updatedOn", todayDateTime);
+            sendData.append("scheduleOn", formattedDTValue || dateTimeValue || "");
+
+            sendData.append("academicYear", academicYear || "");
 
             const res = await axios.put(updateHomeWork, sendData, {
                 headers: {

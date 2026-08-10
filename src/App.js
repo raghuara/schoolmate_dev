@@ -13,20 +13,22 @@ import { logout } from './Redux/Slices/AuthSlice';
 
 const AppContent = () => {
   const dispatch = useDispatch();
-  const navigate = useNavigate(); 
-  const auth = useSelector((state) => state.auth); 
+  const navigate = useNavigate();
+  const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
+  const rollNumber = useSelector((state) => state.auth.rollNumber);
+  const userType = useSelector((state) => state.auth.userType);
 
   useEffect(() => {
     const isValidAuth =
-      auth?.isAuthenticated &&
-      auth?.rollNumber?.trim() !== '' &&
-      auth?.userType?.trim() !== '';
-  
+      isAuthenticated &&
+      (rollNumber || '').trim() !== '' &&
+      (userType || '').trim() !== '';
+
     if (!isValidAuth) {
-      dispatch(logout());
+      if (isAuthenticated) dispatch(logout());
       navigate('/');
     }
-  }, [auth, dispatch]);
+  }, [isAuthenticated, rollNumber, userType, dispatch, navigate]);
 
   useEffect(() => {
     // generateToken(); // push notifications disabled — re-enable later

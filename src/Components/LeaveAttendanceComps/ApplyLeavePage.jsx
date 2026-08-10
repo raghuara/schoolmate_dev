@@ -730,21 +730,21 @@ export default function ApplyLeavePage({ onSuccess, onCancel }) {
             ? 'Loss of Pay'
             : form.leaveType;
 
-        fd.append('ForRollNumber',    String(rollNumber || ''));
-        fd.append('AcademicYear',     academicYear);
-        fd.append('LeaveTypeId',      String(selectedLeaveOption?.leaveTypeId ?? ''));
-        fd.append('LeaveType',        leaveTypeForApi);
-        fd.append('FromDate',         formatDateForApi(startStr));   // DD-MM-YYYY
-        fd.append('ToDate',           formatDateForApi(endStr));     // DD-MM-YYYY
-        fd.append('IsHalfDay',        form.isHalfDay ? 'true' : 'false');
-        fd.append('Reason',           form.reason.trim());
-        fd.append('Contact',          form.contact.trim());
-        fd.append('EmergencyContact', form.emergencyContact.trim());
-        fd.append('Remarks',          form.remarks.trim());
+        fd.append('forRollNumber',    String(rollNumber || ''));
+        fd.append('academicYear',     academicYear);
+        fd.append('leaveTypeId',      String(selectedLeaveOption?.leaveTypeId ?? ''));
+        fd.append('leaveType',        leaveTypeForApi);
+        fd.append('fromDate',         formatDateForApi(startStr));   // DD-MM-YYYY
+        fd.append('toDate',           formatDateForApi(endStr));     // DD-MM-YYYY
+        fd.append('isHalfDay',        form.isHalfDay ? 'true' : 'false');
+        fd.append('reason',           form.reason.trim());
+        fd.append('contact',          form.contact.trim());
+        fd.append('emergencyContact', form.emergencyContact.trim());
+        fd.append('remarks',          form.remarks.trim());
         // Optional file — only the first uploaded document is sent. Add more
         // appends here if/when the backend accepts multiple files.
         if (uploadedFiles.length > 0 && uploadedFiles[0].file) {
-            fd.append('SupportingDocumentFile', uploadedFiles[0].file, uploadedFiles[0].name);
+            fd.append('supportingDocumentFile', uploadedFiles[0].file, uploadedFiles[0].name);
         }
 
         setIsSubmitting(true);

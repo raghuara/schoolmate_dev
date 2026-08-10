@@ -48,6 +48,7 @@ export default function FeedBackPage() {
     const userType = user.userType
     const userName = user.name
     const feedbackPerms = findSubMenuPermissions(user.permissions, "communication", "feedback") || {};
+    const canView = feedbackPerms.view === "Y";
     const canCreate = feedbackPerms.create === "Y";
     const [isLoading, setIsLoading] = useState(false);
     const token = '123';
@@ -173,9 +174,9 @@ export default function FeedBackPage() {
         try {
             const res = await axios.get(parentsFeedBackFetchAll, {
                 params: {
-                    RollNumber: rollNumber,
-                    UserType: userType,
-                    Type: filter || '',
+                    rollNumber: rollNumber,
+                    userType: userType,
+                    type: filter || '',
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -246,7 +247,7 @@ export default function FeedBackPage() {
         try {
             const res = await axios.delete(DeleteConsentForm, {
                 params: {
-                    Id: id
+                    id: id
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -339,32 +340,36 @@ export default function FeedBackPage() {
                     {/* Action Buttons — right aligned */}
                     <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6.5 }}
                         sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 1.2, flexWrap: "wrap" }}>
-                        <Link to="questions" style={{ textDecoration: "none" }}>
-                            <Button
-                                size="small"
-                                sx={{
-                                    textTransform: "none", fontSize: "12px", fontWeight: 600,
-                                    color: "#D84600", bgcolor: "rgba(216, 70, 0, 0.1)",
-                                    border: "1px solid rgba(216, 70, 0, 0.25)",
-                                    borderRadius: "20px", px: 2.5, height: 33,
-                                    "&:hover": { bgcolor: "rgba(216, 70, 0, 0.18)" },
-                                }}>
-                                Created Feedback
-                            </Button>
-                        </Link>
-                        <Link to="responses" style={{ textDecoration: "none" }}>
-                            <Button
-                                size="small"
-                                sx={{
-                                    textTransform: "none", fontSize: "12px", fontWeight: 600,
-                                    color: "#6366F1", bgcolor: "rgba(99, 102, 241, 0.1)",
-                                    border: "1px solid rgba(99, 102, 241, 0.25)",
-                                    borderRadius: "20px", px: 2.5, height: 33,
-                                    "&:hover": { bgcolor: "rgba(99, 102, 241, 0.18)" },
-                                }}>
-                                Responses Received
-                            </Button>
-                        </Link>
+                        {canView && (
+                            <Link to="questions" style={{ textDecoration: "none" }}>
+                                <Button
+                                    size="small"
+                                    sx={{
+                                        textTransform: "none", fontSize: "12px", fontWeight: 600,
+                                        color: "#D84600", bgcolor: "rgba(216, 70, 0, 0.1)",
+                                        border: "1px solid rgba(216, 70, 0, 0.25)",
+                                        borderRadius: "20px", px: 2.5, height: 33,
+                                        "&:hover": { bgcolor: "rgba(216, 70, 0, 0.18)" },
+                                    }}>
+                                    Created Feedback
+                                </Button>
+                            </Link>
+                        )}
+                        {canView && (
+                            <Link to="responses" style={{ textDecoration: "none" }}>
+                                <Button
+                                    size="small"
+                                    sx={{
+                                        textTransform: "none", fontSize: "12px", fontWeight: 600,
+                                        color: "#6366F1", bgcolor: "rgba(99, 102, 241, 0.1)",
+                                        border: "1px solid rgba(99, 102, 241, 0.25)",
+                                        borderRadius: "20px", px: 2.5, height: 33,
+                                        "&:hover": { bgcolor: "rgba(99, 102, 241, 0.18)" },
+                                    }}>
+                                    Responses Received
+                                </Button>
+                            </Link>
+                        )}
                         {canCreate && (
                         <Button
                             onClick={handleCreateNews}

@@ -459,7 +459,7 @@ export default function IrregularAttendeesPage({ onClose }) {
         try {
             const res = await axios.get(sectionsDropdown, {
                 params: {
-                    Grade: selectedClass,
+                    grade: selectedClass,
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -487,10 +487,10 @@ export default function IrregularAttendeesPage({ onClose }) {
         try {
             const res = await axios.get(irregularAttendees, {
                 params: {
-                    Date: formattedDate,
-                    Grade: selectedClass || "overall",
-                    Section: selectedClassSection || "overall",
-                    Status: "absent",
+                    date: formattedDate,
+                    grade: selectedClass || "overall",
+                    section: selectedClassSection || "overall",
+                    status: "absent",
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -513,10 +513,10 @@ export default function IrregularAttendeesPage({ onClose }) {
         try {
             const res = await axios.get(irregularAttendees, {
                 params: {
-                    Date: formattedDate,
-                    Grade: selectedClass || "overall",
-                    Section: selectedClassSection || "overall",
-                    Status: "leave",
+                    date: formattedDate,
+                    grade: selectedClass || "overall",
+                    section: selectedClassSection || "overall",
+                    status: "leave",
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -535,10 +535,10 @@ export default function IrregularAttendeesPage({ onClose }) {
         try {
             const res = await axios.get(irregularAttendees, {
                 params: {
-                    Date: formattedDate,
-                    Grade: selectedClass || "overall",
-                    Section: selectedClassSection || "overall",
-                    Status: "late",
+                    date: formattedDate,
+                    grade: selectedClass || "overall",
+                    section: selectedClassSection || "overall",
+                    status: "late",
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,

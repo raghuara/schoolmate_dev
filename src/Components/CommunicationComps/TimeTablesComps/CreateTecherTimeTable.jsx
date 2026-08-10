@@ -110,8 +110,8 @@ export default function CreateTeacherTimeTablesPage() {
         try {
             const res = await axios.get(fetchTeachersTimeTable, {
                 params: {
-                    RollNumber: rollNumber,
-                    UserType: userType,
+                    rollNumber: rollNumber,
+                    userType: userType,
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -134,8 +134,8 @@ export default function CreateTeacherTimeTablesPage() {
         setIsLoading(true);
         try {
             const sendData = new FormData();
-            sendData.append("RollNumber", code);
-            sendData.append("File", uploadedFiles);
+            sendData.append("rollNumber", code);
+            sendData.append("file", uploadedFiles);
             const res = await axios.post(postTeachersTimeTable, sendData, {
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -166,8 +166,8 @@ export default function CreateTeacherTimeTablesPage() {
         setIsLoading(true);
         try {
             const sendData = new FormData();
-            sendData.append("RollNumber", code);
-            sendData.append("File", uploadedFiles);
+            sendData.append("rollNumber", code);
+            sendData.append("file", uploadedFiles);
             const res = await axios.put(updateTeachersTimeTable, sendData, {
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -213,7 +213,7 @@ export default function CreateTeacherTimeTablesPage() {
         try {
             const res = await axios.delete(deleteTeachersTimeTable, {
                 params: {
-                    RollNumber: id
+                    rollNumber: id
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,

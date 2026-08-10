@@ -10,6 +10,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlice";
+import { selectAcademicYear } from "../../../Redux/Slices/academicYearSlice";
 import ReactPlayer from "react-player";
 import { GettingGrades, GetUsersBaseDetails, postMessage, postNews } from "../../../Api/Api";
 import SnackBar from "../../SnackBar";
@@ -50,6 +51,7 @@ export default function CreateMessagesPage() {
     const [changesHappended, setChangesHappended] = useState(false);
     const [formattedDTValue, setFormattedDTValue] = useState(null);
     const websiteSettings = useSelector(selectWebsiteSettings);
+    const academicYear = useSelector(selectAcademicYear);
     const [isEveryone, setIsEveryone] = useState(false);
     const [isPreview, setIsPreview] = useState(false);
     const [specificNo, setSpecificNo] = useState("");
@@ -443,6 +445,8 @@ export default function CreateMessagesPage() {
                     : {
                         specific: "",
                     }),
+
+                academicYear: academicYear || "",
             };
 
             const res = await axios.post(postMessage, sendData, {

@@ -50,7 +50,7 @@ export default function BirthdayPage() {
         setIsLoading(true);
         try {
             const res = await axios.get(DashboardBirthdayUpdated, {
-                params: { Date: formattedDate },
+                params: { date: formattedDate },
                 headers: { Authorization: `Bearer ${token}` },
             });
             const todays = res.data?.todaysBirthday || {};

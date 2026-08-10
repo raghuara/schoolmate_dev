@@ -72,7 +72,7 @@ export default function FolderStudyMaterialPage() {
         try {
             const res = await axios.get(getStudyMaterialFoldersByGrade, {
                 params: {
-                    GradeId: gradeId,
+                    gradeId: gradeId,
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -91,7 +91,7 @@ export default function FolderStudyMaterialPage() {
         try {
             const res = await axios.get(getStudyMaterialFolderById, {
                 params: {
-                    ID: id,
+                    id: id,
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,

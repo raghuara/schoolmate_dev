@@ -195,7 +195,7 @@ export default function EditStaffDetails() {
         setIsLoading(true);
         try {
             const res = await axios.get(FindStaffManagementDetails, {
-                params: { RollNumber: selectedRollNumber || "" },
+                params: { rollNumber: selectedRollNumber || "" },
                 headers: { Authorization: `Bearer ${token}` },
             });
 
@@ -322,20 +322,20 @@ export default function EditStaffDetails() {
         setIsLoading(true);
         try {
             const formData = new FormData();
-            formData.append("StaffRollNumber", staffRollNumber);
-            formData.append("StaffNameInEnglish", staffNameEnglish);
-            formData.append("StaffNameInTamil", staffNameTamil);
-            formData.append("DateOfBirth", dateOfBirth);
-            formData.append("Gender", gender);
-            formData.append("AdmissionClass", selectedGradeId);
-            formData.append("Section", selectedSection);
-            formData.append("UserType", selectedUserType.toLowerCase());
-            formData.append("StaffCategory", staffCategory);
-            formData.append("StaffDesignation", staffDesignation);
-            formData.append("DateofJoining", dateOfJoining || "");
-            formData.append("StaffPassportSizePhotofiletype", profileFileType || "existing");
+            formData.append("staffRollNumber", staffRollNumber);
+            formData.append("staffNameInEnglish", staffNameEnglish);
+            formData.append("staffNameInTamil", staffNameTamil);
+            formData.append("dateOfBirth", dateOfBirth);
+            formData.append("gender", gender);
+            formData.append("admissionClass", selectedGradeId);
+            formData.append("section", selectedSection);
+            formData.append("userType", selectedUserType.toLowerCase());
+            formData.append("staffCategory", staffCategory);
+            formData.append("staffDesignation", staffDesignation);
+            formData.append("dateofJoining", dateOfJoining || "");
+            formData.append("staffPassportSizePhotofiletype", profileFileType || "existing");
             if (profileImage) {
-                formData.append("PassportSizePhotofile", profileImage);
+                formData.append("passportSizePhotofile", profileImage);
             }
 
             const res = await axios.put(updateStaffInformation, formData, {

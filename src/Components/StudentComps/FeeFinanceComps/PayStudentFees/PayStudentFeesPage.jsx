@@ -69,8 +69,8 @@ export default function PayStudentFeePage() {
     try {
       const res = await axios.get(findStudents, {
         params: {
-          GradeId: selectedGradeId || 131,
-          Section: selectedSection,
+          gradeId: selectedGradeId || 131,
+          section: selectedSection,
         },
         headers: {
           Authorization: `Bearer ${token}`,

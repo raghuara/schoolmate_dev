@@ -212,8 +212,8 @@ export default function TransportFeeStructure() {
     try {
       const response = await axios.get(transpoartFeeFetchByRouteId, {
         params: {
-          RouteInformationId: tripDetails.routeInformation.id,
-          Year: selectedYear,
+          routeInformationId: tripDetails.routeInformation.id,
+          year: selectedYear,
         },
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -389,7 +389,7 @@ export default function TransportFeeStructure() {
       routes.map(async (route) => {
         try {
           const res = await axios.get(transpoartFeeFetchByRouteId, {
-            params: { RouteInformationId: route.routeInformationId, Year: selectedYear },
+            params: { routeInformationId: route.routeInformationId, year: selectedYear },
             headers: { Authorization: `Bearer ${token}` },
           });
           statusMap[route.routeInformationId] = !!(res.data?.success && res.data.routeStopsFees?.length > 0);

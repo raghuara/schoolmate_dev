@@ -827,8 +827,8 @@ export default function BillingScreen() {
 
       const requestConfig = {
         params: {
-          RollNumber: rollNumber,
-          Year: selectedYear
+          rollNumber: rollNumber,
+          year: selectedYear
         },
         headers: {
           Authorization: `Bearer ${token}`,
@@ -841,7 +841,7 @@ export default function BillingScreen() {
       const formData = new FormData();
       formData.append('request', JSON.stringify(payload));
       if (selectedPaymentMethod === 'upi' && upiProofFile) {
-        formData.append('UPIProofFile', upiProofFile);
+        formData.append('upiProofFile', upiProofFile);
       }
       const requestBody = formData;
       // Content-Type (with multipart boundary) is set automatically by the browser
@@ -1259,8 +1259,8 @@ export default function BillingScreen() {
     try {
       const res = await axios.get(findStudentSchoolFeesBilling, {
         params: {
-          RollNumber: rollNumber,
-          Year: selectedYear
+          rollNumber: rollNumber,
+          year: selectedYear
         },
         headers: {
           Authorization: `Bearer ${token}`,
@@ -1282,8 +1282,8 @@ export default function BillingScreen() {
     try {
       const res = await axios.get(findStudentEcaFeesBilling, {
         params: {
-          RollNumber: rollNumber,
-          Year: selectedYear
+          rollNumber: rollNumber,
+          year: selectedYear
         },
         headers: {
           Authorization: `Bearer ${token}`,
@@ -1304,8 +1304,8 @@ export default function BillingScreen() {
     try {
       const res = await axios.get(findStudentTransportFeesBilling, {
         params: {
-          RollNumber: rollNumber,
-          Year: selectedYear
+          rollNumber: rollNumber,
+          year: selectedYear
         },
         headers: {
           Authorization: `Bearer ${token}`
@@ -1342,8 +1342,8 @@ export default function BillingScreen() {
     try {
       const res = await axios.get(findStudentAdditionalFeesBilling, {
         params: {
-          RollNumber: rollNumber,
-          Year: selectedYear
+          rollNumber: rollNumber,
+          year: selectedYear
         },
         headers: {
           Authorization: `Bearer ${token}`,

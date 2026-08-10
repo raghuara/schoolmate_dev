@@ -12,6 +12,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlice";
+import { selectAcademicYear } from "../../../Redux/Slices/academicYearSlice";
 import ReactPlayer from "react-player";
 import { postNews } from "../../../Api/Api";
 import SnackBar from "../../SnackBar";
@@ -60,6 +61,7 @@ export default function CreateNewsPage() {
     });
 
     const websiteSettings = useSelector(selectWebsiteSettings);
+    const academicYear = useSelector(selectAcademicYear);
 
     const theme = createTheme({
         palette: {
@@ -284,17 +286,18 @@ export default function CreateNewsPage() {
         try {
             const sendData = new FormData();
 
-            sendData.append("HeadLine", heading);
-            sendData.append("News", newsContentHTML);
-            sendData.append("UserType", userType);
-            sendData.append("RollNumber", rollNumber);
-            sendData.append("PostedOn", todayDateTime);
-            sendData.append("Status", status);
-            sendData.append("ScheduleOn", formattedDTValue || "");
-            sendData.append("DraftedOn", todayDateTime);
-            sendData.append("FileType", fileType || "empty");
-            sendData.append("File", uploadedFiles[0] || '');
-            sendData.append("Link", pastedLink || '');
+            sendData.append("headLine", heading);
+            sendData.append("news", newsContentHTML);
+            sendData.append("userType", userType);
+            sendData.append("rollNumber", rollNumber);
+            sendData.append("postedOn", todayDateTime);
+            sendData.append("status", status);
+            sendData.append("scheduleOn", formattedDTValue || "");
+            sendData.append("draftedOn", todayDateTime);
+            sendData.append("fileType", fileType || "empty");
+            sendData.append("file", uploadedFiles[0] || '');
+            sendData.append("link", pastedLink || '');
+            sendData.append("academicYear", academicYear || '');
 
 
             const res = await axios.post(postNews, sendData, {

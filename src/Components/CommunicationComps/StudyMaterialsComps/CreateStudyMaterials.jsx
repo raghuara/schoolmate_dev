@@ -7,6 +7,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlice";
+import { selectAcademicYear } from "../../../Redux/Slices/academicYearSlice";
 import { deleteStudyMaterialFolder, getStudyMaterialFoldersByGrade, GettingGrades, postHomeWork, postMessage, postNews, poststudyMaterial, postStudyMaterialFolder, postTimeTable, sectionsDropdown, TimeTableFetch } from "../../../Api/Api";
 import SnackBar from "../../SnackBar";
 import UploadFileIcon from '@mui/icons-material/UploadFile';
@@ -39,6 +40,7 @@ export default function CreateStudyMaterialsPage() {
     const [selectedGradeId, setSelectedGradeId] = useState(null);
     const [selectedSection, setSelectedSection] = useState(null);
     const websiteSettings = useSelector(selectWebsiteSettings);
+    const academicYear = useSelector(selectAcademicYear);
     const [sectionError, setSectionError] = useState(false);
     const [fileError, setFileError] = useState(false);
     const [gradeError, setGradeError] = useState(false);
@@ -177,7 +179,7 @@ export default function CreateStudyMaterialsPage() {
         try {
             const res = await axios.get(getStudyMaterialFoldersByGrade, {
                 params: {
-                    GradeId: selectedGradeId,
+                    gradeId: selectedGradeId,
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -265,20 +267,22 @@ export default function CreateStudyMaterialsPage() {
         try {
 
             const sendData = new FormData();
-            sendData.append("GradeId", selectedGradeId);
+            sendData.append("gradeId", selectedGradeId);
             selectedSectionIds.forEach(section => {
-                sendData.append("Section", section);
+                sendData.append("section", section);
             });
-            sendData.append("UserType", userType);
-            sendData.append("RollNumber", rollNumber);
-            sendData.append("Subject", selectedSubject);
-            sendData.append("Heading", heading);
-            sendData.append("Folder", selectedFolder);
-            sendData.append("FileType", fileType || "");
-            sendData.append("File", uploadedFiles[0] || '');
-            sendData.append("Status", submitStatus);
-            sendData.append("PostedOn", submitStatus === 'post' ? todayDateTime : "");
-            sendData.append("DraftedOn", submitStatus === 'draft' ? todayDateTime : "");
+            sendData.append("userType", userType);
+            sendData.append("rollNumber", rollNumber);
+            sendData.append("subject", selectedSubject);
+            sendData.append("heading", heading);
+            sendData.append("folder", selectedFolder);
+            sendData.append("fileType", fileType || "");
+            sendData.append("file", uploadedFiles[0] || '');
+            sendData.append("status", submitStatus);
+            sendData.append("postedOn", submitStatus === 'post' ? todayDateTime : "");
+            sendData.append("draftedOn", submitStatus === 'draft' ? todayDateTime : "");
+
+            sendData.append("academicYear", academicYear || "");
 
             const res = await axios.post(poststudyMaterial, sendData, {
                 headers: {

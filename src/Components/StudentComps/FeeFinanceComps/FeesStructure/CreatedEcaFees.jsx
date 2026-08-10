@@ -80,7 +80,7 @@ export default function CreatedEcaFees() {
     setIsLoading(true)
     try {
       const res = await axios.get(ecaFeeFetch, {
-        params: { Year: selectedYear },
+        params: { year: selectedYear },
         headers: { Authorization: `Bearer ${token}` },
       })
       setEcaList(res.data)
@@ -194,7 +194,7 @@ export default function CreatedEcaFees() {
       await axios.delete(deleteEcaFeesStructure, {
         params: {
           ecaFeesID: deleteTarget.ecaFeesID || deleteTarget.id,
-          RollNumber: rollNumber,
+          rollNumber: rollNumber,
         },
         headers: { Authorization: `Bearer ${token}` },
       })

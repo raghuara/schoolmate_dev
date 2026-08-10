@@ -311,21 +311,21 @@ export default function AddStaffDetails() {
         setIsLoading(true);
         try {
             const formData = new FormData();
-            formData.append("StaffRollNumber", staffRollNumber);
-            formData.append("StaffNameInEnglish", staffNameEnglish);
-            formData.append("StaffNameInTamil", staffNameTamil);
-            formData.append("DateOfBirth", dateOfBirth);
-            formData.append("Gender", gender);
-            formData.append("AdmissionClass", selectedGradeId);
-            formData.append("Section", selectedSection || "");
-            formData.append("StaffCategory", staffCategory);
-            formData.append("UserType", selectedUserType);
-            formData.append("StaffDesignation", staffDesignation);
-            formData.append("DateofJoining", dateOfJoining);
-            formData.append("AcademicYear", academicYear);
+            formData.append("staffRollNumber", staffRollNumber);
+            formData.append("staffNameInEnglish", staffNameEnglish);
+            formData.append("staffNameInTamil", staffNameTamil);
+            formData.append("dateOfBirth", dateOfBirth);
+            formData.append("gender", gender);
+            formData.append("admissionClass", selectedGradeId);
+            formData.append("section", selectedSection || "");
+            formData.append("staffCategory", staffCategory);
+            formData.append("userType", selectedUserType);
+            formData.append("staffDesignation", staffDesignation);
+            formData.append("dateofJoining", dateOfJoining);
+            formData.append("academicYear", academicYear);
             if (profileImage) {
-                formData.append("StaffPassportSizePhotofiletype", "image");
-                formData.append("PassportSizePhotofile", profileImage);
+                formData.append("staffPassportSizePhotofiletype", "image");
+                formData.append("passportSizePhotofile", profileImage);
             }
 
 

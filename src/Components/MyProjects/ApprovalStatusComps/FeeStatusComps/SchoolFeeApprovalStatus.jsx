@@ -119,8 +119,8 @@ export default function SchoolFeeApprovalStatus() {
         try {
             const res = await axios.get(approvalStatusCheck, {
                 params: {
-                    RollNumber: rollNumber,
-                    Year: selectedYear,
+                    rollNumber: rollNumber,
+                    year: selectedYear,
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -157,7 +157,7 @@ export default function SchoolFeeApprovalStatus() {
             const res = await axios.delete(deleteSchoolFeesStructure, {
                 params: {
                     primeSchoolFeesID: deleteId,
-                    RollNumber: rollNumber,
+                    rollNumber: rollNumber,
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,

@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { selectWebsiteSettings } from "../../../../Redux/Slices/websiteSettingsSlice";
 import { useDispatch, useSelector } from "react-redux";
+import { selectAcademicYear } from "../../../../Redux/Slices/academicYearSlice";
 import SearchIcon from '@mui/icons-material/Search';
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
@@ -38,6 +39,7 @@ export default function ApprovalStatusHomeworkPage() {
     const [imageUrl, setImageUrl] = useState('');
     const [statusData, setStatusData] = useState([]);
     const user = useSelector((state) => state.auth);
+    const academicYear = useSelector(selectAcademicYear);
     const rollNumber = user.rollNumber
     const userType = user.userType
     const userName = user.name
@@ -199,11 +201,12 @@ export default function ApprovalStatusHomeworkPage() {
         try {
             const res = await axios.get(ApprovalStatusHomeWorkFetch, {
                 params: {
-                    RollNumber: rollNumber,
-                    UserType: userType,
-                    Date: formattedDate || '',
-                    Status: selectedValue || "all",
-                    Screen: "maker"
+                    rollNumber: rollNumber,
+                    userType: userType,
+                    date: formattedDate || '',
+                    status: selectedValue || "all",
+                    screen: "maker",
+                    academicYear: academicYear || ''
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -222,9 +225,9 @@ export default function ApprovalStatusHomeworkPage() {
         try {
             const res = await axios.delete(DeleteHomeWork, {
                 params: {
-                    Id: id,
-                    RollNumber: rollNumber,
-                    UserType: userType,
+                    id: id,
+                    rollNumber: rollNumber,
+                    userType: userType,
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,

@@ -735,16 +735,16 @@ export default function VehicleSafetyCompliancePage({ vehicleAssetId }) {
         setIsLoading(true);
         try {
             const sendData = {
-                VehicleAssetID: vehicleAssetId,
-                FCType: fcType,
-                FCNumber: fcNumber,
-                FCIssueDate: formatDateToDDMMYYYY(fcIssueDate),
-                FCExpiryDate: formatDateToDDMMYYYY(fcExpiryDate),
-                FCValidityDuration: fcValidityDuration,
-                LastValidDate: formatDateToDDMMYYYY(fcLastValidDate),
-                RenewalReminder: fcRenewalReminder,
-                CurrentFCStatus: fcCurrentStatus,
-                NotesAboutInspection: fcNotesAboutInspection
+                vehicleAssetID: vehicleAssetId,
+                fcType: fcType,
+                fcNumber: fcNumber,
+                fcIssueDate: formatDateToDDMMYYYY(fcIssueDate),
+                fcExpiryDate: formatDateToDDMMYYYY(fcExpiryDate),
+                fcValidityDuration: fcValidityDuration,
+                lastValidDate: formatDateToDDMMYYYY(fcLastValidDate),
+                renewalReminder: fcRenewalReminder,
+                currentFCStatus: fcCurrentStatus,
+                notesAboutInspection: fcNotesAboutInspection
             };
 
             await axios.post(postVehicleFCDetail, sendData, {
@@ -790,15 +790,15 @@ export default function VehicleSafetyCompliancePage({ vehicleAssetId }) {
         setIsLoading(true);
         try {
             const sendData = {
-                VehicleAssetID: vehicleAssetId,
-                PermitNumber: permitNumber,
-                PermitType: permitType,
-                IssuingRTO: issuingRto,
-                ValidDateFrom: formatDateToDDMMYYYY(permitValidDateFrom),
-                ValidTill: formatDateToDDMMYYYY(permitValidTill),
-                PermitValidityDuration: permitValidityDuration,
-                PermitAreaOfOperation: permitAreaOfOperation,
-                PermitRoute: permitRoute
+                vehicleAssetID: vehicleAssetId,
+                permitNumber: permitNumber,
+                permitType: permitType,
+                issuingRTO: issuingRto,
+                validDateFrom: formatDateToDDMMYYYY(permitValidDateFrom),
+                validTill: formatDateToDDMMYYYY(permitValidTill),
+                permitValidityDuration: permitValidityDuration,
+                permitAreaOfOperation: permitAreaOfOperation,
+                permitRoute: permitRoute
             };
 
             await axios.post(postVehiclePermitDetail, sendData, {
@@ -844,11 +844,11 @@ export default function VehicleSafetyCompliancePage({ vehicleAssetId }) {
         setIsLoading(true);
         try {
             const sendData = {
-                VehicleAssetID: vehicleAssetId,
-                PUCNumber: pucCertificateNumber,
-                PUCIssueDate: formatDateToDDMMYYYY(pucIssueDate),
-                PUCExpiryDate: formatDateToDDMMYYYY(pucExpiryDate),
-                PUCValidityStatus: pucValidityStatus
+                vehicleAssetID: vehicleAssetId,
+                pucNumber: pucCertificateNumber,
+                pucIssueDate: formatDateToDDMMYYYY(pucIssueDate),
+                pucExpiryDate: formatDateToDDMMYYYY(pucExpiryDate),
+                pucValidityStatus: pucValidityStatus
             };
 
             await axios.post(postVehiclePUCDetail, sendData, {
@@ -886,11 +886,11 @@ export default function VehicleSafetyCompliancePage({ vehicleAssetId }) {
         setIsLoading(true);
         try {
             const sendData = {
-                VehicleAssetID: vehicleAssetId,
-                TaxType: taxType,
-                TaxPaidDate: formatDateToDDMMYYYY(taxPaidDate),
-                TaxValidDate: formatDateToDDMMYYYY(taxExpiryDate),
-                TaxStatus: taxStatus
+                vehicleAssetID: vehicleAssetId,
+                taxType: taxType,
+                taxPaidDate: formatDateToDDMMYYYY(taxPaidDate),
+                taxValidDate: formatDateToDDMMYYYY(taxExpiryDate),
+                taxStatus: taxStatus
             };
 
             await axios.post(postVehicleRoadTransportTax, sendData, {
@@ -928,56 +928,56 @@ export default function VehicleSafetyCompliancePage({ vehicleAssetId }) {
         setIsLoading(true);
         try {
             const sendData = {
-                VehicleAssetID: vehicleAssetId,
-                CCTVInstalled: cctvInstalled,
-                NumberOfCameras: numberOfCameras,
-                CCTVDealerInstallerSame: cctvDealerInstallerSame,
+                vehicleAssetID: vehicleAssetId,
+                cctvInstalled: cctvInstalled,
+                numberOfCameras: numberOfCameras,
+                cctvDealerInstallerSame: cctvDealerInstallerSame,
                 // Camera 1 Details
                 Camera1DateOfInstallation: formatDateToDDMMYYYY(camera1DateOfInstallation),
-                Camera1DealerInstallerName: camera1DealerInstallerName,
-                Camera1Type: camera1Type,
-                Camera1DealerInstallerName2: camera1DealerInstallerName2,
-                Camera1VendorContactDetails: camera1VendorContactDetails,
-                Camera1Remarks: camera1Remarks,
+                camera1DealerInstallerName: camera1DealerInstallerName,
+                camera1Type: camera1Type,
+                camera1DealerInstallerName2: camera1DealerInstallerName2,
+                camera1VendorContactDetails: camera1VendorContactDetails,
+                camera1Remarks: camera1Remarks,
                 // First Aid Kit
                 FirstAidKitInstallation: firstAidKitInstallation,
-                FirstAidDateOfInstallation: formatDateToDDMMYYYY(firstAidDateOfInstallation),
-                FirstAidExpiryCheckDueDate: formatDateToDDMMYYYY(firstAidExpiryCheckDueDate),
-                FirstAidLastInspectionDate: formatDateToDDMMYYYY(firstAidLastInspectionDate),
-                FirstAidRemarks: firstAidRemarks,
+                firstAidDateOfInstallation: formatDateToDDMMYYYY(firstAidDateOfInstallation),
+                firstAidExpiryCheckDueDate: formatDateToDDMMYYYY(firstAidExpiryCheckDueDate),
+                firstAidLastInspectionDate: formatDateToDDMMYYYY(firstAidLastInspectionDate),
+                firstAidRemarks: firstAidRemarks,
                 // Safety Grills & Exit Doors
                 SafetyGrillsInstallation: safetyGrillsInstallation,
-                SafetyGrillsInstalled: safetyGrillsInstalled,
-                GrillLocation: grillLocation,
-                EmergencyExitAvailable: emergencyExitAvailable,
-                EmergencyExitLocation: emergencyExitLocation,
-                ComplianceAsPerNorms: complianceAsPerNorms,
-                SafetyInstallationInspectionDate: formatDateToDDMMYYYY(safetyInstallationInspectionDate),
-                SafetyRemarks: safetyRemarks,
+                safetyGrillsInstalled: safetyGrillsInstalled,
+                grillLocation: grillLocation,
+                emergencyExitAvailable: emergencyExitAvailable,
+                emergencyExitLocation: emergencyExitLocation,
+                complianceAsPerNorms: complianceAsPerNorms,
+                safetyInstallationInspectionDate: formatDateToDDMMYYYY(safetyInstallationInspectionDate),
+                safetyRemarks: safetyRemarks,
                 // Speed Governor
                 SpeedGovernorInstallation: speedGovernorInstallation,
-                SpeedGovernorDateOfInstallation: formatDateToDDMMYYYY(speedGovernorDateOfInstallation),
-                SpeedGovernorVendorName: speedGovernorVendorName,
-                SpeedLimitSet: speedLimitSet,
-                SpeedGovernorCertificateNumber: speedGovernorCertificateNumber,
-                SpeedGovernorValidityDate: formatDateToDDMMYYYY(speedGovernorValidityDate),
-                SpeedGovernorRemarks: speedGovernorRemarks,
+                speedGovernorDateOfInstallation: formatDateToDDMMYYYY(speedGovernorDateOfInstallation),
+                speedGovernorVendorName: speedGovernorVendorName,
+                speedLimitSet: speedLimitSet,
+                speedGovernorCertificateNumber: speedGovernorCertificateNumber,
+                speedGovernorValidityDate: formatDateToDDMMYYYY(speedGovernorValidityDate),
+                speedGovernorRemarks: speedGovernorRemarks,
                 // Fire Extinguisher
                 FireExtinguisherInstallation: fireExtinguisherInstallation,
-                FireExtinguisherDateOfInstallation: formatDateToDDMMYYYY(fireExtinguisherDateOfInstallation),
-                FireExtinguisherExpiryDate: formatDateToDDMMYYYY(fireExtinguisherExpiryDate),
-                ExtinguisherTypeCapacity: extinguisherTypeCapacity,
-                FireExtinguisherVendorDetails: fireExtinguisherVendorDetails,
-                FireExtinguisherRemarks: fireExtinguisherRemarks,
+                fireExtinguisherDateOfInstallation: formatDateToDDMMYYYY(fireExtinguisherDateOfInstallation),
+                fireExtinguisherExpiryDate: formatDateToDDMMYYYY(fireExtinguisherExpiryDate),
+                extinguisherTypeCapacity: extinguisherTypeCapacity,
+                fireExtinguisherVendorDetails: fireExtinguisherVendorDetails,
+                fireExtinguisherRemarks: fireExtinguisherRemarks,
                 // GPS Tracker
                 GPSTrackerInstallation: gpsTrackerInstallation,
-                GPSDateOfInstallation: formatDateToDDMMYYYY(gpsDateOfInstallation),
-                GPSDeviceIdIMEI: gpsDeviceIdImei,
-                GPSHardwareWarranty: gpsHardwareWarranty,
-                GPSOwnerNameAddress: gpsOwnerNameAddress,
-                GPSSimNumber: gpsSimNumber,
-                GPSSubscriptionValidTill: formatDateToDDMMYYYY(gpsSubscriptionValidTill),
-                GPSRemarks: gpsRemarks
+                gpsDateOfInstallation: formatDateToDDMMYYYY(gpsDateOfInstallation),
+                gpsDeviceIdIMEI: gpsDeviceIdImei,
+                gpsHardwareWarranty: gpsHardwareWarranty,
+                gpsOwnerNameAddress: gpsOwnerNameAddress,
+                gpsSimNumber: gpsSimNumber,
+                gpsSubscriptionValidTill: formatDateToDDMMYYYY(gpsSubscriptionValidTill),
+                gpsRemarks: gpsRemarks
             };
 
             await axios.post(postVehicleCctvCameraInstallation, sendData, {
@@ -1015,102 +1015,102 @@ export default function VehicleSafetyCompliancePage({ vehicleAssetId }) {
         setIsLoading(true);
         try {
             const sendData = new FormData();
-            sendData.append("VehicleAssetID", vehicleAssetId);
+            sendData.append("vehicleAssetID", vehicleAssetId);
 
             // School Name Display
-            sendData.append("SchoolNameFrontSide", schoolNameFrontSide);
-            sendData.append("SchoolNameBackSide", schoolNameBackSide);
-            sendData.append("SchoolNameLeftSide", schoolNameLeftSide);
-            sendData.append("SchoolNameRightSide", schoolNameRightSide);
+            sendData.append("schoolNameFrontSide", schoolNameFrontSide);
+            sendData.append("schoolNameBackSide", schoolNameBackSide);
+            sendData.append("schoolNameLeftSide", schoolNameLeftSide);
+            sendData.append("schoolNameRightSide", schoolNameRightSide);
 
             // Internal Name & Photo Display
-            sendData.append("InternalNameFrontSide", internalNameFrontSide);
-            sendData.append("InternalNameBackSide", internalNameBackSide);
-            sendData.append("InternalNameLeftSide", internalNameLeftSide);
-            sendData.append("InternalNameRightSide", internalNameRightSide);
+            sendData.append("internalNameFrontSide", internalNameFrontSide);
+            sendData.append("internalNameBackSide", internalNameBackSide);
+            sendData.append("internalNameLeftSide", internalNameLeftSide);
+            sendData.append("internalNameRightSide", internalNameRightSide);
 
             // Reflective Tapes Display
-            sendData.append("ReflectiveTapesFrontSide", reflectiveTapesFrontSide);
-            sendData.append("ReflectiveTapesBackSide", reflectiveTapesBackSide);
-            sendData.append("ReflectiveTapesLeftSide", reflectiveTapesLeftSide);
-            sendData.append("ReflectiveTapesRightSide", reflectiveTapesRightSide);
+            sendData.append("reflectiveTapesFrontSide", reflectiveTapesFrontSide);
+            sendData.append("reflectiveTapesBackSide", reflectiveTapesBackSide);
+            sendData.append("reflectiveTapesLeftSide", reflectiveTapesLeftSide);
+            sendData.append("reflectiveTapesRightSide", reflectiveTapesRightSide);
 
             // Signage Display
-            sendData.append("SignageFrontSide", signageFrontSide);
-            sendData.append("SignageBackSide", signageBackSide);
-            sendData.append("SignageLeftSide", signageLeftSide);
-            sendData.append("SignageRightSide", signageRightSide);
+            sendData.append("signageFrontSide", signageFrontSide);
+            sendData.append("signageBackSide", signageBackSide);
+            sendData.append("signageLeftSide", signageLeftSide);
+            sendData.append("signageRightSide", signageRightSide);
 
             // School Name Display Files
             if (schoolNameFrontFile) {
-                sendData.append("SchoolNameFrontFile", schoolNameFrontFile);
-                sendData.append("SchoolNameFrontFileType", schoolNameFrontFile.type.startsWith('image/') ? 'image' : 'pdf');
+                sendData.append("schoolNameFrontFile", schoolNameFrontFile);
+                sendData.append("schoolNameFrontFileType", schoolNameFrontFile.type.startsWith('image/') ? 'image' : 'pdf');
             }
             if (schoolNameBackFile) {
-                sendData.append("SchoolNameBackFile", schoolNameBackFile);
-                sendData.append("SchoolNameBackFileType", schoolNameBackFile.type.startsWith('image/') ? 'image' : 'pdf');
+                sendData.append("schoolNameBackFile", schoolNameBackFile);
+                sendData.append("schoolNameBackFileType", schoolNameBackFile.type.startsWith('image/') ? 'image' : 'pdf');
             }
             if (schoolNameLeftFile) {
-                sendData.append("SchoolNameLeftFile", schoolNameLeftFile);
-                sendData.append("SchoolNameLeftFileType", schoolNameLeftFile.type.startsWith('image/') ? 'image' : 'pdf');
+                sendData.append("schoolNameLeftFile", schoolNameLeftFile);
+                sendData.append("schoolNameLeftFileType", schoolNameLeftFile.type.startsWith('image/') ? 'image' : 'pdf');
             }
             if (schoolNameRightFile) {
-                sendData.append("SchoolNameRightFile", schoolNameRightFile);
-                sendData.append("SchoolNameRightFileType", schoolNameRightFile.type.startsWith('image/') ? 'image' : 'pdf');
+                sendData.append("schoolNameRightFile", schoolNameRightFile);
+                sendData.append("schoolNameRightFileType", schoolNameRightFile.type.startsWith('image/') ? 'image' : 'pdf');
             }
 
             // Internal Name & Photo Display Files
             if (internalNameFrontFile) {
-                sendData.append("InternalNameFrontFile", internalNameFrontFile);
-                sendData.append("InternalNameFrontFileType", internalNameFrontFile.type.startsWith('image/') ? 'image' : 'pdf');
+                sendData.append("internalNameFrontFile", internalNameFrontFile);
+                sendData.append("internalNameFrontFileType", internalNameFrontFile.type.startsWith('image/') ? 'image' : 'pdf');
             }
             if (internalNameBackFile) {
-                sendData.append("InternalNameBackFile", internalNameBackFile);
-                sendData.append("InternalNameBackFileType", internalNameBackFile.type.startsWith('image/') ? 'image' : 'pdf');
+                sendData.append("internalNameBackFile", internalNameBackFile);
+                sendData.append("internalNameBackFileType", internalNameBackFile.type.startsWith('image/') ? 'image' : 'pdf');
             }
             if (internalNameLeftFile) {
-                sendData.append("InternalNameLeftFile", internalNameLeftFile);
-                sendData.append("InternalNameLeftFileType", internalNameLeftFile.type.startsWith('image/') ? 'image' : 'pdf');
+                sendData.append("internalNameLeftFile", internalNameLeftFile);
+                sendData.append("internalNameLeftFileType", internalNameLeftFile.type.startsWith('image/') ? 'image' : 'pdf');
             }
             if (internalNameRightFile) {
-                sendData.append("InternalNameRightFile", internalNameRightFile);
-                sendData.append("InternalNameRightFileType", internalNameRightFile.type.startsWith('image/') ? 'image' : 'pdf');
+                sendData.append("internalNameRightFile", internalNameRightFile);
+                sendData.append("internalNameRightFileType", internalNameRightFile.type.startsWith('image/') ? 'image' : 'pdf');
             }
 
             // Reflective Tapes Display Files
             if (reflectiveTapesFrontFile) {
-                sendData.append("ReflectiveTapesFrontFile", reflectiveTapesFrontFile);
-                sendData.append("ReflectiveTapesFrontFileType", reflectiveTapesFrontFile.type.startsWith('image/') ? 'image' : 'pdf');
+                sendData.append("reflectiveTapesFrontFile", reflectiveTapesFrontFile);
+                sendData.append("reflectiveTapesFrontFileType", reflectiveTapesFrontFile.type.startsWith('image/') ? 'image' : 'pdf');
             }
             if (reflectiveTapesBackFile) {
-                sendData.append("ReflectiveTapesBackFile", reflectiveTapesBackFile);
-                sendData.append("ReflectiveTapesBackFileType", reflectiveTapesBackFile.type.startsWith('image/') ? 'image' : 'pdf');
+                sendData.append("reflectiveTapesBackFile", reflectiveTapesBackFile);
+                sendData.append("reflectiveTapesBackFileType", reflectiveTapesBackFile.type.startsWith('image/') ? 'image' : 'pdf');
             }
             if (reflectiveTapesLeftFile) {
-                sendData.append("ReflectiveTapesLeftFile", reflectiveTapesLeftFile);
-                sendData.append("ReflectiveTapesLeftFileType", reflectiveTapesLeftFile.type.startsWith('image/') ? 'image' : 'pdf');
+                sendData.append("reflectiveTapesLeftFile", reflectiveTapesLeftFile);
+                sendData.append("reflectiveTapesLeftFileType", reflectiveTapesLeftFile.type.startsWith('image/') ? 'image' : 'pdf');
             }
             if (reflectiveTapesRightFile) {
-                sendData.append("ReflectiveTapesRightFile", reflectiveTapesRightFile);
-                sendData.append("ReflectiveTapesRightFileType", reflectiveTapesRightFile.type.startsWith('image/') ? 'image' : 'pdf');
+                sendData.append("reflectiveTapesRightFile", reflectiveTapesRightFile);
+                sendData.append("reflectiveTapesRightFileType", reflectiveTapesRightFile.type.startsWith('image/') ? 'image' : 'pdf');
             }
 
             // Signage Display Files
             if (signageFrontFile) {
-                sendData.append("SignageFrontFile", signageFrontFile);
-                sendData.append("SignageFrontFileType", signageFrontFile.type.startsWith('image/') ? 'image' : 'pdf');
+                sendData.append("signageFrontFile", signageFrontFile);
+                sendData.append("signageFrontFileType", signageFrontFile.type.startsWith('image/') ? 'image' : 'pdf');
             }
             if (signageBackFile) {
-                sendData.append("SignageBackFile", signageBackFile);
-                sendData.append("SignageBackFileType", signageBackFile.type.startsWith('image/') ? 'image' : 'pdf');
+                sendData.append("signageBackFile", signageBackFile);
+                sendData.append("signageBackFileType", signageBackFile.type.startsWith('image/') ? 'image' : 'pdf');
             }
             if (signageLeftFile) {
-                sendData.append("SignageLeftFile", signageLeftFile);
-                sendData.append("SignageLeftFileType", signageLeftFile.type.startsWith('image/') ? 'image' : 'pdf');
+                sendData.append("signageLeftFile", signageLeftFile);
+                sendData.append("signageLeftFileType", signageLeftFile.type.startsWith('image/') ? 'image' : 'pdf');
             }
             if (signageRightFile) {
-                sendData.append("SignageRightFile", signageRightFile);
-                sendData.append("SignageRightFileType", signageRightFile.type.startsWith('image/') ? 'image' : 'pdf');
+                sendData.append("signageRightFile", signageRightFile);
+                sendData.append("signageRightFileType", signageRightFile.type.startsWith('image/') ? 'image' : 'pdf');
             }
 
             await axios.post(postVehicleBusBrandingVisualIdentity, sendData, {

@@ -443,9 +443,9 @@ export default function ExpensePage() {
             await axios.put(updateAddexpenceApprovalAction, null, {
                 params: {
                     expenceId: selectedRequest.expenceId,
-                    RollNumber: rollNumber,
-                    Action: approvalAction === "approve" ? "accept" : "decline",
-                    Reason: approvalAction === "decline" ? rejectionReason : null,
+                    rollNumber: rollNumber,
+                    action: approvalAction === "approve" ? "accept" : "decline",
+                    reason: approvalAction === "decline" ? rejectionReason : null,
                 },
                 headers: { Authorization: `Bearer ${token}` },
             });
@@ -593,8 +593,8 @@ export default function ExpensePage() {
             const statusParam = myRequestsStatusFilter === "All" ? "" : myRequestsStatusFilter;
             const res = await axios.get(myExpenceRequests, {
                 params: {
-                    RollNumber: rollNumber,
-                    Status: statusParam,
+                    rollNumber: rollNumber,
+                    status: statusParam,
                 },
                 headers: { Authorization: `Bearer ${token}` },
             });
@@ -617,8 +617,8 @@ export default function ExpensePage() {
             const statusParam = myRequestsStatusFilter === "All" ? "" : myRequestsStatusFilter;
             const res = await axios.get(myFundRequests, {
                 params: {
-                    RollNumber: rollNumber,
-                    Status: statusParam,
+                    rollNumber: rollNumber,
+                    status: statusParam,
                 },
                 headers: { Authorization: `Bearer ${token}` },
             });
@@ -656,8 +656,8 @@ export default function ExpensePage() {
         try {
             const res = await axios.get(getAddedFund, {
                 params:{
-                    RollNumber: rollNumber,
-                    Status:statusFilter,
+                    rollNumber: rollNumber,
+                    status:statusFilter,
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -675,7 +675,7 @@ export default function ExpensePage() {
     const fetchDashboardExpenseData = async () => {
         try {
             const res = await axios.get(getAddedExpence, {
-                params: { RollNumber: rollNumber },
+                params: { rollNumber: rollNumber },
                 headers: { Authorization: `Bearer ${token}` },
             });
             setDashboardExpenseData(res.data.data ?? []);
@@ -689,8 +689,8 @@ export default function ExpensePage() {
         try {
             const res = await axios.get(getAddedExpence, {
                 params:{
-                    RollNumber: rollNumber,
-                    Status:statusFilter,
+                    rollNumber: rollNumber,
+                    status:statusFilter,
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -708,7 +708,7 @@ export default function ExpensePage() {
         setIsLoading(true);
         try {
             const res = await axios.get(expenceApprovalStatusCheck, {
-                params: { RollNumber: rollNumber, Status: approvalsStatusFilter },
+                params: { rollNumber: rollNumber, status: approvalsStatusFilter },
                 headers: { Authorization: `Bearer ${token}` },
             });
             setPendingExpenseData(res.data.expences ?? []);
@@ -723,7 +723,7 @@ export default function ExpensePage() {
         setIsLoading(true);
         try {
             const res = await axios.get(fundApprovalStatusCheck, {
-                params: { RollNumber: rollNumber, Status: approvalsStatusFilter },
+                params: { rollNumber: rollNumber, status: approvalsStatusFilter },
                 headers: { Authorization: `Bearer ${token}` },
             });
             setPendingFundData(res.data.funds ?? []);
@@ -752,9 +752,9 @@ export default function ExpensePage() {
             await axios.put(updateAddFundApprovalAction, null, {
                 params: {
                     addFundId: selectedFund.addFundId,
-                    RollNumber: rollNumber,
-                    Action: fundApprovalAction === "approve" ? "accept" : "decline",
-                    Reason: fundApprovalAction === "decline" ? fundRejectionReason : null,
+                    rollNumber: rollNumber,
+                    action: fundApprovalAction === "approve" ? "accept" : "decline",
+                    reason: fundApprovalAction === "decline" ? fundRejectionReason : null,
                 },
                 headers: { Authorization: `Bearer ${token}` },
             });

@@ -2,7 +2,33 @@
   "permissions": {
     "allow": [
       "Bash(awk -F: '{s+=$2} END {print s}')",
-      "Bash(node \"C:/Users/demom/AppData/Local/Temp/claude/c--Users-demom-React-Projects-schoolmate-dev/250e96f9-7082-4749-a0c5-c3bc5738e008/scratchpad/camelize-api-keys.js\" \"c:/Users/demom/React Projects/schoolmate_dev/src\")"
+      "Bash(node \"C:/Users/demom/AppData/Local/Temp/claude/c--Users-demom-React-Projects-schoolmate-dev/250e96f9-7082-4749-a0c5-c3bc5738e008/scratchpad/camelize-api-keys.js\" \"c:/Users/demom/React Projects/schoolmate_dev/src\")",
+      "PowerShell(npx --no-install babel --presets @babel/preset-react,@babel/preset-env \"src/Components/CommunicationComps/SchoolCalenderPage.jsx\" -o $env:TEMP\\\\sc.out.js; if \\($?\\) { \"SchoolCalenderPage OK\" })",
+      "PowerShell($env:CI=\"false\"; npx --no-install cross-env 2>$null; npm run build 2>&1 | Select-Object -Last 40)",
+      "PowerShell(npm run build 2>&1 | Select-Object -Last 12; \"EXIT=$LASTEXITCODE\")",
+      "PowerShell($env:PORT=\"3100\"; $env:BROWSER=\"none\"; npm start)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3100/static/js/bundle.js)",
+      "Bash(curl -s http://localhost:3100/static/js/bundle.js -o bundle.js)",
+      "Bash(awk 'NR<644101 && /webpack:\\\\/\\\\/\\\\/\\\\.\\\\/node_modules/ {last=$0; ln=NR} END{}' bundle.js)",
+      "Bash(curl -s http://localhost:3100/static/js/bundle.js)",
+      "PowerShell(npm run build 2>&1 | Select-String -Pattern \"Failed to compile|Compiled|SyntaxError|Module not found|Cannot find\" | Select-Object -First 15; \"EXIT=$LASTEXITCODE\")",
+      "Bash(python -)",
+      "PowerShell(npm run build 2>&1 | Select-String -Pattern \"Failed to compile|Compiled successfully|Compiled with warnings|SyntaxError|Module not found\" | Select-Object -First 8; \"EXIT=$LASTEXITCODE\")",
+      "Bash(grep -m1 '\\\\\\\\r')",
+      "Bash(node \"C:/Users/demom/AppData/Local/Temp/claude/c--Users-demom-React-Projects-schoolmate-dev/b231fa9e-35d5-4196-871c-6391f5896443/scratchpad/params3.js\" \"c:/Users/demom/React Projects/schoolmate_dev\")",
+      "Bash(node \"C:/Users/demom/AppData/Local/Temp/claude/c--Users-demom-React-Projects-schoolmate-dev/b231fa9e-35d5-4196-871c-6391f5896443/scratchpad/params4.js\" \"c:/Users/demom/React Projects/schoolmate_dev\")",
+      "PowerShell(npm run build 2>&1 | Select-String -Pattern \"Failed to compile|Compiled successfully|Compiled with warnings|SyntaxError|Module not found|is not defined\" | Select-Object -First 10; \"EXIT=$LASTEXITCODE\")",
+      "PowerShell(npm run build 2>&1 | Select-String -Pattern \"Failed to compile|Compiled successfully|Compiled with warnings\" | Select-Object -First 3; \"EXIT=$LASTEXITCODE\")",
+      "PowerShell(npm run build 2>&1 | Select-String -Pattern \"Failed to compile|Compiled successfully|Compiled with warnings|is not defined|Attempted import error\" | Select-Object -First 6; \"EXIT=$LASTEXITCODE\")",
+      "PowerShell(npm run build 2>&1 | Select-String -Pattern \"Failed to compile|Compiled successfully|Compiled with warnings|is not defined|SyntaxError\" | Select-Object -First 6; \"EXIT=$LASTEXITCODE\")",
+      "PowerShell(npm run build 2>&1 | Select-String -Pattern \"Failed to compile|Compiled successfully|Compiled with warnings|is not defined|SyntaxError|Parsing error\" | Select-Object -First 8; \"EXIT=$LASTEXITCODE\")",
+      "Bash(node \"C:/Users/demom/AppData/Local/Temp/claude/c--Users-demom-React-Projects-schoolmate-dev/b231fa9e-35d5-4196-871c-6391f5896443/scratchpad/wire.js\" \"c:/Users/demom/React Projects/schoolmate_dev\")",
+      "Bash(node \"C:/Users/demom/AppData/Local/Temp/claude/c--Users-demom-React-Projects-schoolmate-dev/b231fa9e-35d5-4196-871c-6391f5896443/scratchpad/finish.js\" \"c:/Users/demom/React Projects/schoolmate_dev\")",
+      "PowerShell(npm run build 2>&1 | Select-String -Pattern \"Failed to compile|Compiled successfully|Compiled with warnings|is not defined|Parsing error\" | Select-Object -First 8; \"EXIT=$LASTEXITCODE\")",
+      "Bash(awk -F: '{s+=$2} END {print s\" call sites\"}')",
+      "PowerShell(npm run build 2>&1 | Select-String -Pattern \"Failed to compile|Compiled successfully|Compiled with warnings|is not defined\" | Select-Object -First 6; \"EXIT=$LASTEXITCODE\")",
+      "Bash(sort -u -t: -k2)",
+      "Bash(node \"C:/Users/demom/AppData/Local/Temp/claude/c--Users-demom-React-Projects-schoolmate-dev/b231fa9e-35d5-4196-871c-6391f5896443/scratchpad/dropguards2.js\" \"c:/Users/demom/React Projects/schoolmate_dev\")"
     ]
   }
 }

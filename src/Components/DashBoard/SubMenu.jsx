@@ -28,11 +28,11 @@ function SubMenuPage({active}) {
         ...(canViewComm("examtimetable") ? [{ path: '/dashboardmenu/examtimetables', label: 'Exam Timetables' }] : []),
         ...(canViewComm("studymaterial") ? [{ path: '/dashboardmenu/studymaterials', label: 'Study Materials' }] : []),
         ...(canViewComm("marks") ? [{ path: '/dashboardmenu/marks', label: 'Marks' }] : []),
-        { path: '/dashboardmenu/schoolcalendar', label: 'School Calendar'},
-        { path: '/dashboardmenu/events', label: 'Events'},
-        { path: '/dashboardmenu/birthday-post', label: 'Birthday Post'},
+        ...(canViewComm("schoolcalender") ? [{ path: '/dashboardmenu/schoolcalendar', label: 'School Calendar' }] : []),
+        ...(canViewComm("events") ? [{ path: '/dashboardmenu/events', label: 'Events' }] : []),
+        ...(canViewComm("birthdaypost") ? [{ path: '/dashboardmenu/birthday-post', label: 'Birthday Post' }] : []),
         ...(canViewComm("feedback") ? [{ path: '/dashboardmenu/feedback', label: 'Feedback' }] : []),
-        { path: '/dashboardmenu/attendance', label: 'Attendance'},
+        ...(canViewComm("attendance") ? [{ path: '/dashboardmenu/attendance', label: 'Attendance' }] : []),
         ...((findSubMenuPermissions(user.permissions, "communication", "notification") || {}).create === "Y" ? [{ path: '/dashboardmenu/notification', label: 'Notification' }] : []),
     ];
 

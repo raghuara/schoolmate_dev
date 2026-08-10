@@ -9,9 +9,10 @@ import dayjs from "dayjs";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
+import { selectAcademicYear } from "../../../Redux/Slices/academicYearSlice";
 import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlice";
 import ReactPlayer from "react-player";
-import { findingGradeWithSubject, GettingGrades, postConsentForm, postFeedBack, postMessage, postNewFeedback, postNews } from "../../../Api/Api";
+import { findingGradeWithSubject, GettingGrades, postConsentForm, postMessage, postNewFeedback, postNews } from "../../../Api/Api";
 import SnackBar from "../../SnackBar";
 import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
@@ -32,6 +33,7 @@ export default function CreateFeedBackPage() {
     const [heading, setHeading] = useState("");
     const [newsContentHTML, setNewsContentHTML] = useState("");
     const user = useSelector((state) => state.auth);
+    const academicYear = useSelector(selectAcademicYear);
     const rollNumber = user.rollNumber
     const userType = user.userType
     const userName = user.name
@@ -539,6 +541,7 @@ export default function CreateFeedBackPage() {
                 postedOn,
                 createdByRollNumber: rollNumber,
                 createdByUserType: userType,
+                academicYear: academicYear || "",
             };
 
             if (feedbackCategory === "Subjects") {

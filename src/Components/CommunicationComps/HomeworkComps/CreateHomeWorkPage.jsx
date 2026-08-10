@@ -7,6 +7,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlice";
+import { selectAcademicYear } from "../../../Redux/Slices/academicYearSlice";
 import { GettingGrades, postHomeWork, postMessage, postNews, postTimeTable, sectionsDropdown, TimeTableFetch } from "../../../Api/Api";
 import SnackBar from "../../SnackBar";
 import UploadFileIcon from '@mui/icons-material/UploadFile';
@@ -37,6 +38,7 @@ export default function CreateHomeWorkPage() {
     const [selectedGradeId, setSelectedGradeId] = useState(0);
     const [selectedSection, setSelectedSection] = useState(null);
     const websiteSettings = useSelector(selectWebsiteSettings);
+    const academicYear = useSelector(selectAcademicYear);
     const [sectionError, setSectionError] = useState(false);
     const [fileError, setFileError] = useState(false);
     const [gradeError, setGradeError] = useState(false);
@@ -286,20 +288,22 @@ export default function CreateHomeWorkPage() {
 
         try {
             const sendData = new FormData();
-            sendData.append("GradeId", selectedGradeId);
-            sendData.append("UserType", userType);
-            sendData.append("RollNumber", rollNumber);
-            sendData.append("HeadLine", heading);
-            sendData.append("FileType", fileType);
-            sendData.append("File", uploadedFiles[0] || '');
-            sendData.append("Status", status);
-            sendData.append("PostedOn", status === 'post' ? todayDateTime : "");
-            sendData.append("DraftedOn", status === 'draft' ? todayDateTime : "");
-            sendData.append("ScheduleOn", formattedDTValue || "");
+            sendData.append("gradeId", selectedGradeId);
+            sendData.append("userType", userType);
+            sendData.append("rollNumber", rollNumber);
+            sendData.append("headLine", heading);
+            sendData.append("fileType", fileType);
+            sendData.append("file", uploadedFiles[0] || '');
+            sendData.append("status", status);
+            sendData.append("postedOn", status === 'post' ? todayDateTime : "");
+            sendData.append("draftedOn", status === 'draft' ? todayDateTime : "");
+            sendData.append("scheduleOn", formattedDTValue || "");
 
             selectedSections.forEach((section, index) => {
                 sendData.append(`Section[${index}]`, section.sectionName);
             });
+
+            sendData.append("academicYear", academicYear || "");
 
             const res = await axios.post(postHomeWork, sendData, {
                 headers: {

@@ -142,9 +142,9 @@ export default function CreateDashboardPage() {
         setIsLoading(true);
         try {
             const sendData = new FormData();
-            sendData.append("RollNumber", rollNumber);
-            sendData.append("FileType", "image");
-            sendData.append("File", uploadedFiles[0] || '');
+            sendData.append("rollNumber", rollNumber);
+            sendData.append("fileType", "image");
+            sendData.append("file", uploadedFiles[0] || '');
 
             const res = await axios.post(postDashboardSliders, sendData, {
                 headers: {

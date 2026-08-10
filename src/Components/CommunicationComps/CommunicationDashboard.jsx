@@ -37,6 +37,7 @@ import DashboardOutlinedIcon from '@mui/icons-material/DashboardOutlined';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { selectWebsiteSettings } from '../../Redux/Slices/websiteSettingsSlice';
+import { selectAcademicYear } from '../../Redux/Slices/academicYearSlice';
 import PostViewTracking from './PostViewTracking';
 import {
     ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid,
@@ -222,6 +223,7 @@ export default function CommunicationDashboard() {
     const [exportAnchor, setExportAnchor] = useState(null);
     const [dateAnchor, setDateAnchor] = useState(null);
     const isExpanded = useSelector((state) => state.sidebar.isExpanded);
+    const academicYear = useSelector(selectAcademicYear);
     const [isLoading, setIsLoading] = useState(false);
 
     // Shape mirrors API response sections so we render exactly what the backend computed.
@@ -241,6 +243,7 @@ export default function CommunicationDashboard() {
         // Send dates only when we actually have a defined range
         if (fromDate) params.fromDate = fromDate;
         if (toDate)   params.toDate   = toDate;
+        if (academicYear) params.academicYear = academicYear;
 
         setIsLoading(true);
         axios
@@ -332,7 +335,7 @@ export default function CommunicationDashboard() {
             });
 
         return () => { cancelled = true; };
-    }, [activePreset, fromDate, toDate]);
+    }, [activePreset, fromDate, toDate, academicYear]);
 
     const applyPreset = (key) => {
         const p = presets.find(x => x.key === key);

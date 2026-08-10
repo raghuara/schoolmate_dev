@@ -98,9 +98,9 @@ export default function SchoolFeeApprovalPage() {
         try {
             const res = await axios.get(approvalStatusCheck, {
                 params: {
-                    RollNumber: rollNumber,
-                    Year: selectedYear,
-                    Status: "Requested"
+                    rollNumber: rollNumber,
+                    year: selectedYear,
+                    status: "Requested"
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -146,9 +146,9 @@ export default function SchoolFeeApprovalPage() {
                 {
                     params: {
                         primeSchoolFeesID: id,
-                        RollNumber: rollNumber,
-                        Action: action,
-                        Reason: rejectReason || ""
+                        rollNumber: rollNumber,
+                        action: action,
+                        reason: rejectReason || ""
                     },
                     headers: {
                         Authorization: `Bearer ${token}`,
@@ -186,7 +186,7 @@ export default function SchoolFeeApprovalPage() {
         try {
 
             const sendData = {
-                PrimeSchoolFeesID: editItem.primeSchoolFeesID,
+                primeSchoolFeesID: editItem.primeSchoolFeesID,
                 gradeId: String(editItem.gradeId),
                 year: selectedYear,
                 rollNumber: rollNumber,

@@ -2,6 +2,7 @@ import { Autocomplete, Box, Button, Checkbox, createTheme, Dialog, DialogActions
 import axios from "axios";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { selectWebsiteSettings } from "../../Redux/Slices/websiteSettingsSlice";
+import { selectSubMenuPermissions } from "../../Redux/Slices/AuthSlice";
 import { useSelector } from "react-redux";
 import dayjs from "dayjs";
 import DatePicker, { Calendar } from "react-multi-date-picker";
@@ -209,6 +210,13 @@ export default function SchoolCalendarPage() {
     const rollNumber = user.rollNumber
     const userType = user.userType
     const userName = user.name
+
+    const calendarPerms = useSelector(selectSubMenuPermissions("communication", "schoolcalender"));
+    const canView = calendarPerms?.view === "Y";
+    const canCreate = calendarPerms?.create === "Y";
+    const canEdit = calendarPerms?.edit === "Y";
+    const canDelete = calendarPerms?.delete === "Y";
+    const canManage = canCreate || canEdit || canDelete;
     const [heading, setHeading] = useState("");
     const [editHeading, setEditHeading] = useState("");
     const [description, setDescription] = useState("");
@@ -483,12 +491,14 @@ export default function SchoolCalendarPage() {
     };
 
     const handleEdit = (id) => {
+        if (!canEdit) return;
         setEditId(id)
         setOpenEditAlert(true);
 
     };
 
     const handleDelete = (id) => {
+        if (!canDelete) return;
         setDeleteId(id);
         setOpenAlert(true);
     };
@@ -549,10 +559,10 @@ export default function SchoolCalendarPage() {
         try {
             const res = await axios.get(FetchAllSchoolCalenderEvents, {
                 params: {
-                    RollNumber: rollNumber,
-                    UserType: userType,
-                    Date: monthChanged || todayDateTime,
-                    Event: "N",
+                    rollNumber: rollNumber,
+                    userType: userType,
+                    date: monthChanged || todayDateTime,
+                    event: "N",
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -575,7 +585,7 @@ export default function SchoolCalendarPage() {
         try {
             const res = await axios.get(FindSchoolCalender, {
                 params: {
-                    Id: editId
+                    id: editId
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -609,6 +619,8 @@ export default function SchoolCalendarPage() {
 
     const handlePost = async (status) => {
 
+        if (!canCreate) return;
+
         setIsSubmitted(true);
 
         if (!heading.trim()) {
@@ -632,17 +644,17 @@ export default function SchoolCalendarPage() {
         try {
             const formData = new FormData();
 
-            formData.append('UserType', userType);
-            formData.append('RollNumber', rollNumber);
-            formData.append('HeadLine', heading);
-            formData.append('Description', description);
-            formData.append('FileType', fileType || "empty");
-            formData.append('File', uploadedFiles[0] || '');
-            formData.append('Link', pastedLink);
-            formData.append('FromDate', fromDateFormatted);
-            formData.append('ToDate', onlyFrom ? fromDateFormatted : toDateFormatted);
-            formData.append('Event', eventsValue || "N");
-            formData.append('EventColor', pickedColor || "rgba(0,0,0,1)");
+            formData.append('userType', userType);
+            formData.append('rollNumber', rollNumber);
+            formData.append('headLine', heading);
+            formData.append('description', description);
+            formData.append('fileType', fileType || "empty");
+            formData.append('file', uploadedFiles[0] || '');
+            formData.append('link', pastedLink);
+            formData.append('fromDate', fromDateFormatted);
+            formData.append('toDate', onlyFrom ? fromDateFormatted : toDateFormatted);
+            formData.append('event', eventsValue || "N");
+            formData.append('eventColor', pickedColor || "rgba(0,0,0,1)");
 
             const res = await axios.post(postSchoolCalender, formData, {
                 headers: {
@@ -672,6 +684,8 @@ export default function SchoolCalendarPage() {
 
     const UpdateEvents = async () => {
 
+        if (!canEdit) return;
+
         if (!editHeading.trim()) {
             setMessage("Headline is required");
             setOpen(true);
@@ -693,17 +707,17 @@ export default function SchoolCalendarPage() {
         try {
             const formData = new FormData();
 
-            formData.append('Id', editId);
-            formData.append('UserType', userType);
-            formData.append('RollNumber', rollNumber);
-            formData.append('HeadLine', editHeading);
-            formData.append('Description', editDescription);
-            formData.append('FileType', editFileType || "empty");
-            formData.append('File', editUploadedFiles[0] || '');
-            formData.append('Link', editPastedLink);
+            formData.append('id', editId);
+            formData.append('userType', userType);
+            formData.append('rollNumber', rollNumber);
+            formData.append('headLine', editHeading);
+            formData.append('description', editDescription);
+            formData.append('fileType', editFileType || "empty");
+            formData.append('file', editUploadedFiles[0] || '');
+            formData.append('link', editPastedLink);
             formData.append('event', editEventsValue || "N");
-            formData.append('EventColor', editPickedColor || "rgba(0, 0, 0, 1)");
-            formData.append("UpdatedOn", todayDateTime || "");
+            formData.append('eventColor', editPickedColor || "rgba(0, 0, 0, 1)");
+            formData.append("updatedOn", todayDateTime || "");
 
 
             const res = await axios.put(updateSchoolCalender, formData, {
@@ -729,11 +743,12 @@ export default function SchoolCalendarPage() {
     };
 
     const DeleteApi = async (id) => {
+        if (!canDelete) return;
         setIsLoading(true);
         try {
             const res = await axios.delete(DeleteSchoolCalender, {
                 params: {
-                    Id: id
+                    id: id
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -822,7 +837,7 @@ export default function SchoolCalendarPage() {
                     <Grid
                         sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 1, px: 1 }}
                         size={{ xs: 6, lg: 6 }}>
-                        {userType !== "teacher" && (
+                        {canCreate && (
                             <Button
                                 variant="contained"
                                 startIcon={<AddIcon sx={{ fontSize: 16 }} />}
@@ -849,7 +864,7 @@ export default function SchoolCalendarPage() {
                     </Grid>
                 </Grid>
             </Box>
-            {userType !== "teacher" &&
+            {canView && canManage &&
                 <Box sx={{
                     height: {
                         xs: "auto",
@@ -1054,18 +1069,22 @@ export default function SchoolCalendarPage() {
                                                                 </Typography>
                                                             )}
                                                         </Box>
-                                                        {(userType === "superadmin" || userType === "admin") && (
+                                                        {(canEdit || canDelete) && (
                                                             <Box sx={{ display: "flex", gap: 0.5, flexShrink: 0 }}>
-                                                                <Tooltip title="Edit">
-                                                                    <IconButton size="small" onClick={() => handleEdit(item.id)} sx={{ width: 22, height: 22 }}>
-                                                                        <EditOutlinedIcon sx={{ fontSize: 13 }} />
-                                                                    </IconButton>
-                                                                </Tooltip>
-                                                                <Tooltip title="Delete">
-                                                                    <IconButton size="small" onClick={() => handleDelete(item.id)} sx={{ width: 22, height: 22 }}>
-                                                                        <DeleteOutlineOutlinedIcon sx={{ fontSize: 13 }} />
-                                                                    </IconButton>
-                                                                </Tooltip>
+                                                                {canEdit && (
+                                                                    <Tooltip title="Edit">
+                                                                        <IconButton size="small" onClick={() => handleEdit(item.id)} sx={{ width: 22, height: 22 }}>
+                                                                            <EditOutlinedIcon sx={{ fontSize: 13 }} />
+                                                                        </IconButton>
+                                                                    </Tooltip>
+                                                                )}
+                                                                {canDelete && (
+                                                                    <Tooltip title="Delete">
+                                                                        <IconButton size="small" onClick={() => handleDelete(item.id)} sx={{ width: 22, height: 22 }}>
+                                                                            <DeleteOutlineOutlinedIcon sx={{ fontSize: 13 }} />
+                                                                        </IconButton>
+                                                                    </Tooltip>
+                                                                )}
                                                             </Box>
                                                         )}
                                                     </Box>
@@ -1178,8 +1197,8 @@ export default function SchoolCalendarPage() {
                                                         item={item}
                                                         onViewImage={handleViewClick}
                                                         onPlayVideo={handleVideoClick}
-                                                        onEdit={handleEdit}
-                                                        onDelete={handleDelete}
+                                                        onEdit={canEdit ? handleEdit : undefined}
+                                                        onDelete={canDelete ? handleDelete : undefined}
                                                     />
                                                 </Grid>
                                             ))
@@ -1214,8 +1233,8 @@ export default function SchoolCalendarPage() {
                                                         item={item}
                                                         onViewImage={handleViewClick}
                                                         onPlayVideo={handleVideoClick}
-                                                        onEdit={handleEdit}
-                                                        onDelete={handleDelete}
+                                                        onEdit={canEdit ? handleEdit : undefined}
+                                                        onDelete={canDelete ? handleDelete : undefined}
                                                     />
                                                 </Grid>
                                             ))
@@ -1371,7 +1390,7 @@ export default function SchoolCalendarPage() {
 
 
                         <Dialog
-                            open={createOpen}
+                            open={createOpen && canCreate}
                             onClose={() => closeCreateDialog()}
                             maxWidth="md"
                             fullWidth
@@ -2024,7 +2043,7 @@ export default function SchoolCalendarPage() {
                 </Box >
             }
             {
-                userType === "teacher" &&
+                canView && !canManage &&
                 <Box sx={{ height: "83vh", overflowY: "auto" }}>
                     <Grid
                         container
@@ -2393,7 +2412,7 @@ export default function SchoolCalendarPage() {
             }
 
             {/* Delete confirmation — root-level so it works from any context */}
-            <Dialog open={openAlert} onClose={() => setOpenAlert(false)}>
+            <Dialog open={openAlert && canDelete} onClose={() => setOpenAlert(false)}>
                 <Box sx={{ display: "flex", justifyContent: "center", p: 2, backgroundColor: '#fff', }}>
                     <Box sx={{ textAlign: 'center', backgroundColor: '#fff', p: 3, width: "70%" }}>
                         <Typography sx={{ fontSize: "20px" }}>Do you really want to delete this?</Typography>
@@ -2426,7 +2445,7 @@ export default function SchoolCalendarPage() {
             </Dialog>
 
             {/* Edit confirmation — root-level so it works from any context */}
-            <Dialog open={openEditAlert} onClose={() => setOpenEditAlert(false)}>
+            <Dialog open={openEditAlert && canEdit} onClose={() => setOpenEditAlert(false)}>
                 <Box sx={{ display: "flex", justifyContent: "center", p: 2, backgroundColor: '#fff', }}>
                     <Box sx={{ textAlign: 'center', backgroundColor: '#fff', p: 3, width: "70%" }}>
                         <Typography sx={{ fontSize: "20px" }}>Do you really want to make changes to this event?</Typography>
@@ -2460,7 +2479,7 @@ export default function SchoolCalendarPage() {
 
             {/* ─── Edit Event Dialog — root-level (full create-style form for editing) ─── */}
             <Dialog
-                open={openEdit}
+                open={openEdit && canEdit}
                 onClose={() => setOpenEdit(false)}
                 maxWidth="md"
                 fullWidth

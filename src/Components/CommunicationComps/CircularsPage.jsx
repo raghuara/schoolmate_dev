@@ -3,6 +3,7 @@ import axios from "axios";
 import React, { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { selectWebsiteSettings } from "../../Redux/Slices/websiteSettingsSlice";
+import { selectAcademicYear } from "../../Redux/Slices/academicYearSlice";
 import { useDispatch, useSelector } from "react-redux";
 import { findSubMenuPermissions } from "../../Redux/Slices/AuthSlice";
 import AddIcon from '@mui/icons-material/Add';
@@ -33,6 +34,7 @@ export default function CircularsPage() {
     const [openCal, setOpenCal] = useState(false);
     const navigate = useNavigate();
     const websiteSettings = useSelector(selectWebsiteSettings);
+    const academicYear = useSelector(selectAcademicYear);
     const [openAlert, setOpenAlert] = useState(false);
     const [openBulkDeleteAlert, setOpenBulkDeleteAlert] = useState(false);
     const [openEditAlert, setOpenEditAlert] = useState(false);
@@ -273,10 +275,11 @@ export default function CircularsPage() {
         try {
             const res = await axios.get(CircularFetch, {
                 params: {
-                    RollNumber: rollNumber,
-                    UserType: userType,
-                    Date: formattedDate || '',
-                    IsMyProject: isMyProject,
+                    rollNumber: rollNumber,
+                    userType: userType,
+                    date: formattedDate || '',
+                    isMyProject: isMyProject,
+                    academicYear: academicYear || '',
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -295,9 +298,9 @@ export default function CircularsPage() {
         try {
             const res = await axios.delete(DeleteCircular, {
                 params: {
-                    Id: id,
-                    RollNumber: rollNumber,
-                    UserType: userType,
+                    id: id,
+                    rollNumber: rollNumber,
+                    userType: userType,
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,

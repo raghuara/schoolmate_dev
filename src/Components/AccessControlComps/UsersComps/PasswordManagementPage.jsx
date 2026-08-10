@@ -310,9 +310,6 @@ export default function PasswordManagementPage() {
         }
     };
 
-    if (user?.userType !== "superadmin" && user?.userType !== "admin") {
-        return <Navigate to="/dashboardmenu/dashboard" replace />;
-    }
 
     return (
         <Box sx={{ width: "100%" }}>

@@ -99,7 +99,7 @@ export default function TransportFeeApprovalStatus() {
     setIsLoading(true);
     try {
       const response = await axios.get(approvalStatusCheckTranspoart, {
-        params: { RollNumber: rollNumber, Year: selectedYear, Status: selectedStatus?.value },
+        params: { rollNumber: rollNumber, year: selectedYear, status: selectedStatus?.value },
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -146,7 +146,7 @@ export default function TransportFeeApprovalStatus() {
     setIsLoading(true);
     try {
       await axios.delete(deleteTranspoartFeesStructure, {
-        params: { transpoartFeesID: deleteId, RollNumber: rollNumber },
+        params: { transpoartFeesID: deleteId, rollNumber: rollNumber },
         headers: { Authorization: `Bearer ${token}` },
       });
       fetchStatusDetails();

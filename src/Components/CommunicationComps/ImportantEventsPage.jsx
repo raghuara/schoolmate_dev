@@ -180,10 +180,10 @@ export default function SchoolCalendarPage() {
         try {
             const res = await axios.get(FetchAllSchoolCalenderEvents, {
                 params: {
-                    RollNumber: rollNumber,
-                    UserType: userType,
-                    Date: monthChanged || todayDateTime,
-                    Event: "Y",
+                    rollNumber: rollNumber,
+                    userType: userType,
+                    date: monthChanged || todayDateTime,
+                    event: "Y",
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,

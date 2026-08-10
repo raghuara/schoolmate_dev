@@ -205,9 +205,9 @@ export default function AttendancePage() {
         try {
             const res = await axios.get(barchart, {
                 params: {
-                    RollNumber: rollNumber,
-                    UserType: userType,
-                    Date: formattedDate,
+                    rollNumber: rollNumber,
+                    userType: userType,
+                    date: formattedDate,
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -227,9 +227,9 @@ export default function AttendancePage() {
         try {
             const res = await axios.get(piechart, {
                 params: {
-                    RollNumber: rollNumber,
-                    UserType: userType,
-                    Date: formattedDate,
+                    rollNumber: rollNumber,
+                    userType: userType,
+                    date: formattedDate,
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -251,7 +251,7 @@ export default function AttendancePage() {
         try {
             const res = await axios.get(sectionsDropdown, {
                 params: {
-                    Grade: gradeValue,
+                    grade: gradeValue,
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -282,9 +282,9 @@ export default function AttendancePage() {
         try {
             const res = await axios.get(attendanceSpecific, {
                 params: {
-                    Date: Date,
-                    Grade: selectedClassValue,
-                    Section: selectedClassSectionValue || "A1",
+                    date: Date,
+                    grade: selectedClassValue,
+                    section: selectedClassSectionValue || "A1",
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -309,11 +309,11 @@ export default function AttendancePage() {
         try {
             const res = await axios.get(attendanceTable, {
                 params: {
-                    Date: Date,
-                    Grade: selectedClass || "prekg",
-                    Section: selectedClassSection || "A1",
-                    Percentage: selectedValue || "overall",
-                    Status: selectedFilter || "overall",
+                    date: Date,
+                    grade: selectedClass || "prekg",
+                    section: selectedClassSection || "A1",
+                    percentage: selectedValue || "overall",
+                    status: selectedFilter || "overall",
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,

@@ -33,6 +33,7 @@ import EditCalendarIcon from '@mui/icons-material/EditCalendar';
 import RealEstateAgentIcon from '@mui/icons-material/RealEstateAgent';
 import ForumRoundedIcon from '@mui/icons-material/ForumRounded';
 import { setSidebar, toggleSidebar } from '../../Redux/Slices/sidebarSlice';
+import AppScrollbar from '../AppScrollbar';
 
 
 function SideBarPage({ mobileOpen, setMobileOpen }) {
@@ -145,8 +146,8 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
     try {
       const res = await axios.get(DashboardUsers, {
         params: {
-          RollNumber: rollNumber,
-          UserType: userType,
+          rollNumber: rollNumber,
+          userType: userType,
         },
         headers: {
           Authorization: `Bearer ${token}`,
@@ -169,8 +170,8 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
     try {
       const res = await axios.get(DashboardUsers, {
         params: {
-          RollNumber: rollNumber,
-          UserType: userType,
+          rollNumber: rollNumber,
+          userType: userType,
         },
         headers: {
           Authorization: `Bearer ${token}`,
@@ -262,7 +263,6 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
   const drawer = (
 
     <Box
-      className="custom-scrollbar"
       sx={{
         backgroundColor: websiteSettings.backgroundColor,
         height: '100vh',
@@ -376,13 +376,8 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
           </Box>
         )}
       </Box>
-      <Box
-        sx={{
-          flex: 1,
-          overflowY: 'auto',
-          overflowX: 'hidden',
-          pb: 8,
-        }}
+      <AppScrollbar
+        style={{ flex: 1, minHeight: 0, paddingBottom: '64px' }}
       >
         <List sx={{ width: '100%' }}>
 
@@ -1389,7 +1384,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
           </Dialog>
         </Box> */}
         </List>
-      </Box>
+      </AppScrollbar>
     </Box>
   );
 
@@ -1445,12 +1440,16 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
             borderRadius: "5px 5px 0px 0px",
             display: 'flex',
             height: 'calc(100vh - 60px)',
-            overflow: 'auto',
+            overflow: 'hidden',
           },
         }}
         anchor="left"
       >
-        {isSubmenuOpen && <SubMenuPage active={selectedActive} />}
+        {isSubmenuOpen && (
+          <AppScrollbar style={{ width: '100%', height: '100%' }}>
+            <SubMenuPage active={selectedActive} />
+          </AppScrollbar>
+        )}
       </Drawer>
     </Box>
   );

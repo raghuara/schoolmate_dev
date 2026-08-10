@@ -10,6 +10,8 @@ import dayjs from "dayjs";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
+import { selectAcademicYear } from "../../../Redux/Slices/academicYearSlice";
+import { findSubMenuPermissions } from "../../../Redux/Slices/AuthSlice";
 import SearchIcon from '@mui/icons-material/Search';
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import { deleteNewFeedbackByTitleId, fetchNewFeedbackAdminResponses, updateNewFeedbackQuestions } from "../../../Api/Api";
@@ -307,6 +309,10 @@ export default function QuestionsFeedBackPage() {
     const location = useLocation();
     const websiteSettings = useSelector(selectWebsiteSettings);
     const user = useSelector((state) => state.auth);
+    const academicYear = useSelector(selectAcademicYear);
+    const feedbackPerms = findSubMenuPermissions(user.permissions, "communication", "feedback") || {};
+    const canEdit = feedbackPerms.edit === "Y";
+    const canDelete = feedbackPerms.delete === "Y";
     const isExpanded = useSelector(selectSidebarExpanded);
 
     const userType = user.userType;
@@ -393,6 +399,7 @@ export default function QuestionsFeedBackPage() {
     };
 
     const openEdit = (item) => {
+        if (!canEdit) return;
         const category = item.category || 'General';
         if (category === 'Subject') {
             setEditForm({
@@ -592,6 +599,7 @@ export default function QuestionsFeedBackPage() {
             postedOn,
             updatedByRollNumber: user.rollNumber || '',
             updatedByUserType: user.userType || '',
+            academicYear: academicYear || '',
         };
 
         if (editForm.category === 'Subject') {
@@ -678,7 +686,7 @@ export default function QuestionsFeedBackPage() {
         setIsLoading(true);
         try {
             const res = await axios.get(fetchNewFeedbackAdminResponses, {
-                params: { category: categoryOptions[categoryTab] },
+                params: { category: categoryOptions[categoryTab], academicYear: academicYear || '' },
                 headers: { Authorization: `Bearer ${token}` },
             });
             setAllData(res.data?.data || []);
@@ -691,6 +699,7 @@ export default function QuestionsFeedBackPage() {
     };
 
     const handleDelete = (id, title = '') => {
+        if (!canDelete) return;
         setDeleteId(id);
         setDeleteTitle(title);
         setDeleteConfirmText('');
@@ -709,7 +718,7 @@ export default function QuestionsFeedBackPage() {
         setIsLoading(true);
         try {
             await axios.delete(deleteNewFeedbackByTitleId, {
-                params: { headerId: deleteId },
+                params: { headerId: deleteId, academicYear: academicYear || '' },
                 headers: { Authorization: `Bearer ${token}` },
             });
             fetchData();
@@ -740,9 +749,6 @@ export default function QuestionsFeedBackPage() {
         }).filter((dg) => dg.feedbacks.length > 0);
     }, [allData, searchQuery]);
 
-    if (userType !== 'superadmin' && userType !== 'admin' && userType !== 'staff') {
-        return <Navigate to="/dashboardmenu/dashboard" replace />;
-    }
 
     return (
         <Box sx={{ width: '100%' }}>
@@ -952,18 +958,22 @@ export default function QuestionsFeedBackPage() {
                                                     View Audience
                                                 </Button>
                                             </Tooltip>
-                                            <Tooltip title="Edit feedback">
-                                                <IconButton size="small" onClick={() => openEdit(item)}
-                                                    sx={{ width: 30, height: 30, border: '1px solid #E5E7EB', bgcolor: '#fff', '&:hover': { bgcolor: '#EEF2FF', borderColor: '#6366F1' } }}>
-                                                    <EditOutlinedIcon sx={{ fontSize: 16, color: '#6B7280' }} />
-                                                </IconButton>
-                                            </Tooltip>
-                                            <Tooltip title="Delete feedback">
-                                                <IconButton size="small" onClick={() => handleDelete(item.headerId, item.title)}
-                                                    sx={{ width: 30, height: 30, border: '1px solid #E5E7EB', bgcolor: '#fff', '&:hover': { bgcolor: '#FEE2E2', borderColor: '#EF4444' } }}>
-                                                    <DeleteOutlineOutlinedIcon sx={{ fontSize: 16, color: '#6B7280' }} />
-                                                </IconButton>
-                                            </Tooltip>
+                                            {canEdit && (
+                                                <Tooltip title="Edit feedback">
+                                                    <IconButton size="small" onClick={() => openEdit(item)}
+                                                        sx={{ width: 30, height: 30, border: '1px solid #E5E7EB', bgcolor: '#fff', '&:hover': { bgcolor: '#EEF2FF', borderColor: '#6366F1' } }}>
+                                                        <EditOutlinedIcon sx={{ fontSize: 16, color: '#6B7280' }} />
+                                                    </IconButton>
+                                                </Tooltip>
+                                            )}
+                                            {canDelete && (
+                                                <Tooltip title="Delete feedback">
+                                                    <IconButton size="small" onClick={() => handleDelete(item.headerId, item.title)}
+                                                        sx={{ width: 30, height: 30, border: '1px solid #E5E7EB', bgcolor: '#fff', '&:hover': { bgcolor: '#FEE2E2', borderColor: '#EF4444' } }}>
+                                                        <DeleteOutlineOutlinedIcon sx={{ fontSize: 16, color: '#6B7280' }} />
+                                                    </IconButton>
+                                                </Tooltip>
+                                            )}
                                         </Box>
                                     </Box>
 

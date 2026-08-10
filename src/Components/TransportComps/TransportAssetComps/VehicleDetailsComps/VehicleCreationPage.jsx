@@ -508,23 +508,23 @@ export default function VehicleCreationPage({ generatedVehicleId }) {
 
         try {
             const sendData = new FormData();
-            sendData.append("VehicleAssetID", generatedVehicleId);
-            sendData.append("ModeOfAcquisition", modeOfAcquisition);
-            sendData.append("VehicleAcquisitionDate", formatDateToDDMMYYYY(acquisitionDate));
-            sendData.append("VehicleAssetType", vehicleAssetType);
-            sendData.append("VehicleAcquisitionSourceType", acquisitionSourceType);
-            sendData.append("VehicleAssetSubType", assetSubType);
-            sendData.append("VehicleBrand", vehicleBrand);
-            sendData.append("BusName", busName);
-            sendData.append("DealerName", dealerName);
-            sendData.append("DealerContactNumber", dealerContactNumber);
-            sendData.append("DealerAddress", dealerAddress);
-            sendData.append("DealerGSTIN", dealerGstin);
-            sendData.append("InvoiceOrTransferOrDonationNumber", invoiceNumber);
+            sendData.append("vehicleAssetID", generatedVehicleId);
+            sendData.append("modeOfAcquisition", modeOfAcquisition);
+            sendData.append("vehicleAcquisitionDate", formatDateToDDMMYYYY(acquisitionDate));
+            sendData.append("vehicleAssetType", vehicleAssetType);
+            sendData.append("vehicleAcquisitionSourceType", acquisitionSourceType);
+            sendData.append("vehicleAssetSubType", assetSubType);
+            sendData.append("vehicleBrand", vehicleBrand);
+            sendData.append("busName", busName);
+            sendData.append("dealerName", dealerName);
+            sendData.append("dealerContactNumber", dealerContactNumber);
+            sendData.append("dealerAddress", dealerAddress);
+            sendData.append("dealerGSTIN", dealerGstin);
+            sendData.append("invoiceOrTransferOrDonationNumber", invoiceNumber);
             if (busPhoto) {
-                sendData.append("BusPhotoFile", busPhoto);
+                sendData.append("busPhotoFile", busPhoto);
                 const fileType = busPhoto.type.startsWith('image/') ? 'image' : 'pdf';
-                sendData.append("BusPhotoFileType", fileType);
+                sendData.append("busPhotoFileType", fileType);
             }
 
             const res = await axios.post(postVehicleAcquisitionDetail, sendData, {
@@ -575,18 +575,18 @@ export default function VehicleCreationPage({ generatedVehicleId }) {
 
         try {
             const sendData = {
-                VehicleAssetID: generatedVehicleId,
-                BusModelAndMake: busModelMake,
-                YearOfManufacture: yearOfManufacture,
-                EngineNumberAsPerRC: engineNumber,
-                EngineChasisNumberAsPerRC: engineChassisNumber,
-                FuelTypeAsPerRC: fuelType,
-                VehicleClassAsPerRC: vehicleClass,
-                FuelTankCapacity: fuelTankCapacity,
-                SeatingCapacity: seatingCapacity,
-                SeatsPerRow: seatsPerRow,
-                StandingSpace: blendingSource,
-                VehicleColour: vehicleColor
+                vehicleAssetID: generatedVehicleId,
+                busModelAndMake: busModelMake,
+                yearOfManufacture: yearOfManufacture,
+                engineNumberAsPerRC: engineNumber,
+                engineChasisNumberAsPerRC: engineChassisNumber,
+                fuelTypeAsPerRC: fuelType,
+                vehicleClassAsPerRC: vehicleClass,
+                fuelTankCapacity: fuelTankCapacity,
+                seatingCapacity: seatingCapacity,
+                seatsPerRow: seatsPerRow,
+                standingSpace: blendingSource,
+                vehicleColour: vehicleColor
             };
 
             const res = await axios.post(postVehicleSpecification, sendData, {
@@ -644,15 +644,15 @@ export default function VehicleCreationPage({ generatedVehicleId }) {
 
         try {
             const sendData = {
-                VehicleAssetID: generatedVehicleId,
-                RegistrationNumberAsPerRC: registrationNumber,
-                RTONameAndCodeAsPerRC: rtoNameCode,
-                RegistrationDate: formatDateToDDMMYYYY(registrationDate),
-                VehicleOwnershipType: vehicleOwnershipType,
-                VehicleOwnerNameAsPerRC: vehicleOwnerName,
-                OwnerPermanentAddress: ownerPermanentAddress,
-                OwnerContactNumber: ownerContactNumber,
-                VehicleOwnerLegalIdOrGST: vehicleOwnerLegalIdGst
+                vehicleAssetID: generatedVehicleId,
+                registrationNumberAsPerRC: registrationNumber,
+                rtoNameAndCodeAsPerRC: rtoNameCode,
+                registrationDate: formatDateToDDMMYYYY(registrationDate),
+                vehicleOwnershipType: vehicleOwnershipType,
+                vehicleOwnerNameAsPerRC: vehicleOwnerName,
+                ownerPermanentAddress: ownerPermanentAddress,
+                ownerContactNumber: ownerContactNumber,
+                vehicleOwnerLegalIdOrGST: vehicleOwnerLegalIdGst
             };
 
             const res = await axios.post(postVehicleRegistrationOwnership, sendData, {
@@ -710,15 +710,15 @@ export default function VehicleCreationPage({ generatedVehicleId }) {
 
         try {
             const sendData = {
-                VehicleAssetID: generatedVehicleId,
-                InsuranceCompanyName: insuranceCompanyName,
-                InsurancePolicyNumber: insurancePolicyNumber,
-                InsurancePolicyType: insurancePolicyType,
-                PolicyStartDate: formatDateToDDMMYYYY(policyStartDate),
-                PolicyEndDate: formatDateToDDMMYYYY(policyEndDate),
-                PrimaryInsuranceIdentifier: primaryInsuranceIdentifier,
-                CurrentInsuranceStatus: currentInsuranceStatus,
-                InsurancePremiumAmount: insurancePremiumAmount
+                vehicleAssetID: generatedVehicleId,
+                insuranceCompanyName: insuranceCompanyName,
+                insurancePolicyNumber: insurancePolicyNumber,
+                insurancePolicyType: insurancePolicyType,
+                policyStartDate: formatDateToDDMMYYYY(policyStartDate),
+                policyEndDate: formatDateToDDMMYYYY(policyEndDate),
+                primaryInsuranceIdentifier: primaryInsuranceIdentifier,
+                currentInsuranceStatus: currentInsuranceStatus,
+                insurancePremiumAmount: insurancePremiumAmount
             };
 
             const res = await axios.post(postVehicleInsuranceCompliance, sendData, {
@@ -768,14 +768,14 @@ export default function VehicleCreationPage({ generatedVehicleId }) {
 
         try {
             const sendData = {
-                VehicleAssetID: generatedVehicleId,
-                Warranty: warrantyProvided,
-                WarrantyProvidedBy: warrantyProvidedBy,
-                WarrantyType: warrantyType,
-                WarrantyCoverageFor: warrantyCoverageFor,
-                FullVehicleWarrantyStartDate: formatDateToDDMMYYYY(fullVehicleWarrantyStartDate),
-                FullVehicleWarrantyEndDate: formatDateToDDMMYYYY(fullVehicleWarrantyEndDate),
-                FullVehicleWarrantyPeriod: fullVehicleWarrantyPeriod
+                vehicleAssetID: generatedVehicleId,
+                warranty: warrantyProvided,
+                warrantyProvidedBy: warrantyProvidedBy,
+                warrantyType: warrantyType,
+                warrantyCoverageFor: warrantyCoverageFor,
+                fullVehicleWarrantyStartDate: formatDateToDDMMYYYY(fullVehicleWarrantyStartDate),
+                fullVehicleWarrantyEndDate: formatDateToDDMMYYYY(fullVehicleWarrantyEndDate),
+                fullVehicleWarrantyPeriod: fullVehicleWarrantyPeriod
             };
 
             const res = await axios.post(postVehicleWarrantyServiceClaim, sendData, {
@@ -847,31 +847,31 @@ export default function VehicleCreationPage({ generatedVehicleId }) {
 
         try {
             const sendData = new FormData();
-            sendData.append("VehicleAssetID", generatedVehicleId);
+            sendData.append("vehicleAssetID", generatedVehicleId);
 
             if (rcBook) {
-                sendData.append("RCBookFile", rcBook);
-                sendData.append("RCBookFileType", rcBook.type.startsWith('image/') ? 'image' : 'pdf');
+                sendData.append("rcBookFile", rcBook);
+                sendData.append("rcBookFileType", rcBook.type.startsWith('image/') ? 'image' : 'pdf');
             }
             if (fitnessCertificate) {
-                sendData.append("FitnessCertificateFile", fitnessCertificate);
-                sendData.append("FitnessCertificateFileType", fitnessCertificate.type.startsWith('image/') ? 'image' : 'pdf');
+                sendData.append("fitnessCertificateFile", fitnessCertificate);
+                sendData.append("fitnessCertificateFileType", fitnessCertificate.type.startsWith('image/') ? 'image' : 'pdf');
             }
             if (roadTaxCertificate) {
-                sendData.append("RoadTaxCertificateFile", roadTaxCertificate);
-                sendData.append("RoadTaxCertificateFileType", roadTaxCertificate.type.startsWith('image/') ? 'image' : 'pdf');
+                sendData.append("roadTaxCertificateFile", roadTaxCertificate);
+                sendData.append("roadTaxCertificateFileType", roadTaxCertificate.type.startsWith('image/') ? 'image' : 'pdf');
             }
             if (insuranceDoc) {
-                sendData.append("InsuranceDocumentFile", insuranceDoc);
-                sendData.append("InsuranceDocumentFileType", insuranceDoc.type.startsWith('image/') ? 'image' : 'pdf');
+                sendData.append("insuranceDocumentFile", insuranceDoc);
+                sendData.append("insuranceDocumentFileType", insuranceDoc.type.startsWith('image/') ? 'image' : 'pdf');
             }
             if (pucCertificate) {
-                sendData.append("PUCCertificateFile", pucCertificate);
-                sendData.append("PUCCertificateFileType", pucCertificate.type.startsWith('image/') ? 'image' : 'pdf');
+                sendData.append("pucCertificateFile", pucCertificate);
+                sendData.append("pucCertificateFileType", pucCertificate.type.startsWith('image/') ? 'image' : 'pdf');
             }
             if (permitDocument) {
-                sendData.append("PermitDocumentFile", permitDocument);
-                sendData.append("PermitDocumentFileType", permitDocument.type.startsWith('image/') ? 'image' : 'pdf');
+                sendData.append("permitDocumentFile", permitDocument);
+                sendData.append("permitDocumentFileType", permitDocument.type.startsWith('image/') ? 'image' : 'pdf');
             }
 
             const res = await axios.post(postVehicleDocuments, sendData, {

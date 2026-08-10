@@ -7,6 +7,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlice";
+import { selectAcademicYear } from "../../../Redux/Slices/academicYearSlice";
 import { GettingGrades, postMessage, postNews, postTimeTable, sectionsDropdown, TimeTableFetch } from "../../../Api/Api";
 import SnackBar from "../../SnackBar";
 import UploadFileIcon from '@mui/icons-material/UploadFile';
@@ -33,6 +34,7 @@ export default function CreateTimeTablesPage() {
     const [selectedGradeId, setSelectedGradeId] = useState(0);
     const [selectedSection, setSelectedSection] = useState(null);
     const websiteSettings = useSelector(selectWebsiteSettings);
+    const academicYear = useSelector(selectAcademicYear);
     const [sectionError, setSectionError] = useState(false);
     const [fileError, setFileError] = useState(false);
     const [gradeError, setGradeError] = useState(false);
@@ -139,15 +141,17 @@ export default function CreateTimeTablesPage() {
         try {
 
             const sendData = new FormData();
-            sendData.append("GradeId", selectedGradeId);
-            sendData.append("Section", selectedSection);
-            sendData.append("UserType", userType);
-            sendData.append("RollNumber", rollNumber);
-            sendData.append("FileType", "image");
-            sendData.append("File", uploadedFiles[0] || '');
-            sendData.append("Status", status);
-            sendData.append("PostedOn", todayDateTime);
-            sendData.append("DraftedOn", status === 'draft' ? todayDateTime : "");
+            sendData.append("gradeId", selectedGradeId);
+            sendData.append("section", selectedSection);
+            sendData.append("userType", userType);
+            sendData.append("rollNumber", rollNumber);
+            sendData.append("fileType", "image");
+            sendData.append("file", uploadedFiles[0] || '');
+            sendData.append("status", status);
+            sendData.append("postedOn", todayDateTime);
+            sendData.append("draftedOn", status === 'draft' ? todayDateTime : "");
+
+            sendData.append("academicYear", academicYear || "");
 
             const res = await axios.post(postTimeTable, sendData, {
                 headers: {

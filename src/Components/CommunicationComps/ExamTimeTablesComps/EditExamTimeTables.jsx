@@ -7,6 +7,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlice";
+import { selectAcademicYear } from "../../../Redux/Slices/academicYearSlice";
 import { FindExamTimeTable, FindTimeTable, GettingGrades, postMessage, postNews, postTimeTable, sectionsDropdown, TimeTableFetch, updateExamTimeTable, updateTimeTable } from "../../../Api/Api";
 import SnackBar from "../../SnackBar";
 import UploadFileIcon from '@mui/icons-material/UploadFile';
@@ -33,6 +34,7 @@ export default function EditExamTimeTablesPage() {
     const [selectedGradeId, setSelectedGradeId] = useState(0);
     const [selectedSection, setSelectedSection] = useState(null);
     const websiteSettings = useSelector(selectWebsiteSettings);
+    const academicYear = useSelector(selectAcademicYear);
     const [selectedExam, setSelectedExam] = useState([]);
     const [examOptions, setExamOptions] = useState([]);
     const [selectedGrade, setSelectedGrade] = useState(null);
@@ -97,7 +99,8 @@ export default function EditExamTimeTablesPage() {
         try {
             const res = await axios.get(FindExamTimeTable, {
                 params: {
-                    Id: id
+                    id: id,
+                    academicYear: academicYear || "",
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -125,13 +128,15 @@ export default function EditExamTimeTablesPage() {
 
         try {
             const sendData = new FormData();
-            sendData.append("Id", id);
-            sendData.append("UserType", userType);
-            sendData.append("RollNumber", rollNumber);
-            sendData.append("Exam", selectedExam);
-            sendData.append("FileType", "image");
-            sendData.append("File", uploadedFiles[0] || '');
-            sendData.append("UpdatedOn", todayDateTime);
+            sendData.append("id", id);
+            sendData.append("userType", userType);
+            sendData.append("rollNumber", rollNumber);
+            sendData.append("exam", selectedExam);
+            sendData.append("fileType", "image");
+            sendData.append("file", uploadedFiles[0] || '');
+            sendData.append("updatedOn", todayDateTime);
+
+            sendData.append("academicYear", academicYear || "");
 
             const res = await axios.put(updateExamTimeTable, sendData, {
                 headers: {

@@ -232,11 +232,11 @@ export default function MarksDraftPage() {
         try {
             const res = await axios.get(fetchAllMarksStudents, {
                 params: {
-                    RollNumber: rollNumber,
-                    UserType: userType,
-                    GradeId: gradeId || "131",
-                    Section: selectedSection || "A1",
-                    Exam: selectedExam || "",
+                    rollNumber: rollNumber,
+                    userType: userType,
+                    gradeId: gradeId || "131",
+                    section: selectedSection || "A1",
+                    exam: selectedExam || "",
                 },
 
                 headers: {

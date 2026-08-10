@@ -55,7 +55,7 @@ export default function CashCollectionTab({ cashDate, setCashDate, selectedYear 
         setIsLoading(true);
         try {
             const res = await axios.get(cashCollection, {
-                params: { year: selectedYear, Date: cashDate || today },
+                params: { year: selectedYear, date: cashDate || today },
                 headers: { Authorization: `Bearer ${token}` },
             });
             setCashData(res.data.data);

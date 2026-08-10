@@ -181,7 +181,7 @@ export default function FeeFinancePage() {
         setTeamLoading(true);
         try {
             const res = await axios.get(teamManagementGet, {
-                params: { Filter: filter },
+                params: { filter: filter },
                 headers: { Authorization: `Bearer ${token}` },
             });
             const data = res?.data || {};
@@ -217,7 +217,7 @@ export default function FeeFinancePage() {
         setMovingRoll(rollNumber);
         try {
             await axios.put(toAccounts ? moveToAccounts : moveToBilling, null, {
-                params: { RollNumber: rollNumber },
+                params: { rollNumber: rollNumber },
                 headers: { Authorization: `Bearer ${token}` },
             });
             showSnack(toAccounts ? 'Moved to Accounts team.' : 'Moved to Billing team.', true);
@@ -250,7 +250,7 @@ export default function FeeFinancePage() {
         setPayLoading(true);
         try {
             const res = await axios.get(paymentApprovalsGet, {
-                params: { Method: 'all' },
+                params: { method: 'all' },
                 headers: { Authorization: `Bearer ${token}` },
             });
             const data = res?.data || {};

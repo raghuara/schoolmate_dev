@@ -100,7 +100,7 @@ export default function SchoolFeeStructure() {
       const year = new Date().getFullYear();
 
       const res = await axios.get(getFees, {
-        params: { gradeId: gradeId, year: selectedYear, Status: "Approved" },
+        params: { gradeId: gradeId, year: selectedYear, status: "Approved" },
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -370,7 +370,7 @@ export default function SchoolFeeStructure() {
       );
 
       const sendData = {
-        PrimeSchoolFeesID: primeSchoolFeesID,
+        primeSchoolFeesID: primeSchoolFeesID,
         gradeId: String(gradeId),
         year: selectedYear,
         rollNumber: rollNumber,

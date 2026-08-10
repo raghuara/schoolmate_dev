@@ -150,8 +150,8 @@ export default function EcaFeeApprovalPage() {
         try {
             const res = await axios.get(ecaFeeFetch, {
                 params: {
-                    Year: selectedYear,
-                    Status: "Requested"
+                    year: selectedYear,
+                    status: "Requested"
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -182,9 +182,9 @@ export default function EcaFeeApprovalPage() {
                 {
                     params: {
                         ecaFeesID: id,
-                        RollNumber: rollNumber,
-                        Action: action,
-                        Reason: rejectReason || ""
+                        rollNumber: rollNumber,
+                        action: action,
+                        reason: rejectReason || ""
                     },
                     headers: {
                         Authorization: `Bearer ${token}`,

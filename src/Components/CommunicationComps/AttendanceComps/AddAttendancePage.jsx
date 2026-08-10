@@ -24,6 +24,7 @@ import { Link } from "react-router-dom";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useSelector } from "react-redux";
 import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlice";
+import { findSubMenuPermissions } from "../../../Redux/Slices/AuthSlice";
 import AddIcon from '@mui/icons-material/Add';
 import SnackBar from "../../SnackBar";
 import fallbackImage from "../../../Images/PagesImage/dummy-image.jpg";
@@ -53,6 +54,9 @@ export default function AddAttendancePage() {
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const isMediumScreen = useMediaQuery(theme.breakpoints.between('sm', 'md'));
     const websiteSettings = useSelector(selectWebsiteSettings);
+    const attendancePerms = findSubMenuPermissions(user.permissions, "communication", "attendance") || {};
+    const canCreate = attendancePerms.create === "Y";
+    const canEdit = attendancePerms.edit === "Y";
     const [value, setValue] = useState(0);
     const [selectedClass, setSelectedClass] = useState("PreKG");
     const [selectedClassSection, setSelectedClassSection] = useState("A1");
@@ -81,6 +85,9 @@ export default function AddAttendancePage() {
     const [selectedSection, setSelectedSection] = useState("all");
     const [studentsGraphData, setStudentsGraphData] = useState([]);
     const [allData, setAllData] = useState([]);
+    const canMarkNew = allData.isAttendanceAdded === "N" && canCreate;
+    const canMarkUpdate = allData.isUpdateAvailable === "Y" && canEdit;
+    const canModifyAttendance = canMarkNew || canMarkUpdate;
     const [attendanceDataLoading, setAttendanceDataLoading] = useState(false);
     const [sortByNameAsc, setSortByNameAsc] = useState(false);
     const isExpanded = useSelector((state) => state.sidebar.isExpanded);
@@ -148,6 +155,7 @@ export default function AddAttendancePage() {
     }, [filteredData, leaveRollSet]);
 
     const handleAttendanceChange = (rollNumber, value) => {
+        if (!canModifyAttendance) return;
         if (value === "halfday") {
             setHalfDayConfig((prev) =>
                 prev[rollNumber] ? prev : { ...prev, [rollNumber]: { half: "first" } }
@@ -238,10 +246,12 @@ export default function AddAttendancePage() {
 
 
     const handleUploadClick = () => {
+        if (!canModifyAttendance) return;
         fileInputRef.current.click();
     };
 
     const handleFileChange = (e) => {
+        if (!canModifyAttendance) return;
         const file = e.target.files[0];
         if (!file) return;
 
@@ -357,10 +367,10 @@ export default function AddAttendancePage() {
         try {
             const res = await axios.get(fetchAttendance, {
                 params: {
-                    Date: formattedDate,
-                    Grade: selectedGradeSign || grades?.[0]?.sign || "",
-                    Section: selectedSection || "all",
-                    Status: selectedFilter || "overall",
+                    date: formattedDate,
+                    grade: selectedGradeSign || grades?.[0]?.sign || "",
+                    section: selectedSection || "all",
+                    status: selectedFilter || "overall",
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -403,9 +413,9 @@ export default function AddAttendancePage() {
         try {
             const res = await axios.get(DashboardStudentsAttendance, {
                 params: {
-                    RollNumber: rollNumber,
-                    UserType: userType,
-                    Date: formattedDate,
+                    rollNumber: rollNumber,
+                    userType: userType,
+                    date: formattedDate,
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -420,6 +430,7 @@ export default function AddAttendancePage() {
     };
 
     const handleSaveAttendance = async () => {
+        if (!canCreate) return;
         setIsLoading(true);
         try {
             const res = await axios.post(
@@ -452,6 +463,7 @@ export default function AddAttendancePage() {
     };
 
     const handleUpdateAttendance = async () => {
+        if (!canEdit) return;
         setIsLoading(true);
         try {
             const res = await axios.put(
@@ -855,35 +867,39 @@ export default function AddAttendancePage() {
                                 size={{
                                     lg: 2.4
                                 }}>
-                                <Button
-                                    onClick={handleUploadClick}
-                                    startIcon={<AddIcon sx={{ fontSize: "18px" }} />}
-                                    sx={{
-                                        width: "100%",
-                                        py: 0.6,
-                                        borderRadius: "50px",
-                                        textTransform: "none",
-                                        fontWeight: 600,
-                                        fontSize: "13px",
-                                        color: "#fff",
-                                        backgroundColor: "#15233E",
-                                        boxShadow: "none",
-                                        mb: 1,
-                                        "&:hover": {
-                                            backgroundColor: "#0F1A2E",
-                                            boxShadow: "none",
-                                        },
-                                    }}
-                                >
-                                    Upload
-                                </Button>
+                                {canModifyAttendance && (
+                                    <>
+                                        <Button
+                                            onClick={handleUploadClick}
+                                            startIcon={<AddIcon sx={{ fontSize: "18px" }} />}
+                                            sx={{
+                                                width: "100%",
+                                                py: 0.6,
+                                                borderRadius: "50px",
+                                                textTransform: "none",
+                                                fontWeight: 600,
+                                                fontSize: "13px",
+                                                color: "#fff",
+                                                backgroundColor: "#15233E",
+                                                boxShadow: "none",
+                                                mb: 1,
+                                                "&:hover": {
+                                                    backgroundColor: "#0F1A2E",
+                                                    boxShadow: "none",
+                                                },
+                                            }}
+                                        >
+                                            Upload
+                                        </Button>
 
-                                <input
-                                    type="file"
-                                    ref={fileInputRef}
-                                    onChange={handleFileChange}
-                                    style={{ display: "none" }}
-                                />
+                                        <input
+                                            type="file"
+                                            ref={fileInputRef}
+                                            onChange={handleFileChange}
+                                            style={{ display: "none" }}
+                                        />
+                                    </>
+                                )}
                             </Grid>
                         </Grid>
 
@@ -1137,6 +1153,7 @@ export default function AddAttendancePage() {
                                                                             control={
                                                                                 <Radio
                                                                                     size="small"
+                                                                                    disabled={!canModifyAttendance}
                                                                                     sx={{
                                                                                         p: "3px",
                                                                                         ml: "4px",
@@ -1158,6 +1175,7 @@ export default function AddAttendancePage() {
                                                                         control={
                                                                             <Radio
                                                                                 size="small"
+                                                                                disabled={!canModifyAttendance}
                                                                                 sx={{
                                                                                     p: "3px",
                                                                                     ml: "4px",
@@ -1330,7 +1348,7 @@ export default function AddAttendancePage() {
 
                 {dayjs().isSame(selectedDate, 'day') && selectedSection?.toLowerCase() !== "all" && (
                     <Box sx={{ display: "flex", justifyContent: "center", gap: 1.5, mt: 2.5 }}>
-                        {allData.isAttendanceAdded === "N" &&
+                        {canMarkNew &&
                             <Button
                                 onClick={handleSaveAttendance}
                                 variant="contained"
@@ -1349,7 +1367,7 @@ export default function AddAttendancePage() {
                             </Button>
                         }
 
-                        {allData.isUpdateAvailable === "Y" &&
+                        {canMarkUpdate &&
                             <Button
                                 onClick={handleUpdateAttendance}
                                 variant="contained"
@@ -1367,7 +1385,7 @@ export default function AddAttendancePage() {
                                 Update Attendance
                             </Button>
                         }
-                        {(allData.isAttendanceAdded === "N" || allData.isUpdateAvailable === "Y") &&
+                        {canModifyAttendance &&
 
                             <Button
                                 variant="outlined"

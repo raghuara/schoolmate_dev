@@ -30,9 +30,6 @@ export default function AcademicsPage() {
         { color: "#ED9146", icon: SubjectIcon, text: "Subject Management", bgColor: "#FCFBF9", iconBgColor: "#FBF4EF", path: '/dashboardmenu/access/subject', intimation: messageIntimation },
     ];
 
-    if (userType !== "superadmin" && userType !== "admin" && userType !== "staff") {
-        return <Navigate to="/dashboardmenu/dashboard" replace />;
-    }
 
     return (
         <Box sx={{ width: "100%", }}>

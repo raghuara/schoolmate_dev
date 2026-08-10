@@ -114,8 +114,9 @@ export default function StudentInformationPage() {
         try {
             const res = await axios.get(GetStudentsInformation, {
                 params: {
-                    Grade: selectedGradeId || 131,
-                    Section: selectedSection || "A1",
+                    grade: selectedGradeId || 131,
+                    section: selectedSection || "A1",
+                    createRollNumber: rollNumber,
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,

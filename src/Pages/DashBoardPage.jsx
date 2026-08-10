@@ -173,8 +173,8 @@ export default function DashBoardPage() {
         try {
             const res = await axios.get(DashboardManagement, {
                 params: {
-                    RollNumber: rollNumber,
-                    UserType: userType,
+                    rollNumber: rollNumber,
+                    userType: userType,
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -192,8 +192,8 @@ export default function DashBoardPage() {
         try {
             const res = await axios.get(DashboardNews, {
                 params: {
-                    RollNumber: rollNumber,
-                    UserType: userType,
+                    rollNumber: rollNumber,
+                    userType: userType,
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -232,9 +232,9 @@ export default function DashBoardPage() {
         try {
             const res = await axios.get(DashboardTeachersAttendance, {
                 params: {
-                    RollNumber: rollNumber,
-                    UserType: userType,
-                    Date: formattedDate1,
+                    rollNumber: rollNumber,
+                    userType: userType,
+                    date: formattedDate1,
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,

@@ -53,7 +53,7 @@ export default function AdvancedRevenueChart({ selectedYear }) {
         setIsLoading(true);
         try {
             const res = await axios.get(monthlyCollectionByCategory, {
-                params: { AcademicYear: selectedYear },
+                params: { academicYear: selectedYear },
                 headers: { Authorization: `Bearer ${token}` },
             });
             const months = res.data?.monthlyCollection || [];

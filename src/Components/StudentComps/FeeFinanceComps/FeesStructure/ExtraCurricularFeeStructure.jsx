@@ -136,7 +136,7 @@ export default function ExtraCurricularFeeStructure() {
     try {
       const res = await axios.get(ecaFeeFetch, {
         params: {
-          Year: selectedYear
+          year: selectedYear
         },
         headers: {
           Authorization: `Bearer ${token}`,
@@ -197,7 +197,7 @@ export default function ExtraCurricularFeeStructure() {
       const gradePayload = buildGradePayload();
 
       const sendData = {
-        RollNumber: rollNumber,
+        rollNumber: rollNumber,
         year: selectedYear,
         activityCategory: fees.activityCategory,
         activityName: fees.activityName,

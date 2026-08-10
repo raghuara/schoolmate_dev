@@ -12,6 +12,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlice";
+import { selectAcademicYear } from "../../../Redux/Slices/academicYearSlice";
 import ReactPlayer from "react-player";
 import { FindNews, postNews, updateNews } from "../../../Api/Api";
 import SnackBar from "../../SnackBar";
@@ -72,6 +73,7 @@ export default function EditNewsPage() {
 
 
     const websiteSettings = useSelector(selectWebsiteSettings);
+    const academicYear = useSelector(selectAcademicYear);
 
     const theme = createTheme({
         palette: {
@@ -288,7 +290,8 @@ export default function EditNewsPage() {
         try {
             const res = await axios.get(FindNews, {
                 params: {
-                    Id: id
+                    id: id,
+                    academicYear: academicYear || '',
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -365,16 +368,17 @@ export default function EditNewsPage() {
 
         try {
             const sendData = new FormData();
-            sendData.append("Id", id);
-            sendData.append("RollNumber", rollNumber);
-            sendData.append("HeadLine", heading);
-            sendData.append("News", newsContentHTML);
-            sendData.append("File", uploadedFiles[0] || '');
-            sendData.append("FileType", fileType || "empty");
-            sendData.append("UserType", userType);
-            sendData.append("Link", pastedLink || '');
-            sendData.append("ScheduleOn", formattedDTValue || dateTimeValue || "");
-            sendData.append("UpdatedOn", todayDateTime || "");
+            sendData.append("id", id);
+            sendData.append("rollNumber", rollNumber);
+            sendData.append("headLine", heading);
+            sendData.append("news", newsContentHTML);
+            sendData.append("file", uploadedFiles[0] || '');
+            sendData.append("fileType", fileType || "empty");
+            sendData.append("userType", userType);
+            sendData.append("link", pastedLink || '');
+            sendData.append("scheduleOn", formattedDTValue || dateTimeValue || "");
+            sendData.append("updatedOn", todayDateTime || "");
+            sendData.append("academicYear", academicYear || "");
 
             const res = await axios.put(updateNews, sendData, {
                 headers: {

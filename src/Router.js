@@ -207,7 +207,7 @@ export default function RouterPage() {
 
                 {/*Main Pages */}
                 <Route path="dashboard" element={<DashBoardPage />} />
-                <Route path="transport" element={<TransportPage />} />
+                <Route path="transport" element={<RequirePermission mainMenu="transport"><TransportPage /></RequirePermission>} />
                 <Route path="erp" element={<ERPPage />} />
                 <Route path="dashboard/page" element={<ManagementPage />} />
 
@@ -245,11 +245,11 @@ export default function RouterPage() {
                 <Route path="workdone" element={<WorkDonePage />} />
                 <Route path="workdone/settings" element={<WorkDoneSettings />} />
                 <Route path="marks" element={<RequirePermission mainMenu="communication" subMenu="marks" anyOf={["view"]}><MarksResultsPage /></RequirePermission>} />
-                <Route path="schoolcalendar" element={<SchoolCalenderPage />} />
-                <Route path="events" element={<ImportantEventsPage />} />
-                <Route path="birthday-post" element={<BirthdayPostPage />} />
+                <Route path="schoolcalendar" element={<RequirePermission mainMenu="communication" subMenu="schoolcalender" anyOf={["view"]}><SchoolCalenderPage /></RequirePermission>} />
+                <Route path="events" element={<RequirePermission mainMenu="communication" subMenu="events" anyOf={["view"]}><ImportantEventsPage /></RequirePermission>} />
+                <Route path="birthday-post" element={<RequirePermission mainMenu="communication" subMenu="birthdaypost" anyOf={["view"]}><BirthdayPostPage /></RequirePermission>} />
                 <Route path="feedback" element={<RequirePermission mainMenu="communication" subMenu="feedback" anyOf={["view"]}><FeedBackPage /></RequirePermission>} />
-                <Route path="attendance" element={<AttendancePage />} />
+                <Route path="attendance" element={<RequirePermission mainMenu="communication" subMenu="attendance" anyOf={["view"]}><AttendancePage /></RequirePermission>} />
                 <Route path="notification" element={<RequirePermission mainMenu="communication" subMenu="notification" anyOf={["create"]}><NotificationPage /></RequirePermission>} />
 
 
@@ -289,12 +289,12 @@ export default function RouterPage() {
                 <Route path="marks/view" element={<RequirePermission mainMenu="communication" subMenu="marks" anyOf={["view"]}><ViewMarksPage /></RequirePermission>} />
 
                 <Route path="feedback/create" element={<RequirePermission mainMenu="communication" subMenu="feedback" anyOf={["create"]}><CreateFeedBackPage /></RequirePermission>} />
-                <Route path="feedback/responses" element={<ResponsesFeedBackPage />} />
-                <Route path="feedback/questions" element={<QuestionsFeedBackPage />} />
+                <Route path="feedback/responses" element={<RequirePermission mainMenu="communication" subMenu="feedback" anyOf={["view"]}><ResponsesFeedBackPage /></RequirePermission>} />
+                <Route path="feedback/questions" element={<RequirePermission mainMenu="communication" subMenu="feedback" anyOf={["view"]}><QuestionsFeedBackPage /></RequirePermission>} />
 
-                <Route path="attendance/addattendance" element={<AddAttendancePage />} />
-                <Route path="attendance/irregular" element={<IrregularAttendeesPage />} />
-                <Route path="attendance/export" element={<ExportAttendancePage />} />
+                <Route path="attendance/addattendance" element={<RequirePermission mainMenu="communication" subMenu="attendance" anyOf={["view"]}><AddAttendancePage /></RequirePermission>} />
+                <Route path="attendance/irregular" element={<RequirePermission mainMenu="communication" subMenu="attendance" anyOf={["view"]}><IrregularAttendeesPage /></RequirePermission>} />
+                <Route path="attendance/export" element={<RequirePermission mainMenu="communication" subMenu="attendance" anyOf={["view"]}><ExportAttendancePage /></RequirePermission>} />
 
                 {/* --------------------------------------------------------------------------------------------------- */}
 
@@ -348,7 +348,7 @@ export default function RouterPage() {
                 {/* --------------------------------------------------------------------------------------------------- */}
 
                 {/* Transport */}
-                <Route path="transport" element={<TransportPage />} />
+                <Route path="transport" element={<RequirePermission mainMenu="transport"><TransportPage /></RequirePermission>} />
 
                 {/* --------------------------------------------------------------------------------------------------- */}
 
@@ -433,7 +433,7 @@ export default function RouterPage() {
                 {/* --------------------------------------------------------------------------------------------------- */}
 
                 {/* Access Control */}
-                <Route path="access" element={<AccessControlPage />} />
+                <Route path="access" element={<RequirePermission mainMenu="accesscontrol"><AccessControlPage /></RequirePermission>} />
                 <Route path="access/roles-permissions" element={<RolesPermissionsPage />} />
                 <Route path="access/feature-permissions" element={<FeaturePermissionsPage />} />
                 <Route path="access/config/profile" element={<ProfileConfigPage />} />
@@ -447,14 +447,14 @@ export default function RouterPage() {
                 <Route path="access/config/access" element={<AccessConfigPage />} />
                 <Route path="access/config/myprojects" element={<MyProjectsConfigPage />} />
 
-                <Route path="access/users" element={<UsersPage />} />
-                <Route path="access/useractivity" element={<UserActivityPage />} />
-                <Route path="access/password" element={<PasswordManagementPage />} />
+                <Route path="access/users" element={<RequirePermission mainMenu="accesscontrol" subMenu="users" anyOf={["allowuseractivity", "allowpasswordmanagementstudent", "allowpasswordmanagementstaff"]}><UsersPage /></RequirePermission>} />
+                <Route path="access/useractivity" element={<RequirePermission mainMenu="accesscontrol" subMenu="users" anyOf={["allowuseractivity"]}><UserActivityPage /></RequirePermission>} />
+                <Route path="access/password" element={<RequirePermission mainMenu="accesscontrol" subMenu="users" anyOf={["allowpasswordmanagementstudent", "allowpasswordmanagementstaff"]}><PasswordManagementPage /></RequirePermission>} />
 
-                <Route path="access/student-promotion" element={<StudentPromotionPage />} />
-                <Route path="access/issue-tc" element={<IssueTcPage />} />
+                <Route path="access/student-promotion" element={<RequirePermission mainMenu="accesscontrol" subMenu="studentpromotion" anyOf={["allowstudentpromotion", "alloweditpromotedstudents"]}><StudentPromotionPage /></RequirePermission>} />
+                <Route path="access/issue-tc" element={<RequirePermission mainMenu="accesscontrol" subMenu="issuetc" anyOf={["allowissuetc", "allowdiscontinue"]}><IssueTcPage /></RequirePermission>} />
 
-                <Route path="access/academics" element={<AcademicsPage />} />
+                <Route path="access/academics" element={<RequirePermission mainMenu="accesscontrol" subMenu="academics" anyOf={["allowacademicyear", "allowclasssectionmanagement", "allowexammanagement", "allowsubjectmanagement"]}><AcademicsPage /></RequirePermission>} />
                 <Route path="access/academics/academic-year" element={<AcademicYearSetupPage />} />
                 <Route path="access/class-section" element={<ClassSectionManagementPage />} />
                 <Route path="access/exam" element={<ExamManagementPage />} />

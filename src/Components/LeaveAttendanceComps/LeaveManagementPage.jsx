@@ -174,7 +174,7 @@ export default function LeaveManagementPage({
         setIsFetching(true);
         try {
             const res = await axios.get(getLeaveApprovalDashboard, {
-                params: { RollNumber: rollNumber, AcademicYear: academicYear },
+                params: { rollNumber: rollNumber, academicYear: academicYear },
                 headers: { Authorization: `Bearer ${token}` },
             });
             const body = res?.data;

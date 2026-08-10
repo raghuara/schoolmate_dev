@@ -92,7 +92,7 @@ export default function CreatedExtraFees() {
     setIsLoading(true)
     try {
       const res = await axios.get(additionalFeeFetch, {
-        params: { Year: selectedYear },
+        params: { year: selectedYear },
         headers: { Authorization: `Bearer ${token}` },
       })
       setFeeList(res.data)
@@ -165,7 +165,7 @@ export default function CreatedExtraFees() {
       await axios.delete(deleteAdditionalFeesStructure, {
         params: {
           additionalFeesID: deleteTarget.additionalFeesID || deleteTarget.id,
-          RollNumber: rollNumber,
+          rollNumber: rollNumber,
         },
         headers: { Authorization: `Bearer ${token}` },
       })

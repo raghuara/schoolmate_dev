@@ -210,12 +210,7 @@ const FetchAllCalenderEvent = `${baseApiurl}changeEventCalender/FetchAllSchoolCa
 
 // Feedback
 const feedBack = `${baseApiurl}feedBack/`;
-const postFeedBack = `${baseApiurl}FeedBack/postFeedBack`;
-const FeedBackFetchFetch = `${feedBack}FeedBackFetchFetch`;
-const UpdateFeedBackSection = `${feedBack}UpdateFeedBackSection`;
 const FeedBackFetchFetchDraft = `${feedBack}FeedBackFetchFetchDraft`;
-const feedBackFetchAll = `${baseApiurl}feedBackAll/feedBackFetchAll`;
-const DeleteFeedBackForm = `${feedBack}DeleteFeedBackForm`;
 const parentsFeedBackFetchAll = `${baseApiurl}parentsFeedBack/parentsFeedBackFetchAll`;
 const updateFeedBack = `${baseApiurl}FeedBack/updateFeedBack`;
 const GetFeedBackDetailByID = `${baseApiurl}feedBack/GetFeedBackDetailByID`;
@@ -659,13 +654,8 @@ export {
     DeleteEventCalender,
     postSchoolCalender,
     parentsFeedBackFetchAll,
-    UpdateFeedBackSection,
     FindSchoolCalender,
-    feedBackFetchAll,
-    DeleteFeedBackForm,
     DeleteSchoolCalender,
-    postFeedBack,
-    FeedBackFetchFetch,
     StudyMaterialFetch,
     updateStudyMaterial,
     DeleteStudyMaterial,

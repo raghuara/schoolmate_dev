@@ -51,9 +51,9 @@ export default function StudentSelectionPopup({ open, onClose, onSave, activity 
         try {
             const res = await axios.get(getEligibleTransportStudents, {
                 params: {
-                    RouteInformationId: activity.routeInformationId,
-                    BusStop: stop.place,
-                    Year: year,
+                    routeInformationId: activity.routeInformationId,
+                    busStop: stop.place,
+                    year: year,
                 },
                 headers: { Authorization: `Bearer ${token}` },
             });

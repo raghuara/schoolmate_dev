@@ -9,6 +9,7 @@ import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined
 import CloseIcon from "@mui/icons-material/Close";
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlice";
+import { selectAcademicYear } from "../../../Redux/Slices/academicYearSlice";
 import { DeleteHomeWork, DeleteStudyMaterial, DeleteTimeTable, GettingGrades, HomeWorkFetch, StudyMaterialFetch, TimeTableFetch } from "../../../Api/Api";
 import Loader from "../../Loader";
 import SnackBar from "../../SnackBar";
@@ -31,6 +32,7 @@ export default function MainStudyMaterialsPage() {
     const navigate = useNavigate();
     const folderName = localStorage.getItem("FolderName")
     const websiteSettings = useSelector(selectWebsiteSettings);
+    const academicYear = useSelector(selectAcademicYear);
     const [openAlert, setOpenAlert] = useState(false);
     const [openImage, setOpenImage] = useState(false);
     const [openPdf, setOpenPdf] = useState(false);
@@ -264,14 +266,15 @@ export default function MainStudyMaterialsPage() {
         try {
             const res = await axios.get(StudyMaterialFetch, {
                 params: {
-                    RollNumber: rollNumber,
-                    UserType: userType,
-                    Grade: selectedGradeId || grades?.[0]?.id,
+                    rollNumber: rollNumber,
+                    userType: userType,
+                    grade: selectedGradeId || grades?.[0]?.id,
                     section: selectedSection || grades?.[0].sections[0] || "",
-                    IsMyProject: isMyProject,
-                    Date: formattedDate || "",
+                    isMyProject: isMyProject,
+                    date: formattedDate || "",
                     subject: selectedSubject || "",
-                    Folder: folderName,
+                    folder: folderName,
+                    academicYear: academicYear || "",
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -295,7 +298,8 @@ export default function MainStudyMaterialsPage() {
         try {
             const res = await axios.delete(DeleteStudyMaterial, {
                 params: {
-                    Id: id
+                    id: id,
+                    academicYear: academicYear || "",
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,

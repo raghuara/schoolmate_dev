@@ -91,9 +91,9 @@ export default function ContactDetails() {
         try {
             const res = await axios.get(getContactDetails, {
                 params: {
-                    AcademicYear: academicYear,
-                    GradeID: filterGradeId || 0,
-                    Section: filterSection || 'All Sections',
+                    academicYear: academicYear,
+                    gradeID: filterGradeId || 0,
+                    section: filterSection || 'All Sections',
                 },
                 headers: { Authorization: `Bearer ${TOKEN}` },
             });
@@ -149,8 +149,8 @@ export default function ContactDetails() {
         try {
             await axios.delete(deleteContactDetailsById, {
                 params: {
-                    ContactHeaderID: deleteTarget.contactHeaderID,
-                    DeletedByRollNumber: authRollNumber,
+                    contactHeaderID: deleteTarget.contactHeaderID,
+                    deletedByRollNumber: authRollNumber,
                 },
                 headers: { Authorization: `Bearer ${TOKEN}` },
             });

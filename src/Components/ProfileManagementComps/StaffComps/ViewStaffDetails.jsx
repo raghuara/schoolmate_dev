@@ -190,7 +190,7 @@ export default function ViewStaffDetails() {
         try {
             const res = await axios.get(FindStaffManagementDetails, {
                 params: {
-                    RollNumber: selectedRollNumber || "",
+                    rollNumber: selectedRollNumber || "",
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,

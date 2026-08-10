@@ -65,9 +65,9 @@ export default function ExtraCurricularManage() {
         try {
             const res = await axios.get(getEligibleEcaStudents, {
                 params: {
-                    ActivityCategoryAndName: `${activity.activityCategory}-${activity.activityName}`,
-                    Paid: activity.paid || 'Y',
-                    Year: selectedYear,
+                    activityCategoryAndName: `${activity.activityCategory}-${activity.activityName}`,
+                    paid: activity.paid || 'Y',
+                    year: selectedYear,
                 },
                 headers: { Authorization: `Bearer ${token}` },
             });
@@ -88,7 +88,7 @@ export default function ExtraCurricularManage() {
         try {
             const res = await axios.get(ecaFeeFetch, {
                 params: {
-                    Year: selectedYear
+                    year: selectedYear
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -110,7 +110,7 @@ export default function ExtraCurricularManage() {
         try {
             const res = await axios.get(ecaFeeFetchID, {
                 params: {
-                    Id: activityId,
+                    id: activityId,
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,

@@ -26,19 +26,65 @@ code {
 }
 
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
   background: transparent;
+  border-radius: 999px;
 }
 
 ::-webkit-scrollbar-thumb {
   background-color: rgba(0, 0, 0, 0.3);
-  border-radius: 8px;
+  border-radius: 999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background-color: rgba(0, 0, 0, 0.5);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Firefox ignores ::-webkit-scrollbar entirely. The `is-firefox` class is set
+   on <html> from index.js so this never reaches Chrome/Edge, where the
+   standard scrollbar-width property would override the 5px rule above. */
+.is-firefox * {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.3) transparent;
+}
+
+/* SimpleBar - a real DOM scrollbar, so it renders identically in every
+   browser. Used via <AppScrollbar> for the sidebar and submenu. */
+.app-scrollbar .simplebar-track.simplebar-vertical {
+  width: 5px;
+}
+
+.app-scrollbar .simplebar-track.simplebar-horizontal {
+  height: 5px;
+}
+
+.app-scrollbar .simplebar-scrollbar::before {
+  background-color: rgba(0, 0, 0, 0.3);
+  border-radius: 999px;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+}
+
+.app-scrollbar .simplebar-scrollbar.simplebar-visible::before {
+  opacity: 1;
+}
+
+.app-scrollbar .simplebar-scrollbar:hover::before {
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+/* SimpleBar owns the scrolling, so the native bar inside it must stay hidden
+   in Firefox too - otherwise both would show. */
+.is-firefox .app-scrollbar .simplebar-content-wrapper {
+  scrollbar-width: none;
 }

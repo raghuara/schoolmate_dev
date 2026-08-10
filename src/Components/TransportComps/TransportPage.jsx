@@ -29,9 +29,6 @@ export default function TrasnportPage() {
     // { color: "#E10052", icon: AccountTreeIcon, text: "Vehicle Safety & Compliance", bgColor: "#FCF8F9", iconBgColor: "#FBEBF1", path: 'safety-compliance', },
   ];
 
-  if (userType !== "superadmin" && userType !== "admin" && userType !== "staff") {
-    return <Navigate to="/dashboardmenu/dashboard" replace />;
-  }
 
   return (
     <Box sx={{ width: "100%", }}>

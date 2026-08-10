@@ -286,7 +286,7 @@ export default function LeaveTypesTab({ academicYear, authUser, showSnack }) {
             numberOfDays: Number(policyForm.daysPerPeriod) || 0,
             maxDaysPerMonth: Number(policyForm.maxPerMonth) || 0,
             unusedAction: UNUSED_ACTION_TO_API[policyForm.unusedLeaveAction] || 'Lapse',
-            BlockContinuousLeave: !!policyForm.blockContinuousLeave,
+            blockContinuousLeave: !!policyForm.blockContinuousLeave,
             requireSupportingDocument: !!policyForm.requiresDocument,
             updatedByRollNumber: authUser.rollNumber,
         };

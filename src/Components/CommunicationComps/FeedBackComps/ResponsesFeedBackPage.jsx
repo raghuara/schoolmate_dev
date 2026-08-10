@@ -3,6 +3,7 @@ import axios from "axios";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
+import { selectAcademicYear } from "../../../Redux/Slices/academicYearSlice";
 import SearchIcon from '@mui/icons-material/Search';
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
@@ -174,6 +175,7 @@ export default function ResponsesFeedBackPage() {
     const location = useLocation();
     const websiteSettings = useSelector(selectWebsiteSettings);
     const user = useSelector((state) => state.auth);
+    const academicYear = useSelector(selectAcademicYear);
     const grades = useSelector(selectGrades);
     const isExpanded = useSelector(selectSidebarExpanded);
 
@@ -253,6 +255,7 @@ export default function ResponsesFeedBackPage() {
                 category: categoryOptions[categoryTab],
                 gradeId: selectedGradeId,
                 section: selectedSection,
+                academicYear: academicYear || "",
             };
             if (formattedDate) params.date = formattedDate;
 
@@ -288,7 +291,7 @@ export default function ResponsesFeedBackPage() {
         setIsLoading(true);
         try {
             await axios.delete(deleteNewFeedbackByTitleId, {
-                params: { headerId: deleteId },
+                params: { headerId: deleteId, academicYear: academicYear || "" },
                 headers: { Authorization: `Bearer ${token}` },
             });
             fetchData();
@@ -516,9 +519,6 @@ export default function ResponsesFeedBackPage() {
         );
     };
 
-    if (userType !== 'superadmin' && userType !== 'admin' && userType !== 'staff') {
-        return <Navigate to="/dashboardmenu/dashboard" replace />;
-    }
 
     return (
         <Box sx={{ width: '100%', maxWidth: '100%', overflow: 'hidden', boxSizing: 'border-box' }}>

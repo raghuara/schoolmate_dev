@@ -8,6 +8,7 @@ import dayjs from "dayjs";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
+import { selectAcademicYear } from "../../../../Redux/Slices/academicYearSlice";
 import { selectWebsiteSettings } from "../../../../Redux/Slices/websiteSettingsSlice";
 import ReactPlayer from "react-player";
 import { FindMessage, GettingGrades, postNews, updateMessage } from "../../../../Api/Api";
@@ -23,6 +24,7 @@ export default function MessagesApprovalEditPage() {
     const [heading, setHeading] = useState("");
     const [newsContentHTML, setNewsContentHTML] = useState("");
     const user = useSelector((state) => state.auth);
+    const academicYear = useSelector(selectAcademicYear);
     const rollNumber = user.rollNumber
     const userType = user.userType
     const userName = user.name
@@ -230,7 +232,8 @@ export default function MessagesApprovalEditPage() {
         try {
             const res = await axios.get(FindMessage, {
                 params: {
-                    Id: id
+                    id: id,
+                    academicYear: academicYear || ''
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -306,6 +309,8 @@ export default function MessagesApprovalEditPage() {
                 staffUserTypes: selectedStaffs || [],
                 specificUsers: specificUsers || [],
             };
+
+            sendData.academicYear = academicYear || "";
 
             const res = await axios.put(updateMessage, sendData, {
                 headers: {

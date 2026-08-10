@@ -81,7 +81,7 @@ export default function ForgotPasswordPage() {
                 {
                     userName: userId,
                     password: password,
-                    FCM: fcmToken || "123",
+                    fcm: fcmToken || "123",
                 },
                 {
                     headers: {

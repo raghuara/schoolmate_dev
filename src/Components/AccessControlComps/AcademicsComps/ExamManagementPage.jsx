@@ -54,7 +54,7 @@ export default function ExamManagementPage() {
         setIsLoading(true);
         try {
             const res = await axios.get(getAllExams, {
-                params: { RollNumber: rollNumber, UserType: userType },
+                params: { rollNumber: rollNumber, userType: userType },
                 headers: { Authorization: `Bearer ${token}` },
             });
             setAllExamsData(res.data);

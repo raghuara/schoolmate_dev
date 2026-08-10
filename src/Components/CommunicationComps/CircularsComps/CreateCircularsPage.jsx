@@ -12,6 +12,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlice";
+import { selectAcademicYear } from "../../../Redux/Slices/academicYearSlice";
 import { GettingGrades, GetUsersBaseDetails, postCircular, postNews } from "../../../Api/Api";
 import SnackBar from "../../SnackBar";
 import CancelIcon from "@mui/icons-material/Cancel";
@@ -75,6 +76,7 @@ export default function CreateNewsPage() {
     });
 
     const websiteSettings = useSelector(selectWebsiteSettings);
+    const academicYear = useSelector(selectAcademicYear);
 
     const theme = createTheme({
         palette: {
@@ -461,16 +463,16 @@ export default function CreateNewsPage() {
 
         try {
             const sendData = new FormData();
-            sendData.append("HeadLine", heading);
-            sendData.append("Circular", newsContentHTML);
-            sendData.append("UserType", userType);
-            sendData.append("RollNumber", rollNumber);
-            sendData.append("PostedOn", todayDateTime);
-            sendData.append("Status", status);
-            sendData.append("ScheduleOn", formattedDTValue || "");
-            sendData.append("DraftedOn", status === 'draft' ? todayDateTime : "");
-            sendData.append("FileType", fileType || "empty");
-            sendData.append("File", uploadedFiles[0] || '');
+            sendData.append("headLine", heading);
+            sendData.append("circular", newsContentHTML);
+            sendData.append("userType", userType);
+            sendData.append("rollNumber", rollNumber);
+            sendData.append("postedOn", todayDateTime);
+            sendData.append("status", status);
+            sendData.append("scheduleOn", formattedDTValue || "");
+            sendData.append("draftedOn", status === 'draft' ? todayDateTime : "");
+            sendData.append("fileType", fileType || "empty");
+            sendData.append("file", uploadedFiles[0] || '');
             sendData.append("everyone", isEveryone ? "Y" : "");
 
             const { gradeSections } = getGradeSectionsPayload();
@@ -505,6 +507,8 @@ export default function CreateNewsPage() {
             } else {
                 sendData.append("specific", "");
             }
+
+            sendData.append("academicYear", academicYear || "");
 
 
             const res = await axios.post(postCircular, sendData, {
