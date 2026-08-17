@@ -1,6 +1,7 @@
 import { Box, Button, Grid, IconButton, Tab, Tabs, Typography } from "@mui/material";
 import { useSelector } from "react-redux";
 import { selectWebsiteSettings } from "../../Redux/Slices/websiteSettingsSlice";
+import { hasPermission } from "../../Redux/Slices/AuthSlice";
 import Loader from "../Loader";
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { useEffect, useState } from "react";
@@ -19,16 +20,20 @@ export default function AcademicsPage() {
     const [homeworkIntimation, setHomeworkIntimation] = useState(false);
     const user = useSelector((state) => state.auth);
     const rollNumber = user.rollNumber
-    const userType = user.userType
     const userName = user.name
+    const permissions = useSelector((state) => state.auth.permissions);
     const websiteSettings = useSelector(selectWebsiteSettings);
     const token = "123"
 
+    // Every tile and the Academic Year button follow the academics permissions
+    // that came back with the login response.
+    const can = (key) => hasPermission(permissions, "accesscontrol", "academics", key);
+
     const items = [
-        { color: "#1976D2", icon: ClassIcon, text: "Class & Section Management", bgColor: "#F5F9FF", iconBgColor: "#E3F0FD", path: '/dashboardmenu/access/class-section', intimation: false },
-        { color: "#A749CC", icon: ArticleIcon, text: "Exam Management", bgColor: "#FBF9FC", iconBgColor: "#F7F0F9", path: '/dashboardmenu/access/exam', intimation: newsIntimation },
-        { color: "#ED9146", icon: SubjectIcon, text: "Subject Management", bgColor: "#FCFBF9", iconBgColor: "#FBF4EF", path: '/dashboardmenu/access/subject', intimation: messageIntimation },
-    ];
+        { color: "#1976D2", icon: ClassIcon, text: "Class & Section Management", bgColor: "#F5F9FF", iconBgColor: "#E3F0FD", path: '/dashboardmenu/access/class-section', intimation: false, show: can("allowclasssectionmanagement") },
+        { color: "#A749CC", icon: ArticleIcon, text: "Exam Management", bgColor: "#FBF9FC", iconBgColor: "#F7F0F9", path: '/dashboardmenu/access/exam', intimation: newsIntimation, show: can("allowexammanagement") },
+        { color: "#ED9146", icon: SubjectIcon, text: "Subject Management", bgColor: "#FCFBF9", iconBgColor: "#FBF4EF", path: '/dashboardmenu/access/subject', intimation: messageIntimation, show: can("allowsubjectmanagement") },
+    ].filter((item) => item.show);
 
 
     return (
@@ -59,7 +64,7 @@ export default function AcademicsPage() {
                             md: 9,
                             lg: 9
                         }}>
-                        {userType === 'superadmin' && (
+                        {can("allowacademicyear") && (
                             <Link
                                 to="/dashboardmenu/access/academics/academic-year"
                                 style={{ textDecoration: 'none' }}
@@ -94,7 +99,14 @@ export default function AcademicsPage() {
             <Box>
                 <Box sx={{ p: 2, }}>
                 <Box sx={{ display: "flex", justifyContent: "center", height: "70vh", overflowY: "auto" }}>
-                        <Grid container spacing={2} sx={{ width: "100%" }}>
+                        <Grid container spacing={2} sx={{ width: "100%", alignContent: "flex-start" }}>
+                            {items.length === 0 && (
+                                <Grid size={{ xs: 12 }}>
+                                    <Typography sx={{ fontSize: "13px", color: "#6B7280", textAlign: "center", py: 4 }}>
+                                        You do not have access to any academics setup screen.
+                                    </Typography>
+                                </Grid>
+                            )}
                             {items.map((item, index) => {
                                 const IconComponent = item.icon;
 

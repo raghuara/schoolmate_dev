@@ -6,7 +6,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { closeMainMenu } from '../../Redux/Slices/MainMenuSlice';
 import { closeSubmenu } from '../../Redux/Slices/SubMenuController';
 import { selectWebsiteSettings } from '../../Redux/Slices/websiteSettingsSlice';
-import { selectCommunicationActivePaths, selectERPActivePaths } from '../../Redux/Slices/PathSlice';
+import { selectCommunicationActivePaths, selectAcademicsActivePaths } from '../../Redux/Slices/PathSlice';
 import { findSubMenuPermissions } from '../../Redux/Slices/AuthSlice';
 
 function SubMenuPage({active}) {
@@ -21,19 +21,28 @@ function SubMenuPage({active}) {
         ...(canViewComm("news") ? [{ path: '/dashboardmenu/news', label: 'News' }] : []),
         ...(canViewComm("message") ? [{ path: '/dashboardmenu/messages', label: 'Messages' }] : []),
         ...(canViewComm("circular") ? [{ path: '/dashboardmenu/circulars', label: 'Circulars' }] : []),
-        // { path: '/dashboardmenu/consentforms', label: 'Consent Forms' },
+        { path: '/dashboardmenu/consentforms', label: 'Consent Forms' },
         ...(canViewComm("contactdetails") ? [{ path: '/dashboardmenu/contact', label: 'Contact Details' }] : []),
+        ...(canViewComm("schoolcalender") ? [{ path: '/dashboardmenu/schoolcalendar', label: 'School Calendar' }] : []),
+        ...(canViewComm("events") ? [{ path: '/dashboardmenu/events', label: 'Events' }] : []),
+        ...(canViewComm("birthdaypost") ? [{ path: '/dashboardmenu/birthday-post', label: 'Birthday Post' }] : []),
+        ...(canViewComm("feedback") ? [{ path: '/dashboardmenu/feedback', label: 'Feedback' }] : []),
+        ...((findSubMenuPermissions(user.permissions, "communication", "notification") || {}).create === "Y" ? [{ path: '/dashboardmenu/notification', label: 'Notification' }] : []),
+        { path: '/dashboardmenu/chats', label: 'Chats' },
+    ];
+
+    // Academics reuses the existing "communication > *" permission keys - the
+    // split is a display grouping, so no backend change is needed.
+    const academicsMenuItems = [
         ...(canViewComm("timetable") ? [{ path: '/dashboardmenu/timetables', label: 'Timetables' }] : []),
         ...(canViewComm("homework") ? [{ path: '/dashboardmenu/homework', label: 'Homework' }] : []),
         ...(canViewComm("examtimetable") ? [{ path: '/dashboardmenu/examtimetables', label: 'Exam Timetables' }] : []),
         ...(canViewComm("studymaterial") ? [{ path: '/dashboardmenu/studymaterials', label: 'Study Materials' }] : []),
         ...(canViewComm("marks") ? [{ path: '/dashboardmenu/marks', label: 'Marks' }] : []),
-        ...(canViewComm("schoolcalender") ? [{ path: '/dashboardmenu/schoolcalendar', label: 'School Calendar' }] : []),
-        ...(canViewComm("events") ? [{ path: '/dashboardmenu/events', label: 'Events' }] : []),
-        ...(canViewComm("birthdaypost") ? [{ path: '/dashboardmenu/birthday-post', label: 'Birthday Post' }] : []),
-        ...(canViewComm("feedback") ? [{ path: '/dashboardmenu/feedback', label: 'Feedback' }] : []),
         ...(canViewComm("attendance") ? [{ path: '/dashboardmenu/attendance', label: 'Attendance' }] : []),
-        ...((findSubMenuPermissions(user.permissions, "communication", "notification") || {}).create === "Y" ? [{ path: '/dashboardmenu/notification', label: 'Notification' }] : []),
+        // Online Quiz - ungated until the backend adds a permission key for it.
+        // Swap to canViewComm("onlinequiz") once the key exists in the login response.
+        { path: '/dashboardmenu/assessment/online-quiz', label: 'Online Quiz' },
     ];
 
     const transportMenuItems = [
@@ -55,9 +64,9 @@ function SubMenuPage({active}) {
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const websiteSettings = useSelector(selectWebsiteSettings);
     const communicationActivePaths = useSelector(selectCommunicationActivePaths)
-    const ERPActivePaths = useSelector(selectERPActivePaths)
+    const academicsActivePaths = useSelector(selectAcademicsActivePaths)
     const isCommunicationPathActive = () => communicationActivePaths.some(path => isActive(path));
-    const isERPActivePaths = () => ERPActivePaths.some(path => isActive(path));
+    const isAcademicsPathActive = () => academicsActivePaths.some(path => isActive(path));
 
     const handleMenuClick = (menu) => {
         if (!isMobile) {
@@ -72,13 +81,13 @@ function SubMenuPage({active}) {
     };
 
     const menuItems = (() => {
-        if (isCommunicationPathActive() || active === "communication") {
-            return communicationMenuItems;
-        } else if (isCommunicationPathActive()) {
-            return isERPActivePaths;
-        } else {
-            return extraMenuItems;
+        if (active === "academics" || isAcademicsPathActive()) {
+            return academicsMenuItems;
         }
+        if (active === "communication" || isCommunicationPathActive()) {
+            return communicationMenuItems;
+        }
+        return extraMenuItems;
     })();
     
     return (
@@ -134,7 +143,7 @@ function SubMenuPage({active}) {
                                 }}
                             />
                             <ListItemText>
-                                <Typography sx={{ pl: 2, }}>
+                                <Typography sx={{ pl: 2, fontSize: '15px' }}>
                                     {label}
                                 </Typography>
                             </ListItemText>

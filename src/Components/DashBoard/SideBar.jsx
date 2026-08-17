@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Drawer, Button, Typography, Box, List, ListItem, ListItemText, ListItemIcon, useMediaQuery, useTheme, IconButton, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Tooltip, styled, tooltipClasses } from '@mui/material';
+import React, { useEffect, useRef, useState } from 'react';
+import { Drawer, Button, Typography, Box, List, ListItem, ListItemText, ListItemIcon, useMediaQuery, useTheme, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Tooltip, styled, tooltipClasses } from '@mui/material';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -9,20 +9,19 @@ import '../../Css/Page.css';
 import '../../Css/OverWrite.css';
 import SubMenuPage from './SubMenu';
 import axios from 'axios';
-import { DashboardUsers, fetchgroups } from '../../Api/Api';
+import { fetchgroups } from '../../Api/Api';
 import { selectChatUnreadTotal, setChatUnreadTotal } from '../../Redux/Slices/chatSlice';
 import SnackBar from '../SnackBar';
 import { useDispatch, useSelector } from 'react-redux';
 import { closeSubmenu, openSubmenu } from '../../Redux/Slices/SubMenuController';
 import { closeMainMenu } from '../../Redux/Slices/MainMenuSlice';
-import { selectCommunicationActivePaths, selectMyProjectsActivePaths } from '../../Redux/Slices/PathSlice';
+import { selectCommunicationActivePaths, selectAcademicsActivePaths, selectMyProjectsActivePaths } from '../../Redux/Slices/PathSlice';
 import { selectWebsiteSettings } from '../../Redux/Slices/websiteSettingsSlice';
 import { selectVersion } from '../../Redux/Slices/versionSlice';
 import HubIcon from '@mui/icons-material/Hub';
 import LockResetIcon from '@mui/icons-material/LockReset';
 import KeyIcon from '@mui/icons-material/Key';
 import { logout, findSubMenuPermissions } from '../../Redux/Slices/AuthSlice';
-import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
 import AssuredWorkloadIcon from '@mui/icons-material/AssuredWorkload';
@@ -31,7 +30,7 @@ import Inventory2Icon from '@mui/icons-material/Inventory2';
 import FolderCopyIcon from '@mui/icons-material/FolderCopy';
 import EditCalendarIcon from '@mui/icons-material/EditCalendar';
 import RealEstateAgentIcon from '@mui/icons-material/RealEstateAgent';
-import ForumRoundedIcon from '@mui/icons-material/ForumRounded';
+import AutoStoriesIcon from '@mui/icons-material/AutoStories';
 import { setSidebar, toggleSidebar } from '../../Redux/Slices/sidebarSlice';
 import AppScrollbar from '../AppScrollbar';
 
@@ -55,11 +54,19 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
     ["message", "messages"],
     ["circular", "circulars"],
     ["contactdetails", "contact"],
+    ["schoolcalender", "schoolcalendar"],
+    ["events", "events"],
+    ["birthdaypost", "birthday-post"],
+    ["feedback", "feedback"],
+  ].find(([sm]) => canViewComm(sm)) || [null, "consentforms"])[1];
+  const academicsLandingPath = ([
     ["timetable", "timetables"],
     ["homework", "homework"],
     ["examtimetable", "examtimetables"],
     ["studymaterial", "studymaterials"],
-  ].find(([sm]) => canViewComm(sm)) || [null, "schoolcalendar"])[1];
+    ["marks", "marks"],
+    ["attendance", "attendance"],
+  ].find(([sm]) => canViewComm(sm)) || [null, "assessment/online-quiz"])[1];
   const hasProfileAccess =
     (!!studentProfilePerms && ["view", "create", "edit", "siblingapproval"].some((k) => studentProfilePerms[k] === "Y")) ||
     (!!staffProfilePerms && ["view", "create", "edit"].some((k) => staffProfilePerms[k] === "Y"));
@@ -74,7 +81,6 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
   const dispatch = useDispatch();
   const isMainMenuOpen = useSelector((state) => state.menu.isMainMenuOpen);
   const [isMobileOrTablet, setIsMobileOrTablet] = useState(window.innerWidth <= 768);
-  const [newsDetails, setnewsDetails] = useState([]);
   const [selectedMenu, setSelectedMenu] = useState(null);
   const isActive = (path) => location.pathname.includes(path);
   // Strict match for Fee & Finance — avoids substring collision with /dashboardmenu/feedback
@@ -82,17 +88,31 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
     location.pathname === '/dashboardmenu/fee' ||
     location.pathname.startsWith('/dashboardmenu/fee/');
   const communicationActivePaths = useSelector(selectCommunicationActivePaths)
+  const academicsActivePaths = useSelector(selectAcademicsActivePaths)
   const myProjectsActivePaths = useSelector(selectMyProjectsActivePaths)
   const isCommunicationPathActive = () => communicationActivePaths.some(path => isActive(path));
+  const isAcademicsPathActive = () => academicsActivePaths.some(path => isActive(path));
   const isMyProjectsPathActive = () => myProjectsActivePaths.some(path => isActive(path));
   const websiteSettings = useSelector(selectWebsiteSettings);
   const version = useSelector(selectVersion);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [selectedActive, setSelectedActive] = useState('');
-  const [imageError, setImageError] = useState(false);
 
   const isExpanded = useSelector((state) => state.sidebar.isExpanded);
   const chatUnread = useSelector(selectChatUnreadTotal);
+  const [sidebarHovered, setSidebarHovered] = useState(false);
+  const handleHideTimer = useRef(null);
+
+  // Keep the handle alive for a moment after the cursor leaves so it can be
+  // reached without racing it.
+  const showSidebarHandle = () => {
+    clearTimeout(handleHideTimer.current);
+    setSidebarHovered(true);
+  };
+  const hideSidebarHandle = () => {
+    clearTimeout(handleHideTimer.current);
+    handleHideTimer.current = setTimeout(() => setSidebarHovered(false), 700);
+  };
+  useEffect(() => () => clearTimeout(handleHideTimer.current), []);
 
   const refreshChatUnread = () => {
     if (!rollNumber) return;
@@ -117,10 +137,10 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
 
   useEffect(() => {
     if (!isMobile) {
-      if (location.pathname === '/dashboardmenu/chats') {
-        dispatch(closeSubmenu());
-        dispatch(setSidebar(false));
-      } else if (communicationActivePaths.includes(location.pathname)) {
+      if (
+        communicationActivePaths.includes(location.pathname) ||
+        academicsActivePaths.includes(location.pathname)
+      ) {
         dispatch(setSidebar(false));
         dispatch(openSubmenu());
       } else if (
@@ -136,54 +156,6 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
     }
 
   }, [location.pathname, dispatch]);
-
-  useEffect(() => {
-    fetchDashboardUsers()
-  }, [])
-
-  const fetchDashboardUsers = async () => {
-    setIsLoading(true)
-    try {
-      const res = await axios.get(DashboardUsers, {
-        params: {
-          rollNumber: rollNumber,
-          userType: userType,
-        },
-        headers: {
-          Authorization: `Bearer ${token}`,
-        }
-      });
-      setnewsDetails(res.data.userDetails);
-    } catch (error) {
-      console.log(error);
-    } finally {
-      setIsLoading(false)
-    }
-  };
-
-  useEffect(() => {
-    fetchNewsData()
-  }, [])
-
-  const fetchNewsData = async () => {
-    setIsLoading(true)
-    try {
-      const res = await axios.get(DashboardUsers, {
-        params: {
-          rollNumber: rollNumber,
-          userType: userType,
-        },
-        headers: {
-          Authorization: `Bearer ${token}`,
-        }
-      });
-      setnewsDetails(res.data.userDetails);
-    } catch (error) {
-      console.log(error);
-    } finally {
-      setIsLoading(false)
-    }
-  };
 
   const handleToggleSidebar = () => {
     dispatch(toggleSidebar());
@@ -221,18 +193,8 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
     }
   };
 
-  const handleChatClick = () => {
-    dispatch(closeSubmenu());
-    dispatch(setSidebar(false));
-    navigate('/dashboardmenu/chats');
-    if (isMobile) {
-      dispatch(closeMainMenu());
-    }
-  };
-
   const handleMenuClick = (selectedValue, menu, path) => {
     setSelectedActive(selectedValue)
-    setUnreadCount(0);
     setSelectedMenu(selectedValue)
     if (!isMobile) {
       dispatch(openSubmenu());
@@ -263,14 +225,17 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
   const drawer = (
 
     <Box
+      onMouseEnter={showSidebarHandle}
+      onMouseLeave={hideSidebarHandle}
       sx={{
         backgroundColor: websiteSettings.backgroundColor,
-        height: '100vh',
+        height: '100%',
         display: 'flex',
         flexDirection: 'column',
         width: '100%',
         transition: 'width 0.3s ease-in-out',
         overflow: 'hidden',
+        borderTop: '1px solid #ccc',
       }}
     >
 
@@ -278,111 +243,13 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
                 <Loader />} */}
       <SnackBar open={open} status={status} color={color} message={message} />
 
-      <Box sx={{ px: 3, pt: 2, borderTop: "1px solid #ccc", borderRight: "1px solid #ccc", flexShrink: 0, }}>
-        {isExpanded ? (
-          <>
-            <Box sx={{ position: "relative", backgroundColor: "#fff", borderRadius: "10px", border: "1px solid #ccc", p: 2 }}>
-
-              {/* <CustomTooltip title="Edit Profile" arrow placement="right-start">
-                <IconButton onClick={handleEditProfile} sx={{
-                  position: 'absolute',
-                  top: 12,
-                  right: 20,
-                  color: '#777',
-                }}>
-                  <img src={EditProfileIcon} alt='profile edit' width={20} sx={{ color: '#777', fontSize: '20px' }} />
-                </IconButton>
-              </CustomTooltip> */}
-              <CustomTooltip title="Shrink" arrow placement="right-start">
-                <IconButton onClick={handleToggleSidebar} sx={{ position: "absolute", top: "-3px", left: "-4px" }}>
-                  {isExpanded ? <ArrowBackIosNewIcon sx={{ color: '#777', fontSize: '20px' }} /> : <ArrowForwardIosIcon sx={{ color: '#777', fontSize: '20px' }} />}
-                </IconButton>
-              </CustomTooltip>
-              <Box sx={{ display: "flex", justifyContent: "center", cursor: "pointer" }} onClick={() => navigate('/dashboardmenu/view-profile')}>
-                <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
-                  {!imageError && newsDetails.filepath ? (
-                    <img
-                      src={newsDetails.filepath}
-                      width={50}
-                      alt="profile"
-                      style={{ borderRadius: "50%", }}
-                      onError={() => setImageError(true)}
-                    />
-                  ) : (
-                    <AccountCircleIcon sx={{ fontSize: 30, color: "rgba(0, 0, 0, 0.7)" }} />
-                  )}
-                </Box>
-                <Box sx={{ pl: 1, pt: 0.5, display: "flex", flexDirection: "column", justifyContent: "center" }}>
-                  <Typography
-                    variant="caption"
-                    sx={{ color: "text.secondary", fontSize: "11px" }}
-                  >
-                    Welcome Back!
-                  </Typography>
-
-                  <Typography
-                    sx={{
-                      fontWeight: 700,
-                      fontSize: "15px",
-                      lineHeight: 1.3,
-                      color: "text.primary",
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis"
-                    }}
-                  >
-                    {newsDetails.username}
-                  </Typography>
-
-                  <Typography
-                    sx={{
-                      fontWeight: 600,
-                      fontSize: "12px",
-                      color: "text.secondary",
-                      textTransform: "capitalize"
-                    }}
-                  >
-                    {newsDetails.usertype}
-                  </Typography>
-                </Box>
-
-              </Box>
-
-            </Box>
-          </>
-        ) : (
-          <Box sx={{ display: "flex", justifyContent: "center", px: 2, pt: 2, pb: 6, cursor: "pointer" }} onClick={() => navigate('/dashboardmenu/view-profile')}>
-            {!imageError && newsDetails.filepath ? (
-              <img
-                src={newsDetails.filepath}
-                width={35}
-                alt="profile"
-                style={{ borderRadius: "50%", marginLeft: "10px" }}
-                onError={() => setImageError(true)}
-              />
-            ) : (
-              <AccountCircleIcon sx={{ fontSize: 35, color: '#777', ml: "10px" }} />
-            )}
-            {!isMobileOrTablet &&
-              (location.pathname !== "/dashboardmenu/student/information/create" &&
-                location.pathname !== "/dashboardmenu/student/information/viewinfo" &&
-                location.pathname !== "/dashboardmenu/student/information/edit") && (
-                <CustomTooltip title="Expand" arrow placement="right-start">
-                  <IconButton onClick={(e) => { e.stopPropagation(); handleToggleSidebar(); }} sx={{ marginTop: "0px" }}>
-                    <ArrowForwardIosIcon sx={{ color: '#777', fontSize: '16px', }} />
-                  </IconButton>
-                </CustomTooltip>
-              )}
-          </Box>
-        )}
-      </Box>
       <AppScrollbar
-        style={{ flex: 1, minHeight: 0, paddingBottom: '64px' }}
+        style={{ flex: 1, minHeight: 0, paddingBottom: '12px' }}
       >
         <List sx={{ width: '100%' }}>
 
           {/* Dashboard Tab */}
-          <ListItem onClick={() => handleMenuClickOne('dashboard')} sx={{ borderRadius: 2, px: 3, paddingTop: isExpanded ? '3px' : '11px', paddingBottom: isExpanded ? '3px' : '11px' }}>
+          <ListItem onClick={() => handleMenuClickOne('dashboard')} sx={{ borderRadius: 2, px: 3, paddingTop: '6px', paddingBottom: isExpanded ? '2px' : '9px' }}>
 
             <CustomTooltip title={isExpanded ? "" : "Dashboard"} arrow placement="right-start">
               <Box
@@ -424,7 +291,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
                 </ListItemIcon>
                 {isExpanded && (
                   <ListItemText>
-                    <Typography className="activeSidebarText" sx={{ color: isActive('/dashboardmenu/dashboard') ? websiteSettings.textColor : '#000' }}>
+                    <Typography className="activeSidebarText" sx={{ fontSize: "15px", color: isActive('/dashboardmenu/dashboard') ? websiteSettings.textColor : '#000' }}>
                       Dashboard
                     </Typography>
                   </ListItemText>
@@ -477,15 +344,15 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
 
           {/* Profile Tab */}
           {hasProfileAccess && (
-            <ListItem onClick={() => handleMenuClickOne('profile')} sx={{ borderRadius: 2, px: 3, paddingTop: isExpanded ? '3px' : '11px', paddingBottom: isExpanded ? '3px' : '11px' }}>
+            <ListItem onClick={() => handleMenuClickOne('profile')} sx={{ borderRadius: 2, px: 3, paddingTop: '6px', paddingBottom: isExpanded ? '2px' : '9px' }}>
               <CustomTooltip title={isExpanded ? "" : "Profile Management"} arrow placement="right-start">
                 <Box
                   sx={{
                     display: 'flex',
                     justifyContent: "center",
                     alignItems: 'center',
-                    paddingTop: '2px',
-                    paddingBottom: '2px',
+                    paddingTop: '1px',
+                    paddingBottom: '1px',
                     borderRadius: '5px',
                     boxShadow: isActive('/dashboardmenu/profile') ? '1px 1px 2px 0.5px rgba(0, 0, 0, 0.4)' : 'inherit',
                     width: '100%',
@@ -518,7 +385,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
                   </ListItemIcon>
                   {isExpanded && (
                     <ListItemText>
-                      <Typography className="activeSidebarText" sx={{ color: isActive('/dashboardmenu/profile') ? websiteSettings.textColor : '#000' }}>
+                      <Typography className="activeSidebarText" sx={{ fontSize: "15px", color: isActive('/dashboardmenu/profile') ? websiteSettings.textColor : '#000' }}>
                         Profile Management
                       </Typography>
                     </ListItemText>
@@ -530,15 +397,15 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
 
           {/* Communication Tab */}
           {version.LITE && (
-            <ListItem onClick={() => handleMenuClick('communication', 'com-dashboard', communicationLandingPath)} sx={{ borderRadius: 2, px: 3, paddingTop: isExpanded ? '3px' : '11px', paddingBottom: isExpanded ? '3px' : '11px' }}>
+            <ListItem onClick={() => handleMenuClick('communication', 'com-dashboard', communicationLandingPath)} sx={{ borderRadius: 2, px: 3, paddingTop: '6px', paddingBottom: isExpanded ? '2px' : '9px' }}>
               <CustomTooltip title={isExpanded ? "" : "Communication"} arrow placement="right-start">
                 <Box
                   sx={{
                     display: 'flex',
                     justifyContent: "center",
                     alignItems: 'center',
-                    paddingTop: '2px',
-                    paddingBottom: '2px',
+                    paddingTop: '1px',
+                    paddingBottom: '1px',
                     borderRadius: '5px',
                     boxShadow: isCommunicationPathActive() ? '1px 1px 2px 0.5px rgba(0, 0, 0, 0.4)' : 'inherit',
                     width: '100%',
@@ -575,81 +442,6 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
                       <Typography sx={{ color: isCommunicationPathActive() ? websiteSettings.textColor : '#000' }}>Communication</Typography>
                     </ListItemText>
                   )}
-                  {isExpanded && unreadCount > 0 && (
-                    <Box
-                      sx={{
-                        position: 'absolute',
-                        top: '8px',
-                        right: '8px',
-                        minWidth: '16px',
-                        height: '16px',
-                        backgroundColor: isCommunicationPathActive() ? '#fff' : websiteSettings.darkColor,
-                        color: isCommunicationPathActive() ? '#000' : websiteSettings.textColor,
-                        borderRadius: '50%',
-                        display: 'flex',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        fontSize: '12px',
-                        fontWeight: 'bold',
-                        padding: '3px',
-                      }}
-                    >
-                      {unreadCount}
-                    </Box>
-                  )}
-                </Box>
-              </CustomTooltip>
-            </ListItem>
-          )}
-
-
-          {/* Chats Tab */}
-          {version.LITE && (
-            <ListItem onClick={handleChatClick} sx={{ borderRadius: 2, px: 3, paddingTop: isExpanded ? '3px' : '11px', paddingBottom: isExpanded ? '3px' : '11px' }}>
-              <CustomTooltip title={isExpanded ? "" : "Chats"} arrow placement="right-start">
-                <Box
-                  sx={{
-                    display: 'flex',
-                    justifyContent: "center",
-                    alignItems: 'center',
-                    paddingTop: '2px',
-                    paddingBottom: '2px',
-                    borderRadius: '5px',
-                    boxShadow: isActive('/dashboardmenu/chats') ? '1px 1px 2px 0.5px rgba(0, 0, 0, 0.4)' : 'inherit',
-                    width: '100%',
-                    backgroundColor: isActive('/dashboardmenu/chats') ? websiteSettings.mainColor : 'inherit',
-                    color: isActive('/dashboardmenu/chats') ? websiteSettings.textColor : '#000',
-                    position: 'relative',
-                    cursor: "pointer",
-                    '&:hover': {
-                      backgroundColor: !isActive('/dashboardmenu/chats') ? websiteSettings.lightColor : 'none',
-                    }
-                  }}
-                >
-                  {isExpanded && (
-                    <Box
-                      sx={{
-                        width: '5px',
-                        backgroundColor: isActive('/dashboardmenu/chats') ? websiteSettings.darkColor : 'inherit',
-                        height: '100%',
-                        position: 'absolute',
-                        left: 0,
-                        top: 0,
-                        borderTopLeftRadius: '5px',
-                        borderBottomLeftRadius: '5px',
-                      }}
-                    />
-                  )}
-                  <ListItemIcon sx={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
-                    <ForumRoundedIcon style={{ color: isActive('/dashboardmenu/chats') ? websiteSettings.textColor : 'rgba(0, 0, 0, 0.7)' }} />
-                  </ListItemIcon>
-                  {isExpanded && (
-                    <ListItemText>
-                      <Typography className="activeSidebarText" sx={{ color: isActive('/dashboardmenu/chats') ? websiteSettings.textColor : '#000' }}>
-                        Chats
-                      </Typography>
-                    </ListItemText>
-                  )}
                   {chatUnread > 0 && (
                     <Box
                       sx={{
@@ -682,13 +474,66 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
             </ListItem>
           )}
 
+
+          {/* Academics Tab */}
+          {version.LITE && (
+            <ListItem onClick={() => handleMenuClick('academics', 'timetables', academicsLandingPath)} sx={{ borderRadius: 2, px: 3, paddingTop: '6px', paddingBottom: isExpanded ? '2px' : '9px' }}>
+              <CustomTooltip title={isExpanded ? "" : "Academics"} arrow placement="right-start">
+                <Box
+                  sx={{
+                    display: 'flex',
+                    justifyContent: "center",
+                    alignItems: 'center',
+                    paddingTop: '1px',
+                    paddingBottom: '1px',
+                    borderRadius: '5px',
+                    boxShadow: isAcademicsPathActive() ? '1px 1px 2px 0.5px rgba(0, 0, 0, 0.4)' : 'inherit',
+                    width: '100%',
+                    backgroundColor: isAcademicsPathActive() ? websiteSettings.mainColor : 'inherit',
+                    color: isAcademicsPathActive() ? websiteSettings.textColor : '#000',
+                    position: 'relative',
+                    cursor: "pointer",
+                    '&:hover': {
+                      backgroundColor: !isAcademicsPathActive() ? websiteSettings.lightColor : 'none',
+                    }
+                  }}
+                >
+                  {isExpanded && (
+                    <Box
+                      sx={{
+                        width: '5px',
+                        backgroundColor: isAcademicsPathActive() ? websiteSettings.darkColor : 'inherit',
+                        height: '100%',
+                        position: 'absolute',
+                        left: 0,
+                        top: 0,
+                        borderTopLeftRadius: '5px',
+                        borderBottomLeftRadius: '5px',
+                      }}
+                    />
+                  )}
+                  <ListItemIcon sx={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
+                    <AutoStoriesIcon style={{ color: isAcademicsPathActive() ? websiteSettings.textColor : 'rgba(0, 0, 0, 0.7)' }} />
+                  </ListItemIcon>
+                  {isExpanded && (
+                    <ListItemText>
+                      <Typography className="activeSidebarText" sx={{ fontSize: "15px", color: isAcademicsPathActive() ? websiteSettings.textColor : '#000' }}>
+                        Academics
+                      </Typography>
+                    </ListItemText>
+                  )}
+                </Box>
+              </CustomTooltip>
+            </ListItem>
+          )}
+
           <Box px={3}>
             <hr style={{ border: "none", borderTop: "1px solid #e8dec9", margin: "6px 0" }} />
           </Box>
 
           {isExpanded ?
             <Box px={5}>
-              <Typography className="activeSidebarText" sx={{ fontWeight: "600", fontSize: "15px" }}>
+              <Typography className="activeSidebarText" sx={{ fontWeight: "700", fontSize: "12px", letterSpacing: "0.04em" }}>
                 ERP
               </Typography>
             </Box>
@@ -702,15 +547,15 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
 
           {/* Fee  Tab */}
           {version.PRO && (
-            <ListItem onClick={() => handleMenuClickOne('fee')} sx={{ borderRadius: 2, px: 3, paddingTop: isExpanded ? '3px' : '11px', paddingBottom: isExpanded ? '3px' : '11px' }}>
+            <ListItem onClick={() => handleMenuClickOne('fee')} sx={{ borderRadius: 2, px: 3, paddingTop: '6px', paddingBottom: isExpanded ? '2px' : '9px' }}>
               <CustomTooltip title={isExpanded ? "" : "Fee & Finance"} arrow placement="right-start">
                 <Box
                   sx={{
                     display: 'flex',
                     justifyContent: "center",
                     alignItems: 'center',
-                    paddingTop: '2px',
-                    paddingBottom: '2px',
+                    paddingTop: '1px',
+                    paddingBottom: '1px',
                     borderRadius: '5px',
                     boxShadow: isFeeActive ? '1px 1px 2px 0.5px rgba(0, 0, 0, 0.4)' : 'inherit',
                     width: '100%',
@@ -743,7 +588,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
                   </ListItemIcon>
                   {isExpanded && (
                     <ListItemText>
-                      <Typography className="activeSidebarText" sx={{ color: isFeeActive ? websiteSettings.textColor : '#000' }}>
+                      <Typography className="activeSidebarText" sx={{ fontSize: "15px", color: isFeeActive ? websiteSettings.textColor : '#000' }}>
                         Fee & Finance
                       </Typography>
                     </ListItemText>
@@ -755,15 +600,15 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
 
           {/* Leave Tab */}
           {version.PRO && (
-            <ListItem onClick={() => handleMenuClickOne('leave')} sx={{ borderRadius: 2, px: 3, paddingTop: isExpanded ? '3px' : '11px', paddingBottom: isExpanded ? '3px' : '11px' }}>
+            <ListItem onClick={() => handleMenuClickOne('leave')} sx={{ borderRadius: 2, px: 3, paddingTop: '6px', paddingBottom: isExpanded ? '2px' : '9px' }}>
               <CustomTooltip title={isExpanded ? "" : "Leave & Payroll"} arrow placement="right-start">
                 <Box
                   sx={{
                     display: 'flex',
                     justifyContent: "center",
                     alignItems: 'center',
-                    paddingTop: '2px',
-                    paddingBottom: '2px',
+                    paddingTop: '1px',
+                    paddingBottom: '1px',
                     borderRadius: '5px',
                     boxShadow: isActive('/dashboardmenu/leave') ? '1px 1px 2px 0.5px rgba(0, 0, 0, 0.4)' : 'inherit',
                     width: '100%',
@@ -796,7 +641,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
                   </ListItemIcon>
                   {isExpanded && (
                     <ListItemText>
-                      <Typography className="activeSidebarText" sx={{ color: isActive('/dashboardmenu/leave') ? websiteSettings.textColor : '#000' }}>
+                      <Typography className="activeSidebarText" sx={{ fontSize: "15px", color: isActive('/dashboardmenu/leave') ? websiteSettings.textColor : '#000' }}>
                         Leave & Payroll
                       </Typography>
                     </ListItemText>
@@ -808,15 +653,15 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
 
           {/* Transport Tab */}
           {(version.PRO || version.PLUS) && (userType === "Super Admin" || userType === "admin" || userType === "staff") && (
-            <ListItem onClick={() => handleMenuClickOne('transport')} sx={{ borderRadius: 2, px: 3, paddingTop: isExpanded ? '3px' : '11px', paddingBottom: isExpanded ? '3px' : '11px' }}>
+            <ListItem onClick={() => handleMenuClickOne('transport')} sx={{ borderRadius: 2, px: 3, paddingTop: '6px', paddingBottom: isExpanded ? '2px' : '9px' }}>
               <CustomTooltip title={isExpanded ? "" : "Transport"} arrow placement="right-start">
                 <Box
                   sx={{
                     display: 'flex',
                     justifyContent: "center",
                     alignItems: 'center',
-                    paddingTop: '2px',
-                    paddingBottom: '2px',
+                    paddingTop: '1px',
+                    paddingBottom: '1px',
                     borderRadius: '5px',
                     boxShadow: isActive('/dashboardmenu/transport') ? '1px 1px 2px 0.5px rgba(0, 0, 0, 0.4)' : 'inherit',
                     width: '100%',
@@ -849,7 +694,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
                   </ListItemIcon>
                   {isExpanded && (
                     <ListItemText>
-                      <Typography className="activeSidebarText" sx={{ color: isActive('/dashboardmenu/transport') ? websiteSettings.textColor : '#000' }}>
+                      <Typography className="activeSidebarText" sx={{ fontSize: "15px", color: isActive('/dashboardmenu/transport') ? websiteSettings.textColor : '#000' }}>
                         Transport
                       </Typography>
                     </ListItemText>
@@ -865,8 +710,8 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
             sx={{
               borderRadius: 2,
               px: 3,
-              paddingTop: isExpanded ? '3px' : '11px',
-              paddingBottom: isExpanded ? '3px' : '11px',
+              paddingTop: '6px',
+              paddingBottom: isExpanded ? '2px' : '9px',
               cursor: isDisabled ? 'not-allowed' : 'pointer',
               opacity: isDisabled ? 0.5 : 1,
               pointerEvents: isDisabled ? 'none' : 'auto',
@@ -942,6 +787,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
                   <Typography
                     className="activeSidebarText"
                     sx={{
+                      fontSize: "15px",
                       color: isDisabled
                         ? '#000' // Disabled text color
                         : isActive('/dashboardmenu/erp')
@@ -961,8 +807,8 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
             sx={{
               borderRadius: 2,
               px: 3,
-              paddingTop: isExpanded ? '3px' : '11px',
-              paddingBottom: isExpanded ? '3px' : '11px',
+              paddingTop: '6px',
+              paddingBottom: isExpanded ? '2px' : '9px',
               cursor: isDisabled ? 'not-allowed' : 'pointer',
               opacity: isDisabled ? 0.5 : 1,
               pointerEvents: isDisabled ? 'none' : 'auto',
@@ -1038,6 +884,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
                   <Typography
                     className="activeSidebarText"
                     sx={{
+                      fontSize: "15px",
                       color: isDisabled
                         ? '#000' // Disabled text color
                         : isActive('/dashboardmenu/erp')
@@ -1053,7 +900,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
           </ListItem>
 
           {/* Assets Tab
-          <ListItem onClick={() => handleMenuClickOne('asset')} sx={{ borderRadius: 2, px: 3, paddingTop: isExpanded ? '3px' : '11px', paddingBottom: isExpanded ? '3px' : '11px' }}>
+          <ListItem onClick={() => handleMenuClickOne('asset')} sx={{ borderRadius: 2, px: 3, paddingTop: '6px', paddingBottom: isExpanded ? '2px' : '9px' }}>
             <CustomTooltip title={isExpanded ? "" : "Assets"} arrow placement="right-start">
               <Box
                 sx={{
@@ -1094,7 +941,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
                 </ListItemIcon>
                 {isExpanded && (
                   <ListItemText>
-                    <Typography className="activeSidebarText" sx={{ color: isActive('/dashboardmenu/asset') ? websiteSettings.textColor : '#000' }}>
+                    <Typography className="activeSidebarText" sx={{ fontSize: "15px", color: isActive('/dashboardmenu/asset') ? websiteSettings.textColor : '#000' }}>
                       Assets
                     </Typography>
                   </ListItemText>
@@ -1113,7 +960,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
               <Box>
                 {isExpanded ?
                   <Box px={5}>
-                    <Typography className="activeSidebarText" sx={{ fontWeight: "600", fontSize: "15px" }}>
+                    <Typography className="activeSidebarText" sx={{ fontWeight: "700", fontSize: "12px", letterSpacing: "0.04em" }}>
                       Manage
                     </Typography>
                   </Box>
@@ -1129,7 +976,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
 
             {/* My Project Tab */}
             {version.LITE && (userType === "Super Admin" || userType === "admin"|| userType === "teacher"  ) && (
-              <ListItem onClick={() => handleMenuClickOne('myprojects')} sx={{ borderRadius: 2, px: 3, paddingTop: isExpanded ? '3px' : '11px', paddingBottom: isExpanded ? '3px' : '11px' }}>
+              <ListItem onClick={() => handleMenuClickOne('myprojects')} sx={{ borderRadius: 2, px: 3, paddingTop: '6px', paddingBottom: isExpanded ? '2px' : '9px' }}>
                 <CustomTooltip title={isExpanded ? "" : "My Projects"} arrow placement="right-start">
                   <Box
                     sx={{
@@ -1170,7 +1017,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
                     </ListItemIcon>
                     {isExpanded && (
                       <ListItemText>
-                        <Typography className="activeSidebarText" sx={{ color: isMyProjectsPathActive() ? websiteSettings.textColor : '#000' }}>
+                        <Typography className="activeSidebarText" sx={{ fontSize: "15px", color: isMyProjectsPathActive() ? websiteSettings.textColor : '#000' }}>
                           My Projects
                         </Typography>
                       </ListItemText>
@@ -1183,7 +1030,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
             {/* Approvals Tab */}
 
             {(userType === "Super Admin" || userType === "admin") && (
-              <ListItem onClick={() => handleMenuClickOne('approvals')} sx={{ borderRadius: 2, px: 3, paddingTop: isExpanded ? '3px' : '11px', paddingBottom: isExpanded ? '3px' : '11px' }}>
+              <ListItem onClick={() => handleMenuClickOne('approvals')} sx={{ borderRadius: 2, px: 3, paddingTop: '6px', paddingBottom: isExpanded ? '2px' : '9px' }}>
                 <CustomTooltip title={isExpanded ? "" : "Approvals"} arrow placement="right-start">
                   <Box
                     sx={{
@@ -1224,7 +1071,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
                     </ListItemIcon>
                     {isExpanded && (
                       <ListItemText>
-                        <Typography className="activeSidebarText" sx={{ color: isActive('/dashboardmenu/approvals') ? websiteSettings.textColor : '#000' }}>
+                        <Typography className="activeSidebarText" sx={{ fontSize: "15px", color: isActive('/dashboardmenu/approvals') ? websiteSettings.textColor : '#000' }}>
                           Approvals
                         </Typography>
                       </ListItemText>
@@ -1258,7 +1105,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
             )}
 
             {(userType === "Super Admin" || userType === "admin" || userType === "staff") && (
-              <ListItem onClick={() => handleMenuClickOne('access')} sx={{ borderRadius: 2, px: 3, paddingTop: isExpanded ? '3px' : '11px', paddingBottom: isExpanded ? '3px' : '11px' }}>
+              <ListItem onClick={() => handleMenuClickOne('access')} sx={{ borderRadius: 2, px: 3, paddingTop: '6px', paddingBottom: isExpanded ? '2px' : '9px' }}>
                 <CustomTooltip title={isExpanded ? "" : "Access Control"} arrow placement="right-start">
                   <Box
                     sx={{
@@ -1299,7 +1146,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
                     </ListItemIcon>
                     {isExpanded && (
                       <ListItemText>
-                        <Typography className="activeSidebarText" sx={{ color: isActive('/dashboardmenu/access') ? websiteSettings.textColor : '#000' }}>
+                        <Typography className="activeSidebarText" sx={{ fontSize: "15px", color: isActive('/dashboardmenu/access') ? websiteSettings.textColor : '#000' }}>
                           Access Control
                         </Typography>
                       </ListItemText>
@@ -1390,6 +1237,69 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
 
   return (
     <Box sx={{ display: 'flex' }}>
+      {/* Sidebar collapse / expand handle - sits on the sidebar's right edge */}
+      {!isMobileOrTablet &&
+        location.pathname !== "/dashboardmenu/student/information/create" &&
+        location.pathname !== "/dashboardmenu/student/information/viewinfo" &&
+        location.pathname !== "/dashboardmenu/student/information/edit" && (
+          <Box
+            sx={{
+              position: 'fixed',
+              top: '92px',
+              left: 0,
+              zIndex: 1300,
+              pointerEvents: 'none',
+              // Rides the sidebar edge on exactly the sidebar's own curve.
+              transform: `translate3d(${isExpanded ? 260 : 80}px, -50%, 0)`,
+              transition: 'transform 0.3s ease-in-out',
+              willChange: 'transform',
+            }}
+          >
+              <Box
+                onClick={handleToggleSidebar}
+                onMouseEnter={showSidebarHandle}
+                onMouseLeave={hideSidebarHandle}
+                sx={{
+                  position: 'relative',
+                  width: 20,
+                  height: 40,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  color: '#9CA3AF',
+                  backgroundColor: websiteSettings.backgroundColor,
+                  borderTop: '1px solid #ddd',
+                  borderRight: '1px solid #ddd',
+                  borderBottom: '1px solid #ddd',
+                  borderTopRightRadius: '6px',
+                  borderBottomRightRadius: '6px',
+                  boxShadow: '2px 0 6px rgba(16,24,40,0.06)',
+                  opacity: sidebarHovered ? 1 : 0,
+                  pointerEvents: sidebarHovered ? 'auto' : 'none',
+                  transform: sidebarHovered ? 'translate3d(0,0,0)' : 'translate3d(-10px,0,0)',
+                  transition:
+                    'opacity 0.25s ease, transform 0.32s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.2s, color 0.2s',
+                  // Invisible padding so the 20px tab is easy to hit and does not
+                  // slip out from under the cursor on the way over.
+                  '&::before': {
+                    content: '""',
+                    position: 'absolute',
+                    top: -10,
+                    bottom: -10,
+                    left: -12,
+                    right: -8,
+                  },
+                  '&:hover': { backgroundColor: websiteSettings.lightColor, color: '#4B5563' },
+                }}
+              >
+                {isExpanded
+                  ? <ArrowBackIosNewIcon sx={{ fontSize: '12px' }} />
+                  : <ArrowForwardIosIcon sx={{ fontSize: '12px' }} />}
+              </Box>
+          </Box>
+        )}
+
       {/* Main Sidebar */}
       <Drawer
         open={isMobile ? isMainMenuOpen : true}
@@ -1406,6 +1316,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
           '& .MuiDrawer-paper': {
             width: isMobile ? 80 : isExpanded ? 260 : 80,
             marginTop: isMobile ? 0 : "60px",
+            height: isMobile ? '100vh' : 'calc(100vh - 60px)',
             boxSizing: 'border-box',
             border: "none",
             bgcolor: websiteSettings.backgroundColor,

@@ -11,7 +11,8 @@
       "Bash(npx react-scripts:*)",
       "Bash(npx -y acorn-jsx --ecma2020 src/Components/StudentComps/FeeFinanceComps/ExpenseComps/ExpensePage.jsx)",
       "Bash(ipconfig)",
-      "Bash(npx eslint *)"
+      "Bash(npx eslint *)",
+      "Bash(node \"C:/Users/demom/AppData/Local/Temp/claude/c--Users-demom-React-Projects-schoolmate-dev/b231fa9e-35d5-4196-871c-6391f5896443/scratchpad/audit_usertype.js\")"
     ]
   }
 }

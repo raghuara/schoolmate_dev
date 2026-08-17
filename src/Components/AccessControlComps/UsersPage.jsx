@@ -1,6 +1,7 @@
 import { Box, Button, Grid, IconButton, Tab, Tabs, Typography } from "@mui/material";
 import { useSelector } from "react-redux";
 import { selectWebsiteSettings } from "../../Redux/Slices/websiteSettingsSlice";
+import { hasPermission } from "../../Redux/Slices/AuthSlice";
 import Loader from "../Loader";
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { useEffect, useState } from "react";
@@ -19,23 +20,20 @@ export default function UsersPage() {
     const [homeworkIntimation, setHomeworkIntimation] = useState(false);
     const user = useSelector((state) => state.auth);
     const rollNumber = user.rollNumber
-    const userType = user.userType
     const userName = user.name
+    const permissions = useSelector((state) => state.auth.permissions);
     const websiteSettings = useSelector(selectWebsiteSettings);
     const token = "123"
-    const allowedRoles = ["superadmin", "admin"];
 
+    // Each card follows its own key under accesscontrol > users. Password
+    // Management needs only one of the two sides to be allowed.
+    const can = (key) => hasPermission(permissions, "accesscontrol", "users", key);
+    const canPasswords = can("allowpasswordmanagementstudent") || can("allowpasswordmanagementstaff");
 
-    const allItems = [
-        { color: "#A749CC", icon: LoginIcon, text: "Users Activity", bgColor: "#FBF9FC", iconBgColor: "#F7F0F9", path: '/dashboardmenu/access/useractivity', accessOnly: false },
-        { color: "#ED9146", icon: HttpsIcon, text: "Password Management", bgColor: "#FCFBF9", iconBgColor: "#FBF4EF", path: '/dashboardmenu/access/password', accessOnly: true },
-        // { color: "#7DC353", icon: CircularsIcon, text: "Circulars", bgColor: "#F9FBF7", iconBgColor: "#F2F8EE", path: 'circulars', intimation: circularIntimation },
-        // { color: "#E10052", icon: HomeWorkIcon, text: "Homework", bgColor: "#FCF8F9", iconBgColor: "#FBEBF1", path: 'homework', intimation: homeworkIntimation },
-    ];
-
-    const items = allItems.filter(
-      (item) => !item.accessOnly || allowedRoles.includes(userType)
-    );
+    const items = [
+        { color: "#A749CC", icon: LoginIcon, text: "Users Activity", bgColor: "#FBF9FC", iconBgColor: "#F7F0F9", path: '/dashboardmenu/access/useractivity', show: can("allowuseractivity") },
+        { color: "#ED9146", icon: HttpsIcon, text: "Password Management", bgColor: "#FCFBF9", iconBgColor: "#FBF4EF", path: '/dashboardmenu/access/password', show: canPasswords },
+    ].filter((item) => item.show);
 
 
     return (

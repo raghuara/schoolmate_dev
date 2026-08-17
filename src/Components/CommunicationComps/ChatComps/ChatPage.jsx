@@ -2271,26 +2271,27 @@ export default function ChatPage({ embedded = false }) {
                 >
                     <Box
                         sx={{
-                            width: { xs: '100%', sm: '270px', md: '300px' },
+                            width: { xs: '100%', sm: '220px', md: '240px', lg: '260px' },
                             flexShrink: 0,
                             display: { xs: activeChat ? 'none' : 'flex', sm: 'flex' },
                             flexDirection: 'column',
                             borderRight: '1px solid #eee',
                         }}
                     >
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 2, pb: 1.5 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 1.5, pt: 1.5, pb: 1 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, minWidth: 0 }}>
                                 <Tooltip title="Back" arrow>
                                     <IconButton
+                                        size="small"
                                         onClick={() => navigate(-1)}
-                                        sx={{ backgroundColor: ACCENT_SOFT, '&:hover': { backgroundColor: ACCENT_SOFT_HOVER } }}
+                                        sx={{ width: 30, height: 30, backgroundColor: ACCENT_SOFT, '&:hover': { backgroundColor: ACCENT_SOFT_HOVER } }}
                                     >
-                                        <ArrowBackIcon sx={{ color: ACCENT, fontSize: '20px' }} />
+                                        <ArrowBackIcon sx={{ color: ACCENT, fontSize: '17px' }} />
                                     </IconButton>
                                 </Tooltip>
-                                <Box>
-                                    <Typography sx={{ fontSize: '20px', fontWeight: '700', lineHeight: 1.1, color: DARK_TEXT }}>Chats</Typography>
-                                    <Typography sx={{ fontSize: '12px', color: '#888' }}>Staff Messages</Typography>
+                                <Box sx={{ minWidth: 0 }}>
+                                    <Typography sx={{ fontSize: '17px', fontWeight: '700', lineHeight: 1.15, color: DARK_TEXT }}>Chats</Typography>
+                                    <Typography sx={{ fontSize: '11px', color: '#888', lineHeight: 1.3 }}>Staff Messages</Typography>
                                 </Box>
                             </Box>
 
@@ -2298,10 +2299,11 @@ export default function ChatPage({ embedded = false }) {
                             <Tooltip title="Options" arrow>
                                 <IconButton
                                     ref={menuButtonRef}
+                                    size="small"
                                     onClick={(e) => setMenuAnchor(e.currentTarget)}
-                                    sx={{ backgroundColor: '#F4F4F6', '&:hover': { backgroundColor: '#ececf2' } }}
+                                    sx={{ width: 30, height: 30, backgroundColor: '#F4F4F6', '&:hover': { backgroundColor: '#ececf2' } }}
                                 >
-                                    <MoreVertIcon sx={{ color: '#555' }} />
+                                    <MoreVertIcon sx={{ color: '#555', fontSize: '18px' }} />
                                 </IconButton>
                             </Tooltip>
                             )}
@@ -2344,7 +2346,7 @@ export default function ChatPage({ embedded = false }) {
                             </Menu>
                         </Box>
 
-                        <Box sx={{ px: 2, pb: 1.5 }}>
+                        <Box sx={{ px: 1.5, pb: 1 }}>
                             <TextField
                                 fullWidth
                                 size="small"
@@ -2355,10 +2357,10 @@ export default function ChatPage({ embedded = false }) {
                                     input: {
                                         startAdornment: (
                                             <InputAdornment position="start">
-                                                <SearchIcon sx={{ fontSize: '20px', color: '#999' }} />
+                                                <SearchIcon sx={{ fontSize: '17px', color: '#999' }} />
                                             </InputAdornment>
                                         ),
-                                        sx: { borderRadius: '50px', backgroundColor: '#F4F4F6' },
+                                        sx: { borderRadius: '50px', backgroundColor: '#F4F4F6', fontSize: '13px', height: 36 },
                                     },
                                 }}
                             />
@@ -2387,9 +2389,9 @@ export default function ChatPage({ embedded = false }) {
                                         sx={{
                                             display: 'flex',
                                             alignItems: 'center',
-                                            gap: 1.5,
-                                            px: 2,
-                                            py: 1.15,
+                                            gap: 1.1,
+                                            px: 1.5,
+                                            py: 0.9,
                                             cursor: 'pointer',
                                             position: 'relative',
                                             borderLeft: isActive ? `3px solid ${ACCENT}` : '3px solid transparent',
@@ -2418,45 +2420,45 @@ export default function ChatPage({ embedded = false }) {
                                                 '& .MuiBadge-dot': {
                                                     backgroundColor: c.online ? '#43C57E' : '#bbb',
                                                     border: '2px solid #fff',
-                                                    width: 11,
-                                                    height: 11,
+                                                    width: 9,
+                                                    height: 9,
                                                     borderRadius: '50%',
                                                 },
                                             }}
                                         >
-                                            <Avatar src={c.iconPath || undefined} sx={{ bgcolor: c.color, width: 48, height: 48, fontSize: '16px', fontWeight: 600 }}>
-                                                {c.isGroup ? <GroupsRoundedIcon sx={{ fontSize: 24 }} /> : c.avatar}
+                                            <Avatar src={c.iconPath || undefined} sx={{ bgcolor: c.color, width: 40, height: 40, fontSize: '14px', fontWeight: 600 }}>
+                                                {c.isGroup ? <GroupsRoundedIcon sx={{ fontSize: 19 }} /> : c.avatar}
                                             </Avatar>
                                         </Badge>
 
                                         <Box sx={{ flexGrow: 1, minWidth: 0 }}>
                                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                <Typography sx={{ fontSize: '15px', fontWeight: 600, color: DARK_TEXT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', pr: 1 }}>
+                                                <Typography sx={{ fontSize: '15px', fontWeight: 600, color: DARK_TEXT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', pr: 0.8 }}>
                                                     {c.name}
                                                 </Typography>
                                                 <Typography
                                                     className="chatTime"
-                                                    sx={{ fontSize: '11px', fontWeight: c.unread > 0 ? 700 : 400, color: c.unread > 0 ? ACCENT : '#999', flexShrink: 0, transition: '0.2s', pointerEvents: 'none' }}
+                                                    sx={{ fontSize: '10.5px', fontWeight: c.unread > 0 ? 700 : 400, color: c.unread > 0 ? ACCENT : '#999', flexShrink: 0, transition: '0.2s', pointerEvents: 'none' }}
                                                 >
                                                     {c.time}
                                                 </Typography>
                                             </Box>
-                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 0.3, gap: 1 }}>
+                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 0.2, gap: 0.8 }}>
                                                 <Typography sx={{ fontSize: '13px', color: '#8a8a8a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flexGrow: 1 }}>
                                                     {c.lastMessage}
                                                 </Typography>
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, flexShrink: 0 }}>
-                                                    {c.isMuted && <NotificationsOffRoundedIcon sx={{ fontSize: 16, color: '#bbb' }} />}
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
+                                                    {c.isMuted && <NotificationsOffRoundedIcon sx={{ fontSize: 14, color: '#bbb' }} />}
                                                     {c.unread > 0 && (
                                                         <Box
                                                             sx={{
-                                                                minWidth: 20,
-                                                                height: 20,
-                                                                px: 0.7,
-                                                                borderRadius: '10px',
+                                                                minWidth: 17,
+                                                                height: 17,
+                                                                px: 0.6,
+                                                                borderRadius: '9px',
                                                                 backgroundColor: ACCENT_FILL,
                                                                 color: DARK_TEXT,
-                                                                fontSize: '11px',
+                                                                fontSize: '10px',
                                                                 fontWeight: 700,
                                                                 display: 'flex',
                                                                 alignItems: 'center',

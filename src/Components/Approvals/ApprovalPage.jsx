@@ -12,6 +12,7 @@ import HomeWorkIcon from "../../Images/Icons/class-homework 1.png";
 import { Link, Navigate, useLocation } from "react-router-dom";
 import { ApprovalStatusCircularFetch, ApprovalStatusHomeWorkFetch, ApprovalStatusMessageFetch, ApprovalStatusNewsFetch, GetOverallLeaveDetails } from "../../Api/Api";
 import { selectAcademicYear } from "../../Redux/Slices/academicYearSlice";
+import { findSubMenuPermissions, hasMainMenuAccess } from "../../Redux/Slices/AuthSlice";
 import axios from "axios";
 import NewspaperIcon from '@mui/icons-material/Newspaper';
 import MessageIcon from '@mui/icons-material/Message';
@@ -35,6 +36,24 @@ export default function ApprovalPage() {
     const rollNumber = user.rollNumber
     const userType = user.userType
     const userName = user.name
+    const permissions = user.permissions;
+
+    // Access comes from the login response, never from userType.
+    // Until the backend publishes an "approvals" main menu, the tree is absent
+    // and the module stays open; once it arrives, it takes over completely.
+    const approvalsMenu = (permissions?.mainMenus || []).find((m) => m.mainMenu === "approvals");
+    const rbacReady = Boolean(approvalsMenu);
+    const hasApprovalsAccess = !rbacReady || hasMainMenuAccess(permissions, "approvals");
+
+    // A tab is hidden only when the backend explicitly says so. An unknown
+    // subMenu name falls through to visible, so a naming mismatch cannot lock
+    // an approver out of their own queue.
+    const canSeeTab = (subMenu) => {
+        if (!rbacReady) return true;
+        const perms = findSubMenuPermissions(permissions, "approvals", subMenu);
+        if (!perms) return true;
+        return Object.values(perms).some((v) => v === "Y");
+    };
     const websiteSettings = useSelector(selectWebsiteSettings);
     const version = useSelector(selectVersion);
     const academicYear = useSelector(selectAcademicYear);
@@ -48,11 +67,11 @@ export default function ApprovalPage() {
     );
 
     const tabs = [
-        ...(version.LITE ? [{ id: 'leave', label: 'Leave' }] : []),
-        ...(version.LITE ? [{ id: 'communication', label: 'Communication' }] : []),
-        ...(version.PRO ? [{ id: 'fee', label: 'Fee', sx: { width: "100px" } }] : []),
-        { id: 'inventory', label: 'Inventory' },
-        { id: 'assets', label: 'Assets' },
+        ...(version.LITE && canSeeTab('leave') ? [{ id: 'leave', label: 'Leave' }] : []),
+        ...(version.LITE && canSeeTab('communication') ? [{ id: 'communication', label: 'Communication' }] : []),
+        ...(version.PRO && canSeeTab('fee') ? [{ id: 'fee', label: 'Fee', sx: { width: "100px" } }] : []),
+        ...(canSeeTab('inventory') ? [{ id: 'inventory', label: 'Inventory' }] : []),
+        ...(canSeeTab('assets') ? [{ id: 'assets', label: 'Assets' }] : []),
     ];
     const activeTabId = tabs[value]?.id;
 
@@ -134,7 +153,7 @@ export default function ApprovalPage() {
         { color: "#E10052", icon: AddBoxIcon, text: "Additional Fee", bgColor: "#FCF8F9", iconBgColor: "#FBEBF1", path: 'additional', intimation: homeworkIntimation },
     ];
 
-    if (userType !== "superadmin" && userType !== "admin") {
+    if (!hasApprovalsAccess) {
         return <Navigate to="/dashboardmenu/dashboard" replace />;
     }
 

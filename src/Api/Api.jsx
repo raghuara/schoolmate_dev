@@ -570,6 +570,21 @@ const updatePrimaryAndSecondarySubjects = `${baseApiurl}GradeValueFetch/updatePr
 const AddClass = `${baseApiurl}GradeValueFetch/AddClass`;
 const AddClassSection = `${baseApiurl}GradeValueFetch/AddClassSection`;
 
+//----------------------------------- Online Quiz ----------------------------------
+//----------------------------------- xxxxxxxx ----------------------------------
+
+const QuizLimits = `${baseApiurl}qtest/limits`;
+const GenerateQuizQuestions = `${baseApiurl}qtest/generateQuestions`;
+const PostQuizQuestions = `${baseApiurl}qtest/postQuzeQuestions`;
+const GetQuizApprovalRequests = `${baseApiurl}qtest/getQuzeApprovalRequests`;
+const GetQuizById = `${baseApiurl}qtest/getQuzeById`;
+const UpdateQuizApproval = `${baseApiurl}qtest/updateQuzeApproval`;
+const GetQuizDashboard = `${baseApiurl}qtest/getQuzeDashboard`;
+const GetAllQuizzesForAdmin = `${baseApiurl}qtest/getAllQuzesForAdmin`;
+const GetQuizSingleAnalytics = `${baseApiurl}qtest/getQuzeSingleAnalytics`;
+
+//----------------------------------- xxxxxxxx ----------------------------------
+
 export {
     poststudyMaterial,
     deleteDashboardSlider,
@@ -982,5 +997,14 @@ export {
     GetNonStudentUsers,
     GetUserTypePermissions,
     UpdateUserTypePermissions,
-    DashboardBirthdayUpdated
+    DashboardBirthdayUpdated,
+    QuizLimits,
+    GenerateQuizQuestions,
+    PostQuizQuestions,
+    GetQuizApprovalRequests,
+    GetQuizById,
+    UpdateQuizApproval,
+    GetQuizDashboard,
+    GetAllQuizzesForAdmin,
+    GetQuizSingleAnalytics
 }

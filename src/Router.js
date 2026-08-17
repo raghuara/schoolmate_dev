@@ -3,6 +3,7 @@ import { Route, Routes } from "react-router-dom";
 import LoginPage from "./Pages/LoginPage";
 import DashBoardLayout from "./Components/DashBoard/DashBoardLayout";
 import RequirePermission from "./Components/AccessControlComps/RequirePermission";
+import ScrollToTop from "./Components/ScrollToTop";
 import DashBoardPage from "./Pages/DashBoardPage";
 import NewsPage from "./Components/CommunicationComps/NewsPage";
 import MessagesPage from "./Components/CommunicationComps/MessagesPage";
@@ -174,6 +175,11 @@ import ViewVehicleDetails from "./Components/TransportComps/TransportAssetComps/
 import RouteManagement from "./Components/TransportComps/TransportAssetComps/RouteManagementComps/RouteManagement";
 import StudentMapping from "./Components/TransportComps/TransportAssetComps/StudentMappingComps/StudentMapping";
 import QuestionPaperGeneratorPage from "./Components/QuestionPaperGenerator/QuestionPaperGeneratorPage";
+import CreateOnlineQuizPage from "./Components/AssessmentComps/OnlineQuizComps/CreateOnlineQuizPage";
+import OnlineQuizDashboard from "./Components/AssessmentComps/OnlineQuizComps/OnlineQuizDashboard";
+import QuizAnalysisPage from "./Components/AssessmentComps/OnlineQuizComps/QuizAnalysisPage";
+import AllQuizzesPage from "./Components/AssessmentComps/OnlineQuizComps/AllQuizzesPage";
+import QuizApprovalPage from "./Components/AssessmentComps/OnlineQuizComps/QuizApprovalPage";
 import ViewProfilePage from "./Components/DashBoard/ViewProfilePage";
 import CreatedEcaFees from "./Components/StudentComps/FeeFinanceComps/FeesStructure/CreatedEcaFees";
 import CreatedExtraFees from "./Components/StudentComps/FeeFinanceComps/FeesStructure/CreatedExtraFees";
@@ -198,6 +204,8 @@ export default function RouterPage() {
 
     const startUrl = '/';
     return (
+        <>
+        <ScrollToTop />
         <Routes>
             <Route path={startUrl} element={<LoginPage />}></Route>
             <Route path="forgot-password" element={<ForgotPasswordPage />} />
@@ -455,13 +463,20 @@ export default function RouterPage() {
                 <Route path="access/issue-tc" element={<RequirePermission mainMenu="accesscontrol" subMenu="issuetc" anyOf={["allowissuetc", "allowdiscontinue"]}><IssueTcPage /></RequirePermission>} />
 
                 <Route path="access/academics" element={<RequirePermission mainMenu="accesscontrol" subMenu="academics" anyOf={["allowacademicyear", "allowclasssectionmanagement", "allowexammanagement", "allowsubjectmanagement"]}><AcademicsPage /></RequirePermission>} />
-                <Route path="access/academics/academic-year" element={<AcademicYearSetupPage />} />
-                <Route path="access/class-section" element={<ClassSectionManagementPage />} />
-                <Route path="access/exam" element={<ExamManagementPage />} />
-                <Route path="access/subject" element={<SubjectMangementPage />} />
-                <Route path="access/subject/create" element={<SubjectCreatePage />} />
+                <Route path="access/academics/academic-year" element={<RequirePermission mainMenu="accesscontrol" subMenu="academics" anyOf={["allowacademicyear"]}><AcademicYearSetupPage /></RequirePermission>} />
+                <Route path="access/class-section" element={<RequirePermission mainMenu="accesscontrol" subMenu="academics" anyOf={["allowclasssectionmanagement"]}><ClassSectionManagementPage /></RequirePermission>} />
+                <Route path="access/exam" element={<RequirePermission mainMenu="accesscontrol" subMenu="academics" anyOf={["allowexammanagement"]}><ExamManagementPage /></RequirePermission>} />
+                <Route path="access/subject" element={<RequirePermission mainMenu="accesscontrol" subMenu="academics" anyOf={["allowsubjectmanagement"]}><SubjectMangementPage /></RequirePermission>} />
+                <Route path="access/subject/create" element={<RequirePermission mainMenu="accesscontrol" subMenu="academics" anyOf={["allowsubjectmanagement"]}><SubjectCreatePage /></RequirePermission>} />
 
                 {/* --------------------------------------------------------------------------------------------------- */}
+                {/* Assessment */}
+                <Route path="assessment/online-quiz" element={<OnlineQuizDashboard />} />
+                <Route path="assessment/online-quiz/create" element={<CreateOnlineQuizPage />} />
+                <Route path="assessment/online-quiz/analysis" element={<QuizAnalysisPage />} />
+                <Route path="assessment/online-quiz/all" element={<AllQuizzesPage />} />
+                <Route path="assessment/online-quiz/approvals" element={<QuizApprovalPage />} />
+
                 {/* Question Paper Generator */}
                 <Route path="dashboard/question" element={<QuestionPaperGeneratorPage />} />
 
@@ -469,5 +484,6 @@ export default function RouterPage() {
                 <Route path="view-profile" element={<ViewProfilePage />} />
             </Route>
         </Routes>
+        </>
     );
 }
