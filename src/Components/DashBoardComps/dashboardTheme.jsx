@@ -48,17 +48,66 @@ export const BRAND = {
     cyan: { main: "#0891B2", bg: "#F0FAFB", icon: "#E0F7FA" },
 };
 
-// Solid KPI fills. Same hue families as BRAND, but adjusted so the text on top
-// clears 4.5:1 contrast. Amber carries dark text - the treatment the sidebar
-// already uses for its active item - because white on amber is ~2:1.
-// MyProjects bar colours, lightened for the KPI fills.
 export const KPI_TONES = {
-    orange: { bg: "#F2A469", fg: "#FFFFFF" },   // BRAND.orange  #ED9146
-    violet: { bg: "#B87BDA", fg: "#FFFFFF" },   // BRAND.purple  #A749CC
-    pink: { bg: "#F0568B", fg: "#FFFFFF" },     // BRAND.pink    #E10052
-    cyan: { bg: "#45B4CE", fg: "#FFFFFF" },     // BRAND.cyan    #0891B2
-    blue: { bg: "#5EA0DC", fg: "#FFFFFF" },     // BRAND.blue    #1F73C2
-    green: { bg: "#A2D489", fg: "#FFFFFF" },    // BRAND.green   #7DC353
+    orange: {
+        bg: "#FFF5E8",
+        fg: "#111827",
+        accent: "#F28C00",
+        border: "#F3D2A8",
+        iconBorder: "#F8DFC0",
+        wave: "rgba(245, 158, 11, 0.29)",
+        wave2: "rgba(245, 158, 11, 0.39)",
+    },
+
+    violet: {
+        bg: "#F7F0FF",
+        fg: "#111827",
+        accent: "#7C3AED",
+        border: "#DCC7F3",
+        iconBorder: "#E5D7F8",
+        wave: "rgba(139, 92, 246, 0.23)",
+        wave2: "rgba(139, 92, 246, 0.11)",
+    },
+
+    pink: {
+        bg: "#FFF3F1",
+        fg: "#111827",
+        accent: "#C94B4B",
+        border: "#F0CBC7",
+        iconBorder: "#F5DCD9",
+        wave: "rgba(201, 75, 75, 0.22)",
+        wave2: "rgba(201, 75, 75, 0.10)",
+    },
+
+    cyan: {
+        bg: "#EDF9FD",
+        fg: "#111827",
+        accent: "#0891B2",
+        border: "#BFE1EA",
+        iconBorder: "#D1EDF3",
+        wave: "rgba(14, 165, 217, 0.23)",
+        wave2: "rgba(14, 165, 217, 0.11)",
+    },
+
+    blue: {
+        bg: "#EEF5FF",
+        fg: "#111827",
+        accent: "#2563EB",
+        border: "#C9DCF5",
+        iconBorder: "#D8E7FA",
+        wave: "rgba(59, 130, 246, 0.22)",
+        wave2: "rgba(59, 130, 246, 0.10)",
+    },
+
+    green: {
+        bg: "#EEF9F4",
+        fg: "#111827",
+        accent: "#059669",
+        border: "#C5E5D6",
+        iconBorder: "#D6EFE2",
+        wave: "rgba(16, 185, 129, 0.22)",
+        wave2: "rgba(16, 185, 129, 0.10)",
+    },
 };
 
 // Tinted button surfaces built from the same brand hues.
@@ -223,43 +272,116 @@ export const StatTile = ({ icon: Icon, label, value, caption, captionColor, capt
     </Box>
 );
 
-export const AlertCard = ({ icon: Icon, label, count, severity = "warning", onClick }) => {
+export const AlertCard = ({
+    icon: Icon,
+    label,
+    count,
+    severity = "warning",
+    onClick,
+}) => {
     const s = SEVERITY[severity] || SEVERITY.warning;
+
     return (
         <Box
             onClick={onClick}
             sx={{
                 position: "relative",
-                height: "100%",
-                boxSizing: "border-box",
+                minWidth: 0,
+                height: 50,
+
                 display: "flex",
                 flexDirection: "column",
-                px: 1.6,
-                py: 1.3,
-                borderRadius: RADIUS,
-                bgcolor: s.bg,
+                justifyContent: "center",
+
+                px: 1.4,
+                py: 1,
+
+                borderRadius: "7px",
+
+                background: `linear-gradient(
+                    135deg,
+                    ${s.bg} 0%,
+                    #FFFFFF 100%
+                )`,
+
                 border: `1px solid ${s.border}`,
-                borderLeft: `3px solid ${s.color}`,
+
                 cursor: onClick ? "pointer" : "default",
-                transition: "box-shadow 0.18s, transform 0.18s",
+
+                transition:
+                    "transform .18s ease, box-shadow .18s ease",
+
                 "&:hover": onClick
-                    ? { transform: "translateY(-2px)", boxShadow: "0 4px 12px rgba(17,24,39,0.10)" }
+                    ? {
+                        transform: "translateY(-2px)",
+                        boxShadow:
+                            "0 5px 14px rgba(17,24,39,.08)",
+                    }
                     : {},
             }}
         >
-            <Box sx={{ display: "flex", alignItems: "center", gap: 0.9, mb: 0.5 }}>
-                <Icon sx={{ fontSize: 18, color: s.color, flexShrink: 0 }} />
-                <Typography sx={{ fontSize: "22px", fontWeight: 800, color: s.color, lineHeight: 1 }}>
+            {/* COUNT + ICON */}
+            <Box
+                sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 0.7,
+                    mb: 0.45,
+                }}
+            >
+                <Box
+                    sx={{
+                        width: 23,
+                        height: 23,
+                        borderRadius: "50%",
+
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+
+                        bgcolor: "#FFFFFF",
+                        border: `1px solid ${s.border}`,
+                    }}
+                >
+                    <Icon
+                        sx={{
+                            fontSize: 13,
+                            color: s.color,
+                        }}
+                    />
+                </Box>
+
+                <Typography
+                    sx={{
+                        fontSize: "20px",
+                        fontWeight: 800,
+                        lineHeight: 1,
+                        color: s.color,
+                    }}
+                >
                     {count}
                 </Typography>
             </Box>
-            <Typography sx={{ fontSize: "11.5px", color: DASH.text, lineHeight: 1.4 }}>
+
+            {/* LABEL */}
+            <Typography
+                sx={{
+                    fontSize: "10.5px",
+                    lineHeight: 1.3,
+                    fontWeight: 600,
+                    color: DASH.text,
+
+                    overflow: "hidden",
+                    display: "-webkit-box",
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: "vertical",
+                }}
+            >
                 {label}
             </Typography>
         </Box>
     );
 };
-
 export const StatCard = ({
     icon: Icon, label, value, delta, deltaDirection, note, accent, accentBg, spark, sparkId, onClick,
 }) => {
@@ -364,88 +486,124 @@ export const StatCard = ({
         </Box>
     );
 };
-
-export const SolidStatCard = ({ icon: Icon, label, value, note, tone, onClick }) => (
+export const SolidStatCard = ({
+    icon: Icon,
+    label,
+    value,
+    note,
+    tone,
+    onClick,
+}) => (
     <Box
         onClick={onClick}
         sx={{
-            bgcolor: tone.bg,
-            borderRadius: RADIUS,
-            px: 2.2,
-            py: 2,
-            height: "100%",
+            position: "relative",
+            height: 125,
+            minHeight: 125,
+            overflow: "hidden",
             boxSizing: "border-box",
-            display: "flex",
-            alignItems: "flex-start",
-            justifyContent: "space-between",
-            gap: 1.5,
+
+            bgcolor: tone.bg,
+            border: `1px solid ${tone.border}`,
+            borderRadius: "7px",
+
             cursor: onClick ? "pointer" : "default",
-            transition: "transform 0.18s, box-shadow 0.18s, filter 0.18s",
-            "&:hover": {
-                transform: onClick ? "translateY(-2px)" : "none",
-                boxShadow: "0 8px 20px rgba(17,24,39,0.16)",
-                filter: onClick ? "brightness(1.06)" : "none",
-            },
+
+            transition: "transform .2s ease, box-shadow .2s ease",
+
+            "&:hover": onClick
+                ? {
+                    transform: "translateY(-2px)",
+                    boxShadow:
+                        "0 6px 18px rgba(17,24,39,.09)",
+                }
+                : {},
         }}
     >
-        <Box sx={{ minWidth: 0 }}>
+        {/* CONTENT */}
+        <Box
+            sx={{
+                position: "relative",
+                zIndex: 5,
+                p: "11px 14px",
+            }}
+        >
             <Typography
                 sx={{
-                    fontSize: "11px",
+                    fontSize: "9.5px",
                     fontWeight: 700,
-                    letterSpacing: "0.06em",
+                    letterSpacing: "0.05em",
                     textTransform: "uppercase",
-                    color: tone.fg,
-                    opacity: 0.95,
-                    lineHeight: 1.3,
+                    color: tone.accent,
                 }}
             >
                 {label}
             </Typography>
+
             <Typography
                 sx={{
-                    fontSize: "30px",
+                    mt: 0.80,
+                    fontSize: "28px",
                     fontWeight: 700,
+                    lineHeight: 1,
                     color: tone.fg,
-                    lineHeight: 1.2,
                     letterSpacing: "-0.02em",
-                    mt: 0.9,
                 }}
             >
                 {value}
             </Typography>
-            {note && (
-                <Typography
-                    sx={{
-                        fontSize: "11.5px",
-                        color: tone.fg,
-                        opacity: 0.9,
-                        fontWeight: 500,
-                        mt: 0.5,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                    }}
-                >
-                    {note}
-                </Typography>
-            )}
+
+            <Typography
+                sx={{
+                    mt: 1,
+                    fontSize: "10px",
+                    fontWeight: 500,
+                    color: "#475569",
+                }}
+            >
+                {note}
+            </Typography>
         </Box>
 
+
+        {/* WAVE 1 */}
+        {/* SMOOTH BOTTOM WAVE */}
         <Box
             sx={{
-                width: 40,
-                height: 40,
-                borderRadius: RADIUS,
-                bgcolor: "#fff",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-                boxShadow: "0 1px 3px rgba(0,0,0,0.10)",
+                position: "absolute",
+                left: 0,
+                right: 0,
+                bottom: 0,
+                width: "100%",
+                height: "63%",
+                zIndex: 1,
+                pointerEvents: "none",
             }}
         >
-            <Icon sx={{ fontSize: 21, color: tone.bg }} />
+            <svg
+                viewBox="0 0 600 140"
+                preserveAspectRatio="none"
+                width="100%"
+                height="100%"
+                style={{
+                    display: "block",
+                }}
+            >
+                <path
+                    d="
+                M0,108
+                C45,96 85,94 125,104
+                C170,115 205,118 245,104
+                C285,90 320,72 360,82
+                C400,92 435,103 470,91
+                C515,75 550,52 600,45
+                L600,140
+                L0,140
+                Z
+            "
+                    fill={tone.wave}
+                />
+            </svg>
         </Box>
     </Box>
 );

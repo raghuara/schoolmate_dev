@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { selectAcademicYear } from "../../../../Redux/Slices/academicYearSlice";
 import {
     Box, Typography, Button, Grid, IconButton, TextField, Chip,
     Table, TableBody, TableCell, TableHead, TableRow, Tooltip,
@@ -41,15 +42,9 @@ export default function ConcessionLog() {
     const grades = useSelector(selectGrades);
     const websiteSettings = useSelector(selectWebsiteSettings);
 
-    const currentYear = new Date().getFullYear();
-    const currentAcademicYear = `${currentYear}-${currentYear + 1}`;
-    const academicYears = [
-        `${currentYear - 2}-${currentYear - 1}`,
-        `${currentYear - 1}-${currentYear}`,
-        `${currentYear}-${currentYear + 1}`,
-    ];
 
-    const [selectedYear, setSelectedYear] = useState(currentAcademicYear);
+    // The academic year comes from the header - one picker for the whole site.
+    const selectedYear = useSelector(selectAcademicYear);
     const [selectedGradeId, setSelectedGradeId] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [feeTypeTab, setFeeTypeTab] = useState(0); // index into FEE_TABS
@@ -229,21 +224,6 @@ export default function ConcessionLog() {
                             sx={{ width: '150px' }}
                             renderInput={(params) => (
                                 <TextField {...params} placeholder="All Grades" variant="outlined"
-                                    sx={{
-                                        '& .MuiOutlinedInput-root': { borderRadius: '5px', fontSize: 14, height: 35 },
-                                        '& .MuiOutlinedInput-input': { textAlign: 'center', fontWeight: 600 },
-                                    }}
-                                />
-                            )}
-                        />
-                        <Autocomplete
-                            size="small"
-                            options={academicYears}
-                            sx={{ width: '170px' }}
-                            value={selectedYear}
-                            onChange={(_, v) => setSelectedYear(v)}
-                            renderInput={(params) => (
-                                <TextField {...params} variant="outlined"
                                     sx={{
                                         '& .MuiOutlinedInput-root': { borderRadius: '5px', fontSize: 14, height: 35 },
                                         '& .MuiOutlinedInput-input': { textAlign: 'center', fontWeight: 600 },

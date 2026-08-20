@@ -34,7 +34,7 @@ const EXTRA_OPS = {
     ],
     "Billing Screen": [
         { key: "allowbilling", label: "Allow Billing" },
-        { key: "allowconcession", label: "Allow Concession" },
+        { key: "allowconcession", label: "Allow Concession", requires: "allowbilling" },
     ],
     "ECA Management": [
         { key: "allowmapstudent", label: "Allow Map Student" },

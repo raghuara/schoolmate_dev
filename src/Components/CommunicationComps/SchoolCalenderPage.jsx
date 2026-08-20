@@ -24,6 +24,8 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import EventNoteOutlinedIcon from "@mui/icons-material/EventNoteOutlined";
 import AddIcon from "@mui/icons-material/Add";
 import CalendarMonthOutlinedIcon from "@mui/icons-material/CalendarMonthOutlined";
+import EventAvailableOutlinedIcon from "@mui/icons-material/EventAvailableOutlined";
+import ImportantEventsPage from "./ImportantEventsPage";
 
 // Page theme — soft emerald (matches Leave Policy Master Screen).
 const PRIMARY = "#059669";
@@ -217,6 +219,13 @@ export default function SchoolCalendarPage() {
     const canEdit = calendarPerms?.edit === "Y";
     const canDelete = calendarPerms?.delete === "Y";
     const canManage = canCreate || canEdit || canDelete;
+    // Important Events used to be its own page; it only ever read this calendar's
+    // events, so it now lives here as a second view.
+    const eventsPerms = useSelector(selectSubMenuPermissions("communication", "events"));
+    // Events rides on the calendar. No calendar view means no events either, even
+    // when the events key itself is granted.
+    const canViewEvents = canView && eventsPerms?.view === "Y";
+    const [activeView, setActiveView] = useState("calendar");
     const [heading, setHeading] = useState("");
     const [editHeading, setEditHeading] = useState("");
     const [description, setDescription] = useState("");
@@ -829,15 +838,60 @@ export default function SchoolCalendarPage() {
             <Box sx={{ backgroundColor: "#f2f2f2", px: 2, borderRadius: "10px 10px 10px 0px", borderBottom: "1px solid #ddd", }}>
                 <Grid container sx={{ py: 1 }} alignItems="center">
                     <Grid
-                        sx={{ display: "flex", alignItems: "center" }}
-                        size={{ xs: 6, lg: 6 }}>
+                        sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap" }}
+                        size={{ xs: 12, lg: 6 }}>
                         <Typography sx={{ fontWeight: "600", fontSize: "20px" }}>School Calendar</Typography>
+
+                        {canViewEvents && (
+                            <Box
+                                sx={{
+                                    display: "inline-flex",
+                                    p: "3px",
+                                    borderRadius: "50px",
+                                    bgcolor: "#fff",
+                                    border: "1px solid #DDE1E6",
+                                }}
+                            >
+                                {[
+                                    { key: "calendar", label: "Calendar", icon: CalendarMonthOutlinedIcon },
+                                    { key: "events", label: "Events", icon: EventAvailableOutlinedIcon },
+                                ].map((tab) => {
+                                    const active = activeView === tab.key;
+                                    const TabIcon = tab.icon;
+                                    return (
+                                        <Box
+                                            key={tab.key}
+                                            onClick={() => setActiveView(tab.key)}
+                                            sx={{
+                                                display: "flex",
+                                                alignItems: "center",
+                                                gap: 0.6,
+                                                cursor: "pointer",
+                                                userSelect: "none",
+                                                px: 1.8,
+                                                py: 0.5,
+                                                borderRadius: "50px",
+                                                fontSize: "12.5px",
+                                                fontWeight: 700,
+                                                transition: "0.18s",
+                                                bgcolor: active ? "#000" : "transparent",
+                                                color: active ? "#fff" : "#6B7280",
+                                                "&:hover": active ? {} : { color: "#111827", bgcolor: "#F3F4F6" },
+                                            }}
+                                        >
+                                            <TabIcon sx={{ fontSize: 15 }} />
+                                            {tab.label}
+                                        </Box>
+                                    );
+                                })}
+                            </Box>
+                        )}
                     </Grid>
 
                     <Grid
                         sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 1, px: 1 }}
-                        size={{ xs: 6, lg: 6 }}>
-                        {canCreate && (
+                        size={{ xs: 12, lg: 6 }}>
+                        {canCreate && activeView === "calendar" && (
                             <Button
                                 variant="contained"
                                 startIcon={<AddIcon sx={{ fontSize: 16 }} />}
@@ -864,7 +918,12 @@ export default function SchoolCalendarPage() {
                     </Grid>
                 </Grid>
             </Box>
-            {canView && canManage &&
+            {canView && activeView === "events" && (
+                <Box sx={{ height: { xs: "auto", lg: "83vh" }, overflowY: "auto", p: 2 }}>
+                    <ImportantEventsPage embedded />
+                </Box>
+            )}
+            {canView && canManage && activeView === "calendar" &&
                 <Box sx={{
                     height: {
                         xs: "auto",
@@ -2043,7 +2102,7 @@ export default function SchoolCalendarPage() {
                 </Box >
             }
             {
-                canView && !canManage &&
+                canView && !canManage && activeView === "calendar" &&
                 <Box sx={{ height: "83vh", overflowY: "auto" }}>
                     <Grid
                         container

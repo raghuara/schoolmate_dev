@@ -37,6 +37,7 @@ import DashboardOutlinedIcon from '@mui/icons-material/DashboardOutlined';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { selectWebsiteSettings } from '../../Redux/Slices/websiteSettingsSlice';
+import { findSubMenuPermissions } from '../../Redux/Slices/AuthSlice';
 import { selectAcademicYear } from '../../Redux/Slices/academicYearSlice';
 import PostViewTracking from './PostViewTracking';
 import {
@@ -210,7 +211,10 @@ export default function CommunicationDashboard() {
     const navigate = useNavigate();
     const websiteSettings = useSelector(selectWebsiteSettings);
     const user = useSelector((state) => state.auth);
-    const isTeacher = user?.userType === 'teacher';
+    // Export writes out exactly the rows already on screen, so it needs no more
+    // access than viewing the dashboard does.
+    const dashboardPerms = findSubMenuPermissions(user.permissions, 'communication', 'dashboard') || {};
+    const canExport = dashboardPerms.view === 'Y';
     const presets = useMemo(() => buildPresets(), []);
 
     const [viewMode, setViewMode] = useState('dashboard'); // 'dashboard' | 'tracking'
@@ -810,7 +814,7 @@ export default function CommunicationDashboard() {
                             <Typography sx={{ fontSize: 11.5, color: '#6B7280' }}>activities</Typography>
                         </Box>
 
-                        {!isTeacher && (
+                        {canExport && (
                             <>
                                 <Button
                                     size="small" variant="contained"

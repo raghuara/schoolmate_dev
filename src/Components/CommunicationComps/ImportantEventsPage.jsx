@@ -97,7 +97,7 @@ const EventCard = ({ item, onViewImage, onPlayVideo }) => {
     );
 };
 
-export default function SchoolCalendarPage() {
+export default function ImportantEventsPage({ embedded = false }) {
     const today = dayjs();
     const navigate = useNavigate();
     const websiteSettings = useSelector(selectWebsiteSettings);
@@ -210,14 +210,21 @@ export default function SchoolCalendarPage() {
     return (
         <Box sx={{ width: "100%" }}>
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
-            <Box sx={{ backgroundColor: "#f2f2f2", px: 2, borderRadius: "10px 10px 10px 0px", borderBottom:"1px solid #ddd",  }}>
-                <Grid container sx={{ py: 1.5 }}>
+            <Box sx={{
+                backgroundColor: embedded ? "transparent" : "#f2f2f2",
+                px: 2,
+                borderRadius: embedded ? 0 : "10px 10px 10px 0px",
+                borderBottom: embedded ? "none" : "1px solid #ddd",
+            }}>
+                <Grid container sx={{ py: embedded ? 0 : 1.5 }} alignItems="center">
                     <Grid
                         sx={{ display: "flex", alignItems: "center" }}
                         size={{
                             lg: 6
                         }}>
-                        <Typography sx={{ fontWeight: "600", fontSize: "20px" }}>Important Events</Typography>
+                        {!embedded && (
+                            <Typography sx={{ fontWeight: "600", fontSize: "20px" }}>Important Events</Typography>
+                        )}
                     </Grid>
 
                     <Grid
@@ -234,7 +241,7 @@ export default function SchoolCalendarPage() {
                                 onChange={handleDateChange}
                                 style={{
                                     boxShadow: "none",
-                                    backgroundColor: "#F6F6F8",
+                                    backgroundColor: embedded ? "#fff" : "#F6F6F8",
                                 }}
                                 className="teal custom-calendar"
                                 mapDays={({ date }) => {
@@ -255,7 +262,7 @@ export default function SchoolCalendarPage() {
                             <style>
                                 {`
                                     .rmdp-wrapper {
-                                        background-color: #f2f2f2 !important;
+                                        background-color: ${embedded ? "#fff" : "#f2f2f2"} !important;
                                     }
                                     
                                     .rmdp-year-picker, .rmdp-month-picker {
@@ -308,12 +315,12 @@ export default function SchoolCalendarPage() {
                     </Grid>
                 </Grid>
             </Box>
-            <Box sx={{
+            <Box sx={embedded ? { height: "100%" } : {
                 height: {
                     xs: "100%",
                     lg: "83vh",
                 },
-                overflowY:"auto"
+                overflowY: "auto"
             }}>
 
                 <Grid
@@ -345,7 +352,7 @@ export default function SchoolCalendarPage() {
                                             </Box>
                                         </Box>
                                         {/* Column events */}
-                                        <Box sx={{ height: "72vh", overflowY: "auto", pr: 0.5, display: "flex", flexDirection: "column", gap: 1.5 }}>
+                                        <Box sx={{ height: embedded ? "64vh" : "72vh", overflowY: "auto", pr: 0.5, display: "flex", flexDirection: "column", gap: 1.5 }}>
                                             {col.data.length === 0 ? (
                                                 <Box sx={{ textAlign: "center", mt: 1, py: 4, px: 2, borderRadius: "12px", border: "1px dashed #E5E7EB", bgcolor: "#FAFBFC" }}>
                                                     <EventBusyOutlinedIcon sx={{ fontSize: 30, color: "#CBD5E1", mb: 0.5 }} />

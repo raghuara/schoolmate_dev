@@ -9,6 +9,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { selectGrades } from '../../../../Redux/Slices/DropdownController';
 import { selectWebsiteSettings } from '../../../../Redux/Slices/websiteSettingsSlice';
 import { selectAcademicYear } from '../../../../Redux/Slices/academicYearSlice';
+import { findSubMenuPermissions } from '../../../../Redux/Slices/AuthSlice';
 import avatarImage from '../../../../Images/PagesImage/avatar.png';
 import ClearIcon from '@mui/icons-material/Clear';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
@@ -98,6 +99,11 @@ export default function BillingScreen() {
 
   // Academic year is set globally in the dashboard header (Redux)
   const selectedYear = useSelector(selectAcademicYear);
+  // Granting a concession is a separate right from taking a payment.
+  const auth = useSelector((state) => state.auth);
+  const rbacReady = (auth.permissions?.mainMenus || []).length > 0;
+  const canConcession = !rbacReady
+    || findSubMenuPermissions(auth.permissions, "feeandfinance", "billingscreen")?.allowconcession === "Y";
 
   const [counts, setCounts] = useState(
     notesList.reduce((acc, n) => ({ ...acc, [n]: 0 }), {})
@@ -1376,6 +1382,7 @@ export default function BillingScreen() {
 
           <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }} sx={{ display: "flex", alignItems: "center", justifyContent: 'end' }}>
             <Box sx={{ display: "flex", alignItems: "center", }}>
+              {canConcession && (
               <Button
                 onClick={() => navigate('/dashboardmenu/fee/special', {
                   state: {
@@ -1399,6 +1406,7 @@ export default function BillingScreen() {
                   height: "33px"
                 }}
               >Special Concession / Reconcession</Button>
+              )}
             </Box>
           </Grid>
         </Grid>

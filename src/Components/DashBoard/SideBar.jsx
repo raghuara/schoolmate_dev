@@ -21,7 +21,7 @@ import { selectVersion } from '../../Redux/Slices/versionSlice';
 import HubIcon from '@mui/icons-material/Hub';
 import LockResetIcon from '@mui/icons-material/LockReset';
 import KeyIcon from '@mui/icons-material/Key';
-import { logout, findSubMenuPermissions } from '../../Redux/Slices/AuthSlice';
+import { logout, findSubMenuPermissions, hasMainMenuAccess } from '../../Redux/Slices/AuthSlice';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
 import AssuredWorkloadIcon from '@mui/icons-material/AssuredWorkload';
@@ -33,7 +33,8 @@ import RealEstateAgentIcon from '@mui/icons-material/RealEstateAgent';
 import AutoStoriesIcon from '@mui/icons-material/AutoStories';
 import { setSidebar, toggleSidebar } from '../../Redux/Slices/sidebarSlice';
 import AppScrollbar from '../AppScrollbar';
-
+import KeyboardDoubleArrowLeftIcon from "@mui/icons-material/KeyboardDoubleArrowLeft";
+import KeyboardDoubleArrowRightIcon from "@mui/icons-material/KeyboardDoubleArrowRight";
 
 function SideBarPage({ mobileOpen, setMobileOpen }) {
   const theme = useTheme();
@@ -42,13 +43,33 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
   const [openDrawer, setOpenDrawer] = useState(false);
   const user = useSelector((state) => state.auth);
   const rollNumber = user.rollNumber
+  // Sent to the chat endpoint as a parameter only - it never decides access.
   const userType = user.userType
   const userName = user.name
   const token = "123"
-  const studentProfilePerms = findSubMenuPermissions(user.permissions, "profilemanagement", "studentmanagement");
-  const staffProfilePerms = findSubMenuPermissions(user.permissions, "profilemanagement", "staffmanagement");
-  const canViewComm = (sm) => (findSubMenuPermissions(user.permissions, "communication", sm) || {}).view === "Y";
-  const communicationLandingPath = ([
+
+  // Menu visibility comes from the login response, never from userType.
+  // A tab shows when its main menu grants at least one "Y" anywhere inside it.
+  // A main menu the response leaves out means no access, so lower privileged
+  // users simply do not receive those menus.
+  const mainMenus = user.permissions?.mainMenus || [];
+  // Nothing loaded yet (old session, permissions still in flight) - show
+  // everything rather than blanking the whole sidebar.
+  const rbacReady = mainMenus.length > 0;
+  const menuExists = (mainMenu) => mainMenus.some((m) => m.mainMenu === mainMenu);
+  const canMenu = (mainMenu) => !rbacReady || hasMainMenuAccess(user.permissions, mainMenu);
+
+  // Any "Y" on a single sub menu.
+  const canSub = (mainMenu, subMenu) => {
+    const perms = findSubMenuPermissions(user.permissions, mainMenu, subMenu);
+    return !!perms && Object.values(perms).some((v) => v === "Y");
+  };
+  const canAnySub = (mainMenu, subMenus) =>
+    !rbacReady || subMenus.some((sm) => canSub(mainMenu, sm));
+
+  // Communication and Academics are two tabs over one "communication" main
+  // menu, so each one checks only the sub menus it actually opens.
+  const COMMUNICATION_SUBMENUS = [
     ["dashboard", "com-dashboard"],
     ["news", "news"],
     ["message", "messages"],
@@ -58,18 +79,35 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
     ["events", "events"],
     ["birthdaypost", "birthday-post"],
     ["feedback", "feedback"],
-  ].find(([sm]) => canViewComm(sm)) || [null, "consentforms"])[1];
-  const academicsLandingPath = ([
+  ];
+  const ACADEMICS_SUBMENUS = [
     ["timetable", "timetables"],
     ["homework", "homework"],
     ["examtimetable", "examtimetables"],
     ["studymaterial", "studymaterials"],
     ["marks", "marks"],
     ["attendance", "attendance"],
-  ].find(([sm]) => canViewComm(sm)) || [null, "assessment/online-quiz"])[1];
-  const hasProfileAccess =
-    (!!studentProfilePerms && ["view", "create", "edit", "siblingapproval"].some((k) => studentProfilePerms[k] === "Y")) ||
-    (!!staffProfilePerms && ["view", "create", "edit"].some((k) => staffProfilePerms[k] === "Y"));
+  ];
+
+  // Land on the first screen this user can actually open.
+  const communicationLandingPath =
+    (COMMUNICATION_SUBMENUS.find(([sm]) => canSub("communication", sm)) || [null, "consentforms"])[1];
+  const academicsLandingPath =
+    (ACADEMICS_SUBMENUS.find(([sm]) => canSub("communication", sm)) || [null, "assessment/online-quiz"])[1];
+
+  const canProfile = canMenu("profilemanagement");
+  const canCommunication = canAnySub("communication", COMMUNICATION_SUBMENUS.map(([sm]) => sm));
+  const canAcademics = canAnySub("communication", ACADEMICS_SUBMENUS.map(([sm]) => sm));
+  const canFee = canMenu("feeandfinance");
+  const canLeave = canMenu("leaveandpayroll");
+  const canTransport = canMenu("transport");
+  const canMyProjects = canMenu("myprojects");
+  const canAccessControl = canMenu("accesscontrol");
+  // The login response carries no "approvals" main menu yet, so this tab stays
+  // reachable until one arrives. Every other tab is strict.
+  const canApprovals = menuExists("approvals") ? canMenu("approvals") : true;
+  // The "Manage" heading only earns its place when something sits under it.
+  const showManageSection = canMyProjects || canApprovals || canAccessControl;
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState(false);
@@ -99,20 +137,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
 
   const isExpanded = useSelector((state) => state.sidebar.isExpanded);
   const chatUnread = useSelector(selectChatUnreadTotal);
-  const [sidebarHovered, setSidebarHovered] = useState(false);
-  const handleHideTimer = useRef(null);
 
-  // Keep the handle alive for a moment after the cursor leaves so it can be
-  // reached without racing it.
-  const showSidebarHandle = () => {
-    clearTimeout(handleHideTimer.current);
-    setSidebarHovered(true);
-  };
-  const hideSidebarHandle = () => {
-    clearTimeout(handleHideTimer.current);
-    handleHideTimer.current = setTimeout(() => setSidebarHovered(false), 700);
-  };
-  useEffect(() => () => clearTimeout(handleHideTimer.current), []);
 
   const refreshChatUnread = () => {
     if (!rollNumber) return;
@@ -122,7 +147,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
         const total = (res.data?.groups || []).reduce((sum, g) => sum + (g.unreadCount || 0), 0);
         dispatch(setChatUnreadTotal(total));
       })
-      .catch(() => {});
+      .catch(() => { });
   };
 
   useEffect(() => {
@@ -225,8 +250,6 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
   const drawer = (
 
     <Box
-      onMouseEnter={showSidebarHandle}
-      onMouseLeave={hideSidebarHandle}
       sx={{
         backgroundColor: websiteSettings.backgroundColor,
         height: '100%',
@@ -343,7 +366,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
           </ListItem>
 
           {/* Profile Tab */}
-          {hasProfileAccess && (
+          {canProfile && (
             <ListItem onClick={() => handleMenuClickOne('profile')} sx={{ borderRadius: 2, px: 3, paddingTop: '6px', paddingBottom: isExpanded ? '2px' : '9px' }}>
               <CustomTooltip title={isExpanded ? "" : "Profile Management"} arrow placement="right-start">
                 <Box
@@ -396,7 +419,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
           )}
 
           {/* Communication Tab */}
-          {version.LITE && (
+          {version.LITE && canCommunication && (
             <ListItem onClick={() => handleMenuClick('communication', 'com-dashboard', communicationLandingPath)} sx={{ borderRadius: 2, px: 3, paddingTop: '6px', paddingBottom: isExpanded ? '2px' : '9px' }}>
               <CustomTooltip title={isExpanded ? "" : "Communication"} arrow placement="right-start">
                 <Box
@@ -476,7 +499,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
 
 
           {/* Academics Tab */}
-          {version.LITE && (
+          {version.LITE && canAcademics && (
             <ListItem onClick={() => handleMenuClick('academics', 'timetables', academicsLandingPath)} sx={{ borderRadius: 2, px: 3, paddingTop: '6px', paddingBottom: isExpanded ? '2px' : '9px' }}>
               <CustomTooltip title={isExpanded ? "" : "Academics"} arrow placement="right-start">
                 <Box
@@ -546,7 +569,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
           }
 
           {/* Fee  Tab */}
-          {version.PRO && (
+          {version.PRO && canFee && (
             <ListItem onClick={() => handleMenuClickOne('fee')} sx={{ borderRadius: 2, px: 3, paddingTop: '6px', paddingBottom: isExpanded ? '2px' : '9px' }}>
               <CustomTooltip title={isExpanded ? "" : "Fee & Finance"} arrow placement="right-start">
                 <Box
@@ -599,7 +622,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
           )}
 
           {/* Leave Tab */}
-          {version.PRO && (
+          {version.PRO && canLeave && (
             <ListItem onClick={() => handleMenuClickOne('leave')} sx={{ borderRadius: 2, px: 3, paddingTop: '6px', paddingBottom: isExpanded ? '2px' : '9px' }}>
               <CustomTooltip title={isExpanded ? "" : "Leave & Payroll"} arrow placement="right-start">
                 <Box
@@ -652,7 +675,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
           )}
 
           {/* Transport Tab */}
-          {(version.PRO || version.PLUS) && (userType === "Super Admin" || userType === "admin" || userType === "staff") && (
+          {(version.PRO || version.PLUS) && canTransport && (
             <ListItem onClick={() => handleMenuClickOne('transport')} sx={{ borderRadius: 2, px: 3, paddingTop: '6px', paddingBottom: isExpanded ? '2px' : '9px' }}>
               <CustomTooltip title={isExpanded ? "" : "Transport"} arrow placement="right-start">
                 <Box
@@ -813,7 +836,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
               opacity: isDisabled ? 0.5 : 1,
               pointerEvents: isDisabled ? 'none' : 'auto',
             }}
-          > 
+          >
             <Box
               sx={{
                 display: 'flex',
@@ -837,7 +860,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
                 position: 'relative',
                 '&:hover': {
                   backgroundColor: isDisabled
-                    ? 'none' 
+                    ? 'none'
                     : !isActive('/dashboardmenu/erp')
                       ? websiteSettings.lightColor
                       : 'none',
@@ -956,7 +979,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
               <hr style={{ border: "none", borderTop: "1px solid #e8dec9", margin: "6px 0" }} />
             </Box>
 
-            {userType !== "teacher" &&
+            {showManageSection &&
               <Box>
                 {isExpanded ?
                   <Box px={5}>
@@ -975,7 +998,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
             }
 
             {/* My Project Tab */}
-            {version.LITE && (userType === "Super Admin" || userType === "admin"|| userType === "teacher"  ) && (
+            {version.LITE && canMyProjects && (
               <ListItem onClick={() => handleMenuClickOne('myprojects')} sx={{ borderRadius: 2, px: 3, paddingTop: '6px', paddingBottom: isExpanded ? '2px' : '9px' }}>
                 <CustomTooltip title={isExpanded ? "" : "My Projects"} arrow placement="right-start">
                   <Box
@@ -1029,7 +1052,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
             )}
             {/* Approvals Tab */}
 
-            {(userType === "Super Admin" || userType === "admin") && (
+            {canApprovals && (
               <ListItem onClick={() => handleMenuClickOne('approvals')} sx={{ borderRadius: 2, px: 3, paddingTop: '6px', paddingBottom: isExpanded ? '2px' : '9px' }}>
                 <CustomTooltip title={isExpanded ? "" : "Approvals"} arrow placement="right-start">
                   <Box
@@ -1104,7 +1127,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
               </ListItem>
             )}
 
-            {(userType === "Super Admin" || userType === "admin" || userType === "staff") && (
+            {canAccessControl && (
               <ListItem onClick={() => handleMenuClickOne('access')} sx={{ borderRadius: 2, px: 3, paddingTop: '6px', paddingBottom: isExpanded ? '2px' : '9px' }}>
                 <CustomTooltip title={isExpanded ? "" : "Access Control"} arrow placement="right-start">
                   <Box
@@ -1238,65 +1261,68 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
   return (
     <Box sx={{ display: 'flex' }}>
       {/* Sidebar collapse / expand handle - sits on the sidebar's right edge */}
+      {/* Sidebar collapse / expand handle */}
       {!isMobileOrTablet &&
         location.pathname !== "/dashboardmenu/student/information/create" &&
         location.pathname !== "/dashboardmenu/student/information/viewinfo" &&
         location.pathname !== "/dashboardmenu/student/information/edit" && (
+
           <Box
             sx={{
-              position: 'fixed',
-              top: '92px',
-              left: 0,
-              zIndex: 1300,
-              pointerEvents: 'none',
-              // Rides the sidebar edge on exactly the sidebar's own curve.
-              transform: `translate3d(${isExpanded ? 260 : 80}px, -50%, 0)`,
-              transition: 'transform 0.3s ease-in-out',
-              willChange: 'transform',
+              position: "fixed",
+              top: "108px",
+              left: isExpanded ? "260px" : "80px",
+              transform: "translateX(-50%)",
+              zIndex: 1400,
+
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+
+              transition: "left 0.3s ease-in-out",
             }}
           >
-              <Box
-                onClick={handleToggleSidebar}
-                onMouseEnter={showSidebarHandle}
-                onMouseLeave={hideSidebarHandle}
-                sx={{
-                  position: 'relative',
-                  width: 20,
-                  height: 40,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  color: '#9CA3AF',
-                  backgroundColor: websiteSettings.backgroundColor,
-                  borderTop: '1px solid #ddd',
-                  borderRight: '1px solid #ddd',
-                  borderBottom: '1px solid #ddd',
-                  borderTopRightRadius: '6px',
-                  borderBottomRightRadius: '6px',
-                  boxShadow: '2px 0 6px rgba(16,24,40,0.06)',
-                  opacity: sidebarHovered ? 1 : 0,
-                  pointerEvents: sidebarHovered ? 'auto' : 'none',
-                  transform: sidebarHovered ? 'translate3d(0,0,0)' : 'translate3d(-10px,0,0)',
-                  transition:
-                    'opacity 0.25s ease, transform 0.32s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.2s, color 0.2s',
-                  // Invisible padding so the 20px tab is easy to hit and does not
-                  // slip out from under the cursor on the way over.
-                  '&::before': {
-                    content: '""',
-                    position: 'absolute',
-                    top: -10,
-                    bottom: -10,
-                    left: -12,
-                    right: -8,
-                  },
-                  '&:hover': { backgroundColor: websiteSettings.lightColor, color: '#4B5563' },
-                }}
-              >
-                {isExpanded
-                  ? <ArrowBackIosNewIcon sx={{ fontSize: '12px' }} />
-                  : <ArrowForwardIosIcon sx={{ fontSize: '12px' }} />}
-              </Box>
+            <Box
+              onClick={handleToggleSidebar}
+              sx={{
+                width: 27,
+                height: 31,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: "#FFFDF7",
+                border: `1px solid ${websiteSettings.mainColor}`,
+                borderRadius: "6px",
+                boxShadow:
+                  "0 2px 6px rgba(0, 0, 0, 0.08)",
+                cursor: "pointer",
+                color: "#4B4B4B",
+                "&:hover": {
+                  backgroundColor:
+                    websiteSettings.lightColor,
+
+                  color:
+                    websiteSettings.darkColor,
+
+                  boxShadow:
+                    "0 3px 9px rgba(0, 0, 0, 0.12)",
+                },
+              }}
+            >
+              {isExpanded ? (
+                <KeyboardDoubleArrowLeftIcon
+                  sx={{
+                    fontSize: 19,
+                  }}
+                />
+              ) : (
+                <KeyboardDoubleArrowRightIcon
+                  sx={{
+                    fontSize: 19,
+                  }}
+                />
+              )}
+            </Box>
           </Box>
         )}
 

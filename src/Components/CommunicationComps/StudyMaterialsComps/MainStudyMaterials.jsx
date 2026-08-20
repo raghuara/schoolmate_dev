@@ -41,6 +41,7 @@ export default function MainStudyMaterialsPage() {
     const [timeTableData, setTimeTableData] = useState([]);
     const user = useSelector((state) => state.auth);
     const studyPerms = findSubMenuPermissions(user.permissions, "communication", "studymaterial") || {};
+    const canView = studyPerms.view === "Y";
     const canCreate = studyPerms.create === "Y";
     const canEdit = studyPerms.edit === "Y";
     const canDelete = studyPerms.delete === "Y";
@@ -357,7 +358,7 @@ export default function MainStudyMaterialsPage() {
                                     zIndex: 999,
                                 }}
                             >
-                                {userType !== "teacher" && (
+                                {canView && (
                                     <ToggleButtonGroup
                                         value={view}
                                         exclusive
@@ -832,7 +833,7 @@ export default function MainStudyMaterialsPage() {
                             zIndex: 999,
                         }}
                     >
-                        {userType !== "teacher" && (
+                        {canView && (
                             <ToggleButtonGroup
                                 value={view}
                                 exclusive

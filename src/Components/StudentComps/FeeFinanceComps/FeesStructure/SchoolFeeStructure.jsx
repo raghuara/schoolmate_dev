@@ -1,8 +1,11 @@
 import { Box } from '@mui/system'
+import { selectAcademicYear } from "../../../../Redux/Slices/academicYearSlice";
+import { APPROVAL_SUBMENUS, approvalRoleFor, selectApprovalMatrix } from "../../../../Redux/Slices/approvalMatrixSlice";
+import { selectUserTypeID, findSubMenuPermissions } from "../../../../Redux/Slices/AuthSlice";
 import React, { useEffect, useState } from 'react'
 import Loader from '../../../Loader'
 import SnackBar from '../../../SnackBar'
-import { Autocomplete, Button, Card, Grid, IconButton, InputAdornment, Tab, Table, TableBody, TableCell, TableHead, TableRow, Tabs, TextField, Tooltip, Typography } from '@mui/material';
+import { Button, Card, Grid, IconButton, InputAdornment, Tab, Table, TableBody, TableCell, TableHead, TableRow, Tabs, TextField, Tooltip, Typography } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -25,7 +28,15 @@ export default function SchoolFeeStructure() {
   const token = "123";
   const user = useSelector((state) => state.auth)
   const rollNumber = user.rollNumber;
-  const userType = user.userType
+  // createfeesstructure is an approval module: the matrix decides whether this
+  // role posts straight through or has to raise a request.
+  const userTypeID = useSelector(selectUserTypeID);
+  const approvalMatrix = useSelector(selectApprovalMatrix);
+  const canActDirect = approvalRoleFor(approvalMatrix, APPROVAL_SUBMENUS.FEE_STRUCTURE, userTypeID).canPublishDirect;
+  const feePerms = findSubMenuPermissions(user.permissions, "feeandfinance", "createfeesstructure") || {};
+  const rbacReady = (user.permissions?.mainMenus || []).length > 0;
+  const canCreate = !rbacReady || feePerms.create === "Y";
+  const canEdit = !rbacReady || feePerms.edit === "Y";
 
   const grades = useSelector(selectGrades);
   const [selectedGrade, setSelectedGrade] = useState(grades?.[0]?.sign || null);
@@ -45,18 +56,12 @@ export default function SchoolFeeStructure() {
 
   const [primeSchoolFeesID, setPrimeSchoolFeesID] = useState(null);
 
-  const currentYear = new Date().getFullYear();
-  const currentAcademicYear = `${currentYear}-${currentYear + 1}`;
-  const [selectedYear, setSelectedYear] = useState(currentAcademicYear);
+  // The academic year comes from the header - one picker for the whole site.
+  const selectedYear = useSelector(selectAcademicYear);
   const [hasApprovedFees, setHasApprovedFees] = useState(false);
   const [isAnyStudentPaid, setIsAnyStudentPaid] = useState(false);
 
   const isExpanded = useSelector((state) => state.sidebar.isExpanded);
-  const academicYears = [
-    `${currentYear - 2}-${currentYear - 1}`,
-    `${currentYear - 1}-${currentYear}`,
-    `${currentYear}-${currentYear + 1}`,
-  ];
 
   const makeInitialFeesForGrades = (gradesArr = []) => {
     const initialFees = {};
@@ -328,7 +333,7 @@ export default function SchoolFeeStructure() {
       setOpen(true);
       setColor(true);
       setStatus(true);
-      setMessage(userType === 'superadmin' ? 'School fee created successfully' : 'Requested successfully');
+      setMessage(canActDirect ? 'School fee created successfully' : 'Requested successfully');
       await fetchFeesForGrade(selectedGrade);
 
     } catch (error) {
@@ -402,7 +407,7 @@ export default function SchoolFeeStructure() {
       setOpen(true);
       setColor(true);
       setStatus(true);
-      setMessage(userType === 'superadmin' ? 'School fee updated successfully' : 'Requested successfully');
+      setMessage(canActDirect ? 'School fee updated successfully' : 'Requested successfully');
       await fetchFeesForGrade(selectedGrade);
 
     } catch (error) {
@@ -434,50 +439,11 @@ export default function SchoolFeeStructure() {
           overflow: 'hidden',
         }}>
           <Grid container>
-            <Grid size={{ xs: 6, sm: 6, md: 9, lg: 9 }} sx={{ display: "flex", alignItems: "center" }}>
+            <Grid size={{ xs: 12, sm: 12, md: 12, lg: 12 }} sx={{ display: "flex", alignItems: "center" }}>
               <IconButton onClick={() => navigate(-1)} sx={{ width: "27px", height: "27px", marginTop: '2px', }}>
                 <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
               </IconButton>
               <Typography sx={{ fontWeight: "600", fontSize: "19px" }} >Create School Fee </Typography>
-            </Grid>
-            <Grid
-              size={{ xs: 6, sm: 6, md: 3, lg: 3 }}
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "end",
-                gap: 1.5,
-                borderRadius: "8px",
-                px: 2,
-                py: 1,
-              }}
-            >
-
-              <Autocomplete
-                size="small"
-                options={academicYears}
-                sx={{ width: "170px" }}
-                value={selectedYear}
-                onChange={(e, newValue) => setSelectedYear(newValue)}
-                renderInput={(params) => (
-                  <TextField
-                    placeholder="Select Academic Year"
-                    {...params}
-                    variant="outlined"
-                    sx={{
-                      "& .MuiOutlinedInput-root": {
-                        borderRadius: "5px",
-                        fontSize: 14,
-                        height: 35,
-                      },
-                      "& .MuiOutlinedInput-input": {
-                        textAlign: "center",
-                        fontWeight: "600"
-                      },
-                    }}
-                  />
-                )}
-              />
             </Grid>
           </Grid>
         </Box>
@@ -871,7 +837,7 @@ export default function SchoolFeeStructure() {
           </Button>
         )}
 
-        {/*  {(userType === "superadmin" || userType === "admin") && (
+        {/*  {(canCreate || canEdit) && (
           <Button
             onClick={handleSubmit}
             sx={{
@@ -886,12 +852,12 @@ export default function SchoolFeeStructure() {
               height: "30px",
               color: websiteSettings.textColor
             }}>
-            {userType === "superadmin"
+            {canActDirect
               ? `Apply for ${selectedGrade}`
               : `Request Approval`}
           </Button>
         )} */}
-        {(userType === "superadmin" || userType === "admin") && !isAnyStudentPaid && (
+        {(canCreate || canEdit) && !isAnyStudentPaid && (
           <Button
             onClick={hasApprovedFees ? handleUpdate : handleSubmit}
             sx={{
@@ -908,7 +874,7 @@ export default function SchoolFeeStructure() {
           >
             {hasApprovedFees
               ? "Update Fees"
-              : userType === "superadmin"
+              : canActDirect
                 ? `Apply for ${selectedGrade}`
                 : "Request Approval"}
           </Button>

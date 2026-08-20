@@ -556,6 +556,8 @@ const UpdateUsersUserType = `${UserTypes}/UpdateUsersUserType`;
 const GetNonStudentUsers = `${UserTypes}/GetNonStudentUsers`;
 const GetUserTypePermissions = `${UserTypes}/GetUserTypePermissions`;
 const UpdateUserTypePermissions = `${UserTypes}/UpdateUserTypePermissions`;
+const GetAllApprovalMatrix = `${UserTypes}/GetAllApprovalMatrix`;
+const UpdateApprovalMatrix = `${UserTypes}/UpdateApprovalMatrix`;
 
 
 // Class & Section Management
@@ -582,6 +584,7 @@ const UpdateQuizApproval = `${baseApiurl}qtest/updateQuzeApproval`;
 const GetQuizDashboard = `${baseApiurl}qtest/getQuzeDashboard`;
 const GetAllQuizzesForAdmin = `${baseApiurl}qtest/getAllQuzesForAdmin`;
 const GetQuizSingleAnalytics = `${baseApiurl}qtest/getQuzeSingleAnalytics`;
+const GetStudentQuizWarningCount = `${baseApiurl}qtest/getStudentQuzeResultReviewWarningCount`;
 
 //----------------------------------- xxxxxxxx ----------------------------------
 
@@ -993,6 +996,8 @@ export {
     fetchmedia,
     AddUserType,
     GetAllUserTypes,
+    GetAllApprovalMatrix,
+    UpdateApprovalMatrix,
     UpdateUsersUserType,
     GetNonStudentUsers,
     GetUserTypePermissions,
@@ -1006,5 +1011,6 @@ export {
     UpdateQuizApproval,
     GetQuizDashboard,
     GetAllQuizzesForAdmin,
-    GetQuizSingleAnalytics
+    GetQuizSingleAnalytics,
+    GetStudentQuizWarningCount
 }

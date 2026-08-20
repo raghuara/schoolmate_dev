@@ -1,8 +1,11 @@
 import { Box } from '@mui/system'
+import { selectAcademicYear } from "../../../../Redux/Slices/academicYearSlice";
+import { APPROVAL_SUBMENUS, approvalRoleFor, selectApprovalMatrix } from "../../../../Redux/Slices/approvalMatrixSlice";
+import { selectUserTypeID } from "../../../../Redux/Slices/AuthSlice";
 import React, { useEffect, useState } from 'react'
 import Loader from '../../../Loader'
 import SnackBar from '../../../SnackBar'
-import { Autocomplete, Button, Card, CardContent, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, Grid, IconButton, InputAdornment, InputLabel, MenuItem, Popper, Select, Switch, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tabs, TextField, Tooltip, Typography, Chip, Divider } from '@mui/material';
+import { Button, Card, CardContent, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, Grid, IconButton, InputAdornment, InputLabel, MenuItem, Popper, Select, Switch, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tabs, TextField, Tooltip, Typography, Chip, Divider } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -64,21 +67,19 @@ export default function TransportFeeStructure() {
   const [selectedTripDetails, setSelectedTripDetails] = useState(null);
   const [dueDate, setDueDate] = useState(dayjs());
   const token = "123";
-  const currentYear = new Date().getFullYear();
-  const currentAcademicYear = `${currentYear}-${currentYear + 1}`;
-  const [selectedYear, setSelectedYear] = useState(currentAcademicYear);
+  // The academic year comes from the header - one picker for the whole site.
+  const selectedYear = useSelector(selectAcademicYear);
   const [feeAlreadyCreated, setFeeAlreadyCreated] = useState(false);
   const [routeFeeStatus, setRouteFeeStatus] = useState({}); // { routeInformationId: true/false }
 
   const user = useSelector((state) => state.auth);
   const rollNumber = user.rollNumber;
-  const userType = user.userType;
+  // createfeesstructure is an approval module: the matrix decides whether this
+  // role posts straight through or has to raise a request.
+  const userTypeID = useSelector(selectUserTypeID);
+  const approvalMatrix = useSelector(selectApprovalMatrix);
+  const canActDirect = approvalRoleFor(approvalMatrix, APPROVAL_SUBMENUS.FEE_STRUCTURE, userTypeID).canPublishDirect;
 
-  const academicYears = [
-    `${currentYear - 2}-${currentYear - 1}`,
-    `${currentYear - 1}-${currentYear}`,
-    `${currentYear}-${currentYear + 1}`,
-  ];
 
   const isExpanded = useSelector((state) => state.sidebar.isExpanded);
 
@@ -485,31 +486,6 @@ export default function TransportFeeStructure() {
               >
                 Created Fees
               </Button>
-              <Autocomplete
-                size="small"
-                options={academicYears}
-                sx={{ width: "170px" }}
-                value={selectedYear}
-                onChange={(e, newValue) => setSelectedYear(newValue)}
-                renderInput={(params) => (
-                  <TextField
-                    placeholder="Select Academic Year"
-                    {...params}
-                    variant="outlined"
-                    sx={{
-                      "& .MuiOutlinedInput-root": {
-                        borderRadius: "5px",
-                        fontSize: 14,
-                        height: 35,
-                      },
-                      "& .MuiOutlinedInput-input": {
-                        textAlign: "center",
-                        fontWeight: 600
-                      },
-                    }}
-                  />
-                )}
-              />
             </Grid>
           </Grid>
         </Box>
@@ -1257,7 +1233,7 @@ export default function TransportFeeStructure() {
                       }
                     }}
                   >
-                    {userType === "superadmin" ? "Apply" : "Send for Approval"}
+                    {canActDirect ? "Apply" : "Send for Approval"}
                   </Button>
                 </span>
               </Tooltip>

@@ -102,7 +102,17 @@ const userTypesSlice = createSlice({
 
 export const { setUserTypes, resetUserTypes } = userTypesSlice.actions;
 
+// Students are the one user type that never approves anything. The id is owned
+// by the frontend so it is the reliable check; the name is only a fallback in
+// case the backend ever issues a different id for them.
+export const STUDENT_USER_TYPE_ID = 2;
+export const isStudentUserType = (u) =>
+    String(u?.userTypeID) === String(STUDENT_USER_TYPE_ID) || nameKey(u?.userType) === 'student';
+
 export const selectUserTypes = (state) => state.userTypes.list;
+// Every user type that is allowed to sit in an approval level.
+export const selectApproverUserTypes = (state) =>
+    (state.userTypes.list || []).filter((u) => u?.userType && !isStudentUserType(u));
 export const selectUserTypesLoading = (state) => state.userTypes.loading;
 export const selectUserTypesError = (state) => state.userTypes.error;
 export const selectUserTypeById = (id) => (state) =>

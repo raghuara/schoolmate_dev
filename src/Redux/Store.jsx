@@ -13,6 +13,7 @@ import versionReducer from './Slices/versionSlice';
 import academicYearReducer from './Slices/academicYearSlice';
 import chatReducer from './Slices/chatSlice';
 import userTypesReducer from './Slices/userTypesSlice';
+import approvalMatrixReducer from './Slices/approvalMatrixSlice';
 
 const authPersistConfig = {
   key: 'auth',
@@ -71,12 +72,21 @@ const userTypesPersistConfig = {
   whitelist: ['list', 'lastFetched'],
 };
 
+// Persisted so a page can decide Publish vs Request on first paint, without
+// waiting for the matrix call to come back.
+const approvalMatrixPersistConfig = {
+  key: 'approvalMatrix',
+  storage,
+  whitelist: ['list', 'lastFetched'],
+};
+
 const persistedAuthReducer = persistReducer(authPersistConfig, authReducer);
 const persistedGradesReducer = persistReducer(gradesPersistConfig, gradesReducer);
 const persistedSidebarReducer = persistReducer(sidebarPersistConfig, sidebarReducer);
 const persistedVersionReducer = persistReducer(versionPersistConfig, versionReducer);
 const persistedAcademicYearReducer = persistReducer(academicYearPersistConfig, academicYearReducer);
 const persistedUserTypesReducer = persistReducer(userTypesPersistConfig, userTypesReducer);
+const persistedApprovalMatrixReducer = persistReducer(approvalMatrixPersistConfig, approvalMatrixReducer);
 
 const store = configureStore({
   reducer: {
@@ -92,6 +102,7 @@ const store = configureStore({
     academicYear: persistedAcademicYearReducer,
     chat: chatReducer,
     userTypes: persistedUserTypesReducer,
+    approvalMatrix: persistedApprovalMatrixReducer,
   },
 });
 

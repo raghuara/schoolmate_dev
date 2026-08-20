@@ -235,10 +235,13 @@ export default function HomeWorkPage() {
 
     useEffect(() => {
         fetchTimeTables()
-    }, [checked, selectedGradeId, selectedSection, formattedDate])
+    }, [checked, selectedGradeId, selectedSection, formattedDate, academicYear])
 
 
     const fetchTimeTables = async () => {
+        // The API rejects the call without an academic year, so wait until the
+        // header's selected year is in the store before asking for the list.
+        if (!academicYear) return;
         setIsLoading(true);
         try {
             const res = await axios.get(HomeWorkFetch01, {
@@ -321,7 +324,7 @@ export default function HomeWorkPage() {
                             md: 3,
                             lg: 2.5
                         }}>
-                        {userType !== "teacher" &&
+                        {canCreate &&
                             <>
                                 <Typography sx={{ fontWeight: "600", fontSize: "12px" }} >My Projects</Typography>
                                 <Switch
@@ -671,7 +674,7 @@ export default function HomeWorkPage() {
                             zIndex: 999,
                         }}
                     >
-                        {userType !== "teacher" && (
+                        {canView && (
                             <ToggleButtonGroup
                                 value={view}
                                 exclusive

@@ -43,9 +43,13 @@ export default function AccessControlPage() {
         { color: "#D97706", icon: SchoolIcon, text: "Issue TC", desc: "Issue transfer certificates for leaving students.", path: 'issue-tc', intimation: false, show: canOpen("issuetc") },
     ].filter((item) => item.show);
 
-    // The login response has no sub menu for this screen yet, so it stays hidden
-    // until the backend sends one named "rolespermissions".
-    const canManageRoles = canOpen("rolespermissions");
+    // The login response carries no "rolespermissions" sub menu yet, so this card
+    // stays open for everyone. The moment the backend sends one it takes over on
+    // its own - no code change needed here.
+    const rolesKeyPublished = (permissions?.mainMenus || [])
+        .find((m) => m.mainMenu === "accesscontrol")?.subMenus
+        ?.some((s) => s.subMenu === "rolespermissions");
+    const canManageRoles = !rolesKeyPublished || canOpen("rolespermissions");
 
 
     return (

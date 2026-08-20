@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { findSubMenuPermissions } from '../../../../Redux/Slices/AuthSlice';
+import { selectAcademicYear } from "../../../../Redux/Slices/academicYearSlice";
 import {
     Box,
     Typography,
@@ -6,10 +8,8 @@ import {
     Grid,
     Divider,
     Select,
-    TextField,
     Tabs,
     Tab,
-    Autocomplete,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
@@ -44,20 +44,20 @@ export default function FinanceDashboard() {
     const [denominations, setDenominations] = useState({
         2000: 5, 500: 12, 200: 8, 100: 15, 50: 6, 20: 4, 10: 3, 5: 2, 2: 0, 1: 0
     });
-    const currentYear = new Date().getFullYear();
-    const currentAcademicYear = `${currentYear}-${currentYear + 1}`;
-    const [selectedYear, setSelectedYear] = useState(currentAcademicYear);
+    // The academic year comes from the header - one picker for the whole site.
+    const selectedYear = useSelector(selectAcademicYear);
+
+    // Fee Report is a separate grant on top of being able to open the dashboard.
+    const user = useSelector((state) => state.auth);
+    const dashPerms = findSubMenuPermissions(user.permissions, "feeandfinance", "financedashboard") || {};
+    const rbacReady = (user.permissions?.mainMenus || []).length > 0;
+    const canReportTab = !rbacReady || dashPerms.allowreporttab === "Y";
     const websiteSettings = useSelector(selectWebsiteSettings);
 
     const handleChange = (event, newValue) => {
         setValue(newValue);
     };
 
-    const academicYears = [
-        `${currentYear - 2}-${currentYear - 1}`,
-        `${currentYear - 1}-${currentYear}`,
-        `${currentYear}-${currentYear + 1}`,
-    ];
 
     const paymentMethodData = [
         { method: 'Online Payment', value: 2800000, percentage: 45, color: '#0891B2' },
@@ -105,6 +105,24 @@ export default function FinanceDashboard() {
         return ((collected / total) * 100).toFixed(1);
     };
 
+    // Every tab in one place: what it is called, what it renders, and whether
+    // this role is allowed it. Fee Report is the only conditional one today.
+    const TABS = [
+        { key: 'overview', label: 'Overview', Icon: DashboardIcon, render: () => <OverviewTab selectedYear={selectedYear} /> },
+        { key: 'today', label: "Today's Collection", Icon: TodayIcon, render: () => <TodaysCollectionTab /> },
+        { key: 'cash', label: 'Cash Collection', Icon: MonetizationOnIcon, render: () => <CashCollectionTab cashDate={cashDate} setCashDate={setCashDate} selectedYear={selectedYear} /> },
+        { key: 'classwise', label: 'Classwise Collection', Icon: SchoolIcon, render: () => <ClasswiseCollectionTab selectedYear={selectedYear} /> },
+        { key: 'defaulters', label: 'Defaulters', Icon: WarningIcon, render: () => <DefaultersTab selectedYear={selectedYear} /> },
+        { key: 'expenses', label: 'Expenses', Icon: AccountBalanceWalletIcon, render: () => <ExpensesTab /> },
+        { key: 'report', label: 'Fee Report', Icon: AssessmentIcon, render: () => <FeeReportTab />, allowed: canReportTab },
+    ];
+    const visibleTabs = TABS.filter((t) => t.allowed !== false);
+
+    // If the selected tab is no longer in the list, fall back to the first one
+    // rather than rendering an empty panel.
+    const activeTab = Math.min(value, visibleTabs.length - 1);
+    // Note: clamped for rendering only - no state write during render.
+
     return (
         <Box sx={{ border: '1px solid #e8e8e8', borderRadius: '8px', p: 1, height: '86vh', overflow: 'hidden', bgcolor: '#FAFAFA', display: 'flex', flexDirection: 'column' }}>
             {/* Header */}
@@ -118,42 +136,17 @@ export default function FinanceDashboard() {
                             Finance Dashboard
                         </Typography>
                         <Typography sx={{ fontSize: '13px', color: '#666' }}>
-                            Academic Year 2025-26 • Last Updated: Just Now
+                            Academic Year {selectedYear} • Last Updated: Just Now
                         </Typography>
                     </Box>
                 </Box>
-                <Autocomplete
-                    size="small"
-                    options={academicYears}
-                    sx={{ width: "170px" }}
-                    value={selectedYear}
-                    onChange={(e, newValue) => setSelectedYear(newValue)}
-                    renderInput={(params) => (
-                        <TextField
-                            placeholder="Select Academic Year"
-                            {...params}
-                            variant="outlined"
-                            sx={{
-                                "& .MuiOutlinedInput-root": {
-                                    borderRadius: "5px",
-                                    fontSize: 14,
-                                    height: 35,
-                                },
-                                "& .MuiOutlinedInput-input": {
-                                    textAlign: "center",
-                                    fontWeight: "600"
-                                },
-                            }}
-                        />
-                    )}
-                />
             </Box>
 
             <Divider sx={{ mb: 2 }} />
             <Box sx={{ display: "flex", justifyContent: "center", px: 2 }}>
                 <Box sx={{ width: "fit-content", mb: 2 }}>
                     <Tabs
-                        value={value}
+                        value={activeTab}
                         onChange={handleChange}
                         aria-label="attendance tabs"
                         variant="scrollable"
@@ -188,41 +181,14 @@ export default function FinanceDashboard() {
                             },
                         }}
                     >
-                        <Tab
-                            icon={<DashboardIcon sx={{ fontSize: 18 }} />}
-                            iconPosition="start"
-                            label="Overview"
-                        />
-                        <Tab
-                            icon={<TodayIcon sx={{ fontSize: 18 }} />}
-                            iconPosition="start"
-                            label="Today's Collection"
-                        />
-                        <Tab
-                            icon={<MonetizationOnIcon sx={{ fontSize: 18 }} />}
-                            iconPosition="start"
-                            label="Cash Collection"
-                        />
-                        <Tab
-                            icon={<SchoolIcon sx={{ fontSize: 18 }} />}
-                            iconPosition="start"
-                            label="Classwise Collection"
-                        />
-                        <Tab
-                            icon={<WarningIcon sx={{ fontSize: 18 }} />}
-                            iconPosition="start"
-                            label="Defaulters"
-                        />
-                        <Tab
-                            icon={<AccountBalanceWalletIcon sx={{ fontSize: 18 }} />}
-                            iconPosition="start"
-                            label="Expenses"
-                        />
-                        <Tab
-                            icon={<AssessmentIcon sx={{ fontSize: 18 }} />}
-                            iconPosition="start"
-                            label="Fee Report"
-                        />
+                        {visibleTabs.map((t) => (
+                            <Tab
+                                key={t.key}
+                                icon={<t.Icon sx={{ fontSize: 18 }} />}
+                                iconPosition="start"
+                                label={t.label}
+                            />
+                        ))}
                     </Tabs>
                 </Box>
             </Box>
@@ -235,44 +201,7 @@ export default function FinanceDashboard() {
                 '&::-webkit-scrollbar-thumb': { bgcolor: '#D0D0D0', borderRadius: '10px' },
             }}>
 
-                {/* Tab Panel 0: Overview */}
-                {value === 0 && (
-                    <OverviewTab selectedYear={selectedYear} />
-                )}
-
-                {/* Tab Panel 1: Today's Collection */}
-                {value === 1 && (
-                    <TodaysCollectionTab />
-                )}
-
-                {/* Tab Panel 2: Cash Collection */}
-                {value === 2 && (
-                    <CashCollectionTab
-                        cashDate={cashDate}
-                        setCashDate={setCashDate}
-                        selectedYear={selectedYear}
-                    />
-                )}
-
-                {/* Tab Panel 3: Classwise Collection */}
-                {value === 3 && (
-                    <ClasswiseCollectionTab selectedYear={selectedYear} />
-                )}
-
-                {/* Tab Panel 4: Defaulters */}
-                {value === 4 && (
-                    <DefaultersTab selectedYear={selectedYear} />
-                )}
-
-                {/* Tab Panel 5: Expenses */}
-                {value === 5 && (
-                    <ExpensesTab />
-                )}
-
-                {/* Tab Panel 6: Fee Report */}
-                {value === 6 && (
-                    <FeeReportTab />
-                )}
+                {visibleTabs[activeTab]?.render()}
 
             </Box>
         </Box>

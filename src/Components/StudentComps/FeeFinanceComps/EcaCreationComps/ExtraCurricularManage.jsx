@@ -18,6 +18,7 @@ import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import axios from "axios";
 import { selectAcademicYear } from "../../../../Redux/Slices/academicYearSlice";
+import { findSubMenuPermissions } from "../../../../Redux/Slices/AuthSlice";
 import { ecaFeeFetch, ecaFeeFetchID, ecaFeeStudentAdd, ecaFeeStudentFetch, getEligibleEcaStudents } from "../../../../Api/Api";
 import AddAdmissionNumbersDialog from "../../../AddAdmissionNumberDialog";
 import StudentSelectionPopup from "../../../Tools/StudentSelectionPopup";
@@ -31,14 +32,23 @@ export default function ExtraCurricularManage() {
     const token = "123"
     // Academic year is set globally in the dashboard header (Redux)
     const selectedYear = useSelector(selectAcademicYear);
+    const user = useSelector((state) => state.auth);
     const navigate = useNavigate();
-    const [isLoading, setIsLoading] = useState([])
+    const [isLoading, setIsLoading] = useState(false)
 
     const [openTextarea, setOpenTextarea] = useState(false);
     const [openAddPopup, setOpenAddPopup] = useState(false);
     const [eligibleStudents, setEligibleStudents] = useState([]);
     const [specificNo, setSpecificNo] = useState("");
     const [ecaFetch, setEcaFetch] = useState([]);
+    // The API returns the activities directly; older code filtered on a "level"
+    // field that this model has never had, which is why nothing ever rendered.
+    const activities = Array.isArray(ecaFetch) ? ecaFetch : (ecaFetch?.ecaFees || []);
+    // Mapping students onto an activity and editing them are separate grants.
+    const rbacReady = (user.permissions?.mainMenus || []).length > 0;
+    const ecaPerms = findSubMenuPermissions(user.permissions, "feeandfinance", "ecamanagement") || {};
+    const canMapStudent = !rbacReady || ecaPerms.allowmapstudent === "Y";
+    const canEditStudent = !rbacReady || ecaPerms.editstudent === "Y";
 
     const [openStudentPopup, setOpenStudentPopup] = useState(false);
     const [selectedActivity, setSelectedActivity] = useState(null);
@@ -207,9 +217,20 @@ export default function ExtraCurricularManage() {
                     </Button>
                 </Stack> */}
 
+                {!isLoading && activities.length === 0 && (
+                    <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", py: 10, gap: 1 }}>
+                        <Typography sx={{ fontSize: "15px", fontWeight: 600, color: "#374151" }}>
+                            No ECA activities for {selectedYear}
+                        </Typography>
+                        <Typography sx={{ fontSize: "13px", color: "#6B7280" }}>
+                            Create an extra-curricular fee structure for this year to see it here.
+                        </Typography>
+                    </Box>
+                )}
+
                 <Grid container spacing={3} px={3} pb={3} pt={3} alignItems="stretch">
 
-                    {ecaFetch.filter((activity) => activity.level === "A").map((activity) => (
+                    {activities.map((activity) => (
                         <Grid size={{ sm: 12, xs: 12, lg: 3, md: 6 }} key={activity.id} >
                             <Card
                                 sx={{
@@ -303,7 +324,7 @@ export default function ExtraCurricularManage() {
                                     )
                                     }
                                     < Box sx={{ mt: "auto" }}>
-                                        {activity.paid === "Y" &&
+                                        {activity.paid === "Y" && (canMapStudent || canEditStudent) &&
                                             <Button
                                                 onClick={() => {
                                                     handleOpenStudentPopup(activity);
@@ -322,7 +343,9 @@ export default function ExtraCurricularManage() {
                                                     fontSize: "14px",
                                                 }}
                                             >
-                                                Add / Edit / Remove Student
+                                                {canMapStudent && canEditStudent
+                                                    ? "Add / Edit / Remove Student"
+                                                    : canMapStudent ? "Add Student" : "Edit Student"}
                                             </Button>
                                         }
                                     </Box>

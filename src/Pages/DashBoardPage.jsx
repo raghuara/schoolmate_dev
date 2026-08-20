@@ -253,7 +253,7 @@ export default function DashBoardPage() {
 
     // ---------------------------------------------------------------- Tier 2
     return (
-        <Box sx={{ px: { xs: 1.5, md: 2 }, pt: { xs: 1.5, md: 2 }, pb: 4, bgcolor: DASH.canvas, minHeight: "calc(100vh - 60px)" }}>
+        <Box sx={{ px: { xs: 1.5, md: 3 }, pt: { xs: 1.5, md: 2 }, pb: 4, bgcolor: DASH.canvas, minHeight: "calc(100vh - 60px)" }}>
             {header}
 
             {/* Band 1 - KPI strip: 3 across on desktop, 2 on tablet, 1 on mobile */}
@@ -299,43 +299,145 @@ export default function DashBoardPage() {
             </Grid>
 
             {/* Band 0 - Needs Attention */}
-            {MOCK_ALERTS.length > 0 && (
+            <Box
+                sx={{
+                    bgcolor: "#FFFFFF",
+                    border: `1px solid ${DASH.line}`,
+                    borderRadius: "8px",
+                    overflow: "hidden",
+                    mb: 2,
+                }}
+            >
+                {/* ================= HEADER ================= */}
                 <Box
                     sx={{
-                        bgcolor: "#fff",
-                        border: `1px solid ${DASH.line}`,
-                        borderRadius: RADIUS,
-                        p: 1.5,
-                        mb: 2,
+                        minHeight: 40,
+                        px: 1.8,
+
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+
+                        borderBottom: `1px solid ${DASH.lineSoft}`,
                     }}
                 >
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1.4 }}>
-                        <WarningAmberRoundedIcon sx={{ fontSize: 18, color: DASH.amber }} />
-                        <Typography sx={{ fontSize: "13.5px", fontWeight: 700, color: DASH.ink }}>
+                    {/* Left side */}
+                    <Box
+                        sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 0.8,
+                        }}
+                    >
+                        <WarningAmberRoundedIcon
+                            sx={{
+                                fontSize: 18,
+                                color: DASH.amber,
+                            }}
+                        />
+
+                        <Typography
+                            sx={{
+                                fontSize: "13.5px",
+                                fontWeight: 700,
+                                color: DASH.ink,
+                            }}
+                        >
                             Needs Attention
                         </Typography>
-                        <Chip
-                            label={`${MOCK_ALERTS.length} items`}
-                            size="small"
-                            sx={{ height: 20, fontSize: "10.5px", fontWeight: 700, bgcolor: DASH.lineSoft, color: DASH.muted }}
-                        />
-                        <Box sx={{ flex: 1, height: "1px", bgcolor: DASH.lineSoft, ml: 0.5 }} />
+
+                        {/* 5 items badge */}
+                        <Box
+                            sx={{
+                                px: 0.9,
+                                py: 0.25,
+                                borderRadius: "10px",
+                                bgcolor: DASH.amberLight,
+                            }}
+                        >
+                            <Typography
+                                sx={{
+                                    fontSize: "10px",
+                                    fontWeight: 700,
+                                    color: DASH.amber,
+                                }}
+                            >
+                                5 items
+                            </Typography>
+                        </Box>
                     </Box>
-                    <Grid container spacing={1.5} sx={{ alignItems: "stretch" }}>
-                        {MOCK_ALERTS.map((a) => (
-                            <Grid key={a.key} size={{ xs: 12, sm: 6, md: 4, lg: 2.4 }}>
-                                <AlertCard
-                                    icon={severityIcon(a.severity)}
-                                    count={a.count}
-                                    label={a.label}
-                                    severity={a.severity}
-                                    onClick={() => navigate(a.path)}
-                                />
-                            </Grid>
-                        ))}
-                    </Grid>
+
+                    {/* Right side */}
+                    <Button
+                        size="small"
+                        sx={{
+                            minWidth: 0,
+                            p: 0.5,
+
+                            textTransform: "none",
+                            fontSize: "11px",
+                            fontWeight: 700,
+
+                            color: DASH.blue,
+
+                            "&:hover": {
+                                bgcolor: DASH.blueLight,
+                            },
+                        }}
+                    >
+                        View All →
+                    </Button>
                 </Box>
-            )}
+
+                {/* ================= ALERT CARDS ================= */}
+                <Box
+                    sx={{
+                        display: "grid",
+
+                        gridTemplateColumns:
+                            "repeat(5, minmax(0, 1fr))",
+
+                        gap: 1.2,
+
+                        p: 1.2,
+                    }}
+                >
+                    <AlertCard
+                        icon={ErrorOutlineRoundedIcon}
+                        count={6}
+                        label="Classes without attendance today"
+                        severity="critical"
+                    />
+
+                    <AlertCard
+                        icon={WarningAmberRoundedIcon}
+                        count={4}
+                        label="Approvals waiting over 3 days"
+                        severity="warning"
+                    />
+
+                    <AlertCard
+                        icon={ErrorOutlineRoundedIcon}
+                        count={23}
+                        label="Fee defaulters past 60 days"
+                        severity="critical"
+                    />
+
+                    <AlertCard
+                        icon={WarningAmberRoundedIcon}
+                        count={3}
+                        label="Vehicle documents expiring in 30 days"
+                        severity="warning"
+                    />
+
+                    <AlertCard
+                        icon={InfoOutlinedIcon}
+                        count={11}
+                        label="Students without a transport route"
+                        severity="info"
+                    />
+                </Box>
+            </Box>
 
             {/* Band 2 - Attendance */}
             <SectionTitle icon={HowToRegOutlinedIcon}>Attendance</SectionTitle>
@@ -699,7 +801,8 @@ export default function DashBoardPage() {
                 <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
                     <Panel title="My Work" sx={{ height: "100%" }}>
                         {[
-                            ["Drafts", MOCK_MY_WORK.drafts, "/dashboardmenu/draft"],
+                            // Drafts row is off with the draft routes - it would navigate nowhere.
+                            // ["Drafts", MOCK_MY_WORK.drafts, "/dashboardmenu/draft"],
                             ["Awaiting approval", MOCK_MY_WORK.awaitingApproval, "/dashboardmenu/status"],
                             ["Work done", MOCK_MY_WORK.workDone, "/dashboardmenu/workdone"],
                         ].map(([label, count, path]) => (

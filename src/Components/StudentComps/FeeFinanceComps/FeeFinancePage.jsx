@@ -2,6 +2,7 @@ import { Autocomplete, Avatar, Box, Button, Chip, Dialog, DialogActions, DialogC
 import React, { useEffect, useMemo, useState } from 'react'
 import SearchIcon from '@mui/icons-material/Search';
 import { selectWebsiteSettings } from '../../../Redux/Slices/websiteSettingsSlice';
+import { findSubMenuPermissions, hasAnyPermission } from '../../../Redux/Slices/AuthSlice';
 import { useSelector } from 'react-redux';
 import { selectGrades } from '../../../Redux/Slices/DropdownController';
 import { Link, useNavigate } from 'react-router-dom';
@@ -141,7 +142,25 @@ export default function FeeFinancePage() {
     const selectedGrade = grades.find((grade) => grade.id === selectedGradeId);
     const sections = selectedGrade?.sections.map((section) => ({ sectionName: section })) || [];
     const user = useSelector((state) => state.auth);
-    const userType = user.userType;
+
+    // Which cards this user may open. Billing, ECA, Additional Fee and Expense
+    // carry no plain "view" flag - their access is whatever operation keys the
+    // role was granted - so those go through hasAnyPermission.
+    const perms = user.permissions;
+    // Same guard the sidebar uses: until the permission payload has actually
+    // arrived, don't treat "no permissions" as "denied" - that empties the whole
+    // tab instead of showing what the user is entitled to.
+    const rbacReady = (perms?.mainMenus || []).length > 0;
+    const allow = (fn) => !rbacReady || fn();
+    const cardAccess = {
+        "Finance Dashboard": allow(() => findSubMenuPermissions(perms, "feeandfinance", "financedashboard")?.view === "Y"),
+        "Billing Screen": allow(() => hasAnyPermission(perms, "feeandfinance", "billingscreen")),
+        "ECA Management": allow(() => hasAnyPermission(perms, "feeandfinance", "ecamanagement")),
+        "Additional Fee Management": allow(() => hasAnyPermission(perms, "feeandfinance", "additionalfeemanagement")),
+        "Expense": allow(() => hasAnyPermission(perms, "feeandfinance", "expense")),
+        "Concession Log": allow(() => findSubMenuPermissions(perms, "feeandfinance", "concessionlog")?.view === "Y"),
+    };
+    const canCreateFeeStructure = allow(() => findSubMenuPermissions(perms, "feeandfinance", "createfeesstructure")?.create === "Y");
 
     const token = "123";
     const [activeTab, setActiveTab] = useState(0);
@@ -424,7 +443,7 @@ export default function FeeFinancePage() {
                                 </Link>
                             </Grid> */}
 
-                            {(userType === "superadmin" || userType === "admin") &&
+                            {canCreateFeeStructure &&
                                 <Grid
                                     size={{
                                         lg: 5.3,
@@ -536,8 +555,7 @@ export default function FeeFinancePage() {
             {activeTab === 0 && (
             <Grid container spacing={2} >
                 {items
-                    .filter(item => userType !== "teacher" || item.text === "Expense")
-                    .filter(item => item.text !== "Concession Log" || userType === "superadmin")
+                    .filter(item => cardAccess[item.text])
                     .map((item, index) => {
                     const IconComponent = item.icon;
                     return (

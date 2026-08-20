@@ -1,9 +1,12 @@
 import { Box } from '@mui/system';
+import { selectAcademicYear } from "../../../../Redux/Slices/academicYearSlice";
+import { APPROVAL_SUBMENUS, approvalRoleFor, selectApprovalMatrix } from "../../../../Redux/Slices/approvalMatrixSlice";
+import { selectUserTypeID } from "../../../../Redux/Slices/AuthSlice";
 import React, { useEffect, useState } from 'react';
 import Loader from '../../../Loader';
 import SnackBar from '../../../SnackBar';
 import {
-  Autocomplete,
+
   Button,
   Card,
   CardContent,
@@ -62,7 +65,11 @@ export default function CreatedTransportFees() {
   const grades = useSelector(selectGrades);
   const user = useSelector((state) => state.auth);
   const rollNumber = user.rollNumber;
-  const userType = user.userType;
+  // createfeesstructure is an approval module: the matrix decides whether this
+  // role posts straight through or has to raise a request.
+  const userTypeID = useSelector(selectUserTypeID);
+  const approvalMatrix = useSelector(selectApprovalMatrix);
+  const canActDirect = approvalRoleFor(approvalMatrix, APPROVAL_SUBMENUS.FEE_STRUCTURE, userTypeID).canPublishDirect;
   const [isLoading, setIsLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState(false);
@@ -82,14 +89,8 @@ export default function CreatedTransportFees() {
   const [editSameForAll, setEditSameForAll] = useState(false);
   const token = "123";
 
-  const currentYear = new Date().getFullYear();
-  const currentAcademicYear = `${currentYear}-${currentYear + 1}`;
-  const [selectedYear, setSelectedYear] = useState(currentAcademicYear);
-  const academicYears = [
-    `${currentYear - 2}-${currentYear - 1}`,
-    `${currentYear - 1}-${currentYear}`,
-    `${currentYear}-${currentYear + 1}`,
-  ];
+  // The academic year comes from the header - one picker for the whole site.
+  const selectedYear = useSelector(selectAcademicYear);
 
   const labelSx = {
     color: "#333",
@@ -191,7 +192,6 @@ export default function CreatedTransportFees() {
   const handleRefresh = () => {
     fetchCreatedFees();
     setSearchQuery('');
-    setSelectedYear(currentAcademicYear);
   };
 
   const convertGradeSignToApiKey = (gradeSign) => {
@@ -442,7 +442,7 @@ export default function CreatedTransportFees() {
           py: 0.7
         }}>
           <Grid container>
-            <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }} sx={{ display: "flex", alignItems: "center" }}>
+            <Grid size={{ xs: 12, sm: 12, md: 12, lg: 12 }} sx={{ display: "flex", alignItems: "center" }}>
               <IconButton onClick={() => navigate(-1)} sx={{
                 width: "32px",
                 height: "32px",
@@ -457,31 +457,6 @@ export default function CreatedTransportFees() {
             </Grid>
             <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }} sx={{display:"flex", justifyContent:"end"}}>
               <Box sx={{ minWidth: 140 }}>
-                <Autocomplete
-                  size="small"Academic Year
-                  options={academicYears}
-                  sx={{ width: "170px" }}
-                  value={selectedYear}
-                  onChange={(e, newValue) => setSelectedYear(newValue)}
-                  renderInput={(params) => (
-                    <TextField
-                      placeholder="Select Academic Year"
-                      {...params}
-                      variant="outlined"
-                      sx={{
-                        "& .MuiOutlinedInput-root": {
-                          borderRadius: "5px",
-                          fontSize: 14,
-                          height: 35,
-                        },
-                        "& .MuiOutlinedInput-input": {
-                          textAlign: "center",
-                          fontWeight: "600"
-                        },
-                      }}
-                    />
-                  )}
-                />
               </Box>
             </Grid>
           </Grid>
@@ -1408,7 +1383,7 @@ export default function CreatedTransportFees() {
                 "&:hover": { bgcolor: "#F57C00" }
               }}
             >
-              {userType === "superadmin" ? "Update Fee Structure" : "Send Update Request"}
+              {canActDirect ? "Update Fee Structure" : "Send Update Request"}
             </Button>
           </DialogActions>
         </Dialog>
@@ -1525,7 +1500,7 @@ export default function CreatedTransportFees() {
                 "&:hover": { bgcolor: "#c62828" }
               }}
             >
-              {userType === "superadmin" ? "Delete Fee Structure" : "Send Delete Request"}
+              {canActDirect ? "Delete Fee Structure" : "Send Delete Request"}
             </Button>
           </DialogActions>
         </Dialog>

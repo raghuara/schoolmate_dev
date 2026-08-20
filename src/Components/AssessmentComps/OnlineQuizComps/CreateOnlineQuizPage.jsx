@@ -9,7 +9,7 @@ import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import dayjs from "dayjs";
-import { DateTimePicker, LocalizationProvider } from "@mui/x-date-pickers";
+import { DatePicker, DateTimePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
@@ -34,6 +34,11 @@ import SendOutlinedIcon from "@mui/icons-material/SendOutlined";
 import ScheduleSendOutlinedIcon from "@mui/icons-material/ScheduleSendOutlined";
 import MenuBookOutlinedIcon from "@mui/icons-material/MenuBookOutlined";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import ShieldOutlinedIcon from "@mui/icons-material/ShieldOutlined";
+import PhonelinkEraseOutlinedIcon from "@mui/icons-material/PhonelinkEraseOutlined";
+import AlarmOnOutlinedIcon from "@mui/icons-material/AlarmOnOutlined";
+import HourglassBottomOutlinedIcon from "@mui/icons-material/HourglassBottomOutlined";
+import TodayOutlinedIcon from "@mui/icons-material/TodayOutlined";
 
 import SnackBar from "../../SnackBar";
 import Loader from "../../Loader";
@@ -83,7 +88,46 @@ const AI_STEPS = [
 const EXPECTED_SECONDS = 30;
 const GENERATE_TIMEOUT_MS = 5 * 60 * 1000;
 const GRACE_MINUTES = 10;
+// How far ahead the schedule defaults to, measured from the moment the user
+// reaches the publish step - not from when they opened the page.
+const SCHEDULE_LEAD_MINUTES = 35;
+// Smallest gap we let a teacher schedule into. Not a policy - it exists so a
+// start time cannot slip between two backend scheduler passes and never open.
+const SCHEDULE_MIN_LEAD_MINUTES = 5;
 const DATE_TIME_FORMAT = "DD-MM-YYYY hh:mm A";
+const DATE_FORMAT = "DD-MM-YYYY";
+
+// How many times a student may leave the app before the attempt is auto-submitted.
+// 0 means the very first exit ends the quiz.
+const WARNING_OPTIONS = [
+    { value: 0, label: "0", caption: "No second chance" },
+    { value: 1, label: "1", caption: "Strict" },
+    { value: 2, label: "2", caption: "Balanced" },
+    { value: 3, label: "3", caption: "Lenient" },
+];
+
+// Decides what happens to a student who starts late. These keys go straight to
+// the API as `attendanceMode`, and each one requires a different date field.
+const ATTEMPT_MODES = [
+    {
+        key: "fixedend",
+        icon: AlarmOnOutlinedIcon,
+        title: "Fixed end time",
+        detail: "You set the end. A late starter gets whatever time is left.",
+    },
+    {
+        key: "fulltime",
+        icon: HourglassBottomOutlinedIcon,
+        title: "Full time for everyone",
+        detail: "You set the last start time. Each timer runs from their own start.",
+    },
+    {
+        key: "anytime",
+        icon: TodayOutlinedIcon,
+        title: "Any time on the day",
+        detail: "You set only the date. They attend whenever they are free.",
+    },
+];
 
 const formatDuration = (minutes) => {
     const total = Math.max(0, Math.round(Number(minutes) || 0));
@@ -451,8 +495,16 @@ export default function CreateOnlineQuizPage() {
     const [reviewFilter, setReviewFilter] = useState("all");
 
     const [publishMode, setPublishMode] = useState("schedule");
-    const [scheduledAt, setScheduledAt] = useState(() => dayjs().add(30, "minute").startOf("minute"));
-    const [completeBefore, setCompleteBefore] = useState(null);
+    const [scheduledAt, setScheduledAt] = useState(() => dayjs().add(SCHEDULE_LEAD_MINUTES, "minute").startOf("minute"));
+    // Set once the user picks a start time themselves, so the clock sync below
+    // stops overwriting their choice.
+    const [scheduleTouched, setScheduleTouched] = useState(false);
+    // What the user actually picked. Read through the clamped `completeBefore`
+    // below - never directly - so the field cannot render under its own minimum.
+    const [completeBeforeRaw, setCompleteBefore] = useState(null);
+    const [attendanceMode, setAttendanceMode] = useState("fixedend");
+    const [attemptDate, setAttemptDate] = useState(() => dayjs().startOf("day"));
+    const [warningCount, setWarningCount] = useState(3);
 
     const [processing, setProcessing] = useState(null);
     const progressRef = useRef(null);
@@ -594,20 +646,95 @@ export default function CreateOnlineQuizPage() {
 
     const [nowAnchor, setNowAnchor] = useState(() => dayjs().startOf("minute"));
 
+    // Reading a document and generating questions can take several minutes, so a
+    // default calculated at mount is already stale by the time the user gets here.
+    // Re-read the clock on arrival and keep it current while the step is open, so
+    // "now" always means now rather than whenever the page was opened.
     useEffect(() => {
-        setNowAnchor(dayjs().startOf("minute"));
-    }, [publishMode]);
+        if (step !== 3) return undefined;
 
-    const windowStart = publishMode === "schedule" ? scheduledAt : nowAnchor;
+        const sync = () => {
+            const now = dayjs().startOf("minute");
+            setNowAnchor(now);
 
-    const minCompleteBefore = useMemo(
-        () => (windowStart || nowAnchor).add(requiredWindow, "minute"),
-        [windowStart, nowAnchor, requiredWindow]
+            // "Publish now" means today by definition, so the date is not the
+            // user's to choose any more.
+            if (publishMode === "post") setAttemptDate(now.startOf("day"));
+
+            setScheduledAt((prev) => {
+                // Leave a time the user picked alone, unless it has since passed.
+                if (scheduleTouched && prev && prev.isAfter(now)) return prev;
+                return now.add(SCHEDULE_LEAD_MINUTES, "minute");
+            });
+        };
+
+        sync();
+        const id = setInterval(sync, 30000);
+        return () => clearInterval(id);
+    }, [step, publishMode, scheduleTouched]);
+
+    // Anything earlier risks the scheduler missing it entirely.
+    const scheduleFloor = useMemo(
+        () => nowAnchor.add(SCHEDULE_MIN_LEAD_MINUTES, "minute"),
+        [nowAnchor],
     );
 
-    useEffect(() => {
-        setCompleteBefore((prev) => (!prev || prev.isBefore(minCompleteBefore) ? minCompleteBefore : prev));
-    }, [minCompleteBefore]);
+    const windowStart = attendanceMode === "anytime"
+        ? (attemptDate ? attemptDate.startOf("day") : nowAnchor)
+        : (publishMode === "schedule" ? scheduledAt : nowAnchor);
+
+    // The earliest the picker will accept.
+    //   fixedend - the whole quiz plus its grace has to fit before the deadline.
+    //   fulltime  - the picked time is the last moment a student may START, so it
+    //               only has to be strictly after the window opens. Allowing it to
+    //               equal the start would leave a zero-length window nobody could
+    //               begin in.
+    const minCompleteBefore = useMemo(() => {
+        const base = windowStart || nowAnchor;
+        return attendanceMode === "fulltime"
+            ? base.add(1, "minute")
+            : base.add(requiredWindow, "minute");
+    }, [windowStart, nowAnchor, requiredWindow, attendanceMode]);
+
+    // What the field shows before the user picks anything. Both modes open a
+    // window as wide as the quiz plus its grace period, so the default scales
+    // with the paper: a 30 min quiz opens a 40 min window, a 60 min quiz 70.
+    const defaultCompleteBefore = useMemo(
+        () => (windowStart || nowAnchor).add(requiredWindow, "minute"),
+        [windowStart, nowAnchor, requiredWindow],
+    );
+
+    // Clamped while rendering rather than corrected afterwards by an effect.
+    // The effect version left one render where the picker held a value below its
+    // own minDateTime, which is what flashed a validation error every time the
+    // clock ticked and pushed the start time forward.
+    const completeBefore = useMemo(() => {
+        if (attendanceMode === "anytime") return completeBeforeRaw;
+        if (!completeBeforeRaw) return defaultCompleteBefore;
+        if (completeBeforeRaw.isBefore(minCompleteBefore)) return minCompleteBefore;
+        return completeBeforeRaw;
+    }, [completeBeforeRaw, minCompleteBefore, defaultCompleteBefore, attendanceMode]);
+
+    // The real moment the last attempt can still be running. This is what the API
+    // is told, so one field carries all three modes.
+    const effectiveEnd = useMemo(() => {
+        if (attendanceMode === "anytime") return attemptDate ? attemptDate.endOf("day") : null;
+        if (attendanceMode === "fulltime") return completeBefore ? completeBefore.add(totalDuration, "minute") : null;
+        return completeBefore;
+    }, [attendanceMode, attemptDate, completeBefore, totalDuration]);
+
+    // The API takes a different date field per mode, and rejects the others.
+    // fixedend -> shouldCompleteBefore, fulltime -> lastStartDateAndTime,
+    // anytime  -> attemptDate (date only).
+    const attendanceFields = useMemo(() => {
+        if (attendanceMode === "fulltime") {
+            return { lastStartDateAndTime: fmtDateTime(completeBefore) };
+        }
+        if (attendanceMode === "anytime") {
+            return { attemptDate: attemptDate ? dayjs(attemptDate).format(DATE_FORMAT) : null };
+        }
+        return { shouldCompleteBefore: fmtDateTime(completeBefore) };
+    }, [attendanceMode, completeBefore, attemptDate]);
 
     const filteredQuestions = useMemo(
         () => (reviewFilter === "all" ? questions : questions.filter((q) => q.type === reviewFilter)),
@@ -729,14 +856,16 @@ export default function CreateOnlineQuizPage() {
             gradeId: Number(gradeId),
             sections,
         })),
+        warningCount: Number(warningCount),
         createdByRollNumber: rollNumber,
         status: publishMode,
         postedDateAndTime: publishMode === "post" ? fmtDateTime(dayjs()) : null,
-        scheduledDateAndTime: publishMode === "schedule" ? fmtDateTime(scheduledAt) : null,
-        shouldCompleteBefore: fmtDateTime(completeBefore),
+        scheduledDateAndTime: publishMode === "schedule" ? fmtDateTime(windowStart) : null,
         academicYear,
         subject,
         timing: toTimingString(totalDuration),
+        attendanceMode,
+        ...attendanceFields,
         questionType: mode,
         totalNumberOfQuestions: counts.total,
         fillingTheBlanksNumber: counts.fillblank,
@@ -830,15 +959,39 @@ export default function CreateOnlineQuizPage() {
         }
 
         if (step === 3) {
+            if (![0, 1, 2, 3].includes(Number(warningCount))) {
+                notify("Choose how many app-exit warnings a student gets"); return false;
+            }
+
+            if (attendanceMode === "anytime") {
+                if (!attemptDate) { notify("Pick the date students should attend"); return false; }
+                if (attemptDate.startOf("day").isBefore(dayjs().startOf("day"))) {
+                    notify("The attempt date cannot be in the past"); return false;
+                }
+                return true;
+            }
+
             if (publishMode === "schedule") {
                 if (!scheduledAt) { notify("Pick a start date and time"); return false; }
-                if (scheduledAt.isBefore(dayjs().startOf("minute"))) {
-                    notify("Start time cannot be in the past"); return false;
+                // Checked against a live clock, not nowAnchor, so a form left open
+                // for a while cannot submit a start time that has since expired.
+                if (scheduledAt.isBefore(dayjs().add(SCHEDULE_MIN_LEAD_MINUTES, "minute").startOf("minute"))) {
+                    notify(`Schedule the start at least ${SCHEDULE_MIN_LEAD_MINUTES} minutes from now`); return false;
                 }
             }
-            if (!completeBefore) { notify("Pick a completion deadline"); return false; }
+            if (!completeBefore) {
+                notify(attendanceMode === "fulltime" ? "Pick the last start time" : "Pick a completion deadline");
+                return false;
+            }
 
             const start = publishMode === "schedule" ? scheduledAt : dayjs();
+            if (attendanceMode === "fulltime") {
+                if (!completeBefore.isAfter(start)) {
+                    notify("The last start time must come after the quiz opens"); return false;
+                }
+                return true;
+            }
+
             const windowMinutes = completeBefore.diff(start, "minute");
             if (windowMinutes < requiredWindow) {
                 notify(
@@ -1680,34 +1833,107 @@ export default function CreateOnlineQuizPage() {
                                                 })}
                                             </Grid>
 
+                                            <Divider sx={{ mb: 1.5 }} />
+
+                                            <Typography sx={{ fontSize: "12px", fontWeight: 700, color: DASH.ink, mb: 0.9 }}>
+                                                What happens to a student who starts late?
+                                            </Typography>
+
+                                            <Grid container spacing={1.2} sx={{ alignItems: "stretch", mb: 1.6 }}>
+                                                {ATTEMPT_MODES.map((opt) => {
+                                                    const active = attendanceMode === opt.key;
+                                                    const Icon = opt.icon;
+                                                    return (
+                                                        <Grid key={opt.key} size={{ xs: 12, sm: 4, md: 4, lg: 4 }}>
+                                                            <Box
+                                                                onClick={() => setAttendanceMode(opt.key)}
+                                                                sx={{
+                                                                    height: "100%", boxSizing: "border-box", cursor: "pointer",
+                                                                    border: `1px solid ${active ? DASH.violet : DASH.line}`,
+                                                                    bgcolor: active ? DASH.violetLight : "#fff",
+                                                                    borderRadius: RADIUS, p: 1.3,
+                                                                    transition: "all 0.18s",
+                                                                    "&:hover": { borderColor: DASH.violet },
+                                                                }}
+                                                            >
+                                                                <Icon sx={{ fontSize: 19, color: active ? DASH.violet : DASH.faint }} />
+                                                                <Typography sx={{ fontSize: "12.5px", fontWeight: 700, color: DASH.ink, mt: 0.5 }}>
+                                                                    {opt.title}
+                                                                </Typography>
+                                                                <Typography sx={{ fontSize: "11px", color: DASH.muted, mt: 0.2, lineHeight: 1.5 }}>
+                                                                    {opt.detail}
+                                                                </Typography>
+                                                            </Box>
+                                                        </Grid>
+                                                    );
+                                                })}
+                                            </Grid>
+
                                             <LocalizationProvider dateAdapter={AdapterDayjs}>
                                                 <Grid container spacing={1.5}>
-                                                    {publishMode === "schedule" && (
+                                                    {attendanceMode === "anytime" ? (
                                                         <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
-                                                            <DateTimePicker
-                                                                label="Starts at"
-                                                                value={scheduledAt}
-                                                                onChange={setScheduledAt}
-                                                                format={DATE_TIME_FORMAT}
-                                                                minDateTime={nowAnchor}
+                                                            <DatePicker
+                                                                label="Attempt date"
+                                                                value={attemptDate}
+                                                                onChange={setAttemptDate}
+                                                                format={DATE_FORMAT}
+                                                                minDate={dayjs().startOf("day")}
+                                                                disabled={publishMode === "post"}
                                                                 slotProps={pickerSlotProps({
-                                                                    helperText: "Students can begin from this time",
+                                                                    helperText: publishMode === "post"
+                                                                        ? "Fixed to today — you are publishing now"
+                                                                        : "Open all day — students pick their own time",
                                                                 })}
                                                             />
                                                         </Grid>
+                                                    ) : (
+                                                        <>
+                                                            <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
+                                                                {publishMode === "schedule" ? (
+                                                                    <DateTimePicker
+                                                                        label="Starts at"
+                                                                        value={scheduledAt}
+                                                                        onChange={(value) => {
+                                                                            setScheduledAt(value);
+                                                                            setScheduleTouched(true);
+                                                                        }}
+                                                                        format={DATE_TIME_FORMAT}
+                                                                        minDateTime={scheduleFloor}
+                                                                        slotProps={pickerSlotProps({
+                                                                            helperText: scheduleTouched
+                                                                                ? "Students can begin from this time"
+                                                                                : `Defaults to ${SCHEDULE_LEAD_MINUTES} minutes from now - change it if you need to`,
+                                                                        })}
+                                                                    />
+                                                                ) : (
+                                                                    <TextField
+                                                                        label="Starts at"
+                                                                        value={nowAnchor.format(DATE_TIME_FORMAT)}
+                                                                        disabled
+                                                                        size="small"
+                                                                        fullWidth
+                                                                        sx={fieldSx}
+                                                                        helperText="Fixed — the quiz opens the moment you publish"
+                                                                    />
+                                                                )}
+                                                            </Grid>
+                                                            <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
+                                                                <DateTimePicker
+                                                                    label={attendanceMode === "fulltime" ? "Last start time" : "Should complete before"}
+                                                                    value={completeBefore}
+                                                                    onChange={setCompleteBefore}
+                                                                    format={DATE_TIME_FORMAT}
+                                                                    minDateTime={minCompleteBefore}
+                                                                    slotProps={pickerSlotProps({
+                                                                        helperText: attendanceMode === "fulltime"
+                                                                            ? `Nobody may begin after this — last paper ends ${effectiveEnd ? effectiveEnd.format("hh:mm A") : "-"}`
+                                                                            : `Minimum ${formatDuration(requiredWindow)} window — ${formatDuration(totalDuration)} quiz + ${GRACE_MINUTES} min grace`,
+                                                                    })}
+                                                                />
+                                                            </Grid>
+                                                        </>
                                                     )}
-                                                    <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
-                                                        <DateTimePicker
-                                                            label="Should complete before"
-                                                            value={completeBefore}
-                                                            onChange={setCompleteBefore}
-                                                            format={DATE_TIME_FORMAT}
-                                                            minDateTime={minCompleteBefore}
-                                                            slotProps={pickerSlotProps({
-                                                                helperText: `Minimum ${formatDuration(requiredWindow)} window — ${formatDuration(totalDuration)} quiz + ${GRACE_MINUTES} min grace`,
-                                                            })}
-                                                        />
-                                                    </Grid>
                                                 </Grid>
                                             </LocalizationProvider>
 
@@ -1720,13 +1946,44 @@ export default function CreateOnlineQuizPage() {
                                             >
                                                 <InfoOutlinedIcon sx={{ fontSize: 15, color: DASH.faint, mt: 0.2, flexShrink: 0 }} />
                                                 <Typography sx={{ fontSize: "11.5px", color: DASH.muted, lineHeight: 1.6 }}>
-                                                    The quiz runs for <strong style={{ color: DASH.ink }}>{formatDuration(totalDuration)}</strong>
-                                                    {timingMode === "perQuestion" && totalQuestions > 0
-                                                        ? ` (${totalQuestions} questions x ${perQuestionSeconds} sec)`
-                                                        : ""}
-                                                    , so the attempt window must be at least{" "}
-                                                    <strong style={{ color: DASH.ink }}>{formatDuration(requiredWindow)}</strong> including the{" "}
-                                                    {GRACE_MINUTES} minute grace period. Earlier times are blocked in the picker.
+                                                    {attendanceMode === "anytime" && (
+                                                        <>
+                                                            The quiz stays open all day on{" "}
+                                                            <strong style={{ color: DASH.ink }}>
+                                                                {attemptDate ? attemptDate.format("DD MMM YYYY") : "-"}
+                                                            </strong>. A student who begins at 11:40 PM still gets the full{" "}
+                                                            <strong style={{ color: DASH.ink }}>{formatDuration(totalDuration)}</strong>, so the last
+                                                            paper can close just after midnight.
+                                                        </>
+                                                    )}
+                                                    {attendanceMode === "fulltime" && (
+                                                        <>
+                                                            The time you pick is the last moment a student may{" "}
+                                                            <strong style={{ color: DASH.ink }}>start</strong>, not the end. Their{" "}
+                                                            <strong style={{ color: DASH.ink }}>{formatDuration(totalDuration)}</strong> then runs from
+                                                            their own start — someone opening it at{" "}
+                                                            <strong style={{ color: DASH.ink }}>
+                                                                {completeBefore ? completeBefore.format("hh:mm A") : "-"}
+                                                            </strong>{" "}
+                                                            finishes at{" "}
+                                                            <strong style={{ color: DASH.ink }}>
+                                                                {effectiveEnd ? effectiveEnd.format("hh:mm A") : "-"}
+                                                            </strong>. So the quiz can still be running after the time you set, and nobody loses
+                                                            time for starting late.
+                                                        </>
+                                                    )}
+                                                    {attendanceMode === "fixedend" && (
+                                                        <>
+                                                            The quiz runs for <strong style={{ color: DASH.ink }}>{formatDuration(totalDuration)}</strong>
+                                                            {timingMode === "perQuestion" && totalQuestions > 0
+                                                                ? ` (${totalQuestions} questions x ${perQuestionSeconds} sec)`
+                                                                : ""}
+                                                            , so the attempt window must be at least{" "}
+                                                            <strong style={{ color: DASH.ink }}>{formatDuration(requiredWindow)}</strong> including the{" "}
+                                                            {GRACE_MINUTES} minute grace period. A student starting 5 minutes before the deadline gets
+                                                            only those 5 minutes.
+                                                        </>
+                                                    )}
                                                 </Typography>
                                             </Box>
                                         </Box>
@@ -1754,9 +2011,16 @@ export default function CreateOnlineQuizPage() {
                                             <Divider sx={{ mb: 1.5 }} />
 
                                             {[
-                                                ["Starts", publishMode === "post" ? "Immediately" : (scheduledAt ? scheduledAt.format(DATE_TIME_FORMAT) : "-")],
-                                                ["Must finish before", completeBefore ? completeBefore.format(DATE_TIME_FORMAT) : "-"],
-                                                ["Attempt window", completeBefore ? formatDuration(completeBefore.diff(windowStart, "minute")) : "-"],
+                                                ["Starts", attendanceMode === "anytime"
+                                                    ? (attemptDate ? `${attemptDate.format(DATE_FORMAT)} — any time` : "-")
+                                                    : publishMode === "post" ? "Immediately" : (scheduledAt ? scheduledAt.format(DATE_TIME_FORMAT) : "-")],
+                                                [attendanceMode === "fulltime" ? "Last start time" : "Must finish before",
+                                                    attendanceMode === "anytime"
+                                                        ? (attemptDate ? attemptDate.endOf("day").format(DATE_TIME_FORMAT) : "-")
+                                                        : (completeBefore ? completeBefore.format(DATE_TIME_FORMAT) : "-")],
+                                                ["Last paper closes", effectiveEnd ? effectiveEnd.format(DATE_TIME_FORMAT) : "-"],
+                                                ["Attempt window", effectiveEnd ? formatDuration(effectiveEnd.diff(windowStart, "minute")) : "-"],
+                                                ["Exit warnings", `${warningCount} ${Number(warningCount) === 1 ? "warning" : "warnings"}`],
                                                 ["Academic year", academicYear || "-"],
                                                 ["Built by", mode === "automation" ? `Document (${difficulty})` : "Written manually"],
                                                 ["Options per MCQ", optionCount],
@@ -1783,6 +2047,97 @@ export default function CreateOnlineQuizPage() {
                                                     );
                                                 })}
                                             </Box>
+                                        </Box>
+                                    </Panel>
+                                </Grid>
+
+                                <Grid size={{ xs: 12, sm: 12, md: 12, lg: 12 }}>
+                                    <Panel
+                                        title="Exam integrity"
+                                        subtitle="What the app does if a student leaves the quiz"
+                                    >
+                                        <Box sx={{ p: 1.6 }}>
+                                            <Box
+                                                sx={{
+                                                    display: "flex", alignItems: "flex-start", gap: 1.2, mb: 1.8,
+                                                    bgcolor: DASH.redLight, border: `1px solid ${DASH.red}33`,
+                                                    borderRadius: RADIUS, px: 1.4, py: 1.2,
+                                                }}
+                                            >
+                                                <PhonelinkEraseOutlinedIcon sx={{ fontSize: 18, color: DASH.red, mt: 0.2, flexShrink: 0 }} />
+                                                <Typography sx={{ fontSize: "11.5px", color: DASH.muted, lineHeight: 1.6 }}>
+                                                    While the quiz is running the app watches for the student leaving — switching to another app,
+                                                    opening recents, or locking the screen. Each time that happens they get a warning on the way back.
+                                                    Once the warnings run out the attempt is submitted automatically with whatever was answered.
+                                                </Typography>
+                                            </Box>
+
+                                            <Grid container spacing={1.5} sx={{ alignItems: "stretch" }}>
+                                                <Grid size={{ xs: 12, sm: 12, md: 7, lg: 7 }}>
+                                                    <Typography sx={{ fontSize: "12px", fontWeight: 700, color: DASH.ink, mb: 0.9 }}>
+                                                        Warnings allowed before auto-submit
+                                                    </Typography>
+                                                    <Grid container spacing={1}>
+                                                        {WARNING_OPTIONS.map((opt) => {
+                                                            const active = Number(warningCount) === opt.value;
+                                                            return (
+                                                                <Grid key={opt.value} size={{ xs: 3, sm: 3, md: 3, lg: 3 }}>
+                                                                    <Box
+                                                                        onClick={() => setWarningCount(opt.value)}
+                                                                        sx={{
+                                                                            cursor: "pointer", textAlign: "center",
+                                                                            border: `1px solid ${active ? DASH.red : DASH.line}`,
+                                                                            bgcolor: active ? DASH.redLight : "#fff",
+                                                                            borderRadius: RADIUS, py: 1.1, px: 0.5,
+                                                                            transition: "all 0.18s",
+                                                                            "&:hover": { borderColor: DASH.red },
+                                                                        }}
+                                                                    >
+                                                                        <Typography sx={{
+                                                                            fontSize: "20px", fontWeight: 800, lineHeight: 1.1,
+                                                                            color: active ? DASH.red : DASH.ink,
+                                                                        }}>
+                                                                            {opt.label}
+                                                                        </Typography>
+                                                                        <Typography sx={{ fontSize: "10.5px", color: DASH.muted, mt: 0.3 }}>
+                                                                            {opt.caption}
+                                                                        </Typography>
+                                                                    </Box>
+                                                                </Grid>
+                                                            );
+                                                        })}
+                                                    </Grid>
+                                                </Grid>
+
+                                                <Grid size={{ xs: 12, sm: 12, md: 5, lg: 5 }}>
+                                                    <Box
+                                                        sx={{
+                                                            height: "100%", boxSizing: "border-box",
+                                                            bgcolor: DASH.surface, border: `1px solid ${DASH.lineSoft}`,
+                                                            borderRadius: RADIUS, px: 1.4, py: 1.2,
+                                                        }}
+                                                    >
+                                                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.8, mb: 0.7 }}>
+                                                            <ShieldOutlinedIcon sx={{ fontSize: 16, color: DASH.violet }} />
+                                                            <Typography sx={{ fontSize: "12px", fontWeight: 700, color: DASH.ink }}>
+                                                                What students will see
+                                                            </Typography>
+                                                        </Box>
+                                                        <Typography sx={{ fontSize: "11.5px", color: DASH.muted, lineHeight: 1.7 }}>
+                                                            {Number(warningCount) === 0
+                                                                ? "The very first exit closes the quiz on the spot."
+                                                                : `The first ${warningCount} ${Number(warningCount) === 1 ? "exit only shows a warning" : "exits only show a warning"}. Exit ${Number(warningCount) + 1} closes the quiz on the spot.`}
+                                                            {" "}
+                                                            <strong style={{ color: DASH.ink }}>
+                                                                No more questions are shown and they cannot reopen it.
+                                                            </strong>
+                                                            {" "}
+                                                            Only the answers already given are submitted — if they answered 3 of {counts.total || totalQuestions || "N"},
+                                                            just those 3 are marked and the rest count as unanswered.
+                                                        </Typography>
+                                                    </Box>
+                                                </Grid>
+                                            </Grid>
                                         </Box>
                                     </Panel>
                                 </Grid>

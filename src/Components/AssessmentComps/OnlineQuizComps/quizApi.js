@@ -167,6 +167,9 @@ export const normalizeQuiz = (row, grades) => {
         sections: (first.sections || []).join(", "),
         questions: Number(val(row, ["totalNumberOfQuestions", "totalQuestions", "questions", "questionCount"], 0)) || 0,
         duration: timingToMinutes(val(row, ["timing", "duration", "durationMinutes"], 0)),
+        // How many app exits a student was allowed before auto-submit.
+        warningCount: Number(val(row, ["warningCount"], 0)) || 0,
+        attendanceMode: String(val(row, ["attendanceMode"], "fixedend")).toLowerCase(),
         attempts,
         totalStudents,
         avgScore: rawScore === null ? null : Math.round(Number(rawScore) * 10) / 10,

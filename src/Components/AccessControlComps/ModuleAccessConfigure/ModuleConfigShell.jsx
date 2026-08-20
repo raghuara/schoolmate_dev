@@ -66,6 +66,20 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
         ...defaultPageConfig(),
         ...Object.fromEntries(flatten(extraOps[p]).map((e) => [e.key, false])),
     }])));
+
+    // Extra permissions refine a page the user can already open, so they only
+    // apply once "View" is granted. A page that declares no View operation of
+    // its own (Billing, ECA, Additional Fee, Expense) has nothing to gate on,
+    // so its extras stay available.
+    const gatesOnView = (page) => pageOpsKeys(page).includes("view");
+    const extrasEnabled = (page) => !gatesOnView(page) || !!config[page]?.view;
+
+    // An extra op can also depend on another one on the same page - declared as
+    // { key: "allowconcession", requires: "allowbilling" }. Concession is an
+    // action taken while billing, so it cannot be granted on its own.
+    const requirementMet = (page, o) => !o.requires || !!config[page]?.[o.requires];
+    const opEnabled = (page, o) => extrasEnabled(page) && requirementMet(page, o);
+    const dependentsOf = (page, key) => flatExtraOps(page).filter((e) => e.requires === key);
     const [snack, setSnack] = useState({ open: false, ok: true, msg: "" });
     const showSnack = (msg, ok = true) => setSnack({ open: true, ok, msg });
     const [expandedPages, setExpandedPages] = useState({});
@@ -80,6 +94,16 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
         if (!cur[key] && IMPLIES[key]) {
             IMPLIES[key].forEach((k) => { if (keys.includes(k)) next[k] = true; });
         }
+        // Clearing View closes the page, so nothing that depends on opening it
+        // may stay ticked - neither the operations that imply View nor the
+        // extra permissions. Otherwise a contradictory set gets saved.
+        if (key === "view" && cur[key]) {
+            keys.forEach((k) => { if ((IMPLIES[k] || []).includes("view")) next[k] = false; });
+            flatExtraOps(page).forEach((e) => { next[e.key] = false; });
+        }
+        // Same idea one level down: turning a prerequisite off cannot leave the
+        // permissions that depend on it still ticked.
+        if (cur[key]) dependentsOf(page, key).forEach((e) => { next[e.key] = false; });
         setPage(page, next);
     };
 
@@ -146,7 +170,12 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
     const buildPermissions = (page) => {
         const c = config[page] || {};
         const keys = [...pageOpsKeys(page), ...flatExtraOps(page).map((e) => e.key)];
-        return Object.fromEntries(keys.map((k) => [k, yn(c[k])]));
+        // The UI greys the extras out when View is off; enforce the same rule on
+        // the way out, so a record that already had them set cannot be saved back
+        // with permissions the role has no page to use them on.
+        const byKey = Object.fromEntries(flatExtraOps(page).map((e) => [e.key, e]));
+        const allowed = (k) => (byKey[k] ? opEnabled(page, byKey[k]) : true);
+        return Object.fromEntries(keys.map((k) => [k, yn(allowed(k) ? c[k] : false)]));
     };
 
     // Map a fetched GetUserTypePermissions payload onto this module's checkboxes.
@@ -284,21 +313,34 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
     };
 
     const extraCheckbox = (page, cfg, o) => {
-        const active = !!cfg[o.key];
-        return (
+        const enabled = opEnabled(page, o);
+        const active = enabled && !!cfg[o.key];
+        // Say which box has to be ticked first, rather than leaving a dead one.
+        const blockedBy = !requirementMet(page, o)
+            ? (flatExtraOps(page).find((e) => e.key === o.requires)?.label || o.requires)
+            : null;
+        const control = (
             <FormControlLabel
                 key={o.key}
+                disabled={!enabled}
                 control={
                     <Checkbox
                         size="small"
                         checked={active}
+                        disabled={!enabled}
                         onChange={() => toggleOp(page, o.key)}
-                        sx={{ p: 0.5, color: "#C7CDD6", "&.Mui-checked": { color } }}
+                        sx={{ p: 0.5, color: "#C7CDD6", "&.Mui-checked": { color }, "&.Mui-disabled": { color: "#E3E6EA" } }}
                     />
                 }
-                label={<Typography sx={{ fontSize: 13, fontWeight: 600, color: active ? "#111827" : "#6B7280" }}>{o.label}</Typography>}
+                label={<Typography sx={{ fontSize: 13, fontWeight: 600, color: !enabled ? "#B6BCC6" : active ? "#111827" : "#6B7280" }}>{o.label}</Typography>}
                 sx={{ m: 0, mr: 1 }}
             />
+        );
+        if (!blockedBy) return control;
+        return (
+            <Tooltip key={o.key} title={`Enable "${blockedBy}" first`} arrow placement="top">
+                <Box component="span" sx={{ display: "inline-flex" }}>{control}</Box>
+            </Tooltip>
         );
     };
 
@@ -309,7 +351,16 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
         const hasGroups = extras.some((e) => e.items);
         return (
             <Box sx={{ mt: pageOps(page).length > 0 ? 1.5 : 0 }}>
-                {heading && <Typography sx={{ fontSize: 11, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: 0.4, mb: 1 }}>{heading}</Typography>}
+                {heading && (
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.8, mb: 1, flexWrap: "wrap" }}>
+                        <Typography sx={{ fontSize: 11, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: 0.4 }}>{heading}</Typography>
+                        {!extrasEnabled(page) && (
+                            <Typography sx={{ fontSize: 11, fontWeight: 600, color: "#B45309", bgcolor: "#FEF3C7", px: 0.9, py: 0.15, borderRadius: "4px" }}>
+                                Enable View first
+                            </Typography>
+                        )}
+                    </Box>
+                )}
                 {hasGroups ? (
                     extras.map((e) => {
                         if (!e.items) {
@@ -320,8 +371,9 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
                             return (
                                 <Box key={e.group} sx={{ mb: 1.2 }}>
                                     <FormControlLabel
-                                        control={<Checkbox size="small" checked={gateOn} onChange={() => toggleGate(page, e.gate.key, e.items.map((i) => i.key))} sx={{ p: 0.5, color: "#C7CDD6", "&.Mui-checked": { color } }} />}
-                                        label={<Typography sx={{ fontSize: 13, fontWeight: 600, color: gateOn ? "#111827" : "#6B7280" }}>{e.gate.label}</Typography>}
+                                        disabled={!extrasEnabled(page)}
+                                        control={<Checkbox size="small" checked={gateOn} disabled={!extrasEnabled(page)} onChange={() => toggleGate(page, e.gate.key, e.items.map((i) => i.key))} sx={{ p: 0.5, color: "#C7CDD6", "&.Mui-checked": { color }, "&.Mui-disabled": { color: "#E3E6EA" } }} />}
+                                        label={<Typography sx={{ fontSize: 13, fontWeight: 600, color: !extrasEnabled(page) ? "#B6BCC6" : gateOn ? "#111827" : "#6B7280" }}>{e.gate.label}</Typography>}
                                         sx={{ m: 0 }}
                                     />
                                     {gateOn && (

@@ -23,6 +23,11 @@ import TaskAltIcon from "@mui/icons-material/TaskAlt";
 import InsightsOutlinedIcon from "@mui/icons-material/InsightsOutlined";
 import ClassOutlinedIcon from "@mui/icons-material/ClassOutlined";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import ShieldOutlinedIcon from "@mui/icons-material/ShieldOutlined";
+import PhonelinkEraseOutlinedIcon from "@mui/icons-material/PhonelinkEraseOutlined";
+import GppGoodOutlinedIcon from "@mui/icons-material/GppGoodOutlined";
+import ReportGmailerrorredOutlinedIcon from "@mui/icons-material/ReportGmailerrorredOutlined";
+import WarningAmberOutlinedIcon from "@mui/icons-material/WarningAmberOutlined";
 
 import SnackBar from "../../SnackBar";
 import Loader from "../../Loader";
@@ -30,10 +35,40 @@ import {
     DASH, RADIUS, KPI_TONES, Panel, SolidStatCard, MeterRow, ChartTooltip, EmptyNote,
 } from "../../DashBoardComps/dashboardTheme";
 import { selectGrades } from "../../../Redux/Slices/DropdownController";
-import { GetQuizSingleAnalytics } from "../../../Api/Api";
+import { GetQuizSingleAnalytics, GetStudentQuizWarningCount } from "../../../Api/Api";
 import { val, unwrap, readGradeSections, fmtDate } from "./quizApi";
 
 const PASS_MARK = 50;
+
+// How many app exits the quiz allowed before it auto-submits. Falls back to 3,
+// which is what the create screen defaults to.
+const DEFAULT_WARNING_ALLOWANCE = 3;
+
+// The warning endpoint answers for one student at a time, so a class means one
+// call each. Sent in small batches to keep the browser from opening 40 sockets.
+const WARNING_BATCH_SIZE = 6;
+
+const readWarningCount = (payload) => {
+    const root = unwrap(payload);
+    const direct = val(root, ["warningCount", "warnings", "exitCount", "count"], null);
+    if (direct !== null) return Number(direct) || 0;
+    const rows = Array.isArray(root) ? root : null;
+    if (rows) return rows.length;
+    return 0;
+};
+
+// Sample spread used only when the backend has no attempt activity yet, so the
+// screen can still be reviewed. Deterministic per roll number - no randomness,
+// so the same student always shows the same sample figure.
+const demoWarningFor = (rollNumber, allowance) => {
+    const text = String(rollNumber || "");
+    let sum = 0;
+    for (let i = 0; i < text.length; i += 1) sum += text.charCodeAt(i);
+    const bucket = sum % 10;
+    if (bucket < 6) return 0;                       // most students stay in the app
+    if (bucket < 9) return (sum % allowance) || 1;  // a few get warned
+    return allowance + 1;                           // one or two auto-submit
+};
 
 const formatTime = (seconds) =>
     seconds ? `${Math.floor(seconds / 60)}m ${String(Math.round(seconds % 60)).padStart(2, "0")}s` : "-";
@@ -199,6 +234,10 @@ export default function QuizAnalysisPage() {
     const [resultFilter, setResultFilter] = useState("all");
 
     const [roster, setRoster] = useState([]);
+    const [warnings, setWarnings] = useState({});
+    const [warningsLoading, setWarningsLoading] = useState(false);
+    const [warningsTried, setWarningsTried] = useState(false);
+    const [warningsAreDemo, setWarningsAreDemo] = useState(false);
     const [questionStats, setQuestionStats] = useState([]);
     const [typeAccuracy, setTypeAccuracy] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -261,11 +300,111 @@ export default function QuizAnalysisPage() {
 
     useEffect(() => { loadAnalytics(); }, [loadAnalytics]);
 
+    // A different grade means a different roster, so the counts have to be refetched.
+    useEffect(() => {
+        setWarnings({});
+        setWarningsTried(false);
+        setWarningsAreDemo(false);
+    }, [quiz.id, gradeFilter]);
+
+    const warningAllowance = Number(quiz.warningCount) > 0
+        ? Number(quiz.warningCount)
+        : DEFAULT_WARNING_ALLOWANCE;
+
+    // Only students who actually sat the quiz can have exits against them.
+    const attemptedRoster = useMemo(() => roster.filter((r) => r.attempted), [roster]);
+
+    const loadWarnings = useCallback(async () => {
+        if (!quiz.id || !attemptedRoster.length) return;
+        setWarningsLoading(true);
+        const next = {};
+        let answered = 0;
+        try {
+            for (let i = 0; i < attemptedRoster.length; i += WARNING_BATCH_SIZE) {
+                const batch = attemptedRoster.slice(i, i + WARNING_BATCH_SIZE);
+                // eslint-disable-next-line no-await-in-loop
+                const results = await Promise.all(batch.map(async (student) => {
+                    try {
+                        const res = await axios.get(
+                            `${GetStudentQuizWarningCount}?quzeId=${quiz.id}&rollNumber=${encodeURIComponent(student.rollNumber)}`,
+                            { headers: { Authorization: `Bearer ${token}` } }
+                        );
+                        if (res?.data?.error) return null;
+                        return { rollNumber: student.rollNumber, count: readWarningCount(res?.data) };
+                    } catch (error) {
+                        return null;
+                    }
+                }));
+                results.forEach((row) => {
+                    if (!row) return;
+                    answered += 1;
+                    next[row.rollNumber] = row.count;
+                });
+            }
+
+            if (answered === 0) {
+                // Nothing came back for anyone - fall back to sample figures so the
+                // screen is still reviewable, and say so in the header.
+                const demo = {};
+                attemptedRoster.forEach((student) => {
+                    demo[student.rollNumber] = demoWarningFor(student.rollNumber, warningAllowance);
+                });
+                setWarnings(demo);
+                setWarningsAreDemo(true);
+            } else {
+                setWarnings(next);
+                setWarningsAreDemo(false);
+            }
+        } finally {
+            setWarningsLoading(false);
+            setWarningsTried(true);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [quiz.id, attemptedRoster, warningAllowance]);
+
+    // Fetched only when the Integrity tab is opened - it is one request per student.
+    useEffect(() => {
+        if (tab !== 3 || warningsTried || warningsLoading) return;
+        loadWarnings();
+    }, [tab, warningsTried, warningsLoading, loadWarnings]);
+
     // The API already returns one grade, so only the section needs filtering here.
     const scoped = useMemo(
         () => roster.filter((s) => sectionFilter === "all" || s.section === sectionFilter),
         [roster, sectionFilter]
     );
+
+    // One row per student who sat the quiz, worst offenders first.
+    const integrityRows = useMemo(() => {
+        const rows = scoped
+            .filter((s) => s.attempted)
+            .map((s) => {
+                const exits = Number(warnings[s.rollNumber] || 0);
+                const autoSubmitted = exits > warningAllowance;
+                return {
+                    ...s,
+                    exits,
+                    autoSubmitted,
+                    state: autoSubmitted ? "submitted" : exits > 0 ? "warned" : "clean",
+                };
+            });
+        return rows.sort((a, b) => b.exits - a.exits || a.name.localeCompare(b.name));
+    }, [scoped, warnings, warningAllowance]);
+
+    const integrityFiltered = useMemo(() => {
+        const q = search.trim().toLowerCase();
+        if (!q) return integrityRows;
+        return integrityRows.filter(
+            (r) => String(r.name).toLowerCase().includes(q) || String(r.rollNumber).toLowerCase().includes(q)
+        );
+    }, [integrityRows, search]);
+
+    const integritySummary = useMemo(() => ({
+        clean: integrityRows.filter((r) => r.state === "clean").length,
+        warned: integrityRows.filter((r) => r.state === "warned").length,
+        submitted: integrityRows.filter((r) => r.state === "submitted").length,
+        totalExits: integrityRows.reduce((sum, r) => sum + r.exits, 0),
+    }), [integrityRows]);
 
     const ranked = useMemo(() => {
         const order = [...scoped]
@@ -521,6 +660,7 @@ export default function QuizAnalysisPage() {
                     <Tab label="Overview" />
                     <Tab label="Grade & Section" />
                     <Tab label={`Students (${scoped.length})`} />
+                    <Tab label="Integrity" />
                 </Tabs>
             </Box>
 
@@ -863,6 +1003,205 @@ export default function QuizAnalysisPage() {
                         </Table>
                     </TableContainer>
                 </Panel>
+            )}
+
+            {tab === 3 && (
+                <>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, flexWrap: "wrap", mb: 0.9, mt: 0.3 }}>
+                        <ShieldOutlinedIcon sx={{ fontSize: 15, color: DASH.primary }} />
+                        <Typography sx={{ fontSize: "14px", fontWeight: 700, color: DASH.ink }}>
+                            Exam Integrity
+                        </Typography>
+                        {warningsAreDemo && (
+                            <Chip
+                                label="Sample data"
+                                size="small"
+                                sx={{
+                                    height: 21, fontSize: "10.5px", fontWeight: 700,
+                                    bgcolor: DASH.amberLight, color: DASH.amber,
+                                }}
+                            />
+                        )}
+                        <Box sx={{ flex: 1 }} />
+                        <Tooltip title="Re-check every student">
+                            <span>
+                                <Button
+                                    size="small"
+                                    onClick={() => { setWarningsTried(false); }}
+                                    disabled={warningsLoading || !attemptedRoster.length}
+                                    startIcon={<RefreshIcon sx={{ fontSize: 16 }} />}
+                                    sx={{
+                                        textTransform: "none", fontSize: "12px", fontWeight: 600,
+                                        color: DASH.text, border: `1px solid ${DASH.line}`,
+                                        borderRadius: RADIUS, px: 1.6,
+                                        "&:hover": { bgcolor: DASH.surface },
+                                    }}
+                                >
+                                    Refresh
+                                </Button>
+                            </span>
+                        </Tooltip>
+                    </Box>
+
+                    <Typography sx={{ fontSize: "12px", color: DASH.muted, mb: 1.6, lineHeight: 1.6 }}>
+                        {warningsAreDemo
+                            ? "Showing sample numbers until the backend has attempt activity for this quiz."
+                            : `Counts how many times each student left the app mid-quiz. This quiz allowed ${warningAllowance} ${warningAllowance === 1 ? "exit" : "exits"} before auto-submitting.`}
+                    </Typography>
+
+                    {warningsLoading && (
+                        <Box sx={{ mb: 1.6 }}>
+                            <LinearProgress sx={{ height: 4, borderRadius: 4 }} />
+                            <Typography sx={{ fontSize: "11.5px", color: DASH.faint, mt: 0.6 }}>
+                                Checking {attemptedRoster.length} students...
+                            </Typography>
+                        </Box>
+                    )}
+
+                    <Grid container spacing={1.4} sx={{ alignItems: "stretch", mb: 1.8 }}>
+                        <Grid size={{ xs: 6, sm: 6, md: 3, lg: 3 }}>
+                            <SolidStatCard
+                                icon={GppGoodOutlinedIcon}
+                                label="Stayed in the app"
+                                value={integritySummary.clean}
+                                note="No app exits recorded"
+                                tone={KPI_TONES.green}
+                            />
+                        </Grid>
+                        <Grid size={{ xs: 6, sm: 6, md: 3, lg: 3 }}>
+                            <SolidStatCard
+                                icon={WarningAmberOutlinedIcon}
+                                label="Warned"
+                                value={integritySummary.warned}
+                                note="Exited, but within the allowance"
+                                tone={KPI_TONES.orange}
+                            />
+                        </Grid>
+                        <Grid size={{ xs: 6, sm: 6, md: 3, lg: 3 }}>
+                            <SolidStatCard
+                                icon={ReportGmailerrorredOutlinedIcon}
+                                label="Auto-submitted"
+                                value={integritySummary.submitted}
+                                note="Ran out of warnings"
+                                tone={KPI_TONES.pink}
+                            />
+                        </Grid>
+                        <Grid size={{ xs: 6, sm: 6, md: 3, lg: 3 }}>
+                            <SolidStatCard
+                                icon={PhonelinkEraseOutlinedIcon}
+                                label="Total exits"
+                                value={integritySummary.totalExits}
+                                note="Across every attempt"
+                                tone={KPI_TONES.violet}
+                            />
+                        </Grid>
+                    </Grid>
+
+                    <Panel
+                        title="Who left the app"
+                        subtitle={`${integrityFiltered.length} of ${integrityRows.length} students who sat this quiz - most exits first`}
+                        right={
+                            <TextField
+                                size="small"
+                                placeholder="Search student or roll no"
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                slotProps={{
+                                    input: {
+                                        startAdornment: (
+                                            <InputAdornment position="start">
+                                                <SearchIcon sx={{ fontSize: 16, color: DASH.faint }} />
+                                            </InputAdornment>
+                                        ),
+                                        sx: { fontSize: "12.5px", borderRadius: RADIUS, height: 32 },
+                                    },
+                                }}
+                                sx={{ width: { xs: 150, sm: 220 } }}
+                            />
+                        }
+                    >
+                        {!integrityRows.length ? (
+                            <EmptyNote text={
+                                warningsTried
+                                    ? "Nobody has sat this quiz yet, so there is nothing to check."
+                                    : "Open this tab to check every student who sat the quiz."
+                            } />
+                        ) : (
+                            <TableContainer sx={{ maxHeight: "48vh" }}>
+                                <Table stickyHeader size="small">
+                                    <TableHead>
+                                        <TableRow>
+                                            {["Student", "Roll No", "Section", "Exits", "", "Status"].map((head, i) => (
+                                                <TableCell
+                                                    key={head || `col-${i}`}
+                                                    align={i === 3 ? "center" : "left"}
+                                                    sx={{
+                                                        fontSize: "11.5px", fontWeight: 700, color: DASH.muted,
+                                                        bgcolor: DASH.surface, borderBottom: `1px solid ${DASH.line}`,
+                                                        whiteSpace: "nowrap",
+                                                    }}
+                                                >
+                                                    {head}
+                                                </TableCell>
+                                            ))}
+                                        </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                        {integrityFiltered.map((row) => {
+                                            const tone = row.state === "submitted"
+                                                ? { color: DASH.red, bg: DASH.redLight, label: "Auto-submitted" }
+                                                : row.state === "warned"
+                                                    ? { color: DASH.amber, bg: DASH.amberLight, label: "Warned" }
+                                                    : { color: DASH.green, bg: DASH.greenLight, label: "Clean" };
+                                            const pct = Math.min(100, Math.round((row.exits / Math.max(1, warningAllowance + 1)) * 100));
+                                            return (
+                                                <TableRow key={row.id} hover>
+                                                    <TableCell sx={{ fontSize: "12.5px", fontWeight: 600, color: DASH.ink }}>
+                                                        {row.name}
+                                                    </TableCell>
+                                                    <TableCell sx={{ fontSize: "12px", color: DASH.muted }}>
+                                                        {row.rollNumber}
+                                                    </TableCell>
+                                                    <TableCell sx={{ fontSize: "12px", color: DASH.muted }}>
+                                                        {row.grade} {row.section}
+                                                    </TableCell>
+                                                    <TableCell align="center">
+                                                        <Typography sx={{
+                                                            fontSize: "14px", fontWeight: 800,
+                                                            color: row.exits ? tone.color : DASH.faint,
+                                                        }}>
+                                                            {row.exits}
+                                                        </Typography>
+                                                    </TableCell>
+                                                    <TableCell sx={{ width: 130 }}>
+                                                        <LinearProgress
+                                                            variant="determinate"
+                                                            value={pct}
+                                                            sx={{
+                                                                height: 6, borderRadius: 4, bgcolor: DASH.lineSoft,
+                                                                "& .MuiLinearProgress-bar": { bgcolor: tone.color, borderRadius: 4 },
+                                                            }}
+                                                        />
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Chip
+                                                            size="small"
+                                                            label={tone.label}
+                                                            sx={{
+                                                                height: 21, fontSize: "10.5px", fontWeight: 700,
+                                                                borderRadius: "6px", bgcolor: tone.bg, color: tone.color,
+                                                            }}
+                                                        />
+                                                    </TableCell>
+                                                </TableRow>
+                                            );
+                                        })}
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+                        )}
+                    </Panel>
+                </>
             )}
             <SnackBar open={open} message={message} setOpen={setOpen} status={status} color={color} />
         </Box>

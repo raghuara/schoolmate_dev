@@ -1,6 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { Box, Grid, TextField, Typography, Button, Tabs, Tab, Switch, Stack, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, createTheme, ThemeProvider } from "@mui/material";
-import RichTextEditor from "../../TextEditor";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Box, Grid, TextField, Typography, Button, Tabs, Tab, Stack, IconButton, Dialog, DialogActions, createTheme, ThemeProvider, Chip, Divider, Tooltip, InputAdornment } from "@mui/material";
 import axios from "axios";
 import { useDropzone } from "react-dropzone";
 import UploadFileIcon from '@mui/icons-material/UploadFile';
@@ -9,14 +8,26 @@ import { DateTimePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import dayjs from "dayjs";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
+import { selectUserTypeID } from "../../../Redux/Slices/AuthSlice";
+import {
+    APPROVAL_SUBMENUS, approvalRoleFor, selectApprovalMatrix,
+} from "../../../Redux/Slices/approvalMatrixSlice";
 import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlice";
 import { selectAcademicYear } from "../../../Redux/Slices/academicYearSlice";
 import ReactPlayer from "react-player";
-import { FindNews, postNews, updateNews } from "../../../Api/Api";
+import { FindNews, updateNews } from "../../../Api/Api";
 import SnackBar from "../../SnackBar";
 import CancelIcon from "@mui/icons-material/Cancel";
+import SaveOutlinedIcon from "@mui/icons-material/SaveOutlined";
+import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
+import SendOutlinedIcon from "@mui/icons-material/SendOutlined";
+import ScheduleSendOutlinedIcon from "@mui/icons-material/ScheduleSendOutlined";
+import CloseOutlinedIcon from "@mui/icons-material/CloseOutlined";
+import VerifiedOutlinedIcon from "@mui/icons-material/VerifiedOutlined";
+import AccountTreeOutlinedIcon from "@mui/icons-material/AccountTreeOutlined";
+import ArticleOutlinedIcon from "@mui/icons-material/ArticleOutlined";
 import SimpleTextEditor from "../../EditTextEditor";
 import Loader from "../../Loader";
 
@@ -29,18 +40,21 @@ export default function EditNewsPage() {
     const user = useSelector((state) => state.auth);
     const rollNumber = user.rollNumber
     const userType = user.userType
-    const userName = user.name
+    // Whether this user's edit goes live or turns into a request is decided by
+    // the approval flow configured in Access Control, not by their user type.
+    const approvalMatrix = useSelector(selectApprovalMatrix);
+    const userTypeID = useSelector(selectUserTypeID);
+    const approval = approvalRoleFor(approvalMatrix, APPROVAL_SUBMENUS.NEWS, userTypeID);
+    const canPublishNews = approval.canPublishDirect;
 
     const todayDateTime = dayjs().format('DD-MM-YYYY HH:mm');
 
     const [activeTab, setActiveTab] = useState(0);
     const [forActiveTab, setForActiveTab] = useState(0);
-    const [pasteLinkToggle, setPasteLinkToggle] = useState(false);
     const [uploadedFiles, setUploadedFiles] = useState([]);
     const [pastedLink, setPastedLink] = useState("");
     const [DTValue, setDTValue] = useState(null);
     const [openAlert, setOpenAlert] = useState(false);
-    const [content, setContent] = useState('');
     const [isLoading, setIsLoading] = useState('');
     const [fileType, setFileType] = useState('');
 
@@ -63,17 +77,74 @@ export default function EditNewsPage() {
     const [notValidLink, setNotValidLink] = useState(false);
     const [error, setError] = useState("");
 
-    const [previewData, setPreviewData] = useState({
-        heading: '',
-        content: '',
-        uploadedFiles: [],
-        fetchedImage,
-        pastedLink: '',
-    });
-
+    // What we push INTO the editor. Set once when the news loads; typing must not
+    // change it, or Jodit resets the caret to the top of the box on every key.
+    const [editorSeed, setEditorSeed] = useState("");
 
     const websiteSettings = useSelector(selectWebsiteSettings);
     const academicYear = useSelector(selectAcademicYear);
+
+    // A newly picked file wins over the image already saved against this news.
+    const imagePreviewUrl = useMemo(() => {
+        const file = uploadedFiles[0];
+        if (file) return file instanceof File ? URL.createObjectURL(file) : (file.url || file);
+        return fetchedImage || "";
+    }, [uploadedFiles, fetchedImage]);
+
+    useEffect(() => {
+        if (!imagePreviewUrl.startsWith("blob:")) return undefined;
+        return () => URL.revokeObjectURL(imagePreviewUrl);
+    }, [imagePreviewUrl]);
+
+    const showLinkPreview = !uploadedFiles.length && !!pastedLink && isYouTubeLink(pastedLink);
+    const hasPreview = !!heading.trim() || !!newsContentHTML.trim() || !!imagePreviewUrl || showLinkPreview;
+
+    // Names of the approvers this update has to travel through, nearest one first.
+    const levelUserType = (lvl) => approval.flow?.["level" + lvl]?.userType || ("Level " + lvl);
+    const approverNames = approval.chain.map(levelUserType);
+    const approvalNote = canPublishNews
+        ? (approval.required
+            ? "You are the top level approver for News, so your changes go live straight away."
+            : "No approval flow is set for News yet, so your changes go live straight away.")
+        : (approverNames.length
+            ? "This update will be sent to " + approverNames.join(", then ") + " for approval before it goes live."
+            : "This update will be sent for approval before it goes live.");
+
+    const primaryAction = canPublishNews
+        ? (DTValue
+            ? { label: "Update & Schedule", status: "schedule", icon: <ScheduleSendOutlinedIcon sx={{ fontSize: 17 }} /> }
+            : { label: "Update Now", status: "post", icon: <SaveOutlinedIcon sx={{ fontSize: 17 }} /> })
+        : { label: "Send Update for Approval", status: DTValue ? "schedule" : "post", icon: <SendOutlinedIcon sx={{ fontSize: 17 }} /> };
+
+    const fieldLabelSx = { fontSize: "13px", fontWeight: 600, color: "#374151", mb: 0.7 };
+    const requiredSx = { color: "#E30053" };
+
+    const ghostButtonSx = {
+        textTransform: "none",
+        borderRadius: "10px",
+        fontSize: "12.5px",
+        fontWeight: 600,
+        px: 1.8,
+        py: 0.6,
+        color: "#374151",
+        borderColor: "#D6DAE1",
+        backgroundColor: "#fff",
+        "&:hover": { borderColor: "#9AA3AF", backgroundColor: "#F7F8FA" },
+    };
+
+    const primaryButtonSx = {
+        textTransform: "none",
+        borderRadius: "10px",
+        fontSize: "12.5px",
+        fontWeight: 700,
+        px: 2.4,
+        py: 0.7,
+        boxShadow: "none",
+        whiteSpace: "nowrap",
+        backgroundColor: websiteSettings.mainColor,
+        color: websiteSettings.textColor,
+        "&:hover": { backgroundColor: websiteSettings.mainColor, opacity: 0.9, boxShadow: "none" },
+    };
 
     const theme = createTheme({
         palette: {
@@ -187,21 +258,11 @@ export default function EditNewsPage() {
         }
     };
 
-    const handleRichTextChange = (htmlContent) => {
+    // Stable identity so the memoised editor is not re-rendered on every keystroke.
+    const handleRichTextChange = useCallback((htmlContent) => {
         setChangesHappended(true)
         setNewsContentHTML(htmlContent);
-    };
-
-
-    const handlePreview = () => {
-        setPreviewData({
-            heading,
-            content: newsContentHTML,
-            uploadedFiles,
-            fetchedImage,
-            pastedLink,
-        });
-    };
+    }, []);
 
     function isYouTubeLink(url) {
         const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/]+\/[^\/]+\/|(?:v|e(?:mbed)?)\/|(?:watch\?v=|.+\/videoseries\?v=))|youtu\.be\/)[^&?\/\s]+/;
@@ -302,6 +363,7 @@ export default function EditNewsPage() {
             setHeading(res.data.headLine)
             setNewsStatus(res.data.status)
             setNewsContentHTML(res.data.news)
+            setEditorSeed(res.data.news || "")
             if (res.data.scheduleOn) {
                 console.log("scheduleOn", "true")
                 const parsedDate = dayjs(res.data.scheduleOn, "DD-MM-YYYY hh:mm A");
@@ -389,7 +451,7 @@ export default function EditNewsPage() {
             setOpen(true);
             setColor(true);
             setStatus(true);
-            if (userType === "superadmin") {
+            if (canPublishNews) {
                 if (status === "post") {
                     setMessage("News updated successfully");
                 } else if (status === "schedule") {
@@ -399,11 +461,11 @@ export default function EditNewsPage() {
                 }
             }
 
-            if (userType !== "superadmin") {
+            if (!canPublishNews) {
                 if (status === "draft") {
                     setMessage("Draft saved successfully");
                 } else {
-                    setMessage("Requested successfully");
+                    setMessage("Update requested successfully");
                 }
             }
             setTimeout(() => {
@@ -428,17 +490,40 @@ export default function EditNewsPage() {
                 backgroundColor: "#f2f2f2",
                 display: "flex",
                 alignItems: "center",
+                justifyContent: "space-between",
                 borderBottom: "1px solid #ddd",
                 width: "100%",
                 py: 1.5,
                 px: 2,
                 marginTop: "-2px"
             }}>
+                <Box sx={{ display: "flex", alignItems: "center" }}>
+                    <IconButton onClick={handleBackClick} sx={{ width: "27px", height: "27px", marginTop: '2px' }}>
+                        <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
+                    </IconButton>
+                    <Typography sx={{ fontWeight: "600", fontSize: "20px" }}>Edit News</Typography>
+                </Box>
 
-                <IconButton onClick={handleBackClick} sx={{ width: "27px", height: "27px", marginTop: '2px' }}>
-                    <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
-                </IconButton>
-                <Typography sx={{ fontWeight: "600", fontSize: "20px" }}>Edit News</Typography>
+                <Tooltip title={approvalNote} placement="bottom-end">
+                    <Chip
+                        size="small"
+                        icon={canPublishNews
+                            ? <VerifiedOutlinedIcon sx={{ fontSize: 16 }} />
+                            : <AccountTreeOutlinedIcon sx={{ fontSize: 16 }} />}
+                        label={canPublishNews ? "Updates instantly" : "Needs approval"}
+                        sx={{
+                            mr: 4,
+                            display: { xs: "none", sm: "inline-flex" },
+                            fontSize: "12px",
+                            fontWeight: 600,
+                            borderRadius: "8px",
+                            border: canPublishNews ? "1px solid #CBE3B4" : "1px solid #FFD9A0",
+                            backgroundColor: canPublishNews ? "#F1F8E9" : "#FFF7E6",
+                            color: canPublishNews ? "#4E7A2E" : "#B36A00",
+                            "& .MuiChip-icon": { color: "inherit" },
+                        }}
+                    />
+                </Tooltip>
             </Box>
             <Grid container >
                 <Grid
@@ -450,66 +535,112 @@ export default function EditNewsPage() {
                         md: 6,
                         lg: 6
                     }}>
-                    <Box sx={{ border: "1px solid #E0E0E0", backgroundColor: "#fbfbfb", p: 2, borderRadius: "7px", mt: 4.5, maxHeight: "75.6vh", overflowY: "auto" }}>
-                        <Typography>Add Heading</Typography>
+                    <Box sx={{
+                        border: "1px solid #E6E8EC",
+                        backgroundColor: "#fff",
+                        p: 2,
+                        borderRadius: "12px",
+                        mt: 4.5,
+                        maxHeight: "75.6vh",
+                        overflow: "hidden auto",
+                        "& *": { maxWidth: "100%" },
+                    }}>
+                        <Box sx={{
+                            display: "flex",
+                            alignItems: "flex-start",
+                            gap: 1.2,
+                            p: 1.5,
+                            mb: 2.5,
+                            borderRadius: "10px",
+                            border: canPublishNews ? "1px solid #DCEDC8" : "1px solid #FFE3B0",
+                            backgroundColor: canPublishNews ? "#F5FAF0" : "#FFFAF0",
+                        }}>
+                            {canPublishNews
+                                ? <VerifiedOutlinedIcon sx={{ fontSize: 18, color: "#4E7A2E", mt: "1px" }} />
+                                : <AccountTreeOutlinedIcon sx={{ fontSize: 18, color: "#B36A00", mt: "1px" }} />}
+                            <Box>
+                                <Typography sx={{ fontSize: "13px", fontWeight: 600, color: canPublishNews ? "#4E7A2E" : "#B36A00" }}>
+                                    {canPublishNews ? "You can update directly" : "Approval needed before this update goes live"}
+                                </Typography>
+                                <Typography sx={{ fontSize: "12px", color: "#5B6472", mt: 0.2 }}>
+                                    {approvalNote}
+                                </Typography>
+                            </Box>
+                        </Box>
+
+                        <Typography sx={fieldLabelSx}>Headline <span style={requiredSx}>*</span></Typography>
                         <TextField
                             id="outlined-size-small"
                             size="small"
                             fullWidth
                             value={heading}
+                            placeholder="A short, clear headline"
                             sx={{ backgroundColor: "#fff" }}
                             onChange={handleHeadingChange}
                         />
                         {isSubmitted && !heading.trim() && (
-                            <span style={{ color: "red", fontSize: "12px" }}>
+                            <Typography sx={{ color: "#f44336", fontSize: "12px", mt: 0.5 }}>
                                 This field is required
-                            </span>
+                            </Typography>
                         )}
-                        <Typography sx={{ fontSize: "12px" }} color="textSecondary">
+                        <Typography sx={{ fontSize: "11px", mt: 0.5, textAlign: "right", color: heading.length >= 100 ? "#f44336" : "#8A93A0" }}>
                             {`${heading.length}/100`}
                         </Typography>
 
 
-                        <Typography sx={{ pt: 3 }}>Add Description</Typography>
+                        <Typography sx={{ ...fieldLabelSx, pt: 2 }}>Description <span style={requiredSx}>*</span></Typography>
                         <SimpleTextEditor
-                            value={newsContentHTML}
+                            value={editorSeed}
                             onContentChange={handleRichTextChange}
+                            onLiveChange={handleRichTextChange}
                         />
                         {isSubmitted && !newsContentHTML.trim() && (
-                            <span style={{ color: "red", fontSize: "12px" }}>
+                            <Typography sx={{ color: "#f44336", fontSize: "12px", mt: 0.5 }}>
                                 This field is required
-                            </span>
+                            </Typography>
                         )}
                         <Box
                             sx={{
                                 width: "100%",
-                                backgroundColor: "#fdfdfd",
-                                borderRadius: "7px",
-                                pt: 3
+                                backgroundColor: "#FAFBFC",
+                                border: "1px solid #EDEFF3",
+                                borderRadius: "10px",
+                                p: 1.5,
+                                mt: 3
                             }}
                         >
-                            <Tabs value={activeTab} onChange={handleTabChange}  >
-                                <Tab sx={{ textTransform: "none" }} label="Select Image" />
-                                <Tab sx={{ textTransform: "none" }} label="Add Link" />
-                                <Box sx={{ display: "flex0", justifyContent: "center", width: "100%" }}>
-                                    <Typography color="textSecondary" sx={{ mt: 2, textAlign: "right", fontSize: "12px" }}>
-                                        (*Upload either an image or a link)
-                                    </Typography>
-                                </Box>
-
-                            </Tabs>
+                            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 1 }}>
+                                <Tabs
+                                    value={activeTab}
+                                    onChange={handleTabChange}
+                                    sx={{
+                                        minHeight: "34px",
+                                        "& .MuiTab-root": { textTransform: "none", minHeight: "34px", py: 0, fontSize: "13px", fontWeight: 600, color: "#6B7280" },
+                                        "& .Mui-selected": { color: "#111827 !important" },
+                                        "& .MuiTabs-indicator": { backgroundColor: websiteSettings.mainColor, height: "3px", borderRadius: "3px" },
+                                    }}
+                                >
+                                    <Tab label="Select Image" />
+                                    <Tab label="Add Link" />
+                                </Tabs>
+                                <Typography sx={{ fontSize: "12px", color: "#8A93A0" }}>
+                                    Add either an image or a link — not both.
+                                </Typography>
+                            </Box>
 
                             {activeTab === 0 && (
                                 <Box sx={{ mt: 2, textAlign: "center" }}>
                                     <Box
                                         {...getRootProps()}
                                         sx={{
-                                            border: "2px dashed #1976d2",
-                                            borderRadius: "8px",
-                                            p: 1,
-                                            backgroundColor: isDragActive ? "#e3f2fd" : "#e3f2fd",
+                                            border: isDragActive ? "2px dashed #1976d2" : "2px dashed #C7D6EA",
+                                            borderRadius: "10px",
+                                            p: 1.5,
+                                            backgroundColor: isDragActive ? "#E3F2FD" : "#F6F9FD",
                                             textAlign: "center",
                                             cursor: "pointer",
+                                            transition: "0.2s",
+                                            "&:hover": { borderColor: "#1976d2", backgroundColor: "#EDF4FC" },
                                         }}
                                     >
                                         <input {...getInputProps()} accept=".jpg, .jpeg, .webp, .png" />
@@ -622,10 +753,15 @@ export default function EditNewsPage() {
                                         fullWidth
                                         size="small"
                                         placeholder="Paste your link here"
-                                        InputProps={{
-                                            startAdornment: (
-                                                <InsertLinkIcon sx={{ mr: 1, color: "text.secondary" }} />
-                                            ),
+                                        sx={{ backgroundColor: "#fff" }}
+                                        slotProps={{
+                                            input: {
+                                                startAdornment: (
+                                                    <InputAdornment position="start">
+                                                        <InsertLinkIcon sx={{ color: "text.secondary" }} />
+                                                    </InputAdornment>
+                                                ),
+                                            },
                                         }}
                                         value={pastedLink}
                                         onChange={handleLinkUpload}
@@ -639,8 +775,8 @@ export default function EditNewsPage() {
                             )}
                         </Box>
                         {newsStatus === "schedule" &&
-                            <Box mt={2}>
-                                <Typography>Schedule </Typography>
+                            <Box mt={3}>
+                                <Typography sx={fieldLabelSx}>Scheduled for</Typography>
                                 <ThemeProvider theme={theme}>
                                     <LocalizationProvider dateAdapter={AdapterDayjs}>
                                         <Stack spacing={2} >
@@ -678,196 +814,62 @@ export default function EditNewsPage() {
                             </Box>
                         }
 
-                        <Box sx={{ mt: 3 }}>
-                            <Grid container>
-                                <Grid
-                                    size={{
-                                        xs: 6,
-                                        sm: 6,
-                                        md: 6,
-                                        lg: 4.4
-                                    }}>
+                        <Divider sx={{ mt: 3 }} />
+                        <Box sx={{ mt: 2 }}>
+                            <Box sx={{
+                                display: "flex",
+                                flexWrap: "wrap",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                gap: 1,
+                            }}>
+                                <Button
+                                    variant="outlined"
+                                    startIcon={<CloseOutlinedIcon sx={{ fontSize: 16 }} />}
+                                    sx={ghostButtonSx}
+                                    onClick={handleCancelClick}>
+                                    Cancel
+                                </Button>
 
-                                </Grid>
-                                <Grid
-                                    sx={{ display: "flex", justifyContent: "end" }}
-                                    size={{
-                                        xs: 6,
-                                        sm: 6,
-                                        md: 6,
-                                        lg: 2.3
-                                    }}>
+                                <Tooltip title={approvalNote} placement="top">
                                     <Button
-                                        sx={{
-                                            textTransform: 'none',
-                                            width: "80px",
-                                            borderRadius: '30px',
-                                            fontSize: '12px',
-                                            py: 0.2,
-                                            color: 'black',
-                                            fontWeight: "600",
-                                        }}
-                                        onClick={handlePreview}>
-                                        Preview
+                                        startIcon={primaryAction.icon}
+                                        sx={primaryButtonSx}
+                                        onClick={() => handleUpdate(primaryAction.status)}>
+                                        {primaryAction.label}
                                     </Button>
-                                </Grid>
-                                <Grid
-                                    sx={{ display: "flex", justifyContent: "end" }}
-                                    size={{
-                                        xs: 6,
-                                        sm: 6,
-                                        md: 6,
-                                        lg: 2.3
-                                    }}>
-                                    <Button
-                                        sx={{
-                                            textTransform: 'none',
-                                            width: "80px",
-                                            borderRadius: '30px',
-                                            fontSize: '12px',
-                                            py: 0.2,
-                                            border: '1px solid black',
-                                            color: 'black',
-                                            fontWeight: "600",
-                                        }}
-                                        onClick={handleCancelClick}>
-                                        Cancel
-                                    </Button>
-                                </Grid>
+                                </Tooltip>
+                            </Box>
 
-                                <Dialog open={openAlert} onClose={() => setOpenAlert(false)}>
-                                    <Box sx={{ display: "flex", justifyContent: "center", p: 2, backgroundColor: '#fff', }}>
-
-                                        <Box sx={{
-                                            textAlign: 'center',
-                                            backgroundColor: '#fff',
-                                            p: 3,
-                                            width: "70%",
-                                        }}>
-
-                                            <Typography sx={{ fontSize: "20px" }}> Do you really want to cancel? Your changes might not be saved.</Typography>
-                                            <DialogActions sx={{
-                                                justifyContent: 'center',
-                                                backgroundColor: '#fff',
-                                                pt: 2
-                                            }}>
-                                                <Button
-                                                    onClick={() => handleCloseDialog(false)}
-                                                    sx={{
-                                                        textTransform: 'none',
-                                                        width: "80px",
-                                                        borderRadius: '30px',
-                                                        fontSize: '16px',
-                                                        py: 0.2,
-                                                        border: '1px solid black',
-                                                        color: 'black',
-                                                    }}
-                                                >
-                                                    No
-                                                </Button>
-                                                <Button
-                                                    onClick={() => handleCloseDialog(true)}
-                                                    sx={{
-                                                        textTransform: 'none',
-                                                        backgroundColor: websiteSettings.mainColor,
-                                                        width: "90px",
-                                                        borderRadius: '30px',
-                                                        fontSize: '16px',
-                                                        py: 0.2,
-                                                        color: websiteSettings.textColor,
-                                                    }}
-                                                >
-                                                    Discard
-                                                </Button>
-                                            </DialogActions>
-                                        </Box>
-
-                                    </Box>
-                                </Dialog>
-                                {userType === "superadmin" &&
-                                    <>
-                                        {!DTValue && (
-                                            <Grid
-                                                sx={{ display: "flex", justifyContent: "end" }}
-                                                size={{
-                                                    xs: 6,
-                                                    sm: 6,
-                                                    md: 6,
-                                                    lg: 3
-                                                }}>
-                                                <Button
-                                                    sx={{
-                                                        textTransform: 'none',
-                                                        backgroundColor: websiteSettings.mainColor,
-                                                        width: "80px",
-                                                        borderRadius: '30px',
-                                                        fontSize: '12px',
-                                                        py: 0.2,
-                                                        color: websiteSettings.textColor,
-                                                        fontWeight: "600",
-                                                    }}
-                                                    onClick={() => handleUpdate('post')}>
-                                                    Update
-                                                </Button>
-                                            </Grid>
-                                        )}
-                                        {DTValue && (
-                                            <Grid
-                                                sx={{ display: "flex", justifyContent: "end" }}
-                                                size={{
-                                                    xs: 6,
-                                                    sm: 6,
-                                                    md: 6,
-                                                    lg: 3
-                                                }}>
-                                                <Button
-                                                    sx={{
-                                                        textTransform: 'none',
-                                                        backgroundColor: websiteSettings.mainColor,
-                                                        width: "80px",
-                                                        borderRadius: '30px',
-                                                        fontSize: '12px',
-                                                        py: 0.2,
-                                                        color: websiteSettings.textColor,
-                                                        fontWeight: "600",
-                                                    }}
-                                                    onClick={() => handleUpdate('schedule')}>
-                                                    Schedule
-                                                </Button>
-                                            </Grid>
-                                        )}
-                                    </>
-                                }  {userType !== "superadmin" &&
-                                    <>
-                                        <Grid
-                                            sx={{ display: "flex", justifyContent: "center" }}
-                                            size={{
-                                                xs: 6,
-                                                sm: 6,
-                                                md: 6,
-                                                lg: 3
-                                            }}>
-
-                                            <Button
-                                                sx={{
-                                                    textTransform: 'none',
-                                                    backgroundColor: websiteSettings.mainColor,
-                                                    width: "100px",
-                                                    borderRadius: '30px',
-                                                    fontSize: '12px',
-                                                    py: 0.2,
-                                                    color: websiteSettings.textColor,
-                                                    fontWeight: "600",
-                                                }}
-                                                onClick={() => handleUpdate(DTValue ? 'schedule' : 'post')}>
-                                                Request Now
-                                            </Button>
-                                        </Grid>
-                                    </>
-                                }
-
-
-                            </Grid>
+                            <Dialog
+                                open={openAlert}
+                                onClose={() => setOpenAlert(false)}
+                                slotProps={{ paper: { sx: { borderRadius: "14px", maxWidth: "420px" } } }}
+                            >
+                                <Box sx={{ p: 3, backgroundColor: '#fff', textAlign: 'center' }}>
+                                    <Typography sx={{ fontSize: "17px", fontWeight: 600, color: "#111827" }}>
+                                        Discard your changes?
+                                    </Typography>
+                                    <Typography sx={{ fontSize: "13px", color: "#6B7280", mt: 0.8 }}>
+                                        This news will stay as it was before you started editing.
+                                    </Typography>
+                                    <DialogActions sx={{ justifyContent: 'center', backgroundColor: '#fff', pt: 2.5, gap: 1 }}>
+                                        <Button
+                                            variant="outlined"
+                                            onClick={() => handleCloseDialog(false)}
+                                            sx={{ ...ghostButtonSx, px: 2.4 }}
+                                        >
+                                            Keep editing
+                                        </Button>
+                                        <Button
+                                            onClick={() => handleCloseDialog(true)}
+                                            sx={primaryButtonSx}
+                                        >
+                                            Discard
+                                        </Button>
+                                    </DialogActions>
+                                </Box>
+                            </Dialog>
                         </Box>
 
                     </Box>
@@ -882,92 +884,90 @@ export default function EditNewsPage() {
                         md: 6,
                         lg: 6
                     }}>
-                    <Box sx={{ border: "1px solid #E0E0E0", backgroundColor: "#fbfbfb", p: 2, borderRadius: "6px", height: "75.6vh", overflowY: "auto" }}>
-                        <Typography sx={{ fontSize: "14px", color: "rgba(0,0,0,0.7)" }}>Live Preview</Typography>
-                        <hr style={{ border: "0.5px solid #CFCFCF" }} />
-                        <Box p={1}>
-                            {previewData.heading && (
-                                <Typography sx={{ fontWeight: "600", fontSize: "16px" }}>
-                                    {previewData.heading}
+                    <Box sx={{ border: "1px solid #E6E8EC", backgroundColor: "#fff", p: 2, borderRadius: "12px", height: "75.6vh", overflow: "hidden auto" }}>
+                        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                <ArticleOutlinedIcon sx={{ fontSize: 18, color: "#6B7280" }} />
+                                <Typography sx={{ fontSize: "14px", fontWeight: 600, color: "#374151" }}>Live Preview</Typography>
+                            </Box>
+                            <Typography sx={{ fontSize: "11px", color: "#8A93A0" }}>Updates as you type</Typography>
+                        </Box>
+                        <Divider sx={{ my: 1.5 }} />
+                        <Box>
+                            {!hasPreview && (
+                                <Box sx={{
+                                    height: "60vh",
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    gap: 1,
+                                    textAlign: "center",
+                                    color: "#9AA3AF",
+                                }}>
+                                    <VisibilityOutlinedIcon sx={{ fontSize: 34, color: "#C9CFD8" }} />
+                                    <Typography sx={{ fontSize: "13px", fontWeight: 600, color: "#6B7280" }}>Nothing to preview yet</Typography>
+                                    <Typography sx={{ fontSize: "12px", maxWidth: "260px" }}>
+                                        Your edits show up here straight away as you make them.
+                                    </Typography>
+                                </Box>
+                            )}
+
+                            {heading && (
+                                <Typography sx={{ fontWeight: "600", fontSize: "16px", wordBreak: "break-word" }}>
+                                    {heading}
                                 </Typography>
                             )}
 
-                            {previewData.content && (
+                            {newsContentHTML && (
                                 <Typography
-                                    sx={{ fontSize: "14px", pt: 1, }}
-                                    dangerouslySetInnerHTML={{ __html: previewData.content }}
+                                    component="div"
+                                    sx={{
+                                        fontSize: "14px",
+                                        pt: 1,
+                                        wordBreak: "break-word",
+                                        "& img": { maxWidth: "100%", height: "auto" },
+                                        "& table": { maxWidth: "100%" },
+                                    }}
+                                    dangerouslySetInnerHTML={{ __html: newsContentHTML }}
                                 />
                             )}
 
-
-
-                            {previewData.uploadedFiles.length > 0 && !previewData.pastedLink && (
-                                <Grid container spacing={2}>
-                                    {previewData.uploadedFiles.map((file, index) => (
-                                        <Grid
-                                            key={index}
-                                            sx={{ display: "flex", py: 1 }}
-                                            size={{
-                                                xs: 12,
-                                                sm: 12,
-                                                md: 5,
-                                                lg: 12
-                                            }}>
-                                            <img
-                                                src={URL.createObjectURL(file)}
-                                                width={'273px'}
-                                                height={'210px'}
-                                                alt={`Uploaded file ${index + 1}`}
-                                            />
-                                        </Grid>
-                                    ))}
-                                </Grid>
+                            {!!imagePreviewUrl && (
+                                <Box sx={{ pt: 1.5 }}>
+                                    <img
+                                        src={imagePreviewUrl}
+                                        alt="News"
+                                        style={{
+                                            width: "273px",
+                                            height: "210px",
+                                            objectFit: "cover",
+                                            maxWidth: "100%",
+                                            borderRadius: "10px",
+                                            border: "1px solid #E6E8EC",
+                                        }}
+                                    />
+                                </Box>
                             )}
 
-                            {previewData.fetchedImage.length > 0 && !previewData.pastedLink && (
-                                <Grid container spacing={2}>
-                                    <Grid
-                                        sx={{ display: "flex", py: 1 }}
-                                        size={{
-                                            xs: 12,
-                                            sm: 12,
-                                            md: 5,
-                                            lg: 12
-                                        }}>
-                                        <img
-                                            src={fetchedImage}
-                                            width={'273px'}
-                                            height={'210px'}
-                                            alt={'Uploaded file'}
-                                        />
-                                    </Grid>
-                                </Grid>
-                            )}
-
-                            {!previewData.uploadedFiles.length && previewData.pastedLink && (
-                                <>
-                                    {isYouTubeLink(previewData.pastedLink) ? (
-                                        <Box>
+                            {!uploadedFiles.length && !!pastedLink && (
+                                <Box sx={{ pt: 1.5 }}>
+                                    {showLinkPreview ? (
+                                        <Box sx={{ borderRadius: "10px", overflow: "hidden", width: "273px", maxWidth: "100%" }}>
                                             <ReactPlayer
-                                                url={previewData.pastedLink}
-                                                width='273px'
+                                                url={pastedLink}
+                                                width='100%'
                                                 height='210px'
                                                 playing={false}
                                             />
                                         </Box>
                                     ) : (
-                                        <Box>
-                                            <Typography color="error">
-                                                Please provide a valid YouTube link.
-                                            </Typography>
-                                        </Box>
+                                        <Typography color="error" sx={{ fontSize: "13px" }}>
+                                            Please provide a valid YouTube link.
+                                        </Typography>
                                     )}
-                                </>
+                                </Box>
                             )}
-
-
-
-
                         </Box>
                     </Box>
                 </Grid>

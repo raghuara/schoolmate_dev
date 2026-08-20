@@ -160,6 +160,10 @@ export default function MyProjectPage() {
                                 </Button>
                             </Link>
                         }
+                        {/* Draft is no longer reachable - Save as Draft has been commented out
+                            of every create screen, so this can only ever open an empty list.
+                            Kept rather than deleted in case the feature comes back.
+
                         {userType !== "teacher" &&
                             <Link to='/dashboardmenu/draft'>
                                 <Button
@@ -183,6 +187,7 @@ export default function MyProjectPage() {
                                 </Button>
                             </Link>
                         }
+                        */}
                     </Grid>
                 </Grid>
             </Box>

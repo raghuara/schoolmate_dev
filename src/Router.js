@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 import LoginPage from "./Pages/LoginPage";
 import DashBoardLayout from "./Components/DashBoard/DashBoardLayout";
 import RequirePermission from "./Components/AccessControlComps/RequirePermission";
@@ -14,7 +14,6 @@ import HomeWorkPage from "./Components/CommunicationComps/HomeWorkPage";
 import ExamTimeTablesPage from "./Components/CommunicationComps/ExamTimeTablesPage";
 import StudyMaterialsPage from "./Components/CommunicationComps/StudyMaterialsPage";
 import MarksResultsPage from "./Components/CommunicationComps/MarksResultsPage";
-import ImportantEventsPage from "./Components/CommunicationComps/ImportantEventsPage";
 import BirthdayPostPage from "./Components/CommunicationComps/BirthdayPostPage";
 import FeedBackPage from "./Components/CommunicationComps/FeedBackPage";
 import AttendancePage from "./Components/CommunicationComps/AttendancePage";
@@ -40,6 +39,7 @@ import CreateHomeWorkPage from "./Components/CommunicationComps/HomeworkComps/Cr
 import EditHomeWorkPage from "./Components/CommunicationComps/HomeworkComps/EditHomeWorkPage";
 import { fetchGradesData, selectGrades, selectGradesError, selectGradesLoading } from "./Redux/Slices/DropdownController";
 import { fetchUserTypes } from "./Redux/Slices/userTypesSlice";
+import { fetchApprovalMatrix } from "./Redux/Slices/approvalMatrixSlice";
 import { useDispatch, useSelector } from "react-redux";
 import Loader from "./Components/Loader";
 import CreateExamTimeTablesPage from "./Components/CommunicationComps/ExamTimeTablesComps/CreateExamTimeTables";
@@ -55,7 +55,7 @@ import MyProjectPage from "./Components/MyProjects/MyProjects";
 import WorkDonePage from "./Components/WorkDoneComps/WorkDonePage";
 import WorkDoneSettings from "./Components/WorkDoneComps/WorkDoneSettings";
 import SchedulePage from "./Components/MyProjects/SchedulePage";
-import DraftPage from "./Components/MyProjects/DraftPage";
+// import DraftPage from "./Components/MyProjects/DraftPage";   // draft feature is off
 import ApprovalPage from "./Components/Approvals/ApprovalPage";
 import StudentLeaveApprovalPage from "./Components/Approvals/ApprovalPages/StudentLeaveApprovalPage";
 import OnLeaveStudentsPage from "./Components/Approvals/ApprovalPages/OnLeaveStudentsPage";
@@ -74,18 +74,18 @@ import EditStudentInfoPage from "./Components/StudentComps/StudentInformationCom
 import NewsApprovalEditPage from "./Components/Approvals/ApprovalPages/EditPages/NewsApprovalEditPage";
 import MessagesApprovalEditPage from "./Components/Approvals/ApprovalPages/EditPages/MessagesApprovalEditPage";
 import CircularsApprovalEditPage from "./Components/Approvals/ApprovalPages/EditPages/CircularApprovalEditPage";
-import NewsDraftPage from "./Components/MyProjects/DraftComps/NewsComps/NewsDraftPage";
-import NewsDraftEditPage from "./Components/MyProjects/DraftComps/NewsComps/NewsDraftEditPage";
-import MessagesDraftPage from "./Components/MyProjects/DraftComps/MessagesComps/MessagesDraftPage";
-import MessagesDraftEditPage from "./Components/MyProjects/DraftComps/MessagesComps/MessagesDraftEditPage";
-import CircularsDraftPage from "./Components/MyProjects/DraftComps/CircularsComps/CircularsDraftPage";
-import CircularsDraftEditPage from "./Components/MyProjects/DraftComps/CircularsComps/CircularsDraftEditPage";
-import ConsentFormsDraftEditPage from "./Components/MyProjects/DraftComps/ConsentFormComps/ConsenFormDraftEditPage";
-import ConsentFormDraftPage from "./Components/MyProjects/DraftComps/ConsentFormComps/ConsentFormDraftPage";
-import ConsentFormDraftEditPage from "./Components/MyProjects/DraftComps/ConsentFormComps/ConsenFormDraftEditPage";
-import MarksDraftPage from "./Components/MyProjects/DraftComps/MarksComps/MarksDraftPage";
-import FeedBackDraftPage from "./Components/MyProjects/DraftComps/FeedBackComps/FeedBackDraftPage";
-import FeedBackDraftEditPage from "./Components/MyProjects/DraftComps/FeedBackComps/FeedBackDraftEditPage";
+// import NewsDraftPage from "./Components/MyProjects/DraftComps/NewsComps/NewsDraftPage";   // draft feature is off
+// import NewsDraftEditPage from "./Components/MyProjects/DraftComps/NewsComps/NewsDraftEditPage";   // draft feature is off
+// import MessagesDraftPage from "./Components/MyProjects/DraftComps/MessagesComps/MessagesDraftPage";   // draft feature is off
+// import MessagesDraftEditPage from "./Components/MyProjects/DraftComps/MessagesComps/MessagesDraftEditPage";   // draft feature is off
+// import CircularsDraftPage from "./Components/MyProjects/DraftComps/CircularsComps/CircularsDraftPage";   // draft feature is off
+// import CircularsDraftEditPage from "./Components/MyProjects/DraftComps/CircularsComps/CircularsDraftEditPage";   // draft feature is off
+// import ConsentFormsDraftEditPage from "./Components/MyProjects/DraftComps/ConsentFormComps/ConsenFormDraftEditPage";   // draft feature is off
+// import ConsentFormDraftPage from "./Components/MyProjects/DraftComps/ConsentFormComps/ConsentFormDraftPage";   // draft feature is off
+// import ConsentFormDraftEditPage from "./Components/MyProjects/DraftComps/ConsentFormComps/ConsenFormDraftEditPage";   // draft feature is off
+// import MarksDraftPage from "./Components/MyProjects/DraftComps/MarksComps/MarksDraftPage";   // draft feature is off
+// import FeedBackDraftPage from "./Components/MyProjects/DraftComps/FeedBackComps/FeedBackDraftPage";   // draft feature is off
+// import FeedBackDraftEditPage from "./Components/MyProjects/DraftComps/FeedBackComps/FeedBackDraftEditPage";   // draft feature is off
 import SoonPage from "./Components/Soon";
 import FolderStudyMaterialsPage from "./Components/CommunicationComps/StudyMaterialsComps/FolderStudyMaterials";
 import MainStudyMaterialsPage from "./Components/CommunicationComps/StudyMaterialsComps/MainStudyMaterials";
@@ -129,10 +129,10 @@ import ExtraCurricularFeeStructure from "./Components/StudentComps/FeeFinanceCom
 import PayStudentFeePage from "./Components/StudentComps/FeeFinanceComps/PayStudentFees/PayStudentFeesPage";
 import BillingScreen from "./Components/StudentComps/FeeFinanceComps/PayStudentFees/BillingScreen";
 import TransactionHistory from "./Components/StudentComps/FeeFinanceComps/PayStudentFees/TransactionHistory";
-import FeesReportPage from "./Components/StudentComps/FeeFinanceComps/FeesReport/FeesReportPage";
+// import FeesReportPage from "./Components/StudentComps/FeeFinanceComps/FeesReport/FeesReportPage";   // route commented out - unbuilt stub
 import SpecialConcession from "./Components/StudentComps/FeeFinanceComps/PayStudentFees/SpecialConcession";
-import CreateConcessionPage from "./Components/StudentComps/FeeFinanceComps/Concession/CreateConcessionPage";
-import ConcessionPage from "./Components/StudentComps/FeeFinanceComps/Concession/ConcessionPage";
+// import CreateConcessionPage from "./Components/StudentComps/FeeFinanceComps/Concession/CreateConcessionPage";   // route commented out - unreachable
+// import ConcessionPage from "./Components/StudentComps/FeeFinanceComps/Concession/ConcessionPage";   // route commented out - unreachable
 import ProfileManagement from "./Components/ProfileManagementComps/ProfileManagement";
 import LeaveAttendanceMainPage from "./Components/LeaveAttendanceComps/LeaveAttendanceMainPage";
 import InventoryPage from "./Components/InventoryComps/InventoryPage";
@@ -197,6 +197,7 @@ export default function RouterPage() {
     useEffect(() => {
         dispatch(fetchGradesData());
         dispatch(fetchUserTypes());
+        dispatch(fetchApprovalMatrix());
     }, [dispatch]);
 
     // if (loading) return <div> <Loader /> </div>;
@@ -222,9 +223,9 @@ export default function RouterPage() {
                 {/* --------------------------------------------------------------------------------------------------- */}
 
                 {/* Profile Management */}
-                <Route path="profile" element={<ProfileManagement />} />
+                <Route path="profile" element={<RequirePermission><ProfileManagement /></RequirePermission>} />
 
-                <Route path="profile/student" element={<StudentPage />} />
+                <Route path="profile/student" element={<RequirePermission subMenu="studentmanagement" anyOf={["view", "create", "edit", "siblingapproval"]}><StudentPage /></RequirePermission>} />
                 <Route path="profile/student/information" element={<RequirePermission subMenu="studentmanagement" anyOf={["view", "create", "edit", "siblingapproval"]}><StudentInformationPage /></RequirePermission>} />
                 <Route path="profile/student/information/viewinfo" element={<RequirePermission subMenu="studentmanagement" anyOf={["view", "edit"]}><StudentInfoPage /></RequirePermission>} />
                 <Route path="profile/student/information/create" element={<RequirePermission subMenu="studentmanagement" anyOf={["create"]}><CreateStudentInfoPage /></RequirePermission>} />
@@ -254,7 +255,8 @@ export default function RouterPage() {
                 <Route path="workdone/settings" element={<WorkDoneSettings />} />
                 <Route path="marks" element={<RequirePermission mainMenu="communication" subMenu="marks" anyOf={["view"]}><MarksResultsPage /></RequirePermission>} />
                 <Route path="schoolcalendar" element={<RequirePermission mainMenu="communication" subMenu="schoolcalender" anyOf={["view"]}><SchoolCalenderPage /></RequirePermission>} />
-                <Route path="events" element={<RequirePermission mainMenu="communication" subMenu="events" anyOf={["view"]}><ImportantEventsPage /></RequirePermission>} />
+                {/* Important Events is now a tab inside School Calendar - old links still land somewhere sensible. */}
+                <Route path="events" element={<Navigate to="/dashboardmenu/schoolcalendar" replace />} />
                 <Route path="birthday-post" element={<RequirePermission mainMenu="communication" subMenu="birthdaypost" anyOf={["view"]}><BirthdayPostPage /></RequirePermission>} />
                 <Route path="feedback" element={<RequirePermission mainMenu="communication" subMenu="feedback" anyOf={["view"]}><FeedBackPage /></RequirePermission>} />
                 <Route path="attendance" element={<RequirePermission mainMenu="communication" subMenu="attendance" anyOf={["view"]}><AttendancePage /></RequirePermission>} />
@@ -309,31 +311,37 @@ export default function RouterPage() {
                 {/* Fee & Finance */}
                 <Route path="fee" element={<FeeFinancePage />} />
 
-                <Route path="fee/concession" element={<ConcessionPage />} />
-                <Route path="fee/concession/create" element={<CreateConcessionPage />} />
+                {/* The "Manage / Create Concession" button on FeeFinancePage is
+                    commented out, so nothing reaches these. Concession Log is the
+                    live screen. */}
+                {/* <Route path="fee/concession" element={<ConcessionPage />} /> */}
+                {/* <Route path="fee/concession/create" element={<CreateConcessionPage />} /> */}
 
-                <Route path="fee/school" element={<SchoolFeeStructure />} />
-                <Route path="fee/transport" element={<TransportFeeStructure />} />
-                <Route path="fee/transport/created-fees" element={<CreatedTransportFees />} />
-                <Route path="fee/extra-curricular" element={<ExtraCurricularFeeStructure />} />
-                <Route path="fee/extra-curricular/created-fees" element={<CreatedEcaFees />} />
-                <Route path="fee/extra" element={<ExtraFeeStructure />} />
-                <Route path="fee/extra/created-fees" element={<CreatedExtraFees />} />
+                <Route path="fee/school" element={<RequirePermission mainMenu="feeandfinance" subMenu="createfeesstructure" anyOf={["create", "edit"]}><SchoolFeeStructure /></RequirePermission>} />
+                <Route path="fee/transport" element={<RequirePermission mainMenu="feeandfinance" subMenu="createfeesstructure" anyOf={["create", "edit"]}><TransportFeeStructure /></RequirePermission>} />
+                <Route path="fee/transport/created-fees" element={<RequirePermission mainMenu="feeandfinance" subMenu="createfeesstructure" anyOf={["view", "create", "edit"]}><CreatedTransportFees /></RequirePermission>} />
+                <Route path="fee/extra-curricular" element={<RequirePermission mainMenu="feeandfinance" subMenu="createfeesstructure" anyOf={["create", "edit"]}><ExtraCurricularFeeStructure /></RequirePermission>} />
+                <Route path="fee/extra-curricular/created-fees" element={<RequirePermission mainMenu="feeandfinance" subMenu="createfeesstructure" anyOf={["view", "create", "edit"]}><CreatedEcaFees /></RequirePermission>} />
+                <Route path="fee/extra" element={<RequirePermission mainMenu="feeandfinance" subMenu="createfeesstructure" anyOf={["create", "edit"]}><ExtraFeeStructure /></RequirePermission>} />
+                <Route path="fee/extra/created-fees" element={<RequirePermission mainMenu="feeandfinance" subMenu="createfeesstructure" anyOf={["view", "create", "edit"]}><CreatedExtraFees /></RequirePermission>} />
 
-                <Route path="fee/pay-fees" element={<PayStudentFeePage />} />
-                <Route path="fee/billing" element={<BillingScreen />} />
-                <Route path="fee/transaction-history" element={<TransactionHistory />} />
-                <Route path="fee/dashboard" element={<FinanceDashboard />} />
-                <Route path="fee/special" element={<SpecialConcession />} />
+                <Route path="fee/pay-fees" element={<RequirePermission mainMenu="feeandfinance" subMenu="billingscreen" anyOf={["allowbilling"]}><PayStudentFeePage /></RequirePermission>} />
+                <Route path="fee/billing" element={<RequirePermission mainMenu="feeandfinance" subMenu="billingscreen" anyOf={["allowbilling"]}><BillingScreen /></RequirePermission>} />
+                <Route path="fee/transaction-history" element={<RequirePermission mainMenu="feeandfinance" subMenu="billingscreen" anyOf={["allowbilling"]}><TransactionHistory /></RequirePermission>} />
+                <Route path="fee/dashboard" element={<RequirePermission mainMenu="feeandfinance" subMenu="financedashboard" anyOf={["view"]}><FinanceDashboard /></RequirePermission>} />
+                <Route path="fee/special" element={<RequirePermission mainMenu="feeandfinance" subMenu="billingscreen" anyOf={["allowconcession"]}><SpecialConcession /></RequirePermission>} />
 
-                <Route path="fee/report" element={<FeesReportPage />} />
-                <Route path="fee/expense" element={<ExpensePage />} />
-                <Route path="fee/concession-log" element={<ConcessionLog />} />
+                {/* fee/report is an empty placeholder - no content, no API calls, and
+                    nothing links to it. The working report is the dashboard's Fee
+                    Report tab, gated on financedashboard.allowreporttab. */}
+                {/* <Route path="fee/report" element={<FeesReportPage />} /> */}
+                <Route path="fee/expense" element={<RequirePermission mainMenu="feeandfinance" subMenu="expense" anyOf={["viewdashboard", "viewhistory", "allowaddbudget", "allowaddexpense"]}><ExpensePage /></RequirePermission>} />
+                <Route path="fee/concession-log" element={<RequirePermission mainMenu="feeandfinance" subMenu="concessionlog" anyOf={["view"]}><ConcessionLog /></RequirePermission>} />
 
-                <Route path="fee/eca-manage" element={<ExtraCurricularManage />} />
-                <Route path="fee/additional-manage" element={<AdditionalFeeManage />} />
-                <Route path="fee/eca/eca-students" element={<EcaStudents />} />
-                <Route path="fee/eca/removed-students" element={<TransferredStudents />} />
+                <Route path="fee/eca-manage" element={<RequirePermission mainMenu="feeandfinance" subMenu="ecamanagement" anyOf={["allowmapstudent", "editstudent"]}><ExtraCurricularManage /></RequirePermission>} />
+                <Route path="fee/additional-manage" element={<RequirePermission mainMenu="feeandfinance" subMenu="additionalfeemanagement" anyOf={["allowmapstudent", "editstudent"]}><AdditionalFeeManage /></RequirePermission>} />
+                <Route path="fee/eca/eca-students" element={<RequirePermission mainMenu="feeandfinance" subMenu="ecamanagement" anyOf={["allowmapstudent", "editstudent"]}><EcaStudents /></RequirePermission>} />
+                <Route path="fee/eca/removed-students" element={<RequirePermission mainMenu="feeandfinance" subMenu="ecamanagement" anyOf={["allowmapstudent", "editstudent"]}><TransferredStudents /></RequirePermission>} />
 
 
                 {/* --------------------------------------------------------------------------------------------------- */}
@@ -385,7 +393,9 @@ export default function RouterPage() {
 
                 <Route path="schedule" element={<SchedulePage />} />
                 <Route path="status" element={<ApprovalStatusPage />} />
-                <Route path="draft" element={<DraftPage />} />
+                {/* Draft is off - Save as Draft is commented out of every create
+                    screen, so these lists can only ever be empty. */}
+                {/* <Route path="draft" element={<DraftPage />} /> */}
 
                 {/* Approval Status  */}
                 <Route path="status/news" element={<ApprovalStatusNewsPage />} />
@@ -399,20 +409,20 @@ export default function RouterPage() {
                 <Route path="status/additional" element={<AdditionalFeeApprovalStatus />} />
 
                 {/* Draft  */}
-                <Route path="draft/news" element={<NewsDraftPage />} />
-                <Route path="draft/news/edit" element={<NewsDraftEditPage />} />
+                {/* <Route path="draft/news" element={<NewsDraftPage />} /> */}
+                {/* <Route path="draft/news/edit" element={<NewsDraftEditPage />} /> */}
 
-                <Route path="draft/messages" element={<MessagesDraftPage />} />
-                <Route path="draft/messages/edit" element={<MessagesDraftEditPage />} />
+                {/* <Route path="draft/messages" element={<MessagesDraftPage />} /> */}
+                {/* <Route path="draft/messages/edit" element={<MessagesDraftEditPage />} /> */}
 
-                <Route path="draft/circulars" element={<CircularsDraftPage />} />
-                <Route path="draft/circulars/edit" element={<CircularsDraftEditPage />} />
+                {/* <Route path="draft/circulars" element={<CircularsDraftPage />} /> */}
+                {/* <Route path="draft/circulars/edit" element={<CircularsDraftEditPage />} /> */}
 
-                <Route path="draft/consentforms" element={<ConsentFormDraftPage />} />
-                <Route path="draft/consentforms/edit" element={<ConsentFormDraftEditPage />} />
+                {/* <Route path="draft/consentforms" element={<ConsentFormDraftPage />} /> */}
+                {/* <Route path="draft/consentforms/edit" element={<ConsentFormDraftEditPage />} /> */}
 
-                <Route path="draft/feedback" element={<FeedBackDraftPage />} />
-                <Route path="draft/feedback/edit" element={<FeedBackDraftEditPage />} />
+                {/* <Route path="draft/feedback" element={<FeedBackDraftPage />} /> */}
+                {/* <Route path="draft/feedback/edit" element={<FeedBackDraftEditPage />} /> */}
 
                 {/* --------------------------------------------------------------------------------------------------- */}
 

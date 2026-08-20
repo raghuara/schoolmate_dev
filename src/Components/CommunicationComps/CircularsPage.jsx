@@ -1,4 +1,4 @@
-import { Autocomplete, Box, Button, Checkbox, createTheme, Dialog, DialogActions, DialogContent, DialogTitle, Fab, FormControlLabel, Grid, IconButton, InputAdornment, Paper, Switch, TextField, ThemeProvider, Tooltip, Typography } from "@mui/material";
+import { Autocomplete, Box, Button, Checkbox, Chip, createTheme, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Fab, FormControlLabel, Grid, IconButton, InputAdornment, Paper, Switch, TextField, ThemeProvider, Tooltip, Typography } from "@mui/material";
 import axios from "axios";
 import React, { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -19,11 +19,17 @@ import CloseIcon from "@mui/icons-material/Close";
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import { BulkDeleteCircular, BulkDeleteNews, CircularFetch, DeleteCircular, GettingGrades, NewsFetch } from "../../Api/Api";
 import Loader from "../Loader";
+import { ListSkeleton } from "../InnerLoader";
 import SnackBar from "../SnackBar";
 import NoData from '../../Images/Login/No Data.png'
 import { selectGrades } from "../../Redux/Slices/DropdownController";
 import pdfDemo from '../../Images/PDF.png'
 import HighlightOffIcon from '@mui/icons-material/HighlightOff';
+import UpdateOutlinedIcon from '@mui/icons-material/UpdateOutlined';
+import EventAvailableOutlinedIcon from '@mui/icons-material/EventAvailableOutlined';
+import DeleteSweepOutlinedIcon from '@mui/icons-material/DeleteSweepOutlined';
+import { selectUserTypeID } from "../../Redux/Slices/AuthSlice";
+import { APPROVAL_SUBMENUS, approvalRoleFor, selectApprovalMatrix } from "../../Redux/Slices/approvalMatrixSlice";
 
 export default function CircularsPage() {
     const today = dayjs();
@@ -47,10 +53,19 @@ export default function CircularsPage() {
     const canCreate = circularPerms.create === "Y";
     const canEdit = circularPerms.edit === "Y";
     const canDelete = circularPerms.delete === "Y";
+    // Level 1 of the Circulars approval flow acts straight away; every other level
+    // and anyone outside the flow raises a request instead.
+    const userTypeID = useSelector(selectUserTypeID);
+    const approvalMatrix = useSelector(selectApprovalMatrix);
+    const canActDirect = approvalRoleFor(approvalMatrix, APPROVAL_SUBMENUS.CIRCULAR, userTypeID).canPublishDirect;
+    const canBulkDelete = canDelete && canActDirect;
     const rollNumber = user.rollNumber
     const userType = user.userType
     const userName = user.name
     const [isLoading, setIsLoading] = useState(false);
+    // The empty state must not paint before the first fetch has actually
+    // finished, otherwise "no data" flashes on every visit.
+    const [hasLoaded, setHasLoaded] = useState(false);
     const token = '123';
     const [searchQuery, setSearchQuery] = useState("");
     const [deleteId, setDeleteId] = useState('');
@@ -91,6 +106,50 @@ export default function CircularsPage() {
             circularItem.headLine.toLowerCase().includes(searchQuery.toLowerCase())
         )
     );
+
+    // Cards are filtered again inside the map, so count the same way the list renders.
+    const visibleCircularCount = filteredCirculars.reduce(
+        (total, dateGroup) => total + dateGroup.circular.filter((circularItem) =>
+            circularItem.headLine.toLowerCase().includes(searchQuery.toLowerCase())
+        ).length,
+        0,
+    );
+
+    const metaChipSx = {
+        height: "20px",
+        fontSize: "10.5px",
+        fontWeight: 600,
+        borderRadius: "6px",
+        "& .MuiChip-icon": { fontSize: 13, ml: "6px", color: "inherit" },
+        "& .MuiChip-label": { px: "7px" },
+    };
+
+    const dialogGhostSx = {
+        textTransform: "none",
+        borderRadius: "10px",
+        fontSize: "12.5px",
+        fontWeight: 600,
+        px: 2.4,
+        py: 0.6,
+        color: "#374151",
+        borderColor: "#D6DAE1",
+        backgroundColor: "#fff",
+        "&:hover": { borderColor: "#9AA3AF", backgroundColor: "#F7F8FA" },
+    };
+
+    const dialogPrimarySx = {
+        textTransform: "none",
+        borderRadius: "10px",
+        fontSize: "12.5px",
+        fontWeight: 700,
+        px: 2.4,
+        py: 0.7,
+        boxShadow: "none",
+        whiteSpace: "nowrap",
+        backgroundColor: websiteSettings.mainColor,
+        color: websiteSettings.textColor,
+        "&:hover": { backgroundColor: websiteSettings.mainColor, opacity: 0.9, boxShadow: "none" },
+    };
 
     const handleCheck = (event) => {
         const isChecked = event.target.checked;
@@ -267,11 +326,13 @@ export default function CircularsPage() {
 
     useEffect(() => {
         fetchCirculars()
-    }, [checked, formattedDate])
+    }, [checked, formattedDate, academicYear])
 
 
     const fetchCirculars = async () => {
-        setIsLoading(true);
+        // The API rejects the call without an academic year, so wait until the
+        // header's selected year is in the store before asking for the list.
+        if (!academicYear) return;
         try {
             const res = await axios.get(CircularFetch, {
                 params: {
@@ -290,6 +351,7 @@ export default function CircularsPage() {
             console.error(error);
         } finally {
             setIsLoading(false);
+            setHasLoaded(true);
         }
     };
 
@@ -311,7 +373,7 @@ export default function CircularsPage() {
             setColor(true);
             setStatus(true);
 
-            if (userType === "superadmin") {
+            if (canActDirect) {
                 setMessage("Circular Deleted Successfully");
             } else {
                 setMessage("Requested Successfully");
@@ -362,9 +424,9 @@ export default function CircularsPage() {
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
             {isLoading && <Loader />}
             <Box sx={{ backgroundColor: "#f2f2f2", px: 2, borderRadius: "10px 10px 10px 0px", borderBottom: "1px solid #ddd", }}>
-                <Grid container>
+                <Grid container sx={{ py: 1 }} alignItems="center">
                     <Grid
-                        sx={{ display: "flex", alignItems: "center" }}
+                        sx={{ display: "flex", alignItems: "center", gap: 1 }}
                         size={{
                             xs: 6,
                             sm: 6,
@@ -372,6 +434,19 @@ export default function CircularsPage() {
                             lg: 3
                         }}>
                         <Typography sx={{ fontWeight: "600", fontSize: "20px" }} >Circulars</Typography>
+                        <Chip
+                            size="small"
+                            label={visibleCircularCount}
+                            sx={{
+                                height: "20px",
+                                fontSize: "11px",
+                                fontWeight: 700,
+                                borderRadius: "6px",
+                                backgroundColor: "#fff",
+                                border: "1px solid #DDE1E6",
+                                color: "#4B5563",
+                            }}
+                        />
                     </Grid>
                     <Grid
                         sx={{ display: "flex", justifyContent: "center", alignItems: "center" }}
@@ -389,6 +464,8 @@ export default function CircularsPage() {
                                     onChange={handleCheck}
                                     inputProps={{ "aria-label": "controlled" }}
                                     sx={{
+                                        // Same switch, just stops its 12px padding from setting the toolbar height.
+                                        my: "-6px",
                                         "& .MuiSwitch-thumb": {
                                             backgroundColor: checked ? websiteSettings.mainColor : "default",
                                         },
@@ -423,18 +500,27 @@ export default function CircularsPage() {
                         <TextField
                             fullWidth
                             variant="outlined"
-                            placeholder="Search circular by heading"
-                            InputProps={{
-                                startAdornment: (
-                                    <InputAdornment position="start">
-                                        <SearchIcon />
-                                    </InputAdornment>
-                                ),
-                                sx: {
-                                    padding: "0 10px",
-                                    borderRadius: "50px",
-                                    height: "28px",
-                                    fontSize: "12px",
+                            placeholder="Search circulars by headline"
+                            slotProps={{
+                                input: {
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <SearchIcon sx={{ fontSize: 17, color: "#8A93A0" }} />
+                                        </InputAdornment>
+                                    ),
+                                    endAdornment: searchQuery ? (
+                                        <InputAdornment position="end">
+                                            <IconButton size="small" onClick={() => setSearchQuery("")} sx={{ p: 0.2 }}>
+                                                <HighlightOffIcon sx={{ fontSize: 15, color: "#8A93A0" }} />
+                                            </IconButton>
+                                        </InputAdornment>
+                                    ) : null,
+                                    sx: {
+                                        padding: "0 10px",
+                                        borderRadius: "50px",
+                                        height: "28px",
+                                        fontSize: "12px",
+                                    },
                                 },
                             }}
                             sx={{
@@ -442,6 +528,9 @@ export default function CircularsPage() {
                                     minHeight: "28px",
                                     paddingRight: "3px",
                                     backgroundColor: "#fff",
+                                },
+                                "& .MuiOutlinedInput-root .MuiOutlinedInput-notchedOutline": {
+                                    borderColor: "#DDE1E6",
                                 },
                                 "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": {
                                     borderColor: websiteSettings.mainColor,
@@ -452,14 +541,14 @@ export default function CircularsPage() {
                         />
                     </Grid>
                     <Grid
-                        sx={{ display: "flex", justifyContent: "end", alignItems: "center", px: 1 }}
+                        sx={{ display: "flex", justifyContent: "end", alignItems: "center", gap: 1, px: 1 }}
                         size={{
                             xs: 6,
                             sm: 6,
                             md: 3,
                             lg: 3
                         }}>
-                        <Box sx={{ width: "100px" }}>
+                        <Box sx={{ display: "flex", alignItems: "center" }}>
                             <ThemeProvider theme={darkTheme}>
                                 <LocalizationProvider dateAdapter={AdapterDayjs}>
                                     <DatePicker
@@ -502,221 +591,164 @@ export default function CircularsPage() {
                                         }}
                                     />
 
-                                    <IconButton sx={{
-                                        width: '40px',
-                                        mt: 0.8,
-                                        height: '40px',
-                                        transition: 'color 0.3s, background-color 0.3s',
-                                        '&:hover': {
-                                            color: '#fff',
-                                            backgroundColor: 'rgba(0,0,0,0.1)',
-                                        },
-
-                                    }}
-                                        onClick={handleOpen}>
-                                        <CalendarMonthIcon style={{ color: "#000" }} />
-                                    </IconButton>
-                                    {selectedDate ? (
-                                        <Tooltip title="Clear Date">
-                                            <IconButton sx={{
-                                                marginTop: '10px',
-                                                width: '40px',
-                                                mt: 0.8,
-                                                height: '40px',
-                                                transition: 'color 0.3s, background-color 0.3s',
-                                                '&:hover': {
-                                                    color: '#fff',
-                                                    backgroundColor: 'rgba(0,0,0,0.1)',
-                                                },
-                                            }} onClick={handleClearDate}>
-                                                <HighlightOffIcon style={{ color: "#000" }} />
-                                            </IconButton>
-                                        </Tooltip>
-                                    ) : (
-                                        <Box sx={{ width: "80px" }}>
-                                        </Box>
-                                    )}
                                 </LocalizationProvider>
                             </ThemeProvider>
+
+                            {selectedDate ? (
+                                <Chip
+                                    size="small"
+                                    icon={<CalendarMonthIcon sx={{ fontSize: 15 }} />}
+                                    label={formattedDate}
+                                    onClick={handleOpen}
+                                    onDelete={handleClearDate}
+                                    deleteIcon={<HighlightOffIcon sx={{ fontSize: 15 }} />}
+                                    sx={{
+                                        height: "28px",
+                                        fontSize: "12px",
+                                        fontWeight: 600,
+                                        borderRadius: "50px",
+                                        backgroundColor: "#fff",
+                                        border: "1px solid #DDE1E6",
+                                        color: "#374151",
+                                        "& .MuiChip-icon, & .MuiChip-deleteIcon": { color: "#6B7280" },
+                                        "& .MuiChip-deleteIcon:hover": { color: "#f44336" },
+                                    }}
+                                />
+                            ) : (
+                                <Tooltip title="Filter by date">
+                                    <IconButton
+                                        onClick={handleOpen}
+                                        sx={{
+                                            width: '28px',
+                                            height: '28px',
+                                            border: "1px solid #DDE1E6",
+                                            backgroundColor: "#fff",
+                                            transition: '0.2s',
+                                            '&:hover': { backgroundColor: '#EFEFEF' },
+                                        }}>
+                                        <CalendarMonthIcon sx={{ fontSize: 17, color: "#374151" }} />
+                                    </IconButton>
+                                </Tooltip>
+                            )}
                         </Box>
                         {canCreate &&
                             <Button
                                 onClick={handleCreateCircular}
-                                variant="outlined"
+                                variant="contained"
+                                startIcon={<AddIcon sx={{ fontSize: 16 }} />}
                                 sx={{
-                                    borderColor: "#A9A9A9",
-                                    backgroundColor: "#000",
-                                    py: 0.3,
-                                    width: "100px",
-                                    height: "30px",
-                                    color: "#fff",
                                     textTransform: "none",
-                                    border: "none",
-
+                                    bgcolor: "#000",
+                                    color: "#fff",
+                                    fontWeight: 700,
+                                    fontSize: 12.5,
+                                    borderRadius: "50px",
+                                    px: 2,
+                                    py: 0.6,
+                                    whiteSpace: "nowrap",
+                                    boxShadow: "0 2px 6px rgba(0,0,0,0.18)",
+                                    "&:hover": {
+                                        bgcolor: "#1a1a1a",
+                                        boxShadow: "0 4px 12px rgba(0,0,0,0.22)",
+                                    },
                                 }}
                             >
-                                <AddIcon sx={{ fontSize: "20px" }} />
-                                &nbsp;Circulars
+                                Circulars
                             </Button>
                         }
                     </Grid>
                 </Grid>
             </Box>
             <Box ref={boxRef} sx={{ maxHeight: "83vh", overflowY: "auto" }}>
-                <Dialog open={openAlert} onClose={() => setOpenAlert(false)}>
-                    <Box sx={{ display: "flex", justifyContent: "center", p: 2, backgroundColor: '#fff', }}>
-
-                        <Box sx={{
-                            textAlign: 'center',
-                            backgroundColor: '#fff',
-                            p: 3,
-                            width: "70%",
-                        }}>
-
-                            <Typography sx={{ fontSize: "20px" }}> Do you really want to delete
-                                this circular?</Typography>
-                            <DialogActions sx={{
-                                justifyContent: 'center',
-                                backgroundColor: '#fff',
-                                pt: 2
-                            }}>
-                                <Button
-                                    onClick={() => handleCloseDialog(false)}
-                                    sx={{
-                                        textTransform: 'none',
-                                        width: "80px",
-                                        borderRadius: '30px',
-                                        fontSize: '16px',
-                                        py: 0.2,
-                                        border: '1px solid black',
-                                        color: 'black',
-                                    }}
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    onClick={() => handleCloseDialog(true)}
-                                    sx={{
-                                        textTransform: 'none',
-                                        backgroundColor: websiteSettings.mainColor,
-                                        width: "90px",
-                                        borderRadius: '30px',
-                                        fontSize: '16px',
-                                        py: 0.2,
-                                        color: websiteSettings.textColor,
-                                    }}
-                                >
-                                    Delete
-                                </Button>
-                            </DialogActions>
-                        </Box>
+                <Dialog
+                    open={openAlert}
+                    onClose={() => setOpenAlert(false)}
+                    slotProps={{ paper: { sx: { borderRadius: "14px", maxWidth: "420px" } } }}
+                >
+                    <Box sx={{ p: 3, backgroundColor: '#fff', textAlign: 'center' }}>
+                        <Typography sx={{ fontSize: "17px", fontWeight: 600, color: "#111827" }}>
+                            {canActDirect ? "Delete this circular?" : "Send a delete request?"}
+                        </Typography>
+                        <Typography sx={{ fontSize: "13px", color: "#6B7280", mt: 0.8 }}>
+                            {canActDirect
+                                ? "This will remove the circular for everyone. It cannot be undone."
+                                : "An approver has to accept this before the circular is removed."}
+                        </Typography>
+                        <DialogActions sx={{ justifyContent: 'center', backgroundColor: '#fff', pt: 2.5, gap: 1 }}>
+                            <Button variant="outlined" onClick={() => handleCloseDialog(false)} sx={dialogGhostSx}>
+                                Cancel
+                            </Button>
+                            <Button onClick={() => handleCloseDialog(true)} sx={dialogPrimarySx}>
+                                {canActDirect ? "Delete" : "Send Request"}
+                            </Button>
+                        </DialogActions>
                     </Box>
                 </Dialog>
 
-                <Dialog open={openBulkDeleteAlert} onClose={() => setOpenBulkDeleteAlert(false)}>
-                    <Box sx={{ display: "flex", justifyContent: "center", p: 2, backgroundColor: '#fff', }}>
-
-                        <Box sx={{
-                            textAlign: 'center',
-                            backgroundColor: '#fff',
-                            p: 3,
-                            width: "70%",
-                        }}>
-
-                            <Typography sx={{ fontSize: "20px" }}> Do you really want to delete the selected circulars?</Typography>
-                            <DialogActions sx={{
-                                justifyContent: 'center',
-                                backgroundColor: '#fff',
-                                pt: 2
-                            }}>
-                                <Button
-                                    onClick={() => handleCloseBulkDeleteDialog(false)}
-                                    sx={{
-                                        textTransform: 'none',
-                                        width: "80px",
-                                        borderRadius: '30px',
-                                        fontSize: '16px',
-                                        py: 0.2,
-                                        border: '1px solid black',
-                                        color: 'black',
-                                    }}
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    onClick={() => handleCloseBulkDeleteDialog(true)}
-                                    sx={{
-                                        textTransform: 'none',
-                                        backgroundColor: websiteSettings.mainColor,
-                                        width: "90px",
-                                        borderRadius: '30px',
-                                        fontSize: '16px',
-                                        py: 0.2,
-                                        color: websiteSettings.textColor,
-                                    }}
-                                >
-                                    Delete
-                                </Button>
-                            </DialogActions>
-                        </Box>
+                <Dialog
+                    open={openBulkDeleteAlert}
+                    onClose={() => setOpenBulkDeleteAlert(false)}
+                    slotProps={{ paper: { sx: { borderRadius: "14px", maxWidth: "420px" } } }}
+                >
+                    <Box sx={{ p: 3, backgroundColor: '#fff', textAlign: 'center' }}>
+                        <Typography sx={{ fontSize: "17px", fontWeight: 600, color: "#111827" }}>
+                            Delete {selectedMessageIds.length} selected circulars?
+                        </Typography>
+                        <Typography sx={{ fontSize: "13px", color: "#6B7280", mt: 0.8 }}>
+                            This will remove them for everyone. It cannot be undone.
+                        </Typography>
+                        <DialogActions sx={{ justifyContent: 'center', backgroundColor: '#fff', pt: 2.5, gap: 1 }}>
+                            <Button variant="outlined" onClick={() => handleCloseBulkDeleteDialog(false)} sx={dialogGhostSx}>
+                                Cancel
+                            </Button>
+                            <Button onClick={() => handleCloseBulkDeleteDialog(true)} sx={dialogPrimarySx}>
+                                Delete
+                            </Button>
+                        </DialogActions>
                     </Box>
                 </Dialog>
 
-                <Dialog open={openEditAlert} onClose={() => setOpenEditAlert(false)}>
-                    <Box sx={{ display: "flex", justifyContent: "center", p: 2, backgroundColor: '#fff', }}>
-                        <Box sx={{
-                            textAlign: 'center',
-                            backgroundColor: '#fff',
-                            p: 3,
-                            width: "70%",
-                        }}>
-                            <Typography sx={{ fontSize: "20px" }}>Do you really want to make
-                                changes to this circular?</Typography>
-                            <DialogActions sx={{
-                                justifyContent: 'center',
-                                backgroundColor: '#fff',
-                                pt: 2
-                            }}>
-                                <Button
-                                    onClick={() => handleEditCloseDialog(false)}
-                                    sx={{
-                                        textTransform: 'none',
-                                        width: "80px",
-                                        borderRadius: '30px',
-                                        fontSize: '16px',
-                                        py: 0.2,
-                                        border: '1px solid black',
-                                        color: 'black',
-                                    }}
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    onClick={() => handleEditCloseDialog(true)}
-                                    sx={{
-                                        textTransform: 'none',
-                                        backgroundColor: websiteSettings.mainColor,
-                                        width: "80px",
-                                        borderRadius: '30px',
-                                        fontSize: '16px',
-                                        py: 0.2,
-                                        color: websiteSettings.textColor,
-                                    }}
-                                >
-                                    Edit
-                                </Button>
-                            </DialogActions>
-                        </Box>
+                <Dialog
+                    open={openEditAlert}
+                    onClose={() => setOpenEditAlert(false)}
+                    slotProps={{ paper: { sx: { borderRadius: "14px", maxWidth: "420px" } } }}
+                >
+                    <Box sx={{ p: 3, backgroundColor: '#fff', textAlign: 'center' }}>
+                        <Typography sx={{ fontSize: "17px", fontWeight: 600, color: "#111827" }}>
+                            Edit this circular?
+                        </Typography>
+                        <Typography sx={{ fontSize: "13px", color: "#6B7280", mt: 0.8 }}>
+                            {canActDirect
+                                ? "Your changes will go live as soon as you save them."
+                                : "Your changes will be sent for approval before they go live."}
+                        </Typography>
+                        <DialogActions sx={{ justifyContent: 'center', backgroundColor: '#fff', pt: 2.5, gap: 1 }}>
+                            <Button variant="outlined" onClick={() => handleEditCloseDialog(false)} sx={dialogGhostSx}>
+                                Cancel
+                            </Button>
+                            <Button onClick={() => handleEditCloseDialog(true)} sx={dialogPrimarySx}>
+                                Edit
+                            </Button>
+                        </DialogActions>
                     </Box>
                 </Dialog>
-                {canDelete &&
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', px: 4, alignItems: "center" }}>
+                {canBulkDelete &&
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', px: 4, pt: 1, alignItems: "center" }}>
                         {selectedMessageIds.length > 0 ? (
                             <Button
                                 variant="contained"
                                 color="error"
+                                startIcon={<DeleteSweepOutlinedIcon sx={{ fontSize: 17 }} />}
                                 onClick={handleDeleteSelected}
-                                sx={{ textTransform: "none", fontSize: "14px", height: "30px", }}
+                                sx={{
+                                    textTransform: "none",
+                                    fontSize: "12.5px",
+                                    fontWeight: 600,
+                                    height: "30px",
+                                    borderRadius: "10px",
+                                    boxShadow: "none",
+                                    "&:hover": { boxShadow: "none" },
+                                }}
                             >
                                 Delete Selected ({selectedMessageIds.length})
                             </Button>
@@ -724,8 +756,10 @@ export default function CircularsPage() {
                             <Box width={"20px"} />
                         )}
                         <FormControlLabel
+                            slotProps={{ typography: { sx: { fontSize: "13px", fontWeight: 600, color: "#374151" } } }}
                             control={
                                 <Checkbox
+                                    size="small"
                                     checked={selectAll}
                                     onChange={(e) => {
                                         const checked = e.target.checked;
@@ -747,33 +781,44 @@ export default function CircularsPage() {
                 }
                 <Box sx={{ px: 2, pb: 2, pt: 0.9 }}>
                     {filteredCirculars.length > 0 && filteredCirculars[0].circular[0]?.status === "schedule" && (
-                        <Box sx={{ backgroundColor: "#8338EC", width: "200px", borderRadius: "50px", display: "flex", justifyContent: "center", alignItems: "center", mb: 2 }}>
-                            <Typography
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mt: 1.5, mb: 2 }}>
+                            <Chip
+                                icon={<EventAvailableOutlinedIcon sx={{ fontSize: 16 }} />}
+                                label="Upcoming Circulars"
                                 sx={{
-                                    fontSize: "16px",
-                                    fontWeight: "600",
-                                    color: "#fff",
-                                    py: 0.5,
+                                    height: "26px",
+                                    fontSize: "12.5px",
+                                    fontWeight: 700,
+                                    borderRadius: "8px",
+                                    backgroundColor: "#F1EAFC",
+                                    color: "#8338EC",
+                                    border: "1px solid #DCC9F5",
+                                    "& .MuiChip-icon": { color: "inherit" },
                                 }}
-                            >
-                                Upcoming Circulars
-                            </Typography>
+                            />
+                            <Divider sx={{ flex: 1 }} />
                         </Box>
                     )}
-                    {filteredCirculars.length > 0 ? (
+                    {!hasLoaded ? (
+                        <ListSkeleton />
+                    ) : filteredCirculars.length > 0 ? (
                         filteredCirculars.map((dateGroup, index) => (
                             <Box key={index} sx={{ mb: 3, px: 2.2, pb: 2 }}>
 
-                                <Typography
-                                    sx={{
-                                        fontSize: "11px",
-                                        color: "rgba(0,0,0,0.7)",
-                                        pb: 1,
-                                    }}
-                                >
-                                    {dateGroup.circular[0]?.status === "schedule" ? "Scheduled on :" : "Posted on:"}
-                                    {dateGroup.postedOnDate} | {dateGroup.postedOnDay}
-                                </Typography>
+                                <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, pb: 1.5 }}>
+                                    <Typography
+                                        sx={{
+                                            fontSize: "11px",
+                                            fontWeight: 600,
+                                            color: "#6B7280",
+                                            whiteSpace: "nowrap",
+                                        }}
+                                    >
+                                        {dateGroup.circular[0]?.status === "schedule" ? "Scheduled on " : "Posted on "}
+                                        {dateGroup.postedOnDate} | {dateGroup.postedOnDay}
+                                    </Typography>
+                                    <Divider sx={{ flex: 1 }} />
+                                </Box>
 
                                 {/* Render circulars cards */}
                                 {dateGroup.circular
@@ -782,68 +827,63 @@ export default function CircularsPage() {
                                     ).map((circularItem) => {
                                         const isReadMore = expandedMessageId === circularItem.id;
                                         return (
-                                            <>
-                                                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                                    {/* Updated On Box */}
-                                                    <Box
-                                                        sx={{
-                                                            borderRadius: "7px",
-                                                            width: "190px",
-                                                            backgroundColor: websiteSettings.lightColor,
-                                                            p: 0.5,
-                                                            marginLeft: "15px",
-                                                            borderRadius: "5px 5px 0px 0px",
-                                                            visibility: circularItem.updatedOn ? "visible" : "hidden"
-                                                        }}
-                                                    >
-                                                        <Typography
-                                                            sx={{
-                                                                fontWeight: "600",
-                                                                fontSize: "10px",
-                                                                color: "#353535",
-                                                                textAlign: "center",
-                                                            }}
-                                                        >
-                                                            Updated on {circularItem.updatedOn}
-                                                        </Typography>
-                                                    </Box>
-
-                                                    {/* Today Box */}
-                                                    <Box
-                                                        sx={{
-                                                            borderRadius: "7px",
-                                                            width: "80px",
-                                                            backgroundColor: dateGroup.tag === "today" ? websiteSettings.mainColor : "transparent",
-                                                            p: 0.3,
-                                                            marginRight: "15px",
-                                                            borderRadius: "5px 5px 0px 0px",
-                                                            visibility: dateGroup.tag === "today" ? "visible" : "hidden",
-                                                        }}
-                                                    >
-                                                        <Typography
-                                                            sx={{
-                                                                fontWeight: "600",
-                                                                fontSize: "12px",
-                                                                color: websiteSettings.textColor,
-                                                                textAlign: "center",
-                                                            }}
-                                                        >
-                                                            Today
-                                                        </Typography>
-                                                    </Box>
-                                                </Box>
+                                            <React.Fragment key={circularItem.id}>
                                                 <Box
-                                                    key={circularItem.id}
                                                     sx={{
-                                                        boxShadow: "0px 2px 4px 0px rgba(0,0,0,0.19)",
-                                                        borderRadius: "7px",
+                                                        border: "1px solid #E6E8EC",
+                                                        boxShadow: "0px 1px 3px rgba(16,24,40,0.06)",
+                                                        borderRadius: "12px",
                                                         backgroundColor: "#fff",
                                                         p: 2,
                                                         mb: 2,
                                                         position: "relative",
+                                                        transition: "box-shadow 0.2s, border-color 0.2s",
+                                                        "&:hover": {
+                                                            boxShadow: "0px 4px 14px rgba(16,24,40,0.10)",
+                                                            borderColor: "#D6DAE1",
+                                                        },
                                                     }}
                                                 >
-                                                    {userType === "superadmin" &&
+                                                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.7, mb: 1 }}>
+                                                        {dateGroup.tag === "today" && (
+                                                            <Chip
+                                                                size="small"
+                                                                label="Today"
+                                                                sx={{
+                                                                    ...metaChipSx,
+                                                                    backgroundColor: websiteSettings.mainColor,
+                                                                    color: websiteSettings.textColor,
+                                                                }}
+                                                            />
+                                                        )}
+                                                        {circularItem.status === "schedule" && (
+                                                            <Chip
+                                                                size="small"
+                                                                icon={<EventAvailableOutlinedIcon />}
+                                                                label={`Scheduled for ${dateGroup.postedOnDay}`}
+                                                                sx={{
+                                                                    ...metaChipSx,
+                                                                    backgroundColor: "#F1EAFC",
+                                                                    color: "#8338EC",
+                                                                    border: "1px solid #DCC9F5",
+                                                                }}
+                                                            />
+                                                        )}
+                                                        {circularItem.updatedOn && (
+                                                            <Chip
+                                                                size="small"
+                                                                icon={<UpdateOutlinedIcon />}
+                                                                label={`Updated on ${circularItem.updatedOn}`}
+                                                                sx={{
+                                                                    ...metaChipSx,
+                                                                    backgroundColor: websiteSettings.lightColor || "#F3F4F6",
+                                                                    color: "#4B5563",
+                                                                }}
+                                                            />
+                                                        )}
+                                                    </Box>
+
+                                                    {canBulkDelete &&
                                                         <Checkbox
                                                             checked={selectedMessageIds.includes(circularItem.id)}
                                                             onChange={(e) => {
@@ -918,7 +958,7 @@ export default function CircularsPage() {
                                                             </Typography>
                                                         </Grid>
                                                     </Grid>
-                                                    <hr style={{ border: "0.5px solid #CFCFCF" }} />
+                                                    <Divider sx={{ mt: 1.5 }} />
                                                     <Grid container spacing={2}>
 
                                                         {circularItem.fileType === "image" &&
@@ -1190,72 +1230,47 @@ export default function CircularsPage() {
                                                             {canEdit && (
                                                                 <Button
                                                                     variant="outlined"
+                                                                    startIcon={<EditOutlinedIcon sx={{ fontSize: "15px" }} />}
                                                                     sx={{
                                                                         textTransform: 'none',
-                                                                        padding: '2px 0',
-                                                                        borderRadius: '30px',
-                                                                        fontSize: '10px',
-                                                                        border: '1px solid black',
-                                                                        color: 'black',
+                                                                        py: 0.2,
+                                                                        px: 1.5,
+                                                                        borderRadius: '8px',
+                                                                        fontSize: '11px',
+                                                                        borderColor: '#D6DAE1',
+                                                                        color: '#374151',
                                                                         fontWeight: "600",
-                                                                        backgroundColor: "#fff"
+                                                                        backgroundColor: "#fff",
+                                                                        "&:hover": { borderColor: "#9AA3AF", backgroundColor: "#F7F8FA" },
                                                                     }}
                                                                     onClick={() => handleEdit(circularItem.id)}
                                                                 >
-                                                                    <EditOutlinedIcon style={{ fontSize: "15px" }} />
-                                                                    &nbsp;Edit
+                                                                    Edit
                                                                 </Button>
                                                             )}
                                                             {canDelete && (
-                                                                <IconButton
-                                                                    sx={{
-                                                                        border: "1px solid black",
-                                                                        width: "25px",
-                                                                        height: "25px",
-                                                                        backgroundColor: "#fff",
-                                                                    }}
-                                                                    onClick={() => handleDelete(circularItem.id)}
-                                                                >
-                                                                    <DeleteOutlineOutlinedIcon
-                                                                        style={{ fontSize: "15px", color: "#000" }}
-                                                                    />
-                                                                </IconButton>
+                                                                <Tooltip title="Delete">
+                                                                    <IconButton
+                                                                        sx={{
+                                                                            border: "1px solid #D6DAE1",
+                                                                            borderRadius: "8px",
+                                                                            width: "27px",
+                                                                            height: "27px",
+                                                                            backgroundColor: "#fff",
+                                                                            "&:hover": { borderColor: "#f44336", backgroundColor: "#FFF5F5" },
+                                                                        }}
+                                                                        onClick={() => handleDelete(circularItem.id)}
+                                                                    >
+                                                                        <DeleteOutlineOutlinedIcon
+                                                                            sx={{ fontSize: "15px", color: "#f44336" }}
+                                                                        />
+                                                                    </IconButton>
+                                                                </Tooltip>
                                                             )}
                                                         </Box>
                                                     )}
                                                 </Box>
-                                                <Box sx={{ display: "flex", justifyContent: "end" }}>
-                                                    <Box
-                                                        sx={{
-                                                            borderRadius: "7px",
-                                                            marginTop: "-15px",
-                                                            width: "200px",
-                                                            backgroundColor: '#F1EAFC',
-                                                            p: 0.3,
-                                                            marginRight: "15px",
-                                                            borderRadius: "0px 0px 5px 5px",
-                                                            visibility: circularItem.status === "schedule" ? "visible" : "hidden",
-                                                        }}
-                                                    >
-                                                        <Typography
-                                                            sx={{
-                                                                fontWeight: "600",
-                                                                fontSize: "12px",
-                                                                color: "#8338EC",
-                                                                textAlign: "center",
-                                                            }}
-                                                        >
-                                                            <span style={{
-                                                                height: '8px',
-                                                                width: '8px',
-                                                                backgroundColor: '#8338EC',
-                                                                borderRadius: ' 50%',
-                                                                display: 'inline-block'
-                                                            }} ></span>  Scheduled For {dateGroup.postedOnDay}
-                                                        </Typography>
-                                                    </Box>
-                                                </Box>
-                                            </>
+                                            </React.Fragment>
                                         );
                                     })}
                             </Box>
@@ -1280,6 +1295,43 @@ export default function CircularsPage() {
                                     marginBottom: "16px",
                                 }}
                             />
+                            <Typography sx={{ fontSize: "15px", fontWeight: 600, color: "#374151" }}>
+                                {searchQuery
+                                    ? "No circulars match your search"
+                                    : formattedDate
+                                        ? "No circulars on this date"
+                                        : "No circulars yet"}
+                            </Typography>
+                            <Typography sx={{ fontSize: "13px", color: "#8A93A0", mt: 0.5, maxWidth: "340px" }}>
+                                {searchQuery
+                                    ? "Try a different headline, or clear the search to see everything."
+                                    : formattedDate
+                                        ? "Clear the date filter to see all circulars."
+                                        : canCreate
+                                            ? "Create your first circular and it will show up here."
+                                            : "Nothing has been published yet."}
+                            </Typography>
+                            {!searchQuery && !formattedDate && canCreate && (
+                                <Button
+                                    onClick={handleCreateCircular}
+                                    variant="contained"
+                                    startIcon={<AddIcon sx={{ fontSize: "18px" }} />}
+                                    sx={{
+                                        mt: 2,
+                                        backgroundColor: "#000",
+                                        borderRadius: "50px",
+                                        px: 2.5,
+                                        py: 0.5,
+                                        fontSize: "13px",
+                                        fontWeight: 600,
+                                        textTransform: "none",
+                                        boxShadow: "none",
+                                        "&:hover": { backgroundColor: "#1f1f1f", boxShadow: "none" },
+                                    }}
+                                >
+                                    Create Circular
+                                </Button>
+                            )}
                         </Box>
 
                     )}

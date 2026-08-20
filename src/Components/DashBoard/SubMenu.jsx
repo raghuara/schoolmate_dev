@@ -24,7 +24,6 @@ function SubMenuPage({active}) {
         { path: '/dashboardmenu/consentforms', label: 'Consent Forms' },
         ...(canViewComm("contactdetails") ? [{ path: '/dashboardmenu/contact', label: 'Contact Details' }] : []),
         ...(canViewComm("schoolcalender") ? [{ path: '/dashboardmenu/schoolcalendar', label: 'School Calendar' }] : []),
-        ...(canViewComm("events") ? [{ path: '/dashboardmenu/events', label: 'Events' }] : []),
         ...(canViewComm("birthdaypost") ? [{ path: '/dashboardmenu/birthday-post', label: 'Birthday Post' }] : []),
         ...(canViewComm("feedback") ? [{ path: '/dashboardmenu/feedback', label: 'Feedback' }] : []),
         ...((findSubMenuPermissions(user.permissions, "communication", "notification") || {}).create === "Y" ? [{ path: '/dashboardmenu/notification', label: 'Notification' }] : []),

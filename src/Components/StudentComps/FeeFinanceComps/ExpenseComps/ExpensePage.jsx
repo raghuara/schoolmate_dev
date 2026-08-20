@@ -47,6 +47,7 @@ import TrackChangesIcon from '@mui/icons-material/TrackChanges'
 import { useNavigate, useLocation } from 'react-router-dom'
 import axios from 'axios'
 import { useSelector } from 'react-redux'
+import { findSubMenuPermissions, hasAnyPermission } from '../../../../Redux/Slices/AuthSlice'
 import { expenceDashboard, getAddedExpence, getAddedFund, postFund, postExpence, expenceApprovalStatusCheck, updateAddexpenceApprovalAction, fundApprovalStatusCheck, updateAddFundApprovalAction, myExpenceRequests, myFundRequests } from '../../../../Api/Api'
 import SnackBar from '../../../SnackBar'
 
@@ -148,18 +149,32 @@ const mockExpenseRequests = [
 
 export default function ExpensePage() {
     const user = useSelector((state) => state.auth);
+    const expensePerms = findSubMenuPermissions(user.permissions, "feeandfinance", "expense") || {};
+    // Same guard the sidebar uses: before the permission payload lands, treat
+    // nothing as denied, or this screen bounces the user straight back out.
+    const rbacReady = (user.permissions?.mainMenus || []).length > 0;
+    const granted = (key) => !rbacReady || expensePerms[key] === "Y";
+    const canViewDashboard = granted("viewdashboard");
+    const canViewHistory = granted("viewhistory");
+    const canAddExpense = granted("allowaddexpense");
+    const canManageBudget = granted("allowaddbudget");
+    // There is no separate "approve expense" permission yet, so the budget
+    // holder is treated as the approver - and, being the approver, their own
+    // entries post straight in rather than queueing as a request.
+    const isApprover = canManageBudget;
+    const postsDirectly = canManageBudget;
+    const canOpenExpense = !rbacReady || hasAnyPermission(user.permissions, "feeandfinance", "expense");
     const rollNumber = user.rollNumber
-    const userType = user.userType
     const userName = user.name
     const [isLoading, setIsLoading] = useState(false);
     const navigate = useNavigate();
 
-    // Teachers don't have access to Expense Management
+    // Anyone with no expense permission at all has no business on this screen.
     useEffect(() => {
-        if (userType === "teacher") {
+        if (!canOpenExpense) {
             navigate(-1);
         }
-    }, [userType]);
+    }, [canOpenExpense, navigate]);
     const token = "123"
     const location = useLocation();
     const [activeTab, setActiveTab] = useState(0);
@@ -197,30 +212,20 @@ export default function ExpensePage() {
     const [myRequestsSearch, setMyRequestsSearch] = useState("");
     const [approvalsSearch, setApprovalsSearch] = useState("");
 
-    // Role-based tab configuration
+    // Each tab is one granted operation. "My Requests" is always available -
+    // it only ever shows what this user submitted themselves.
     const getTabs = () => {
-        if (userType === "superadmin") {
-            return [
-                { key: "dashboard", label: "Dashboard", icon: <DashboardIcon /> },
-                { key: "addExpense", label: "Add Expense", icon: <AddIcon /> },
-                { key: "approvals", label: "Approvals", icon: <PendingActionsIcon /> },
-                { key: "history", label: "History", icon: <HistoryIcon /> },
-            ];
+        const tabs = [];
+        if (canViewDashboard) tabs.push({ key: "dashboard", label: "Dashboard", icon: <DashboardIcon /> });
+        if (canAddExpense) {
+            tabs.push(postsDirectly
+                ? { key: "addExpense", label: "Add Expense", icon: <AddIcon /> }
+                : { key: "requestExpense", label: "Request Expense", icon: <AddIcon /> });
         }
-        if (userType === "admin") {
-            return [
-                { key: "dashboard", label: "Dashboard", icon: <DashboardIcon /> },
-                { key: "requestExpense", label: "Request Expense", icon: <AddIcon /> },
-                { key: "approvals", label: "Approvals", icon: <PendingActionsIcon /> },
-                { key: "myRequests", label: "My Requests", icon: <TrackChangesIcon /> },
-                { key: "history", label: "History", icon: <HistoryIcon /> },
-            ];
-        }
-        // staff
-        return [
-            { key: "requestExpense", label: "Request Expense", icon: <AddIcon /> },
-            { key: "myRequests", label: "My Requests", icon: <TrackChangesIcon /> },
-        ];
+        if (isApprover) tabs.push({ key: "approvals", label: "Approvals", icon: <PendingActionsIcon /> });
+        if (!postsDirectly) tabs.push({ key: "myRequests", label: "My Requests", icon: <TrackChangesIcon /> });
+        if (canViewHistory) tabs.push({ key: "history", label: "History", icon: <HistoryIcon /> });
+        return tabs;
     };
 
     const tabs = getTabs();
@@ -410,7 +415,7 @@ export default function ExpensePage() {
                 requestedByEmail: ""
             });
             setDenominations(DENOMINATIONS.reduce((acc, d) => ({ ...acc, [d]: 0 }), {}));
-            setMessage(userType === "superadmin" ? "Expense added successfully!" : "Expense request submitted successfully!");
+            setMessage(postsDirectly ? "Expense added successfully!" : "Expense request submitted successfully!");
             setOpen(true); setColor(true); setStatus(true);
             fetchDashboardData();
             fetchDashboardExpenseData();
@@ -540,7 +545,7 @@ export default function ExpensePage() {
             setOpenAllocationDialog(false);
             setNewAllocation({ amount: "", paymentMethod: "", notes: "" });
             setAllocDenominations(ALLOC_DENOMS.reduce((acc, d) => ({ ...acc, [d]: 0 }), {}));
-            setMessage(userType === "superadmin" ? "Allocation added successfully!" : "Allocation requested successfully!");
+            setMessage(postsDirectly ? "Allocation added successfully!" : "Allocation requested successfully!");
             setOpen(true); setColor(true); setStatus(true);
             fetchDashboardData();
         } catch (error) {
@@ -798,7 +803,7 @@ export default function ExpensePage() {
                         ₹{(dashboardData?.currentAllocationMonthly ?? 0).toLocaleString()}
                     </Typography>
                 </Box>
-                {(userType === "superadmin" || userType === "admin") && (
+                {canManageBudget && (
                     <Button
                         startIcon={<AddIcon />}
                         onClick={() => setOpenAllocationDialog(true)}
@@ -816,7 +821,7 @@ export default function ExpensePage() {
                             }
                         }}
                     >
-                        {userType === "superadmin" ? "Set Allocation" : "Request Allocation"}
+                        {postsDirectly ? "Set Allocation" : "Request Allocation"}
                     </Button>
                 )}
             </Box>
@@ -1079,10 +1084,10 @@ export default function ExpensePage() {
             }}>
                 <Box sx={{ px: 2, py: 1.5, borderBottom: "1px solid #E8DDEA", bgcolor: "#faf6fc" }}>
                     <Typography sx={{ fontSize: "16px", fontWeight: 600, color: "#111827" }}>
-                        {userType === "superadmin" ? "Add New Expense" : "Request New Expense"}
+                        {postsDirectly ? "Add New Expense" : "Request New Expense"}
                     </Typography>
                     <Typography sx={{ fontSize: "12px", color: "#777", mt: 0.3 }}>
-                        {userType === "superadmin"
+                        {postsDirectly
                             ? "Fill in the details below to add the expense directly"
                             : "Fill in the details below to submit your expense request for approval"}
                     </Typography>
@@ -1319,7 +1324,7 @@ export default function ExpensePage() {
                                 }
                             }}
                         >
-                            {userType === "superadmin" ? "Add Expense" : "Submit Request"}
+                            {postsDirectly ? "Add Expense" : "Submit Request"}
                         </Button>
                     </Box>
                 </Box>
@@ -1351,7 +1356,7 @@ export default function ExpensePage() {
                 <Box sx={{ backgroundColor: "#f2f2f2", px: 2, py: 1, borderRadius: "10px 10px 10px 0px", borderBottom: "1px solid #ddd", mb: 2 }}>
                     <Grid container sx={{ alignItems: "center" }}>
                         <Grid size={{ xs: 12, sm: 12, md: 4, lg: 4 }} sx={{ display: "flex", alignItems: "center", gap: 1, py: 0.5 }}>
-                            {(userType === "staff" ? ["Expense"] : ["Expense", "Fund (Allocation)"]).map((type) => {
+                            {(canManageBudget ? ["Expense", "Fund (Allocation)"] : ["Expense"]).map((type) => {
                                 const key = type === "Fund (Allocation)" ? "Fund" : "Expense";
                                 const isActive = key === myRequestsTypeFilter;
                                 const activeColor = key === "Expense" ? "#DC2626" : "#667eea";
@@ -1694,7 +1699,7 @@ export default function ExpensePage() {
                                 return (item.category || '').toLowerCase().includes(s) || (item.description || '').toLowerCase().includes(s) || parseUser(item.createdBy).name.toLowerCase().includes(s);
                             }).map((item) => {
                                 const requestedBy = parseUser(item.createdBy);
-                                const canAct = (userType === "superadmin" || userType === "admin") && item.status === "Requested";
+                                const canAct = isApprover && item.status === "Requested";
                                 return (
                                     <Grid key={item.expenceId} size={{ lg: 12, md: 8 }}>
                                         {/* Tab row */}
@@ -1794,7 +1799,7 @@ export default function ExpensePage() {
                                 return (fund.description || '').toLowerCase().includes(s) || parseUser(fund.createdBy).name.toLowerCase().includes(s);
                             }).map((fund) => {
                                 const addedBy = parseUser(fund.createdBy);
-                                const canAct = (userType === "superadmin" || userType === "admin") && fund.status === "Requested";
+                                const canAct = isApprover && fund.status === "Requested";
                                 return (
                                     <Grid key={fund.addFundId} size={{ lg: 12, md: 8 }}>
                                         {/* Tab row */}
@@ -2266,7 +2271,7 @@ export default function ExpensePage() {
                         }
                     }}
                 >
-                    {userType === "superadmin" ? "Add Expense" : "New Request"}
+                    {postsDirectly ? "Add Expense" : "New Request"}
                 </Button>
             </Box>
 
@@ -2514,7 +2519,7 @@ export default function ExpensePage() {
                             }
                         }}
                     >
-                    {userType === "superadmin" ?    "Set Allocation" : "Request Allocation"}
+                    {postsDirectly ?    "Set Allocation" : "Request Allocation"}
                     </Button>
                 </DialogActions>
             </Dialog>

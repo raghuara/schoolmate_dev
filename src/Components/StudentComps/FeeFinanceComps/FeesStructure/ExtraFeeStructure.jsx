@@ -1,8 +1,11 @@
 import { Box } from '@mui/system'
+import { selectAcademicYear } from "../../../../Redux/Slices/academicYearSlice";
+import { APPROVAL_SUBMENUS, approvalRoleFor, selectApprovalMatrix } from "../../../../Redux/Slices/approvalMatrixSlice";
+import { selectUserTypeID } from "../../../../Redux/Slices/AuthSlice";
 import React, { useEffect, useState } from 'react'
 import Loader from '../../../Loader'
 import SnackBar from '../../../SnackBar'
-import { Autocomplete, Button, Chip, FormControlLabel, Grid, IconButton, InputAdornment, Switch, TextField, Tooltip, Typography } from '@mui/material';
+import { Button, Chip, FormControlLabel, Grid, IconButton, InputAdornment, Switch, TextField, Tooltip, Typography } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import ClearIcon from '@mui/icons-material/Clear';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
@@ -34,20 +37,18 @@ export default function ExtraFeeStructure() {
   const [status, setStatus] = useState(false);
   const [color, setColor] = useState(false);
   const [message, setMessage] = useState('');
-  const currentYear = new Date().getFullYear();
-  const currentAcademicYear = `${currentYear}-${currentYear + 1}`;
-  const [selectedYear, setSelectedYear] = useState(currentAcademicYear);
+  // The academic year comes from the header - one picker for the whole site.
+  const selectedYear = useSelector(selectAcademicYear);
   const user = useSelector((state) => state.auth);
   const rollNumber = user.rollNumber;
-  const userType = user.userType;
+  // createfeesstructure is an approval module: the matrix decides whether this
+  // role posts straight through or has to raise a request.
+  const userTypeID = useSelector(selectUserTypeID);
+  const approvalMatrix = useSelector(selectApprovalMatrix);
+  const canActDirect = approvalRoleFor(approvalMatrix, APPROVAL_SUBMENUS.FEE_STRUCTURE, userTypeID).canPublishDirect;
 
   const isExpanded = useSelector((state) => state.sidebar.isExpanded);
 
-  const academicYears = [
-    `${currentYear - 2}-${currentYear - 1}`,
-    `${currentYear - 1}-${currentYear}`,
-    `${currentYear}-${currentYear + 1}`,
-  ];
 
   const [fees, setFees] = useState({
     feeName: '',
@@ -186,7 +187,7 @@ export default function ExtraFeeStructure() {
       setColor(true);
       setStatus(true);
       setMessage(
-        userType === "superadmin"
+        canActDirect
           ? "Additional fee applied successfully"
           : "Additional fee submitted for approval successfully"
       );
@@ -259,33 +260,6 @@ export default function ExtraFeeStructure() {
                   >
                     Created Fees
                   </Button>
-                </Grid>
-                <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }}>
-                  <Autocomplete
-                    size="small"
-                    options={academicYears}
-                    sx={{ width: "170px" }}
-                    value={selectedYear}
-                    onChange={(e, newValue) => setSelectedYear(newValue)}
-                    renderInput={(params) => (
-                      <TextField
-                        placeholder="Select Academic Year"
-                        {...params}
-                        variant="outlined"
-                        sx={{
-                          "& .MuiOutlinedInput-root": {
-                            borderRadius: "5px",
-                            fontSize: 14,
-                            height: 35,
-                          },
-                          "& .MuiOutlinedInput-input": {
-                            textAlign: "center",
-                            fontWeight: "600"
-                          },
-                        }}
-                      />
-                    )}
-                  />
                 </Grid>
               </Grid>
             </Grid>
@@ -559,7 +533,7 @@ export default function ExtraFeeStructure() {
                 height: "30px",
                 color: websiteSettings.textColor
               }}>
-              {userType === "superadmin" ? "Apply" : "Send for Approval"}
+              {canActDirect ? "Apply" : "Send for Approval"}
             </Button>
           </Box>
 

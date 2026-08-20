@@ -41,8 +41,6 @@ export default function AcademicYearSetupPage() {
     const navigate = useNavigate();
     const user = useSelector((state) => state.auth);
     const permissions = useSelector((state) => state.auth.permissions);
-    // userType is still sent in the save payload, but it never decides access.
-    const userType = user?.userType;
     const rollNumber = user?.rollNumber;
     const canManage = hasPermission(permissions, 'accesscontrol', 'academics', 'allowacademicyear');
 
@@ -173,7 +171,6 @@ export default function AcademicYearSetupPage() {
         try {
             const body = {
                 createdByRollNumber: rollNumber || '',
-                createdByUserType: userType || '',
                 startMonth: startMonth + 1,
             };
             const res = await axios.post(PostAcademicYearConfig, body, {

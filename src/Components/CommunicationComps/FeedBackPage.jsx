@@ -50,6 +50,9 @@ export default function FeedBackPage() {
     const feedbackPerms = findSubMenuPermissions(user.permissions, "communication", "feedback") || {};
     const canView = feedbackPerms.view === "Y";
     const canCreate = feedbackPerms.create === "Y";
+    // Answering a parent's feedback writes back to the record, so it rides on the
+    // edit permission rather than a user type.
+    const canReply = feedbackPerms.edit === "Y";
     const [isLoading, setIsLoading] = useState(false);
     const token = '123';
 
@@ -545,7 +548,7 @@ export default function FeedBackPage() {
                                                                 dangerouslySetInnerHTML={{ __html: newsItem.question }}
                                                             />
                                                         </Grid>
-                                                        {(userType === "superadmin" || userType === "admin") &&
+                                                        {canReply &&
                                                             <Grid sx={{ position: "relative" }} size={12}>
                                                                 <TextareaAutosize
                                                                     key={newsItem.id}

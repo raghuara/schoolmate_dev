@@ -5,6 +5,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useTheme } from "@mui/material/styles";
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlice";
+import { selectAcademicYear } from "../../../Redux/Slices/academicYearSlice";
 import { useDispatch, useSelector } from "react-redux";
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { useDropzone } from "react-dropzone";
@@ -61,6 +62,7 @@ export default function EdeitStudentInfoPage() {
     const theme = useTheme();
     const user = useSelector((state) => state.auth);
     const RollNumber = user.rollNumber
+    const academicYear = useSelector(selectAcademicYear);
     const userType = user.userType
     const userName = user.name
     const location = useLocation();
@@ -888,6 +890,9 @@ export default function EdeitStudentInfoPage() {
                 section: selectedSection,
                 rteStudent: rteStudent,
                 oldOrNewAdmission: isNewStudent ? "new" : "old",
+                // Create scopes the record to an academic year, so the update has to
+                // name the same year rather than leaving the backend to guess.
+                academicYear: academicYear,
             };
 
             const res = await axios.put(updateStudentAcademicInformation, sendData, {

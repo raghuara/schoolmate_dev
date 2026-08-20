@@ -13,6 +13,7 @@ import { selectWebsiteSettings } from "../../Redux/Slices/websiteSettingsSlice";
 import { selectAcademicYear } from "../../Redux/Slices/academicYearSlice";
 import { DeleteTimeTable, GettingGrades, TimeTableFetch } from "../../Api/Api";
 import Loader from "../Loader";
+import { ListSkeleton } from "../InnerLoader";
 import SnackBar from "../SnackBar";
 import { selectGrades } from "../../Redux/Slices/DropdownController";
 import GridViewIcon from '@mui/icons-material/GridView';
@@ -38,6 +39,9 @@ export default function TimeTablePage() {
     const canEdit = timetablePerms.edit === "Y";
     const canDelete = timetablePerms.delete === "Y";
     const [isLoading, setIsLoading] = useState(false);
+    // The empty state must not paint before the first fetch has actually
+    // finished, otherwise "no data" flashes on every visit.
+    const [hasLoaded, setHasLoaded] = useState(false);
     const token = '123';
     const [deleteId, setDeleteId] = useState('');
     const location = useLocation();
@@ -180,10 +184,13 @@ export default function TimeTablePage() {
 
     useEffect(() => {
         fetchTimeTables()
-    }, [checked, selectedGradeId])
+    }, [checked, selectedGradeId, academicYear])
 
 
     const fetchTimeTables = async () => {
+        // The API rejects the call without an academic year, so wait until the
+        // header's selected year is in the store before asking for the list.
+        if (!academicYear) return;
         setIsLoading(true);
         try {
             const res = await axios.get(TimeTableFetch, {
@@ -203,6 +210,7 @@ export default function TimeTablePage() {
             console.error(error);
         } finally {
             setIsLoading(false);
+            setHasLoaded(true);
         }
     };
 
@@ -260,7 +268,7 @@ export default function TimeTablePage() {
                             md: 3,
                             lg: 4.5
                         }}>
-                        {userType !== "teacher" &&
+                        {canCreate &&
                             <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", }}>
                                 <Typography sx={{ fontWeight: "600", fontSize: "12px" }} >My Projects</Typography>
                                 <Switch
@@ -561,7 +569,7 @@ export default function TimeTablePage() {
                             zIndex: 999,
                         }}
                     >
-                        {userType !== "teacher" && (
+                        {canView && (
                             <ToggleButtonGroup
                                 value={view}
                                 exclusive
@@ -624,7 +632,9 @@ export default function TimeTablePage() {
 
                     {view === 'grid' ? (
                         <Grid container spacing={3}>
-                            {timeTableData.length > 0 ? (
+                            {!hasLoaded ? (
+                                <ListSkeleton groups={1} perGroup={2} />
+                            ) : timeTableData.length > 0 ? (
                                 timeTableData.map((table, index) => (
                                     <Grid
                                         key={index}
@@ -637,7 +647,7 @@ export default function TimeTablePage() {
                                         <Typography sx={{ fontSize: '12px', color: '#595959', pb: 2 }}>
                                             Posted on: {table.postedOn} | {table.day}
                                         </Typography>
-                                        {userType !== "teacher" &&
+                                        {table.gradeSection &&
                                             <Box
                                                 sx={{
                                                     backgroundColor: '#00467B',
@@ -771,7 +781,9 @@ export default function TimeTablePage() {
                         </Grid>
                     ) : (
                         <Grid container spacing={1.5}>
-                            {timeTableData.length > 0 ? (
+                            {!hasLoaded ? (
+                                <ListSkeleton groups={1} perGroup={2} />
+                            ) : timeTableData.length > 0 ? (
                                 timeTableData.map((table, index) => (
                                     <React.Fragment>
                                         {/* Render the date */}

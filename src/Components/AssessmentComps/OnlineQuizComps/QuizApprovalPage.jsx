@@ -17,6 +17,7 @@ import QuizOutlinedIcon from "@mui/icons-material/QuizOutlined";
 import GroupsOutlinedIcon from "@mui/icons-material/GroupsOutlined";
 import TimerOutlinedIcon from "@mui/icons-material/TimerOutlined";
 import EventAvailableOutlinedIcon from "@mui/icons-material/EventAvailableOutlined";
+import ShieldOutlinedIcon from "@mui/icons-material/ShieldOutlined";
 import PersonOutlineOutlinedIcon from "@mui/icons-material/PersonOutlineOutlined";
 import MenuBookOutlinedIcon from "@mui/icons-material/MenuBookOutlined";
 
@@ -360,6 +361,27 @@ export default function QuizApprovalPage() {
         ? (arrayByKey(detail, ["gradesection"]) || []).filter((g) => g && typeof g === "object")
         : [];
 
+    // The API sends a different date field per attendance mode, so the tile has to
+    // read the one this quiz actually owns.
+    const attendanceMode = String(val(detail, ["attendanceMode"], "fixedend")).toLowerCase();
+    const attendance = attendanceMode === "fulltime"
+        ? {
+            label: "Last start time",
+            value: val(detail, ["lastStartDateAndTime"], "-"),
+            note: "Each student still gets the full time limit from their own start.",
+        }
+        : attendanceMode === "anytime"
+            ? {
+                label: "Attempt date",
+                value: val(detail, ["attemptDate"], "-"),
+                note: "Open all day - students choose when to sit it.",
+            }
+            : {
+                label: "Must finish before",
+                value: val(detail, ["shouldCompleteBefore"], "-"),
+                note: "Everyone stops at this time, even if they started late.",
+            };
+
     const activeTab = STATUS_TABS.find((t) => t.key === statusKey) || STATUS_TABS[0];
     const canAct = statusKey === STATUS_TABS[0].key;
 
@@ -579,10 +601,22 @@ export default function QuizApprovalPage() {
                                         />
                                     </Grid>
                                     <Grid size={{ xs: 12, sm: 4, md: 4, lg: 6 }}>
+                                        <Tooltip title={attendance.note} placement="top">
+                                            <Box>
+                                                <MetaTile
+                                                    icon={EventAvailableOutlinedIcon}
+                                                    label={attendance.label}
+                                                    value={attendance.value}
+                                                />
+                                            </Box>
+                                        </Tooltip>
+                                    </Grid>
+                                    <Grid size={{ xs: 6, sm: 4, md: 4, lg: 3 }}>
                                         <MetaTile
-                                            icon={EventAvailableOutlinedIcon}
-                                            label="Must finish before"
-                                            value={val(detail, ["shouldCompleteBefore"], "-")}
+                                            icon={ShieldOutlinedIcon}
+                                            label="Exit warnings"
+                                            value={val(detail, ["warningCount"], "-")}
+                                            tone={DASH.red}
                                         />
                                     </Grid>
                                 </Grid>

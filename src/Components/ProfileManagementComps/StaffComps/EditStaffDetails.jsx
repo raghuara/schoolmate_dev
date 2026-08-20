@@ -5,6 +5,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useTheme } from "@mui/material/styles";
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlice";
+import { selectAcademicYear } from "../../../Redux/Slices/academicYearSlice";
 import { useDispatch, useSelector } from "react-redux";
 import { FindStaffManagementDetails, postStaffInformation, postStaffStudentInformation, updateStaffInformation, updateStaffStudentInformation, } from "../../../Api/Api";
 import axios from "axios";
@@ -31,6 +32,9 @@ export default function EditStaffDetails() {
     const user = useSelector((state) => state.auth);
     const nextId = useRef(2);
     const RollNumber = user.rollNumber
+    // Staff records are scoped to an academic year - create already requires it,
+    // so an update has to name the same year or it edits the wrong record.
+    const academicYear = useSelector(selectAcademicYear);
     const userType = user.userType
     const userName = user.name
     const navigate = useNavigate()
@@ -319,6 +323,14 @@ export default function EditStaffDetails() {
             return;
         }
 
+        if (!academicYear) {
+            setMessage("Academic year is required");
+            setOpen(true);
+            setColor(false);
+            setStatus(false);
+            return;
+        }
+
         setIsLoading(true);
         try {
             const formData = new FormData();
@@ -333,6 +345,7 @@ export default function EditStaffDetails() {
             formData.append("staffCategory", staffCategory);
             formData.append("staffDesignation", staffDesignation);
             formData.append("dateofJoining", dateOfJoining || "");
+            formData.append("academicYear", academicYear);
             formData.append("staffPassportSizePhotofiletype", profileFileType || "existing");
             if (profileImage) {
                 formData.append("passportSizePhotofile", profileImage);
