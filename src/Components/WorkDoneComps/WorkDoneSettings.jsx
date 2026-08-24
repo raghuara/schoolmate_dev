@@ -8,6 +8,7 @@ import { useSelector } from 'react-redux';
 import axios from 'axios';
 import SnackBar from '../SnackBar';
 import { selectAcademicYear } from '../../Redux/Slices/academicYearSlice';
+import { findSubMenuPermissions } from '../../Redux/Slices/AuthSlice';
 import { GetWorkdonePeriods, PostWorkdonePeriods, GetCustomWorkdoneSubjects, SaveCustomWorkdoneSubjects } from '../../Api/Api';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SettingsIcon from '@mui/icons-material/Settings';
@@ -42,7 +43,9 @@ const FLAG_META = [
 export default function WorkDoneSettings() {
     const navigate = useNavigate();
     const user = useSelector((state) => state.auth);
-    const isSuperAdmin = user?.userType === 'superadmin';
+    const rbacReady = (user?.permissions?.mainMenus || []).length > 0;
+    const canPeriodSettings = !rbacReady
+        || findSubMenuPermissions(user?.permissions, "myprojects", "workdone")?.allowperiodsettings === "Y";
     const token = '123';
     const academicYear = useSelector(selectAcademicYear);
     const rollNumber = user?.rollNumber || '';
@@ -249,13 +252,13 @@ export default function WorkDoneSettings() {
         }
     };
 
-    if (!isSuperAdmin) {
+    if (!canPeriodSettings) {
         return (
             <Box sx={{ border: '1px solid #ccc', borderRadius: '20px', p: 4, height: '86vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1.5 }}>
                 <LockOutlinedIcon sx={{ fontSize: 56, color: '#9CA3AF' }} />
-                <Typography sx={{ fontSize: 18, fontWeight: 800, color: '#111827' }}>Super-admin only</Typography>
+                <Typography sx={{ fontSize: 18, fontWeight: 800, color: '#111827' }}>Not available to you</Typography>
                 <Typography sx={{ fontSize: 13, color: '#6B7280', textAlign: 'center', maxWidth: 380 }}>
-                    Only the super-admin can configure how many periods exist and the school-wide Work Done rules.
+                    Configuring how many periods exist and the school-wide Work Done rules needs the Period Settings permission.
                 </Typography>
                 <Button onClick={() => navigate(-1)} variant="contained" disableElevation sx={{ mt: 1, textTransform: 'none', fontWeight: 700, bgcolor: PRIMARY, '&:hover': { bgcolor: PRIMARY_DARK }, borderRadius: '8px' }}>
                     Go Back

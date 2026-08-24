@@ -5,7 +5,9 @@ import axios from "axios";
 import React, { useEffect, useRef, useState } from "react";
 import Loader from "../../../Loader";
 import SnackBar from "../../../SnackBar";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { selectUserTypeID } from "../../../../Redux/Slices/AuthSlice";
+import { APPROVAL_SUBMENUS, canPublishDirect, selectApprovalMatrix } from "../../../../Redux/Slices/approvalMatrixSlice";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useDispatch, useSelector } from "react-redux";
 import { selectWebsiteSettings } from "../../../../Redux/Slices/websiteSettingsSlice";
@@ -17,11 +19,16 @@ import {
 } from "../../../../Redux/Slices/academicYearSlice";
 import NoData from '../../../../Images/Login/No Data.png'
 import { additionalFeeFetch, updateAdditionalFee, updateAdditionalFeesApprovalAction } from "../../../../Api/Api";
+import { DASH } from "../../../DashBoardComps/dashboardTheme";
 
 export default function AdditionalFeeApprovalPage() {
     const user = useSelector((state) => state.auth);
     const rollNumber = user.rollNumber;
-    const userType = user.userType;
+    // Editing a fee before clearing it belongs to the final approver (Level 1),
+    // not to a role name.
+    const userTypeID = useSelector(selectUserTypeID);
+    const approvalMatrix = useSelector(selectApprovalMatrix);
+    const canEditBeforeApproval = canPublishDirect(approvalMatrix, APPROVAL_SUBMENUS.FEE_STRUCTURE, userTypeID);
 
     const token = "123";
     const [isLoading, setIsLoading] = useState(false)
@@ -31,8 +38,6 @@ export default function AdditionalFeeApprovalPage() {
     const [message, setMessage] = useState('');
 
     const navigate = useNavigate()
-    const location = useLocation();
-    const tabIndex = location.state?.tabIndex ?? 1;
 
     
     const selectedYear = useSelector(selectAcademicYear);
@@ -273,34 +278,36 @@ export default function AdditionalFeeApprovalPage() {
 
 
     return (
-        <Box sx={{ width: "100%", }}>
+        <Box
+            sx={{
+                px: { xs: 1.5, md: 3 },
+                pt: { xs: 1.5, md: 2 },
+                pb: { xs: 2, md: 3 },
+                bgcolor: DASH.canvas,
+                boxSizing: "border-box",
+            }}
+        >
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
             {isLoading && <Loader />}
-            <Box sx={{
-                position: "fixed",
-                top: "60px",
-                left: isExpanded ? "260px" : "80px",
-                right: 0,
-                backgroundColor: "#f2f2f2",
-                px: 2,
-                borderBottom: "1px solid #ddd",
-                zIndex: 1200,
-                transition: "left 0.3s ease-in-out",
-                overflow: 'hidden',
-            }}>
+            <Box sx={{ mb: 2 }}>
                 <Grid container>
                     <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }} sx={{ display: "flex", alignItems: "center", py: 1 }}>
                         <IconButton
                             onClick={() =>
                                 navigate("/dashboardmenu/approvals", {
-                                    state: { tabIndex },
+                                    state: { tabId: "fee" },
                                 })
                             }
                             sx={{ width: "27px", height: "27px", mt: "3px", }}
                         >
-                            <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
+                            <ArrowBackIcon sx={{ fontSize: 20, color: DASH.ink }} />
                         </IconButton>
-                        <Typography sx={{ fontWeight: "600", fontSize: "20px" }} >Additional Fee Approval</Typography>
+                        <Box data-block="subtitle-block" sx={{ minWidth: 0 }}>
+                            <Typography sx={{ fontSize: "20px", fontWeight: 700, color: DASH.ink, lineHeight: 1.2 }}>Additional Fee Approval</Typography>
+                            <Typography sx={{ fontSize: "12px", color: DASH.muted, mt: 0.2 }}>
+                                Approve one-off and miscellaneous charges
+                            </Typography>
+                        </Box>
                     </Grid>
 
                     <Grid
@@ -342,7 +349,7 @@ export default function AdditionalFeeApprovalPage() {
                     </Grid>
                 </Grid>
             </Box>
-            <Box sx={{ px: 2, pt: "60px" }}>
+            <Box sx={{ pb: 1 }}>
 
                 <Grid container sx={{ pb: 2 }}>
                     {filteredDetails.length === 0 ? (
@@ -352,7 +359,7 @@ export default function AdditionalFeeApprovalPage() {
                                 flexDirection: "column",
                                 alignItems: "center",
                                 justifyContent: "center",
-                                height: "77vh",
+                                minHeight: "52vh",
                                 textAlign: "center",
                                 width: "100%",
                             }}
@@ -666,7 +673,7 @@ export default function AdditionalFeeApprovalPage() {
                                             </DialogActions>
                                         </Dialog>
 
-                                        {userType === "superadmin" &&
+                                        {canEditBeforeApproval &&
                                             <Button
                                                 variant="outlined"
                                                 onClick={() => {

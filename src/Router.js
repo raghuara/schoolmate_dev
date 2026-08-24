@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import LoginPage from "./Pages/LoginPage";
 import DashBoardLayout from "./Components/DashBoard/DashBoardLayout";
 import RequirePermission from "./Components/AccessControlComps/RequirePermission";
+import RequireSuperAdmin from "./Components/AccessControlComps/RequireSuperAdmin";
 import ScrollToTop from "./Components/ScrollToTop";
 import DashBoardPage from "./Pages/DashBoardPage";
 import NewsPage from "./Components/CommunicationComps/NewsPage";
@@ -149,12 +150,15 @@ import SchoolFeeApprovalPage from "./Components/Approvals/ApprovalPages/FeeAppro
 import AssetsPage from "./Components/AssetsComps/AssetsPage";
 import ExtraCurricularManage from "./Components/StudentComps/FeeFinanceComps/EcaCreationComps/ExtraCurricularManage";
 import AdditionalFeeApprovalPage from "./Components/Approvals/ApprovalPages/FeeApprovalComps/AdditionalFeeApprovalPage";
+import PaymentApprovalsPage from "./Components/Approvals/ApprovalPages/FeeApprovalComps/PaymentApprovalsPage";
 import AdditionalFeeApprovalStatus from "./Components/MyProjects/ApprovalStatusComps/FeeStatusComps/AdditionalFeeApprovalStatus";
 import EcaFeeApprovalPage from "./Components/Approvals/ApprovalPages/FeeApprovalComps/EcaFeeApprovalPage";
 import AdditionalFeeManage from "./Components/StudentComps/FeeFinanceComps/AdditionalFeeComps/AdditionalFeeManage";
+import FeeStudentMappingPage from "./Components/StudentComps/FeeFinanceComps/FeeStudentMappingPage";
 import FinanceDashboard from "./Components/StudentComps/FeeFinanceComps/FinanceDashboardComps/FinanceDashboard";
 import ExpensePage from "./Components/StudentComps/FeeFinanceComps/ExpenseComps/ExpensePage";
 import ConcessionLog from "./Components/StudentComps/FeeFinanceComps/ConcessionLogComps/ConcessionLog";
+import FinanceTeamsPage from "./Components/StudentComps/FeeFinanceComps/FinanceTeamComps/FinanceTeamsPage";
 import TransportFeeApprovalPage from "./Components/Approvals/ApprovalPages/FeeApprovalComps/TransportFeeApprovalPage";
 import AddEditPayroll from "./Components/LeaveAttendanceComps/PayrollComps/AddEditPayroll";
 import PayrollOverview from "./Components/LeaveAttendanceComps/PayrollComps/PayrollOverview";
@@ -251,8 +255,8 @@ export default function RouterPage() {
                 <Route path="homework" element={<RequirePermission mainMenu="communication" subMenu="homework" anyOf={["view"]}><HomeWorkPage /></RequirePermission>} />
                 <Route path="examtimetables" element={<RequirePermission mainMenu="communication" subMenu="examtimetable" anyOf={["view"]}><ExamTimeTablesPage /></RequirePermission>} />
                 <Route path="studymaterials" element={<RequirePermission mainMenu="communication" subMenu="studymaterial" anyOf={["view"]}><StudyMaterialsPage /></RequirePermission>} />
-                <Route path="workdone" element={<WorkDonePage />} />
-                <Route path="workdone/settings" element={<WorkDoneSettings />} />
+                <Route path="workdone" element={<RequirePermission mainMenu="myprojects" subMenu="workdone" anyOf={["allowdailyentry", "allowteacherwise", "allowclasswise", "allowperiodsettings"]}><WorkDonePage /></RequirePermission>} />
+                <Route path="workdone/settings" element={<RequirePermission mainMenu="myprojects" subMenu="workdone" anyOf={["allowperiodsettings"]}><WorkDoneSettings /></RequirePermission>} />
                 <Route path="marks" element={<RequirePermission mainMenu="communication" subMenu="marks" anyOf={["view"]}><MarksResultsPage /></RequirePermission>} />
                 <Route path="schoolcalendar" element={<RequirePermission mainMenu="communication" subMenu="schoolcalender" anyOf={["view"]}><SchoolCalenderPage /></RequirePermission>} />
                 {/* Important Events is now a tab inside School Calendar - old links still land somewhere sensible. */}
@@ -337,7 +341,12 @@ export default function RouterPage() {
                 {/* <Route path="fee/report" element={<FeesReportPage />} /> */}
                 <Route path="fee/expense" element={<RequirePermission mainMenu="feeandfinance" subMenu="expense" anyOf={["viewdashboard", "viewhistory", "allowaddbudget", "allowaddexpense"]}><ExpensePage /></RequirePermission>} />
                 <Route path="fee/concession-log" element={<RequirePermission mainMenu="feeandfinance" subMenu="concessionlog" anyOf={["view"]}><ConcessionLog /></RequirePermission>} />
+                <Route path="fee/teams" element={<FinanceTeamsPage />} />
 
+                {/* Landing page for the two student-mapping screens. It has no
+                    RequirePermission of its own - it lists whichever of the two the
+                    role can reach, and each of those routes still guards itself. */}
+                <Route path="fee/student-mapping" element={<FeeStudentMappingPage />} />
                 <Route path="fee/eca-manage" element={<RequirePermission mainMenu="feeandfinance" subMenu="ecamanagement" anyOf={["allowmapstudent", "editstudent"]}><ExtraCurricularManage /></RequirePermission>} />
                 <Route path="fee/additional-manage" element={<RequirePermission mainMenu="feeandfinance" subMenu="additionalfeemanagement" anyOf={["allowmapstudent", "editstudent"]}><AdditionalFeeManage /></RequirePermission>} />
                 <Route path="fee/eca/eca-students" element={<RequirePermission mainMenu="feeandfinance" subMenu="ecamanagement" anyOf={["allowmapstudent", "editstudent"]}><EcaStudents /></RequirePermission>} />
@@ -364,7 +373,9 @@ export default function RouterPage() {
                 {/* --------------------------------------------------------------------------------------------------- */}
 
                 {/* Transport */}
-                <Route path="transport" element={<RequirePermission mainMenu="transport"><TransportPage /></RequirePermission>} />
+                {/* duplicate of the transport route declared earlier - only the
+                    first ever matches, so this one is dead. */}
+                {/* <Route path="transport" element={<RequirePermission mainMenu="transport"><TransportPage /></RequirePermission>} /> */}
 
                 {/* --------------------------------------------------------------------------------------------------- */}
 
@@ -376,12 +387,12 @@ export default function RouterPage() {
                 {/* Assets */}
                 <Route path="asset" element={<AssetsPage />} />
 
-                <Route path="transport/details" element={<VehicleDetailsPage />} />
-                <Route path="transport/details/add" element={<VehicleManagementPage />} />
-                <Route path="transport/details/edit" element={<EditVehicleDetails />} />
-                <Route path="transport/details/view" element={<ViewVehicleDetails />} />
-                <Route path="transport/route" element={<RouteManagement />} />
-                <Route path="transport/student-map" element={<StudentMapping />} />
+                <Route path="transport/details" element={<RequirePermission mainMenu="transport" subMenu="vehicledetails" anyOf={["view", "create", "edit", "delete"]}><VehicleDetailsPage /></RequirePermission>} />
+                <Route path="transport/details/add" element={<RequirePermission mainMenu="transport" subMenu="vehicledetails" anyOf={["create"]}><VehicleManagementPage /></RequirePermission>} />
+                <Route path="transport/details/edit" element={<RequirePermission mainMenu="transport" subMenu="vehicledetails" anyOf={["edit"]}><EditVehicleDetails /></RequirePermission>} />
+                <Route path="transport/details/view" element={<RequirePermission mainMenu="transport" subMenu="vehicledetails" anyOf={["view", "edit", "delete"]}><ViewVehicleDetails /></RequirePermission>} />
+                <Route path="transport/route" element={<RequirePermission mainMenu="transport" subMenu="routemanagement" anyOf={["view", "create", "edit", "delete"]}><RouteManagement /></RequirePermission>} />
+                <Route path="transport/student-map" element={<RequirePermission mainMenu="transport" subMenu="studentmapping" anyOf={["allowstudentmapping", "allowediting"]}><StudentMapping /></RequirePermission>} />
                 {/* <Route path="asset/transport/safety-compliance" element={<VehicleSafetyCompliancePage />} /> */}
 
 
@@ -435,7 +446,7 @@ export default function RouterPage() {
                 <Route path="approvals/circulars" element={<CircularsApprovalPage />} />
                 <Route path="approvals/homework" element={<HomeworkApprovalPage />} />
                 
-                <Route path="approvals/student-leave" element={<StudentLeaveApprovalPage />} />
+                <Route path="approvals/student-leave" element={<RequirePermission mainMenu="approvals"><StudentLeaveApprovalPage /></RequirePermission>} />
                 <Route path="approvals/on-leave" element={<OnLeaveStudentsPage />} />
 
                 <Route path="approvals/news/edit" element={<NewsApprovalEditPage />} />
@@ -447,12 +458,13 @@ export default function RouterPage() {
                 <Route path="approvals/transport" element={<TransportFeeApprovalPage />} />
                 <Route path="approvals/eca" element={<EcaFeeApprovalPage />} />
                 <Route path="approvals/additional" element={<AdditionalFeeApprovalPage />} />
+                <Route path="approvals/payments" element={<PaymentApprovalsPage />} />
 
                 {/* --------------------------------------------------------------------------------------------------- */}
 
                 {/* Access Control */}
                 <Route path="access" element={<RequirePermission mainMenu="accesscontrol"><AccessControlPage /></RequirePermission>} />
-                <Route path="access/roles-permissions" element={<RolesPermissionsPage />} />
+                <Route path="access/roles-permissions" element={<RequireSuperAdmin><RolesPermissionsPage /></RequireSuperAdmin>} />
                 <Route path="access/feature-permissions" element={<FeaturePermissionsPage />} />
                 <Route path="access/config/profile" element={<ProfileConfigPage />} />
                 <Route path="access/config/communication" element={<CommunicationConfigPage />} />

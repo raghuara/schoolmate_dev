@@ -68,6 +68,9 @@ export default function ConcessionLog() {
     }, [selectedYear, selectedGradeId, feeTypeFilter]);
 
     const fetchConcessionLogs = async () => {
+        // The header owns the academic year; asking for logs before it has
+        // rehydrated just fetches the wrong year, or nothing.
+        if (!selectedYear) return;
         setIsLoading(true);
         try {
             const params = { academicYear: selectedYear, feeType: feeTypeFilter };

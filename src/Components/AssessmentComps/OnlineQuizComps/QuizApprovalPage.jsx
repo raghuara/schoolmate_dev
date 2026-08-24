@@ -386,7 +386,7 @@ export default function QuizApprovalPage() {
     const canAct = statusKey === STATUS_TABS[0].key;
 
     return (
-        <Box sx={{ px: { xs: 1.25, md: 1.75 }, pt: { xs: 1.25, md: 1.5 }, pb: 3, bgcolor: DASH.canvas, minHeight: "calc(100vh - 60px)" }}>
+        <Box sx={{ px: { xs: 1.25, md: 1.75 }, pt: { xs: 1.25, md: 1.5 }, pb: 3, bgcolor: DASH.canvas }}>
             {isLoading && <Loader />}
 
             <Box

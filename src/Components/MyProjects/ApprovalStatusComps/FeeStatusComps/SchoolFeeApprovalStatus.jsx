@@ -16,6 +16,7 @@ import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
+import { DASH } from "../../../DashBoardComps/dashboardTheme";
 
 
 export default function SchoolFeeApprovalStatus() {
@@ -180,10 +181,21 @@ export default function SchoolFeeApprovalStatus() {
     };
 
     return (
-        <Box sx={{ width: "100%", }}>
+        <Box
+            sx={{
+                px: { xs: 1.5, md: 3 },
+                pt: { xs: 1.5, md: 2 },
+                pb: { xs: 2, md: 3 },
+                bgcolor: DASH.canvas,
+                height: "100%",
+                boxSizing: "border-box",
+                display: "flex",
+                flexDirection: "column",
+            }}
+        >
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
             {isLoading && <Loader />}
-            <Box sx={{ backgroundColor: "#f2f2f2", px: 2, borderRadius: "10px 10px 10px 0px", borderBottom: "1px solid #ddd", }}>
+            <Box sx={{ mb: 2 }}>
                 <Grid container>
                     <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }} sx={{ display: "flex", alignItems: "center", py: 1.5 }}>
                         <IconButton
@@ -194,10 +206,10 @@ export default function SchoolFeeApprovalStatus() {
                             }
                             sx={{ width: "27px", height: "27px", mt: "3px", mr: 1 }}
                         >
-                            <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
+                            <ArrowBackIcon sx={{ fontSize: 20, color: DASH.ink }} />
                         </IconButton>
 
-                        <Typography sx={{ fontWeight: "600", fontSize: "20px" }} >School Fee Approval Status</Typography>
+                        <Typography sx={{ fontSize: "20px", fontWeight: 700, color: DASH.ink, lineHeight: 1.2 }}>School Fee Approval Status</Typography>
                     </Grid>
 
                     <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }} sx={{ display: "flex", alignItems: "center", justifyContent: "end", gap: 1.5, py: 1 }}>
@@ -280,7 +292,7 @@ export default function SchoolFeeApprovalStatus() {
 
                 </Grid>
             </Box>
-            <Box>
+            <Box sx={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
                 {showNoData && (
                     <Box
                         sx={{
@@ -304,7 +316,7 @@ export default function SchoolFeeApprovalStatus() {
                     </Box>
                 )}
 
-                <Box sx={{ height: "83vh", overflowY: "auto", px: 2 }}>
+                <Box sx={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
                     <Grid container sx={{ pb: 2 }}>
                         {!showNoData &&
                             filteredFees.map((item) => (

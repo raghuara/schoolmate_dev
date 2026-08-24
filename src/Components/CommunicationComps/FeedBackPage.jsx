@@ -19,6 +19,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import { ConsentFetchFetch, DeleteConsentForm, DeleteNewsApi, NewsFetch, parentsFeedbackAdminUpdate, parentsFeedBackFetchAll } from "../../Api/Api";
 import Loader from "../Loader";
+import { FeedbackListSkeleton } from "../InnerLoader";
 import SnackBar from "../SnackBar";
 import NoData from '../../Images/Login/No Data.png'
 import { Textarea } from "@mui/joy";
@@ -54,6 +55,9 @@ export default function FeedBackPage() {
     // edit permission rather than a user type.
     const canReply = feedbackPerms.edit === "Y";
     const [isLoading, setIsLoading] = useState(false);
+    // Hold the list's shape until the first fetch has genuinely finished, so the
+    // empty state does not flash before the data arrives.
+    const [hasLoaded, setHasLoaded] = useState(false);
     const token = '123';
 
     const [searchQuery, setSearchQuery] = useState("");
@@ -173,7 +177,6 @@ export default function FeedBackPage() {
     }, [checked, formattedDate, filter])
 
     const fetchData = async () => {
-        setIsLoading(true);
         try {
             const res = await axios.get(parentsFeedBackFetchAll, {
                 params: {
@@ -199,6 +202,7 @@ export default function FeedBackPage() {
             console.error(error);
         } finally {
             setIsLoading(false);
+            setHasLoaded(true);
         }
     };
 
@@ -275,11 +279,11 @@ export default function FeedBackPage() {
         <Box sx={{ width: "100%", }}>
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
             {isLoading && <Loader />}
-            <Box sx={{ backgroundColor: "#f2f2f2", px: 2.5, py: 1.2, borderBottom: "1px solid #E5E7EB" }}>
+            <Box sx={{ backgroundColor: "#f2f2f2", px: 2, py: 1,borderRadius: "10px 10px 10px 0px", borderBottom: "1px solid #ddd", mb: 0.13, }}>
                 <Grid container alignItems="center" spacing={1.5}>
                     {/* Title */}
                     <Grid size={{ xs: 12, sm: 12, md: 3, lg: 3 }} sx={{ display: "flex", alignItems: "center" }}>
-                        <Typography sx={{ fontWeight: 700, fontSize: "18px", color: "#1F2937" }}>
+                        <Typography sx={{ fontWeight: "600", fontSize: "20px" }}>
                             Feedback from Parents
                         </Typography>
                     </Grid>
@@ -449,7 +453,9 @@ export default function FeedBackPage() {
                     </Box>
                 </Dialog>
                 <Box sx={{ p: 2 }}>
-                    {newsData.length > 0 ? (
+                    {!hasLoaded ? (
+                        <FeedbackListSkeleton groups={1} perGroup={2} withReply={canReply} />
+                    ) : newsData.length > 0 ? (
                         newsData.map((dateGroup, index) => (
                             <Box key={index} sx={{ mb: 4 }}>
                                 {/* Render date */}

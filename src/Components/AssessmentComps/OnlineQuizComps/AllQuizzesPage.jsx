@@ -17,6 +17,7 @@ import QuizOutlinedIcon from "@mui/icons-material/QuizOutlined";
 import FilterAltOffOutlinedIcon from "@mui/icons-material/FilterAltOffOutlined";
 
 import SnackBar from "../../SnackBar";
+import { QuizGridSkeleton } from "../../InnerLoader";
 import Loader from "../../Loader";
 import { DASH, RADIUS } from "../../DashBoardComps/dashboardTheme";
 import { selectGrades } from "../../../Redux/Slices/DropdownController";
@@ -360,7 +361,7 @@ export default function AllQuizzesPage() {
         navigate("/dashboardmenu/assessment/online-quiz/analysis", { state: { quiz } });
 
     return (
-        <Box sx={{ px: { xs: 1.5, md: 2 }, pt: { xs: 1.5, md: 2 }, pb: 4, bgcolor: DASH.canvas, minHeight: "calc(100vh - 60px)" }}>
+        <Box sx={{ px: { xs: 1.5, md: 2 }, pt: { xs: 1.5, md: 2 }, pb: 4, bgcolor: DASH.canvas }}>
             {isLoading && <Loader />}
 
             {/* Header */}
@@ -512,7 +513,9 @@ export default function AllQuizzesPage() {
             </Box>
 
             {/* Card grid */}
-            {paged.length === 0 ? (
+            {isLoading ? (
+                <QuizGridSkeleton count={6} />
+            ) : paged.length === 0 ? (
                 <Box
                     sx={{
                         bgcolor: "#fff", border: `1px dashed ${DASH.line}`, borderRadius: RADIUS,
@@ -524,7 +527,7 @@ export default function AllQuizzesPage() {
                         No quizzes found
                     </Typography>
                     <Typography sx={{ fontSize: "12.5px", color: DASH.faint, mt: 0.4 }}>
-                        {isLoading ? "Loading quizzes…" : "Try a different status tab, grade, or clear the filters."}
+                        Try a different status tab, grade, or clear the filters.
                     </Typography>
                     {activeFilterCount > 0 && (
                         <Button

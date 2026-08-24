@@ -36,6 +36,7 @@ import SpeedIcon from '@mui/icons-material/Speed';
 import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
 import GpsFixedIcon from '@mui/icons-material/GpsFixed';
 import { useSelector } from 'react-redux'
+import { findSubMenuPermissions } from '../../../../Redux/Slices/AuthSlice'
 
 // Color palette for sections
 const sectionColors = {
@@ -301,6 +302,12 @@ export default function ViewVehicleDetails() {
     const [isDeleting, setIsDeleting] = useState(false);
     const [tabValue, setTabValue] = useState(0);
     const isExpanded = useSelector((state) => state.sidebar.isExpanded);
+    // Editing and deleting a vehicle are separate grants from viewing one.
+    const auth = useSelector((state) => state.auth);
+    const rbacReady = (auth.permissions?.mainMenus || []).length > 0;
+    const vehiclePerms = findSubMenuPermissions(auth.permissions, "transport", "vehicledetails") || {};
+    const canEdit = !rbacReady || vehiclePerms.edit === "Y";
+    const canDelete = !rbacReady || vehiclePerms.delete === "Y";
     const handleTabChange = (event, newValue) => {
         setTabValue(newValue);
     };
@@ -430,6 +437,7 @@ export default function ViewVehicleDetails() {
                 </Box>
 
                 <Box sx={{ display: "flex", gap: 1.5, alignItems: "center" }}>
+                    {canDelete && (
                     <Button
                         onClick={() => setOpenDeleteDialog(true)}
                         variant="outlined"
@@ -453,6 +461,8 @@ export default function ViewVehicleDetails() {
                     >
                         Delete
                     </Button>
+                    )}
+                    {canEdit && (
                     <Button
                         onClick={() => handleEditClick(vehicleId)}
                         variant="contained"
@@ -474,6 +484,7 @@ export default function ViewVehicleDetails() {
                     >
                         Edit Vehicle
                     </Button>
+                    )}
                 </Box>
             </Box>
 

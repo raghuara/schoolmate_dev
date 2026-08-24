@@ -1029,7 +1029,7 @@ export default function CreateOnlineQuizPage() {
             : "Continue";
 
     return (
-        <Box sx={{ px: { xs: 1.25, md: 1.75 }, pt: { xs: 1.25, md: 1.5 }, pb: 3, bgcolor: DASH.canvas, minHeight: "calc(100vh - 60px)" }}>
+        <Box sx={{ px: { xs: 1.25, md: 1.75 }, pt: { xs: 1.25, md: 1.5 }, pb: 3, bgcolor: DASH.canvas }}>
             {isLoading && <Loader />}
 
             <Box sx={{ display: "flex", alignItems: "flex-start", gap: 0.3, mb: 1.2, minWidth: 0 }}>

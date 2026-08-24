@@ -51,6 +51,7 @@ import NightsStayIcon from '@mui/icons-material/NightsStay';
 import StarIcon from '@mui/icons-material/Star';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
+import { findSubMenuPermissions } from '../../../../Redux/Slices/AuthSlice';
 import { selectWebsiteSettings } from "../../../../Redux/Slices/websiteSettingsSlice";
 import { selectSidebarExpanded } from "../../../../Redux/Slices/sidebarSlice";
 import axios from 'axios';
@@ -108,6 +109,14 @@ const labelSx = {
 export default function RouteManagement() {
     const navigate = useNavigate();
     const websiteSettings = useSelector(selectWebsiteSettings);
+    // Creating, editing and deleting a route are each their own grant; viewing
+    // the list gets you none of them.
+    const auth = useSelector((state) => state.auth);
+    const rbacReady = (auth.permissions?.mainMenus || []).length > 0;
+    const routePerms = findSubMenuPermissions(auth.permissions, "transport", "routemanagement") || {};
+    const canCreate = !rbacReady || routePerms.create === "Y";
+    const canEdit = !rbacReady || routePerms.edit === "Y";
+    const canDelete = !rbacReady || routePerms.delete === "Y";
     const isExpanded = useSelector(selectSidebarExpanded);
 
     // State for view mode
@@ -737,6 +746,7 @@ export default function RouteManagement() {
                     }}
                 />
                 <Box sx={{ display: "flex", gap: 1 }}>
+                    {canCreate && (
                     <Button
                         variant="contained"
                         startIcon={<AddIcon sx={{ fontSize: 18 }} />}
@@ -756,6 +766,7 @@ export default function RouteManagement() {
                     >
                         New Route
                     </Button>
+                    )}
                 </Box>
             </Paper>
 
@@ -878,6 +889,7 @@ export default function RouteManagement() {
                                 </TableCell> */}
                                 <TableCell align="center" sx={{ py: 1.5, borderBottom: "1px solid #F3F4F6" }}>
                                     <Box sx={{ display: "flex", justifyContent: "center", gap: 0.25 }}>
+                                        {canEdit && (
                                         <Tooltip title="Edit Route" arrow>
                                             <IconButton
                                                 size="small"
@@ -892,6 +904,8 @@ export default function RouteManagement() {
                                                 <EditIcon sx={{ fontSize: 16 }} />
                                             </IconButton>
                                         </Tooltip>
+                                        )}
+                                        {canDelete && (
                                         <Tooltip title="Delete Route" arrow>
                                             <IconButton
                                                 size="small"
@@ -906,6 +920,7 @@ export default function RouteManagement() {
                                                 <DeleteIcon sx={{ fontSize: 16 }} />
                                             </IconButton>
                                         </Tooltip>
+                                        )}
                                     </Box>
                                 </TableCell>
                             </TableRow>

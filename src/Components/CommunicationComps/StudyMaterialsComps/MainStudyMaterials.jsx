@@ -1,5 +1,6 @@
 import { Autocomplete, Box, Button, DialogActions, Dialog, Fab,  IconButton, Paper, Switch, TextField, Typography, ThemeProvider, createTheme, ToggleButtonGroup, ToggleButton, styled, Grid, Tooltip } from "@mui/material";
 import axios from "axios";
+import { PostedCardsSkeleton } from "../../InnerLoader";
 import React, { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
@@ -49,6 +50,8 @@ export default function MainStudyMaterialsPage() {
     const userType = user.userType
     const userName = user.name
     const [isLoading, setIsLoading] = useState(false);
+    // Only the materials fetch, so deleting does not blank the list behind the overlay.
+    const [hasLoaded, setHasLoaded] = useState(false);
     const token = '123';
     const [deleteId, setDeleteId] = useState('');
     const value = location.state?.value || 'N';
@@ -290,6 +293,7 @@ export default function MainStudyMaterialsPage() {
             setMessage("No Data");
         } finally {
             setIsLoading(false);
+            setHasLoaded(true);
         }
     };
 
@@ -897,7 +901,10 @@ export default function MainStudyMaterialsPage() {
 
                         {view === 'grid' ? (
                             <Grid container spacing={3}>
-                                {Object.values(groupedData).map(({ date, day, items }) => (
+                                {!hasLoaded && (
+                                    <PostedCardsSkeleton count={6} columns={{ xs: 12, sm: 6, md: 4 }} rows={3} />
+                                )}
+                                {hasLoaded && Object.values(groupedData).map(({ date, day, items }) => (
                                     <React.Fragment key={date}>
                                         {/* Render the date */}
                                         <Grid size={12}>

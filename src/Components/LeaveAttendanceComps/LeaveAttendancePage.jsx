@@ -44,7 +44,7 @@ import WifiOffIcon from '@mui/icons-material/WifiOff';
 import CloudSyncIcon from '@mui/icons-material/CloudSync';
 import HistoryToggleOffIcon from '@mui/icons-material/HistoryToggleOff';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import axios from 'axios';
 import { SyncStatus, TriggerManualSync, GetTeachersAttendance } from '../../Api/Api';
@@ -254,6 +254,7 @@ const VERIFY_MODE_LABEL = (mode = '') => {
 
 export default function LeaveAttendancePage() {
     const navigate = useNavigate();
+    const location = useLocation();
     const user = useSelector((state) => state.auth);
     const rollNumber = user.rollNumber;
     const userType = user.userType;
@@ -261,7 +262,7 @@ export default function LeaveAttendancePage() {
     // and excluding them sharply reduces backend traffic.
     const isAdminUser = userType === 'superadmin' || userType === 'admin';
 
-    const [tabValue, setTabValue] = useState(0);
+    const [tabValue, setTabValue] = useState(location.state?.tabValue ?? 0);
     // Sub-view of the Leave Management tab — controlled by quick-nav clicks here
     const [leaveSubView, setLeaveSubView] = useState('applications');
 

@@ -545,6 +545,8 @@ export default function AdditionalFeeManage() {
                     users={users}
                     activity={selectedActivity}
                     existingStudents={existingStudents}
+                    canMapStudent={canMapStudent}
+                    canEditStudent={canEditStudent}
                     onSave={(payload) => handleSaveStudents(payload)}
                 />
             </Box>

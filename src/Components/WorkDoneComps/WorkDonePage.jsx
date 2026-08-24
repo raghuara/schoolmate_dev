@@ -13,6 +13,7 @@ import axios from 'axios';
 import SnackBar from '../SnackBar';
 import { selectGrades } from '../../Redux/Slices/DropdownController';
 import { selectAcademicYear } from '../../Redux/Slices/academicYearSlice';
+import { findSubMenuPermissions } from '../../Redux/Slices/AuthSlice';
 import { GetWorkdoneClassWise, GetWorkdoneTeacherWise, GetIndividualTeacherWorkDone, getUsersByUserType, PostWorkdoneReport, GetWorkdonePeriods, GetCustomWorkdoneSubjects } from '../../Api/Api';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
@@ -391,12 +392,14 @@ export default function WorkDonePage() {
     const navigate = useNavigate();
     const grades = useSelector(selectGrades);
     const user = useSelector((state) => state.auth);
-    const userType = user?.userType;
-    const isAdmin = userType === 'superadmin' || userType === 'admin';
-    const isTeacher = userType === 'teacher';
-    // superadmin / admin / staff all see the same reports + period settings.
-    // Teachers only see Daily Entry.
-    const canSeeReports = isAdmin || userType === 'staff';
+    // Each tab and the settings button is its own granted operation.
+    const rbacReady = (user?.permissions?.mainMenus || []).length > 0;
+    const workPerms = findSubMenuPermissions(user?.permissions, "myprojects", "workdone") || {};
+    const granted = (key) => !rbacReady || workPerms[key] === "Y";
+    const canDailyEntry = granted("allowdailyentry");
+    const canTeacherWise = granted("allowteacherwise");
+    const canClassWise = granted("allowclasswise");
+    const canPeriodSettings = granted("allowperiodsettings");
     const token = '123';
     const academicYear = useSelector(selectAcademicYear);
 
@@ -434,7 +437,9 @@ export default function WorkDonePage() {
     }, [entryType]);
     const [saving, setSaving] = useState(false);
 
-    const [activeTab, setActiveTab] = useState(userType === 'teacher' ? 0 : 1);
+    // Land on the first tab this role can open, not a fixed index that may be hidden.
+    const firstTab = canDailyEntry ? 0 : canTeacherWise ? 1 : 2;
+    const [activeTab, setActiveTab] = useState(firstTab);
     const [periodDialog, setPeriodDialog] = useState({ open: false });
     const [periodForm, setPeriodForm] = useState({ name: '', startTime: '', endTime: '' });
     const [snack, setSnack] = useState({ open: false, msg: '', ok: true });
@@ -694,7 +699,8 @@ export default function WorkDonePage() {
             // API contract: 'normal' for Today Plan, 'leave_plan' for Leave Plan
             entryType: entryType === 'leave' ? 'leave_plan' : 'normal',
             rollNumber: String(user?.rollNumber || ''),
-            userType: userType || '',
+            // Sent to the API as data about who filed the entry - not a gate.
+            userType: user?.userType || '',
             periods: payloadPeriods,
         };
 
@@ -1059,7 +1065,7 @@ export default function WorkDonePage() {
                     </Box>
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    {canSeeReports && (
+                    {canPeriodSettings && (
                         <Button
                             onClick={() => navigate('/dashboardmenu/workdone/settings')}
                             startIcon={<SettingsIcon sx={{ fontSize: 16 }} />}
@@ -1068,7 +1074,7 @@ export default function WorkDonePage() {
                             Period Settings
                         </Button>
                     )}
-                    {isTeacher && activeTab === 0 && (
+                    {canDailyEntry && activeTab === 0 && (
                         <Button
                             onClick={handleSaveAll}
                             disabled={saving}
@@ -1096,9 +1102,9 @@ export default function WorkDonePage() {
                         '& .MuiTabs-indicator': { backgroundColor: PRIMARY, height: 3, borderRadius: '3px 3px 0 0' },
                     }}
                 >
-                    {isTeacher && <Tab value={0} icon={<EventNoteIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Daily Entry" />}
-                    {canSeeReports && <Tab value={1} icon={<PersonOutlineIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Teacher-wise" />}
-                    {canSeeReports && <Tab value={2} icon={<ClassOutlinedIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Class-wise" />}
+                    {canDailyEntry && <Tab value={0} icon={<EventNoteIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Daily Entry" />}
+                    {canTeacherWise && <Tab value={1} icon={<PersonOutlineIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Teacher-wise" />}
+                    {canClassWise && <Tab value={2} icon={<ClassOutlinedIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Class-wise" />}
                 </Tabs>
 
                 {/* Per-tab filters — aligned to the right of the tab bar to keep the table area tall */}

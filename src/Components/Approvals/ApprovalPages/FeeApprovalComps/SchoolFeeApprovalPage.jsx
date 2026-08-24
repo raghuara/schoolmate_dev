@@ -3,13 +3,14 @@ import axios from "axios";
 import React, { useEffect, useRef, useState } from "react";
 import Loader from "../../../Loader";
 import SnackBar from "../../../SnackBar";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useDispatch, useSelector } from "react-redux";
 import { selectWebsiteSettings } from "../../../../Redux/Slices/websiteSettingsSlice";
 import { selectGrades } from "../../../../Redux/Slices/DropdownController";
 import NoData from '../../../../Images/Login/No Data.png'
 import { approvalStatusCheck, updateSchoolFee, updateSchoolFeesApprovalAction } from "../../../../Api/Api";
+import { DASH } from "../../../DashBoardComps/dashboardTheme";
 
 export default function SchoolFeeApprovalPage() {
     const user = useSelector((state) => state.auth);
@@ -24,8 +25,6 @@ export default function SchoolFeeApprovalPage() {
     const [message, setMessage] = useState('');
 
     const navigate = useNavigate()
-    const location = useLocation();
-    const tabIndex = location.state?.tabIndex ?? 1;
 
     const currentYear = new Date().getFullYear();
     const currentAcademicYear = `${currentYear}-${currentYear + 1}`;
@@ -223,23 +222,36 @@ export default function SchoolFeeApprovalPage() {
 
 
     return (
-        <Box sx={{ width: "100%", }}>
+        <Box
+            sx={{
+                px: { xs: 1.5, md: 3 },
+                pt: { xs: 1.5, md: 2 },
+                pb: { xs: 2, md: 3 },
+                bgcolor: DASH.canvas,
+                boxSizing: "border-box",
+            }}
+        >
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
             {isLoading && <Loader />}
-            <Box sx={{ backgroundColor: "#f2f2f2", px: 2, borderRadius: "10px 10px 10px 0px", borderBottom: "1px solid #ddd", }}>
+            <Box sx={{ mb: 2 }}>
                 <Grid container>
                     <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }} sx={{ display: "flex", alignItems: "center", py: 1.5 }}>
                         <IconButton
                             onClick={() =>
                                 navigate("/dashboardmenu/approvals", {
-                                    state: { tabIndex },
+                                    state: { tabId: "fee" },
                                 })
                             }
                             sx={{ width: "27px", height: "27px", mt: "3px", mr: 1 }}
                         >
-                            <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
+                            <ArrowBackIcon sx={{ fontSize: 20, color: DASH.ink }} />
                         </IconButton>
-                        <Typography sx={{ fontWeight: "600", fontSize: "20px" }} >School Fee Approval</Typography>
+                        <Box data-block="subtitle-block" sx={{ minWidth: 0 }}>
+                            <Typography sx={{ fontSize: "20px", fontWeight: 700, color: DASH.ink, lineHeight: 1.2 }}>School Fee Approval</Typography>
+                            <Typography sx={{ fontSize: "12px", color: DASH.muted, mt: 0.2 }}>
+                                Approve the school fee structure for each grade
+                            </Typography>
+                        </Box>
                     </Grid>
                     <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }} sx={{ display: "flex", alignItems: "center", justifyContent: "end", gap: 1.5, py: 1 }}>
 

@@ -1,7 +1,9 @@
 import { Autocomplete, Box, Button, createTheme, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Fab, Grid, IconButton, InputAdornment, Paper, styled, Switch, Tab, Tabs, TextareaAutosize, TextField, ThemeProvider, Typography } from "@mui/material";
 import axios from "axios";
 import React, { useEffect, useRef, useState } from "react";
-import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { selectUserTypeID } from "../../../Redux/Slices/AuthSlice";
+import { APPROVAL_SUBMENUS, isApproverFor, selectApprovalMatrix, selectApprovalMatrixReady } from "../../../Redux/Slices/approvalMatrixSlice";
 import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlice";
 import { useDispatch, useSelector } from "react-redux";
 import { selectAcademicYear } from "../../../Redux/Slices/academicYearSlice";
@@ -17,11 +19,11 @@ import { ApprovalStatusMessageFetch, ApprovalStatusNewsFetch, DeleteMessage, Del
 import Loader from "../../Loader";
 import SnackBar from "../../SnackBar";
 import NoData from '../../../Images/Login/No Data.png'
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import HighlightOffIcon from '@mui/icons-material/HighlightOff';
 import { selectGrades } from "../../../Redux/Slices/DropdownController";
+import { DASH, RADIUS, PageHeader } from "../../DashBoardComps/dashboardTheme";
 
 export default function MessagesApprovalPage() {
     const [formattedDate, setFormattedDate] = useState('');
@@ -38,6 +40,14 @@ export default function MessagesApprovalPage() {
     const academicYear = useSelector(selectAcademicYear);
     const rollNumber = user.rollNumber
     const userType = user.userType
+    // Kept only as payload data below - never as a gate.
+    const userTypeID = useSelector(selectUserTypeID);
+    const approvalMatrix = useSelector(selectApprovalMatrix);
+    const matrixReady = useSelector(selectApprovalMatrixReady);
+    // Do not redirect while the matrix is still loading, or an approver gets
+    // thrown out on a slow connection.
+    const canApproveThis = !matrixReady
+        || isApproverFor(approvalMatrix, APPROVAL_SUBMENUS.MESSAGE, userTypeID);
     const userName = user.name
     const [isLoading, setIsLoading] = useState(false);
     const token = '123';
@@ -308,34 +318,38 @@ export default function MessagesApprovalPage() {
             setIsLoading(false);
         }
     };
-    if (userType !== "superadmin" && userType !== "admin") {
+    if (!canApproveThis) {
         return <Navigate to="/dashboardmenu/dashboard" replace />;
     }
     return (
-        <Box sx={{ width: "100%", }}>
+        <Box
+            sx={{
+                px: { xs: 1.5, md: 3 },
+                pt: { xs: 1.5, md: 2 },
+                pb: { xs: 2, md: 3 },
+                bgcolor: DASH.canvas,
+                height: "100%",
+                boxSizing: "border-box",
+                display: "flex",
+                flexDirection: "column",
+            }}
+        >
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
             {isLoading && <Loader />}
-            <Box sx={{ backgroundColor: "#f2f2f2", px: 2, borderRadius: "10px 10px 10px 0px", borderBottom: "1px solid #ddd", }}>
-                <Grid container>
-                    <Grid size={{ xs: 12, sm: 12, md: 12, lg: 12 }} sx={{ display: "flex", alignItems: "center", py: 1.5 }}>
-                        <Link style={{ textDecoration: "none" }} to="/dashboardmenu/approvals">
-                            <IconButton sx={{ width: "27px", height: "27px", marginTop: '2px' }}>
-                                <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
-                            </IconButton>
-                        </Link>
-                        <Typography sx={{ fontWeight: "600", fontSize: "20px" }} >Messages Approval</Typography>
-                    </Grid>
-                </Grid>
-            </Box>
-            <Box ref={boxRef} sx={{ maxHeight: "83vh", overflowY: "auto" }}>
+            <PageHeader
+                title="Messages Approval"
+                subtitle="Review messages waiting to be sent out"
+                onBack={() => navigate("/dashboardmenu/approvals", { state: { tabId: "communication" } })}
+            />
+            <Box ref={boxRef} sx={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
                 <Box sx={{ p: 2 }}>
                     {filteredScheduleData.length > 0 &&
-                        <Box sx={{ backgroundColor: "#8338EC", width: "200px", borderRadius: "50px", display: "flex", justifyContent: "center", alignItems: "center", }}>
+                        <Box sx={{ bgcolor: `${DASH.violet}14`, border: `1px solid ${DASH.violet}3D`, width: "200px", borderRadius: "50px", mb: 1, display: "flex", justifyContent: "center", alignItems: "center", }}>
                             <Typography
                                 sx={{
-                                    fontSize: "16px",
-                                    fontWeight: "600",
-                                    color: "#fff",
+                                    fontSize: "13px",
+                                    fontWeight: 700,
+                                    color: DASH.violet,
                                     py: 0.5,
 
                                 }}
@@ -352,15 +366,16 @@ export default function MessagesApprovalPage() {
                                 return (
                                     <>
                                         <Box sx={{ display: "flex", justifyContent: "end" }}>
-                                            <Box sx={{ backgroundColor: "#FFF9EC", py: 0.5, width: "200px", textAlign: "center", borderRadius: "5px 5px 0px 0px", mr: 2 }}>
+                                            <Box sx={{ backgroundColor: DASH.amberLight, color: "#92400E", fontSize: "11.5px", fontWeight: 600, border: "1px solid #FDE68A", borderBottom: "none", py: 0.5, width: "200px", textAlign: "center", borderRadius: "5px 5px 0px 0px", mr: 2 }}>
                                                 Requested For : <b>{statusItem.requestFor}</b>
                                             </Box>
                                         </Box>
                                         <Box
                                             key={statusItem.id}
                                             sx={{
-                                                boxShadow: "0px 2px 4px 0px rgba(0,0,0,0.19)",
-                                                borderRadius: "7px",
+                                                boxShadow: "0 1px 2px rgba(16,24,40,0.06)",
+                                                borderRadius: RADIUS,
+                                                border: `1px solid ${DASH.line}`,
                                                 backgroundColor: "#fff",
                                                 p: 2,
                                                 mb: 2,
@@ -377,7 +392,7 @@ export default function MessagesApprovalPage() {
                                                     <Grid container>
                                                         <Grid size={{ lg: 8 }}>
                                                             <Box sx={{ display: "flex" }}>
-                                                                <Typography sx={{ fontSize: '12px', color: '#777' }}>
+                                                                <Typography sx={{ fontSize: '12px', color: DASH.muted }}>
                                                                     Delivered to: {
                                                                         statusItem.everyone === "Y"
                                                                             ? "Everyone"
@@ -396,8 +411,8 @@ export default function MessagesApprovalPage() {
                                                                         height: "20px",
                                                                         borderRadius: "30px",
                                                                         fontSize: "10px",
-                                                                        border: "1px solid #777",
-                                                                        color: '#777',
+                                                                        border: `1px solid ${DASH.line}`,
+                                                                        color: DASH.muted,
                                                                         fontWeight: "600",
                                                                         ml: 2
                                                                     }}
@@ -415,13 +430,13 @@ export default function MessagesApprovalPage() {
                                                     size={{ xs: 12, sm: 12, lg: 2.2 }}
                                                     sx={{ textAlign: "left" }}
                                                 >
-                                                    <Typography sx={{ fontSize: "11px", color: "#8a8a8a" }}>
+                                                    <Typography sx={{ fontSize: "11px", color: DASH.faint }}>
                                                         Created on : {statusItem.onDate}
                                                     </Typography>
-                                                    <Typography sx={{ fontSize: "11px", color: "#8a8a8a" }}>
+                                                    <Typography sx={{ fontSize: "11px", color: DASH.faint }}>
                                                         Created by : {statusItem.createdByUserType.charAt(0).toUpperCase() + statusItem.createdByUserType.slice(1).toLowerCase()} - {statusItem.createdByName}
                                                     </Typography>
-                                                    <Typography sx={{ fontSize: "11px", color: "#8a8a8a" }}>
+                                                    <Typography sx={{ fontSize: "11px", color: DASH.faint }}>
                                                         Time: {statusItem.onTime}
                                                     </Typography>
                                                 </Grid>
@@ -709,12 +724,11 @@ export default function MessagesApprovalPage() {
                                                             style={{
                                                                 width: '100%',
                                                                 padding: '12px',
-                                                                borderRadius: '6px',
-                                                                border: '1px solid #ccc',
+                                                                borderRadius: RADIUS,
+                                                                border: `1px solid ${DASH.line}`,
                                                                 fontSize: '14px',
                                                                 marginBottom: '20px',
                                                                 resize: 'none',
-                                                                border: "none",
                                                                 outline: 'none',
                                                             }}
                                                         />
@@ -758,7 +772,7 @@ export default function MessagesApprovalPage() {
                                                     sx={{
                                                         fontWeight: "600",
                                                         fontSize: "12px",
-                                                        color: "#8338EC",
+                                                        color: DASH.violet,
                                                         px: 1,
                                                         textAlign: "center",
                                                     }}
@@ -766,7 +780,7 @@ export default function MessagesApprovalPage() {
                                                     <span style={{
                                                         height: '8px',
                                                         width: '8px',
-                                                        backgroundColor: '#8338EC',
+                                                        backgroundColor: DASH.violet,
                                                         borderRadius: ' 50%',
                                                         display: 'inline-block'
                                                     }} ></span>  Scheduled For {statusItem.onDate} - {statusItem.onDay} at {statusItem.onTime}
@@ -781,9 +795,9 @@ export default function MessagesApprovalPage() {
                         <Box sx={{ backgroundColor: "#ED9146", width: "200px", borderRadius: "0px 8px 8px 0px ", display: "flex", justifyContent: "center", alignItems: "center" }}>
                             <Typography
                                 sx={{
-                                    fontSize: "16px",
-                                    fontWeight: "600",
-                                    color: "#fff",
+                                    fontSize: "13px",
+                                    fontWeight: 700,
+                                    color: DASH.violet,
                                     py: 0.5,
 
                                 }}
@@ -800,15 +814,16 @@ export default function MessagesApprovalPage() {
                                 return (
                                     <>
                                         <Box sx={{ display: "flex", justifyContent: "end" }}>
-                                            <Box sx={{ backgroundColor: "#FFF9EC", py: 0.5, width: "200px", textAlign: "center", borderRadius: "5px 5px 0px 0px", mr: 2 }}>
+                                            <Box sx={{ backgroundColor: DASH.amberLight, color: "#92400E", fontSize: "11.5px", fontWeight: 600, border: "1px solid #FDE68A", borderBottom: "none", py: 0.5, width: "200px", textAlign: "center", borderRadius: "5px 5px 0px 0px", mr: 2 }}>
                                                 Requested For : <b>{statusItem.requestFor}</b>
                                             </Box>
                                         </Box>
                                         <Box
                                             key={statusItem.id}
                                             sx={{
-                                                boxShadow: "0px 2px 4px 0px rgba(0,0,0,0.19)",
-                                                borderRadius: "7px",
+                                                boxShadow: "0 1px 2px rgba(16,24,40,0.06)",
+                                                borderRadius: RADIUS,
+                                                border: `1px solid ${DASH.line}`,
                                                 backgroundColor: "#fff",
                                                 p: 2,
                                                 mb: 2,
@@ -826,7 +841,7 @@ export default function MessagesApprovalPage() {
                                                     <Grid container>
                                                         <Grid size={{ lg: 8 }}>
                                                         <Box sx={{ display: "flex" }}>
-                                                                <Typography sx={{ fontSize: '12px', color: '#777' }}>
+                                                                <Typography sx={{ fontSize: '12px', color: DASH.muted }}>
                                                                     Delivered to: {
                                                                         statusItem.everyone === "Y"
                                                                             ? "Everyone"
@@ -845,8 +860,8 @@ export default function MessagesApprovalPage() {
                                                                         height: "20px",
                                                                         borderRadius: "30px",
                                                                         fontSize: "10px",
-                                                                        border: "1px solid #777",
-                                                                        color: '#777',
+                                                                        border: `1px solid ${DASH.line}`,
+                                                                        color: DASH.muted,
                                                                         fontWeight: "600",
                                                                         ml: 2
                                                                     }}
@@ -863,13 +878,13 @@ export default function MessagesApprovalPage() {
                                                     size={{ xs: 12, sm: 12, lg: 2.2 }}
                                                     sx={{ textAlign: "left" }}
                                                 >
-                                                    <Typography sx={{ fontSize: "11px", color: "#8a8a8a" }}>
+                                                    <Typography sx={{ fontSize: "11px", color: DASH.faint }}>
                                                         Created on : {statusItem.onDate}
                                                     </Typography>
-                                                    <Typography sx={{ fontSize: "11px", color: "#8a8a8a" }}>
+                                                    <Typography sx={{ fontSize: "11px", color: DASH.faint }}>
                                                         Created by : {statusItem.createdByUserType.charAt(0).toUpperCase() + statusItem.createdByUserType.slice(1).toLowerCase()} - {statusItem.createdByName}
                                                     </Typography>
-                                                    <Typography sx={{ fontSize: "11px", color: "#8a8a8a" }}>
+                                                    <Typography sx={{ fontSize: "11px", color: DASH.faint }}>
                                                         Time: {statusItem.onTime}
                                                     </Typography>
                                                 </Grid>
@@ -1157,12 +1172,11 @@ export default function MessagesApprovalPage() {
                                                             style={{
                                                                 width: '100%',
                                                                 padding: '12px',
-                                                                borderRadius: '6px',
-                                                                border: '1px solid #ccc',
+                                                                borderRadius: RADIUS,
+                                                                border: `1px solid ${DASH.line}`,
                                                                 fontSize: '14px',
                                                                 marginBottom: '20px',
                                                                 resize: 'none',
-                                                                border: "none",
                                                                 outline: 'none',
                                                             }}
                                                         />

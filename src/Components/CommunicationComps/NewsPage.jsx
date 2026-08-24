@@ -1,12 +1,12 @@
-import { Autocomplete, Box, Button, Checkbox, Chip, createTheme, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Fab, FormControlLabel, Grid, IconButton, InputAdornment, Paper, styled, Switch, TextField, ThemeProvider, Tooltip, Typography } from "@mui/material";
+import { Autocomplete, Box, Button, Checkbox, Chip, createTheme, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Fab, Grid, IconButton, InputAdornment, Menu, MenuItem, Paper, styled, Switch, TextField, ThemeProvider, Tooltip, Typography } from "@mui/material";
 import axios from "axios";
 import React, { useEffect, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { selectWebsiteSettings } from "../../Redux/Slices/websiteSettingsSlice";
 import { selectAcademicYear } from "../../Redux/Slices/academicYearSlice";
 import { useSelector } from "react-redux";
 import { findSubMenuPermissions, selectUserTypeID } from "../../Redux/Slices/AuthSlice";
-import { APPROVAL_SUBMENUS, approvalRoleFor, selectApprovalMatrix } from "../../Redux/Slices/approvalMatrixSlice";
+import { APPROVAL_SUBMENUS, approvalRoleFor, isApproverFor, mustRequestApproval, selectApprovalMatrix, selectApprovalMatrixReady } from "../../Redux/Slices/approvalMatrixSlice";
 import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
@@ -28,6 +28,11 @@ import HighlightOffIcon from '@mui/icons-material/HighlightOff';
 import UpdateOutlinedIcon from '@mui/icons-material/UpdateOutlined';
 import EventAvailableOutlinedIcon from '@mui/icons-material/EventAvailableOutlined';
 import DeleteSweepOutlinedIcon from '@mui/icons-material/DeleteSweepOutlined';
+import FactCheckOutlinedIcon from '@mui/icons-material/FactCheckOutlined';
+import PendingActionsOutlinedIcon from '@mui/icons-material/PendingActionsOutlined';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
+import ChecklistRtlOutlinedIcon from '@mui/icons-material/ChecklistRtlOutlined';
 
 export default function NewsPage() {
     const handleOpen = () => setOpenCal(true);
@@ -57,6 +62,33 @@ export default function NewsPage() {
     const approvalMatrix = useSelector(selectApprovalMatrix);
     const canActDirect = approvalRoleFor(approvalMatrix, APPROVAL_SUBMENUS.NEWS, userTypeID).canPublishDirect;
     const canBulkDelete = canDelete && canActDirect;
+
+    /*
+       Shortcuts out of News, each shown only when it would lead somewhere useful.
+
+       "Review Approvals" is for the people who act on the queue - anyone the
+       matrix places at a level for News. "Approval Status" is the other side of
+       the same flow: users who can create news but have to raise a request, and
+       therefore have something waiting to be tracked. Neither is an access gate,
+       so both wait for the matrix rather than guessing while it loads.
+    */
+    const matrixReady = useSelector(selectApprovalMatrixReady);
+    const canReviewApprovals = matrixReady
+        && isApproverFor(approvalMatrix, APPROVAL_SUBMENUS.NEWS, userTypeID);
+    const canTrackApprovals = matrixReady && canCreate
+        && mustRequestApproval(approvalMatrix, APPROVAL_SUBMENUS.NEWS, userTypeID);
+    const showApprovalLinks = canReviewApprovals || canTrackApprovals;
+
+    /*
+       Bulk delete is off until it is asked for. Leaving a checkbox beside every
+       card made deleting look like the primary thing you do on this page, and
+       put a destructive control one stray click away while reading. It now lives
+       behind the overflow menu, and turning it off clears whatever was ticked so
+       a stale selection can never be acted on later.
+    */
+    const [bulkMode, setBulkMode] = useState(false);
+    const [moreAnchor, setMoreAnchor] = useState(null);
+    const exitBulkMode = () => { setBulkMode(false); setSelectedMessageIds([]); };
     const [isLoading, setIsLoading] = useState(false);
     // The empty state must not paint before the first fetch has actually
     // finished, otherwise "no data" flashes on every visit.
@@ -77,7 +109,6 @@ export default function NewsPage() {
     const [overflowStates, setOverflowStates] = useState({});
     const textRefs = useRef({});
     const [selectedMessageIds, setSelectedMessageIds] = useState([]);
-    const [selectAll, setSelectAll] = useState(false);
     const [openBulkDeleteAlert, setOpenBulkDeleteAlert] = useState(false);
 
     const toggleReadMore = (id) => {
@@ -368,7 +399,6 @@ export default function NewsPage() {
             setStatus(true);
             setMessage("News Deleted Successfully");
             setSelectedMessageIds([]);
-            setSelectAll(false);
         } catch (error) {
             setOpen(true);
             setColor(false);
@@ -383,8 +413,8 @@ export default function NewsPage() {
         <Box sx={{ width: "100%", }}>
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
             {isLoading && <Loader />}
-            <Box sx={{ backgroundColor: "#f2f2f2", px: 2, borderRadius: "10px 10px 10px 0px", borderBottom: "1px solid #ddd", mb: 0.13, }}>
-                <Grid container sx={{ py: 1 }} alignItems="center">
+            <Box sx={{ backgroundColor: "#f2f2f2", px: 2, borderRadius: "10px 10px 10px 0px", borderBottom: "1px solid #ddd"}}>
+                <Grid container sx={{ }} alignItems="center">
                     <Grid size={{ xs: 6, sm: 6, md: 3, lg: 3 }} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                         <Typography sx={{ fontWeight: "600", fontSize: "20px" }} >News</Typography>
                         <Chip
@@ -578,7 +608,6 @@ export default function NewsPage() {
                                     fontSize: 12.5,
                                     borderRadius: "50px",
                                     px: 2,
-                                    py: 0.6,
                                     whiteSpace: "nowrap",
                                     boxShadow: "0 2px 6px rgba(0,0,0,0.18)",
                                     "&:hover": {
@@ -592,8 +621,6 @@ export default function NewsPage() {
                         }
                     </Grid>
                 </Grid>
-
-
             </Box>
 
             <Box ref={boxRef} sx={{ maxHeight: "83vh", overflowY: "auto" }}>
@@ -688,53 +715,177 @@ export default function NewsPage() {
                         </DialogActions>
                     </Box>
                 </Dialog>
-                {canBulkDelete &&
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', px: 4, pt: 1, alignItems: "center" }}>
-                        {selectedMessageIds.length > 0 ? (
-                            <Button
-                                variant="contained"
-                                color="error"
-                                startIcon={<DeleteSweepOutlinedIcon sx={{ fontSize: 17 }} />}
-                                onClick={handleDeleteSelected}
-                                sx={{
-                                    textTransform: "none",
-                                    fontSize: "12.5px",
-                                    fontWeight: 600,
-                                    height: "30px",
-                                    borderRadius: "10px",
-                                    boxShadow: "none",
-                                    "&:hover": { boxShadow: "none" },
-                                }}
-                            >
-                                Delete Selected ({selectedMessageIds.length})
-                            </Button>
-                        ) : (
-                            <Box width={"20px"} />
-                        )}
-                        <FormControlLabel
-                            control={
-                                <Checkbox
-                                    size="small"
-                                    checked={selectAll}
-                                    onChange={(e) => {
-                                        const checked = e.target.checked;
-                                        setSelectAll(checked);
+                {(canBulkDelete || showApprovalLinks) && (() => {
+                    const allIds = filteredNews.flatMap((group) => group.news.map((n) => n.id));
+                    const selectedCount = selectedMessageIds.length;
+                    const allSelected = allIds.length > 0 && selectedCount === allIds.length;
+                    // Partial selection has to be derived, not stored - ticking cards
+                    // one by one used to leave the header checkbox reading "unchecked"
+                    // even when every card was selected.
+                    const someSelected = selectedCount > 0 && !allSelected;
+                    const toggleAll = () => {
+                        const next = !allSelected;
+                        setSelectedMessageIds(next ? allIds : []);
+                    };
+                    const clearSelection = () => setSelectedMessageIds([]);
 
-                                        if (checked) {
-                                            const allIds = filteredNews
-                                                .flatMap((group) => group.news.map((msg) => msg.id));
-                                            setSelectedMessageIds(allIds);
-                                        } else {
-                                            setSelectedMessageIds([]);
-                                        }
+                    return (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 2, pt: 1.2, flexWrap: 'wrap' }}>
+                            {canBulkDelete && bulkMode && (
+                                <Box
+                                    sx={{
+                                        display: 'flex', alignItems: 'center', gap: 1,
+                                        pl: 0.6, pr: selectedCount > 0 ? 0.6 : 1.4,
+                                        height: 34, borderRadius: '5px',
+                                        // The strip only turns red once something is actually
+                                        // selected, so a destructive colour is never on screen
+                                        // while there is nothing to destroy.
+                                        border: `1px solid ${selectedCount > 0 ? '#F5C2C2' : '#E6E8EC'}`,
+                                        bgcolor: selectedCount > 0 ? '#FEF5F5' : '#fff',
+                                        transition: 'background-color 0.2s ease, border-color 0.2s ease',
                                     }}
-                                />
-                            }
-                            label="Select All"
-                            slotProps={{ typography: { sx: { fontSize: "13px", fontWeight: 600, color: "#374151" } } }}
-                        />
-                    </Box>
-                }
+                                >
+                                    <Checkbox
+                                        size="small"
+                                        checked={allSelected}
+                                        indeterminate={someSelected}
+                                        onChange={toggleAll}
+                                        sx={{ p: 0.5 }}
+                                    />
+                                    <Typography sx={{ fontSize: '12.5px', fontWeight: 600, color: selectedCount > 0 ? '#B91C1C' : '#374151', whiteSpace: 'nowrap' }}>
+                                        {selectedCount > 0 ? `${selectedCount} selected` : 'Select all'}
+                                    </Typography>
+
+                                    {selectedCount > 0 && (
+                                        <>
+                                            <Box sx={{ width: '1px', height: 18, bgcolor: '#F0CFCF' }} />
+                                            <Button
+                                                onClick={clearSelection}
+                                                sx={{
+                                                    textTransform: 'none', fontSize: '12px', fontWeight: 600,
+                                                    minWidth: 0, height: 26, px: 1, borderRadius: '5px',
+                                                    color: '#6B7280',
+                                                    '&:hover': { bgcolor: '#F3F4F6' },
+                                                }}
+                                            >
+                                                Clear
+                                            </Button>
+                                            <Button
+                                                variant="contained"
+                                                color="error"
+                                                disableElevation
+                                                startIcon={<DeleteSweepOutlinedIcon sx={{ fontSize: 16 }} />}
+                                                onClick={handleDeleteSelected}
+                                                sx={{
+                                                    textTransform: 'none', fontSize: '12px', fontWeight: 700,
+                                                    height: 26, px: 1.2, borderRadius: '5px',
+                                                    boxShadow: 'none', '&:hover': { boxShadow: 'none' },
+                                                }}
+                                            >
+                                                Delete
+                                            </Button>
+                                        </>
+                                    )}
+                                </Box>
+                            )}
+
+                            {/* Cancel sits outside the red strip so it is reachable
+                                even before anything has been selected. */}
+                            {canBulkDelete && bulkMode && (
+                                <Button
+                                    onClick={exitBulkMode}
+                                    sx={{
+                                        textTransform: 'none', fontSize: '12.5px', fontWeight: 600,
+                                        height: 34, px: 1.4, borderRadius: '5px',
+                                        color: '#6B7280', border: '1px solid #E6E8EC', bgcolor: '#fff',
+                                        '&:hover': { bgcolor: '#F9FAFB' },
+                                    }}
+                                >
+                                    Cancel
+                                </Button>
+                            )}
+
+                            <Box sx={{ flex: 1 }} />
+
+                            {canBulkDelete && !bulkMode && (
+                                <>
+                                    <Tooltip title="More actions" arrow>
+                                        <IconButton
+                                            onClick={(e) => setMoreAnchor(e.currentTarget)}
+                                            sx={{
+                                                width: 34, height: 34, borderRadius: '5px',
+                                                border: '1px solid #E6E8EC', bgcolor: '#fff',
+                                                color: '#4B5563',
+                                                '&:hover': { bgcolor: '#F9FAFB', borderColor: '#D6DAE1' },
+                                            }}
+                                        >
+                                            <MoreVertIcon sx={{ fontSize: 18 }} />
+                                        </IconButton>
+                                    </Tooltip>
+                                    <Menu
+                                        anchorEl={moreAnchor}
+                                        open={Boolean(moreAnchor)}
+                                        onClose={() => setMoreAnchor(null)}
+                                        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                                        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                                        slotProps={{ paper: { sx: { mt: 0.6, borderRadius: '5px', minWidth: 210, border: '1px solid #E6E8EC', boxShadow: '0 6px 20px rgba(16,24,40,0.10)' } } }}
+                                    >
+                                        <MenuItem
+                                            onClick={() => { setBulkMode(true); setMoreAnchor(null); }}
+                                            sx={{ gap: 1.2, py: 1 }}
+                                        >
+                                            <ChecklistRtlOutlinedIcon sx={{ fontSize: 18, color: '#B91C1C' }} />
+                                            <Box>
+                                                <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>
+                                                    Bulk Delete
+                                                </Typography>
+                                                <Typography sx={{ fontSize: '10.5px', color: '#9CA3AF' }}>
+                                                    Pick several news posts to remove
+                                                </Typography>
+                                            </Box>
+                                        </MenuItem>
+                                    </Menu>
+                                </>
+                            )}
+
+                            {canReviewApprovals && (
+                                <Link to="/dashboardmenu/approvals/news" style={{ textDecoration: 'none' }}>
+                                    <Button
+                                        endIcon={<ArrowForwardIcon sx={{ fontSize: 15 }} />}
+                                        startIcon={<FactCheckOutlinedIcon sx={{ fontSize: 16 }} />}
+                                        sx={{
+                                            textTransform: 'none', fontSize: '12.5px', fontWeight: 700,
+                                            height: 34, px: 1.4, borderRadius: '5px',
+                                            color: '#0E7490', bgcolor: '#ECFAFD',
+                                            border: '1px solid #B6E0EC',
+                                            '&:hover': { bgcolor: '#DCF2F8' },
+                                        }}
+                                    >
+                                        Review Approvals
+                                    </Button>
+                                </Link>
+                            )}
+
+                            {canTrackApprovals && (
+                                <Link to="/dashboardmenu/status" style={{ textDecoration: 'none' }}>
+                                    <Button
+                                        endIcon={<ArrowForwardIcon sx={{ fontSize: 15 }} />}
+                                        startIcon={<PendingActionsOutlinedIcon sx={{ fontSize: 16 }} />}
+                                        sx={{
+                                            textTransform: 'none', fontSize: '12.5px', fontWeight: 700,
+                                            height: 34, px: 1.4, borderRadius: '5px',
+                                            color: '#8338EC', bgcolor: '#FBF9FE',
+                                            border: '1px solid #DCC7F3',
+                                            '&:hover': { bgcolor: '#F3ECFD' },
+                                        }}
+                                    >
+                                        Approval Status
+                                    </Button>
+                                </Link>
+                            )}
+                        </Box>
+                    );
+                })()}
                 <Box sx={{ px: 2, pb: 2 }}>
                     {filteredNews.length > 0 && filteredNews[0].news[0]?.status === "schedule" && (
                         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mt: 1.5, mb: 2 }}>
@@ -788,7 +939,7 @@ export default function NewsPage() {
                                                     sx={{
                                                         border: "1px solid #E6E8EC",
                                                         boxShadow: "0px 1px 3px rgba(16,24,40,0.06)",
-                                                        borderRadius: "12px",
+                                                        borderRadius: "5px",
                                                         backgroundColor: "#fff",
                                                         p: 2,
                                                         mb: 2,
@@ -800,7 +951,7 @@ export default function NewsPage() {
                                                         },
                                                     }}
                                                 >
-                                                    {canBulkDelete &&
+                                                    {canBulkDelete && bulkMode &&
                                                         <Checkbox
                                                             checked={selectedMessageIds.includes(newsItem.id)}
                                                             onChange={(e) => {

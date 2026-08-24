@@ -13,7 +13,7 @@ import { selectAcademicYear } from "../../Redux/Slices/academicYearSlice";
 import { findSubMenuPermissions } from "../../Redux/Slices/AuthSlice";
 import { DeleteExamTimeTable, DeleteTimeTable, ExamTimeTableFetch, GettingGrades, TimeTableFetch } from "../../Api/Api";
 import Loader from "../Loader";
-import { ListSkeleton } from "../InnerLoader";
+import { PostedCardsSkeleton } from "../InnerLoader";
 import SnackBar from "../SnackBar";
 import { selectGrades } from "../../Redux/Slices/DropdownController";
 import GridViewIcon from '@mui/icons-material/GridView';
@@ -628,7 +628,7 @@ export default function TimeTablePage() {
                     {view === 'grid' ? (
                         <Grid container spacing={3}>
                             {!hasLoaded ? (
-                                <ListSkeleton groups={1} perGroup={2} />
+                                <PostedCardsSkeleton count={6} columns={{ xs: 12, sm: 6, md: 4 }} rows={4} />
                             ) : timeTableData && timeTableData.length > 0 ? (
                                 timeTableData.map((table, index) => (
                                     <Grid
@@ -788,7 +788,7 @@ export default function TimeTablePage() {
                     ) : (
                         <Grid container spacing={1.5}>
                              {!hasLoaded ? (
-                                <ListSkeleton groups={1} perGroup={2} />
+                                <PostedCardsSkeleton count={4} columns={{ xs: 6, sm: 6, md: 6, lg: 6 }} rows={2} />
                             ) : timeTableData && timeTableData.length > 0 ? (
                                 timeTableData.map((table, index) => (
                                 <React.Fragment>

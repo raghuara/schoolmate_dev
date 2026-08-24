@@ -22,6 +22,8 @@ export default function AdditionalStudentSelectionPopup({
     onSave,
     existingStudents = [],
     activity = null,
+    canMapStudent = true,
+    canEditStudent = true,
 }) {
     const [searchQuery, setSearchQuery] = useState('');
     const [classFilter, setClassFilter] = useState('');
@@ -71,12 +73,19 @@ export default function AdditionalStudentSelectionPopup({
     });
 
     const addStudent = (student) => {
+        if (!canMapStudent) return;
         if (!selectedRolls.includes(student.rollNumber)) {
             setSelectedRolls((prev) => [...prev, student.rollNumber]);
         }
     };
 
+    // Mapping and editing are separate grants. Taking off a student who was
+    // already saved is editing; undoing your own unsaved pick is neither.
+    const wasAlreadyMapped = (rollNumber) => existingStudents.includes(rollNumber);
+    const canRemove = (rollNumber) => (wasAlreadyMapped(rollNumber) ? canEditStudent : true);
+
     const removeStudent = (rollNumber) => {
+        if (!canRemove(rollNumber)) return;
         setSelectedRolls((prev) => prev.filter((r) => r !== rollNumber));
     };
 
@@ -129,11 +138,20 @@ export default function AdditionalStudentSelectionPopup({
                     </Box>
                     <Box>
                         <Typography sx={{ fontSize: 17, fontWeight: 700, color: '#fff', lineHeight: 1.2 }}>
-                            Add Students to Additional Fee
+                            {canMapStudent ? 'Add Students to Additional Fee' : 'Edit Mapped Students'}
                         </Typography>
                         <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', mt: 0.3 }}>
                             {activity?.feeName || 'Search and select students'}
                         </Typography>
+                        {/* Say which half of the permission the user holds, so a missing
+                            control reads as a rule rather than a broken button. */}
+                        {!(canMapStudent && canEditStudent) && (
+                            <Typography sx={{ fontSize: 11, fontWeight: 600, color: '#FFE08A', mt: 0.4 }}>
+                                {canMapStudent
+                                    ? 'You can add students, but not remove ones already mapped.'
+                                    : 'You can remove mapped students, but not add new ones.'}
+                            </Typography>
+                        )}
                     </Box>
                 </Box>
                 <IconButton
@@ -241,6 +259,7 @@ export default function AdditionalStudentSelectionPopup({
                                                     <ListItemButton
                                                         key={student.rollNumber}
                                                         onClick={() => !isSelected && addStudent(student)}
+                                                        disabled={!canMapStudent && !isSelected}
                                                         sx={{
                                                             borderRadius: '8px', mb: 0.5, px: 1.5, py: 0.8,
                                                             border: '1px solid',
@@ -366,7 +385,7 @@ export default function AdditionalStudentSelectionPopup({
                                                             </Typography>
                                                         </Box>
                                                     }
-                                                    onDelete={() => removeStudent(rollNumber)}
+                                                    onDelete={canRemove(rollNumber) ? () => removeStudent(rollNumber) : undefined}
                                                     sx={{
                                                         height: 'auto', py: 0.5,
                                                         backgroundColor: isSaved ? '#F3E5F5' : '#FAF0FF',

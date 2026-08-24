@@ -375,19 +375,12 @@ export default function NotificationPage() {
         <Box sx={{ width: "100%" }}>
             {isLoading && <Loader />}
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
-            <Box sx={{
-                position: "fixed",
-                zIndex: 100,
-                backgroundColor: "#f2f2f2",
-                borderBottom: "1px solid #ddd",
-                display: "flex",
-                alignItems: "center",
-                width: "100%",
-                py: 1.5,
-                marginTop: "-2px"
-            }}>
-
-                <Typography sx={{ fontWeight: "600", fontSize: "20px", px: 2 }}>Create Notification</Typography>
+            <Box sx={{ backgroundColor: "#f2f2f2", px: 2,py: 1, borderRadius: "10px 10px 10px 0px", borderBottom: "1px solid #ddd", mb: 0.13, }}>
+                <Grid container alignItems="center">
+                    <Grid size={{ xs: 12, sm: 12, md: 12, lg: 12 }} sx={{ display: "flex", alignItems: "center" }}>
+                        <Typography sx={{ fontWeight: "600", fontSize: "20px" }}>Create Notification</Typography>
+                    </Grid>
+                </Grid>
             </Box>
             <Grid container >
                 <Grid

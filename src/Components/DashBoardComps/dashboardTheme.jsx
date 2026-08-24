@@ -1,8 +1,11 @@
 import React from "react";
-import { Box, Typography, LinearProgress } from "@mui/material";
+import { Box, IconButton, Typography, LinearProgress } from "@mui/material";
 import { Area, AreaChart, ResponsiveContainer } from "recharts";
 import ArrowUpwardRoundedIcon from "@mui/icons-material/ArrowUpwardRounded";
 import ArrowDownwardRoundedIcon from "@mui/icons-material/ArrowDownwardRounded";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
+import { Link } from "react-router-dom";
 
 export const RADIUS = "5px";
 
@@ -126,17 +129,19 @@ export const SEVERITY = {
     info: { color: DASH.blue, bg: DASH.blueLight, border: "#BFDBFE" },
 };
 
-export const Panel = ({ title, subtitle, right, children, sx = {}, bodySx = {} }) => (
+export const Panel = ({ title, subtitle, right, children, accent = DASH.primary, sx = {}, bodySx = {} }) => (
     <Box
         sx={{
             bgcolor: "#fff",
-            border: `1px solid ${DASH.line}`,
+            border: `1px solid ${accent}38`,
             borderRadius: RADIUS,
             display: "flex",
             flexDirection: "column",
             overflow: "hidden",
-            transition: "border-color 0.2s, box-shadow 0.2s",
-            "&:hover": { borderColor: DASH.primaryBorder, boxShadow: "0 1px 10px rgba(17,24,39,0.05)" },
+            // Hover is elevation only - the border already carries the colour,
+            // so changing it again on hover just made the card flicker.
+            transition: "box-shadow 0.2s ease",
+            "&:hover": { boxShadow: "0 4px 16px rgba(17,24,39,0.10)" },
             ...sx,
         }}
     >
@@ -149,12 +154,12 @@ export const Panel = ({ title, subtitle, right, children, sx = {}, bodySx = {} }
                     gap: 1,
                     px: 2,
                     py: 1.4,
-                    borderBottom: `1px solid ${DASH.lineSoft}`,
+                    borderBottom: `1px solid ${accent}22`,
                     flexWrap: "wrap",
                 }}
             >
                 <Box sx={{ minWidth: 0, display: "flex", alignItems: "center", gap: 1.2 }}>
-                    <Box sx={{ width: 3, height: 20, borderRadius: RADIUS, bgcolor: DASH.primary, flexShrink: 0 }} />
+                    <Box sx={{ width: 3, height: 20, borderRadius: RADIUS, bgcolor: accent, flexShrink: 0 }} />
                     <Box sx={{ minWidth: 0 }}>
                         <Typography sx={{ fontSize: "14.5px", fontWeight: 700, color: DASH.ink, lineHeight: 1.35 }}>
                             {title}
@@ -234,7 +239,6 @@ export const StatTile = ({ icon: Icon, label, value, caption, captionColor, capt
                     borderRadius: RADIUS,
                     bgcolor: "#fff",
                     border: `1px solid ${DASH.line}`,
-                    boxShadow: "0 1px 3px rgba(17,24,39,0.06)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -298,22 +302,19 @@ export const AlertCard = ({
 
                 borderRadius: "7px",
 
-                background: `linear-gradient(
-                    135deg,
-                    ${s.bg} 0%,
-                    #FFFFFF 100%
-                )`,
+                bgcolor: s.bg,
 
                 border: `1px solid ${s.border}`,
 
                 cursor: onClick ? "pointer" : "default",
 
                 transition:
-                    "transform .18s ease, box-shadow .18s ease",
+                    "transform .18s ease, box-shadow .18s ease, border-color .18s ease",
 
                 "&:hover": onClick
                     ? {
                         transform: "translateY(-2px)",
+                        borderColor: s.color,
                         boxShadow:
                             "0 5px 14px rgba(17,24,39,.08)",
                     }
@@ -498,8 +499,8 @@ export const SolidStatCard = ({
         onClick={onClick}
         sx={{
             position: "relative",
-            height: 125,
-            minHeight: 125,
+            height: 100,
+            minHeight: 100,
             overflow: "hidden",
             boxSizing: "border-box",
 
@@ -542,7 +543,7 @@ export const SolidStatCard = ({
 
             <Typography
                 sx={{
-                    mt: 0.80,
+                    mt: 0.6,
                     fontSize: "28px",
                     fontWeight: 700,
                     lineHeight: 1,
@@ -555,7 +556,7 @@ export const SolidStatCard = ({
 
             <Typography
                 sx={{
-                    mt: 1,
+                    mt: 0.7,
                     fontSize: "10px",
                     fontWeight: 500,
                     color: "#475569",
@@ -566,8 +567,9 @@ export const SolidStatCard = ({
         </Box>
 
 
-        {/* WAVE 1 */}
-        {/* SMOOTH BOTTOM WAVE */}
+        {/* Decorative bottom wave - commented out on request. The cards read
+            cleaner as flat tinted tiles; uncomment to bring it back. */}
+        {/*
         <Box
             sx={{
                 position: "absolute",
@@ -605,6 +607,7 @@ export const SolidStatCard = ({
                 />
             </svg>
         </Box>
+        */}
     </Box>
 );
 
@@ -751,4 +754,179 @@ export const EmptyNote = ({ text }) => (
     <Typography sx={{ fontSize: "12.5px", color: DASH.faint, textAlign: "center", py: 3 }}>
         {text}
     </Typography>
+);
+
+export const PageHeader = ({ title, subtitle, onBack, right }) => (
+    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 2 }}>
+        {onBack && (
+            <IconButton onClick={onBack} sx={{ width: 30, height: 30 }}>
+                <ArrowBackIcon sx={{ fontSize: 20, color: DASH.ink }} />
+            </IconButton>
+        )}
+        <Box sx={{ minWidth: 0 }}>
+            <Typography sx={{ fontSize: "20px", fontWeight: 700, color: DASH.ink, lineHeight: 1.2 }}>
+                {title}
+            </Typography>
+            {subtitle && (
+                <Typography sx={{ fontSize: "12px", color: DASH.muted, mt: 0.2 }}>
+                    {subtitle}
+                </Typography>
+            )}
+        </Box>
+        {right && (
+            <Box sx={{ ml: "auto", display: "flex", alignItems: "center", gap: 1, flexShrink: 0 }}>
+                {right}
+            </Box>
+        )}
+    </Box>
+);
+
+export const SectionTitle = ({ children, icon: Icon }) => (
+    <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, mb: 1.4, mt: 1 }}>
+        {Icon && <Icon sx={{ fontSize: 16, color: DASH.primary }} />}
+        <Typography
+            sx={{
+                fontSize: "11.5px",
+                fontWeight: 700,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                color: DASH.muted,
+                flexShrink: 0,
+            }}
+        >
+            {children}
+        </Typography>
+        <Box sx={{ flex: 1, height: "1px", bgcolor: DASH.line }} />
+    </Box>
+);
+
+export const CARD_DESC_H = 34;
+export const CARD_CHIP_H = 21;
+
+export const ModuleCard = ({ accent, icon: Icon, title, desc, to, state, badge, dot, links = [] }) => (
+    <Box
+        sx={{
+            width: "100%",
+            bgcolor: `${accent}0A`,
+            borderTop: `1px solid ${accent}38`,
+            borderLeft: `1px solid ${accent}38`,
+            borderBottom: "1px solid transparent",
+            borderRight: "1px solid transparent",
+            borderRadius: RADIUS,
+            boxShadow: "1px 1px 2px 0.5px rgba(0, 0, 0, 0.2)",
+            p: 1.4,
+            height: "100%",
+            boxSizing: "border-box",
+            display: "flex",
+            flexDirection: "column",
+            transition: "box-shadow 0.2s ease, border-color 0.2s ease",
+            "&:hover": {
+                boxShadow: "0 4px 16px rgba(17,24,39,0.10)",
+                borderBottomColor: `${accent}38`,
+                borderRightColor: `${accent}38`,
+                ".mcArrow": { transform: "translateX(3px)", opacity: 1 },
+            },
+        }}
+    >
+        <Link to={to} state={state || { value: "Y" }} style={{ textDecoration: "none", display: "block" }}>
+            <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.2 }}>
+                <Box
+                    sx={{
+                        width: 34,
+                        height: 34,
+                        borderRadius: "50%",
+                        bgcolor: `${accent}14`,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
+                    }}
+                >
+                    <Icon sx={{ color: accent, fontSize: 19 }} />
+                </Box>
+
+                <Box sx={{ minWidth: 0, flex: 1 }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                        <Typography sx={{ fontSize: "13.5px", fontWeight: 700, color: DASH.ink, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {title}
+                        </Typography>
+                        {badge > 0 && (
+                            <Box sx={{ px: 0.7, borderRadius: "20px", bgcolor: `${accent}1F`, border: `1px solid ${accent}3D`, flexShrink: 0 }}>
+                                <Typography sx={{ fontSize: 10, fontWeight: 800, color: accent, lineHeight: "16px" }}>
+                                    {badge}
+                                </Typography>
+                            </Box>
+                        )}
+                        {!badge && dot && (
+                            <Box sx={{ width: 7, height: 7, borderRadius: "50%", bgcolor: DASH.red, flexShrink: 0 }} />
+                        )}
+                        <ArrowForwardIcon
+                            className="mcArrow"
+                            sx={{
+                                fontSize: 16,
+                                color: accent,
+                                opacity: 0.45,
+                                transition: "transform 0.2s ease, opacity 0.2s ease",
+                                ml: "auto",
+                            }}
+                        />
+                    </Box>
+                    <Typography
+                        sx={{
+                            fontSize: "11.5px",
+                            color: DASH.muted,
+                            mt: 0.3,
+                            lineHeight: 1.45,
+                            height: CARD_DESC_H,
+                            display: "-webkit-box",
+                            WebkitBoxOrient: "vertical",
+                            WebkitLineClamp: 2,
+                            overflow: "hidden",
+                        }}
+                    >
+                        {desc}
+                    </Typography>
+                </Box>
+            </Box>
+        </Link>
+
+        {links.length > 0 && (
+            <Box
+                sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 0.5,
+                    mt: "auto",
+                    pt: 0.9,
+                    height: CARD_CHIP_H,
+                    boxSizing: "content-box",
+                    overflowX: "auto",
+                    scrollbarWidth: "none",
+                    "&::-webkit-scrollbar": { display: "none" },
+                }}
+            >
+                {links.map((l) => (
+                    <Link key={l.label} to={l.path} state={l.state || { value: "Y" }} style={{ textDecoration: "none", flexShrink: 0 }}>
+                        <Box
+                            sx={{
+                                px: 0.85,
+                                py: 0.25,
+                                borderRadius: "20px",
+                                bgcolor: `${accent}0F`,
+                                border: `1px solid ${accent}24`,
+                                cursor: "pointer",
+                                whiteSpace: "nowrap",
+                                transition: "background-color 0.15s ease, border-color 0.15s ease",
+                                "&:hover": { bgcolor: `${accent}1F`, borderColor: `${accent}59` },
+                            }}
+                        >
+                            <Typography sx={{ fontSize: "10px", fontWeight: 600, color: accent, lineHeight: "15px" }}>
+                                {l.label}
+                            </Typography>
+                        </Box>
+                    </Link>
+                ))}
+            </Box>
+        )}
+    </Box>
 );

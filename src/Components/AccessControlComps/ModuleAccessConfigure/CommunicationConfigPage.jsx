@@ -45,6 +45,13 @@ const PAGE_OVERRIDES = {
     "Notification": { subMenu: "notification", opsKeys: ["create"], approval: false },
 };
 
+// Events is a tab inside School Calendar, not a page of its own - the calendar
+// screen reads both keys and hides the tab without schoolcalender view. Granting
+// Events alone would be a permission nobody could ever use.
+const PAGE_REQUIRES = {
+    "Events": { page: "School Calendar", key: "view" },
+};
+
 export default function CommunicationConfigPage() {
     const validate = () => null;
 
@@ -61,6 +68,7 @@ export default function CommunicationConfigPage() {
             approval={true}
             validate={validate}
             pageOverrides={PAGE_OVERRIDES}
+            pageRequires={PAGE_REQUIRES}
             onSave={handleSave}
         />
     );

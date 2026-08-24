@@ -18,6 +18,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import { ConsentFetchFetch, DeleteConsentForm, DeleteNewsApi, NewsFetch } from "../../Api/Api";
 import Loader from "../Loader";
+import { ListSkeleton } from "../InnerLoader";
 import SnackBar from "../SnackBar";
 import NoData from '../../Images/Login/No Data.png'
 import HighlightOffIcon from '@mui/icons-material/HighlightOff';
@@ -44,6 +45,9 @@ export default function ConsentFormPage() {
     const userType = user.userType
     const userName = user.name
     const [isLoading, setIsLoading] = useState(false);
+    // Hold the list's shape until the first fetch has genuinely finished, so the
+    // empty state does not flash before the data arrives.
+    const [hasLoaded, setHasLoaded] = useState(false);
     const token = '123';
 
     const [searchQuery, setSearchQuery] = useState("");
@@ -209,7 +213,6 @@ export default function ConsentFormPage() {
 
 
     const fetchData = async () => {
-        setIsLoading(true);
         try {
             const res = await axios.get(ConsentFetchFetch, {
                 params: {
@@ -227,6 +230,7 @@ export default function ConsentFormPage() {
             console.error(error);
         } finally {
             setIsLoading(false);
+            setHasLoaded(true);
         }
     };
 
@@ -261,8 +265,8 @@ export default function ConsentFormPage() {
         <Box sx={{ width: "100%", }}>
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
             {isLoading && <Loader />}
-            <Box sx={{ backgroundColor: "#f2f2f2", px: 2, borderRadius: "10px 10px 10px 0px", borderBottom: "1px solid #ddd", }}>
-                <Grid container sx={{ py: 1 }} alignItems="center">
+            <Box sx={{ backgroundColor: "#f2f2f2", px: 2, borderRadius: "10px 10px 10px 0px", borderBottom: "1px solid #ddd", mb: 0.13, }}>
+                <Grid container alignItems="center">
                     <Grid
                         sx={{ display: "flex", alignItems: "center", gap: 1 }}
                         size={{
@@ -539,7 +543,15 @@ export default function ConsentFormPage() {
                     </Box>
                 </Dialog>
                 <Box sx={{ p: 2 }}>
-                    {filteredNews.length > 0 ? (
+                    {!hasLoaded ? (
+                        <ListSkeleton
+                            groups={1}
+                            perGroup={4}
+                            spacing={3}
+                            columns={{ xs: 12, sm: 12, lg: 6 }}
+                            sx={{ p: 0 }}
+                        />
+                    ) : filteredNews.length > 0 ? (
                         filteredNews.map((dateGroup, index) => (
                             <Box key={index} sx={{ mb: 4, }}>
                                 {/* Render date */}
@@ -556,7 +568,7 @@ export default function ConsentFormPage() {
                                     </Typography>
                                     <Divider sx={{ flex: 1 }} />
                                 </Box>
-                                <Grid container spacing={3}>
+                                <Grid container spacing={3} alignItems="stretch">
                                     {/* Render news cards */}
                                     {dateGroup.consentForm
                                         .filter((newsItem) =>
@@ -574,12 +586,16 @@ export default function ConsentFormPage() {
                                                         sx={{
                                                             border: "1px solid #E6E8EC",
                                                             boxShadow: "0px 1px 3px rgba(16,24,40,0.06)",
-                                                            borderRadius: "12px",
+                                                            borderRadius: "5px",
                                                             backgroundColor: "#fff",
                                                             p: 2,
-                                                            mb: 2,
+                                                            // Clears the absolutely positioned action buttons, and
+                                                            // only when there are any to clear.
+                                                            pb: newsItem.isAlterAvilable === "Y" ? 5.5 : 2,
                                                             position: "relative",
-                                                            minHeight: "170px",
+                                                            height: "100%",
+                                                            minHeight: "120px",
+                                                            boxSizing: "border-box",
                                                             transition: "box-shadow 0.2s, border-color 0.2s",
                                                             "&:hover": {
                                                                 boxShadow: "0px 4px 14px rgba(16,24,40,0.10)",
@@ -644,7 +660,7 @@ export default function ConsentFormPage() {
 
 
                                                             <Grid
-                                                                sx={{ height: "200px" }}
+                                                                sx={{ minHeight: "56px" }}
                                                                 size={{
                                                                     xs: 12,
                                                                     sm: 12,

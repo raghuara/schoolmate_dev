@@ -25,7 +25,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import CloseIcon from '@mui/icons-material/Close';
 import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import axios from 'axios';
 import SnackBar from '../../SnackBar';
@@ -233,6 +233,7 @@ const computeEndMonth = (startMonth) => ((startMonth - 1 + 11) % 12) + 1;
 
 export default function LeaveMasterScreen() {
     const navigate = useNavigate();
+    const location = useLocation();
     const isExpanded = useSelector((state) => state.sidebar.isExpanded);
     const authUser = useSelector((state) => state.auth);
     const websiteSettings = useSelector(selectWebsiteSettings);
@@ -241,7 +242,7 @@ export default function LeaveMasterScreen() {
 
     const academicYear = useSelector(selectAcademicYear) || getCurrentAcademicYear();
 
-    const [activeTab, setActiveTab] = useState(0);
+    const [activeTab, setActiveTab] = useState(location.state?.activeTab ?? 0);
 
     const [open, setOpen] = useState(false);
     const [status, setStatus] = useState(false);

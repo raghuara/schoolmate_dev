@@ -1,9 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import {
-    Box, Card, Grid, Typography, IconButton, Button, Chip,
+    Box, Grid, Typography, IconButton, Chip,
     TextField, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-    Avatar, InputAdornment, Tooltip, CircularProgress, Pagination, Menu, MenuItem,
-    Stack, LinearProgress,
+    Avatar, InputAdornment, Tooltip, Pagination, Menu, MenuItem,
+    Stack, ButtonBase,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
@@ -12,6 +12,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import CheckIcon from '@mui/icons-material/Check';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import PendingIcon from '@mui/icons-material/Pending';
 import CancelIcon from '@mui/icons-material/Cancel';
@@ -27,8 +28,6 @@ import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import GridOnIcon from '@mui/icons-material/GridOn';
 import InboxIcon from '@mui/icons-material/Inbox';
 import HubIcon from '@mui/icons-material/Hub';
-import TrendingUpIcon from '@mui/icons-material/TrendingUp';
-import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import PieChartIcon from '@mui/icons-material/PieChart';
@@ -47,12 +46,43 @@ import {
 import * as XLSX from 'xlsx';
 import axios from 'axios';
 import { fetchDashboard } from '../../Api/Api';
+import {
+    DASH, RADIUS, Panel, EmptyNote,
+} from '../DashBoardComps/dashboardTheme';
+import {
+    TileSkeleton, ModuleTileSkeleton, ChartSkeleton, DonutSkeleton, TableRowsSkeleton,
+} from '../InnerLoader';
 
 // ─── Theme ────────────────────────────────────────────────────────────────
 const PRIMARY = '#059669';
 const PRIMARY_LIGHT = '#ECFDF5';
 const PRIMARY_DARK = '#047857';
 const BORDER = '#EDEFF2';
+const CTRL_H = 32;
+
+const ToolbarSeg = ({ icon: Icon, label, onClick, active, divided, trailing, minWidth }) => (
+    <ButtonBase
+        onClick={onClick}
+        sx={{
+            display: 'flex', alignItems: 'center', gap: 0.7,
+            height: '100%', px: 1.4, minWidth,
+            borderLeft: divided ? `1px solid ${DASH.line}` : 'none',
+            bgcolor: active ? PRIMARY_LIGHT : 'transparent',
+            transition: 'background-color 0.15s ease',
+            '&:hover': { bgcolor: active ? PRIMARY_LIGHT : DASH.surface },
+        }}
+    >
+        <Icon sx={{ fontSize: 16, color: active ? PRIMARY_DARK : PRIMARY, flexShrink: 0 }} />
+        <Typography sx={{
+            fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap',
+            color: active ? PRIMARY_DARK : DASH.text,
+            flex: 1, textAlign: 'left',
+        }}>
+            {label}
+        </Typography>
+        {trailing}
+    </ButtonBase>
+);
 
 // ─── Feature config ───────────────────────────────────────────────────────
 const FEATURE_CONFIG = {
@@ -66,6 +96,76 @@ const FEATURE_CONFIG = {
     events:         { label: 'Events',          icon: EventAvailableIcon,   color: '#BE185D', bg: '#FDF2F8' },
     feedback:       { label: 'Feedback',        icon: FeedbackIcon,         color: '#9333EA', bg: '#FAF5FF' },
 };
+
+// Brighter than the shared KPI_TONES - those wash out against this page's
+// module tiles, which carry real colour.
+const TONES = {
+    cyan:  { bg: '#EAF7FB', border: '#B6E0EC', accent: '#0E7490' },
+    green: { bg: '#E7F8F0', border: '#ABE6CD', accent: '#047857' },
+    amber: { bg: '#FDF4E4', border: '#F7D89F', accent: '#B45309' },
+    rose:  { bg: '#FCEBEB', border: '#F4BFBF', accent: '#B91C1C' },
+};
+
+const KpiTile = ({ icon: Icon, label, value, note, tone }) => (
+    <Box
+        sx={{
+            position: 'relative',
+            height: 104,
+            minHeight: 104,
+            boxSizing: 'border-box',
+            overflow: 'hidden',
+            bgcolor: tone.bg,
+            border: `1px solid ${tone.border}`,
+            borderRadius: RADIUS,
+            px: 1.8, py: 1.4,
+            transition: 'box-shadow 0.2s ease',
+            '&:hover': { boxShadow: `0 5px 16px ${tone.accent}26` },
+        }}
+    >
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}>
+            <Typography sx={{
+                fontSize: '9.5px', fontWeight: 700, letterSpacing: '0.05em',
+                textTransform: 'uppercase', color: tone.accent, lineHeight: 1.4,
+            }}>
+                {label}
+            </Typography>
+            <Box sx={{
+                width: 30, height: 30, borderRadius: '50%',
+                bgcolor: tone.accent,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0,
+            }}>
+                <Icon sx={{ fontSize: 17, color: '#fff' }} />
+            </Box>
+        </Box>
+
+        <Typography sx={{
+            mt: 0.5, fontSize: '28px', fontWeight: 700, lineHeight: 1,
+            color: DASH.ink, letterSpacing: '-0.02em',
+        }}>
+            {value}
+        </Typography>
+
+        <Typography sx={{ mt: 0.7, fontSize: '10.5px', fontWeight: 600, color: tone.accent }}>
+            {note}
+        </Typography>
+    </Box>
+);
+
+// Matches the section rule on the main dashboard so the two pages read as one
+// product rather than two designs.
+const SectionTitle = ({ children, icon: Icon }) => (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, mb: 1.2, mt: 1 }}>
+        {Icon && <Icon sx={{ fontSize: 16, color: DASH.primary }} />}
+        <Typography sx={{
+            fontSize: '11.5px', fontWeight: 700, letterSpacing: '0.08em',
+            textTransform: 'uppercase', color: DASH.muted, flexShrink: 0,
+        }}>
+            {children}
+        </Typography>
+        <Box sx={{ flex: 1, height: '1px', bgcolor: DASH.line }} />
+    </Box>
+);
 
 const KPI_KEYS = Object.keys(FEATURE_CONFIG);
 const ACTIVITY_TYPES = ['news', 'messages', 'circulars', 'consentforms', 'homework', 'studymaterials', 'feedback'];
@@ -96,13 +196,6 @@ const avatarColorFor = (name = '') => {
 const getInitials = (name = '') =>
     name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
 
-const compactNumber = (n) => {
-    if (n == null) return '0';
-    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-    if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-    return String(n);
-};
-
 // ─── Date presets ─────────────────────────────────────────────────────────
 const buildPresets = () => {
     const today = new Date();
@@ -117,44 +210,6 @@ const buildPresets = () => {
         { key: 'all',       label: 'All Time',     from: '',          to: '' },
         { key: 'custom',    label: 'Custom Range', from: null,        to: null,  isCustom: true },
     ];
-};
-
-// ─── Circular Ring Gauge ──────────────────────────────────────────────────
-// A small SVG donut showing a percentage value, used inside KPI cards.
-const RingGauge = ({ value = 0, color = PRIMARY, size = 64, stroke = 7 }) => {
-    const radius = (size - stroke) / 2;
-    const circumference = 2 * Math.PI * radius;
-    const offset = circumference - (value / 100) * circumference;
-    return (
-        <Box sx={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
-            <svg width={size} height={size}>
-                <circle
-                    cx={size / 2} cy={size / 2} r={radius}
-                    fill="none" stroke="#F1F2F4" strokeWidth={stroke}
-                />
-                <circle
-                    cx={size / 2} cy={size / 2} r={radius}
-                    fill="none" stroke={color} strokeWidth={stroke}
-                    strokeLinecap="round"
-                    strokeDasharray={circumference}
-                    strokeDashoffset={offset}
-                    transform={`rotate(-90 ${size / 2} ${size / 2})`}
-                    style={{ transition: 'stroke-dashoffset 0.6s ease' }}
-                />
-            </svg>
-            <Box sx={{
-                position: 'absolute', inset: 0,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-                <Typography sx={{
-                    fontSize: size <= 56 ? 11 : 12, fontWeight: 700,
-                    color: color, letterSpacing: -0.2,
-                }}>
-                    {value}%
-                </Typography>
-            </Box>
-        </Box>
-    );
 };
 
 // ─── API plumbing ─────────────────────────────────────────────────────────
@@ -226,7 +281,6 @@ export default function CommunicationDashboard() {
     const [page, setPage] = useState(1);
     const [exportAnchor, setExportAnchor] = useState(null);
     const [dateAnchor, setDateAnchor] = useState(null);
-    const isExpanded = useSelector((state) => state.sidebar.isExpanded);
     const academicYear = useSelector(selectAcademicYear);
     const [isLoading, setIsLoading] = useState(false);
 
@@ -540,34 +594,10 @@ export default function CommunicationDashboard() {
 
     // ── Hero KPI card data (4 cards) ───────────────────────────────────────
     const heroCards = [
-        {
-            label: 'Total Communications',
-            value: heroSummary.total,
-            sub: 'All Modules',
-            color: '#0891B2', bg: '#ECFEFF',
-            icon: HubIcon,
-        },
-        {
-            label: 'Approved',
-            value: heroSummary.approved,
-            sub: `${heroSummary.approvedPct}% Approved`,
-            color: '#16A34A', bg: '#F0FDF4',
-            icon: CheckCircleIcon,
-        },
-        {
-            label: 'Pending Review',
-            value: heroSummary.pending,
-            sub: `${heroSummary.pendingPct}% Awaiting`,
-            color: '#F59E0B', bg: '#FFFBEB',
-            icon: PendingIcon,
-        },
-        {
-            label: 'Rejected',
-            value: heroSummary.rejected,
-            sub: `${heroSummary.rejectedPct}% Rejected`,
-            color: '#EC4899', bg: '#FDF2F8',
-            icon: CancelIcon,
-        },
+        { label: 'Total Communications', value: heroSummary.total,    note: 'All modules',                          tone: TONES.cyan,  icon: HubIcon },
+        { label: 'Approved',             value: heroSummary.approved, note: `${heroSummary.approvedPct}% approved`, tone: TONES.green, icon: CheckCircleIcon },
+        { label: 'Pending Review',       value: heroSummary.pending,  note: `${heroSummary.pendingPct}% awaiting`,  tone: TONES.amber, icon: PendingIcon },
+        { label: 'Rejected',             value: heroSummary.rejected, note: `${heroSummary.rejectedPct}% rejected`, tone: TONES.rose,  icon: CancelIcon },
     ];
 
     // ── Area chart tooltip ─────────────────────────────────────────────────
@@ -588,104 +618,97 @@ export default function CommunicationDashboard() {
         );
     };
 
+
     return (
         <Box sx={{ width: '100%' }}>
-            {/* ═══ HEADER STRIP (NewsPage style) — title + date filters ═══ */}
-            <Box sx={{
-                position: "fixed",
-                top: "60px",
-                left: isExpanded ? "479px" : "298px",
-                right: 0,
-                backgroundColor: "#f2f2f2",
-                px: 2,
-                py:1,
-                borderBottom: "1px solid #ddd",
-                borderTop: "1px solid #ddd",
-                zIndex: 1200,
-                transition: "left 0.3s ease-in-out",
-                overflow: 'hidden',
-            }}>
+            {/* ═══ HEADER BAR — same in-flow bar the other Communication pages use ═══ */}
+            <Box sx={{ backgroundColor: "#f2f2f2", px: 2, py: 1, borderRadius: "10px 10px 10px 0px", borderBottom: "1px solid #ddd", mb: 0.13, }}>
                 <Grid container alignItems="center" spacing={1}>
-                    <Grid size={{ xs: 12, sm: 12, md: 5, lg: 5 }} sx={{ display: 'flex', alignItems: 'center' }}>
-                        <IconButton onClick={() => (viewMode === 'tracking' ? setViewMode('dashboard') : navigate(-1))} sx={{ width: 30, height: 30, mr: 1 }}>
-                            <ArrowBackIcon sx={{ fontSize: 18, color: '#000' }} />
+                    <Grid size={{ xs: 12, sm: 12, md: 5, lg: 4 }} sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+                        {/* Negative margin keeps the button's 8px padding from setting the bar height */}
+                        <IconButton
+                            onClick={() => (viewMode === 'tracking' ? setViewMode('dashboard') : navigate(-1))}
+                            sx={{ width: 26, height: 26, my: '-5px', flexShrink: 0 }}
+                        >
+                            <ArrowBackIcon sx={{ fontSize: 17, color: DASH.ink }} />
                         </IconButton>
-                        <Box sx={{
-                            width: 36, height: 36, borderRadius: '10px',
-                            bgcolor: '#fff', border: '1px solid #ddd',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', mr: 1.2,
+                        {viewMode === 'tracking'
+                            ? <FactCheckOutlinedIcon sx={{ color: websiteSettings.mainColor || PRIMARY, fontSize: 19, flexShrink: 0 }} />
+                            : <HubIcon sx={{ color: websiteSettings.mainColor || PRIMARY, fontSize: 19, flexShrink: 0 }} />}
+                        <Typography sx={{ fontWeight: 600, fontSize: '20px', color: DASH.ink, flexShrink: 0 }}>
+                            {viewMode === 'tracking' ? 'View Tracking' : 'Communication Dashboard'}
+                        </Typography>
+                        <Typography sx={{
+                            fontSize: 11.5, color: DASH.muted, minWidth: 0,
+                            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                            display: { xs: 'none', lg: 'block' },
                         }}>
                             {viewMode === 'tracking'
-                                ? <FactCheckOutlinedIcon sx={{ color: websiteSettings.mainColor || PRIMARY, fontSize: 20 }} />
-                                : <HubIcon sx={{ color: websiteSettings.mainColor || PRIMARY, fontSize: 20 }} />}
-                        </Box>
-                        <Box sx={{ minWidth: 0, flex: 1 }}>
-                            <Typography sx={{
-                                fontWeight: 600,
-                                fontSize: { xs: '16px', sm: '18px', md: '20px' },
-                                lineHeight: 1.1,
-                                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                            }}>
-                                {viewMode === 'tracking' ? 'View Tracking' : 'Communication Dashboard'}
-                            </Typography>
-                            <Typography sx={{
-                                fontSize: 11, color: '#666', mt: 0.2,
-                                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                                display: { xs: 'none', sm: 'block' },
-                            }}>
-                                {viewMode === 'tracking'
-                                    ? 'Track who viewed each post — by class & section'
-                                    : 'Overview of all communication activity'}
-                            </Typography>
-                        </Box>
+                                ? 'Track who viewed each post — by class & section'
+                                : 'Overview of all communication activity'}
+                        </Typography>
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 12, md: 7, lg: 7 }} sx={{ display: 'flex', justifyContent: { md: 'flex-end', xs: 'flex-start' }, alignItems: 'center', gap: 0.7, flexWrap: 'wrap' }}>
-                        {/* View Tracking toggle — opens the per-student post-view tracking screen */}
-                        <Box
-                            onClick={() => setViewMode(viewMode === 'tracking' ? 'dashboard' : 'tracking')}
-                            sx={{
-                                display: 'flex', alignItems: 'center', gap: 0.6,
-                                px: 1.3, height: 30, borderRadius: '7px',
-                                bgcolor: viewMode === 'tracking' ? PRIMARY : '#fff',
-                                border: `1px solid ${viewMode === 'tracking' ? PRIMARY : '#ddd'}`,
-                                color: viewMode === 'tracking' ? '#fff' : '#374151',
-                                cursor: 'pointer', userSelect: 'none',
-                                '&:hover': { bgcolor: viewMode === 'tracking' ? PRIMARY_DARK : '#fafafa' },
-                            }}
-                        >
-                            {viewMode === 'tracking'
-                                ? <DashboardOutlinedIcon sx={{ fontSize: 16 }} />
-                                : <FactCheckOutlinedIcon sx={{ fontSize: 16, color: PRIMARY }} />}
-                            <Typography sx={{ fontSize: 12, fontWeight: 700, color: 'inherit' }}>
-                                {viewMode === 'tracking' ? 'Dashboard' : 'View Tracking'}
-                            </Typography>
+                    <Grid size={{ xs: 12, sm: 12, md: 7, lg: 8 }} sx={{ display: 'flex', justifyContent: { md: 'flex-end', xs: 'flex-start' }, alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+
+                        {/* Segmented control — view toggle and date preset share one shell */}
+                        <Box sx={{
+                            display: 'flex', alignItems: 'stretch', height: CTRL_H,
+                            bgcolor: '#fff', border: `1px solid ${DASH.line}`,
+                            borderRadius: RADIUS, overflow: 'hidden',
+                            boxShadow: '0 1px 2px rgba(16,24,40,0.05)',
+                        }}>
+                            <Tooltip
+                                arrow
+                                title={viewMode === 'tracking'
+                                    ? 'Back to the communication dashboard'
+                                    : 'See who viewed each post, by class & section'}
+                            >
+                                <Box sx={{ display: 'flex' }}>
+                                    <ToolbarSeg
+                                        onClick={() => setViewMode(viewMode === 'tracking' ? 'dashboard' : 'tracking')}
+                                        active={viewMode === 'tracking'}
+                                        icon={viewMode === 'tracking' ? DashboardOutlinedIcon : FactCheckOutlinedIcon}
+                                        label={viewMode === 'tracking' ? 'Dashboard' : 'View Tracking'}
+                                    />
+                                </Box>
+                            </Tooltip>
+
+                            {viewMode === 'dashboard' && (
+                                <ToolbarSeg
+                                    divided
+                                    minWidth={150}
+                                    onClick={(e) => setDateAnchor(e.currentTarget)}
+                                    active={Boolean(dateAnchor)}
+                                    icon={CalendarMonthIcon}
+                                    label={activePreset
+                                        ? presets.find(p => p.key === activePreset)?.label || 'Custom Range'
+                                        : 'Custom Range'}
+                                    trailing={
+                                        <KeyboardArrowDownIcon sx={{
+                                            fontSize: 16, color: DASH.faint, flexShrink: 0,
+                                            transform: dateAnchor ? 'rotate(180deg)' : 'none',
+                                            transition: 'transform 0.18s ease',
+                                        }} />
+                                    }
+                                />
+                            )}
                         </Box>
 
-                        {viewMode === 'dashboard' && (<>
-                        {/* Date range preset — dropdown */}
-                        <Box
-                            onClick={(e) => setDateAnchor(e.currentTarget)}
-                            sx={{
-                                display: 'flex', alignItems: 'center', gap: 0.7,
-                                px: 1.2, height: 30, borderRadius: '7px',
-                                bgcolor: '#fff', border: '1px solid #ddd',
-                                cursor: 'pointer', userSelect: 'none', minWidth: 160,
-                                '&:hover': { bgcolor: '#fafafa' },
-                            }}
-                        >
-                            <CalendarMonthIcon sx={{ fontSize: 15, color: PRIMARY }} />
-                            <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#374151', flex: 1 }}>
-                                {activePreset
-                                    ? presets.find(p => p.key === activePreset)?.label || 'Custom Range'
-                                    : 'Custom Range'}
-                            </Typography>
-                            <KeyboardArrowDownIcon sx={{ fontSize: 16, color: '#6B7280' }} />
-                        </Box>
                         <Menu
                             anchorEl={dateAnchor}
                             open={Boolean(dateAnchor)}
                             onClose={() => setDateAnchor(null)}
-                            slotProps={{ paper: { sx: { mt: 0.5, borderRadius: '10px', minWidth: 170 } } }}
+                            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                            slotProps={{
+                                paper: {
+                                    sx: {
+                                        mt: 0.6, borderRadius: '10px', minWidth: 180, py: 0.4,
+                                        border: `1px solid ${DASH.line}`,
+                                        boxShadow: '0 8px 24px rgba(16,24,40,0.12)',
+                                    },
+                                },
+                            }}
                         >
                             {presets.map(p => {
                                 const active = activePreset === p.key;
@@ -694,49 +717,131 @@ export default function CommunicationDashboard() {
                                         key={p.key}
                                         onClick={() => { applyPreset(p.key); setDateAnchor(null); }}
                                         sx={{
-                                            fontSize: 12.5, fontWeight: 600,
-                                            color: active ? PRIMARY_DARK : '#374151',
+                                            fontSize: 12.5, fontWeight: 600, mx: 0.6, my: 0.15,
+                                            borderRadius: RADIUS, minHeight: 34, gap: 1.5,
+                                            color: active ? PRIMARY_DARK : DASH.text,
                                             bgcolor: active ? PRIMARY_LIGHT : 'transparent',
-                                            '&:hover': { bgcolor: active ? PRIMARY_LIGHT : '#F9FAFB' },
+                                            '&:hover': { bgcolor: active ? PRIMARY_LIGHT : DASH.surface },
                                         }}
                                     >
                                         {p.label}
+                                        {active && <CheckIcon sx={{ fontSize: 15, color: PRIMARY, ml: 'auto' }} />}
                                     </MenuItem>
                                 );
                             })}
                         </Menu>
+
+                        {viewMode === 'dashboard' && (<>
                         {/* From/To inputs — visible only when Custom Range is selected */}
                         {activePreset === 'custom' && (
-                            <>
+                            <Box sx={{
+                                display: 'flex', alignItems: 'center', gap: 0.6,
+                                height: CTRL_H, px: 1,
+                                bgcolor: '#fff', border: `1px solid ${DASH.line}`,
+                                borderRadius: RADIUS, boxShadow: '0 1px 2px rgba(16,24,40,0.05)',
+                            }}>
                                 <TextField
-                                    type="date" size="small"
+                                    type="date" size="small" variant="standard"
                                     value={fromDate || ''}
                                     onChange={e => handleFromChange(e.target.value)}
-                                    slotProps={{ htmlInput: { max: getTodayInput() } }}
-                                    sx={{
-                                        width: 140, bgcolor: '#fff', borderRadius: '7px',
-                                        '& .MuiOutlinedInput-root': {
-                                            height: 28, fontSize: 11.5, borderRadius: '7px',
-                                            '& fieldset': { borderColor: '#ddd' },
-                                            '&.Mui-focused fieldset': { borderColor: PRIMARY },
-                                        },
-                                    }}
+                                    slotProps={{ htmlInput: { max: getTodayInput() }, input: { disableUnderline: true } }}
+                                    sx={{ width: 116, '& input': { fontSize: 11.5, fontWeight: 600, color: DASH.text, p: 0 } }}
                                 />
-                                <Typography sx={{ fontSize: 11, color: '#6B7280' }}>to</Typography>
+                                <Typography sx={{ fontSize: 11, color: DASH.faint, fontWeight: 600 }}>to</Typography>
                                 <TextField
-                                    type="date" size="small"
+                                    type="date" size="small" variant="standard"
                                     value={toDate || ''}
                                     onChange={e => handleToChange(e.target.value)}
-                                    slotProps={{ htmlInput: { max: getTodayInput() } }}
+                                    slotProps={{ htmlInput: { max: getTodayInput() }, input: { disableUnderline: true } }}
+                                    sx={{ width: 116, '& input': { fontSize: 11.5, fontWeight: 600, color: DASH.text, p: 0 } }}
+                                />
+                            </Box>
+                        )}
+
+                        {anyFilterActive && (
+                            <Tooltip arrow title="Clear all filters">
+                                <ButtonBase
+                                    onClick={clearFilters}
                                     sx={{
-                                        width: 140, bgcolor: '#fff', borderRadius: '7px',
-                                        '& .MuiOutlinedInput-root': {
-                                            height: 28, fontSize: 11.5, borderRadius: '7px',
-                                            '& fieldset': { borderColor: '#ddd' },
-                                            '&.Mui-focused fieldset': { borderColor: PRIMARY },
+                                        display: 'flex', alignItems: 'center', gap: 0.6,
+                                        height: CTRL_H, px: 1.3, borderRadius: RADIUS,
+                                        color: DASH.red, bgcolor: '#fff',
+                                        border: `1px solid ${DASH.red}38`,
+                                        transition: 'background-color 0.15s ease',
+                                        '&:hover': { bgcolor: DASH.redLight },
+                                    }}
+                                >
+                                    <RestartAltIcon sx={{ fontSize: 16 }} />
+                                    <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: 'inherit' }}>
+                                        Reset
+                                    </Typography>
+                                </ButtonBase>
+                            </Tooltip>
+                        )}
+
+                        {canExport && (
+                            <>
+                                <ButtonBase
+                                    onClick={(e) => setExportAnchor(e.currentTarget)}
+                                    disabled={filteredActivity.length === 0}
+                                    sx={{
+                                        display: 'flex', alignItems: 'stretch', height: CTRL_H,
+                                        borderRadius: RADIUS, overflow: 'hidden',
+                                        bgcolor: PRIMARY, color: '#fff',
+                                        boxShadow: '0 1px 2px rgba(5,150,105,0.30)',
+                                        transition: 'background-color 0.15s ease',
+                                        '&:hover': { bgcolor: PRIMARY_DARK },
+                                        '&.Mui-disabled': { bgcolor: '#EDEFF2', color: DASH.faint, boxShadow: 'none' },
+                                    }}
+                                >
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.7, px: 1.5 }}>
+                                        <FileDownloadIcon sx={{ fontSize: 16 }} />
+                                        <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: 'inherit', whiteSpace: 'nowrap' }}>
+                                            Export
+                                        </Typography>
+                                    </Box>
+                                    <Box sx={{
+                                        display: 'flex', alignItems: 'center', px: 0.5,
+                                        borderLeft: `1px solid ${filteredActivity.length === 0 ? DASH.line : 'rgba(255,255,255,0.30)'}`,
+                                    }}>
+                                        <KeyboardArrowDownIcon sx={{
+                                            fontSize: 16,
+                                            transform: exportAnchor ? 'rotate(180deg)' : 'none',
+                                            transition: 'transform 0.18s ease',
+                                        }} />
+                                    </Box>
+                                </ButtonBase>
+                                <Menu
+                                    anchorEl={exportAnchor}
+                                    open={Boolean(exportAnchor)}
+                                    onClose={() => setExportAnchor(null)}
+                                    anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                                    transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                                    slotProps={{
+                                        paper: {
+                                            sx: {
+                                                mt: 0.6, borderRadius: '10px', minWidth: 196, py: 0.4,
+                                                border: `1px solid ${DASH.line}`,
+                                                boxShadow: '0 8px 24px rgba(16,24,40,0.12)',
+                                            },
                                         },
                                     }}
-                                />
+                                >
+                                    <MenuItem onClick={handleExportExcel} sx={{ gap: 1.2, py: 0.9, mx: 0.6, borderRadius: RADIUS, '&:hover': { bgcolor: DASH.surface } }}>
+                                        <GridOnIcon sx={{ fontSize: 18, color: '#047857' }} />
+                                        <Box>
+                                            <Typography sx={{ fontSize: 13, fontWeight: 600 }}>Excel (.xlsx)</Typography>
+                                            <Typography sx={{ fontSize: 10, color: DASH.faint }}>Spreadsheet format</Typography>
+                                        </Box>
+                                    </MenuItem>
+                                    <MenuItem onClick={handleExportPDF} sx={{ gap: 1.2, py: 0.9, mx: 0.6, borderRadius: RADIUS, '&:hover': { bgcolor: DASH.surface } }}>
+                                        <PictureAsPdfIcon sx={{ fontSize: 18, color: DASH.red }} />
+                                        <Box>
+                                            <Typography sx={{ fontSize: 13, fontWeight: 600 }}>PDF</Typography>
+                                            <Typography sx={{ fontSize: 10, color: DASH.faint }}>Printable report</Typography>
+                                        </Box>
+                                    </MenuItem>
+                                </Menu>
                             </>
                         )}
                         </>)}
@@ -744,180 +849,44 @@ export default function CommunicationDashboard() {
                 </Grid>
             </Box>
 
-            <Box sx={{ pt: "75px", pb:2, px:2}}>
+            <Box sx={{
+                pt: 2, pb: 4, px: { xs: 1.5, md: 2 },
+                bgcolor: DASH.canvas, minHeight: '100%', boxSizing: 'border-box',
+            }}>
                 {viewMode === 'tracking' ? (
                     <PostViewTracking />
                 ) : (<>
-                {/* ═══ ACTION BAR: search + result count + export ═══ */}
-                <Box sx={{
-                }}>
-                    <Box sx={{pb:2, display: 'flex', alignItems: 'center',
-                        gap: 1, flexWrap: 'wrap',
-                    }}>
-                        <TextField
-                            size="small"
-                            placeholder="Search by title, creator, or role..."
-                            value={search}
-                            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                            slotProps={{
-                                input: {
-                                    startAdornment: (
-                                        <InputAdornment position="start">
-                                            <SearchIcon sx={{ fontSize: 17, color: '#9CA3AF' }} />
-                                        </InputAdornment>
-                                    ),
-                                    endAdornment: search ? (
-                                        <InputAdornment position="end">
-                                            <IconButton size="small" onClick={() => setSearch('')} sx={{ p: 0.3 }}>
-                                                <CloseIcon sx={{ fontSize: 14, color: '#9CA3AF' }} />
-                                            </IconButton>
-                                        </InputAdornment>
-                                    ) : null,
-                                },
-                            }}
-                            sx={{
-                                width: { xs: '100%', sm: 280, md: 320 },
-                                '& .MuiOutlinedInput-root': {
-                                    height: 36, fontSize: 12.5,
-                                    borderRadius: 999,
-                                    bgcolor: '#fff',
-                                    '& fieldset': { borderColor: '#D1D5DB' },
-                                    '&:hover fieldset': { borderColor: '#9CA3AF' },
-                                    '&.Mui-focused fieldset': { borderColor: PRIMARY, borderWidth: 1 },
-                                },
-                            }}
-                        />
 
-                        {anyFilterActive && (
-                            <Button
-                                size="small"
-                                startIcon={<RestartAltIcon sx={{ fontSize: 15 }} />}
-                                onClick={clearFilters}
-                                sx={{
-                                    textTransform: 'none', fontSize: 12, fontWeight: 600,
-                                    height: 36, borderRadius: '8px', px: 1.4,
-                                    color: '#DC2626',
-                                    '&:hover': { bgcolor: '#FEF2F2' },
-                                }}
-                            >
-                                Clear Filters
-                            </Button>
-                        )}
+                {/* ═══ OVERVIEW — four KPI tiles, same language as the main dashboard ═══ */}
+                <SectionTitle icon={HubIcon}>Overview</SectionTitle>
+                <Grid container spacing={2}>
+                    {isLoading && Array.from({ length: heroCards.length }).map((_, i) => (
+                        <Grid size={{ xs: 12, sm: 6, md: 6, lg: 3 }} key={`kpi-skel-${i}`}>
+                            <TileSkeleton />
+                        </Grid>
+                    ))}
+                    {!isLoading && heroCards.map((c) => (
+                        <Grid size={{ xs: 12, sm: 6, md: 6, lg: 3 }} key={c.label}>
+                            <KpiTile
+                                icon={c.icon}
+                                label={c.label}
+                                value={c.value.toLocaleString()}
+                                note={c.note}
+                                tone={c.tone}
+                            />
+                        </Grid>
+                    ))}
+                </Grid>
 
-                        <Box sx={{ flex: 1 }} />
-
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
-                            <Typography sx={{ fontSize: 11.5, color: '#6B7280' }}>Showing</Typography>
-                            <Typography sx={{ fontSize: 13, fontWeight: 700, color: PRIMARY_DARK }}>
-                                {filteredActivity.length}
-                            </Typography>
-                            <Typography sx={{ fontSize: 11.5, color: '#6B7280' }}>activities</Typography>
-                        </Box>
-
-                        {canExport && (
-                            <>
-                                <Button
-                                    size="small" variant="contained"
-                                    startIcon={<FileDownloadIcon sx={{ fontSize: 16 }} />}
-                                    endIcon={<KeyboardArrowDownIcon sx={{ fontSize: 16 }} />}
-                                    onClick={(e) => setExportAnchor(e.currentTarget)}
-                                    disabled={filteredActivity.length === 0}
-                                    sx={{
-                                        textTransform: 'none', fontSize: 12.5, fontWeight: 600,
-                                        bgcolor: PRIMARY, color: '#fff', boxShadow: 'none',
-                                        borderRadius: '8px', px: 1.8, height: 36,
-                                        '&:hover': { bgcolor: PRIMARY_DARK, boxShadow: 'none' },
-                                        '&.Mui-disabled': { bgcolor: '#E5E7EB', color: '#9CA3AF' },
-                                    }}
-                                >
-                                    Export
-                                </Button>
-                                <Menu
-                                    anchorEl={exportAnchor}
-                                    open={Boolean(exportAnchor)}
-                                    onClose={() => setExportAnchor(null)}
-                                    slotProps={{ paper: { sx: { mt: 0.5, borderRadius: '10px', minWidth: 180 } } }}
-                                >
-                                    <MenuItem onClick={handleExportExcel} sx={{ gap: 1.2, py: 1 }}>
-                                        <GridOnIcon sx={{ fontSize: 18, color: '#047857' }} />
-                                        <Box>
-                                            <Typography sx={{ fontSize: 13, fontWeight: 600 }}>Excel (.xlsx)</Typography>
-                                            <Typography sx={{ fontSize: 10, color: '#9CA3AF' }}>Spreadsheet format</Typography>
-                                        </Box>
-                                    </MenuItem>
-                                    <MenuItem onClick={handleExportPDF} sx={{ gap: 1.2, py: 1 }}>
-                                        <PictureAsPdfIcon sx={{ fontSize: 18, color: '#DC2626' }} />
-                                        <Box>
-                                            <Typography sx={{ fontSize: 13, fontWeight: 600 }}>PDF</Typography>
-                                            <Typography sx={{ fontSize: 10, color: '#9CA3AF' }}>Printable report</Typography>
-                                        </Box>
-                                    </MenuItem>
-                                </Menu>
-                            </>
-                        )}
-                    </Box>
-                </Box>
-
-                {/* ═══ HERO KPI CARDS (4 cards — bordered, icon top-right) ═══
-                <Grid container spacing={2} sx={{ mb: 2 }}>
-                    {heroCards.map((c) => {
-                        const Icon = c.icon;
-                        return (
-                            <Grid size={{ xs: 12, sm: 6, md: 6, lg: 3 }} key={c.label}>
-                                <Box sx={{
-                                    border: `1.5px solid ${c.color}`,
-                                    borderRadius: '12px',
-                                    bgcolor: c.bg,
-                                    height: '100%',
-                                    px: 2, py: 1.8,
-                                    transition: 'all 0.2s',
-                                    '&:hover': {
-                                        boxShadow: `0 6px 16px ${c.color}25`,
-                                        transform: 'translateY(-2px)',
-                                    },
-                                }}>
-                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
-                                        <Box sx={{ flex: 1, minWidth: 0 }}>
-                                            <Typography sx={{
-                                                fontSize: 13, color: '#374151', fontWeight: 500,
-                                                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                                            }}>
-                                                {c.label}
-                                            </Typography>
-                                            <Typography sx={{
-                                                fontSize: 28, fontWeight: 800,
-                                                color: '#101828', lineHeight: 1.1, mt: 0.6,
-                                            }}>
-                                                {c.value.toLocaleString()}
-                                            </Typography>
-                                            <Typography sx={{ fontSize: 12, color: '#9CA3AF', fontWeight: 500, mt: 0.8 }}>
-                                                {c.sub}
-                                            </Typography>
-                                        </Box>
-                                        <Icon sx={{ color: c.color, fontSize: 26, flexShrink: 0, mt: 0.2 }} />
-                                    </Box>
-                                </Box>
-                            </Grid>
-                        );
-                    })}
-                </Grid> */}
-
-             
-
-                {/* ═══ MODULE STATISTICS (FeeFinancePage-style cards) ═══ */}
-                {/* <Box sx={{ my: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <Box pt={5}>
-                        <Typography sx={{ fontSize: 15, fontWeight: 700, color: '#101828' }}>
-                            Module Statistics
-                        </Typography>
-                        <Typography sx={{ fontSize: 11.5, color: '#6B7280', mt: 0.2 }}>
-                            Detailed breakdown across {ACTIVITY_TYPES.length} communication modules
-                        </Typography>
-                    </Box>
-                </Box> */}
-
-                <Grid container spacing={2} sx={{ mb: 2 }}>
-                    {ACTIVITY_TYPES.map((key) => {
+                {/* ═══ MODULES — one tinted tile per communication feature ═══ */}
+                <SectionTitle icon={DashboardOutlinedIcon}>Modules</SectionTitle>
+                <Grid container spacing={2} alignItems="stretch">
+                    {isLoading && ACTIVITY_TYPES.map((key) => (
+                        <Grid size={{ xs: 12, sm: 6, md: 6, lg: 4 }} key={`mod-skel-${key}`}>
+                            <ModuleTileSkeleton />
+                        </Grid>
+                    ))}
+                    {!isLoading && ACTIVITY_TYPES.map((key) => {
                         const cfg = FEATURE_CONFIG[key];
                         const Icon = cfg.icon;
                         const k = kpis[key] || { total: 0, approved: 0, pending: 0, rejected: 0 };
@@ -927,246 +896,194 @@ export default function CommunicationDashboard() {
                             <Grid size={{ xs: 12, sm: 6, md: 6, lg: 4 }} key={key}>
                                 <Box
                                     sx={{
-                                        position: 'relative',
-                                        backgroundColor: cfg.bg,
-                                        border: '1px solid rgba(0, 0, 0, 0.08)',
-                                        borderTop: '1px solid rgba(0, 0, 0, 0.08)',
-                                        boxShadow: '1px 1px 2px 0.5px rgba(0, 0, 0, 0.12)',
-                                        borderRadius: '10px',
+                                        // Flat accent tint and a matching border — the same treatment
+                                        // the dashboard KPI and alert tiles use. No leading bar.
+                                        bgcolor: `${cfg.color}0F`,
+                                        border: `1px solid ${cfg.color}4D`,
+                                        borderRadius: RADIUS,
                                         height: '100%',
-                                        overflow: 'hidden',
-                                        transition: '0.3s',
+                                        boxSizing: 'border-box',
+                                        p: 1.4,
+                                        transition: 'box-shadow 0.2s ease, background-color 0.2s ease',
                                         '&:hover': {
-                                            boxShadow: '2px 4px 10px 0.5px rgba(0, 0, 0, 0.14)',
-                                            transform: 'translateY(-2px)',
-                                        },
-                                        '&::before': {
-                                            content: '""',
-                                            position: 'absolute',
-                                            left: 0, top: 0,
-                                            height: '100%', width: '6px',
-                                            background: `linear-gradient(180deg, ${cfg.color} 0%, ${cfg.color}99 100%)`,
+                                            bgcolor: `${cfg.color}17`,
+                                            boxShadow: `0 5px 16px ${cfg.color}2E`,
                                         },
                                     }}
                                 >
-                                    <Box sx={{ pl: 2, pr: 1.5, py: 1.6 }}>
-                                        {/* Header: icon circle + name + right-side pill */}
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                            <Box sx={{
-                                                backgroundColor: `${cfg.color}1A`,
-                                                borderRadius: '50px',
-                                                width: 38, height: 38,
-                                                display: 'flex', justifyContent: 'center', alignItems: 'center',
-                                                flexShrink: 0,
-                                            }}>
-                                                <Icon sx={{ color: cfg.color, fontSize: 21 }} />
-                                            </Box>
-                                            <Box sx={{ flex: 1, minWidth: 0 }}>
-                                                <Typography sx={{
-                                                    fontWeight: 600, fontSize: '14px', color: '#000',
-                                                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                                                }}>
-                                                    {cfg.label}
-                                                </Typography>
-                                                <Typography sx={{
-                                                    fontSize: '10.5px', color: '#666', mt: 0.2,
-                                                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                                                }}>
-                                                    {hasApproval
-                                                        ? `${k.total.toLocaleString()} total · ${approvedPct}% approved`
-                                                        : `${k.total.toLocaleString()} total · No approval required`}
-                                                </Typography>
-                                            </Box>
-                                            {hasApproval ? (
-                                                <Box sx={{
-                                                    display: 'inline-flex', alignItems: 'center',
-                                                    px: 0.9, py: 0.3, borderRadius: '50px',
-                                                    bgcolor: '#fff', border: `1px solid ${cfg.color}33`,
-                                                    flexShrink: 0,
-                                                }}>
-                                                    <Typography sx={{
-                                                        fontSize: 10.5, fontWeight: 700, color: cfg.color,
-                                                    }}>
-                                                        {approvedPct}%
-                                                    </Typography>
-                                                </Box>
-                                            ) : (
-                                                <Box sx={{
-                                                    display: 'inline-flex', alignItems: 'center', gap: 0.3,
-                                                    px: 0.9, py: 0.3, borderRadius: '50px',
-                                                    bgcolor: '#fff', border: `1px solid ${cfg.color}33`,
-                                                    flexShrink: 0,
-                                                }}>
-                                                    <CheckCircleIcon sx={{ fontSize: 11, color: cfg.color }} />
-                                                    <Typography sx={{
-                                                        fontSize: 9.5, fontWeight: 700, color: cfg.color,
-                                                        textTransform: 'uppercase', letterSpacing: 0.3,
-                                                    }}>
-                                                        Direct
-                                                    </Typography>
-                                                </Box>
-                                            )}
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                        <Box sx={{
+                                            bgcolor: cfg.color,
+                                            borderRadius: '50%',
+                                            width: 34, height: 34,
+                                            display: 'flex', justifyContent: 'center', alignItems: 'center',
+                                            flexShrink: 0,
+                                        }}>
+                                            <Icon sx={{ color: '#fff', fontSize: 18 }} />
                                         </Box>
+                                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                                            <Typography sx={{
+                                                fontWeight: 700, fontSize: '13.5px', color: DASH.ink,
+                                                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                                            }}>
+                                                {cfg.label}
+                                            </Typography>
+                                            <Typography sx={{
+                                                fontSize: '11px', color: DASH.muted, mt: 0.2,
+                                                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                                            }}>
+                                                {hasApproval
+                                                    ? `${k.total.toLocaleString()} total · ${approvedPct}% approved`
+                                                    : `${k.total.toLocaleString()} total · publishes directly`}
+                                            </Typography>
+                                        </Box>
+                                        <Box sx={{
+                                            display: 'inline-flex', alignItems: 'center', gap: 0.3,
+                                            px: 0.9, py: 0.3, borderRadius: RADIUS,
+                                            bgcolor: `${cfg.color}1A`,
+                                            border: `1px solid ${cfg.color}4D`,
+                                            flexShrink: 0,
+                                        }}>
+                                            {!hasApproval && <CheckCircleIcon sx={{ fontSize: 11, color: cfg.color }} />}
+                                            <Typography sx={{
+                                                fontSize: hasApproval ? 10.5 : 9.5, fontWeight: 700, color: cfg.color,
+                                                textTransform: hasApproval ? 'none' : 'uppercase',
+                                                letterSpacing: hasApproval ? 0 : 0.3,
+                                            }}>
+                                                {hasApproval ? `${approvedPct}%` : 'Direct'}
+                                            </Typography>
+                                        </Box>
+                                    </Box>
 
-                                        {hasApproval ? (
-                                            // Stats grid: Total / Approved / Pending / Rejected
-                                            <Box sx={{
-                                                display: 'grid',
-                                                gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
-                                                gap: 0.6, mt: 1.6,
-                                            }}>
-                                                {[
-                                                    { label: 'Total',    value: k.total,    color: '#374151', dot: cfg.color },
-                                                    { label: 'Approved', value: k.approved, color: '#16A34A', dot: '#16A34A' },
-                                                    { label: 'Pending',  value: k.pending,  color: '#D97706', dot: '#D97706' },
-                                                    { label: 'Rejected', value: k.rejected, color: '#DC2626', dot: '#DC2626' },
-                                                ].map((s) => (
-                                                    <Box
-                                                        key={s.label}
-                                                        sx={{
-                                                            bgcolor: '#fff',
-                                                            border: '1px solid rgba(0,0,0,0.06)',
-                                                            borderRadius: '8px',
-                                                            py: 0.7, px: 0.4,
-                                                            display: 'flex', flexDirection: 'column', alignItems: 'center',
-                                                            minWidth: 0, overflow: 'hidden',
-                                                        }}
-                                                    >
-                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3, minWidth: 0 }}>
-                                                            <Box sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: s.dot, flexShrink: 0 }} />
-                                                            <Typography sx={{
-                                                                fontSize: 8.5, fontWeight: 700, color: '#6B7280',
-                                                                textTransform: 'uppercase', letterSpacing: 0.2,
-                                                                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                                                            }}>
-                                                                {s.label}
-                                                            </Typography>
-                                                        </Box>
+                                    {hasApproval ? (
+                                        <Box sx={{
+                                            display: 'grid',
+                                            gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+                                            gap: 0.6, mt: 1.3,
+                                        }}>
+                                            {[
+                                                { label: 'Total',    value: k.total,    color: DASH.ink,   dot: cfg.color },
+                                                { label: 'Approved', value: k.approved, color: DASH.green, dot: DASH.green },
+                                                { label: 'Pending',  value: k.pending,  color: DASH.amber, dot: DASH.amber },
+                                                { label: 'Rejected', value: k.rejected, color: DASH.red,   dot: DASH.red },
+                                            ].map((s) => (
+                                                <Box
+                                                    key={s.label}
+                                                    sx={{
+                                                        bgcolor: '#fff',
+                                                        border: `1px solid ${DASH.line}`,
+                                                        borderRadius: RADIUS,
+                                                        py: 0.6, px: 0.4,
+                                                        display: 'flex', flexDirection: 'column', alignItems: 'center',
+                                                        minWidth: 0, overflow: 'hidden',
+                                                    }}
+                                                >
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3, minWidth: 0 }}>
+                                                        <Box sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: s.dot, flexShrink: 0 }} />
                                                         <Typography sx={{
-                                                            fontSize: 14, fontWeight: 800, color: s.color,
-                                                            lineHeight: 1.2, mt: 0.2,
+                                                            fontSize: 8.5, fontWeight: 700, color: DASH.muted,
+                                                            textTransform: 'uppercase', letterSpacing: 0.2,
+                                                            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                                                         }}>
-                                                            {s.value.toLocaleString()}
+                                                            {s.label}
                                                         </Typography>
                                                     </Box>
-                                                ))}
-                                            </Box>
-                                        ) : (
-                                            // Single total panel — no approval workflow
-                                            <Box sx={{
-                                                mt: 1.6,
-                                                bgcolor: '#fff',
-                                                border: '1px solid rgba(0,0,0,0.06)',
-                                                borderRadius: '8px',
-                                                p: 1.2,
-                                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                                gap: 1,
-                                            }}>
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.9, minWidth: 0 }}>
-                                                    <Box sx={{
-                                                        width: 32, height: 32, borderRadius: '8px',
-                                                        bgcolor: `${cfg.color}15`,
-                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                        flexShrink: 0,
+                                                    <Typography sx={{
+                                                        fontSize: 14, fontWeight: 700, color: s.color,
+                                                        lineHeight: 1.2, mt: 0.2,
                                                     }}>
-                                                        <Icon sx={{ fontSize: 17, color: cfg.color }} />
-                                                    </Box>
-                                                    <Box sx={{ minWidth: 0 }}>
-                                                        <Typography sx={{
-                                                            fontSize: 9.5, fontWeight: 700, color: '#6B7280',
-                                                            textTransform: 'uppercase', letterSpacing: 0.3,
-                                                            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                                                        }}>
-                                                            Total Records
-                                                        </Typography>
-                                                        <Typography sx={{
-                                                            fontSize: 10, color: '#9CA3AF', fontWeight: 500, mt: 0.1,
-                                                            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                                                        }}>
-                                                            Direct publish · no approval
-                                                        </Typography>
-                                                    </Box>
+                                                        {s.value.toLocaleString()}
+                                                    </Typography>
                                                 </Box>
+                                            ))}
+                                        </Box>
+                                    ) : (
+                                        <Box sx={{
+                                            mt: 1.3,
+                                            bgcolor: '#fff',
+                                            border: `1px solid ${DASH.line}`,
+                                            borderRadius: RADIUS,
+                                            px: 1.2, py: 0.9,
+                                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                            gap: 1,
+                                        }}>
+                                            <Box sx={{ minWidth: 0 }}>
                                                 <Typography sx={{
-                                                    fontSize: 22, fontWeight: 800, color: cfg.color,
-                                                    lineHeight: 1, flexShrink: 0,
+                                                    fontSize: 9.5, fontWeight: 700, color: DASH.muted,
+                                                    textTransform: 'uppercase', letterSpacing: 0.3,
+                                                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                                                 }}>
-                                                    {k.total.toLocaleString()}
+                                                    Total Records
+                                                </Typography>
+                                                <Typography sx={{
+                                                    fontSize: 10.5, color: DASH.faint, fontWeight: 500, mt: 0.1,
+                                                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                                                }}>
+                                                    No approval step
                                                 </Typography>
                                             </Box>
-                                        )}
-                                    </Box>
+                                            <Typography sx={{
+                                                fontSize: 22, fontWeight: 700, color: cfg.color,
+                                                lineHeight: 1, flexShrink: 0,
+                                            }}>
+                                                {k.total.toLocaleString()}
+                                            </Typography>
+                                        </Box>
+                                    )}
                                 </Box>
                             </Grid>
                         );
                     })}
                 </Grid>
 
-                {/* ═══ CHARTS ROW: Area chart (8) + Pie chart (4) ═══ */}
-                <Grid container spacing={2} sx={{ mb: 2 }} alignItems="stretch">
-                    {/* Area chart: Activity over time */}
-                    <Grid size={{ xs: 12, lg: 8 }}>
-                        <Card sx={{
-                            border: `1px solid ${BORDER}`, borderRadius: '14px',
-                            boxShadow: '0 1px 2px rgba(16,24,40,0.04)',
-                            bgcolor: '#fff', p: 2,
-                        }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5, flexWrap: 'wrap', gap: 1 }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    <Box sx={{
-                                        width: 32, height: 32, borderRadius: '8px',
-                                        bgcolor: PRIMARY_LIGHT,
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    }}>
-                                        <ShowChartIcon sx={{ fontSize: 18, color: PRIMARY }} />
-                                    </Box>
-                                    <Box>
-                                        <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#101828' }}>
-                                            Activity Trend
-                                        </Typography>
-                                        <Typography sx={{ fontSize: 11, color: '#6B7280', mt: 0.1 }}>
-                                            Daily communication activity over selected period
-                                        </Typography>
-                                    </Box>
+                {/* ═══ INSIGHTS — trend, status split, module comparison ═══ */}
+                <SectionTitle icon={ShowChartIcon}>Insights</SectionTitle>
+                <Grid container spacing={2} alignItems="stretch">
+                    <Grid size={{ xs: 12, sm: 12, md: 12, lg: 8 }}>
+                        <Panel
+                            title="Activity Trend"
+                            subtitle="Daily communication activity over the selected period"
+                            accent={DASH.green}
+                            sx={{ height: '100%' }}
+                            right={trendPeakDay ? (
+                                <Box sx={{
+                                    display: 'inline-flex', alignItems: 'center', gap: 0.6,
+                                    bgcolor: DASH.greenLight, border: `1px solid ${DASH.green}38`,
+                                    px: 1.1, py: 0.4, borderRadius: RADIUS,
+                                }}>
+                                    <CalendarMonthIcon sx={{ fontSize: 13, color: DASH.green }} />
+                                    <Typography sx={{ fontSize: 11, color: DASH.text, fontWeight: 600 }}>
+                                        Peak: <strong>{trendPeakDay.label}</strong> · {trendPeakDay.count}
+                                    </Typography>
                                 </Box>
-                                {trendPeakDay && (
-                                    <Box sx={{
-                                        display: 'inline-flex', alignItems: 'center', gap: 0.6,
-                                        bgcolor: PRIMARY_LIGHT, border: `1px solid ${PRIMARY_LIGHT}`,
-                                        px: 1.2, py: 0.6, borderRadius: '8px',
-                                    }}>
-                                        <CalendarMonthIcon sx={{ fontSize: 14, color: PRIMARY_DARK }} />
-                                        <Typography sx={{ fontSize: 11, color: PRIMARY_DARK, fontWeight: 600 }}>
-                                            Peak: <strong>{trendPeakDay.label}</strong> · {trendPeakDay.count}
-                                        </Typography>
-                                    </Box>
-                                )}
-                            </Box>
-
+                            ) : null}
+                        >
                             <Box sx={{ width: '100%', height: 280 }}>
                                 {isLoading ? (
+                                    <ChartSkeleton height={280} bars={14} />
+                                ) : trendData.length === 0 ? (
                                     <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        <CircularProgress size={28} sx={{ color: PRIMARY }} />
+                                        <EmptyNote text="No activity recorded in this period." />
                                     </Box>
                                 ) : (
                                     <ResponsiveContainer width="100%" height="100%">
                                         <AreaChart data={trendData} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
                                             <defs>
                                                 <linearGradient id="activityGradient" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="0%"   stopColor={PRIMARY} stopOpacity={0.35} />
+                                                    <stop offset="0%"   stopColor={PRIMARY} stopOpacity={0.32} />
                                                     <stop offset="100%" stopColor={PRIMARY} stopOpacity={0.02} />
                                                 </linearGradient>
                                             </defs>
-                                            <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" vertical={false} />
+                                            <CartesianGrid strokeDasharray="3 3" stroke={DASH.lineSoft} vertical={false} />
                                             <XAxis
                                                 dataKey="label"
-                                                tick={{ fontSize: 10.5, fill: '#9CA3AF' }}
+                                                tick={{ fontSize: 10.5, fill: DASH.faint }}
                                                 axisLine={false}
                                                 tickLine={false}
                                                 minTickGap={20}
                                             />
                                             <YAxis
-                                                tick={{ fontSize: 10.5, fill: '#9CA3AF' }}
+                                                tick={{ fontSize: 10.5, fill: DASH.faint }}
                                                 axisLine={false}
                                                 tickLine={false}
                                                 allowDecimals={false}
@@ -1184,38 +1101,23 @@ export default function CommunicationDashboard() {
                                     </ResponsiveContainer>
                                 )}
                             </Box>
-                        </Card>
+                        </Panel>
                     </Grid>
 
-                    {/* Pie chart: Status distribution */}
-                    <Grid size={{ xs: 12, lg: 4 }}>
-                        <Card sx={{
-                            border: `1px solid ${BORDER}`, borderRadius: '14px',
-                            boxShadow: '0 1px 2px rgba(16,24,40,0.04)',
-                            bgcolor: '#fff', p: 2,
-                        }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-                                <Box sx={{
-                                    width: 32, height: 32, borderRadius: '8px',
-                                    bgcolor: PRIMARY_LIGHT,
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                }}>
-                                    <PieChartIcon sx={{ fontSize: 18, color: PRIMARY }} />
-                                </Box>
-                                <Box>
-                                    <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#101828' }}>
-                                        Status Distribution
-                                    </Typography>
-                                    <Typography sx={{ fontSize: 11, color: '#6B7280', mt: 0.1 }}>
-                                        Across all modules
-                                    </Typography>
-                                </Box>
-                            </Box>
+                    <Grid size={{ xs: 12, sm: 12, md: 12, lg: 4 }}>
+                        <Panel
+                            title="Status Distribution"
+                            subtitle="Across all modules"
+                            accent={DASH.violet}
+                            sx={{ height: '100%' }}
+                            right={<PieChartIcon sx={{ fontSize: 17, color: DASH.violet }} />}
+                        >
+                            {isLoading && <DonutSkeleton size={148} legendRows={3} />}
 
-                            <Box sx={{ position: 'relative', width: '100%', height: 180 }}>
-                                {isLoading ? (
+                            {!isLoading && <Box sx={{ position: 'relative', width: '100%', height: 176 }}>
+                                {pieData.length === 0 ? (
                                     <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        <CircularProgress size={28} sx={{ color: PRIMARY }} />
+                                        <EmptyNote text="Nothing to break down yet." />
                                     </Box>
                                 ) : (
                                     <>
@@ -1224,7 +1126,7 @@ export default function CommunicationDashboard() {
                                                 <Pie
                                                     data={pieData}
                                                     cx="50%" cy="50%"
-                                                    innerRadius={48} outerRadius={75}
+                                                    innerRadius={48} outerRadius={74}
                                                     paddingAngle={3}
                                                     dataKey="value"
                                                     stroke="none"
@@ -1236,10 +1138,10 @@ export default function CommunicationDashboard() {
                                                 <RTooltip
                                                     contentStyle={{
                                                         backgroundColor: '#fff',
-                                                        border: `1px solid ${BORDER}`,
-                                                        borderRadius: '8px',
+                                                        border: `1px solid ${DASH.line}`,
+                                                        borderRadius: RADIUS,
                                                         fontSize: 12,
-                                                        boxShadow: '0 4px 12px rgba(16,24,40,0.08)',
+                                                        boxShadow: '0 6px 20px rgba(0,0,0,0.1)',
                                                     }}
                                                 />
                                             </PieChart>
@@ -1250,11 +1152,11 @@ export default function CommunicationDashboard() {
                                             alignItems: 'center', justifyContent: 'center',
                                             pointerEvents: 'none',
                                         }}>
-                                            <Typography sx={{ fontSize: 20, fontWeight: 800, color: '#101828', lineHeight: 1 }}>
+                                            <Typography sx={{ fontSize: 21, fontWeight: 700, color: DASH.ink, lineHeight: 1 }}>
                                                 {pieTotal.toLocaleString()}
                                             </Typography>
                                             <Typography sx={{
-                                                fontSize: 10, color: '#6B7280', fontWeight: 600,
+                                                fontSize: 10, color: DASH.muted, fontWeight: 700,
                                                 mt: 0.3, textTransform: 'uppercase', letterSpacing: 0.4,
                                             }}>
                                                 Total
@@ -1262,22 +1164,22 @@ export default function CommunicationDashboard() {
                                         </Box>
                                     </>
                                 )}
-                            </Box>
+                            </Box>}
 
-                            <Stack spacing={0.6} sx={{ mt: 1 }}>
+                            {!isLoading && <Stack spacing={0.6} sx={{ mt: 1.2 }}>
                                 {pieData.map(p => {
                                     const pct = pieTotal > 0 ? Math.round((p.value / pieTotal) * 100) : 0;
                                     return (
                                         <Box key={p.name} sx={{
                                             display: 'flex', alignItems: 'center', gap: 1,
-                                            px: 1, py: 0.5, borderRadius: '8px',
-                                            bgcolor: '#FAFBFC', border: `1px solid ${BORDER}`,
+                                            px: 1, py: 0.55, borderRadius: RADIUS,
+                                            bgcolor: `${p.color}0D`, border: `1px solid ${p.color}38`,
                                         }}>
-                                            <Box sx={{ width: 9, height: 9, borderRadius: '3px', bgcolor: p.color }} />
-                                            <Typography sx={{ fontSize: 11.5, color: '#374151', fontWeight: 600, flex: 1 }}>
+                                            <Box sx={{ width: 9, height: 9, borderRadius: '2px', bgcolor: p.color }} />
+                                            <Typography sx={{ fontSize: 11.5, color: DASH.text, fontWeight: 600, flex: 1 }}>
                                                 {p.name}
                                             </Typography>
-                                            <Typography sx={{ fontSize: 11.5, color: '#101828', fontWeight: 700 }}>
+                                            <Typography sx={{ fontSize: 11.5, color: DASH.ink, fontWeight: 700 }}>
                                                 {p.value.toLocaleString()}
                                             </Typography>
                                             <Typography sx={{
@@ -1289,199 +1191,218 @@ export default function CommunicationDashboard() {
                                         </Box>
                                     );
                                 })}
-                            </Stack>
-                        </Card>
+                            </Stack>}
+                        </Panel>
                     </Grid>
                 </Grid>
 
-                {/* ═══ MODULE COMPARISON BAR CHART (horizontal, full width) ═══ */}
-                <Card sx={{
-                    border: `1px solid ${BORDER}`, borderRadius: '14px',
-                    boxShadow: '0 1px 2px rgba(16,24,40,0.04)',
-                    bgcolor: '#fff', p: 2, mb: 2,
-                }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5, flexWrap: 'wrap', gap: 1 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Box sx={{
-                                width: 32, height: 32, borderRadius: '8px',
-                                bgcolor: PRIMARY_LIGHT,
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            }}>
-                                <BarChartIcon sx={{ fontSize: 18, color: PRIMARY }} />
-                            </Box>
-                            <Box>
-                                <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#101828' }}>
-                                    Module-wise Comparison
-                                </Typography>
-                                <Typography sx={{ fontSize: 11, color: '#6B7280', mt: 0.1 }}>
-                                    Status counts across all modules
-                                </Typography>
-                            </Box>
-                        </Box>
-                        <Box sx={{ display: 'flex', gap: 1.3, flexWrap: 'wrap' }}>
-                            {[
-                                { label: 'Approved', color: '#16A34A' },
-                                { label: 'Pending',  color: '#D97706' },
-                                { label: 'Rejected', color: '#DC2626' },
-                            ].map(l => (
-                                <Box key={l.label} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                    <Box sx={{ width: 9, height: 9, borderRadius: '2px', bgcolor: l.color }} />
-                                    <Typography sx={{ fontSize: 11, color: '#6B7280', fontWeight: 500 }}>{l.label}</Typography>
+                <Grid container spacing={2} sx={{ mt: 0 }}>
+                    <Grid size={{ xs: 12, sm: 12, md: 12, lg: 12 }}>
+                        <Panel
+                            title="Module-wise Comparison"
+                            subtitle="Status counts across all modules"
+                            accent={DASH.blue}
+                            right={(
+                                <Box sx={{ display: 'flex', gap: 1.3, flexWrap: 'wrap', alignItems: 'center' }}>
+                                    <BarChartIcon sx={{ fontSize: 17, color: DASH.blue }} />
+                                    {[
+                                        { label: 'Approved', color: DASH.green },
+                                        { label: 'Pending',  color: DASH.amber },
+                                        { label: 'Rejected', color: DASH.red },
+                                    ].map(l => (
+                                        <Box key={l.label} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                            <Box sx={{ width: 9, height: 9, borderRadius: '2px', bgcolor: l.color }} />
+                                            <Typography sx={{ fontSize: 11, color: DASH.muted, fontWeight: 600 }}>{l.label}</Typography>
+                                        </Box>
+                                    ))}
                                 </Box>
-                            ))}
-                        </Box>
-                    </Box>
-
-                    <Box sx={{ width: '100%', height: 280 }}>
-                        {isLoading ? (
-                            <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <CircularProgress size={28} sx={{ color: PRIMARY }} />
+                            )}
+                        >
+                            <Box sx={{ width: '100%', height: 300 }}>
+                                {isLoading ? (
+                                    <ChartSkeleton height={300} bars={9} />
+                                ) : moduleBarData.length === 0 ? (
+                                    <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <EmptyNote text="No module activity in this period." />
+                                    </Box>
+                                ) : (
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart
+                                            data={moduleBarData}
+                                            layout="vertical"
+                                            margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
+                                            barCategoryGap={10}
+                                        >
+                                            <CartesianGrid strokeDasharray="3 3" stroke={DASH.lineSoft} horizontal={false} />
+                                            <XAxis
+                                                type="number"
+                                                tick={{ fontSize: 10.5, fill: DASH.faint }}
+                                                axisLine={false}
+                                                tickLine={false}
+                                                allowDecimals={false}
+                                            />
+                                            <YAxis
+                                                type="category"
+                                                dataKey="name"
+                                                tick={{ fontSize: 11.5, fill: DASH.text, fontWeight: 500 }}
+                                                axisLine={false}
+                                                tickLine={false}
+                                                width={110}
+                                            />
+                                            <RTooltip
+                                                cursor={{ fill: DASH.blueLight, opacity: 0.4 }}
+                                                contentStyle={{
+                                                    backgroundColor: '#fff',
+                                                    border: `1px solid ${DASH.line}`,
+                                                    borderRadius: RADIUS,
+                                                    fontSize: 12,
+                                                    boxShadow: '0 6px 20px rgba(0,0,0,0.1)',
+                                                }}
+                                            />
+                                            <Bar dataKey="Approved" stackId="a" fill={DASH.green} barSize={18} />
+                                            <Bar dataKey="Pending"  stackId="a" fill={DASH.amber} barSize={18} />
+                                            <Bar dataKey="Rejected" stackId="a" fill={DASH.red}   barSize={18} radius={[0, 4, 4, 0]} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                )}
                             </Box>
-                        ) : (
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart
-                                    data={moduleBarData}
-                                    layout="vertical"
-                                    margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
-                                    barCategoryGap={10}
-                                >
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" horizontal={false} />
-                                    <XAxis
-                                        type="number"
-                                        tick={{ fontSize: 10.5, fill: '#9CA3AF' }}
-                                        axisLine={false}
-                                        tickLine={false}
-                                        allowDecimals={false}
-                                    />
-                                    <YAxis
-                                        type="category"
-                                        dataKey="name"
-                                        tick={{ fontSize: 11.5, fill: '#374151', fontWeight: 500 }}
-                                        axisLine={false}
-                                        tickLine={false}
-                                        width={110}
-                                    />
-                                    <RTooltip
-                                        cursor={{ fill: PRIMARY_LIGHT, opacity: 0.3 }}
-                                        contentStyle={{
-                                            backgroundColor: '#fff',
-                                            border: `1px solid ${BORDER}`,
-                                            borderRadius: '8px',
-                                            fontSize: 12,
-                                            boxShadow: '0 4px 12px rgba(16,24,40,0.08)',
-                                        }}
-                                    />
-                                    <Bar dataKey="Approved" stackId="a" fill="#16A34A" barSize={18} />
-                                    <Bar dataKey="Pending"  stackId="a" fill="#D97706" barSize={18} />
-                                    <Bar dataKey="Rejected" stackId="a" fill="#DC2626" barSize={18} radius={[0, 6, 6, 0]} />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        )}
-                    </Box>
-                </Card>
+                        </Panel>
+                    </Grid>
+                </Grid>
 
                 {/* ═══ RECENT ACTIVITY ═══ */}
-                <Card sx={{
-                    border: `1px solid ${BORDER}`, borderRadius: '14px',
-                    boxShadow: '0 1px 2px rgba(16,24,40,0.04)', bgcolor: '#fff',
-                }}>
-                    <Box sx={{ p: 2, pb: 1.5 }}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 1.3 }}>
-                            <Box>
-                                <Typography sx={{ fontSize: 15, fontWeight: 700, color: '#101828' }}>
-                                    Recent Activity
-                                </Typography>
-                                <Typography sx={{ fontSize: 11.5, color: '#6B7280', mt: 0.2 }}>
-                                    Latest communications across selected modules
-                                </Typography>
-                            </Box>
+                <SectionTitle icon={InboxIcon}>Recent Activity</SectionTitle>
+                <Panel
+                    title="Latest Communications"
+                    subtitle="Newest posts across the selected modules"
+                    accent={DASH.primary}
+                    bodySx={{ p: 0 }}
+                    right={(
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                            <TextField
+                                size="small"
+                                placeholder="Search title, creator or role..."
+                                value={search}
+                                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                                slotProps={{
+                                    input: {
+                                        startAdornment: (
+                                            <InputAdornment position="start">
+                                                <SearchIcon sx={{ fontSize: 16, color: DASH.faint }} />
+                                            </InputAdornment>
+                                        ),
+                                        endAdornment: search ? (
+                                            <InputAdornment position="end">
+                                                <IconButton size="small" onClick={() => setSearch('')} sx={{ p: 0.3 }}>
+                                                    <CloseIcon sx={{ fontSize: 14, color: DASH.faint }} />
+                                                </IconButton>
+                                            </InputAdornment>
+                                        ) : null,
+                                    },
+                                }}
+                                sx={{
+                                    width: { xs: '100%', sm: 240 },
+                                    '& .MuiOutlinedInput-root': {
+                                        height: 32, fontSize: 12.5,
+                                        borderRadius: RADIUS,
+                                        bgcolor: '#fff',
+                                        '& fieldset': { borderColor: DASH.line },
+                                        '&:hover fieldset': { borderColor: DASH.faint },
+                                        '&.Mui-focused fieldset': { borderColor: DASH.primary, borderWidth: 1 },
+                                    },
+                                }}
+                            />
                             <Chip
                                 label={`${filteredActivity.length} record${filteredActivity.length !== 1 ? 's' : ''}`}
                                 size="small"
                                 sx={{
-                                    bgcolor: PRIMARY_LIGHT, color: PRIMARY_DARK,
-                                    fontWeight: 600, fontSize: 11, height: 26,
+                                    bgcolor: DASH.primaryLight, color: '#8A6100',
+                                    border: `1px solid ${DASH.primaryBorder}`,
+                                    borderRadius: RADIUS,
+                                    fontWeight: 700, fontSize: 11, height: 24,
                                 }}
                             />
                         </Box>
-
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.6 }}>
-                            {[
-                                { key: 'all', label: 'All', color: '#374151' },
-                                ...ACTIVITY_TYPES.map(t => ({ key: t, label: FEATURE_CONFIG[t].label, color: FEATURE_CONFIG[t].color })),
-                            ].map((t) => {
-                                const active = activityTypeFilter === t.key;
-                                const IconC = t.key !== 'all' ? FEATURE_CONFIG[t.key]?.icon : null;
-                                return (
-                                    <Box
-                                        key={t.key}
-                                        onClick={() => { setActivityTypeFilter(t.key); setPage(1); }}
-                                        sx={{
-                                            px: 1.2, height: 28, borderRadius: '7px',
-                                            display: 'flex', alignItems: 'center', gap: 0.5,
-                                            cursor: 'pointer', userSelect: 'none',
-                                            bgcolor: active ? `${t.color}15` : '#fff',
-                                            border: `1px solid ${active ? t.color : BORDER}`,
-                                            transition: 'all 0.15s',
-                                            '&:hover': { bgcolor: active ? `${t.color}15` : '#F9FAFB' },
-                                        }}
-                                    >
-                                        {IconC && <IconC sx={{ fontSize: 13, color: active ? t.color : '#9CA3AF' }} />}
-                                        <Typography sx={{
-                                            fontSize: 11.5, fontWeight: 600,
-                                            color: active ? t.color : '#6B7280',
-                                        }}>
-                                            {t.label}
-                                        </Typography>
-                                    </Box>
-                                );
-                            })}
-                        </Box>
+                    )}
+                >
+                    {/* Type filter — narrows the table to a single module */}
+                    <Box sx={{
+                        display: 'flex', flexWrap: 'wrap', gap: 0.6,
+                        px: 2, pt: 1.6, pb: 1.4,
+                    }}>
+                        {[
+                            { key: 'all', label: 'All', color: DASH.text },
+                            ...ACTIVITY_TYPES.map(t => ({ key: t, label: FEATURE_CONFIG[t].label, color: FEATURE_CONFIG[t].color })),
+                        ].map((t) => {
+                            const active = activityTypeFilter === t.key;
+                            const IconC = t.key !== 'all' ? FEATURE_CONFIG[t.key]?.icon : null;
+                            return (
+                                <Box
+                                    key={t.key}
+                                    onClick={() => { setActivityTypeFilter(t.key); setPage(1); }}
+                                    sx={{
+                                        px: 1.2, height: 27, borderRadius: RADIUS,
+                                        display: 'flex', alignItems: 'center', gap: 0.5,
+                                        cursor: 'pointer', userSelect: 'none',
+                                        bgcolor: active ? `${t.color}1A` : '#fff',
+                                        border: `1px solid ${active ? `${t.color}59` : DASH.line}`,
+                                        transition: 'background-color 0.15s ease, border-color 0.15s ease',
+                                        '&:hover': { bgcolor: active ? `${t.color}24` : `${t.color}0D`, borderColor: `${t.color}4D` },
+                                    }}
+                                >
+                                    {IconC && <IconC sx={{ fontSize: 13, color: active ? t.color : DASH.faint }} />}
+                                    <Typography sx={{
+                                        fontSize: 11.5, fontWeight: 700,
+                                        color: active ? t.color : DASH.muted,
+                                    }}>
+                                        {t.label}
+                                    </Typography>
+                                </Box>
+                            );
+                        })}
                     </Box>
 
-                    <TableContainer>
+                    <TableContainer sx={{ overflowX: 'auto' }}>
                         <Table size="small">
                             <TableHead>
-                                <TableRow sx={{ bgcolor: '#FAFBFC' }}>
+                                <TableRow sx={{ bgcolor: DASH.surface }}>
                                     {['#', 'Type', 'Activity Title', 'Created By', 'Role', 'Status', 'Date / Time'].map(h => (
                                         <TableCell key={h} sx={{
-                                            fontWeight: 600, fontSize: 11, color: '#6B7280',
-                                            letterSpacing: 0.3, py: 1.4,
-                                            borderTop: `1px solid ${BORDER}`,
-                                            borderBottom: `1px solid ${BORDER}`,
+                                            fontWeight: 700, fontSize: 10.5, color: DASH.muted,
+                                            letterSpacing: 0.4, textTransform: 'uppercase', py: 1.2,
+                                            whiteSpace: 'nowrap',
+                                            borderTop: `1px solid ${DASH.line}`,
+                                            borderBottom: `1px solid ${DASH.line}`,
                                         }}>{h}</TableCell>
                                     ))}
                                 </TableRow>
                             </TableHead>
                             <TableBody>
                                 {isLoading ? (
-                                    <TableRow>
-                                        <TableCell colSpan={7} align="center" sx={{ py: 6, borderBottom: 'none' }}>
-                                            <CircularProgress size={28} sx={{ color: PRIMARY }} />
-                                        </TableCell>
-                                    </TableRow>
+                                    <TableRowsSkeleton rows={ROWS_PER_PAGE} columns={7} wideColumn={2} />
                                 ) : pageRows.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={7} align="center" sx={{ py: 6, borderBottom: 'none' }}>
-                                            <Stack alignItems="center" spacing={0.8}>
+                                        <TableCell colSpan={7} align="center" sx={{ py: 5, borderBottom: 'none' }}>
+                                            <Stack alignItems="center" spacing={0.6}>
                                                 <Box sx={{
-                                                    width: 56, height: 56, borderRadius: '50%',
-                                                    bgcolor: PRIMARY_LIGHT,
+                                                    width: 50, height: 50, borderRadius: '50%',
+                                                    bgcolor: DASH.primaryLight,
+                                                    border: `1px solid ${DASH.primaryBorder}`,
                                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                 }}>
-                                                    <InboxIcon sx={{ fontSize: 28, color: PRIMARY }} />
+                                                    <InboxIcon sx={{ fontSize: 24, color: DASH.primary }} />
                                                 </Box>
-                                                <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>
+                                                <Typography sx={{ fontSize: 13, fontWeight: 700, color: DASH.text }}>
                                                     No activity found
                                                 </Typography>
-                                                <Typography sx={{ fontSize: 11, color: '#9CA3AF' }}>
-                                                    {anyFilterActive ? 'Try clearing or changing your filters' : 'No communication activity in this period'}
-                                                </Typography>
+                                                <EmptyNote text={anyFilterActive
+                                                    ? 'Try clearing or changing your filters.'
+                                                    : 'No communication activity in this period.'} />
                                             </Stack>
                                         </TableCell>
                                     </TableRow>
                                 ) : pageRows.map((row, idx) => {
-                                    const cfg = FEATURE_CONFIG[row.type] || { label: row.type, color: '#6B7280', bg: '#F3F4F6', icon: NewspaperIcon };
+                                    const cfg = FEATURE_CONFIG[row.type] || { label: row.type, color: DASH.muted, bg: DASH.lineSoft, icon: NewspaperIcon };
                                     const Icon = cfg.icon;
                                     const statConf = STATUS_STYLE[row.status] || STATUS_STYLE.Pending;
                                     const StatusIcon = statConf.icon;
@@ -1489,30 +1410,31 @@ export default function CommunicationDashboard() {
                                     const serial = (page - 1) * ROWS_PER_PAGE + idx + 1;
                                     return (
                                         <TableRow key={row.id} sx={{
-                                            '&:hover': { bgcolor: '#FAFBFC' },
-                                            transition: 'background-color 0.15s',
+                                            '&:hover': { bgcolor: DASH.surface },
+                                            transition: 'background-color 0.15s ease',
                                         }}>
-                                            <TableCell sx={{ borderBottom: '1px solid #F3F4F6', width: 40 }}>
-                                                <Typography sx={{ fontSize: 12, color: '#9CA3AF', fontWeight: 500 }}>{serial}</Typography>
+                                            <TableCell sx={{ borderBottom: `1px solid ${DASH.lineSoft}`, width: 40 }}>
+                                                <Typography sx={{ fontSize: 12, color: DASH.faint, fontWeight: 600 }}>{serial}</Typography>
                                             </TableCell>
-                                            <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
+                                            <TableCell sx={{ borderBottom: `1px solid ${DASH.lineSoft}` }}>
                                                 <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.6 }}>
                                                     <Box sx={{
-                                                        width: 22, height: 22, borderRadius: '6px',
-                                                        bgcolor: cfg.bg,
+                                                        width: 22, height: 22, borderRadius: RADIUS,
+                                                        bgcolor: `${cfg.color}14`,
+                                                        border: `1px solid ${cfg.color}38`,
                                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                     }}>
                                                         <Icon sx={{ fontSize: 13, color: cfg.color }} />
                                                     </Box>
-                                                    <Typography sx={{ fontSize: 11.5, fontWeight: 600, color: cfg.color }}>
+                                                    <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: cfg.color, whiteSpace: 'nowrap' }}>
                                                         {cfg.label}
                                                     </Typography>
                                                 </Box>
                                             </TableCell>
-                                            <TableCell sx={{ borderBottom: '1px solid #F3F4F6', maxWidth: 280 }}>
+                                            <TableCell sx={{ borderBottom: `1px solid ${DASH.lineSoft}`, maxWidth: 280 }}>
                                                 <Tooltip arrow title={row.title}>
                                                     <Typography sx={{
-                                                        fontSize: 13, fontWeight: 600, color: '#111827',
+                                                        fontSize: 12.5, fontWeight: 600, color: DASH.ink,
                                                         overflow: 'hidden', textOverflow: 'ellipsis',
                                                         whiteSpace: 'nowrap', maxWidth: 280,
                                                     }}>
@@ -1520,39 +1442,39 @@ export default function CommunicationDashboard() {
                                                     </Typography>
                                                 </Tooltip>
                                             </TableCell>
-                                            <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
+                                            <TableCell sx={{ borderBottom: `1px solid ${DASH.lineSoft}` }}>
                                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                                     <Avatar sx={{
-                                                        width: 26, height: 26,
+                                                        width: 25, height: 25,
                                                         bgcolor: `${avColor}15`, color: avColor,
                                                         fontSize: 10, fontWeight: 700,
                                                     }}>
                                                         {getInitials(row.createdBy)}
                                                     </Avatar>
-                                                    <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#111827' }}>
+                                                    <Typography sx={{ fontSize: 12, fontWeight: 600, color: DASH.ink, whiteSpace: 'nowrap' }}>
                                                         {row.createdBy}
                                                     </Typography>
                                                 </Box>
                                             </TableCell>
-                                            <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
-                                                <Typography sx={{ fontSize: 11.5, color: '#6B7280', fontWeight: 500 }}>
+                                            <TableCell sx={{ borderBottom: `1px solid ${DASH.lineSoft}` }}>
+                                                <Typography sx={{ fontSize: 11.5, color: DASH.muted, fontWeight: 500, whiteSpace: 'nowrap' }}>
                                                     {row.role}
                                                 </Typography>
                                             </TableCell>
-                                            <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
+                                            <TableCell sx={{ borderBottom: `1px solid ${DASH.lineSoft}` }}>
                                                 <Box sx={{
                                                     display: 'inline-flex', alignItems: 'center', gap: 0.5,
-                                                    px: 1, py: 0.4, borderRadius: '6px',
+                                                    px: 1, py: 0.35, borderRadius: RADIUS,
                                                     bgcolor: statConf.bg,
                                                 }}>
                                                     <StatusIcon sx={{ fontSize: 13, color: statConf.color }} />
-                                                    <Typography sx={{ fontSize: 11, fontWeight: 600, color: statConf.color }}>
+                                                    <Typography sx={{ fontSize: 11, fontWeight: 700, color: statConf.color }}>
                                                         {row.status}
                                                     </Typography>
                                                 </Box>
                                             </TableCell>
-                                            <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
-                                                <Typography sx={{ fontSize: 11.5, color: '#374151', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                                            <TableCell sx={{ borderBottom: `1px solid ${DASH.lineSoft}` }}>
+                                                <Typography sx={{ fontSize: 11.5, color: DASH.text, fontWeight: 600, whiteSpace: 'nowrap' }}>
                                                     {formatDateTime(row.createdOn)}
                                                 </Typography>
                                             </TableCell>
@@ -1565,13 +1487,13 @@ export default function CommunicationDashboard() {
 
                     {filteredActivity.length > 0 && (
                         <Box sx={{
-                            px: 2, py: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                            flexWrap: 'wrap', gap: 1, borderTop: `1px solid ${BORDER}`,
+                            px: 2, py: 1.4, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            flexWrap: 'wrap', gap: 1, borderTop: `1px solid ${DASH.line}`,
                         }}>
-                            <Typography sx={{ fontSize: 11.5, color: '#6B7280' }}>
-                                Showing <strong style={{ color: '#374151' }}>
+                            <Typography sx={{ fontSize: 11.5, color: DASH.muted }}>
+                                Showing <strong style={{ color: DASH.text }}>
                                     {(page - 1) * ROWS_PER_PAGE + 1}–{Math.min(page * ROWS_PER_PAGE, filteredActivity.length)}
-                                </strong> of <strong style={{ color: '#374151' }}>{filteredActivity.length}</strong> records
+                                </strong> of <strong style={{ color: DASH.text }}>{filteredActivity.length}</strong> records
                             </Typography>
                             <Pagination
                                 count={totalPages}
@@ -1582,14 +1504,14 @@ export default function CommunicationDashboard() {
                                 sx={{
                                     '& .MuiPaginationItem-root': { fontSize: 12, fontWeight: 600 },
                                     '& .Mui-selected': {
-                                        bgcolor: `${PRIMARY} !important`,
+                                        bgcolor: `${DASH.primary} !important`,
                                         color: '#fff !important',
                                     },
                                 }}
                             />
                         </Box>
                     )}
-                </Card>
+                </Panel>
                 </>)}
             </Box>
         </Box>

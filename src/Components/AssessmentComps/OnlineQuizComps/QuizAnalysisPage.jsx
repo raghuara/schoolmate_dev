@@ -506,7 +506,7 @@ export default function QuizAnalysisPage() {
     );
 
     return (
-        <Box sx={{ px: { xs: 1.5, md: 2 }, pt: { xs: 1.5, md: 2 }, pb: 4, bgcolor: DASH.canvas, minHeight: "calc(100vh - 60px)" }}>
+        <Box sx={{ px: { xs: 1.5, md: 2 }, pt: { xs: 1.5, md: 2 }, pb: 4, bgcolor: DASH.canvas }}>
             {isLoading && <Loader />}
             {/* Header */}
             <Box

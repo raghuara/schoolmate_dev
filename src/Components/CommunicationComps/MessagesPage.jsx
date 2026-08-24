@@ -1,11 +1,16 @@
-import { Autocomplete, Box, Button, Checkbox, Chip, createTheme, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Fab, FormControlLabel, Grid, IconButton, InputAdornment, Paper, Switch, TextField, ThemeProvider, Tooltip, Typography } from "@mui/material";
+import { Autocomplete, Box, Button, Checkbox, Chip, createTheme, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Fab, Grid, IconButton, InputAdornment, Menu, MenuItem, Paper, Switch, TextField, ThemeProvider, Tooltip, Typography } from "@mui/material";
 import axios from "axios";
 import React, { useEffect, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { selectWebsiteSettings } from "../../Redux/Slices/websiteSettingsSlice";
 import { selectAcademicYear } from "../../Redux/Slices/academicYearSlice";
 import { useDispatch, useSelector } from "react-redux";
 import { findSubMenuPermissions } from "../../Redux/Slices/AuthSlice";
+import FactCheckOutlinedIcon from '@mui/icons-material/FactCheckOutlined';
+import PendingActionsOutlinedIcon from '@mui/icons-material/PendingActionsOutlined';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
+import ChecklistRtlOutlinedIcon from '@mui/icons-material/ChecklistRtlOutlined';
 import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
@@ -29,7 +34,7 @@ import UpdateOutlinedIcon from '@mui/icons-material/UpdateOutlined';
 import EventAvailableOutlinedIcon from '@mui/icons-material/EventAvailableOutlined';
 import DeleteSweepOutlinedIcon from '@mui/icons-material/DeleteSweepOutlined';
 import { selectUserTypeID } from "../../Redux/Slices/AuthSlice";
-import { APPROVAL_SUBMENUS, approvalRoleFor, selectApprovalMatrix } from "../../Redux/Slices/approvalMatrixSlice";
+import { APPROVAL_SUBMENUS, approvalRoleFor, isApproverFor, mustRequestApproval, selectApprovalMatrix, selectApprovalMatrixReady } from "../../Redux/Slices/approvalMatrixSlice";
 
 
 export default function MessagesPage() {
@@ -58,6 +63,29 @@ export default function MessagesPage() {
     const approvalMatrix = useSelector(selectApprovalMatrix);
     const canActDirect = approvalRoleFor(approvalMatrix, APPROVAL_SUBMENUS.MESSAGE, userTypeID).canPublishDirect;
     const canBulkDelete = canDelete && canActDirect;
+
+    /*
+       Shortcuts out of Messages, each shown only when it leads somewhere useful.
+       "Review Approvals" is for whoever acts on the queue; "Approval Status" is
+       the other side of the same flow - people who can create but have to raise
+       a request, and so have something to track. Neither is an access gate, so
+       both wait for the matrix rather than guessing while it loads.
+    */
+    const matrixReady = useSelector(selectApprovalMatrixReady);
+    const canReviewApprovals = matrixReady
+        && isApproverFor(approvalMatrix, APPROVAL_SUBMENUS.MESSAGE, userTypeID);
+    const canTrackApprovals = matrixReady && canCreate
+        && mustRequestApproval(approvalMatrix, APPROVAL_SUBMENUS.MESSAGE, userTypeID);
+    const showApprovalLinks = canReviewApprovals || canTrackApprovals;
+
+    /*
+       Bulk delete is off until it is asked for. A checkbox beside every card put
+       a destructive control one stray click away while reading. Leaving the mode
+       clears the selection, so a stale one can never be acted on later.
+    */
+    const [bulkMode, setBulkMode] = useState(false);
+    const [moreAnchor, setMoreAnchor] = useState(null);
+    const exitBulkMode = () => { setBulkMode(false); setSelectedMessageIds([]); };
     const rollNumber = user.rollNumber
     const userType = user.userType
     const userName = user.name
@@ -69,7 +97,6 @@ export default function MessagesPage() {
     const [searchQuery, setSearchQuery] = useState("");
     const [deleteId, setDeleteId] = useState('');
     const [selectedMessageIds, setSelectedMessageIds] = useState([]);
-    const [selectAll, setSelectAll] = useState(false);
     const location = useLocation();
     const value = location.state?.value || 'N';
     const [checked, setChecked] = useState(false);
@@ -386,7 +413,6 @@ export default function MessagesPage() {
             setStatus(true);
             setMessage("Messages Deleted Successfully");
             setSelectedMessageIds([]);
-            setSelectAll(false);
         } catch (error) {
             setOpen(true);
             setColor(false);
@@ -401,8 +427,8 @@ export default function MessagesPage() {
         <Box sx={{ width: "100%", }}>
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
             {isLoading && <Loader />}
-            <Box sx={{ backgroundColor: "#f2f2f2", px: 2, borderRadius: "10px 10px 10px 0px", borderBottom: "1px solid #ddd" }}>
-                <Grid container sx={{ py: 1 }} alignItems="center">
+            <Box sx={{ backgroundColor: "#f2f2f2", px: 2, borderRadius: "10px 10px 10px 0px", borderBottom: "1px solid #ddd", mb: 0.13, }}>
+                <Grid container alignItems="center">
                     <Grid
                         sx={{ display: "flex", alignItems: "center", gap: 1 }}
                         size={{
@@ -711,53 +737,171 @@ export default function MessagesPage() {
                         </DialogActions>
                     </Box>
                 </Dialog>
-                {canBulkDelete &&
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', px: 2, pt: 1, alignItems: "center" }}>
-                        {selectedMessageIds.length > 0 ? (
-                            <Button
-                                variant="contained"
-                                color="error"
-                                startIcon={<DeleteSweepOutlinedIcon sx={{ fontSize: 17 }} />}
-                                onClick={handleDeleteSelected}
-                                sx={{
-                                    textTransform: "none",
-                                    fontSize: "12.5px",
-                                    fontWeight: 600,
-                                    height: "30px",
-                                    borderRadius: "10px",
-                                    boxShadow: "none",
-                                    "&:hover": { boxShadow: "none" },
-                                }}
-                            >
-                                Delete Selected ({selectedMessageIds.length})
-                            </Button>
-                        ) : (
-                            <Box width={"20px"} />
-                        )}
-                        <FormControlLabel
-                            slotProps={{ typography: { sx: { fontSize: "13px", fontWeight: 600, color: "#374151" } } }}
-                            control={
-                                <Checkbox
-                                    size="small"
-                                    checked={selectAll}
-                                    onChange={(e) => {
-                                        const checked = e.target.checked;
-                                        setSelectAll(checked);
+                {(canBulkDelete || showApprovalLinks) && (() => {
+                    const allIds = filteredMessage.flatMap((group) => group.messages.map((m) => m.id));
+                    const selectedCount = selectedMessageIds.length;
+                    const allSelected = allIds.length > 0 && selectedCount === allIds.length;
+                    // Partial selection is derived, not stored - a stored copy drifts
+                    // out of sync the moment cards are ticked one at a time.
+                    const someSelected = selectedCount > 0 && !allSelected;
+                    const toggleAll = () => setSelectedMessageIds(allSelected ? [] : allIds);
+                    const clearSelection = () => setSelectedMessageIds([]);
 
-                                        if (checked) {
-                                            const allIds = filteredMessage
-                                                .flatMap((group) => group.messages.map((msg) => msg.id));
-                                            setSelectedMessageIds(allIds);
-                                        } else {
-                                            setSelectedMessageIds([]);
-                                        }
+                    return (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 2, pt: 1.2, flexWrap: 'wrap' }}>
+                            {canBulkDelete && bulkMode && (
+                                <Box
+                                    sx={{
+                                        display: 'flex', alignItems: 'center', gap: 1,
+                                        pl: 0.6, pr: selectedCount > 0 ? 0.6 : 1.4,
+                                        height: 34, borderRadius: '5px',
+                                        // Red only once something is actually selected.
+                                        border: `1px solid ${selectedCount > 0 ? '#F5C2C2' : '#E6E8EC'}`,
+                                        bgcolor: selectedCount > 0 ? '#FEF5F5' : '#fff',
+                                        transition: 'background-color 0.2s ease, border-color 0.2s ease',
                                     }}
-                                />
-                            }
-                            label="Select All"
-                        />
-                    </Box>
-                }
+                                >
+                                    <Checkbox
+                                        size="small"
+                                        checked={allSelected}
+                                        indeterminate={someSelected}
+                                        onChange={toggleAll}
+                                        sx={{ p: 0.5 }}
+                                    />
+                                    <Typography sx={{ fontSize: '12.5px', fontWeight: 600, color: selectedCount > 0 ? '#B91C1C' : '#374151', whiteSpace: 'nowrap' }}>
+                                        {selectedCount > 0 ? `${selectedCount} selected` : 'Select all'}
+                                    </Typography>
+
+                                    {selectedCount > 0 && (
+                                        <>
+                                            <Box sx={{ width: '1px', height: 18, bgcolor: '#F0CFCF' }} />
+                                            <Button
+                                                onClick={clearSelection}
+                                                sx={{
+                                                    textTransform: 'none', fontSize: '12px', fontWeight: 600,
+                                                    minWidth: 0, height: 26, px: 1, borderRadius: '5px',
+                                                    color: '#6B7280',
+                                                    '&:hover': { bgcolor: '#F3F4F6' },
+                                                }}
+                                            >
+                                                Clear
+                                            </Button>
+                                            <Button
+                                                variant="contained"
+                                                color="error"
+                                                disableElevation
+                                                startIcon={<DeleteSweepOutlinedIcon sx={{ fontSize: 16 }} />}
+                                                onClick={handleDeleteSelected}
+                                                sx={{
+                                                    textTransform: 'none', fontSize: '12px', fontWeight: 700,
+                                                    height: 26, px: 1.2, borderRadius: '5px',
+                                                    boxShadow: 'none', '&:hover': { boxShadow: 'none' },
+                                                }}
+                                            >
+                                                Delete
+                                            </Button>
+                                        </>
+                                    )}
+                                </Box>
+                            )}
+
+                            {/* Cancel sits outside the red strip so it is reachable
+                                even before anything has been selected. */}
+                            {canBulkDelete && bulkMode && (
+                                <Button
+                                    onClick={exitBulkMode}
+                                    sx={{
+                                        textTransform: 'none', fontSize: '12.5px', fontWeight: 600,
+                                        height: 34, px: 1.4, borderRadius: '5px',
+                                        color: '#6B7280', border: '1px solid #E6E8EC', bgcolor: '#fff',
+                                        '&:hover': { bgcolor: '#F9FAFB' },
+                                    }}
+                                >
+                                    Cancel
+                                </Button>
+                            )}
+
+                            <Box sx={{ flex: 1 }} />
+
+                            {canBulkDelete && !bulkMode && (
+                                <>
+                                    <Tooltip title="More actions" arrow>
+                                        <IconButton
+                                            onClick={(e) => setMoreAnchor(e.currentTarget)}
+                                            sx={{
+                                                width: 34, height: 34, borderRadius: '5px',
+                                                border: '1px solid #E6E8EC', bgcolor: '#fff',
+                                                color: '#4B5563',
+                                                '&:hover': { bgcolor: '#F9FAFB', borderColor: '#D6DAE1' },
+                                            }}
+                                        >
+                                            <MoreVertIcon sx={{ fontSize: 18 }} />
+                                        </IconButton>
+                                    </Tooltip>
+                                    <Menu
+                                        anchorEl={moreAnchor}
+                                        open={Boolean(moreAnchor)}
+                                        onClose={() => setMoreAnchor(null)}
+                                        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                                        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                                        slotProps={{ paper: { sx: { mt: 0.6, borderRadius: '5px', minWidth: 210, border: '1px solid #E6E8EC', boxShadow: '0 6px 20px rgba(16,24,40,0.10)' } } }}
+                                    >
+                                        <MenuItem
+                                            onClick={() => { setBulkMode(true); setMoreAnchor(null); }}
+                                            sx={{ gap: 1.2, py: 1 }}
+                                        >
+                                            <ChecklistRtlOutlinedIcon sx={{ fontSize: 18, color: '#B91C1C' }} />
+                                            <Box>
+                                                <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>
+                                                    Bulk Delete
+                                                </Typography>
+                                                <Typography sx={{ fontSize: '10.5px', color: '#9CA3AF' }}>
+                                                    Pick several messages to remove
+                                                </Typography>
+                                            </Box>
+                                        </MenuItem>
+                                    </Menu>
+                                </>
+                            )}
+
+                            {canReviewApprovals && (
+                                <Link to="/dashboardmenu/approvals/messages" style={{ textDecoration: 'none' }}>
+                                    <Button
+                                        endIcon={<ArrowForwardIcon sx={{ fontSize: 15 }} />}
+                                        startIcon={<FactCheckOutlinedIcon sx={{ fontSize: 16 }} />}
+                                        sx={{
+                                            textTransform: 'none', fontSize: '12.5px', fontWeight: 700,
+                                            height: 34, px: 1.4, borderRadius: '5px',
+                                            color: '#0E7490', bgcolor: '#ECFAFD',
+                                            border: '1px solid #B6E0EC',
+                                            '&:hover': { bgcolor: '#DCF2F8' },
+                                        }}
+                                    >
+                                        Review Approvals
+                                    </Button>
+                                </Link>
+                            )}
+
+                            {canTrackApprovals && (
+                                <Link to="/dashboardmenu/status" state={{ tabIndex: 0 }} style={{ textDecoration: 'none' }}>
+                                    <Button
+                                        endIcon={<ArrowForwardIcon sx={{ fontSize: 15 }} />}
+                                        startIcon={<PendingActionsOutlinedIcon sx={{ fontSize: 16 }} />}
+                                        sx={{
+                                            textTransform: 'none', fontSize: '12.5px', fontWeight: 700,
+                                            height: 34, px: 1.4, borderRadius: '5px',
+                                            color: '#8338EC', bgcolor: '#FBF9FE',
+                                            border: '1px solid #DCC7F3',
+                                            '&:hover': { bgcolor: '#F3ECFD' },
+                                        }}
+                                    >
+                                        Approval Status
+                                    </Button>
+                                </Link>
+                            )}
+                        </Box>
+                    );
+                })()}
                 <Box sx={{ px: 2, pb: 2 }}>
                     {filteredMessage.length > 0 && filteredMessage[0].messages[0]?.status === "schedule" && (
                         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mt: 1.5, mb: 2 }}>
@@ -779,7 +923,13 @@ export default function MessagesPage() {
                         </Box>
                     )}
                     {!hasLoaded ? (
-                        <ListSkeleton />
+                        <ListSkeleton
+                            groups={1}
+                            perGroup={4}
+                            spacing={4}
+                            columns={{ xs: 12, sm: 12, md: 12, lg: 6 }}
+                            sx={{ p: 2, pt: 2 }}
+                        />
                     ) : filteredMessage.length > 0 ? (
                         filteredMessage.map((dateGroup, index) => (
                             <Box key={index} sx={{ mb: 3, p: 2 }}>
@@ -820,7 +970,7 @@ export default function MessagesPage() {
                                                         sx={{
                                                             border: "1px solid #E6E8EC",
                                                             boxShadow: "0px 1px 3px rgba(16,24,40,0.06)",
-                                                            borderRadius: "12px",
+                                                            borderRadius: "5px",
                                                             backgroundColor: "#fff",
                                                             p: 2,
                                                             position: "relative",
@@ -869,7 +1019,7 @@ export default function MessagesPage() {
                                                                 />
                                                             )}
                                                         </Box>
-                                                        {canBulkDelete &&
+                                                        {canBulkDelete && bulkMode &&
                                                             <Checkbox
                                                                 checked={selectedMessageIds.includes(messageItem.id)}
                                                                 onChange={(e) => {
@@ -892,7 +1042,17 @@ export default function MessagesPage() {
                                                                     lg: 9
                                                                 }}>
                                                                 <Box>
-                                                                    <Typography sx={{ fontWeight: "600", fontSize: "16px", height: "70px" }}>
+                                                                    <Typography sx={{
+                                                                        fontWeight: "600",
+                                                                        fontSize: "16px",
+                                                                        lineHeight: 1.35,
+                                                                        minHeight: "44px",
+                                                                        display: "-webkit-box",
+                                                                        WebkitLineClamp: 2,
+                                                                        WebkitBoxOrient: "vertical",
+                                                                        overflow: "hidden",
+                                                                        wordBreak: "break-word",
+                                                                    }}>
                                                                         {messageItem.headLine}
                                                                     </Typography>
                                                                     <Box sx={{ display: "flex" }}>
@@ -952,13 +1112,13 @@ export default function MessagesPage() {
                                                             sx={{
                                                                 fontSize: "14px",
                                                                 pt: 1,
-                                                                minHeight: "100px",
+                                                                minHeight: "58px",
                                                                 display: "-webkit-box",
                                                                 WebkitLineClamp: isReadMore ? "unset" : 4,
                                                                 WebkitBoxOrient: "vertical",
                                                                 overflow: isReadMore ? "visible" : "hidden",
                                                                 textOverflow: "ellipsis",
-                                                                mb: 4
+                                                                mb: messageItem.message.length > 200 ? 4 : 0.5
                                                             }}
                                                             dangerouslySetInnerHTML={{ __html: messageItem.message }}
                                                         />

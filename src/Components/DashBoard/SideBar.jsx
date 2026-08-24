@@ -1,7 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Drawer, Button, Typography, Box, List, ListItem, ListItemText, ListItemIcon, useMediaQuery, useTheme, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Tooltip, styled, tooltipClasses } from '@mui/material';
-import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
-import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import '../../App.css';
 import '../../Css/Style.css';
@@ -18,19 +16,19 @@ import { closeMainMenu } from '../../Redux/Slices/MainMenuSlice';
 import { selectCommunicationActivePaths, selectAcademicsActivePaths, selectMyProjectsActivePaths } from '../../Redux/Slices/PathSlice';
 import { selectWebsiteSettings } from '../../Redux/Slices/websiteSettingsSlice';
 import { selectVersion } from '../../Redux/Slices/versionSlice';
-import HubIcon from '@mui/icons-material/Hub';
-import LockResetIcon from '@mui/icons-material/LockReset';
-import KeyIcon from '@mui/icons-material/Key';
+import ForumOutlinedIcon from '@mui/icons-material/ForumOutlined';
+import FactCheckOutlinedIcon from '@mui/icons-material/FactCheckOutlined';
+import VpnKeyOutlinedIcon from '@mui/icons-material/VpnKeyOutlined';
 import { logout, findSubMenuPermissions, hasMainMenuAccess } from '../../Redux/Slices/AuthSlice';
-import DashboardIcon from '@mui/icons-material/Dashboard';
-import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
-import AssuredWorkloadIcon from '@mui/icons-material/AssuredWorkload';
-import DirectionsBusFilledIcon from '@mui/icons-material/DirectionsBusFilled';
-import Inventory2Icon from '@mui/icons-material/Inventory2';
-import FolderCopyIcon from '@mui/icons-material/FolderCopy';
-import EditCalendarIcon from '@mui/icons-material/EditCalendar';
-import RealEstateAgentIcon from '@mui/icons-material/RealEstateAgent';
-import AutoStoriesIcon from '@mui/icons-material/AutoStories';
+import DashboardOutlinedIcon from '@mui/icons-material/DashboardOutlined';
+import ManageAccountsOutlinedIcon from '@mui/icons-material/ManageAccountsOutlined';
+import PaymentsOutlinedIcon from '@mui/icons-material/PaymentsOutlined';
+import DirectionsBusOutlinedIcon from '@mui/icons-material/DirectionsBusOutlined';
+import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
+import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
+import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined';
+import CategoryOutlinedIcon from '@mui/icons-material/CategoryOutlined';
+import AutoStoriesOutlinedIcon from '@mui/icons-material/AutoStoriesOutlined';
 import { setSidebar, toggleSidebar } from '../../Redux/Slices/sidebarSlice';
 import AppScrollbar from '../AppScrollbar';
 import KeyboardDoubleArrowLeftIcon from "@mui/icons-material/KeyboardDoubleArrowLeft";
@@ -310,7 +308,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
                   />
                 )}
                 <ListItemIcon sx={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
-                  <DashboardIcon style={{ color: isActive('/dashboardmenu/dashboard') ? websiteSettings.textColor : 'rgba(0, 0, 0, 0.7)' }} />
+                  <DashboardOutlinedIcon style={{ fontSize: 20, color: isActive('/dashboardmenu/dashboard') ? websiteSettings.textColor : '#6B7280' }} />
                 </ListItemIcon>
                 {isExpanded && (
                   <ListItemText>
@@ -404,7 +402,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
                     />
                   )}
                   <ListItemIcon sx={{ display: "flex", justifyContent: "center", alignItems: "center", }}>
-                    <ManageAccountsIcon style={{ color: isActive('/dashboardmenu/profile') ? websiteSettings.textColor : 'rgba(0, 0, 0, 0.7)', }} />
+                    <ManageAccountsOutlinedIcon style={{ fontSize: 20, color: isActive('/dashboardmenu/profile') ? websiteSettings.textColor : '#6B7280', }} />
                   </ListItemIcon>
                   {isExpanded && (
                     <ListItemText>
@@ -458,7 +456,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
                     />
                   )}
                   <ListItemIcon sx={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
-                    <HubIcon style={{ color: isCommunicationPathActive() ? websiteSettings.textColor : 'rgba(0, 0, 0, 0.7)', }} />
+                    <ForumOutlinedIcon style={{ fontSize: 20, color: isCommunicationPathActive() ? websiteSettings.textColor : '#6B7280', }} />
                   </ListItemIcon>
                   {isExpanded && (
                     <ListItemText >
@@ -536,7 +534,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
                     />
                   )}
                   <ListItemIcon sx={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
-                    <AutoStoriesIcon style={{ color: isAcademicsPathActive() ? websiteSettings.textColor : 'rgba(0, 0, 0, 0.7)' }} />
+                    <AutoStoriesOutlinedIcon style={{ fontSize: 20, color: isAcademicsPathActive() ? websiteSettings.textColor : '#6B7280' }} />
                   </ListItemIcon>
                   {isExpanded && (
                     <ListItemText>
@@ -607,7 +605,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
                     />
                   )}
                   <ListItemIcon sx={{ display: "flex", justifyContent: "center", alignItems: "center", }}>
-                    <AssuredWorkloadIcon style={{ color: isFeeActive ? websiteSettings.textColor : 'rgba(0, 0, 0, 0.7)', }} />
+                    <PaymentsOutlinedIcon style={{ fontSize: 20, color: isFeeActive ? websiteSettings.textColor : '#6B7280', }} />
                   </ListItemIcon>
                   {isExpanded && (
                     <ListItemText>
@@ -660,7 +658,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
                     />
                   )}
                   <ListItemIcon sx={{ display: "flex", justifyContent: "center", alignItems: "center", }}>
-                    <EditCalendarIcon style={{ color: isActive('/dashboardmenu/leave') ? websiteSettings.textColor : 'rgba(0, 0, 0, 0.7)', }} />
+                    <BadgeOutlinedIcon style={{ fontSize: 20, color: isActive('/dashboardmenu/leave') ? websiteSettings.textColor : '#6B7280', }} />
                   </ListItemIcon>
                   {isExpanded && (
                     <ListItemText>
@@ -713,7 +711,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
                     />
                   )}
                   <ListItemIcon sx={{ display: "flex", justifyContent: "center", alignItems: "center", }}>
-                    <DirectionsBusFilledIcon style={{ color: isActive('/dashboardmenu/transport') ? websiteSettings.textColor : 'rgba(0, 0, 0, 0.7)', }} />
+                    <DirectionsBusOutlinedIcon style={{ fontSize: 20, color: isActive('/dashboardmenu/transport') ? websiteSettings.textColor : '#6B7280', }} />
                   </ListItemIcon>
                   {isExpanded && (
                     <ListItemText>
@@ -795,13 +793,14 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
                   alignItems: 'center',
                 }}
               >
-                <Inventory2Icon
+                <Inventory2OutlinedIcon
                   style={{
+                    fontSize: 20,
                     color: isDisabled
-                      ? '#000' // Disabled icon color
+                      ? '#6B7280' // Disabled icon color
                       : isActive('/dashboardmenu/erp')
                         ? websiteSettings.textColor
-                        : '#000',
+                        : '#6B7280',
                   }}
                 />
               </ListItemIcon>
@@ -892,13 +891,14 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
                   alignItems: 'center',
                 }}
               >
-                <RealEstateAgentIcon
+                <CategoryOutlinedIcon
                   style={{
+                    fontSize: 20,
                     color: isDisabled
-                      ? '#000' // Disabled icon color
+                      ? '#6B7280' // Disabled icon color
                       : isActive('/dashboardmenu/erp')
                         ? websiteSettings.textColor
-                        : '#000',
+                        : '#6B7280',
                   }}
                 />
               </ListItemIcon>
@@ -960,7 +960,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
                   />
                 )}
                 <ListItemIcon sx={{ display: "flex", justifyContent: "center", alignItems: "center", }}>
-                  <RealEstateAgentIcon style={{ color: isActive('/dashboardmenu/asset') ? websiteSettings.textColor : 'rgba(0, 0, 0, 0.7)', }} />
+                  <CategoryOutlinedIcon style={{ fontSize: 20, color: isActive('/dashboardmenu/asset') ? websiteSettings.textColor : '#6B7280', }} />
                 </ListItemIcon>
                 {isExpanded && (
                   <ListItemText>
@@ -1036,7 +1036,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
                       />
                     )}
                     <ListItemIcon sx={{ display: "flex", justifyContent: "center", alignItems: "center", }}>
-                      <FolderCopyIcon style={{ color: isMyProjectsPathActive() ? websiteSettings.textColor : 'rgba(0, 0, 0, 0.7)', }} />
+                      <FolderOutlinedIcon style={{ fontSize: 20, color: isMyProjectsPathActive() ? websiteSettings.textColor : '#6B7280', }} />
                     </ListItemIcon>
                     {isExpanded && (
                       <ListItemText>
@@ -1090,7 +1090,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
                       />
                     )}
                     <ListItemIcon sx={{ display: "flex", justifyContent: "center", alignItems: "center", }}>
-                      < LockResetIcon style={{ color: isActive('/dashboardmenu/approvals') ? websiteSettings.textColor : 'rgba(0, 0, 0, 0.7)', }} />
+                      <FactCheckOutlinedIcon style={{ fontSize: 20, color: isActive('/dashboardmenu/approvals') ? websiteSettings.textColor : '#6B7280', }} />
                     </ListItemIcon>
                     {isExpanded && (
                       <ListItemText>
@@ -1165,7 +1165,7 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
                       />
                     )}
                     <ListItemIcon sx={{ display: "flex", justifyContent: "center", alignItems: "center", }}>
-                      <KeyIcon style={{ color: isActive('/dashboardmenu/access') ? websiteSettings.textColor : 'rgba(0, 0, 0, 0.7)', }} />
+                      <VpnKeyOutlinedIcon style={{ fontSize: 20, color: isActive('/dashboardmenu/access') ? websiteSettings.textColor : '#6B7280', }} />
                     </ListItemIcon>
                     {isExpanded && (
                       <ListItemText>

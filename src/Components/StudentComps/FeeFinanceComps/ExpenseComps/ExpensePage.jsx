@@ -158,11 +158,15 @@ export default function ExpensePage() {
     const canViewHistory = granted("viewhistory");
     const canAddExpense = granted("allowaddexpense");
     const canManageBudget = granted("allowaddbudget");
-    // There is no separate "approve expense" permission yet, so the budget
-    // holder is treated as the approver - and, being the approver, their own
-    // entries post straight in rather than queueing as a request.
+    // The expense approval flow is not defined yet - it is coming separately.
+    // Until then entries post straight in, so the buttons read "Add Expense" /
+    // "Set Allocation" rather than "Request ...". This is a placeholder, NOT a
+    // permission: holding allowaddbudget says nothing about approving.
+    const postsDirectly = true;
+
+    // Likewise a stand-in: no "approve expense" permission exists, so the budget
+    // holder is who the Approvals tab is offered to. Replace once the flow lands.
     const isApprover = canManageBudget;
-    const postsDirectly = canManageBudget;
     const canOpenExpense = !rbacReady || hasAnyPermission(user.permissions, "feeandfinance", "expense");
     const rollNumber = user.rollNumber
     const userName = user.name
@@ -296,9 +300,18 @@ export default function ExpensePage() {
     const [rejectionReason, setRejectionReason] = useState("");
 
     useEffect(() => {
-        if (location.state?.tab !== undefined) {
+        if (location.state?.tabKey) {
+            const target = getTabs().findIndex((t) => t.key === location.state.tabKey);
+            if (target !== -1) setActiveTab(target);
+        } else if (location.state?.tab !== undefined) {
             setActiveTab(location.state.tab);
         }
+        // Guarded again here: the caller only offers the shortcut when the
+        // permission is held, but the landing screen must not take that on trust.
+        if (location.state?.openBudget && canManageBudget) {
+            setOpenAllocationDialog(true);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [location.state]);
 
     // Calculate summary statistics

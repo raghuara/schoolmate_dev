@@ -40,6 +40,7 @@ import InsertDriveFileRoundedIcon from '@mui/icons-material/InsertDriveFileRound
 import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
 import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded';
 import ForumRoundedIcon from '@mui/icons-material/ForumRounded';
+import { ChatListSkeleton, ChatThreadSkeleton } from '../../InnerLoader';
 import PushPinRoundedIcon from '@mui/icons-material/PushPinRounded';
 import PushPinOutlinedIcon from '@mui/icons-material/PushPinOutlined';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
@@ -2370,9 +2371,7 @@ export default function ChatPage({ embedded = false }) {
 
                         <Box sx={{ flexGrow: 1, overflowY: 'auto' }}>
                             {loadingGroups && conversations.length === 0 ? (
-                                <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}>
-                                    <CircularProgress size={28} sx={{ color: ACCENT }} />
-                                </Box>
+                                <ChatListSkeleton rows={7} />
                             ) : (
                               <>
                             {filtered.length === 0 && (
@@ -2652,9 +2651,7 @@ export default function ChatPage({ embedded = false }) {
                                         </Box>
                                     )}
                                     {loadingMessages && activeMessages.length === 0 ? (
-                                        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-                                            <CircularProgress size={28} sx={{ color: ACCENT }} />
-                                        </Box>
+                                        <ChatThreadSkeleton bubbles={7} />
                                     ) : !loadingMessages && activeMessages.length === 0 ? (
                                         <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100%', gap: 1 }}>
                                             <ForumRoundedIcon sx={{ fontSize: 40, color: '#cfcfd6' }} />

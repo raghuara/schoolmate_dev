@@ -18,7 +18,7 @@ import { getEligibleTransportStudents } from '../../Api/Api';
 const MAIN_COLOR = '#3457D5';
 const MAIN_LIGHT = '#EEF1FD';
 
-export default function StudentSelectionPopup({ open, onClose, onSave, activity = null, year = '', token = '' }) {
+export default function StudentSelectionPopup({ open, onClose, onSave, activity = null, year = '', token = '', canMapStudent = true, canEditMapping = true }) {
     const [selectedBusStop, setSelectedBusStop] = useState(null);
     const [eligibleStudents, setEligibleStudents] = useState([]);
     // Roll numbers already saved to this stop (from routeStops data)
@@ -143,13 +143,19 @@ export default function StudentSelectionPopup({ open, onClose, onSave, activity 
         return matchesClass && matchesSection;
     });
 
+    // Adding is mapping. Taking off a student who was already saved against this
+    // stop is editing - but undoing your own unsaved pick is neither.
+    const canRemove = (rollNumber) => (existingRolls.has(rollNumber) ? canEditMapping : true);
+
     const addStudent = (student) => {
+        if (!canMapStudent) return;
         if (!selectedRolls.includes(student.rollNumber)) {
             setSelectedRolls(prev => [...prev, student.rollNumber]);
         }
     };
 
     const removeStudent = (rollNumber) => {
+        if (!canRemove(rollNumber)) return;
         setSelectedRolls(prev => prev.filter(r => r !== rollNumber));
     };
 
@@ -411,6 +417,7 @@ export default function StudentSelectionPopup({ open, onClose, onSave, activity 
                                                     <ListItemButton
                                                         key={student.rollNumber}
                                                         onClick={() => !isSelected && addStudent(student)}
+                                                        disabled={!canMapStudent && !isSelected}
                                                         sx={{
                                                             borderRadius: '8px', mb: 0.5, px: 1.5, py: 0.8,
                                                             border: '1px solid',
@@ -507,7 +514,7 @@ export default function StudentSelectionPopup({ open, onClose, onSave, activity 
                                                             </Typography>
                                                         </Box>
                                                     }
-                                                    onDelete={() => removeStudent(rollNumber)}
+                                                    onDelete={canRemove(rollNumber) ? () => removeStudent(rollNumber) : undefined}
                                                     sx={{
                                                         height: 'auto', py: 0.5,
                                                         backgroundColor: isSaved ? '#DCFCE7' : MAIN_LIGHT,

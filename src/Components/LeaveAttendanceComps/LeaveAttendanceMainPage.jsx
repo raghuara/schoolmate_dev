@@ -1,107 +1,176 @@
 import React, { useState } from 'react';
-import {
-    Box,
-    Typography,
-    IconButton,
-    Tabs,
-    Tab,
-    Divider,
-    Grid,
-} from '@mui/material';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import { Box, Grid, Tab, Tabs } from '@mui/material';
+import AppsIcon from '@mui/icons-material/Apps';
 import EventNoteIcon from '@mui/icons-material/EventNote';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import PolicyIcon from '@mui/icons-material/Policy';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
+import { findSubMenuPermissions } from '../../Redux/Slices/AuthSlice';
+import { DASH, RADIUS, EmptyNote, ModuleCard, PageHeader, SectionTitle } from '../DashBoardComps/dashboardTheme';
 
-// Import existing page components
 import StaffAttendanceOverviewPage from './StaffAttendanceOverviewPage';
 import LeaveManagementPage from './LeaveManagementPage';
 import ApprovalWorkflowPage from './ApprovalWorkflowPage';
 import AttendanceReportsPage from './AttendanceReportsPage';
-
-// Import the attendance dashboard content from LeaveAttendancePage
 import LeaveAttendancePage from './LeaveAttendancePage';
 import AddStaffAttendancePage from './AddStaffAttendancePage';
 
-// Module cards configuration
+const MAIN_MENU = 'leaveandpayroll';
+const ATTENDANCE_ACCESS = 'leaveandattendanceattendanceaccess';
+const LEAVE_MANAGEMENT = 'leaveandattendanceleavemanagement';
+const PAYROLL = 'payrollmanagement';
+const TAB_ACCENT = '#F97316';
+
 const moduleCards = [
     {
-        color: "#059669",
+        accent: '#059669',
         icon: PolicyIcon,
-        text: "Leave Policy Master",
-        description: "Configure leave types, attendance bonus & deduction rules",
-        bgColor: "#ECFDF5",
-        iconBgColor: "#0596691A",
-        moduleIndex: 2,
-        disabled: false,
+        text: 'Leave Policy Master',
+        description: 'Configure leave types, attendance bonus and deduction rules.',
+        path: 'payroll/leave-policy/leave-master',
+        access: [
+            { subMenu: 'leavepolicymasterpolicysetup', needs: ['view', 'create', 'edit'] },
+            { subMenu: 'leavepolicymasterleavetypes', needs: ['view', 'create', 'edit'] },
+            { subMenu: 'leavepolicymasterworkingcalendar', needs: ['view', 'create', 'edit'] },
+        ],
+        links: [
+            {
+                label: 'Policy Setup',
+                path: 'payroll/leave-policy/leave-master',
+                state: { value: 'Y', activeTab: 0 },
+                subMenu: 'leavepolicymasterpolicysetup',
+                needs: ['view', 'create', 'edit'],
+            },
+            {
+                label: 'Leave Types',
+                path: 'payroll/leave-policy/leave-master',
+                state: { value: 'Y', activeTab: 1 },
+                subMenu: 'leavepolicymasterleavetypes',
+                needs: ['view', 'create', 'edit'],
+            },
+            {
+                label: 'Working Calendar',
+                path: 'payroll/leave-policy/leave-master',
+                state: { value: 'Y', activeTab: 2 },
+                subMenu: 'leavepolicymasterworkingcalendar',
+                needs: ['view', 'create', 'edit'],
+            },
+        ],
     },
     {
-        color: "#F97316",
+        accent: TAB_ACCENT,
         icon: EventNoteIcon,
-        text: "Leave & Attendance",
-        description: "Daily attendance, leave requests, approvals & reports",
-        bgColor: "#FFF5F2",
-        iconBgColor: "#FF6B351A",
-        moduleIndex: 0,
-        disabled: false,
+        text: 'Leave & Attendance',
+        description: 'Daily attendance, leave requests, approvals and reports.',
+        path: 'leave-attendance',
+        access: [
+            { subMenu: ATTENDANCE_ACCESS, needs: ['allowdashboardview', 'allowaddattendance', 'allowoverview', 'allowreports'] },
+            { subMenu: LEAVE_MANAGEMENT, needs: ['allowleavedetails'] },
+        ],
+        links: [
+            {
+                label: 'Add Attendance',
+                path: 'leave-attendance',
+                state: { value: 'Y', tabValue: 1 },
+                subMenu: ATTENDANCE_ACCESS,
+                needs: ['allowaddattendance'],
+            },
+            {
+                label: 'Leave Management',
+                path: 'leave-attendance',
+                state: { value: 'Y', tabValue: 4 },
+                subMenu: LEAVE_MANAGEMENT,
+                needs: ['allowleavedetails'],
+            },
+            {
+                label: 'Reports',
+                path: 'leave-attendance',
+                state: { value: 'Y', tabValue: 5 },
+                subMenu: ATTENDANCE_ACCESS,
+                needs: ['allowreports'],
+            },
+        ],
     },
     {
-        color: "#2563EB",
+        accent: '#2563EB',
         icon: AccountBalanceIcon,
-        text: "Payroll Management",
-        description: "Salary structures, statutory compliance & payroll runs",
-        bgColor: "#EFF6FF",
-        iconBgColor: "#2563EB1A",
-        moduleIndex: 1,
-        disabled: false,
+        text: 'Payroll Management',
+        description: 'Salary structures, statutory compliance and payroll runs.',
+        path: 'payroll',
+        access: [{ subMenu: PAYROLL, needs: ['view', 'create', 'edit', 'delete'] }],
+        links: [
+            {
+                label: 'Salary Structures',
+                path: 'payroll/salary-structures',
+                subMenu: PAYROLL,
+                needs: ['view', 'create', 'edit'],
+            },
+            {
+                label: 'Run Payroll',
+                path: 'payroll/approve-payroll',
+                subMenu: PAYROLL,
+                needs: ['create', 'edit'],
+            },
+            {
+                label: 'Salary Register',
+                path: 'payroll/salary-register',
+                subMenu: PAYROLL,
+                needs: ['view'],
+            },
+        ],
     },
-    
+];
+
+const attendanceTabs = [
+    { value: 0, label: 'Attendance Dashboard', subMenu: ATTENDANCE_ACCESS, needs: ['allowdashboardview'] },
+    { value: 1, label: 'Add Attendance', subMenu: ATTENDANCE_ACCESS, needs: ['allowaddattendance'] },
+    { value: 2, label: 'Staff Attendance Overview', subMenu: ATTENDANCE_ACCESS, needs: ['allowoverview'] },
+    { value: 3, label: 'Leave Management', subMenu: LEAVE_MANAGEMENT, needs: ['allowleavedetails'] },
+    { value: 4, label: 'Leave Approval', subMenu: LEAVE_MANAGEMENT, needs: ['allowleavedetails'] },
+    { value: 5, label: 'Reports', subMenu: ATTENDANCE_ACCESS, needs: ['allowreports'] },
 ];
 
 export default function LeaveAttendanceMainPage() {
     const navigate = useNavigate();
     const location = useLocation();
     const user = useSelector((state) => state.auth);
-    const userType = user.userType;
     const isLeaveAttendancePath = location.pathname.endsWith('/leave-attendance');
-    const [moduleTab, setModuleTab] = useState(isLeaveAttendancePath ? 0 : (location.state?.moduleTab ?? null)); // null: show cards, 0: Leave, 1: Payroll
-    const [tabValue, setTabValue] = useState(0);
+    const [moduleTab, setModuleTab] = useState(
+        isLeaveAttendancePath || location.state?.moduleTab === 0 ? 0 : null
+    );
+    const [tabValue, setTabValue] = useState(location.state?.tabValue ?? 0);
 
-    const handleModuleCardClick = (moduleIndex) => {
-        if (moduleIndex === 0) {
-            // Dedicated Leave & Attendance route so refresh persists
-            navigate('leave-attendance');
-        } else if (moduleIndex === 1) {
-            // Separate Payroll route
-            navigate('payroll');
-        } else if (moduleIndex === 2) {
-            // Leave Policy Master — direct entry from main page
-            navigate('payroll/leave-policy/leave-master');
-        }
+    const perms = user.permissions;
+    const rbacReady = (perms?.mainMenus || []).length > 0;
+
+    const granted = (subMenu, needs) => {
+        if (!rbacReady) return true;
+        const p = findSubMenuPermissions(perms, MAIN_MENU, subMenu);
+        if (!p) return true;
+        return needs.some((k) => p[k] === 'Y');
     };
 
-    const handleBackToCards = () => {
-        if (isLeaveAttendancePath) {
+    const visibleCards = moduleCards
+        .filter((card) => card.access.some((a) => granted(a.subMenu, a.needs)))
+        .map((card) => ({ ...card, links: card.links.filter((l) => granted(l.subMenu, l.needs)) }));
+
+    const visibleTabs = attendanceTabs.filter((t) => granted(t.subMenu, t.needs));
+    const activeTab = visibleTabs.some((t) => t.value === tabValue)
+        ? tabValue
+        : visibleTabs[0]?.value ?? 0;
+
+    const handleBack = () => {
+        if (moduleTab === null || isLeaveAttendancePath) {
             navigate(-1);
-        } else {
-            setModuleTab(null);
-            setTabValue(0);
+            return;
         }
+        setModuleTab(null);
+        setTabValue(0);
     };
 
-    const handleTabChange = (event, newValue) => {
-        setTabValue(newValue);
-    };
-
-    // Render content based on selected tab (only for Leave & Attendance module)
     const renderTabContent = () => {
-        // Leave & Attendance Module tabs
-        switch (tabValue) {
-            case 0:
-                return <LeaveAttendancePage isEmbedded={true} onGoToAddAttendance={() => setTabValue(1)} onGoToApprovalWorkflow={() => setTabValue(4)} />;
+        switch (activeTab) {
             case 1:
                 return <AddStaffAttendancePage />;
             case 2:
@@ -113,33 +182,49 @@ export default function LeaveAttendanceMainPage() {
             case 5:
                 return <AttendanceReportsPage isEmbedded={true} />;
             default:
-                return <LeaveAttendancePage isEmbedded={true} />;
+                return (
+                    <LeaveAttendancePage
+                        isEmbedded={true}
+                        onGoToAddAttendance={() => setTabValue(1)}
+                        onGoToApprovalWorkflow={() => setTabValue(4)}
+                    />
+                );
         }
     };
 
     return (
-        <Box sx={{
-            border: '1px solid #ccc',
-            borderRadius: '20px',
-            p: 2,
-            height: '86vh',
-            display: 'flex',
-            flexDirection: 'column',
-            bgcolor: '#FAFAFA'
-        }}>
-            {/* Header */}
-            <Box sx={{ flexShrink: 0 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
-                    <Typography sx={{ fontSize: "20px", fontWeight: "600" }}>
-                        Leave & Payroll Management
-                    </Typography>
-                </Box>
-                <Divider sx={{ mb: 1.5 }} />
-                {moduleTab === 0 && (
-                    <Box sx={{ borderBottom: '1px solid #E8E8E8', mb: 1.5 }}>
+        <Box
+            sx={{
+                px: { xs: 1.5, md: 3 },
+                pt: { xs: 1.5, md: 2 },
+                pb: 4,
+                bgcolor: DASH.canvas,
+                minHeight: '100%', boxSizing: 'border-box',
+            }}
+        >
+            <PageHeader
+                title="Leave & Payroll Management"
+                subtitle={
+                    moduleTab === 0
+                        ? 'Daily attendance, leave requests and approvals'
+                        : 'Attendance, leave policy and payroll records'
+                }
+                onBack={handleBack}
+            />
+
+            {moduleTab === 0 ? (
+                <Box
+                    sx={{
+                        bgcolor: '#fff',
+                        border: `1px solid ${DASH.line}`,
+                        borderRadius: RADIUS,
+                        overflow: 'hidden',
+                    }}
+                >
+                    <Box sx={{ borderBottom: `1px solid ${DASH.line}`, px: { xs: 0.5, md: 1 } }}>
                         <Tabs
-                            value={tabValue}
-                            onChange={handleTabChange}
+                            value={activeTab}
+                            onChange={(event, newValue) => setTabValue(newValue)}
                             variant="scrollable"
                             scrollButtons="auto"
                             sx={{
@@ -147,133 +232,63 @@ export default function LeaveAttendanceMainPage() {
                                 '& .MuiTab-root': {
                                     textTransform: 'none',
                                     fontSize: '13px',
-                                    fontWeight: '600',
-                                    color: '#666',
+                                    fontWeight: 600,
+                                    color: DASH.muted,
                                     minHeight: '40px',
-                                    px: 2.5,
-                                    py: 1
+                                    px: 2,
                                 },
-                                '& .Mui-selected': {
-                                    color: '#F97316 !important'
-                                },
+                                '& .Mui-selected': { color: `${TAB_ACCENT} !important` },
                                 '& .MuiTabs-indicator': {
-                                    backgroundColor: '#F97316',
+                                    backgroundColor: TAB_ACCENT,
                                     height: '2px',
-                                    borderRadius: '2px 2px 0 0'
-                                }
+                                    borderRadius: '2px 2px 0 0',
+                                },
                             }}
                         >
-                            <Tab label="Attendance Dashboard" />
-                            <Tab label="Add Attendance" />
-                            <Tab label="Staff Attendance Overview" />
-                            <Tab label="Leave Management" />
-                            <Tab label="Leave Approval" />
-                            <Tab label="Reports" />
+                            {visibleTabs.map((t) => (
+                                <Tab key={t.value} value={t.value} label={t.label} />
+                            ))}
                         </Tabs>
                     </Box>
-                )}
-            </Box>
 
-            {/* Dynamic Content Area */}
-            <Box sx={{ flex: 1, overflow: 'auto' }}>
-                {moduleTab === null ? (
-                    // Show module cards when no module is selected
-                    <Grid container spacing={2} sx={{ mt: 1 }}>
-                        {moduleCards.filter(item => {
-                            const adminGated = ["Payroll Management", "Leave Policy Master"];
-                            if (!adminGated.includes(item.text)) return true;
-                            return ["Super Admin", "admin", "staff"].includes(userType);
-                        }).map((item, index) => {
-                            const IconComponent = item.icon;
-                            return (
-                                <Grid
-                                    sx={{ display: "flex", justifyContent: "center" }}
-                                    key={index}
-                                    size={{ xs: 12, sm: 6, md: 4, lg: 3 }}
-                                >
-                                    <Box
-                                        onClick={() => !item.disabled && handleModuleCardClick(item.moduleIndex)}
-                                        sx={{
-                                            position: "relative",
-                                            backgroundColor: item.bgColor,
-                                            boxShadow: "0 2px 6px rgba(0, 0, 0, 0.08)",
-                                            border: "1px solid rgba(0, 0, 0, 0.06)",
-                                            width: "100%",
-                                            minHeight: "105px",
-                                            borderRadius: "8px",
-                                            cursor: item.disabled ? "not-allowed" : "pointer",
-                                            opacity: item.disabled ? 0.6 : 1,
-                                            transition: "transform 0.25s ease, box-shadow 0.25s ease",
-                                            overflow: "hidden",
-                                            display: "flex",
-                                            alignItems: "stretch",
-                                            "&:hover": {
-                                                transform: item.disabled ? "none" : "translateY(-3px)",
-                                                boxShadow: item.disabled ? "0 2px 6px rgba(0, 0, 0, 0.08)" : `0 6px 16px ${item.color}30`,
-                                                ".arrowIcon": { opacity: item.disabled ? 0 : 1, transform: "translateX(2px)" },
-                                            },
-                                            "&::before": {
-                                                content: '""',
-                                                position: "absolute",
-                                                left: 0,
-                                                top: 0,
-                                                height: "100%",
-                                                width: "5px",
-                                                background: `linear-gradient(180deg, ${item.color} 0%, ${item.color}99 100%)`,
-                                            },
-                                        }}
-                                    >
-                                        <Box sx={{
-                                            flex: 1,
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            px: 2.5,
-                                            py: 2,
-                                            gap: 1.5,
-                                            minWidth: 0,
-                                        }}>
-                                            <Box sx={{
-                                                backgroundColor: item.iconBgColor,
-                                                borderRadius: "50%",
-                                                width: 44,
-                                                height: 44,
-                                                display: "flex",
-                                                justifyContent: "center",
-                                                alignItems: "center",
-                                                flexShrink: 0,
-                                            }}>
-                                                <IconComponent sx={{ color: item.color, fontSize: 24 }} />
-                                            </Box>
-                                            <Box sx={{
-                                                flex: 1,
-                                                minWidth: 0,
-                                                display: 'flex',
-                                                flexDirection: 'column',
-                                                justifyContent: 'center',
-                                            }}>
-                                                <Typography sx={{ fontWeight: 700, fontSize: 15, color: "#1a1a1a", lineHeight: 1.3 }}>
-                                                    {item.text}
-                                                </Typography>
-                                            
-                                            </Box>
-                                            <ArrowForwardIcon className="arrowIcon" sx={{
-                                                opacity: 0,
-                                                transition: "opacity 0.25s ease, transform 0.25s ease",
-                                                color: item.color,
-                                                flexShrink: 0,
-                                                alignSelf: 'center',
-                                            }} />
-                                        </Box>
-                                    </Box>
-                                </Grid>
-                            );
-                        })}
+                    <Box sx={{ p: { xs: 1.2, md: 1.8 } }}>
+                        {visibleTabs.length === 0 ? (
+                            <EmptyNote text="You do not have access to any attendance screen." />
+                        ) : (
+                            renderTabContent()
+                        )}
+                    </Box>
+                </Box>
+            ) : (
+                <>
+                    <SectionTitle icon={AppsIcon}>Modules</SectionTitle>
+
+                    {visibleCards.length === 0 && (
+                        <Box sx={{ bgcolor: '#fff', border: `1px solid ${DASH.line}`, borderRadius: RADIUS, p: 3 }}>
+                            <EmptyNote text="You do not have access to leave or payroll records." />
+                        </Box>
+                    )}
+
+                    <Grid container spacing={2} alignItems="stretch" sx={{ pb: 1 }}>
+                        {visibleCards.map((item) => (
+                            <Grid
+                                key={item.text}
+                                size={{ xs: 12, sm: 6, md: 4, lg: 3 }}
+                                sx={{ display: 'flex' }}
+                            >
+                                <ModuleCard
+                                    accent={item.accent}
+                                    icon={item.icon}
+                                    title={item.text}
+                                    desc={item.description}
+                                    to={item.path}
+                                    links={item.links}
+                                />
+                            </Grid>
+                        ))}
                     </Grid>
-                ) : (
-                    // Show module content when a module is selected
-                    renderTabContent()
-                )}
-            </Box>
+                </>
+            )}
         </Box>
     );
 }

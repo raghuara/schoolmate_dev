@@ -10,6 +10,8 @@ import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import dayjs from "dayjs";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { selectUserTypeID } from "../../../../Redux/Slices/AuthSlice";
+import { APPROVAL_SUBMENUS, isApproverFor, selectApprovalMatrix, selectApprovalMatrixReady } from "../../../../Redux/Slices/approvalMatrixSlice";
 import { useSelector } from "react-redux";
 import { selectAcademicYear } from "../../../../Redux/Slices/academicYearSlice";
 import { selectWebsiteSettings } from "../../../../Redux/Slices/websiteSettingsSlice";
@@ -19,6 +21,7 @@ import SnackBar from "../../../SnackBar";
 import CancelIcon from "@mui/icons-material/Cancel";
 import SimpleTextEditor from "../../../EditTextEditor";
 import Loader from "../../../Loader";
+import { DASH } from "../../../DashBoardComps/dashboardTheme";
 
 export default function NewsApprovalEditPage() {
     const navigate = useNavigate()
@@ -30,6 +33,14 @@ export default function NewsApprovalEditPage() {
     const academicYear = useSelector(selectAcademicYear);
     const rollNumber = user.rollNumber
     const userType = user.userType
+    // Kept only as payload data below - never as a gate.
+    const userTypeID = useSelector(selectUserTypeID);
+    const approvalMatrix = useSelector(selectApprovalMatrix);
+    const matrixReady = useSelector(selectApprovalMatrixReady);
+    // Do not redirect while the matrix is still loading, or an approver gets
+    // thrown out on a slow connection.
+    const canApproveThis = !matrixReady
+        || isApproverFor(approvalMatrix, APPROVAL_SUBMENUS.NEWS, userTypeID);
     const userName = user.name
 
     const todayDateTime = dayjs().format('DD-MM-YYYY HH:mm');
@@ -411,28 +422,27 @@ export default function NewsApprovalEditPage() {
             setIsLoading(false);
         }
     };
-    if (userType !== "superadmin" && userType !== "admin") {
+    if (!canApproveThis) {
         return <Navigate to="/dashboardmenu/dashboard" replace />;
     }
     return (
-        <Box sx={{ width: "100%" }}>
+        <Box
+            sx={{
+                px: { xs: 1.5, md: 3 },
+                pt: { xs: 1.5, md: 2 },
+                pb: { xs: 2, md: 3 },
+                bgcolor: DASH.canvas,
+                boxSizing: "border-box",
+            }}
+        >
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
             {isLoading && <Loader />}
-            <Box sx={{
-                position: "fixed",
-                zIndex: 100,
-                backgroundColor: "#f2f2f2",
-                display: "flex",
-                alignItems: "center",
-                width: "100%",
-                py: 1.5,
-                marginTop: "-2px"
-            }}>
+            <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
 
                 <IconButton onClick={handleBackClick} sx={{ width: "27px", height: "27px", marginTop: '2px' }}>
-                    <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
+                    <ArrowBackIcon sx={{ fontSize: 20, color: DASH.ink }} />
                 </IconButton>
-                <Typography sx={{ fontWeight: "600", fontSize: "20px" }}>Edit News</Typography>
+                <Typography sx={{ fontSize: "20px", fontWeight: 700, color: DASH.ink, lineHeight: 1.2 }}>Edit News</Typography>
             </Box>
             <Grid container >
                 <Grid

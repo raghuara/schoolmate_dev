@@ -8,6 +8,7 @@ import { Link, useNavigate } from "react-router-dom";
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import AddIcon from '@mui/icons-material/Add';
 import { attendanceSpecific, attendanceTable, barchart, piechart, sectionsDropdown } from "../../Api/Api";
+import { TableRowsSkeleton } from "../InnerLoader";
 import FullWidthBarChartPage from "../Chart/FullWidthBarChart";
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import StyledPieChart from "../Chart/StyledPieChart";
@@ -1404,9 +1405,11 @@ export default function AttendancePage() {
                                         </TableRow>
                                     </TableHead>
                                     <TableBody>
-                                        {attendanceTableDetails.length === 0 ? (
+                                        {isLoading ? (
+                                            <TableRowsSkeleton rows={8} columns={9} wideColumn={2} />
+                                        ) : attendanceTableDetails.length === 0 ? (
                                             <TableRow>
-                                                <TableCell colSpan={8} sx={{ textAlign: "center", py: 3 }}>
+                                                <TableCell colSpan={9} sx={{ textAlign: "center", py: 3 }}>
                                                     No data available
                                                 </TableCell>
                                             </TableRow>

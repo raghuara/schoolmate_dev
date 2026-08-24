@@ -4,7 +4,6 @@ import {
     Dialog, DialogTitle, DialogContent, DialogActions, TextareaAutosize,
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
 } from "@mui/material";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import HighlightOffIcon from "@mui/icons-material/HighlightOff";
 import PendingActionsIcon from "@mui/icons-material/PendingActions";
@@ -16,11 +15,13 @@ import HistoryToggleOffIcon from "@mui/icons-material/HistoryToggleOff";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import CloseIcon from "@mui/icons-material/Close";
 import { useNavigate, Navigate } from "react-router-dom";
+import { hasMainMenuAccess } from "../../../Redux/Slices/AuthSlice";
 import { useSelector } from "react-redux";
 import axios from "axios";
 import SnackBar from "../../SnackBar";
 import { selectAcademicYear } from "../../../Redux/Slices/academicYearSlice";
 import { GetOverallLeaveDetails, StudentsOnLeaveToday, LeaveApproval } from "../../../Api/Api";
+import { DASH, PageHeader } from "../../DashBoardComps/dashboardTheme";
 
 const ACCENT = "#3457D5";
 const TOKEN = "123";
@@ -98,7 +99,14 @@ const FILTERS = [
 export default function StudentLeaveApprovalPage() {
     const navigate = useNavigate();
     const user = useSelector((state) => state.auth);
+    // Kept only as data for the approval payload below - never as a gate.
     const userType = user.userType;
+
+    // Until the backend publishes an "approvals" main menu the module stays
+    // open; once it arrives it decides on its own.
+    const permissions = user.permissions;
+    const rbacReady = Boolean((permissions?.mainMenus || []).find((m) => m.mainMenu === "approvals"));
+    const hasApprovalsAccess = !rbacReady || hasMainMenuAccess(permissions, "approvals");
     const isExpanded = useSelector((state) => state.sidebar.isExpanded);
     const academicYear = useSelector(selectAcademicYear);
 
@@ -212,7 +220,7 @@ export default function StudentLeaveApprovalPage() {
         closeReject();
     };
 
-    if (userType !== "superadmin" && userType !== "admin" && userType !== "staff") {
+    if (!hasApprovalsAccess) {
         return <Navigate to="/dashboardmenu/dashboard" replace />;
     }
 
@@ -227,37 +235,23 @@ export default function StudentLeaveApprovalPage() {
     ];
 
     return (
-        <Box sx={{ width: "100%" }}>
+        <Box
+            sx={{
+                px: { xs: 1.5, md: 3 },
+                pt: { xs: 1.5, md: 2 },
+                pb: { xs: 2, md: 3 },
+                bgcolor: DASH.canvas,
+                boxSizing: "border-box",
+            }}
+        >
             <SnackBar open={snack.open} color={snack.ok} setOpen={(v) => setSnack((s) => ({ ...s, open: v }))} status={snack.ok} message={snack.msg} />
 
-            {/* Header */}
-            <Box sx={{
-                position: "fixed",
-                top: "60px",
-                left: isExpanded ? "260px" : "80px",
-                right: 0,
-                backgroundColor: "#f2f2f2",
-                px: 2,
-                borderBottom: "1px solid #ddd",
-                zIndex: 1200,
-                transition: "left 0.3s ease-in-out",
-                overflow: 'hidden',
-                display: "flex",
-                py: 1,
-            }}>
-                <IconButton onClick={() => navigate(-1)} sx={{ width: 32, height: 32 }}>
-                    <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
-                </IconButton>
-                <Box sx={{ width: 38, height: 38, borderRadius: "10px", bgcolor: `${ACCENT}1A`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <EventBusyOutlinedIcon sx={{ fontSize: 22, color: ACCENT }} />
-                </Box>
-                <Box>
-                    <Typography sx={{ fontWeight: 700, fontSize: "19px", lineHeight: 1.1 }}>Student Leave Management</Typography>
-                    <Typography sx={{ fontSize: 11.5, color: "#6B7280" }}>Review, approve or reject student leave requests</Typography>
-                </Box>
-            </Box>
-
-            <Box sx={{ px: 2, pb: 2, pt: "70px" }}>
+            <PageHeader
+                title="Student Leave Management"
+                subtitle="Review, approve or reject student leave requests"
+                onBack={() => navigate("/dashboardmenu/approvals", { state: { tabId: "leave" } })}
+            />
+            <Box sx={{ pb: 1 }}>
                 {/* KPI / status cards */}
                 <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap", mb: 2 }}>
                     {kpis.map((k) => {

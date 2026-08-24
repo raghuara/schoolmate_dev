@@ -20,18 +20,37 @@ import ReactPlayer from "react-player";
 import { TabList, TabPanel } from "@mui/joy";
 import { MuiColorInput } from "mui-color-input";
 import Loader from "../Loader";
+import { CalendarSkeleton, EventCardSkeleton } from "../InnerLoader";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import EventNoteOutlinedIcon from "@mui/icons-material/EventNoteOutlined";
 import AddIcon from "@mui/icons-material/Add";
 import CalendarMonthOutlinedIcon from "@mui/icons-material/CalendarMonthOutlined";
 import EventAvailableOutlinedIcon from "@mui/icons-material/EventAvailableOutlined";
 import ImportantEventsPage from "./ImportantEventsPage";
+import { DASH, RADIUS, PageHeader } from "../DashBoardComps/dashboardTheme";
 
 // Page theme — soft emerald (matches Leave Policy Master Screen).
 const PRIMARY = "#059669";
 const PRIMARY_LIGHT = "#ECFDF5";
 const PRIMARY_DARK = "#047857";
 const PRIMARY_BORDER = "#A7F3D0";
+
+const PANE_HEIGHT = "calc(100vh - 172px)";
+
+const EMPTY_BOX = {
+    textAlign: "center",
+    mt: 2,
+    bgcolor: DASH.surface,
+    border: `1px dashed ${DASH.line}`,
+    borderRadius: RADIUS,
+    width: "100%",
+    height: "100px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+};
+
+const EMPTY_TEXT = { fontSize: "12.5px", color: DASH.faint };
 
 // 10 preset event colors — bright, vivid (rgba matches the backend EventColor format).
 const EVENT_COLORS = [
@@ -253,6 +272,9 @@ export default function SchoolCalendarPage() {
     const [todayEvents, setTodayEvents] = useState([]);
     const [completedEvents, setCompletedEvents] = useState([]);
     const [upCommingEvents, setUpCommingEvents] = useState([]);
+    // Separate from isLoading: this one only tracks the events fetch, so the
+    // list skeletons never appear while a save or delete overlay is up.
+    const [eventsLoading, setEventsLoading] = useState(true);
     const [deleteId, setDeleteId] = useState('');
     const [editId, setEditId] = useState('');
     const [openEditAlert, setOpenEditAlert] = useState(false);
@@ -565,6 +587,7 @@ export default function SchoolCalendarPage() {
 
     const fetchYearEvents = async () => {
         setIsLoading(true);
+        setEventsLoading(true);
         try {
             const res = await axios.get(FetchAllSchoolCalenderEvents, {
                 params: {
@@ -586,6 +609,7 @@ export default function SchoolCalendarPage() {
             console.error(error);
         } finally {
             setIsLoading(false);
+            setEventsLoading(false);
         }
     };
 
@@ -832,24 +856,32 @@ export default function SchoolCalendarPage() {
     };
 
     return (
-        <Box sx={{ width: "100%" }}>
+        <Box
+            sx={{
+                px: { xs: 1.5, md: 3 },
+                pt: { xs: 1.5, md: 2 },
+                pb: { xs: 2, md: 3 },
+                bgcolor: DASH.canvas,
+                height: "100%",
+                boxSizing: "border-box",
+            }}
+        >
             {isLoading && <Loader />}
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
-            <Box sx={{ backgroundColor: "#f2f2f2", px: 2, borderRadius: "10px 10px 10px 0px", borderBottom: "1px solid #ddd", }}>
-                <Grid container sx={{ py: 1 }} alignItems="center">
-                    <Grid
-                        sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap" }}
-                        size={{ xs: 12, lg: 6 }}>
-                        <Typography sx={{ fontWeight: "600", fontSize: "20px" }}>School Calendar</Typography>
 
+            <PageHeader
+                title="School Calendar"
+                subtitle="Events, holidays and important dates"
+                right={
+                    <>
                         {canViewEvents && (
                             <Box
                                 sx={{
                                     display: "inline-flex",
                                     p: "3px",
-                                    borderRadius: "50px",
+                                    borderRadius: RADIUS,
                                     bgcolor: "#fff",
-                                    border: "1px solid #DDE1E6",
+                                    border: `1px solid ${DASH.line}`,
                                 }}
                             >
                                 {[
@@ -868,15 +900,16 @@ export default function SchoolCalendarPage() {
                                                 gap: 0.6,
                                                 cursor: "pointer",
                                                 userSelect: "none",
-                                                px: 1.8,
-                                                py: 0.5,
-                                                borderRadius: "50px",
+                                                px: 1.6,
+                                                py: 0.55,
+                                                borderRadius: RADIUS,
                                                 fontSize: "12.5px",
                                                 fontWeight: 700,
                                                 transition: "0.18s",
-                                                bgcolor: active ? "#000" : "transparent",
-                                                color: active ? "#fff" : "#6B7280",
-                                                "&:hover": active ? {} : { color: "#111827", bgcolor: "#F3F4F6" },
+                                                bgcolor: active ? PRIMARY_LIGHT : "transparent",
+                                                color: active ? PRIMARY_DARK : DASH.muted,
+                                                border: `1px solid ${active ? PRIMARY_BORDER : "transparent"}`,
+                                                "&:hover": active ? {} : { color: DASH.ink, bgcolor: DASH.lineSoft },
                                             }}
                                         >
                                             <TabIcon sx={{ fontSize: 15 }} />
@@ -886,40 +919,41 @@ export default function SchoolCalendarPage() {
                                 })}
                             </Box>
                         )}
-                    </Grid>
 
-                    <Grid
-                        sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 1, px: 1 }}
-                        size={{ xs: 12, lg: 6 }}>
                         {canCreate && activeView === "calendar" && (
                             <Button
-                                variant="contained"
-                                startIcon={<AddIcon sx={{ fontSize: 16 }} />}
+                                disableElevation
+                                startIcon={<AddIcon sx={{ fontSize: 18 }} />}
                                 onClick={() => setCreateOpen(true)}
                                 sx={{
                                     textTransform: "none",
-                                    bgcolor: "#000",
-                                    color: "#fff",
+                                    fontSize: "13px",
                                     fontWeight: 700,
-                                    fontSize: 12.5,
-                                    borderRadius: "50px",
-                                    px: 2,
-                                    py: 0.6,
-                                    boxShadow: "0 2px 6px rgba(0,0,0,0.18)",
-                                    "&:hover": {
-                                        bgcolor: "#1a1a1a",
-                                        boxShadow: "0 4px 12px rgba(0,0,0,0.22)",
-                                    },
+                                    height: 34,
+                                    px: 1.8,
+                                    borderRadius: RADIUS,
+                                    bgcolor: PRIMARY,
+                                    color: "#fff",
+                                    "&:hover": { bgcolor: PRIMARY_DARK },
                                 }}
                             >
                                 Create Event
                             </Button>
                         )}
-                    </Grid>
-                </Grid>
-            </Box>
+                    </>
+                }
+            />
             {canView && activeView === "events" && (
-                <Box sx={{ height: { xs: "auto", lg: "83vh" }, overflowY: "auto", p: 2 }}>
+                <Box
+                    sx={{
+                        height: { xs: "auto", lg: PANE_HEIGHT },
+                        overflowY: "auto",
+                        p: 2,
+                        bgcolor: "#fff",
+                        border: `1px solid ${PRIMARY}38`,
+                        borderRadius: RADIUS,
+                    }}
+                >
                     <ImportantEventsPage embedded />
                 </Box>
             )}
@@ -927,13 +961,17 @@ export default function SchoolCalendarPage() {
                 <Box sx={{
                     height: {
                         xs: "auto",
-                        lg: "83vh",
+                        lg: PANE_HEIGHT,
                     },
                     overflow: "hidden",
                     bgcolor: "#fff",
+                    border: `1px solid ${PRIMARY}38`,
+                    borderRadius: RADIUS,
                     display: "flex",
                     flexDirection: "column",
                     minHeight: 0,
+                    transition: "box-shadow 0.2s ease",
+                    "&:hover": { boxShadow: "0 4px 16px rgba(17,24,39,0.10)" },
                 }}>
                     <Grid
                         container
@@ -964,7 +1002,9 @@ export default function SchoolCalendarPage() {
                                 xs: 12,
                                 lg: 6
                             }}>
-                            <Box sx={{
+                            {eventsLoading && <CalendarSkeleton />}
+
+                            {!eventsLoading && <Box sx={{
                                 width: "100%",
                                 maxWidth: 520,
                                 bgcolor: "#fff",
@@ -1056,7 +1096,7 @@ export default function SchoolCalendarPage() {
                                     }}
                                     className="teal"
                                 />
-                            </Box>
+                            </Box>}
 
                             {/* Selected-day events panel — appears when user clicks a date on the calendar */}
                             {selectedDate && (
@@ -1230,23 +1270,16 @@ export default function SchoolCalendarPage() {
                             <Box sx={{ flex: 1, minHeight: 0, overflowY: "auto", px: 1, pb: 2 }}>
                                 {value === 0 && <Box sx={{ px: 1, pt: 1.5 }}>
                                     <Grid container spacing={2}>
-                                        {completedEvents.length === 0 ? (
-                                            <Box
-                                                sx={{
-                                                    textAlign: "center",
-                                                    mt: 2,
-                                                    backgroundColor: "#F9FAFB",
-                                                    border: "1px dashed #E5E7EB",
-                                                    borderRadius: "5px",
-                                                    width: "100%",
-                                                    height: "100px",
-                                                    display: "flex",
-                                                    alignItems: "center",
-                                                    justifyContent: "center",
-                                                }}
-                                            >
-                                                <Typography sx={{ fontSize: "14px", color: "#616161" }}>
-                                                    No events today
+                                        {eventsLoading ? (
+                                            Array.from({ length: 3 }).map((_, i) => (
+                                                <Grid key={`ev-skeleton-${i}`} size={12}>
+                                                    <EventCardSkeleton lines={i === 1 ? 1 : 2} />
+                                                </Grid>
+                                            ))
+                                        ) : completedEvents.length === 0 ? (
+                                            <Box sx={EMPTY_BOX}>
+                                                <Typography sx={EMPTY_TEXT}>
+                                                    No completed events yet
                                                 </Typography>
                                             </Box>
                                         ) : (
@@ -1266,22 +1299,15 @@ export default function SchoolCalendarPage() {
                                 </Box>}
                                 {value === 1 && <Box sx={{ px: 1, pt: 1.5 }}>
                                     <Grid container spacing={2}>
-                                        {todayEvents.length === 0 ? (
-                                            <Box
-                                                sx={{
-                                                    textAlign: "center",
-                                                    mt: 2,
-                                                    backgroundColor: "#F9FAFB",
-                                                    border: "1px dashed #E5E7EB",
-                                                    borderRadius: "5px",
-                                                    width: "100%",
-                                                    height: "100px",
-                                                    display: "flex",
-                                                    alignItems: "center",
-                                                    justifyContent: "center",
-                                                }}
-                                            >
-                                                <Typography sx={{ fontSize: "14px", color: "#616161" }}>
+                                        {eventsLoading ? (
+                                            Array.from({ length: 3 }).map((_, i) => (
+                                                <Grid key={`ev-skeleton-${i}`} size={12}>
+                                                    <EventCardSkeleton lines={i === 1 ? 1 : 2} />
+                                                </Grid>
+                                            ))
+                                        ) : todayEvents.length === 0 ? (
+                                            <Box sx={EMPTY_BOX}>
+                                                <Typography sx={EMPTY_TEXT}>
                                                     No events today
                                                 </Typography>
                                             </Box>
@@ -1302,23 +1328,16 @@ export default function SchoolCalendarPage() {
                                 </Box>}
                                 {value === 2 && <Box sx={{ px: 1, pt: 1.5 }}>
                                         <Grid container spacing={2}>
-                                            {upCommingEvents.length === 0 ? (
-                                                <Box
-                                                    sx={{
-                                                        textAlign: "center",
-                                                        mt: 2,
-                                                        backgroundColor: "#F9FAFB",
-                                                        border: "1px dashed #E5E7EB",
-                                                        borderRadius: "5px",
-                                                        width: "100%",
-                                                        height: "100px",
-                                                        display: "flex",
-                                                        alignItems: "center",
-                                                        justifyContent: "center",
-                                                    }}
-                                                >
-                                                    <Typography sx={{ fontSize: "14px", color: "#616161" }}>
-                                                        No events today
+                                            {eventsLoading ? (
+                                                Array.from({ length: 3 }).map((_, i) => (
+                                                    <Grid key={`ev-skeleton-${i}`} size={12}>
+                                                        <EventCardSkeleton lines={i === 1 ? 1 : 2} />
+                                                    </Grid>
+                                                ))
+                                            ) : upCommingEvents.length === 0 ? (
+                                                <Box sx={EMPTY_BOX}>
+                                                    <Typography sx={EMPTY_TEXT}>
+                                                        No upcoming events scheduled
                                                     </Typography>
                                                 </Box>
                                             ) : (
@@ -2103,7 +2122,15 @@ export default function SchoolCalendarPage() {
             }
             {
                 canView && !canManage && activeView === "calendar" &&
-                <Box sx={{ height: "83vh", overflowY: "auto" }}>
+                <Box
+                    sx={{
+                        height: { xs: "auto", lg: PANE_HEIGHT },
+                        overflowY: "auto",
+                        bgcolor: "#fff",
+                        border: `1px solid ${PRIMARY}38`,
+                        borderRadius: RADIUS,
+                    }}
+                >
                     <Grid
                         container
                         justifyContent="center"
@@ -2130,7 +2157,7 @@ export default function SchoolCalendarPage() {
                                     showOtherDays={false}
                                     onMonthChange={handleMonthChange}
                                     onChange={handleDateChange}
-                                    style={{ boxShadow: "none", backgroundColor: "#F6F6F8" }}
+                                    style={{ boxShadow: "none", backgroundColor: "transparent" }}
                                     mapDays={({ date }) => {
                                         let style = {};
                                         const formattedDate = date.format("YYYY-MM-DD");
@@ -2316,7 +2343,13 @@ export default function SchoolCalendarPage() {
                                                     px: 2,
                                                 }}
                                             >
-                                                {completedEvents.length === 0 ? (
+                                                {eventsLoading ? (
+                                                    Array.from({ length: 3 }).map((_, i) => (
+                                                        <Grid key={`ev-skeleton-${i}`} size={12}>
+                                                            <EventCardSkeleton lines={i === 1 ? 1 : 2} />
+                                                        </Grid>
+                                                    ))
+                                                ) : completedEvents.length === 0 ? (
                                                     <Box
                                                         sx={{
                                                             textAlign: "center",
@@ -2372,7 +2405,13 @@ export default function SchoolCalendarPage() {
                                                     px: 2,
                                                 }}
                                             >
-                                                {todayEvents.length === 0 ? (
+                                                {eventsLoading ? (
+                                                    Array.from({ length: 3 }).map((_, i) => (
+                                                        <Grid key={`ev-skeleton-${i}`} size={12}>
+                                                            <EventCardSkeleton lines={i === 1 ? 1 : 2} />
+                                                        </Grid>
+                                                    ))
+                                                ) : todayEvents.length === 0 ? (
                                                     <Box
                                                         sx={{
                                                             textAlign: "center",
@@ -2427,7 +2466,13 @@ export default function SchoolCalendarPage() {
                                                 overflowY: "auto",
                                             }}>
 
-                                                {upCommingEvents.length === 0 ? (
+                                                {eventsLoading ? (
+                                                    Array.from({ length: 3 }).map((_, i) => (
+                                                        <Grid key={`ev-skeleton-${i}`} size={12}>
+                                                            <EventCardSkeleton lines={i === 1 ? 1 : 2} />
+                                                        </Grid>
+                                                    ))
+                                                ) : upCommingEvents.length === 0 ? (
                                                     <Box
                                                         sx={{
                                                             textAlign: "center",

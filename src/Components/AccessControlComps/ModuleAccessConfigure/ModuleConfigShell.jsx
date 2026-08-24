@@ -40,7 +40,7 @@ export const defaultPageConfig = () => ({
     allowSameLevel: false, // peer approval within the same level (Level 2+)
 });
 
-export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view", "create", "edit", "delete"], approval = false, validate, extraOps = {}, extraOpsLabels = {}, pageOverrides = {}, approvalText = {}, approvalNoun = "post", onSave }) {
+export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view", "create", "edit", "delete"], approval = false, validate, extraOps = {}, extraOpsLabels = {}, pageOverrides = {}, pageRequires = {}, approvalText = {}, approvalNoun = "post", onSave }) {
     const nounS = approvalNoun;
     const nounP = `${approvalNoun}s`;
     const navigate = useNavigate();
@@ -71,6 +71,20 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
     // apply once "View" is granted. A page that declares no View operation of
     // its own (Billing, ECA, Additional Fee, Expense) has nothing to gate on,
     // so its extras stay available.
+    // Some pages only exist inside another one - Events is a view of the School
+    // Calendar, so granting it while the calendar is hidden gives a permission
+    // the user can never reach. pageRequires names that dependency.
+    const requiredPageFor = (page) => pageRequires[page] || null;
+    const pageDependencyMet = (page) => {
+        const dep = requiredPageFor(page);
+        if (!dep) return true;
+        return !!config[dep.page]?.[dep.key];
+    };
+    const dependentPagesOf = (page, key) =>
+        Object.entries(pageRequires)
+            .filter(([, dep]) => dep.page === page && dep.key === key)
+            .map(([child]) => child);
+
     const gatesOnView = (page) => pageOpsKeys(page).includes("view");
     const extrasEnabled = (page) => !gatesOnView(page) || !!config[page]?.view;
 
@@ -105,6 +119,15 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
         // permissions that depend on it still ticked.
         if (cur[key]) dependentsOf(page, key).forEach((e) => { next[e.key] = false; });
         setPage(page, next);
+
+        // A page that only exists inside this one cannot stay granted once this
+        // one is switched off.
+        if (cur[key]) {
+            dependentPagesOf(page, key).forEach((child) => {
+                const childKeys = [...pageOpsKeys(child), ...flatExtraOps(child).map((e) => e.key)];
+                setPage(child, Object.fromEntries(childKeys.map((k) => [k, false])));
+            });
+        }
     };
 
     const toggleGate = (page, gateKey, itemKeys) => {
@@ -175,6 +198,9 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
         // with permissions the role has no page to use them on.
         const byKey = Object.fromEntries(flatExtraOps(page).map((e) => [e.key, e]));
         const allowed = (k) => (byKey[k] ? opEnabled(page, byKey[k]) : true);
+        // A page whose parent is off is saved as fully denied, whatever the
+        // stored record said, so opening and saving repairs an old one.
+        if (!pageDependencyMet(page)) return Object.fromEntries(keys.map((k) => [k, yn(false)]));
         return Object.fromEntries(keys.map((k) => [k, yn(allowed(k) ? c[k] : false)]));
     };
 
@@ -283,9 +309,10 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
         return (
             <FormGroup row sx={{ gap: 1 }}>
                 {pageOps(page).map((o) => {
-                    const active = cfg[o.key];
+                    const depMet = pageDependencyMet(page);
+                    const active = depMet && cfg[o.key];
                     const lockable = isLockable(o.key, keys);
-                    const locked = lockable && isLocked(cfg, o.key, keys);
+                    const locked = (lockable && isLocked(cfg, o.key, keys)) || !depMet;
                     return (
                         <FormControlLabel
                             key={o.key}
@@ -474,14 +501,22 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
                                             {pageAllKeys(page).length > 0 && (
                                                 <FormControlLabel
                                                     onClick={(e) => e.stopPropagation()}
-                                                    control={<Switch size="small" checked={isPageAllOn(page)} onChange={() => setPageAll(page, !isPageAllOn(page))} sx={{ "& .MuiSwitch-switchBase.Mui-checked": { color: ACCENT }, "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": { backgroundColor: ACCENT } }} />}
+                                                    control={<Switch size="small" disabled={!pageDependencyMet(page)} checked={pageDependencyMet(page) && isPageAllOn(page)} onChange={() => pageDependencyMet(page) && setPageAll(page, !isPageAllOn(page))} sx={{ "& .MuiSwitch-switchBase.Mui-checked": { color: ACCENT }, "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": { backgroundColor: ACCENT } }} />}
                                                     label={<Typography sx={{ fontSize: 11, fontWeight: 700, color: "#6B7280" }}>Allow all</Typography>}
                                                     sx={{ m: 0, mr: 0.3 }}
                                                 />
                                             )}
+                                            {requiredPageFor(page) && !pageDependencyMet(page) && (
+                                                <Box sx={{ display: "flex", alignItems: "center", gap: 0.4, px: 0.9, height: 20, borderRadius: "10px", bgcolor: "#FEF3C7", border: "1px solid #FDE68A" }}>
+                                                    <LockOutlinedIcon sx={{ fontSize: 12, color: "#B45309" }} />
+                                                    <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: "#B45309" }}>
+                                                        Needs {requiredPageFor(page).page}
+                                                    </Typography>
+                                                </Box>
+                                            )}
                                             {pageAllKeys(page).length > 0 && (() => {
                                                 const total = pageAllKeys(page).length;
-                                                const on = pageAllKeys(page).filter((k) => cfg[k]).length;
+                                                const on = pageDependencyMet(page) ? pageAllKeys(page).filter((k) => cfg[k]).length : 0;
                                                 return (
                                                     <Box sx={{ px: 1, height: 20, borderRadius: "10px", display: "flex", alignItems: "center", fontSize: 10.5, fontWeight: 700, bgcolor: on > 0 ? `${color}14` : "#F8FAFC", color: on > 0 ? color : "#9CA3AF", border: `1px solid ${on > 0 ? `${color}33` : "#E5E7EB"}` }}>
                                                         {on}/{total}
@@ -491,6 +526,23 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
                                         </Box>
                                     </AccordionSummary>
                                     <AccordionDetails sx={{ p: 2 }}>
+                                        {requiredPageFor(page) && !pageDependencyMet(page) && (
+                                            <Box
+                                                sx={{
+                                                    display: "flex", alignItems: "flex-start", gap: 0.8,
+                                                    bgcolor: "#FEF3C7", border: "1px solid #FDE68A",
+                                                    borderRadius: "6px", px: 1.2, py: 0.8, mb: 1.4,
+                                                }}
+                                            >
+                                                <LockOutlinedIcon sx={{ fontSize: 14, color: "#B45309", mt: "1px" }} />
+                                                <Typography sx={{ fontSize: 11.5, fontWeight: 600, color: "#B45309", lineHeight: 1.45 }}>
+                                                    {page} sits inside {requiredPageFor(page).page}. Turn on
+                                                    {" "}{requiredPageFor(page).key === "view" ? "View" : requiredPageFor(page).key}
+                                                    {" "}for {requiredPageFor(page).page} first - without it this page has no way to be opened.
+                                                </Typography>
+                                            </Box>
+                                        )}
+
                                         {pageOps(page).length > 0 && (<>
                                             <Typography sx={{ fontSize: 11, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: 0.4, mb: 1 }}>Allowed operations</Typography>
                                             {renderOps(page, cfg)}

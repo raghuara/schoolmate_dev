@@ -361,6 +361,8 @@ export default function ExtraCurricularManage() {
                     users={eligibleStudents}
                     activity={selectedActivity}
                     existingStudents={existingStudents}
+                    canMapStudent={canMapStudent}
+                    canEditStudent={canEditStudent}
                     onSave={(payload) => handleSaveStudents(payload)}
                 />
             </Box>

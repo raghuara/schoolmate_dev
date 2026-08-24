@@ -92,6 +92,9 @@ export const { setApprovalMatrix, resetApprovalMatrix } = approvalMatrixSlice.ac
 export const selectApprovalMatrix = (state) => state.approvalMatrix.list;
 export const selectApprovalMatrixLoading = (state) => state.approvalMatrix.loading;
 export const selectApprovalMatrixError = (state) => state.approvalMatrix.error;
+// False until the matrix has actually been fetched once. Screens use this so
+// they do not bounce an approver out while the flow is still loading.
+export const selectApprovalMatrixReady = (state) => Boolean(state.approvalMatrix.lastFetched);
 
 /* ── Reading the flow ──────────────────────────────────────────────────────
    Level 1 is the final approver and posts without a request. Every level below
@@ -131,6 +134,11 @@ export const canPublishDirect = (matrix, subMenu, userTypeID) => {
 // The mirror of the above - drives the "Request Approval" button.
 export const mustRequestApproval = (matrix, subMenu, userTypeID) =>
     !canPublishDirect(matrix, subMenu, userTypeID);
+
+// True when this user sits on any level of this module's chain, so they have
+// an approval queue worth showing. Level 0 ("Others") only ever requests.
+export const isApproverFor = (matrix, subMenu, userTypeID) =>
+    approvalLevelOf(matrix, subMenu, userTypeID) > 0;
 
 // Levels this user's item travels through, nearest approver first.
 // Level 3 -> [2, 1]; Level 2 -> [1]; Others -> every level, bottom up.

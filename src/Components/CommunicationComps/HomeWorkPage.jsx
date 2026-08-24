@@ -12,6 +12,7 @@ import { selectWebsiteSettings } from "../../Redux/Slices/websiteSettingsSlice";
 import { selectAcademicYear } from "../../Redux/Slices/academicYearSlice";
 import { DeleteHomeWork, DeleteTimeTable, GettingGrades, HomeWorkFetch, HomeWorkFetch01, TimeTableFetch } from "../../Api/Api";
 import Loader from "../Loader";
+import { PostedCardsSkeleton } from "../InnerLoader";
 import SnackBar from "../SnackBar";
 import { selectGrades } from "../../Redux/Slices/DropdownController";
 import { findSubMenuPermissions } from "../../Redux/Slices/AuthSlice";
@@ -44,6 +45,9 @@ export default function HomeWorkPage() {
     const userType = user.userType
     const userName = user.name
     const [isLoading, setIsLoading] = useState(false);
+    // Hold the list's shape until the first fetch has genuinely finished, so an
+    // empty grid does not paint before the data arrives.
+    const [hasLoaded, setHasLoaded] = useState(false);
     const token = '123';
     const [deleteId, setDeleteId] = useState('');
     const location = useLocation();
@@ -242,7 +246,6 @@ export default function HomeWorkPage() {
         // The API rejects the call without an academic year, so wait until the
         // header's selected year is in the store before asking for the list.
         if (!academicYear) return;
-        setIsLoading(true);
         try {
             const res = await axios.get(HomeWorkFetch01, {
                 params: {
@@ -267,6 +270,7 @@ export default function HomeWorkPage() {
             setMessage("No Data");
         } finally {
             setIsLoading(false);
+            setHasLoaded(true);
         }
     };
 
@@ -750,6 +754,9 @@ export default function HomeWorkPage() {
                                     </Typography>
                                 </Box>
                             )}
+                            {!hasLoaded ? (
+                                <PostedCardsSkeleton standalone spacing={3} count={6} columns={{ xs: 12, sm: 6, md: 4 }} rows={3} />
+                            ) : (
                             <Grid container spacing={3}>
                                 {timeTableData.map((table, index) => (
                                     <Grid
@@ -964,6 +971,7 @@ export default function HomeWorkPage() {
                                     </Grid>
                                 ))}
                             </Grid>
+                            )}
                         </>
                     ) : (
                         <>
@@ -982,6 +990,9 @@ export default function HomeWorkPage() {
                                 </Box>
                             )}
 
+                            {!hasLoaded ? (
+                                <PostedCardsSkeleton standalone spacing={1.5} count={4} columns={{ xs: 12, sm: 12, md: 12, lg: 6 }} rows={2} />
+                            ) : (
                             <Grid container spacing={1.5} sx={{ mt: 2 }}>
                                 {timeTableData.map((table, index) => (
                                     <Grid
@@ -1156,6 +1167,7 @@ export default function HomeWorkPage() {
                                     </Grid>
                                 ))}
                             </Grid>
+                            )}
                         </>
                     )}
                 </Box>

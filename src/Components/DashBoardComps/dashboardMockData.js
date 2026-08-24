@@ -52,6 +52,10 @@ export const MOCK_GRADE_ATTENDANCE = [
     { grade: "Grade 10", present: 93 },
 ];
 
+// Total class-sections expected to mark attendance each day. The dashboard
+// gauge shows how many of these are done, so the pending list has a denominator.
+export const MOCK_TOTAL_CLASSES = 46;
+
 export const MOCK_UNMARKED_CLASSES = [
     { id: 1, grade: "Grade 7", section: "B", teacher: "Priya Menon" },
     { id: 2, grade: "Grade 8", section: "A", teacher: "Rahul Nair" },
@@ -79,19 +83,19 @@ export const MOCK_MARKS_ENTRY = [
 
 export const MOCK_ACADEMIC_SUMMARY = {
     homeworkToday: 14,
-    homeworkPending: 6,
+    homeworkThisWeek: 62,
     materialsThisWeek: 9,
     quizzesActive: 3,
     quizAverage: 78,
 };
 
 export const MOCK_FEE_TREND = [
-    { month: "Mar", collected: 9.2, target: 11 },
-    { month: "Apr", collected: 10.8, target: 11 },
-    { month: "May", collected: 8.4, target: 11 },
-    { month: "Jun", collected: 11.6, target: 11 },
-    { month: "Jul", collected: 10.1, target: 11 },
-    { month: "Aug", collected: 12.4, target: 11 },
+    { month: "Mar", collected: 9.2 },
+    { month: "Apr", collected: 10.8 },
+    { month: "May", collected: 8.4 },
+    { month: "Jun", collected: 11.6 },
+    { month: "Jul", collected: 10.1 },
+    { month: "Aug", collected: 12.4 },
 ];
 
 export const MOCK_FEE_SPLIT = [
@@ -110,11 +114,11 @@ export const MOCK_GRADE_COLLECTION = [
 ];
 
 export const MOCK_TRANSACTIONS = [
-    { id: 1, student: "Aarav Kumar", grade: "10-A", amount: "12,500", mode: "UPI", status: "Completed", time: "10 min ago" },
-    { id: 2, student: "Diya Sharma", grade: "8-B", amount: "9,800", mode: "Card", status: "Completed", time: "42 min ago" },
+    { id: 1, student: "Aarav Kumar", grade: "10-A", amount: "12,500", mode: "UPI", status: "Approved", time: "10 min ago" },
+    { id: 2, student: "Diya Sharma", grade: "8-B", amount: "9,800", mode: "Card", status: "Approved", time: "42 min ago" },
     { id: 3, student: "Ishaan Verma", grade: "7-A", amount: "15,000", mode: "Net Banking", status: "Pending", time: "1 hour ago" },
-    { id: 4, student: "Meera Nair", grade: "9-C", amount: "7,200", mode: "Cheque", status: "Completed", time: "2 hours ago" },
-    { id: 5, student: "Rohan Iyer", grade: "6-B", amount: "11,400", mode: "UPI", status: "Failed", time: "3 hours ago" },
+    { id: 4, student: "Meera Nair", grade: "9-C", amount: "7,200", mode: "Cheque", status: "Approved", time: "2 hours ago" },
+    { id: 5, student: "Rohan Iyer", grade: "6-B", amount: "11,400", mode: "UPI", status: "Rejected", time: "3 hours ago" },
 ];
 
 export const MOCK_PAYROLL = {
@@ -182,7 +186,7 @@ export const MOCK_NEWS = [
 
 export const MOCK_MY_ACTIONS = [
     { id: 1, label: "Mark attendance for Grade 9-C", due: "Today", severity: "critical", path: "/dashboardmenu/attendance" },
-    { id: 2, label: "3 homework submissions to correct", due: "Today", severity: "warning", path: "/dashboardmenu/homework" },
+    { id: 2, label: "Marks entry pending for Mid Term", due: "Today", severity: "warning", path: "/dashboardmenu/marks" },
     { id: 3, label: "2 circulars awaiting your approval", due: "2 days left", severity: "info", path: "/dashboardmenu/approvals" },
 ];
 
@@ -209,3 +213,53 @@ access is enforced once on the server instead of in every widget:
   myActions:   [{ label, due, severity, path }]
 }
 */
+
+export const MOCK_MY_SCHEDULE = [
+    { id: 1, period: "1", time: "09:00 - 09:45", grade: "Grade 9-C", subject: "Mathematics", room: "Room 12", attendanceMarked: true },
+    { id: 2, period: "2", time: "09:45 - 10:30", grade: "Grade 8-B", subject: "Mathematics", room: "Room 08", attendanceMarked: true },
+    { id: 3, period: "4", time: "11:30 - 12:15", grade: "Grade 10-A", subject: "Mathematics", room: "Room 15", attendanceMarked: false, current: true },
+    { id: 4, period: "6", time: "13:45 - 14:30", grade: "Grade 7-A", subject: "Mathematics", room: "Room 04", attendanceMarked: false },
+    { id: 5, period: "7", time: "14:30 - 15:15", grade: "Grade 9-C", subject: "Remedial", room: "Lab 2", attendanceMarked: false },
+];
+
+export const MOCK_MY_ATTENDANCE = {
+    month: "August 2026",
+    workingDays: 22,
+    present: 18,
+    absent: 1,
+    late: 2,
+    halfDay: 1,
+    percent: 91,
+};
+
+export const MOCK_MY_LEAVE_BALANCE = [
+    { type: "Casual Leave", used: 6, total: 12 },
+    { type: "Sick Leave", used: 4, total: 8 },
+    { type: "Earned Leave", used: 2, total: 5 },
+];
+
+export const MOCK_MY_LEAVE_REQUESTS = [
+    { id: 1, type: "Casual Leave", from: "28 Aug", to: "29 Aug", days: 2, status: "Pending", applied: "2 days ago" },
+    { id: 2, type: "Sick Leave", from: "12 Aug", to: "12 Aug", days: 1, status: "Approved", applied: "12 days ago" },
+    { id: 3, type: "Casual Leave", from: "02 Aug", to: "03 Aug", days: 2, status: "Rejected", applied: "22 days ago" },
+];
+
+export const MOCK_MY_SUBMISSIONS = [
+    { id: 1, title: "Grade 10 revision timetable", kind: "Circular", status: "Pending", when: "Today" },
+    { id: 2, title: "Maths olympiad results", kind: "News", status: "Approved", when: "Yesterday" },
+    { id: 3, title: "Unit Test 2 question paper", kind: "Study Material", status: "Rejected", when: "3 days ago" },
+];
+
+export const MOCK_MY_HOMEWORK = {
+    assignedToday: 3,
+    thisWeek: 11,
+    dueTomorrow: 2,
+    classesCovered: 4,
+};
+
+export const MOCK_MY_PAYSLIP = {
+    month: "July 2026",
+    net: "48,600",
+    status: "Credited",
+    creditedOn: "31 Jul 2026",
+};

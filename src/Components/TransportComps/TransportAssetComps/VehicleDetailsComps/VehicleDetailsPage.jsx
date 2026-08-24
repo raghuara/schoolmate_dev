@@ -6,6 +6,7 @@ import { Autocomplete, Button, Card, Grid, IconButton, InputAdornment, Tab, Tabl
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
+import { findSubMenuPermissions } from '../../../../Redux/Slices/AuthSlice';
 import { selectGrades } from '../../../../Redux/Slices/DropdownController';
 import { selectWebsiteSettings } from '../../../../Redux/Slices/websiteSettingsSlice';
 import AddIcon from '@mui/icons-material/Add';
@@ -20,6 +21,10 @@ export default function VehicleDetailsPage() {
     const dispatch = useDispatch();
     const token = "123";
     const user = useSelector((state) => state.auth)
+    // Adding a vehicle is its own grant; viewing the list is not enough.
+    const rbacReady = (user.permissions?.mainMenus || []).length > 0;
+    const vehiclePerms = findSubMenuPermissions(user.permissions, "transport", "vehicledetails") || {};
+    const canCreate = !rbacReady || vehiclePerms.create === "Y";
     const rollNumber = user.rollNumber;
     const userType = user.userType
 
@@ -118,6 +123,7 @@ export default function VehicleDetailsPage() {
                         />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 12, md: 6, lg: 4 }} sx={{ display: "flex", alignItems: "center", justifyContent: "end" }}>
+                        {canCreate && (
                         <Button
                             onClick={() => navigate("add")}
                             variant="outlined"
@@ -136,6 +142,7 @@ export default function VehicleDetailsPage() {
                             <AddIcon sx={{ fontSize: "18px" }} />
                             &nbsp;Vehicle
                         </Button>
+                        )}
                     </Grid>
                 </Grid>
             </Box>
