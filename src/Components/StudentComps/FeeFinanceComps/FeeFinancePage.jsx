@@ -61,12 +61,13 @@ const items = [
         accent: "#3457D5",
         icon: HowToRegIcon,
         text: "Fee Student Mapping",
-        desc: "Put students onto extra-curricular and additional fees.",
+        desc: "Put students onto extra-curricular, additional and transport fees.",
         path: "student-mapping",
         accessKey: "Fee Student Mapping",
         links: [
             { label: "ECA Students", path: "eca-manage", accessKey: "ECA Management" },
             { label: "Additional Fee Students", path: "additional-manage", accessKey: "Additional Fee Management" },
+            { label: "Transport Students", path: "/dashboardmenu/transport/student-map", accessKey: "Transport Student Mapping" },
         ],
     },
     {
@@ -155,8 +156,10 @@ export default function FeeFinancePage() {
 
     // Fee Student Mapping is a wrapper over the two student-assignment screens,
     // so it shows when the user can reach either one.
+    cardAccess["Transport Student Mapping"] = allow(() => hasAnyPermission(perms, "transport", "studentmapping"));
+
     cardAccess["Fee Student Mapping"] =
-        cardAccess["ECA Management"] || cardAccess["Additional Fee Management"];
+        cardAccess["ECA Management"] || cardAccess["Additional Fee Management"] || cardAccess["Transport Student Mapping"];
 
     // Payment Approval and Finance Teams have no permission sub menu of their
     // own yet, so they follow the page itself until Access Control gains keys

@@ -7,7 +7,6 @@ import {
     MenuItem,
     InputLabel,
     Typography,
-    Paper,
     Button,
     IconButton,
     Radio,
@@ -23,28 +22,39 @@ import UploadFileIcon from "@mui/icons-material/UploadFile";
 import { postVehicleAcquisitionDetail, postVehicleDocuments, postVehicleInsuranceCompliance, postVehicleRegistrationOwnership, postVehicleSpecification, postVehicleWarrantyServiceClaim } from "../../../../Api/Api";
 import axios from "axios";
 import SnackBar from "../../../SnackBar";
+import { DASH, RADIUS } from "../../../DashBoardComps/dashboardTheme";
+
+const ACCENT = "#A749CC";
+const ACCENT_DEEP = "#8600BB";
+const ACCENT_DARK = "#6D0F97";
 
 const inputSx = {
     "& .MuiOutlinedInput-root": {
-        height: 40,
-        borderRadius: "8px",
-        fontSize: "14px",
+        height: 38,
+        borderRadius: RADIUS,
+        fontSize: "13px",
         backgroundColor: "#fff",
+        "& fieldset": { borderColor: DASH.line },
+        "&:hover fieldset": { borderColor: DASH.faint },
+        "&.Mui-focused fieldset": { borderColor: ACCENT },
     }
 };
 
 const selectSx = {
-    height: 40,
-    borderRadius: "8px",
-    fontSize: "14px",
+    height: 38,
+    borderRadius: RADIUS,
+    fontSize: "13px",
     backgroundColor: "#fff",
+    "& fieldset": { borderColor: DASH.line },
+    "&:hover fieldset": { borderColor: DASH.faint },
+    "&.Mui-focused fieldset": { borderColor: ACCENT },
 };
 
 const labelSx = {
-    color: "#ff1414",
-    fontWeight: 700,
-    fontSize: "13px",
-    mb: 0.5
+    color: DASH.text,
+    fontWeight: 600,
+    fontSize: "12px",
+    mb: 0.4
 };
 
 const FormField = ({ label, children, gridSize = 3 }) => (
@@ -55,29 +65,37 @@ const FormField = ({ label, children, gridSize = 3 }) => (
 );
 
 const ActionButtons = ({ onClear, onSave }) => (
-    <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2, mt: 2 }}>
+    <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1, mt: 2, pt: 1.5, borderTop: `1px solid ${DASH.lineSoft}` }}>
         <Button
-            variant="text"
             onClick={onClear}
             sx={{
-                color: "#000",
                 textTransform: "none",
-                fontWeight: 600
+                fontSize: "13px",
+                fontWeight: 700,
+                height: 34,
+                px: 2,
+                borderRadius: RADIUS,
+                color: DASH.text,
+                bgcolor: "#fff",
+                border: `1px solid ${DASH.line}`,
+                "&:hover": { bgcolor: DASH.lineSoft }
             }}
         >
             Clear
         </Button>
         <Button
-            variant="contained"
             onClick={onSave}
+            disableElevation
             sx={{
-                backgroundColor: "#FBBF24",
-                color: "#000",
                 textTransform: "none",
-                fontWeight: 600,
-                borderRadius: "20px",
-                px: 4,
-                "&:hover": { backgroundColor: "#F59E0B" }
+                fontSize: "13px",
+                fontWeight: 700,
+                height: 34,
+                px: 3,
+                borderRadius: RADIUS,
+                bgcolor: ACCENT_DEEP,
+                color: "#fff",
+                "&:hover": { bgcolor: ACCENT_DARK }
             }}
         >
             Save
@@ -104,22 +122,25 @@ const DocumentUploadBox = ({ label, file, preview, onFileChange, onDrop, inputRe
                 onDrop={onDrop}
                 onDragOver={handleDragOver}
                 sx={{
-                    width: 180,
-                    height: 150,
-                    border: "2px dashed #1976D2",
-                    borderRadius: "12px",
+                    width: "100%",
+                    maxWidth: 150,
+                    height: 86,
+                    border: `1.5px dashed ${preview ? `${ACCENT}59` : DASH.line}`,
+                    borderRadius: RADIUS,
                     display: "flex",
                     flexDirection: "column",
                     alignItems: "center",
                     justifyContent: "center",
+                    gap: 0.4,
                     cursor: "pointer",
-                    backgroundColor: "#E3F2FD",
+                    backgroundColor: preview ? "#fff" : DASH.surface,
                     mx: "auto",
-                    mb: 1,
+                    mb: 0.6,
                     overflow: "hidden",
+                    transition: "border-color 0.15s ease, background-color 0.15s ease",
                     "&:hover": {
-                        backgroundColor: "#BBDEFB",
-                        borderColor: "#1565C0"
+                        backgroundColor: `${ACCENT}0A`,
+                        borderColor: ACCENT
                     }
                 }}
             >
@@ -127,42 +148,28 @@ const DocumentUploadBox = ({ label, file, preview, onFileChange, onDrop, inputRe
                     <img src={preview} alt={label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
                     <>
-                        <Box sx={{ position: "relative", mb: 1.5 }}>
-                            <UploadFileIcon sx={{ color: "#000", fontSize: 48 }} />
-                            <Box
-                                sx={{
-                                    position: "absolute",
-                                    bottom: -4,
-                                    right: -8,
-                                    backgroundColor: "#1976D2",
-                                    borderRadius: "50%",
-                                    width: 22,
-                                    height: 22,
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center"
-                                }}
-                            >
-                                <Typography sx={{ color: "#fff", fontSize: 14, fontWeight: "bold", lineHeight: 1 }}>↑</Typography>
-                            </Box>
-                        </Box>
-                        <Typography fontSize={12} textAlign="center" color="#333" fontWeight={500}>
-                            Drag and Drop files here
+                        <UploadFileIcon sx={{ color: ACCENT, fontSize: 20 }} />
+                        <Typography sx={{ fontSize: "10.5px", fontWeight: 600, color: DASH.text }}>
+                            Drag & drop
                         </Typography>
-                        <Typography fontSize={12} textAlign="center" color="#333">
-                            or <span style={{ textDecoration: "underline", fontWeight: 500 }}>Choose file</span>
+                        <Typography sx={{ fontSize: "10.5px", color: ACCENT, fontWeight: 600, textDecoration: "underline" }}>
+                            Choose file
                         </Typography>
                     </>
                 )}
             </Box>
-            <Typography color="#ff1414" fontSize={11} fontWeight={700}>
+            <Typography sx={{ fontSize: "11px", fontWeight: 600, color: DASH.text, lineHeight: 1.3 }}>
                 {label}
             </Typography>
             {preview && (
                 <Typography
-                    color="#4CAF50"
-                    fontSize={11}
-                    sx={{ cursor: "pointer", "&:hover": { textDecoration: "underline" } }}
+                    sx={{
+                        fontSize: "10.5px",
+                        fontWeight: 700,
+                        color: ACCENT_DEEP,
+                        cursor: "pointer",
+                        "&:hover": { textDecoration: "underline" }
+                    }}
                     onClick={() => window.open(preview, '_blank')}
                 >
                     View Document
@@ -173,32 +180,53 @@ const DocumentUploadBox = ({ label, file, preview, onFileChange, onDrop, inputRe
 };
 
 const ExpandableSection = ({ title, expanded, onToggle, children }) => (
-    <Paper sx={{borderRadius:"5px",  mb: 2, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
+    <Box
+        sx={{
+            mb: 1.5,
+            bgcolor: "#fff",
+            border: `1px solid ${expanded ? `${ACCENT}47` : DASH.line}`,
+            borderRadius: RADIUS,
+            overflow: "hidden",
+            transition: "border-color 0.2s ease",
+        }}
+    >
         <Box
             onClick={onToggle}
             sx={{
-                backgroundColor: "#FFF1F1",
-                borderTopLeftRadius:"5px",
-                borderTopRightRadius:"5px",
-                border:"1px solid rgba(0, 0, 0, 0.1)",
-                p: 1.5,
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
+                gap: 1,
+                px: 1.6,
+                py: 1.1,
                 cursor: "pointer",
+                bgcolor: expanded ? `${ACCENT}14` : DASH.surface,
+                borderBottom: `1px solid ${expanded ? `${ACCENT}47` : "transparent"}`,
+                transition: "background-color 0.15s ease",
                 "&:hover": {
-                    backgroundColor: "#FFE4E4"
+                    bgcolor: expanded ? `${ACCENT}1F` : DASH.lineSoft
                 }
             }}
         >
-            <Typography fontWeight={600} fontSize="15px" color="#333">
-                {title}
-            </Typography>
-            <IconButton size="small" sx={{ p: 0 }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, minWidth: 0 }}>
+                <Box
+                    sx={{
+                        width: 3,
+                        height: 18,
+                        borderRadius: RADIUS,
+                        bgcolor: expanded ? ACCENT_DEEP : DASH.faint,
+                        flexShrink: 0,
+                    }}
+                />
+                <Typography sx={{ fontSize: "13.5px", fontWeight: 700, color: DASH.ink }}>
+                    {title}
+                </Typography>
+            </Box>
+            <IconButton size="small" sx={{ p: 0.2 }}>
                 {expanded ? (
-                    <ExpandLessIcon sx={{ color: "#333", fontSize: 20 }} />
+                    <ExpandLessIcon sx={{ color: ACCENT_DEEP, fontSize: 20 }} />
                 ) : (
-                    <ExpandMoreIcon sx={{ color: "#333", fontSize: 20 }} />
+                    <ExpandMoreIcon sx={{ color: DASH.muted, fontSize: 20 }} />
                 )}
             </IconButton>
         </Box>
@@ -207,7 +235,7 @@ const ExpandableSection = ({ title, expanded, onToggle, children }) => (
                 {children}
             </Box>
         </Collapse>
-    </Paper>
+    </Box>
 );
 
 export default function VehicleCreationPage({ generatedVehicleId }) {
@@ -896,10 +924,10 @@ export default function VehicleCreationPage({ generatedVehicleId }) {
 
 
     return (
-        <Box sx={{ backgroundColor: "#FAFAFA" }}>
+        <Box>
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
 
-            <Box sx={{ p: 3 }}>
+            <Box sx={{ p: 2 }}>
                 {/* Section 1: Vehicle Acquisition Detail */}
                 <ExpandableSection
                     title="Vehicle Acquisition Detail"
@@ -1019,15 +1047,15 @@ export default function VehicleCreationPage({ generatedVehicleId }) {
                                 onDragOver={handleDragOver}
                                 sx={{
                                     width: "100%",
-                                    height: 150,
-                                    border: "2px dashed #1976D2",
-                                    borderRadius: "12px",
+                                    height: 86,
+                                    border: `1.5px dashed ${DASH.line}`,
+                                    borderRadius: RADIUS,
                                     display: "flex",
                                     flexDirection: "column",
                                     alignItems: "center",
                                     justifyContent: "center",
                                     cursor: "pointer",
-                                    backgroundColor: "#E3F2FD",
+                                    backgroundColor: DASH.surface,
                                     overflow: "hidden",
                                     "&:hover": {
                                         backgroundColor: "#BBDEFB",
@@ -1047,41 +1075,17 @@ export default function VehicleCreationPage({ generatedVehicleId }) {
                                     />
                                 ) : (
                                     <>
-                                        <Box sx={{ position: "relative", mb: 1.5 }}>
-                                            <UploadFileIcon sx={{ color: "#000", fontSize: 48 }} />
-                                            <Box
-                                                sx={{
-                                                    position: "absolute",
-                                                    bottom: -4,
-                                                    right: -8,
-                                                    backgroundColor: "#1976D2",
-                                                    borderRadius: "50%",
-                                                    width: 22,
-                                                    height: 22,
-                                                    display: "flex",
-                                                    alignItems: "center",
-                                                    justifyContent: "center"
-                                                }}
-                                            >
-                                                <Typography sx={{ color: "#fff", fontSize: 14, fontWeight: "bold", lineHeight: 1 }}>↑</Typography>
-                                            </Box>
-                                        </Box>
-                                        <Typography fontSize={12} textAlign="center" color="#333" fontWeight={500}>
-                                            Drag and Drop files here
-                                        </Typography>
-                                        <Typography fontSize={12} textAlign="center" color="#333">
-                                            or <span style={{ textDecoration: "underline", fontWeight: 500 }}>Choose file</span>
-                                        </Typography>
+                                        <UploadFileIcon sx={{ color: ACCENT, fontSize: 20, mb: 0.3 }} />
+                                            <Typography sx={{ fontSize: "10.5px", fontWeight: 600, color: DASH.text }}>Drag & drop</Typography>
+                                            <Typography sx={{ fontSize: "10.5px", color: ACCENT, fontWeight: 600, textDecoration: "underline" }}>Choose file</Typography>
                                     </>
                                 )}
                             </Box>
                             {busPhotoPreview && (
                                 <Typography
-                                    color="#4CAF50"
-                                    fontSize={11}
                                     mt={0.5}
                                     textAlign="center"
-                                    sx={{ cursor: "pointer", "&:hover": { textDecoration: "underline" } }}
+                                    sx={{ fontSize: "10.5px", fontWeight: 700, color: ACCENT_DEEP, cursor: "pointer", "&:hover": { textDecoration: "underline" } }}
                                     onClick={() => window.open(busPhotoPreview, '_blank')}
                                 >
                                     View Document
@@ -1380,57 +1384,35 @@ export default function VehicleCreationPage({ generatedVehicleId }) {
                                     onDrop={(e) => handleDocumentDrop(e, setRcBook, setRcBookPreview)}
                                     onDragOver={handleDragOver}
                                     sx={{
-                                        width: 180,
-                                        height: 150,
-                                        border: "2px dashed #1976D2",
-                                        borderRadius: "12px",
+                                        width: 150,
+                                        height: 86,
+                                        border: `1.5px dashed ${DASH.line}`,
+                                        borderRadius: RADIUS,
                                         display: "flex",
                                         flexDirection: "column",
                                         alignItems: "center",
                                         justifyContent: "center",
                                         cursor: "pointer",
-                                        backgroundColor: "#E3F2FD",
+                                        backgroundColor: DASH.surface,
                                         mx: "auto",
                                         mb: 1,
                                         overflow: "hidden",
-                                        "&:hover": { backgroundColor: "#BBDEFB", borderColor: "#1565C0" }
+                                        "&:hover": { backgroundColor: `${ACCENT}0A`, borderColor: ACCENT }
                                     }}
                                 >
                                     {rcBookPreview ? (
                                         <img src={rcBookPreview} alt="RC Book" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                     ) : (
                                         <>
-                                            <Box sx={{ position: "relative", mb: 1.5 }}>
-                                                <UploadFileIcon sx={{ color: "#000", fontSize: 48 }} />
-                                                <Box
-                                                    sx={{
-                                                        position: "absolute",
-                                                        bottom: -4,
-                                                        right: -8,
-                                                        backgroundColor: "#1976D2",
-                                                        borderRadius: "50%",
-                                                        width: 22,
-                                                        height: 22,
-                                                        display: "flex",
-                                                        alignItems: "center",
-                                                        justifyContent: "center"
-                                                    }}
-                                                >
-                                                    <Typography sx={{ color: "#fff", fontSize: 14, fontWeight: "bold", lineHeight: 1 }}>↑</Typography>
-                                                </Box>
-                                            </Box>
-                                            <Typography fontSize={12} textAlign="center" color="#333" fontWeight={500}>
-                                                Drag and Drop files here
-                                            </Typography>
-                                            <Typography fontSize={12} textAlign="center" color="#333">
-                                                or <span style={{ textDecoration: "underline", fontWeight: 500 }}>Choose file</span>
-                                            </Typography>
+                                            <UploadFileIcon sx={{ color: ACCENT, fontSize: 20, mb: 0.3 }} />
+                                            <Typography sx={{ fontSize: "10.5px", fontWeight: 600, color: DASH.text }}>Drag & drop</Typography>
+                                            <Typography sx={{ fontSize: "10.5px", color: ACCENT, fontWeight: 600, textDecoration: "underline" }}>Choose file</Typography>
                                         </>
                                     )}
                                 </Box>
-                                <Typography color="#ff1414" fontSize={11} fontWeight={700}>RC Book /Reg Certificate</Typography>
+                                <Typography sx={{ fontSize: "11px", fontWeight: 600, color: DASH.text, lineHeight: 1.3 }}>RC Book /Reg Certificate</Typography>
                                 {rcBookPreview && (
-                                    <Typography color="#4CAF50" fontSize={11} sx={{ cursor: "pointer", "&:hover": { textDecoration: "underline" } }} onClick={() => window.open(rcBookPreview, '_blank')}>
+                                    <Typography sx={{ fontSize: "10.5px", fontWeight: 700, color: ACCENT_DEEP, cursor: "pointer", "&:hover": { textDecoration: "underline" } }} onClick={() => window.open(rcBookPreview, '_blank')}>
                                         View Document
                                     </Typography>
                                 )}
@@ -1452,57 +1434,35 @@ export default function VehicleCreationPage({ generatedVehicleId }) {
                                     onDrop={(e) => handleDocumentDrop(e, setFitnessCertificate, setFitnessCertificatePreview)}
                                     onDragOver={handleDragOver}
                                     sx={{
-                                        width: 180,
-                                        height: 150,
-                                        border: "2px dashed #1976D2",
-                                        borderRadius: "12px",
+                                        width: 150,
+                                        height: 86,
+                                        border: `1.5px dashed ${DASH.line}`,
+                                        borderRadius: RADIUS,
                                         display: "flex",
                                         flexDirection: "column",
                                         alignItems: "center",
                                         justifyContent: "center",
                                         cursor: "pointer",
-                                        backgroundColor: "#E3F2FD",
+                                        backgroundColor: DASH.surface,
                                         mx: "auto",
                                         mb: 1,
                                         overflow: "hidden",
-                                        "&:hover": { backgroundColor: "#BBDEFB", borderColor: "#1565C0" }
+                                        "&:hover": { backgroundColor: `${ACCENT}0A`, borderColor: ACCENT }
                                     }}
                                 >
                                     {fitnessCertificatePreview ? (
                                         <img src={fitnessCertificatePreview} alt="Fitness Certificate" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                     ) : (
                                         <>
-                                            <Box sx={{ position: "relative", mb: 1.5 }}>
-                                                <UploadFileIcon sx={{ color: "#000", fontSize: 48 }} />
-                                                <Box
-                                                    sx={{
-                                                        position: "absolute",
-                                                        bottom: -4,
-                                                        right: -8,
-                                                        backgroundColor: "#1976D2",
-                                                        borderRadius: "50%",
-                                                        width: 22,
-                                                        height: 22,
-                                                        display: "flex",
-                                                        alignItems: "center",
-                                                        justifyContent: "center"
-                                                    }}
-                                                >
-                                                    <Typography sx={{ color: "#fff", fontSize: 14, fontWeight: "bold", lineHeight: 1 }}>↑</Typography>
-                                                </Box>
-                                            </Box>
-                                            <Typography fontSize={12} textAlign="center" color="#333" fontWeight={500}>
-                                                Drag and Drop files here
-                                            </Typography>
-                                            <Typography fontSize={12} textAlign="center" color="#333">
-                                                or <span style={{ textDecoration: "underline", fontWeight: 500 }}>Choose file</span>
-                                            </Typography>
+                                            <UploadFileIcon sx={{ color: ACCENT, fontSize: 20, mb: 0.3 }} />
+                                            <Typography sx={{ fontSize: "10.5px", fontWeight: 600, color: DASH.text }}>Drag & drop</Typography>
+                                            <Typography sx={{ fontSize: "10.5px", color: ACCENT, fontWeight: 600, textDecoration: "underline" }}>Choose file</Typography>
                                         </>
                                     )}
                                 </Box>
-                                <Typography color="#ff1414" fontSize={11} fontWeight={700}>Fitness Certificate</Typography>
+                                <Typography sx={{ fontSize: "11px", fontWeight: 600, color: DASH.text, lineHeight: 1.3 }}>Fitness Certificate</Typography>
                                 {fitnessCertificatePreview && (
-                                    <Typography color="#4CAF50" fontSize={11} sx={{ cursor: "pointer", "&:hover": { textDecoration: "underline" } }} onClick={() => window.open(fitnessCertificatePreview, '_blank')}>
+                                    <Typography sx={{ fontSize: "10.5px", fontWeight: 700, color: ACCENT_DEEP, cursor: "pointer", "&:hover": { textDecoration: "underline" } }} onClick={() => window.open(fitnessCertificatePreview, '_blank')}>
                                         View Document
                                     </Typography>
                                 )}
@@ -1524,57 +1484,35 @@ export default function VehicleCreationPage({ generatedVehicleId }) {
                                     onDrop={(e) => handleDocumentDrop(e, setRoadTaxCertificate, setRoadTaxCertificatePreview)}
                                     onDragOver={handleDragOver}
                                     sx={{
-                                        width: 180,
-                                        height: 150,
-                                        border: "2px dashed #1976D2",
-                                        borderRadius: "12px",
+                                        width: 150,
+                                        height: 86,
+                                        border: `1.5px dashed ${DASH.line}`,
+                                        borderRadius: RADIUS,
                                         display: "flex",
                                         flexDirection: "column",
                                         alignItems: "center",
                                         justifyContent: "center",
                                         cursor: "pointer",
-                                        backgroundColor: "#E3F2FD",
+                                        backgroundColor: DASH.surface,
                                         mx: "auto",
                                         mb: 1,
                                         overflow: "hidden",
-                                        "&:hover": { backgroundColor: "#BBDEFB", borderColor: "#1565C0" }
+                                        "&:hover": { backgroundColor: `${ACCENT}0A`, borderColor: ACCENT }
                                     }}
                                 >
                                     {roadTaxCertificatePreview ? (
                                         <img src={roadTaxCertificatePreview} alt="Road Tax Certificate" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                     ) : (
                                         <>
-                                            <Box sx={{ position: "relative", mb: 1.5 }}>
-                                                <UploadFileIcon sx={{ color: "#000", fontSize: 48 }} />
-                                                <Box
-                                                    sx={{
-                                                        position: "absolute",
-                                                        bottom: -4,
-                                                        right: -8,
-                                                        backgroundColor: "#1976D2",
-                                                        borderRadius: "50%",
-                                                        width: 22,
-                                                        height: 22,
-                                                        display: "flex",
-                                                        alignItems: "center",
-                                                        justifyContent: "center"
-                                                    }}
-                                                >
-                                                    <Typography sx={{ color: "#fff", fontSize: 14, fontWeight: "bold", lineHeight: 1 }}>↑</Typography>
-                                                </Box>
-                                            </Box>
-                                            <Typography fontSize={12} textAlign="center" color="#333" fontWeight={500}>
-                                                Drag and Drop files here
-                                            </Typography>
-                                            <Typography fontSize={12} textAlign="center" color="#333">
-                                                or <span style={{ textDecoration: "underline", fontWeight: 500 }}>Choose file</span>
-                                            </Typography>
+                                            <UploadFileIcon sx={{ color: ACCENT, fontSize: 20, mb: 0.3 }} />
+                                            <Typography sx={{ fontSize: "10.5px", fontWeight: 600, color: DASH.text }}>Drag & drop</Typography>
+                                            <Typography sx={{ fontSize: "10.5px", color: ACCENT, fontWeight: 600, textDecoration: "underline" }}>Choose file</Typography>
                                         </>
                                     )}
                                 </Box>
-                                <Typography color="#ff1414" fontSize={11} fontWeight={700}>Road tax certificate</Typography>
+                                <Typography sx={{ fontSize: "11px", fontWeight: 600, color: DASH.text, lineHeight: 1.3 }}>Road tax certificate</Typography>
                                 {roadTaxCertificatePreview && (
-                                    <Typography color="#4CAF50" fontSize={11} sx={{ cursor: "pointer", "&:hover": { textDecoration: "underline" } }} onClick={() => window.open(roadTaxCertificatePreview, '_blank')}>
+                                    <Typography sx={{ fontSize: "10.5px", fontWeight: 700, color: ACCENT_DEEP, cursor: "pointer", "&:hover": { textDecoration: "underline" } }} onClick={() => window.open(roadTaxCertificatePreview, '_blank')}>
                                         View Document
                                     </Typography>
                                 )}
@@ -1596,57 +1534,35 @@ export default function VehicleCreationPage({ generatedVehicleId }) {
                                     onDrop={(e) => handleDocumentDrop(e, setInsuranceDoc, setInsuranceDocPreview)}
                                     onDragOver={handleDragOver}
                                     sx={{
-                                        width: 180,
-                                        height: 150,
-                                        border: "2px dashed #1976D2",
-                                        borderRadius: "12px",
+                                        width: 150,
+                                        height: 86,
+                                        border: `1.5px dashed ${DASH.line}`,
+                                        borderRadius: RADIUS,
                                         display: "flex",
                                         flexDirection: "column",
                                         alignItems: "center",
                                         justifyContent: "center",
                                         cursor: "pointer",
-                                        backgroundColor: "#E3F2FD",
+                                        backgroundColor: DASH.surface,
                                         mx: "auto",
                                         mb: 1,
                                         overflow: "hidden",
-                                        "&:hover": { backgroundColor: "#BBDEFB", borderColor: "#1565C0" }
+                                        "&:hover": { backgroundColor: `${ACCENT}0A`, borderColor: ACCENT }
                                     }}
                                 >
                                     {insuranceDocPreview ? (
                                         <img src={insuranceDocPreview} alt="Insurance" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                     ) : (
                                         <>
-                                            <Box sx={{ position: "relative", mb: 1.5 }}>
-                                                <UploadFileIcon sx={{ color: "#000", fontSize: 48 }} />
-                                                <Box
-                                                    sx={{
-                                                        position: "absolute",
-                                                        bottom: -4,
-                                                        right: -8,
-                                                        backgroundColor: "#1976D2",
-                                                        borderRadius: "50%",
-                                                        width: 22,
-                                                        height: 22,
-                                                        display: "flex",
-                                                        alignItems: "center",
-                                                        justifyContent: "center"
-                                                    }}
-                                                >
-                                                    <Typography sx={{ color: "#fff", fontSize: 14, fontWeight: "bold", lineHeight: 1 }}>↑</Typography>
-                                                </Box>
-                                            </Box>
-                                            <Typography fontSize={12} textAlign="center" color="#333" fontWeight={500}>
-                                                Drag and Drop files here
-                                            </Typography>
-                                            <Typography fontSize={12} textAlign="center" color="#333">
-                                                or <span style={{ textDecoration: "underline", fontWeight: 500 }}>Choose file</span>
-                                            </Typography>
+                                            <UploadFileIcon sx={{ color: ACCENT, fontSize: 20, mb: 0.3 }} />
+                                            <Typography sx={{ fontSize: "10.5px", fontWeight: 600, color: DASH.text }}>Drag & drop</Typography>
+                                            <Typography sx={{ fontSize: "10.5px", color: ACCENT, fontWeight: 600, textDecoration: "underline" }}>Choose file</Typography>
                                         </>
                                     )}
                                 </Box>
-                                <Typography color="#ff1414" fontSize={11} fontWeight={700}>Insurance</Typography>
+                                <Typography sx={{ fontSize: "11px", fontWeight: 600, color: DASH.text, lineHeight: 1.3 }}>Insurance</Typography>
                                 {insuranceDocPreview && (
-                                    <Typography color="#4CAF50" fontSize={11} sx={{ cursor: "pointer", "&:hover": { textDecoration: "underline" } }} onClick={() => window.open(insuranceDocPreview, '_blank')}>
+                                    <Typography sx={{ fontSize: "10.5px", fontWeight: 700, color: ACCENT_DEEP, cursor: "pointer", "&:hover": { textDecoration: "underline" } }} onClick={() => window.open(insuranceDocPreview, '_blank')}>
                                         View Document
                                     </Typography>
                                 )}
@@ -1668,57 +1584,35 @@ export default function VehicleCreationPage({ generatedVehicleId }) {
                                     onDrop={(e) => handleDocumentDrop(e, setPucCertificate, setPucCertificatePreview)}
                                     onDragOver={handleDragOver}
                                     sx={{
-                                        width: 180,
-                                        height: 150,
-                                        border: "2px dashed #1976D2",
-                                        borderRadius: "12px",
+                                        width: 150,
+                                        height: 86,
+                                        border: `1.5px dashed ${DASH.line}`,
+                                        borderRadius: RADIUS,
                                         display: "flex",
                                         flexDirection: "column",
                                         alignItems: "center",
                                         justifyContent: "center",
                                         cursor: "pointer",
-                                        backgroundColor: "#E3F2FD",
+                                        backgroundColor: DASH.surface,
                                         mx: "auto",
                                         mb: 1,
                                         overflow: "hidden",
-                                        "&:hover": { backgroundColor: "#BBDEFB", borderColor: "#1565C0" }
+                                        "&:hover": { backgroundColor: `${ACCENT}0A`, borderColor: ACCENT }
                                     }}
                                 >
                                     {pucCertificatePreview ? (
                                         <img src={pucCertificatePreview} alt="PUC Certificate" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                     ) : (
                                         <>
-                                            <Box sx={{ position: "relative", mb: 1.5 }}>
-                                                <UploadFileIcon sx={{ color: "#000", fontSize: 48 }} />
-                                                <Box
-                                                    sx={{
-                                                        position: "absolute",
-                                                        bottom: -4,
-                                                        right: -8,
-                                                        backgroundColor: "#1976D2",
-                                                        borderRadius: "50%",
-                                                        width: 22,
-                                                        height: 22,
-                                                        display: "flex",
-                                                        alignItems: "center",
-                                                        justifyContent: "center"
-                                                    }}
-                                                >
-                                                    <Typography sx={{ color: "#fff", fontSize: 14, fontWeight: "bold", lineHeight: 1 }}>↑</Typography>
-                                                </Box>
-                                            </Box>
-                                            <Typography fontSize={12} textAlign="center" color="#333" fontWeight={500}>
-                                                Drag and Drop files here
-                                            </Typography>
-                                            <Typography fontSize={12} textAlign="center" color="#333">
-                                                or <span style={{ textDecoration: "underline", fontWeight: 500 }}>Choose file</span>
-                                            </Typography>
+                                            <UploadFileIcon sx={{ color: ACCENT, fontSize: 20, mb: 0.3 }} />
+                                            <Typography sx={{ fontSize: "10.5px", fontWeight: 600, color: DASH.text }}>Drag & drop</Typography>
+                                            <Typography sx={{ fontSize: "10.5px", color: ACCENT, fontWeight: 600, textDecoration: "underline" }}>Choose file</Typography>
                                         </>
                                     )}
                                 </Box>
-                                <Typography color="#ff1414" fontSize={11} fontWeight={700}>PUC certificate</Typography>
+                                <Typography sx={{ fontSize: "11px", fontWeight: 600, color: DASH.text, lineHeight: 1.3 }}>PUC certificate</Typography>
                                 {pucCertificatePreview && (
-                                    <Typography color="#4CAF50" fontSize={11} sx={{ cursor: "pointer", "&:hover": { textDecoration: "underline" } }} onClick={() => window.open(pucCertificatePreview, '_blank')}>
+                                    <Typography sx={{ fontSize: "10.5px", fontWeight: 700, color: ACCENT_DEEP, cursor: "pointer", "&:hover": { textDecoration: "underline" } }} onClick={() => window.open(pucCertificatePreview, '_blank')}>
                                         View Document
                                     </Typography>
                                 )}
@@ -1740,57 +1634,35 @@ export default function VehicleCreationPage({ generatedVehicleId }) {
                                     onDrop={(e) => handleDocumentDrop(e, setPermitDocument, setPermitDocumentPreview)}
                                     onDragOver={handleDragOver}
                                     sx={{
-                                        width: 180,
-                                        height: 150,
-                                        border: "2px dashed #1976D2",
-                                        borderRadius: "12px",
+                                        width: 150,
+                                        height: 86,
+                                        border: `1.5px dashed ${DASH.line}`,
+                                        borderRadius: RADIUS,
                                         display: "flex",
                                         flexDirection: "column",
                                         alignItems: "center",
                                         justifyContent: "center",
                                         cursor: "pointer",
-                                        backgroundColor: "#E3F2FD",
+                                        backgroundColor: DASH.surface,
                                         mx: "auto",
                                         mb: 1,
                                         overflow: "hidden",
-                                        "&:hover": { backgroundColor: "#BBDEFB", borderColor: "#1565C0" }
+                                        "&:hover": { backgroundColor: `${ACCENT}0A`, borderColor: ACCENT }
                                     }}
                                 >
                                     {permitDocumentPreview ? (
                                         <img src={permitDocumentPreview} alt="Permit Document" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                     ) : (
                                         <>
-                                            <Box sx={{ position: "relative", mb: 1.5 }}>
-                                                <UploadFileIcon sx={{ color: "#000", fontSize: 48 }} />
-                                                <Box
-                                                    sx={{
-                                                        position: "absolute",
-                                                        bottom: -4,
-                                                        right: -8,
-                                                        backgroundColor: "#1976D2",
-                                                        borderRadius: "50%",
-                                                        width: 22,
-                                                        height: 22,
-                                                        display: "flex",
-                                                        alignItems: "center",
-                                                        justifyContent: "center"
-                                                    }}
-                                                >
-                                                    <Typography sx={{ color: "#fff", fontSize: 14, fontWeight: "bold", lineHeight: 1 }}>↑</Typography>
-                                                </Box>
-                                            </Box>
-                                            <Typography fontSize={12} textAlign="center" color="#333" fontWeight={500}>
-                                                Drag and Drop files here
-                                            </Typography>
-                                            <Typography fontSize={12} textAlign="center" color="#333">
-                                                or <span style={{ textDecoration: "underline", fontWeight: 500 }}>Choose file</span>
-                                            </Typography>
+                                            <UploadFileIcon sx={{ color: ACCENT, fontSize: 20, mb: 0.3 }} />
+                                            <Typography sx={{ fontSize: "10.5px", fontWeight: 600, color: DASH.text }}>Drag & drop</Typography>
+                                            <Typography sx={{ fontSize: "10.5px", color: ACCENT, fontWeight: 600, textDecoration: "underline" }}>Choose file</Typography>
                                         </>
                                     )}
                                 </Box>
-                                <Typography color="#ff1414" fontSize={11} fontWeight={700}>Permit Document</Typography>
+                                <Typography sx={{ fontSize: "11px", fontWeight: 600, color: DASH.text, lineHeight: 1.3 }}>Permit Document</Typography>
                                 {permitDocumentPreview && (
-                                    <Typography color="#4CAF50" fontSize={11} sx={{ cursor: "pointer", "&:hover": { textDecoration: "underline" } }} onClick={() => window.open(permitDocumentPreview, '_blank')}>
+                                    <Typography sx={{ fontSize: "10.5px", fontWeight: 700, color: ACCENT_DEEP, cursor: "pointer", "&:hover": { textDecoration: "underline" } }} onClick={() => window.open(permitDocumentPreview, '_blank')}>
                                         View Document
                                     </Typography>
                                 )}

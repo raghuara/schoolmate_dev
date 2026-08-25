@@ -26,8 +26,11 @@ import EventNoteOutlinedIcon from "@mui/icons-material/EventNoteOutlined";
 import AddIcon from "@mui/icons-material/Add";
 import CalendarMonthOutlinedIcon from "@mui/icons-material/CalendarMonthOutlined";
 import EventAvailableOutlinedIcon from "@mui/icons-material/EventAvailableOutlined";
+import PaletteOutlinedIcon from "@mui/icons-material/PaletteOutlined";
+import AttachFileOutlinedIcon from "@mui/icons-material/AttachFileOutlined";
+import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import ImportantEventsPage from "./ImportantEventsPage";
-import { DASH, RADIUS, PageHeader } from "../DashBoardComps/dashboardTheme";
+import { DASH, RADIUS, PageHeader, SolidStatCard, KPI_TONES } from "../DashBoardComps/dashboardTheme";
 
 // Page theme — soft emerald (matches Leave Policy Master Screen).
 const PRIMARY = "#059669";
@@ -36,6 +39,9 @@ const PRIMARY_DARK = "#047857";
 const PRIMARY_BORDER = "#A7F3D0";
 
 const PANE_HEIGHT = "calc(100vh - 172px)";
+// Calendar view carries a KPI strip above the panes, so it gets less room.
+const CAL_PANE_HEIGHT = "calc(100vh - 292px)";
+const CAL_PANE_MIN = 400;
 
 const EMPTY_BOX = {
     textAlign: "center",
@@ -195,6 +201,112 @@ const EventCard = ({ item, onViewImage, onPlayVideo, onEdit, onDelete }) => {
     );
 };
 
+// Form language shared with Create News / Circulars / Messages.
+const FIELD_LABEL = { fontSize: "13px", fontWeight: 600, color: DASH.text, mb: 0.7 };
+const REQ = { color: "#E30053" };
+const OPTIONAL = { color: DASH.faint, fontWeight: 400, fontSize: "12px" };
+
+const GHOST_BTN = {
+    textTransform: "none",
+    borderRadius: "10px",
+    fontSize: "12.5px",
+    fontWeight: 600,
+    px: 1.8,
+    py: 0.6,
+    color: DASH.text,
+    borderColor: "#D6DAE1",
+    backgroundColor: "#fff",
+    "&:hover": { borderColor: "#9AA3AF", backgroundColor: "#F7F8FA" },
+};
+
+const PRIMARY_BTN = {
+    textTransform: "none",
+    borderRadius: "10px",
+    fontSize: "12.5px",
+    fontWeight: 700,
+    px: 2.4,
+    py: 0.7,
+    boxShadow: "none",
+    whiteSpace: "nowrap",
+    backgroundColor: PRIMARY,
+    color: "#fff",
+    "&:hover": { backgroundColor: PRIMARY_DARK, boxShadow: "none" },
+    "&.Mui-disabled": { backgroundColor: "#E5E7EB", color: DASH.faint },
+};
+
+const TEXT_FIELD = {
+    backgroundColor: "#fff",
+    "& .MuiOutlinedInput-root": {
+        borderRadius: "9px",
+        fontSize: "13.5px",
+        "& fieldset": { borderColor: DASH.line },
+        "&:hover fieldset": { borderColor: "#9AA3AF" },
+        "&.Mui-focused fieldset": { borderColor: PRIMARY, borderWidth: "1px" },
+    },
+};
+
+// Titled card used for every block of the create/edit form.
+const FormSection = ({ icon: Icon, title, hint, children }) => (
+    <Box sx={{
+        bgcolor: "#fff",
+        border: `1px solid ${DASH.line}`,
+        borderRadius: "12px",
+        overflow: "hidden",
+    }}>
+        <Box sx={{
+            display: "flex", alignItems: "center", gap: 1.2,
+            px: 1.8, py: 1.1,
+            bgcolor: DASH.surface,
+            borderBottom: `1px solid ${DASH.lineSoft}`,
+        }}>
+            <Box sx={{
+                width: 26, height: 26, borderRadius: "7px",
+                bgcolor: "#fff", border: `1px solid ${DASH.line}`,
+                display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+            }}>
+                <Icon sx={{ fontSize: 15, color: PRIMARY }} />
+            </Box>
+            <Typography sx={{ fontSize: 13, fontWeight: 700, color: DASH.ink, flex: 1, minWidth: 0 }}>
+                {title}
+            </Typography>
+            {hint && (
+                <Typography sx={{ fontSize: 11, color: DASH.faint, flexShrink: 0 }}>{hint}</Typography>
+            )}
+        </Box>
+        <Box sx={{ p: 1.8 }}>{children}</Box>
+    </Box>
+);
+
+// A labelled switch row — used for "Single day event" and "Important event".
+const ToggleRow = ({ checked, onChange, label, description }) => (
+    <Box sx={{
+        display: "flex", alignItems: "center", gap: 1.5,
+        px: 1.4, py: 1,
+        borderRadius: "10px",
+        border: `1px solid ${checked ? PRIMARY_BORDER : DASH.line}`,
+        bgcolor: checked ? PRIMARY_LIGHT : "#fff",
+        transition: "background-color 0.15s, border-color 0.15s",
+    }}>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: checked ? PRIMARY_DARK : DASH.text }}>
+                {label}
+            </Typography>
+            <Typography sx={{ fontSize: 11, color: DASH.muted, mt: 0.1 }}>
+                {description}
+            </Typography>
+        </Box>
+        <Switch
+            size="small"
+            checked={checked}
+            onChange={onChange}
+            sx={{
+                "& .MuiSwitch-switchBase.Mui-checked": { color: PRIMARY },
+                "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": { backgroundColor: PRIMARY },
+            }}
+        />
+    </Box>
+);
+
 const ColorSwatchPicker = ({ value, onChange }) => (
     <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", alignItems: "center", mt: 0.5 }}>
         {EVENT_COLORS.map((c) => {
@@ -237,7 +349,6 @@ export default function SchoolCalendarPage() {
     const canCreate = calendarPerms?.create === "Y";
     const canEdit = calendarPerms?.edit === "Y";
     const canDelete = calendarPerms?.delete === "Y";
-    const canManage = canCreate || canEdit || canDelete;
     // Important Events used to be its own page; it only ever read this calendar's
     // events, so it now lives here as a second view.
     const eventsPerms = useSelector(selectSubMenuPermissions("communication", "events"));
@@ -672,6 +783,22 @@ export default function SchoolCalendarPage() {
             return;
         }
 
+        if (!fromDateFormatted) {
+            setMessage("Start date is required");
+            setOpen(true);
+            setColor(false);
+            setStatus(false);
+            return;
+        }
+
+        if (!onlyFrom && !toDateFormatted) {
+            setMessage("End date is required, or switch on Single day event");
+            setOpen(true);
+            setColor(false);
+            setStatus(false);
+            return;
+        }
+
         setIsLoading(true);
 
         try {
@@ -708,8 +835,14 @@ export default function SchoolCalendarPage() {
             setPastedLink('')
             setEventsValue("N")
             setPickedColor(EVENT_COLORS[0])
+            return true;
         } catch (error) {
             console.error("Error while inserting  data:", error);
+            setOpen(true);
+            setColor(false);
+            setStatus(false);
+            setMessage("Failed to create the event. Please try again.");
+            return false;
         } finally {
             setIsLoading(false);
         }
@@ -838,6 +971,56 @@ export default function SchoolCalendarPage() {
 
     const selectedDateKey = selectedDate ? selectedDate.format("YYYY-MM-DD") : "";
 
+    // Headline numbers for the KPI strip.
+    const markedDays = availableSlots.size;
+
+    // ── Create form: live preview + submit gating ────────────────────────────
+    const createEffectiveTo = onlyFrom ? fromDate : toDate;
+
+    const createDurationLabel = useMemo(() => {
+        if (!fromDate) return "Pick a start date";
+        const start = dayjs(fromDate);
+        const end = dayjs(createEffectiveTo || fromDate);
+        if (!start.isValid() || !end.isValid()) return "Pick a start date";
+        const days = end.diff(start, "day") + 1;
+        return days <= 1 ? "Single day event" : `Runs for ${days} days`;
+    }, [fromDate, createEffectiveTo]);
+
+    const createIsValid =
+        heading.trim().length > 0 &&
+        description.trim().length > 0 &&
+        Boolean(fromDate) &&
+        (onlyFrom || Boolean(toDate));
+
+    // Shaped like the API rows so the real EventCard can render the preview.
+    const createPreviewItem = useMemo(() => {
+        const fmt = (d) => (d && dayjs(d).isValid() ? dayjs(d).format("DD-MM-YYYY") : "");
+        const from = fmt(fromDate);
+        const to = fmt(createEffectiveTo) || from;
+        return {
+            id: "create-preview",
+            eventColor: pickedColor,
+            from: from || "Date pending",
+            to: to || "Date pending",
+            headLine: heading.trim() || "Your event title will appear here",
+            description: description.trim(),
+        };
+    }, [fromDate, createEffectiveTo, pickedColor, heading, description]);
+
+    const submitCreate = async () => {
+        const ok = await handlePost("post");
+        if (ok) closeCreateDialog();
+    };
+
+    const nextEventLabel = useMemo(() => {
+        if (!upCommingEvents || upCommingEvents.length === 0) return "Nothing scheduled";
+        const next = [...upCommingEvents]
+            .map((ev) => dayjs(ev.fromDate, "DD-MM-YYYY"))
+            .filter((d) => d.isValid())
+            .sort((a, b) => a.valueOf() - b.valueOf())[0];
+        return next ? `Next on ${next.format("DD MMM")}` : "Nothing scheduled";
+    }, [upCommingEvents]);
+
     const handleDateChange = (newDate) => {
         // Toggle: clicking the same date again clears the selection.
         if (newDate && selectedDate && newDate.format("YYYY-MM-DD") === selectedDate.format("YYYY-MM-DD")) {
@@ -957,12 +1140,49 @@ export default function SchoolCalendarPage() {
                     <ImportantEventsPage embedded />
                 </Box>
             )}
-            {canView && canManage && activeView === "calendar" &&
+            {canView && activeView === "calendar" && (
+                <Grid container spacing={2} sx={{ mb: 2 }}>
+                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                        <SolidStatCard
+                            label="Events This Year"
+                            value={eventsLoading ? "—" : (yearEvents?.length || 0)}
+                            note={`${markedDays} day${markedDays === 1 ? "" : "s"} marked`}
+                            tone={KPI_TONES.cyan}
+                        />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                        <SolidStatCard
+                            label="Happening Today"
+                            value={eventsLoading ? "—" : (todayEvents?.length || 0)}
+                            note={dayjs().format("DD MMM YYYY")}
+                            tone={KPI_TONES.green}
+                        />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                        <SolidStatCard
+                            label="Upcoming"
+                            value={eventsLoading ? "—" : (upCommingEvents?.length || 0)}
+                            note={nextEventLabel}
+                            tone={KPI_TONES.orange}
+                        />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                        <SolidStatCard
+                            label="Completed"
+                            value={eventsLoading ? "—" : (completedEvents?.length || 0)}
+                            note="Already passed"
+                            tone={KPI_TONES.violet}
+                        />
+                    </Grid>
+                </Grid>
+            )}
+            {canView && activeView === "calendar" &&
                 <Box sx={{
                     height: {
                         xs: "auto",
-                        lg: PANE_HEIGHT,
+                        lg: CAL_PANE_HEIGHT,
                     },
+                    minHeight: { lg: CAL_PANE_MIN },
                     overflow: "hidden",
                     bgcolor: "#fff",
                     border: `1px solid ${PRIMARY}38`,
@@ -1096,6 +1316,30 @@ export default function SchoolCalendarPage() {
                                     }}
                                     className="teal"
                                 />
+
+                                {/* Legend — explains what the coloured / outlined days mean */}
+                                <Box sx={{
+                                    display: "flex", alignItems: "center", justifyContent: "center",
+                                    flexWrap: "wrap", gap: 1.6,
+                                    mt: 1.4, pt: 1.2,
+                                    borderTop: `1px solid ${DASH.lineSoft}`,
+                                }}>
+                                    {[
+                                        { label: "Event day", swatch: { bgcolor: DASH.violet } },
+                                        { label: "Today", swatch: { bgcolor: "#fff", border: `1.5px solid ${PRIMARY}` } },
+                                        { label: "Selected", swatch: { bgcolor: "#fff", outline: `2px solid ${PRIMARY_DARK}`, outlineOffset: "1px" } },
+                                    ].map((l) => (
+                                        <Box key={l.label} sx={{ display: "flex", alignItems: "center", gap: 0.6 }}>
+                                            <Box sx={{ width: 10, height: 10, borderRadius: "50%", flexShrink: 0, ...l.swatch }} />
+                                            <Typography sx={{ fontSize: 10.5, fontWeight: 600, color: DASH.muted }}>
+                                                {l.label}
+                                            </Typography>
+                                        </Box>
+                                    ))}
+                                    <Typography sx={{ fontSize: 10.5, color: DASH.faint }}>
+                                        Click a date to see its events
+                                    </Typography>
+                                </Box>
                             </Box>}
 
                             {/* Selected-day events panel — appears when user clicks a date on the calendar */}
@@ -1219,19 +1463,20 @@ export default function SchoolCalendarPage() {
                                 justifyContent: 'center',
                             }}>
                                 <Box sx={{
-                                    bgcolor: '#fff',
-                                    border: '1px solid #E5E7EB',
+                                    bgcolor: DASH.lineSoft,
+                                    border: `1px solid ${DASH.line}`,
                                     borderRadius: '50px',
                                     p: 0.4,
                                     display: 'inline-flex',
                                     width: 'fit-content',
                                     maxWidth: '100%',
-                                    boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
                                 }}>
                                     <Tabs
                                         value={value}
                                         onChange={handleChange}
                                         aria-label="event filters"
+                                        variant="scrollable"
+                                        scrollButtons={false}
                                         TabIndicatorProps={{ style: { display: 'none' } }}
                                         sx={{
                                             minHeight: 30,
@@ -1240,30 +1485,50 @@ export default function SchoolCalendarPage() {
                                                 textTransform: 'none',
                                                 fontSize: 12.5,
                                                 fontWeight: 700,
-                                                color: '#6B7280',
+                                                color: DASH.muted,
                                                 minHeight: 30,
                                                 py: 0,
-                                                px: 2,
+                                                px: 1.8,
                                                 borderRadius: '50px',
                                                 transition: 'all 0.18s ease',
                                                 '&:hover': {
-                                                    color: '#111',
-                                                    bgcolor: '#F9FAFB',
+                                                    color: DASH.ink,
+                                                    bgcolor: '#fff',
                                                 },
                                             },
                                             '& .Mui-selected': {
-                                                color: `${websiteSettings.textColor || '#111'} !important`,
-                                                bgcolor: websiteSettings.mainColor || '#FBBF24',
-                                                boxShadow: `0 2px 6px ${(websiteSettings.mainColor || '#FBBF24')}55`,
-                                                '&:hover': {
-                                                    bgcolor: websiteSettings.mainColor || '#FBBF24',
-                                                },
+                                                color: `${PRIMARY_DARK} !important`,
+                                                bgcolor: '#fff',
+                                                border: `1px solid ${PRIMARY_BORDER}`,
+                                                boxShadow: '0 1px 3px rgba(17,24,39,0.08)',
+                                                '&:hover': { bgcolor: '#fff' },
                                             },
                                         }}
                                     >
-                                        <Tab label="Completed" />
-                                        <Tab label="Today" />
-                                        <Tab label="Upcoming" />
+                                        {[
+                                            { label: 'Completed', count: completedEvents.length },
+                                            { label: 'Today', count: todayEvents.length },
+                                            { label: 'Upcoming', count: upCommingEvents.length },
+                                        ].map((t, i) => (
+                                            <Tab
+                                                key={t.label}
+                                                label={
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.7 }}>
+                                                        {t.label}
+                                                        <Box sx={{
+                                                            minWidth: 18, px: 0.5, height: 17,
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                            borderRadius: '50px',
+                                                            fontSize: 10.5, fontWeight: 800, lineHeight: 1,
+                                                            bgcolor: value === i ? PRIMARY_LIGHT : DASH.line,
+                                                            color: value === i ? PRIMARY_DARK : DASH.muted,
+                                                        }}>
+                                                            {eventsLoading ? '–' : t.count}
+                                                        </Box>
+                                                    </Box>
+                                                }
+                                            />
+                                        ))}
                                     </Tabs>
                                 </Box>
                             </Box>
@@ -1347,8 +1612,8 @@ export default function SchoolCalendarPage() {
                                                             item={item}
                                                             onViewImage={handleViewClick}
                                                             onPlayVideo={handleVideoClick}
-                                                            onEdit={handleEdit}
-                                                            onDelete={handleDelete}
+                                                            onEdit={canEdit ? handleEdit : undefined}
+                                                            onDelete={canDelete ? handleDelete : undefined}
                                                         />
                                                     </Grid>
                                                 ))
@@ -1467,1054 +1732,428 @@ export default function SchoolCalendarPage() {
                         </Dialog>
 
 
-                        <Dialog
-                            open={createOpen && canCreate}
-                            onClose={() => closeCreateDialog()}
-                            maxWidth="md"
-                            fullWidth
-                            slotProps={{ paper: { sx: { borderRadius: "14px" } } }}
-                        >
-                            <DialogTitle sx={{
-                                display: "flex", justifyContent: "space-between", alignItems: "center",
-                                bgcolor: "#FAFAFA", borderBottom: "1px solid #E5E7EB", py: 1.2,
-                            }}>
-                                <Box sx={{ display: "flex", alignItems: "center", gap: 1.2 }}>
-                                    <Box sx={{
-                                        width: 32, height: 32, borderRadius: "8px",
-                                        bgcolor: "#fff", border: "1px solid #E5E7EB",
-                                        display: "flex", alignItems: "center", justifyContent: "center",
-                                    }}>
-                                        <CalendarMonthOutlinedIcon sx={{ color: websiteSettings.mainColor || "#3457D5", fontSize: 18 }} />
-                                    </Box>
-                                    <Box>
-                                        <Typography sx={{ fontSize: 15, fontWeight: 700, color: "#111" }}>Create Event</Typography>
-                                        <Typography sx={{ fontSize: 11, color: "#6B7280" }}>Schedule a new school calendar entry</Typography>
-                                    </Box>
-                                </Box>
-                                <IconButton size="small" onClick={() => closeCreateDialog()}>
-                                    <CloseIcon sx={{ fontSize: 18 }} />
-                                </IconButton>
-                            </DialogTitle>
-                            <DialogContent sx={{ pt: "16px !important" }}>
-                                <Box sx={{}}>
-
-                                    <Box>
-                                        <Grid container spacing={2}>
-                                            <Grid
-                                                size={{
-                                                    sm: 12,
-                                                    xs: 12,
-                                                    lg: 6
-                                                }}>
-                                                <Typography
-                                                    sx={{ fontWeight: 500, mb: 1, display: "flex", alignItems: "center", gap: 1 }}
-                                                >
-                                                    Choose Event Color
-                                                    <Tooltip
-                                                        title={
-                                                            <Typography sx={{ fontSize: 12, maxWidth: 200 }}>
-                                                                Choose darker colors for better visibility on the calendar.
-                                                            </Typography>
-                                                        }
-                                                        placement="right"
-                                                        arrow
-                                                    >
-                                                        <IconButton size="small" sx={{ p: 0, color: "text.secondary" }}>
-                                                            <InfoOutlinedIcon fontSize="small" />
-                                                        </IconButton>
-                                                    </Tooltip>
-                                                </Typography>
-                                                <ColorSwatchPicker
-                                                    value={pickedColor}
-                                                    onChange={(c) => setPickedColor(c)}
-                                                />
-
-                                            </Grid>
-                                            <Grid
-                                                sx={{ display: "flex", alignItems: "center" }}
-                                                size={{
-                                                    sm: 12,
-                                                    xs: 12,
-                                                    lg: 6
-                                                }}>
-                                                <Box >
-                                                    <FormControlLabel
-                                                        sx={{ pt: 3.5 }}
-                                                        control={
-                                                            <Checkbox
-                                                                checked={eventsValue === "Y"}
-                                                                onChange={handleEventsChange}
-
-                                                            />
-                                                        }
-                                                        label="Add as Important Event"
-                                                    />
-                                                </Box>
-                                            </Grid>
-                                            <Grid
-                                                size={{
-                                                    sm: 12,
-                                                    xs: 12,
-                                                    lg: 6
-                                                }}>
-                                                <Typography>
-                                                    Start Date <span style={{ color: "#777", fontSize: "13px" }}> (Required)</span>
-                                                </Typography>
-                                                <TextField
-                                                    id="to-date"
-                                                    size="small"
-                                                    fullWidth
-                                                    type="date"
-                                                    required
-                                                    value={fromDate}
-                                                    onChange={handleFromDateChange}
-                                                />
-                                            </Grid>
-
-                                            {!onlyFrom && (
-                                                <Grid
-                                                    size={{
-                                                        sm: 12,
-                                                        xs: 12,
-                                                        lg: 6
-                                                    }}>
-                                                    <Typography>
-                                                        Due Date <span style={{ color: "#777", fontSize: "13px" }}> (Required)</span>
-                                                    </Typography>
-                                                    <TextField
-                                                        id="to-date"
-                                                        size="small"
-                                                        fullWidth
-                                                        type="date"
-                                                        required
-                                                        value={toDate}
-                                                        onChange={handleToDateChange}
-                                                    />
-                                                </Grid>
-                                            )}
-                                        </Grid>
-
-                                        <FormControlLabel
-                                            control={
-                                                <Checkbox
-                                                    checked={onlyFrom}
-                                                    onChange={handleCheckboxChange}
-                                                    color="primary"
-                                                    sx={{
-                                                        transform: "scale(0.8)",
-                                                    }}
-                                                />
-                                            }
-                                            label={
-                                                <Typography sx={{ fontSize: "12px" }}>Single Date</Typography>
-                                            }
-                                            sx={{
-                                                mt: 1,
-                                                display: "flex",
-                                                alignItems: "center",
-                                                fontSize: "12px",
-                                                width: "120px"
-                                            }}
-                                        />
-                                    </Box>
-                                    <Typography sx={{ pt: 1 }}>Event Title <span style={{ color: "#777", fontSize: "13px", }}> (Required)</span></Typography>
-                                    <TextField
-                                        id="outlined-size-small"
-                                        size="small"
-                                        fullWidth
-                                        required
-                                        value={heading}
-                                        onChange={handleHeadingChange}
-                                    />
-                                    <Typography sx={{ fontSize: "12px" }} color="textSecondary">
-                                        {`${heading.length}/100`}
-                                    </Typography>
-
-                                    <Typography sx={{ pt: 3 }}>Add Description<span style={{ color: "#777", fontSize: "13px" }}> (Required)</span></Typography>
-                                    <Box sx={{ pr: 1 }}>
-                                        <TextareaAutosize
-                                            minRows={5}
-                                            value={description}
-                                            onChange={handleDescription}
-                                            style={{
-                                                width: '100%',
-                                                backgroundColor: "#F6F6F8",
-                                                borderRadius: '3px',
-                                                fontFamily: "sans-serif",
-                                                border: '1px solid #ccc',
-                                                fontSize: '16px',
-                                                resize: 'none',
-                                            }}
-                                        />
-                                    </Box>
-                                    <Box
-                                        sx={{
-                                            width: "100%",
-                                            borderRadius: "7px",
-                                        }}
-                                    >
-                                        <Tabs value={activeTab} onChange={handleTabChange}  >
-                                            <Tab sx={{ textTransform: "none" }} label="Select Image" />
-                                            <Tab sx={{ textTransform: "none" }} label="Add Link" />
-                                            <Box sx={{ display: "flex0", justifyContent: "center", width: "100%" }}>
-                                                <Typography color="textSecondary" sx={{ mt: 2, textAlign: "right", fontSize: "12px" }}>
-                                                    (*Upload either an image or a link)
-                                                </Typography>
-                                            </Box>
-
-                                        </Tabs>
-
-                                        {activeTab === 0 && (
-                                            <Box sx={{ mt: 2, textAlign: "center" }}>
-                                                <Box
-                                                    {...getRootProps()}
-                                                    sx={{
-                                                        border: "2px dashed #1976d2",
-                                                        borderRadius: "8px",
-                                                        p: 1,
-                                                        backgroundColor: isDragActive ? "#e3f2fd" : "#e3f2fd",
-                                                        textAlign: "center",
-                                                        cursor: "pointer",
-                                                    }}
-                                                >
-                                                    <input {...getInputProps()} accept=".jpg, .jpeg, .webp, .png" />
-                                                    <UploadFileIcon sx={{ fontSize: 40, color: "#000" }} />
-                                                    <Typography variant="body2" color="textSecondary" sx={{ mt: 0.5 }}>
-                                                        Drag and drop files here, or click to upload.
-                                                    </Typography>
-                                                    <Typography variant="caption" color="textSecondary">
-                                                        Supported formats: JPG, JPEG, WebP, PNG
-                                                    </Typography>
-                                                    <Typography variant="caption" sx={{ display: "block", mt: 0.5 }}>
-                                                        Max file size: 25MB
-                                                    </Typography>
-                                                </Box>
-                                                {uploadedFiles.length > 0 && (
-                                                    <Box
-                                                        sx={{
-                                                            mt: 1,
-                                                            display: "flex",
-                                                            justifyContent: "flex-start",
-                                                            alignItems: "center",
-                                                            gap: 2,
-                                                        }}
-                                                    >
-                                                        {/* Selected Image Preview */}
-                                                        <Box
-                                                            sx={{
-                                                                position: "relative",
-                                                                width: "100px",
-                                                                height: "100px",
-                                                                border: "1px solid #ddd",
-                                                                borderRadius: "8px",
-                                                            }}
-                                                        >
-                                                            <img
-                                                                src={uploadedFiles[0] instanceof File ? URL.createObjectURL(uploadedFiles[0]) : uploadedFiles[0].url || uploadedFiles[0]}
-                                                                alt="Selected"
-                                                                style={{
-                                                                    width: "100%",
-                                                                    height: "100%",
-                                                                    objectFit: "cover",
-                                                                }}
-                                                            />
-                                                            {/* Remove Icon */}
-                                                            <IconButton
-                                                                sx={{
-                                                                    position: "absolute",
-
-                                                                    top: -15,
-                                                                    right: -15,
-                                                                }}
-                                                                onClick={handleImageClose}
-                                                            >
-                                                                <CancelIcon style={{ backgroundColor: "#777", color: "#fff", borderRadius: "30px" }} />
-                                                            </IconButton>
-                                                        </Box>
-                                                    </Box>
-                                                )}
-
-                                            </Box>
-                                        )}
-
-                                        {activeTab === 1 && (
-                                            <Box sx={{ mt: 2 }}>
-                                                <TextField
-                                                    fullWidth
-                                                    size="small"
-                                                    placeholder="Paste your link here"
-                                                    InputProps={{
-                                                        startAdornment: (
-                                                            <InsertLinkIcon sx={{ mr: 1, color: "text.secondary" }} />
-                                                        ),
-                                                    }}
-                                                    value={pastedLink}
-                                                    onChange={handleLinkUpload}
-                                                />
-                                                <Typography variant="caption" color="textSecondary" sx={{ display: "block", mt: 1 }}>
-                                                    Paste a YouTube link here.
-                                                </Typography>
-                                            </Box>
-                                        )}
-                                    </Box>
-
-
-                                    <Box sx={{ mt: 3 }}>
-                                        <Grid container spacing={2}>
-                                            <Grid
-                                                sx={{ display: "flex", justifyContent: "end" }}
-                                                size={{
-                                                    xs: 6,
-                                                    sm: 6,
-                                                    md: 6,
-                                                    lg: 6
-                                                }}>
-                                                <Button
-                                                    sx={{
-                                                        textTransform: 'none',
-                                                        width: "80px",
-                                                        borderRadius: '30px',
-                                                        fontSize: '12px',
-                                                        py: 0.2,
-                                                        border: '1px solid black',
-                                                        color: 'black',
-                                                        fontWeight: "600",
-                                                    }}
-                                                    onClick={() => closeCreateDialog()}>
-                                                    Cancel
-                                                </Button>
-                                            </Grid>
-
-                                            <Dialog open={false} sx={{
-                                                '& .MuiPaper-root': {
-                                                    width: '60vw',
-                                                    minWidth: '300px',
-                                                    backgroundColor: '#fff',
-                                                    borderRadius: 1,
-                                                },
-                                            }} >
-                                                <Box sx={{ p: 3, backgroundColor: '#fff', }}>
-
-                                                    <Box sx={{
-                                                        backgroundColor: '#fff',
-                                                        width: "100%",
-                                                    }}>
-                                                        <Typography sx={{ fontWeight: "600", fontSize: "20px" }}>Edit School Calendar</Typography>
-                                                        <Grid container>
-                                                            <Grid
-                                                                size={{
-                                                                    sm: 12,
-                                                                    xs: 12,
-                                                                    lg: 6
-                                                                }}>
-                                                                <Typography
-                                                                    sx={{ fontWeight: 500, mb: 1, display: "flex", alignItems: "center", gap: 1 }}
-                                                                >
-                                                                    Pick an event color
-                                                                    <Tooltip
-                                                                        title={
-                                                                            <Typography sx={{ fontSize: 12, maxWidth: 200 }}>
-                                                                                Choose darker colors for better visibility on the calendar.
-                                                                            </Typography>
-                                                                        }
-                                                                        placement="right"
-                                                                        arrow
-                                                                    >
-                                                                        <IconButton size="small" sx={{ p: 0, color: "text.secondary" }}>
-                                                                            <InfoOutlinedIcon fontSize="small" />
-                                                                        </IconButton>
-                                                                    </Tooltip>
-                                                                </Typography>
-                                                                <ColorSwatchPicker
-                                                                    value={editPickedColor}
-                                                                    onChange={(c) => setEditPickedColor(c)}
-                                                                />
-
-                                                            </Grid>
-                                                            <Grid
-                                                                sx={{ display: "flex", alignItems: "center" }}
-                                                                size={{
-                                                                    sm: 12,
-                                                                    xs: 12,
-                                                                    lg: 6
-                                                                }}>
-                                                                <Box >
-                                                                    <FormControlLabel
-                                                                        sx={{ pt: 3.5 }}
-                                                                        control={
-                                                                            <Checkbox
-                                                                                checked={editEventsValue === "Y"}
-                                                                                onChange={handleEditEventsChange}
-
-                                                                            />
-                                                                        }
-                                                                        label="Important Event"
-                                                                    />
-                                                                </Box>
-                                                            </Grid>
-                                                        </Grid>
-                                                        <Typography sx={{ pt: 2 }}>Add Heading <span style={{ color: "#777", fontSize: "13px", }}> (Required)</span></Typography>
-                                                        <TextField
-                                                            id="outlined-size-small"
-                                                            size="small"
-                                                            fullWidth
-                                                            required
-                                                            value={editHeading}
-                                                            onChange={handleEditHeadingChange}
-                                                        />
-                                                        <Typography sx={{ fontSize: "12px" }} color="textSecondary">
-                                                            {`${heading.length}/100`}
-                                                        </Typography>
-
-                                                        <Typography sx={{ pt: 3 }}>Add Description<span style={{ color: "#777", fontSize: "13px" }}> (Required)</span></Typography>
-                                                        <Box sx={{ pr: 1 }}>
-                                                            <TextareaAutosize
-                                                                minRows={5}
-                                                                value={editDescription}
-                                                                onChange={handleEditDescription}
-                                                                style={{
-                                                                    width: '100%',
-                                                                    backgroundColor: "#F6F6F8",
-                                                                    fontFamily: "sans-serif",
-                                                                    borderRadius: '3px',
-                                                                    border: '1px solid #ccc',
-                                                                    fontSize: '16px',
-                                                                    resize: 'none',
-                                                                }}
-                                                            />
-                                                        </Box>
-                                                        <Box
-                                                            sx={{
-                                                                width: "100%",
-                                                                borderRadius: "7px",
-                                                            }}
-                                                        >
-                                                            <Tabs value={editActiveTab} onChange={handleEditTabChange}  >
-                                                                <Tab sx={{ textTransform: "none" }} label="Select Image" />
-                                                                <Tab sx={{ textTransform: "none" }} label="Add Link" />
-                                                                <Box sx={{ display: "flex0", justifyContent: "center", width: "100%" }}>
-                                                                    <Typography color="textSecondary" sx={{ mt: 2, textAlign: "right", fontSize: "12px" }}>
-                                                                        (*Upload either an image or a link)
-                                                                    </Typography>
-                                                                </Box>
-
-                                                            </Tabs>
-
-                                                            {editActiveTab === 0 && (
-                                                                <Box sx={{ mt: 2, textAlign: "center" }}>
-                                                                    <Box
-                                                                        {...getRootPropsAnother()}
-                                                                        sx={{
-                                                                            border: "2px dashed #4caf50",
-                                                                            borderRadius: "8px",
-                                                                            p: 1,
-                                                                            backgroundColor: isDragActive2 ? "#e8f5e9" : "#f5f5f5",
-                                                                            textAlign: "center",
-                                                                            cursor: "pointer",
-                                                                            mt: 2, // Add spacing between the two dropzones
-                                                                        }}
-                                                                    >
-                                                                        <input {...getInputPropsAnother()} accept=".jpg, .jpeg, .webp, .png" />
-                                                                        <UploadFileIcon sx={{ fontSize: 40, color: "#000" }} />
-                                                                        <Typography variant="body2" color="textSecondary" sx={{ mt: 0.5 }}>
-                                                                            Drag and drop files here, or click to upload.
-                                                                        </Typography>
-                                                                        <Typography variant="caption" color="textSecondary">
-                                                                            Supported formats: JPG, JPEG, WebP, PNG
-                                                                        </Typography>
-                                                                        <Typography variant="caption" sx={{ display: "block", mt: 0.5 }}>
-                                                                            Max file size: 25MB
-                                                                        </Typography>
-                                                                    </Box>
-                                                                    {editUploadedFiles.length > 0 && (
-                                                                        <Box
-                                                                            sx={{
-                                                                                mt: 1,
-                                                                                display: "flex",
-                                                                                justifyContent: "flex-start",
-                                                                                alignItems: "center",
-                                                                                gap: 2,
-                                                                            }}
-                                                                        >
-                                                                            <Box
-                                                                                sx={{
-                                                                                    position: "relative",
-                                                                                    width: "100px",
-                                                                                    height: "100px",
-                                                                                    border: "1px solid #ddd",
-                                                                                    borderRadius: "8px",
-                                                                                    overflow: "hidden",
-                                                                                    backgroundColor: "#f5f5f5",
-                                                                                }}
-                                                                            >
-                                                                                <img
-                                                                                    src={
-                                                                                        editUploadedFiles[0] instanceof File
-                                                                                            ? URL.createObjectURL(editUploadedFiles[0])
-                                                                                            : editUploadedFiles[0]?.url || editUploadedFiles[0]
-                                                                                    }
-                                                                                    alt="Selected"
-                                                                                    style={{
-                                                                                        width: "100%",
-                                                                                        height: "100%",
-                                                                                        objectFit: "cover",
-                                                                                    }}
-                                                                                />
-
-                                                                                <IconButton
-                                                                                    sx={{
-                                                                                        position: "absolute",
-                                                                                        top: 5,
-                                                                                        right: 5,
-                                                                                        zIndex: 10,
-                                                                                        backgroundColor: "rgba(0, 0, 0, 0.6)",
-                                                                                        color: "#fff",
-                                                                                        borderRadius: "50%",
-                                                                                        width: "24px",
-                                                                                        height: "24px",
-                                                                                        display: "flex",
-                                                                                        justifyContent: "center",
-                                                                                        alignItems: "center",
-                                                                                    }}
-                                                                                    onClick={handleImageEditClose}
-                                                                                >
-                                                                                    <CancelIcon fontSize="small" />
-                                                                                </IconButton>
-                                                                            </Box>
-                                                                        </Box>
-                                                                    )}
-
-                                                                    {fetchedImage && (
-                                                                        <Box
-                                                                            sx={{
-                                                                                mt: 1,
-                                                                                display: "flex",
-                                                                                justifyContent: "flex-start",
-                                                                                alignItems: "center",
-                                                                                gap: 2,
-                                                                            }}
-                                                                        >
-                                                                            <Box
-                                                                                sx={{
-                                                                                    position: "relative",
-                                                                                    width: "100px",
-                                                                                    height: "100px",
-                                                                                    border: "1px solid #ddd",
-                                                                                    borderRadius: "8px",
-                                                                                }}
-                                                                            >
-                                                                                <img
-                                                                                    src={fetchedImage}
-                                                                                    alt="Selected"
-                                                                                    style={{
-                                                                                        width: "100%",
-                                                                                        height: "100%",
-                                                                                        objectFit: "cover",
-                                                                                    }}
-                                                                                />
-                                                                                <IconButton
-                                                                                    sx={{
-                                                                                        position: "absolute",
-
-                                                                                        top: -15,
-                                                                                        right: -15,
-                                                                                    }}
-                                                                                    onClick={handleFetchedCloseImage}
-                                                                                >
-                                                                                    <CancelIcon style={{ backgroundColor: "#777", color: "#fff", borderRadius: "30px" }} />
-                                                                                </IconButton>
-                                                                            </Box>
-                                                                        </Box>
-                                                                    )}
-                                                                </Box>
-                                                            )}
-
-                                                            {editActiveTab === 1 && (
-                                                                <Box sx={{ mt: 2 }}>
-                                                                    <TextField
-                                                                        fullWidth
-                                                                        size="small"
-                                                                        placeholder="Paste your link here"
-                                                                        InputProps={{
-                                                                            startAdornment: (
-                                                                                <InsertLinkIcon sx={{ mr: 1, color: "text.secondary" }} />
-                                                                            ),
-                                                                        }}
-                                                                        value={editPastedLink}
-                                                                        onChange={handleEditLinkUpload}
-                                                                    />
-                                                                    <Typography variant="caption" color="textSecondary" sx={{ display: "block", mt: 1 }}>
-                                                                        Paste a YouTube link here.
-                                                                    </Typography>
-                                                                </Box>
-                                                            )}
-                                                        </Box>
-                                                        <DialogActions sx={{
-                                                            justifyContent: 'center',
-                                                            backgroundColor: '#fff',
-                                                            pt: 2
-                                                        }}>
-                                                            <Button
-                                                                onClick={() => handleCloseEdit(false)}
-                                                                sx={{
-                                                                    textTransform: 'none',
-                                                                    width: "80px",
-                                                                    borderRadius: '30px',
-                                                                    fontSize: '16px',
-                                                                    py: 0.2,
-                                                                    border: '1px solid black',
-                                                                    color: 'black',
-                                                                }}
-                                                            >
-                                                                Cancel
-                                                            </Button>
-                                                            <Button
-                                                                onClick={() => handleCloseEdit(true)}
-                                                                sx={{
-                                                                    textTransform: 'none',
-                                                                    backgroundColor: websiteSettings.mainColor,
-                                                                    width: "90px",
-                                                                    borderRadius: '30px',
-                                                                    fontSize: '16px',
-                                                                    py: 0.2,
-                                                                    color: websiteSettings.textColor,
-                                                                }}
-                                                            >
-                                                                Update
-                                                            </Button>
-                                                        </DialogActions>
-                                                    </Box>
-                                                </Box>
-                                            </Dialog>
-
-
-                                            <Grid
-                                                size={{
-                                                    xs: 6,
-                                                    sm: 6,
-                                                    md: 6,
-                                                    lg: 6
-                                                }}>
-                                                <Button
-                                                    sx={{
-                                                        textTransform: 'none',
-                                                        backgroundColor: websiteSettings.mainColor,
-                                                        width: "80px",
-                                                        borderRadius: '30px',
-                                                        fontSize: '12px',
-                                                        py: 0.2,
-                                                        color: websiteSettings.textColor,
-                                                        fontWeight: "600",
-                                                    }}
-                                                    onClick={() => { handlePost('post'); setCreateOpen(false); }}>
-                                                    Publish
-                                                </Button>
-                                            </Grid>
-                                        </Grid>
-                                    </Box>
-
-                                </Box>
-                            </DialogContent>
-                        </Dialog>
                     </Grid >
 
                 </Box >
             }
-            {
-                canView && !canManage && activeView === "calendar" &&
-                <Box
-                    sx={{
-                        height: { xs: "auto", lg: PANE_HEIGHT },
-                        overflowY: "auto",
-                        bgcolor: "#fff",
-                        border: `1px solid ${PRIMARY}38`,
-                        borderRadius: RADIUS,
-                    }}
-                >
-                    <Grid
-                        container
-                        justifyContent="center"
-                        sx={{
-                            height: "100%",
-                        }}
-                    >
+
+            {/* ─── Create Event Dialog — root-level, same form language as Create News ─── */}
+            <Dialog
+                open={createOpen && canCreate}
+                onClose={() => closeCreateDialog()}
+                maxWidth="lg"
+                fullWidth
+                slotProps={{ paper: { sx: { borderRadius: "14px", overflow: "hidden" } } }}
+            >
+                <DialogTitle sx={{
+                    display: "flex", justifyContent: "space-between", alignItems: "center",
+                    bgcolor: "#fff", borderBottom: `1px solid ${DASH.line}`, py: 1.4, px: 2.5,
+                }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.4, minWidth: 0 }}>
+                        <Box sx={{
+                            width: 34, height: 34, borderRadius: "9px",
+                            bgcolor: PRIMARY_LIGHT, border: `1px solid ${PRIMARY_BORDER}`,
+                            display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                        }}>
+                            <CalendarMonthOutlinedIcon sx={{ color: PRIMARY_DARK, fontSize: 19 }} />
+                        </Box>
+                        <Box sx={{ minWidth: 0 }}>
+                            <Typography sx={{ fontSize: 15.5, fontWeight: 700, color: DASH.ink, lineHeight: 1.25 }}>
+                                Create Event
+                            </Typography>
+                            <Typography sx={{ fontSize: 11.5, color: DASH.muted }}>
+                                Schedule a new school calendar entry
+                            </Typography>
+                        </Box>
+                    </Box>
+                    <IconButton size="small" onClick={() => closeCreateDialog()}>
+                        <CloseIcon sx={{ fontSize: 18 }} />
+                    </IconButton>
+                </DialogTitle>
+
+                <DialogContent sx={{ p: "20px !important", bgcolor: DASH.canvas }}>
+                    <Grid container spacing={2}>
+
+                        {/* ── FORM COLUMN ── */}
                         <Grid
-                            sx={{
-                                height: "100%",
-                                display: "flex",
-                                justifyContent: "center",
-                                alignItems: "center",
-                            }}
-                            size={{
-                                sm: 12,
-                                xs: 12,
-                                lg: 6
-                            }}>
-                            <Box sx={{ display: "flex", justifyContent: "center" }}>
-                                <Calendar
-                                    numberOfMonths={1}
-                                    highlightToday
-                                    showOtherDays={false}
-                                    onMonthChange={handleMonthChange}
-                                    onChange={handleDateChange}
-                                    style={{ boxShadow: "none", backgroundColor: "transparent" }}
-                                    mapDays={({ date }) => {
-                                        let style = {};
-                                        const formattedDate = date.format("YYYY-MM-DD");
-                                        const eventColor = availableSlots.get(formattedDate);
-                                        const isSelected = selectedDateKey === formattedDate;
-
-                                        if (eventColor) {
-                                            style = {
-                                                backgroundColor: eventColor,
-                                                color: "#fff",
-                                                borderRadius: "50%",
-                                                fontWeight: "bold",
-                                            };
-                                        }
-
-                                        if (isSelected) {
-                                            style = {
-                                                ...style,
-                                                outline: `2px solid ${PRIMARY_DARK}`,
-                                                outlineOffset: "1px",
-                                                borderRadius: "50%",
-                                                fontWeight: "bold",
-                                            };
-                                        }
-
-                                        return { style };
-                                    }}
-                                    className="teal"
-                                />
-                            </Box>
-                            <Box p={2}>
-
-                            </Box>
-                        </Grid>
-                        <Dialog
-                            open={openImage}
-                            onClose={handleViewImageClose}
-                            sx={{
-                                '& .MuiPaper-root': {
-                                    backgroundColor: 'transparent',
-                                    boxShadow: 'none',
-                                    borderRadius: 0,
-                                    padding: 0,
-                                    overflow: 'visible',
-                                    display: 'flex',
-                                    justifyContent: 'center',
-                                    alignItems: 'center',
-                                    width: '80vw',
-                                    height: '80vh',
-                                    maxWidth: 'none',
-                                },
-                            }}
-                            BackdropProps={{
-                                style: { backgroundColor: 'rgba(0, 0, 0, 0.8)' },
-                            }}
+                            size={{ xs: 12, sm: 12, md: 7, lg: 7 }}
+                            sx={{ display: "flex", flexDirection: "column", gap: 2 }}
                         >
-                            <Box
-                                sx={{
-                                    display: 'flex',
-                                    justifyContent: 'center',
-                                    alignItems: 'center',
-                                    width: '100%',
-                                    height: '100%',
-                                    position: 'relative',
-                                }}
-                            >
-                                <img
-                                    src={imageUrl}
-                                    alt="Popup"
+                            <FormSection icon={EventNoteOutlinedIcon} title="Event details">
+                                <Typography sx={FIELD_LABEL}>
+                                    Event title <span style={REQ}>*</span>
+                                </Typography>
+                                <TextField
+                                    size="small"
+                                    fullWidth
+                                    required
+                                    placeholder="e.g. Annual Sports Day"
+                                    value={heading}
+                                    onChange={handleHeadingChange}
+                                    sx={TEXT_FIELD}
+                                />
+                                <Typography sx={{
+                                    fontSize: "11px", mt: 0.5, textAlign: "right",
+                                    color: heading.length >= 100 ? DASH.red : DASH.faint,
+                                }}>
+                                    {`${heading.length}/100`}
+                                </Typography>
+
+                                <Typography sx={{ ...FIELD_LABEL, mt: 1.2 }}>
+                                    Description <span style={REQ}>*</span>
+                                </Typography>
+                                <TextareaAutosize
+                                    minRows={4}
+                                    maxRows={8}
+                                    value={description}
+                                    onChange={handleDescription}
+                                    placeholder="What is this event about? Who should attend?"
                                     style={{
-                                        maxWidth: '100%',
-                                        maxHeight: '100%',
-                                        objectFit: 'contain',
+                                        width: "100%",
+                                        boxSizing: "border-box",
+                                        backgroundColor: "#fff",
+                                        borderRadius: "9px",
+                                        fontFamily: "inherit",
+                                        border: `1px solid ${DASH.line}`,
+                                        fontSize: "13.5px",
+                                        color: DASH.ink,
+                                        padding: "10px 12px",
+                                        resize: "none",
+                                        outlineColor: PRIMARY,
                                     }}
                                 />
-                                <IconButton
-                                    onClick={handleViewImageClose}
-                                    sx={{
-                                        position: 'absolute',
-                                        top: 10,
-                                        right: 10,
-                                        zIndex: 10,
-                                        color: "#fff",
-                                    }}
-                                >
-                                    <CloseIcon />
-                                </IconButton>
-                            </Box>
-                        </Dialog>
-                        <Dialog
-                            open={openVideo}
-                            onClose={handleVideoClose}
-                            sx={{
-                                '& .MuiPaper-root': {
-                                    backgroundColor: 'transparent',
-                                    boxShadow: 'none',
-                                    borderRadius: 0,
-                                    padding: 0,
-                                    overflow: 'visible',
-                                    display: 'flex',
-                                    justifyContent: 'center',
-                                    alignItems: 'center',
-                                    width: '80vw',
-                                    height: '80vh',
-                                    maxWidth: 'none',
-                                },
-                            }}
-                            BackdropProps={{
-                                style: { backgroundColor: 'rgba(0, 0, 0, 0.8)' },
-                            }}
-                        >
-                            <Box
-                                sx={{
-                                    display: 'flex',
-                                    justifyContent: 'center',
-                                    alignItems: 'center',
-                                    width: '100%',
-                                    height: '100%',
-                                    position: 'relative',
-                                }}
+                                <Typography sx={{
+                                    fontSize: "11px", mt: 0.3, textAlign: "right",
+                                    color: description.length >= 300 ? DASH.red : DASH.faint,
+                                }}>
+                                    {`${description.length}/300`}
+                                </Typography>
+                            </FormSection>
+
+                            <FormSection
+                                icon={CalendarMonthOutlinedIcon}
+                                title="When is it happening?"
+                                hint={createDurationLabel}
                             >
-                                <ReactPlayer
-                                    url={videoUrl}
-                                    width="100%"
-                                    height="100%"
-                                    playing={false}
+                                <ToggleRow
+                                    checked={onlyFrom}
+                                    onChange={handleCheckboxChange}
+                                    label="Single day event"
+                                    description="Turn this on when the event starts and ends on the same day"
                                 />
-                                <IconButton
-                                    onClick={handleVideoClose}
+
+                                <Grid container spacing={1.5} sx={{ mt: 0.4 }}>
+                                    <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
+                                        <Typography sx={FIELD_LABEL}>
+                                            Start date <span style={REQ}>*</span>
+                                        </Typography>
+                                        <TextField
+                                            size="small"
+                                            fullWidth
+                                            type="date"
+                                            required
+                                            value={fromDate}
+                                            onChange={handleFromDateChange}
+                                            sx={TEXT_FIELD}
+                                        />
+                                    </Grid>
+                                    <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
+                                        <Typography sx={{ ...FIELD_LABEL, opacity: onlyFrom ? 0.5 : 1 }}>
+                                            End date {onlyFrom
+                                                ? <span style={OPTIONAL}>(same as start)</span>
+                                                : <span style={REQ}>*</span>}
+                                        </Typography>
+                                        <TextField
+                                            size="small"
+                                            fullWidth
+                                            type="date"
+                                            required={!onlyFrom}
+                                            disabled={onlyFrom}
+                                            value={onlyFrom ? fromDate : toDate}
+                                            onChange={handleToDateChange}
+                                            slotProps={{ htmlInput: { min: fromDate || undefined } }}
+                                            sx={TEXT_FIELD}
+                                        />
+                                    </Grid>
+                                </Grid>
+                            </FormSection>
+
+                            <FormSection
+                                icon={PaletteOutlinedIcon}
+                                title="Appearance"
+                                hint="Shows on the calendar"
+                            >
+                                <Typography sx={{ ...FIELD_LABEL, display: "flex", alignItems: "center", gap: 0.8 }}>
+                                    Event colour
+                                    <Tooltip
+                                        arrow
+                                        placement="right"
+                                        title={
+                                            <Typography sx={{ fontSize: 12, maxWidth: 200 }}>
+                                                Darker colours stay readable against the white calendar grid.
+                                            </Typography>
+                                        }
+                                    >
+                                        <InfoOutlinedIcon sx={{ fontSize: 15, color: DASH.faint }} />
+                                    </Tooltip>
+                                </Typography>
+                                <ColorSwatchPicker value={pickedColor} onChange={(c) => setPickedColor(c)} />
+
+                                <Box sx={{ mt: 1.8 }}>
+                                    <ToggleRow
+                                        checked={eventsValue === "Y"}
+                                        onChange={handleEventsChange}
+                                        label="Mark as important event"
+                                        description="Also lists this under the Events tab for everyone"
+                                    />
+                                </Box>
+                            </FormSection>
+
+                            <FormSection
+                                icon={AttachFileOutlinedIcon}
+                                title="Attachment"
+                                hint="Optional — an image or a link, not both"
+                            >
+                                <Tabs
+                                    value={activeTab}
+                                    onChange={handleTabChange}
                                     sx={{
-                                        position: 'absolute',
-                                        top: 10,
-                                        right: 10,
-                                        zIndex: 10,
-                                        color: "#fff",
+                                        minHeight: 34,
+                                        mb: 0.5,
+                                        "& .MuiTab-root": {
+                                            textTransform: "none", minHeight: 34, py: 0,
+                                            fontSize: "13px", fontWeight: 600, color: DASH.muted,
+                                        },
+                                        "& .Mui-selected": { color: `${DASH.ink} !important` },
+                                        "& .MuiTabs-indicator": { backgroundColor: PRIMARY, height: 3, borderRadius: "3px" },
                                     }}
                                 >
-                                    <CloseIcon />
-                                </IconButton>
-                            </Box>
-                        </Dialog>
+                                    <Tab label="Select Image" />
+                                    <Tab label="Add Link" />
+                                </Tabs>
 
+                                {activeTab === 0 && (
+                                    <Box sx={{ mt: 1.5 }}>
+                                        <Box
+                                            {...getRootProps()}
+                                            sx={{
+                                                border: `2px dashed ${isDragActive ? PRIMARY : "#C7D6EA"}`,
+                                                borderRadius: "10px",
+                                                p: 2,
+                                                backgroundColor: isDragActive ? PRIMARY_LIGHT : "#F6F9FD",
+                                                textAlign: "center",
+                                                cursor: "pointer",
+                                                transition: "0.2s",
+                                                "&:hover": { borderColor: PRIMARY, backgroundColor: PRIMARY_LIGHT },
+                                            }}
+                                        >
+                                            <input {...getInputProps()} accept=".jpg, .jpeg, .webp, .png" />
+                                            <UploadFileIcon sx={{ fontSize: 30, color: PRIMARY }} />
+                                            <Typography sx={{ fontSize: 12.5, fontWeight: 600, color: DASH.text, mt: 0.5 }}>
+                                                Drag and drop a file here, or click to upload
+                                            </Typography>
+                                            <Typography sx={{ fontSize: 11, color: DASH.faint, mt: 0.2 }}>
+                                                JPG, JPEG, WebP or PNG · max 25MB
+                                            </Typography>
+                                        </Box>
 
-                        <Grid
-                            sx={{ borderLeft: 1, borderColor: "divider", pt: 3 }}
-                            size={{
-                                sm: 12,
-                                xs: 12,
-                                lg: 6
+                                        {uploadedFiles.length > 0 && (
+                                            <Box sx={{ mt: 1.5, display: "flex", alignItems: "center", gap: 1.5 }}>
+                                                <Box sx={{
+                                                    position: "relative",
+                                                    width: 88, height: 88,
+                                                    border: `1px solid ${DASH.line}`,
+                                                    borderRadius: "10px",
+                                                    overflow: "hidden",
+                                                    flexShrink: 0,
+                                                }}>
+                                                    <img
+                                                        src={uploadedFiles[0] instanceof File
+                                                            ? URL.createObjectURL(uploadedFiles[0])
+                                                            : uploadedFiles[0].url || uploadedFiles[0]}
+                                                        alt="Selected"
+                                                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                                                    />
+                                                </Box>
+                                                <Box sx={{ minWidth: 0, flex: 1 }}>
+                                                    <Typography sx={{ fontSize: 12.5, fontWeight: 600, color: DASH.text }} noWrap>
+                                                        {uploadedFiles[0]?.name || "Selected image"}
+                                                    </Typography>
+                                                    <Button
+                                                        size="small"
+                                                        onClick={handleImageClose}
+                                                        startIcon={<CancelIcon sx={{ fontSize: 14 }} />}
+                                                        sx={{
+                                                            textTransform: "none", fontSize: 11.5, fontWeight: 600,
+                                                            color: DASH.red, px: 0.5, mt: 0.3,
+                                                            "&:hover": { bgcolor: DASH.redLight },
+                                                        }}
+                                                    >
+                                                        Remove
+                                                    </Button>
+                                                </Box>
+                                            </Box>
+                                        )}
+                                    </Box>
+                                )}
+
+                                {activeTab === 1 && (
+                                    <Box sx={{ mt: 1.5 }}>
+                                        <TextField
+                                            fullWidth
+                                            size="small"
+                                            placeholder="Paste your link here"
+                                            value={pastedLink}
+                                            onChange={handleLinkUpload}
+                                            sx={TEXT_FIELD}
+                                            slotProps={{
+                                                input: {
+                                                    startAdornment: (
+                                                        <InputAdornment position="start">
+                                                            <InsertLinkIcon sx={{ fontSize: 18, color: DASH.faint }} />
+                                                        </InputAdornment>
+                                                    ),
+                                                },
+                                            }}
+                                        />
+                                        <Typography sx={{ fontSize: 11, color: DASH.faint, mt: 0.7 }}>
+                                            Paste a YouTube link here.
+                                        </Typography>
+                                    </Box>
+                                )}
+                            </FormSection>
+                        </Grid>
+
+                        {/* ── PREVIEW COLUMN ── */}
+                        <Grid size={{ xs: 12, sm: 12, md: 5, lg: 5 }}>
+                            <Box sx={{
+                                position: { md: "sticky" },
+                                top: 0,
+                                bgcolor: "#fff",
+                                border: `1px solid ${DASH.line}`,
+                                borderRadius: "12px",
+                                overflow: "hidden",
                             }}>
-
-                            <Box sx={{ width: '100%', pb: 2 }}>
-                                <Box sx={{ display: 'flex', justifyContent: 'center', }}>
-                                    <Tabs textColor={websiteSettings.mainColor}
-                                        indicatorColor={websiteSettings.mainColor}
-                                        sx={{
-                                            "& .MuiTabs-indicator": { backgroundColor: websiteSettings.mainColor },
-                                            "& .MuiTab-root": { color: "#777" },
-                                            "& .Mui-selected": { color: "#000" }
-                                        }}
-                                        value={value} onChange={handleChange} aria-label="basic tabs example">
-                                        <Tab sx={{ textTransform: "none", fontWeight: "600" }} label="Completed Events" />
-                                        <Tab sx={{ textTransform: "none", fontWeight: "600" }} label="Today's Events" />
-                                        <Tab sx={{ textTransform: "none", fontWeight: "600" }} label="Upcoming Events" />
-                                    </Tabs>
+                                <Box sx={{
+                                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                                    gap: 1, px: 1.8, py: 1.1,
+                                    bgcolor: DASH.surface,
+                                    borderBottom: `1px solid ${DASH.lineSoft}`,
+                                }}>
+                                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                        <VisibilityOutlinedIcon sx={{ fontSize: 16, color: DASH.muted }} />
+                                        <Typography sx={{ fontSize: 13, fontWeight: 700, color: DASH.ink }}>
+                                            Live Preview
+                                        </Typography>
+                                    </Box>
+                                    <Typography sx={{ fontSize: 11, color: DASH.faint }}>
+                                        Updates as you type
+                                    </Typography>
                                 </Box>
-                                {value === 0 && <Box px={3}>
-                                    <Grid
-                                        container
-                                        spacing={2}
-                                        sx={{
-                                            height: "100%",
-                                            display: "flex",
-                                            justifyContent: "center",
-                                            pt: 1
-                                        }}
-                                    >
-                                        <Grid size={12}>
-                                            <Box
-                                                sx={{
-                                                    height: "72vh",
-                                                    overflowY: "auto",
-                                                    px: 2,
-                                                }}
-                                            >
-                                                {eventsLoading ? (
-                                                    Array.from({ length: 3 }).map((_, i) => (
-                                                        <Grid key={`ev-skeleton-${i}`} size={12}>
-                                                            <EventCardSkeleton lines={i === 1 ? 1 : 2} />
-                                                        </Grid>
-                                                    ))
-                                                ) : completedEvents.length === 0 ? (
-                                                    <Box
-                                                        sx={{
-                                                            textAlign: "center",
-                                                            mt: 2,
-                                                            backgroundColor: "#F9FAFB",
-                                                            border: "1px dashed #E5E7EB",
-                                                            borderRadius: "5px",
-                                                            width: "100%",
-                                                            height: "100px",
-                                                            display: "flex",
-                                                            alignItems: "center",
-                                                            justifyContent: 'center'
-                                                        }}
-                                                    >
-                                                        <Typography sx={{ fontSize: "14px", color: "#616161" }}>
-                                                            No events today
-                                                        </Typography>
-                                                    </Box>
-                                                ) : (
-                                                    <Grid container spacing={2}>
-                                                        {completedEvents.map((item) => (
-                                                            <Grid key={item.id} size={12}>
-                                                                <EventCard
-                                                                    item={item}
-                                                                    onViewImage={handleViewClick}
-                                                                    onPlayVideo={handleVideoClick}
-                                                                />
-                                                            </Grid>
-                                                        ))}
-                                                    </Grid>
-                                                )}
-                                            </Box>
-                                        </Grid>
-                                    </Grid>
 
-                                </Box>}
-                                {value === 1 && <Box sx={{ px: 1, pt: 1.5 }}>
-                                    <Grid
-                                        container
-                                        spacing={2}
-                                        sx={{
-                                            height: "100%",
-                                            display: "flex",
-                                            justifyContent: "center",
-                                            pt: 1
-                                        }}
-                                    >
-                                        <Grid size={12}>
-                                            <Box
-                                                sx={{
-                                                    height: "72vh",
-                                                    overflowY: "auto",
-                                                    px: 2,
-                                                }}
-                                            >
-                                                {eventsLoading ? (
-                                                    Array.from({ length: 3 }).map((_, i) => (
-                                                        <Grid key={`ev-skeleton-${i}`} size={12}>
-                                                            <EventCardSkeleton lines={i === 1 ? 1 : 2} />
-                                                        </Grid>
-                                                    ))
-                                                ) : todayEvents.length === 0 ? (
-                                                    <Box
-                                                        sx={{
-                                                            textAlign: "center",
-                                                            mt: 2,
-                                                            backgroundColor: "#F9FAFB",
-                                                            border: "1px dashed #E5E7EB",
-                                                            borderRadius: "5px",
-                                                            width: "100%",
-                                                            height: "100px",
-                                                            display: "flex",
-                                                            alignItems: "center",
-                                                            justifyContent: 'center'
-                                                        }}
-                                                    >
-                                                        <Typography sx={{ fontSize: "14px", color: "#616161" }}>
-                                                            No events today
-                                                        </Typography>
-                                                    </Box>
-                                                ) : (
-                                                    <Grid container spacing={2}>
-                                                        {todayEvents.map((item) => (
-                                                            <Grid key={item.id} size={12}>
-                                                                <EventCard
-                                                                    item={item}
-                                                                    onViewImage={handleViewClick}
-                                                                    onPlayVideo={handleVideoClick}
-                                                                />
-                                                            </Grid>
-                                                        ))}
-                                                    </Grid>
-                                                )}
-                                            </Box>
-                                        </Grid>
-                                    </Grid>
+                                <Box sx={{ p: 1.8 }}>
+                                    {/* How the day will look on the calendar grid */}
+                                    <Typography sx={{
+                                        fontSize: "10.5px", fontWeight: 700, letterSpacing: "0.08em",
+                                        textTransform: "uppercase", color: DASH.muted, mb: 1,
+                                    }}>
+                                        On the calendar
+                                    </Typography>
+                                    <Box sx={{
+                                        display: "flex", alignItems: "center", gap: 1.4,
+                                        p: 1.4, mb: 2,
+                                        borderRadius: "10px",
+                                        bgcolor: DASH.surface,
+                                        border: `1px solid ${DASH.lineSoft}`,
+                                    }}>
+                                        <Box sx={{
+                                            width: 34, height: 34, borderRadius: "50%",
+                                            bgcolor: pickedColor,
+                                            color: "#fff",
+                                            display: "flex", alignItems: "center", justifyContent: "center",
+                                            fontSize: 13, fontWeight: 700, flexShrink: 0,
+                                        }}>
+                                            {fromDate && dayjs(fromDate).isValid() ? dayjs(fromDate).format("DD") : "–"}
+                                        </Box>
+                                        <Box sx={{ minWidth: 0 }}>
+                                            <Typography sx={{ fontSize: 12.5, fontWeight: 600, color: DASH.text }}>
+                                                {fromDate && dayjs(fromDate).isValid()
+                                                    ? dayjs(fromDate).format("dddd, DD MMM YYYY")
+                                                    : "No date picked yet"}
+                                            </Typography>
+                                            <Typography sx={{ fontSize: 11, color: DASH.muted }}>
+                                                {createDurationLabel}
+                                            </Typography>
+                                        </Box>
+                                    </Box>
 
-                                </Box>}
-                                {value === 2 && <Box sx={{ px: 1, pt: 1.5 }}>
-                                    <Grid
-                                        container
-                                        sx={{
-                                            height: "100%",
-                                            display: "flex",
-                                            justifyContent: "center",
-                                            pt: 1
-                                        }}
-                                        spacing={2}
-                                    >
-                                        <Grid size={12}>
-                                            <Box sx={{
-                                                px: 2,
-                                                height: "72vh",
-                                                overflowY: "auto",
-                                            }}>
+                                    {/* Exactly the card the event list will render */}
+                                    <Typography sx={{
+                                        fontSize: "10.5px", fontWeight: 700, letterSpacing: "0.08em",
+                                        textTransform: "uppercase", color: DASH.muted, mb: 1,
+                                    }}>
+                                        In the events list
+                                    </Typography>
+                                    <EventCard item={createPreviewItem} />
 
-                                                {eventsLoading ? (
-                                                    Array.from({ length: 3 }).map((_, i) => (
-                                                        <Grid key={`ev-skeleton-${i}`} size={12}>
-                                                            <EventCardSkeleton lines={i === 1 ? 1 : 2} />
-                                                        </Grid>
-                                                    ))
-                                                ) : upCommingEvents.length === 0 ? (
-                                                    <Box
-                                                        sx={{
-                                                            textAlign: "center",
-                                                            mt: 2,
-                                                            backgroundColor: "#F9FAFB",
-                                                            border: "1px dashed #E5E7EB",
-                                                            borderRadius: "5px",
-                                                            width: "100%",
-                                                            height: "100px",
-                                                            display: "flex",
-                                                            alignItems: "center",
-                                                            justifyContent: 'center'
-                                                        }}
-                                                    >
-                                                        <Typography sx={{ fontSize: "14px", color: "#616161" }}>
-                                                            No events today
-                                                        </Typography>
-                                                    </Box>
-                                                ) : (
-                                                    <Grid container spacing={2}>
-                                                        {upCommingEvents.map((item) => (
-                                                            <Grid key={item.id} size={12}>
-                                                                <EventCard
-                                                                    item={item}
-                                                                    onViewImage={handleViewClick}
-                                                                    onPlayVideo={handleVideoClick}
-                                                                />
-                                                            </Grid>
-                                                        ))}
-                                                    </Grid>
-                                                )}
-                                            </Box>
-                                        </Grid>
-                                    </Grid>
-                                </Box>}
+                                    {eventsValue === "Y" && (
+                                        <Box sx={{
+                                            display: "flex", alignItems: "center", gap: 0.8,
+                                            mt: 1.4, px: 1.2, py: 0.8,
+                                            borderRadius: "8px",
+                                            bgcolor: DASH.amberLight,
+                                            border: "1px solid #FDE68A",
+                                        }}>
+                                            <EventAvailableOutlinedIcon sx={{ fontSize: 15, color: "#B45309" }} />
+                                            <Typography sx={{ fontSize: 11.5, fontWeight: 600, color: "#B45309" }}>
+                                                Also appears under the Events tab
+                                            </Typography>
+                                        </Box>
+                                    )}
+
+                                    {!createIsValid && (
+                                        <Box sx={{
+                                            display: "flex", alignItems: "flex-start", gap: 0.9,
+                                            mt: 1.8, px: 1.2, py: 1,
+                                            borderRadius: "8px",
+                                            bgcolor: DASH.surface,
+                                            border: `1px dashed ${DASH.line}`,
+                                        }}>
+                                            <InfoOutlinedIcon sx={{ fontSize: 15, color: DASH.faint, mt: "1px" }} />
+                                            <Typography sx={{ fontSize: 11.5, color: DASH.muted, lineHeight: 1.5 }}>
+                                                Fill in the title, description and dates to enable Create Event.
+                                            </Typography>
+                                        </Box>
+                                    )}
+                                </Box>
                             </Box>
                         </Grid>
                     </Grid>
+                </DialogContent>
 
-                </Box>
-            }
-
+                <DialogActions sx={{
+                    px: 2.5, py: 1.6, gap: 1,
+                    bgcolor: "#fff",
+                    borderTop: `1px solid ${DASH.line}`,
+                }}>
+                    <Button
+                        variant="outlined"
+                        startIcon={<CloseIcon sx={{ fontSize: 16 }} />}
+                        sx={GHOST_BTN}
+                        onClick={() => closeCreateDialog()}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        startIcon={<AddIcon sx={{ fontSize: 17 }} />}
+                        sx={PRIMARY_BTN}
+                        disabled={!createIsValid || isLoading}
+                        onClick={submitCreate}
+                    >
+                        Create Event
+                    </Button>
+                </DialogActions>
+            </Dialog>
             {/* Delete confirmation — root-level so it works from any context */}
             <Dialog open={openAlert && canDelete} onClose={() => setOpenAlert(false)}>
                 <Box sx={{ display: "flex", justifyContent: "center", p: 2, backgroundColor: '#fff', }}>

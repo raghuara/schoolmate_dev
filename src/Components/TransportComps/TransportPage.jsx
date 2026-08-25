@@ -40,7 +40,7 @@ const items = [
     {
         accent: "#7DC353",
         icon: HowToRegIcon,
-        text: "Student Mapping",
+        text: "Transport Student Mapping",
         desc: "Assign students to a route, stop and vehicle.",
         path: "student-map",
         subMenu: "studentmapping",

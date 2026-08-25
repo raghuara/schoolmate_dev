@@ -861,7 +861,7 @@ export default function StudentMapping() {
                         <ArrowBackIcon />
                     </IconButton>
                     <Typography sx={{ fontWeight: 600, fontSize: 20 }}>
-                        Student Mapping
+                        Transport Student Mapping
                     </Typography>
                 </Box>
 

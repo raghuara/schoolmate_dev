@@ -52,63 +52,62 @@ import StarIcon from '@mui/icons-material/Star';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { findSubMenuPermissions } from '../../../../Redux/Slices/AuthSlice';
-import { selectWebsiteSettings } from "../../../../Redux/Slices/websiteSettingsSlice";
-import { selectSidebarExpanded } from "../../../../Redux/Slices/sidebarSlice";
 import axios from 'axios';
 import { getAllRoutes, postNewRoute, getAllVehicles, getRouteById, updateNewRoute, deleteRouteById } from '../../../../Api/Api';
 import SnackBar from '../../../SnackBar';
+import { DASH, RADIUS, KPI_TONES, PageHeader, SolidStatCard } from '../../../DashBoardComps/dashboardTheme';
 
-// Modern Professional Styles - Sharp Edges
+const ACCENT = "#A749CC";
+const ACCENT_DEEP = "#8600BB";
+
+// Route type colours, from the dashboard palette
+const TYPE_TONE = {
+    Pickup: { color: DASH.blue, bg: DASH.blueLight },
+    Drop: { color: DASH.amber, bg: DASH.amberLight },
+    default: { color: DASH.violet, bg: DASH.violetLight },
+};
+const toneFor = (type) => TYPE_TONE[type] || TYPE_TONE.default;
+
 const inputSx = {
     "& .MuiOutlinedInput-root": {
-        height: 44,
-        borderRadius: "4px",
-        fontSize: "14px",
+        height: 38,
+        borderRadius: RADIUS,
+        fontSize: "13px",
         backgroundColor: "#fff",
-        border: "1px solid #D1D5DB",
-        transition: "all 0.2s ease",
-        "&:hover": {
-            borderColor: "#9CA3AF",
-        },
-        "&.Mui-focused": {
-            borderColor: "#6366F1",
-            boxShadow: "0 0 0 2px rgba(99, 102, 241, 0.1)",
-        }
+        transition: "border-color 0.2s ease",
+        "& fieldset": { borderColor: DASH.line },
+        "&:hover fieldset": { borderColor: DASH.faint },
+        "&.Mui-focused fieldset": { borderColor: ACCENT, borderWidth: "1px" },
     }
 };
 
 const selectSx = {
-    height: 44,
-    borderRadius: "4px",
-    fontSize: "14px",
+    height: 38,
+    borderRadius: RADIUS,
+    fontSize: "13px",
     backgroundColor: "#fff",
-    transition: "all 0.2s ease",
-    "&:hover": {
-        borderColor: "#9CA3AF",
-    },
-    "&.Mui-focused": {
-        borderColor: "#6366F1",
-        boxShadow: "0 0 0 2px rgba(99, 102, 241, 0.1)",
-    }
+    transition: "border-color 0.2s ease",
+    "& fieldset": { borderColor: DASH.line },
+    "&:hover fieldset": { borderColor: DASH.faint },
+    "&.Mui-focused fieldset": { borderColor: ACCENT, borderWidth: "1px" },
 };
 
 const labelSx = {
-    color: "#374151",
+    color: DASH.text,
     fontWeight: 600,
-    fontSize: "13px",
-    mb: 0.75,
+    fontSize: "12px",
+    mb: 0.5,
     display: "flex",
     alignItems: "center",
     gap: 0.5,
     "& .required": {
-        color: "#EF4444",
+        color: DASH.red,
         marginLeft: "2px"
     }
 };
 
 export default function RouteManagement() {
     const navigate = useNavigate();
-    const websiteSettings = useSelector(selectWebsiteSettings);
     // Creating, editing and deleting a route are each their own grant; viewing
     // the list gets you none of them.
     const auth = useSelector((state) => state.auth);
@@ -117,7 +116,6 @@ export default function RouteManagement() {
     const canCreate = !rbacReady || routePerms.create === "Y";
     const canEdit = !rbacReady || routePerms.edit === "Y";
     const canDelete = !rbacReady || routePerms.delete === "Y";
-    const isExpanded = useSelector(selectSidebarExpanded);
 
     // State for view mode
     const [viewMode, setViewMode] = useState("list");
@@ -642,8 +640,8 @@ export default function RouteManagement() {
                     <Box sx={{
                         width: 60,
                         height: 60,
-                        border: '4px solid #E5E7EB',
-                        borderTop: '4px solid #6366F1',
+                        border: `4px solid ${DASH.line}`,
+                        borderTop: `4px solid ${ACCENT}`,
                         borderRadius: '50%',
                         animation: 'spin 1s linear infinite',
                         '@keyframes spin': {
@@ -651,145 +649,125 @@ export default function RouteManagement() {
                             '100%': { transform: 'rotate(360deg)' }
                         }
                     }} />
-                    <Typography fontSize="14px" color="#6B7280">Loading routes...</Typography>
+                    <Typography sx={{ fontSize: "13px", color: DASH.muted }}>Loading routes...</Typography>
                 </Box>
             );
         }
 
         return (
-        <Box sx={{ maxWidth: 1400, mx: "auto" }}>
+        <Box>
             {/* Stats Cards */}
-            <Grid container spacing={2} sx={{ mb: 2.5 }}>
+            <Grid container spacing={2} sx={{ mb: 2, alignItems: "stretch" }}>
                 {[
-                    { label: "Total Routes", value: stats.totalRoutes, color: "#5B21B6", bg: "#EDE9FE", borderColor: "#C4B5FD", iconBg: "#DDD6FE", icon: <RouteIcon sx={{ fontSize: 18 }} /> },
-                    { label: "Active", value: stats.activeRoutes, color: "#047857", bg: "#D1FAE5", borderColor: "#6EE7B7", iconBg: "#A7F3D0", icon: <CheckCircleIcon sx={{ fontSize: 18 }} /> },
-                    { label: "Pickup", value: stats.pickup, color: "#1D4ED8", bg: "#DBEAFE", borderColor: "#93C5FD", iconBg: "#BFDBFE", icon: <TrendingUpIcon sx={{ fontSize: 18 }} /> },
-                    { label: "Drop", value: stats.drop, color: "#B45309", bg: "#FEF3C7", borderColor: "#FCD34D", iconBg: "#FDE68A", icon: <NearMeIcon sx={{ fontSize: 18 }} /> },
+                    { label: "Total Routes", value: stats.totalRoutes, note: "across the fleet", tone: KPI_TONES.violet, icon: RouteIcon },
+                    { label: "Active", value: stats.activeRoutes, note: "running today", tone: KPI_TONES.green, icon: CheckCircleIcon },
+                    { label: "Pickup", value: stats.pickup, note: "morning trips", tone: KPI_TONES.blue, icon: TrendingUpIcon },
+                    { label: "Drop", value: stats.drop, note: "evening trips", tone: KPI_TONES.orange, icon: NearMeIcon },
                 ].map((stat, idx) => (
-                    <Grid size={{ xs: 6, sm: 3 }} key={idx}>
-                        <Paper sx={{
-                            p: 3,
-                            borderRadius: "4px",
-                            border: `1px solid ${stat.borderColor}`,
-                            backgroundColor: stat.bg,
-                            boxShadow: "none",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 1.5
-                        }}>
-                            <Box sx={{
-                                width: 42,
-                                height: 42,
-                                borderRadius: "4px",
-                                backgroundColor: stat.iconBg,
-                                border: `1px solid ${stat.borderColor}`,
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                flexShrink: 0
-                            }}>
-                                <Box sx={{ color: stat.color }}>{stat.icon}</Box>
-                            </Box>
-                            <Box>
-                                <Typography fontSize="11px" color="#374151" fontWeight={600} textTransform="uppercase" letterSpacing="0.3px">
-                                    {stat.label}
-                                </Typography>
-                                <Typography fontSize="24px" fontWeight={700} color={stat.color} lineHeight={1.2}>
-                                    {stat.value}
-                                </Typography>
-                            </Box>
-                        </Paper>
+                    <Grid size={{ xs: 12, sm: 6, md: 3 }} key={idx}>
+                        <SolidStatCard
+                            icon={stat.icon}
+                            label={stat.label}
+                            value={stat.value}
+                            note={stat.note}
+                            tone={stat.tone}
+                        />
                     </Grid>
                 ))}
             </Grid>
 
             {/* Search and Actions Bar */}
-            <Paper sx={{
+            <Box sx={{
                 p: 1.5,
-                borderRadius: "4px",
+                borderRadius: RADIUS,
                 mb: 2,
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
                 flexWrap: "wrap",
                 gap: 2,
-                border: "1px solid #D1D5DB",
-                boxShadow: "none",
-                backgroundColor: "#F3F4F6"
+                border: `1px solid ${DASH.line}`,
+                backgroundColor: "#fff"
             }}>
                 <TextField
                     placeholder="Search routes..."
-                    variant="outlined"
                     size="small"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     sx={{
                         width: { xs: "100%", sm: 320 },
                         "& .MuiOutlinedInput-root": {
-                            borderRadius: "4px",
-                            height: 38,
-                            backgroundColor: "#F9FAFB",
-                            "& fieldset": { borderColor: "#E5E7EB" },
-                            "&:hover fieldset": { borderColor: "#D1D5DB" },
-                            "&.Mui-focused fieldset": {
-                                borderColor: websiteSettings.mainColor,
-                                borderWidth: "1px"
-                            }
+                            borderRadius: RADIUS,
+                            height: 34,
+                            fontSize: "13px",
+                            backgroundColor: "#fff",
+                            "& fieldset": { borderColor: `${ACCENT}47` },
+                            "&:hover fieldset": { borderColor: `${ACCENT}7A` },
+                            "&.Mui-focused fieldset": { borderColor: ACCENT, borderWidth: "1px" }
                         }
                     }}
-                    InputProps={{
-                        startAdornment: (
-                            <InputAdornment position="start">
-                                <SearchIcon sx={{ color: "#9CA3AF", fontSize: 20 }} />
-                            </InputAdornment>
-                        ),
+                    slotProps={{
+                        input: {
+                            startAdornment: (
+                                <InputAdornment position="start">
+                                    <SearchIcon sx={{ color: DASH.faint, fontSize: 18 }} />
+                                </InputAdornment>
+                            ),
+                            endAdornment: searchQuery ? (
+                                <InputAdornment position="end">
+                                    <IconButton size="small" onClick={() => setSearchQuery("")} sx={{ width: 22, height: 22 }}>
+                                        <CloseIcon sx={{ fontSize: 15, color: DASH.faint }} />
+                                    </IconButton>
+                                </InputAdornment>
+                            ) : null,
+                        },
                     }}
                 />
                 <Box sx={{ display: "flex", gap: 1 }}>
                     {canCreate && (
                     <Button
-                        variant="contained"
                         startIcon={<AddIcon sx={{ fontSize: 18 }} />}
                         onClick={handleCreateNew}
+                        disableElevation
                         sx={{
-                            backgroundColor: websiteSettings.mainColor,
-                            color: websiteSettings.textColor,
                             textTransform: "none",
-                            borderRadius: "4px",
-                            height: 38,
-                            fontWeight: 600,
+                            borderRadius: RADIUS,
+                            height: 34,
+                            fontWeight: 700,
                             fontSize: "13px",
-                            px: 2.5,
-                            boxShadow: "none",
-                            "&:hover": { backgroundColor: websiteSettings.darkColor || websiteSettings.mainColor, boxShadow: "0 2px 4px rgba(0,0,0,0.1)" }
+                            px: 2,
+                            color: ACCENT_DEEP,
+                            bgcolor: `${ACCENT}1A`,
+                            border: `1px solid ${ACCENT}47`,
+                            "&:hover": { bgcolor: `${ACCENT}2E`, borderColor: ACCENT }
                         }}
                     >
                         New Route
                     </Button>
                     )}
                 </Box>
-            </Paper>
+            </Box>
 
             {/* Routes Table */}
             <Paper sx={{
-                borderRadius: "4px",
+                borderRadius: RADIUS,
                 overflow: "hidden",
                 boxShadow: "none",
-                border: "1px solid #D1D5DB",
+                border: `1px solid ${DASH.line}`,
                 backgroundColor: "#fff"
             }}>
                 <Table>
                     <TableHead>
-                        <TableRow sx={{ backgroundColor: "#E5E7EB" }}>
-                            <TableCell sx={{ fontWeight: 600, fontSize: "11px", color: "#6B7280", py: 1.5, textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: "1px solid #E5E7EB" }}>Route Name</TableCell>
-                            <TableCell sx={{ fontWeight: 600, fontSize: "11px", color: "#6B7280", py: 1.5, textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: "1px solid #E5E7EB", textAlign: "center" }}>Type</TableCell>
-                            <TableCell sx={{ fontWeight: 600, fontSize: "11px", color: "#6B7280", py: 1.5, textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: "1px solid #E5E7EB" }}>Schedule</TableCell>
-                            <TableCell sx={{ fontWeight: 600, fontSize: "11px", color: "#6B7280", py: 1.5, textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: "1px solid #E5E7EB" }}>Time</TableCell>
-                            <TableCell sx={{ fontWeight: 600, fontSize: "11px", color: "#6B7280", py: 1.5, textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: "1px solid #E5E7EB" }}>Bus</TableCell>
-                            <TableCell sx={{ fontWeight: 600, fontSize: "11px", color: "#6B7280", py: 1.5, textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: "1px solid #E5E7EB", textAlign: "center" }}>Duration</TableCell>
-                            <TableCell sx={{ fontWeight: 600, fontSize: "11px", color: "#6B7280", py: 1.5, textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: "1px solid #E5E7EB", textAlign: "center" }}>Total KM</TableCell>
-                            <TableCell sx={{ fontWeight: 600, fontSize: "11px", color: "#6B7280", py: 1.5, textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: "1px solid #E5E7EB", textAlign: "center" }}>Stops</TableCell>
-                            <TableCell sx={{ fontWeight: 600, fontSize: "11px", color: "#6B7280", py: 1.5, textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: "1px solid #E5E7EB", textAlign: "center" }}>Actions</TableCell>
+                        <TableRow>
+                            <TableCell sx={{ fontWeight: 700, fontSize: "10.5px", color: DASH.muted, bgcolor: DASH.surface, py: 1.2, textTransform: "uppercase", letterSpacing: "0.05em", whiteSpace: "nowrap", borderBottom: `1px solid ${DASH.line}` }}>Route Name</TableCell>
+                            <TableCell sx={{ fontWeight: 700, fontSize: "10.5px", color: DASH.muted, bgcolor: DASH.surface, py: 1.2, textTransform: "uppercase", letterSpacing: "0.05em", whiteSpace: "nowrap", textAlign: "center", borderBottom: `1px solid ${DASH.line}` }}>Type</TableCell>
+                            <TableCell sx={{ fontWeight: 700, fontSize: "10.5px", color: DASH.muted, bgcolor: DASH.surface, py: 1.2, textTransform: "uppercase", letterSpacing: "0.05em", whiteSpace: "nowrap", borderBottom: `1px solid ${DASH.line}` }}>Schedule</TableCell>
+                            <TableCell sx={{ fontWeight: 700, fontSize: "10.5px", color: DASH.muted, bgcolor: DASH.surface, py: 1.2, textTransform: "uppercase", letterSpacing: "0.05em", whiteSpace: "nowrap", borderBottom: `1px solid ${DASH.line}` }}>Time</TableCell>
+                            <TableCell sx={{ fontWeight: 700, fontSize: "10.5px", color: DASH.muted, bgcolor: DASH.surface, py: 1.2, textTransform: "uppercase", letterSpacing: "0.05em", whiteSpace: "nowrap", borderBottom: `1px solid ${DASH.line}` }}>Bus</TableCell>
+                            <TableCell sx={{ fontWeight: 700, fontSize: "10.5px", color: DASH.muted, bgcolor: DASH.surface, py: 1.2, textTransform: "uppercase", letterSpacing: "0.05em", whiteSpace: "nowrap", textAlign: "center", borderBottom: `1px solid ${DASH.line}` }}>Duration</TableCell>
+                            <TableCell sx={{ fontWeight: 700, fontSize: "10.5px", color: DASH.muted, bgcolor: DASH.surface, py: 1.2, textTransform: "uppercase", letterSpacing: "0.05em", whiteSpace: "nowrap", textAlign: "center", borderBottom: `1px solid ${DASH.line}` }}>Total KM</TableCell>
+                            <TableCell sx={{ fontWeight: 700, fontSize: "10.5px", color: DASH.muted, bgcolor: DASH.surface, py: 1.2, textTransform: "uppercase", letterSpacing: "0.05em", whiteSpace: "nowrap", textAlign: "center", borderBottom: `1px solid ${DASH.line}` }}>Stops</TableCell>
+                            <TableCell sx={{ fontWeight: 700, fontSize: "10.5px", color: DASH.muted, bgcolor: DASH.surface, py: 1.2, textTransform: "uppercase", letterSpacing: "0.05em", whiteSpace: "nowrap", textAlign: "center", borderBottom: `1px solid ${DASH.line}` }}>Actions</TableCell>
                         </TableRow>
                     </TableHead>
                     <TableBody>
@@ -798,22 +776,22 @@ export default function RouteManagement() {
                                 key={route.id}
                                 sx={{
                                     transition: "all 0.15s ease",
-                                    "&:hover": { backgroundColor: "#F9FAFB" },
+                                    "&:hover": { backgroundColor: DASH.surface },
                                     "&:last-child td": { borderBottom: 0 }
                                 }}
                             >
-                                <TableCell sx={{ py: 1.5, borderBottom: "1px solid #F3F4F6" }}>
+                                <TableCell sx={{ py: 1.5, borderBottom: `1px solid ${DASH.lineSoft}` }}>
                                     <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
                                         <Box sx={{
                                             width: 34,
                                             height: 34,
-                                            borderRadius: "4px",
-                                            backgroundColor: route.type === "Pickup" ? "#EFF6FF" : route.type === "Drop" ? "#FEF3C7" : "#F5F3FF",
+                                            borderRadius: RADIUS,
+                                            backgroundColor: toneFor(route.type).bg,
                                             display: "flex",
                                             alignItems: "center",
                                             justifyContent: "center"
                                         }}>
-                                            <RouteIcon sx={{ color: route.type === "Pickup" ? "#3B82F6" : route.type === "Drop" ? "#F59E0B" : "#8B5CF6", fontSize: 18 }} />
+                                            <RouteIcon sx={{ color: toneFor(route.type).color, fontSize: 18 }} />
                                         </Box>
                                         <Box>
                                             <Typography fontSize="13px" fontWeight={600} color="#111827">{route.name}</Typography>
@@ -821,53 +799,53 @@ export default function RouteManagement() {
                                         </Box>
                                     </Box>
                                 </TableCell>
-                                <TableCell sx={{ py: 1.5, borderBottom: "1px solid #F3F4F6", textAlign: "center" }}>
+                                <TableCell sx={{ py: 1.5, borderBottom: `1px solid ${DASH.lineSoft}`, textAlign: "center" }}>
                                     <Chip
                                         label={route.type}
                                         size="small"
                                         sx={{
-                                            backgroundColor: route.type === "Pickup" ? "#DBEAFE" : route.type === "Drop" ? "#FEF3C7" : "#F3E8FF",
-                                            color: route.type === "Pickup" ? "#1D4ED8" : route.type === "Drop" ? "#B45309" : "#7C3AED",
+                                            backgroundColor: toneFor(route.type).bg,
+                                            color: toneFor(route.type).color,
                                             fontWeight: 600,
                                             fontSize: "11px",
-                                            borderRadius: "4px",
+                                            borderRadius: RADIUS,
                                             height: 22,
                                             "& .MuiChip-label": { px: 1 }
                                         }}
                                     />
                                 </TableCell>
-                                <TableCell sx={{ fontSize: "13px", color: "#4B5563", py: 1.5, borderBottom: "1px solid #F3F4F6" }}>
+                                <TableCell sx={{ fontSize: "13px", color: "#4B5563", py: 1.5, borderBottom: `1px solid ${DASH.lineSoft}` }}>
                                     <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                                         <ScheduleIcon sx={{ fontSize: 14, color: "#9CA3AF" }} />
                                         {route.date}
                                     </Box>
                                 </TableCell>
-                                <TableCell sx={{ py: 1.5, borderBottom: "1px solid #F3F4F6" }}>
+                                <TableCell sx={{ py: 1.5, borderBottom: `1px solid ${DASH.lineSoft}` }}>
                                     <Typography fontSize="13px" fontWeight={500} color="#111827">{route.time}</Typography>
                                 </TableCell>
-                                <TableCell sx={{ py: 1.5, borderBottom: "1px solid #F3F4F6" }}>
+                                <TableCell sx={{ py: 1.5, borderBottom: `1px solid ${DASH.lineSoft}` }}>
                                     <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                                         <DirectionsBusIcon sx={{ fontSize: 14, color: "#9CA3AF" }} />
                                         <Typography fontSize="13px" color="#4B5563">{route.bus}</Typography>
                                     </Box>
                                 </TableCell>
-                                <TableCell sx={{ fontSize: "13px", color: "#4B5563", py: 1.5, borderBottom: "1px solid #F3F4F6", textAlign: "center" }}>{route.duration}</TableCell>
-                                <TableCell sx={{ fontSize: "13px", color: "#4B5563", py: 1.5, borderBottom: "1px solid #F3F4F6", textAlign: "center" }}>{route.totalKms ? `${route.totalKms} km` : "-"}</TableCell>
-                                <TableCell sx={{ py: 1.5, borderBottom: "1px solid #F3F4F6", textAlign: "center" }}>
+                                <TableCell sx={{ fontSize: "13px", color: "#4B5563", py: 1.5, borderBottom: `1px solid ${DASH.lineSoft}`, textAlign: "center" }}>{route.duration}</TableCell>
+                                <TableCell sx={{ fontSize: "13px", color: "#4B5563", py: 1.5, borderBottom: `1px solid ${DASH.lineSoft}`, textAlign: "center" }}>{route.totalKms ? `${route.totalKms} km` : "-"}</TableCell>
+                                <TableCell sx={{ py: 1.5, borderBottom: `1px solid ${DASH.lineSoft}`, textAlign: "center" }}>
                                     <Box sx={{
                                         display: "inline-flex",
                                         alignItems: "center",
                                         gap: 0.5,
-                                        backgroundColor: "#F3F4F6",
+                                        backgroundColor: DASH.surface,
                                         px: 1,
                                         py: 0.25,
-                                        borderRadius: "4px"
+                                        borderRadius: RADIUS
                                     }}>
                                         <LocationOnIcon sx={{ fontSize: 12, color: "#6B7280" }} />
                                         <Typography fontSize="12px" fontWeight={500} color="#4B5563">{route.stops}</Typography>
                                     </Box>
                                 </TableCell>
-                                {/* <TableCell sx={{ py: 1.5, borderBottom: "1px solid #F3F4F6" }}>
+                                {/* <TableCell sx={{ py: 1.5, borderBottom: `1px solid ${DASH.lineSoft}` }}>
                                     <Box sx={{
                                         display: "inline-flex",
                                         alignItems: "center",
@@ -876,7 +854,7 @@ export default function RouteManagement() {
                                         color: route.status === "Active" ? "#059669" : "#DC2626",
                                         px: 1,
                                         py: 0.25,
-                                        borderRadius: "4px"
+                                        borderRadius: RADIUS
                                     }}>
                                         <Box sx={{
                                             width: 6,
@@ -887,7 +865,7 @@ export default function RouteManagement() {
                                         <Typography fontSize="11px" fontWeight={600}>{route.status}</Typography>
                                     </Box>
                                 </TableCell> */}
-                                <TableCell align="center" sx={{ py: 1.5, borderBottom: "1px solid #F3F4F6" }}>
+                                <TableCell align="center" sx={{ py: 1.5, borderBottom: `1px solid ${DASH.lineSoft}` }}>
                                     <Box sx={{ display: "flex", justifyContent: "center", gap: 0.25 }}>
                                         {canEdit && (
                                         <Tooltip title="Edit Route" arrow>
@@ -898,7 +876,7 @@ export default function RouteManagement() {
                                                     color: "#9CA3AF",
                                                     width: 30,
                                                     height: 30,
-                                                    "&:hover": { color: "#6366F1", backgroundColor: "#F5F3FF" }
+                                                    "&:hover": { color: ACCENT_DEEP, backgroundColor: `${ACCENT}14` }
                                                 }}
                                             >
                                                 <EditIcon sx={{ fontSize: 16 }} />
@@ -929,7 +907,7 @@ export default function RouteManagement() {
                             <TableRow>
                                 <TableCell colSpan={9} align="center" sx={{ py: 6 }}>
                                     <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
-                                        <RouteIcon sx={{ fontSize: 48, color: "#D1D5DB" }} />
+                                        <RouteIcon sx={{ fontSize: 48, color: DASH.line }} />
                                         <Typography color="#6B7280" fontWeight={500}>No routes found</Typography>
                                         <Typography color="#9CA3AF" fontSize="13px">Try adjusting your search criteria</Typography>
                                     </Box>
@@ -948,17 +926,17 @@ export default function RouteManagement() {
         <Box sx={{ maxWidth: 1200, mx: "auto" }}>
             {/* Route Information Card */}
             <Paper sx={{
-                borderRadius: "4px",
+                borderRadius: RADIUS,
                 mb: 2.5,
                 overflow: "hidden",
                 boxShadow: "none",
-                border: "1px solid #C7D2FE",
+                border: `1px solid ${ACCENT}38`,
                 backgroundColor: "#fff"
             }}>
                 {/* Card Header */}
                 <Box sx={{
-                    background: "#EEF2FF",
-                    borderBottom: "1px solid #C7D2FE",
+                    background: `${ACCENT}14`,
+                    borderBottom: `1px solid ${ACCENT}38`,
                     px: 2,
                     py: 1.25,
                     display: "flex",
@@ -968,16 +946,16 @@ export default function RouteManagement() {
                     <Box sx={{
                         width: 32,
                         height: 32,
-                        borderRadius: "4px",
-                        backgroundColor: "#C7D2FE",
-                        border: "1px solid #A5B4FC",
+                        borderRadius: RADIUS,
+                        backgroundColor: `${ACCENT}24`,
+                        border: `1px solid ${ACCENT}47`,
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center"
                     }}>
-                        <RouteIcon sx={{ color: "#4F46E5", fontSize: 18 }} />
+                        <RouteIcon sx={{ color: ACCENT_DEEP, fontSize: 18 }} />
                     </Box>
-                    <Typography fontWeight={600} fontSize="14px" color="#4338CA">
+                    <Typography sx={{ fontWeight: 700, fontSize: "14px", color: DASH.ink }}>
                         Route Information
                     </Typography>
                 </Box>
@@ -1014,7 +992,7 @@ export default function RouteManagement() {
                                 {vehicles.map((vehicle) => (
                                     <MenuItem key={vehicle.vehicleAssetID} value={vehicle.vehicleAssetID}>
                                         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                                            <DirectionsBusIcon sx={{ fontSize: 18, color: websiteSettings.mainColor }} />
+                                            <DirectionsBusIcon sx={{ fontSize: 18, color: ACCENT }} />
                                             <Typography fontSize="14px">
                                                 {vehicle.busName || 'No Name'} {vehicle.registrationNumber ? `(${vehicle.registrationNumber})` : ''}
                                             </Typography>
@@ -1123,16 +1101,16 @@ export default function RouteManagement() {
 
             {/* Route Stops Card */}
             <Paper sx={{
-                borderRadius: "4px",
+                borderRadius: RADIUS,
                 mb: 2.5,
                 overflow: "hidden",
                 boxShadow: "none",
-                border: "1px solid #A7F3D0"
+                border: `1px solid ${DASH.green}38`
             }}>
                 {/* Card Header */}
                 <Box sx={{
-                    background: "#ECFDF5",
-                    borderBottom: "1px solid #A7F3D0",
+                    background: DASH.greenLight,
+                    borderBottom: `1px solid ${DASH.green}38`,
                     px: 2,
                     py: 1.25,
                     display: "flex",
@@ -1143,8 +1121,8 @@ export default function RouteManagement() {
                         <Box sx={{
                             width: 32,
                             height: 32,
-                            borderRadius: "4px",
-                            backgroundColor: "#A7F3D0",
+                            borderRadius: RADIUS,
+                            backgroundColor: `${DASH.green}24`,
                             border: "1px solid #6EE7B7",
                             display: "flex",
                             alignItems: "center",
@@ -1177,7 +1155,7 @@ export default function RouteManagement() {
                             backgroundColor: stops.length >= 30 ? "#9CA3AF" : "#10B981",
                             color: "#fff",
                             textTransform: "none",
-                            borderRadius: "4px",
+                            borderRadius: RADIUS,
                             fontSize: "12px",
                             fontWeight: 500,
                             px: 1.5,
@@ -1206,7 +1184,7 @@ export default function RouteManagement() {
                                 top: 36,
                                 bottom: 36,
                                 width: 2,
-                                background: "#D1D5DB",
+                                background: DASH.line,
                                 borderRadius: 1,
                                 zIndex: 0
                             }} />
@@ -1230,7 +1208,7 @@ export default function RouteManagement() {
                                     height: 34,
                                     borderRadius: "50%",
                                     backgroundColor: index === 0 ? "#10B981" : index === stops.length - 1 ? "#EF4444" : "#fff",
-                                    border: index === 0 || index === stops.length - 1 ? "none" : "2px solid #D1D5DB",
+                                    border: index === 0 || index === stops.length - 1 ? "none" : `2px solid ${DASH.line}`,
                                     display: "flex",
                                     alignItems: "center",
                                     justifyContent: "center",
@@ -1252,7 +1230,7 @@ export default function RouteManagement() {
                                 <Paper sx={{
                                     flex: 1,
                                     p: 1.5,
-                                    borderRadius: "4px",
+                                    borderRadius: RADIUS,
                                     border: "1px solid #E8EDF2",
                                     backgroundColor: "#fff",
                                     display: "flex",
@@ -1277,21 +1255,21 @@ export default function RouteManagement() {
                                             disabled={index === 0}
                                             sx={{
                                                 p: 0.25,
-                                                color: index === 0 ? "#D1D5DB" : "#6B7280",
-                                                "&:hover": { color: "#6366F1", backgroundColor: "#EEF2FF" }
+                                                color: index === 0 ? DASH.line : DASH.muted,
+                                                "&:hover": { color: ACCENT_DEEP, backgroundColor: `${ACCENT}14` }
                                             }}
                                         >
                                             <ExpandLessIcon fontSize="small" />
                                         </IconButton>
-                                        <DragIndicatorIcon sx={{ color: "#D1D5DB", fontSize: 18, mx: "auto" }} />
+                                        <DragIndicatorIcon sx={{ color: DASH.line, fontSize: 18, mx: "auto" }} />
                                         <IconButton
                                             size="small"
                                             onClick={() => moveStop(index, 1)}
                                             disabled={index === stops.length - 1}
                                             sx={{
                                                 p: 0.25,
-                                                color: index === stops.length - 1 ? "#D1D5DB" : "#6B7280",
-                                                "&:hover": { color: "#6366F1", backgroundColor: "#EEF2FF" }
+                                                color: index === stops.length - 1 ? DASH.line : DASH.muted,
+                                                "&:hover": { color: ACCENT_DEEP, backgroundColor: `${ACCENT}14` }
                                             }}
                                         >
                                             <ExpandMoreIcon fontSize="small" />
@@ -1311,10 +1289,10 @@ export default function RouteManagement() {
                                             sx={{
                                                 "& .MuiOutlinedInput-root": {
                                                     height: 40,
-                                                    borderRadius: "4px",
+                                                    borderRadius: RADIUS,
                                                     fontSize: "14px",
                                                     backgroundColor: "#fff",
-                                                    border: "1px solid #D1D5DB",
+                                                    border: `1px solid ${DASH.line}`,
                                                     "&:hover": { borderColor: "#9CA3AF" },
                                                     "&.Mui-focused": {
                                                         borderColor: "#6366F1",
@@ -1337,10 +1315,10 @@ export default function RouteManagement() {
                                             sx={{
                                                 "& .MuiOutlinedInput-root": {
                                                     height: 40,
-                                                    borderRadius: "4px",
+                                                    borderRadius: RADIUS,
                                                     fontSize: "14px",
                                                     backgroundColor: "#fff",
-                                                    border: "1px solid #D1D5DB",
+                                                    border: `1px solid ${DASH.line}`,
                                                     "&:hover": { borderColor: "#9CA3AF" },
                                                     "&.Mui-focused": {
                                                         borderColor: "#6366F1",
@@ -1364,10 +1342,10 @@ export default function RouteManagement() {
                                             sx={{
                                                 "& .MuiOutlinedInput-root": {
                                                     height: 40,
-                                                    borderRadius: "4px",
+                                                    borderRadius: RADIUS,
                                                     fontSize: "14px",
                                                     backgroundColor: "#fff",
-                                                    border: "1px solid #D1D5DB",
+                                                    border: `1px solid ${DASH.line}`,
                                                     "&:hover": { borderColor: "#9CA3AF" },
                                                     "&.Mui-focused": {
                                                         borderColor: "#6366F1",
@@ -1401,10 +1379,10 @@ export default function RouteManagement() {
                                             sx={{
                                                 "& .MuiOutlinedInput-root": {
                                                     height: 40,
-                                                    borderRadius: "4px",
+                                                    borderRadius: RADIUS,
                                                     fontSize: "14px",
                                                     backgroundColor: "#fff",
-                                                    border: "1px solid #D1D5DB",
+                                                    border: `1px solid ${DASH.line}`,
                                                     "&:hover": { borderColor: "#9CA3AF" },
                                                     "&.Mui-focused": {
                                                         borderColor: "#6366F1",
@@ -1465,12 +1443,12 @@ export default function RouteManagement() {
                         borderColor: "#D1D5DB",
                         color: "#6B7280",
                         textTransform: "none",
-                        borderRadius: "4px",
+                        borderRadius: RADIUS,
                         height: 40,
                         fontSize: "14px",
                         fontWeight: 500,
                         px: 3,
-                        "&:hover": { borderColor: "#9CA3AF", backgroundColor: "#F9FAFB" }
+                        "&:hover": { borderColor: DASH.faint, backgroundColor: DASH.surface }
                     }}
                 >
                     Cancel
@@ -1482,12 +1460,12 @@ export default function RouteManagement() {
                         borderColor: "#D1D5DB",
                         color: "#374151",
                         textTransform: "none",
-                        borderRadius: "4px",
+                        borderRadius: RADIUS,
                         height: 40,
                         fontSize: "14px",
                         fontWeight: 500,
                         px: 3,
-                        "&:hover": { borderColor: "#9CA3AF", backgroundColor: "#F9FAFB" }
+                        "&:hover": { borderColor: DASH.faint, backgroundColor: DASH.surface }
                     }}
                 >
                     Export
@@ -1498,22 +1476,25 @@ export default function RouteManagement() {
                     disabled={isLoading}
                     startIcon={isLoading ? <CircularProgress size={16} sx={{ color: "#9CA3AF" }} /> : null}
                     sx={{
-                        backgroundColor: websiteSettings.mainColor,
-                        color: websiteSettings.textColor,
+                        backgroundColor: `${ACCENT}1A`,
+                        color: ACCENT_DEEP,
+                        border: `1px solid ${ACCENT}47`,
                         textTransform: "none",
-                        borderRadius: "4px",
-                        height: 40,
-                        fontWeight: 600,
-                        fontSize: "14px",
-                        px: 4,
+                        borderRadius: RADIUS,
+                        height: 36,
+                        fontWeight: 700,
+                        fontSize: "13px",
+                        px: 3,
                         boxShadow: "none",
                         "&:hover": {
-                            backgroundColor: websiteSettings.darkColor || websiteSettings.mainColor,
+                            backgroundColor: `${ACCENT}2E`,
+                            borderColor: ACCENT,
                             boxShadow: "none"
                         },
                         "&:disabled": {
-                            backgroundColor: "#D1D5DB",
-                            color: "#9CA3AF"
+                            backgroundColor: DASH.lineSoft,
+                            borderColor: DASH.line,
+                            color: DASH.faint
                         }
                     }}
                 >
@@ -1524,88 +1505,54 @@ export default function RouteManagement() {
     );
 
     return (
-        <Box sx={{ width: '100%', }}>
+        <Box
+            sx={{
+                px: { xs: 1.5, md: 3 },
+                pt: { xs: 1.5, md: 2 },
+                pb: 4,
+                bgcolor: DASH.canvas,
+            }}
+        >
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
 
-            {/* Header */}
-            <Box sx={{
-                position: "fixed",
-                top: "60px",
-                left: isExpanded ? "260px" : "80px",
-                right: 0,
-                backgroundColor: "#f2f2f2",
-                px: 2,
-                py: 0.5,
-                borderBottom: "1px solid #ddd",
-                borderTop: "1px solid #ddd",
-                zIndex: 1200,
-                transition: "left 0.3s ease-in-out"
-            }}>
-                <Box sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    maxWidth: 1400,
-                    mx: "auto"
-                }}>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                        <IconButton
-                            onClick={() => {
-                                if (viewMode === "create") {
-                                    setViewMode("list");
-                                    setEditingRoute(null);
-                                    resetForm();
-                                } else {
-                                    navigate(-1);
-                                }
-                            }}
-                            sx={{
-                                width: 32,
-                                height: 32,
-                                borderRadius: "4px",
-                                "&:hover": { backgroundColor: "#F3F4F6" }
-                            }}
-                        >
-                            <ArrowBackIcon sx={{ fontSize: 18, color: "#6B7280" }} />
-                        </IconButton>
-                        <Box sx={{ borderLeft: "1px solid #E5E7EB", pl: 1.5 }}>
-                            <Typography sx={{ fontWeight: 600, fontSize: 16, color: "#111827", lineHeight: 1.3 }}>
-                                {viewMode === "create"
-                                    ? (editingRoute ? "Edit Route" : "Create New Route")
-                                    : "Route Management"
-                                }
-                            </Typography>
-                            <Typography sx={{ fontSize: 12, color: "#9CA3AF" }}>
-                                {viewMode === "create"
-                                    ? "Configure route details and stops"
-                                    : "Manage transportation routes"
-                                }
-                            </Typography>
-                        </Box>
+            <PageHeader
+                title={viewMode === "create"
+                    ? (editingRoute ? "Edit Route" : "Create New Route")
+                    : "Route Management"}
+                subtitle={viewMode === "create"
+                    ? "Configure route details and stops"
+                    : "Manage transportation routes"}
+                onBack={() => {
+                    if (viewMode === "create") {
+                        setViewMode("list");
+                        setEditingRoute(null);
+                        resetForm();
+                    } else {
+                        navigate(-1);
+                    }
+                }}
+                right={viewMode === "list" && (
+                    <Box
+                        sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 0.75,
+                            height: 34,
+                            px: 1.4,
+                            borderRadius: RADIUS,
+                            bgcolor: `${ACCENT}1A`,
+                            border: `1px solid ${ACCENT}47`,
+                        }}
+                    >
+                        <RouteIcon sx={{ color: ACCENT_DEEP, fontSize: 16 }} />
+                        <Typography sx={{ fontSize: "12.5px", fontWeight: 700, color: ACCENT_DEEP }}>
+                            {stats.totalRoutes} Routes
+                        </Typography>
                     </Box>
-                    {viewMode === "list" && (
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                            <Box sx={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 0.75,
-                                px: 1.5,
-                                py: 0.5,
-                                backgroundColor: "#F5F3FF",
-                                borderRadius: "4px"
-                            }}>
-                                <RouteIcon sx={{ color: "#8B5CF6", fontSize: 16 }} />
-                                <Typography fontSize="12px" fontWeight={600} color="#7C3AED">
-                                    {stats.totalRoutes} Routes
-                                </Typography>
-                            </Box>
-                        </Box>
-                    )}
-                </Box>
-            </Box>
+                )}
+            />
 
-            {/* Content */}
-            <Box sx={{ p: 2, pt: 8 }}>
+            <Box>
                 {viewMode === "list" ? renderListView() : renderCreateView()}
             </Box>
 
@@ -1614,7 +1561,7 @@ export default function RouteManagement() {
                 open={deleteDialog}
                 onClose={() => !isLoading && setDeleteDialog(false)}
                 PaperProps={{
-                    sx: { borderRadius: "4px", minWidth: 400, overflow: "hidden", border: "1px solid #E5E7EB" }
+                    sx: { borderRadius: RADIUS, minWidth: 400, overflow: "hidden", border: "1px solid #E5E7EB" }
                 }}
             >
                 <Box sx={{ textAlign: "center" }}>
@@ -1629,7 +1576,7 @@ export default function RouteManagement() {
                         <Box sx={{
                             width: 56,
                             height: 56,
-                            borderRadius: "4px",
+                            borderRadius: RADIUS,
                             backgroundColor: "#FEE2E2",
                             border: "1px solid #FECACA",
                             display: "flex",
@@ -1657,8 +1604,8 @@ export default function RouteManagement() {
                                     textTransform: "none",
                                     color: "#374151",
                                     fontWeight: 500,
-                                    borderRadius: "4px",
-                                    border: "1px solid #D1D5DB",
+                                    borderRadius: RADIUS,
+                                    border: `1px solid ${DASH.line}`,
                                     px: 3,
                                     py: 1,
                                     "&:hover": { backgroundColor: "#F9FAFB", borderColor: "#9CA3AF" },
@@ -1679,7 +1626,7 @@ export default function RouteManagement() {
                                     backgroundColor: "#DC2626",
                                     color: "#fff",
                                     fontWeight: 500,
-                                    borderRadius: "4px",
+                                    borderRadius: RADIUS,
                                     px: 3,
                                     py: 1,
                                     boxShadow: "none",
