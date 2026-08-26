@@ -28,6 +28,7 @@ import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
 import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined';
 import CategoryOutlinedIcon from '@mui/icons-material/CategoryOutlined';
+import SupportAgentOutlinedIcon from '@mui/icons-material/SupportAgentOutlined';
 import AutoStoriesOutlinedIcon from '@mui/icons-material/AutoStoriesOutlined';
 import { setSidebar, toggleSidebar } from '../../Redux/Slices/sidebarSlice';
 import AppScrollbar from '../AppScrollbar';
@@ -104,6 +105,8 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
   // The login response carries no "approvals" main menu yet, so this tab stays
   // reachable until one arrives. Every other tab is strict.
   const canApprovals = menuExists("approvals") ? canMenu("approvals") : true;
+  const canComplaints = menuExists("complaints") ? canMenu("complaints") : true;
+  const showSupportSection = canComplaints;
   // The "Manage" heading only earns its place when something sits under it.
   const showManageSection = canMyProjects || canApprovals || canAccessControl;
   const navigate = useNavigate();
@@ -973,6 +976,80 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
             </CustomTooltip>
           </ListItem> */}
 
+
+          {showSupportSection &&
+            <Box>
+              <Box px={3}>
+                <hr style={{ border: "none", borderTop: "1px solid #e8dec9", margin: "6px 0" }} />
+              </Box>
+
+              {isExpanded ?
+                <Box px={5}>
+                  <Typography className="activeSidebarText" sx={{ fontWeight: "700", fontSize: "12px", letterSpacing: "0.04em" }}>
+                    Support
+                  </Typography>
+                </Box>
+                :
+                <Box px={2} sx={{ py: 0.6 }}>
+                  <Typography className="activeSidebarText" sx={{ fontWeight: "600", fontSize: "11px", textAlign: "center", color: "#9a8e70" }}>
+                    Support
+                  </Typography>
+                </Box>
+              }
+            </Box>
+          }
+
+          {/* Complaints Tab */}
+          {version.LITE && canComplaints && (
+            <ListItem onClick={() => handleMenuClickOne('complaints')} sx={{ borderRadius: 2, px: 3, paddingTop: '6px', paddingBottom: isExpanded ? '2px' : '9px' }}>
+              <CustomTooltip title={isExpanded ? "" : "Complaints"} arrow placement="right-start">
+                <Box
+                  sx={{
+                    display: 'flex',
+                    justifyContent: "center",
+                    alignItems: 'center',
+                    paddingTop: '1px',
+                    paddingBottom: '1px',
+                    borderRadius: '5px',
+                    boxShadow: isActive('/dashboardmenu/complaints') ? '1px 1px 2px 0.5px rgba(0, 0, 0, 0.4)' : 'inherit',
+                    width: '100%',
+                    backgroundColor: isActive('/dashboardmenu/complaints') ? websiteSettings.mainColor : 'inherit',
+                    color: isActive('/dashboardmenu/complaints') ? websiteSettings.textColor : '#000',
+                    position: 'relative',
+                    cursor: "pointer",
+                    '&:hover': {
+                      backgroundColor: !isActive('/dashboardmenu/complaints') ? websiteSettings.lightColor : 'none',
+                    }
+                  }}
+                >
+                  {isExpanded && (
+                    <Box
+                      sx={{
+                        width: '5px',
+                        backgroundColor: isActive('/dashboardmenu/complaints') ? websiteSettings.darkColor : 'inherit',
+                        height: '100%',
+                        position: 'absolute',
+                        left: 0,
+                        top: 0,
+                        borderTopLeftRadius: '5px',
+                        borderBottomLeftRadius: '5px',
+                      }}
+                    />
+                  )}
+                  <ListItemIcon sx={{ display: "flex", justifyContent: "center", alignItems: "center", }}>
+                    <SupportAgentOutlinedIcon style={{ fontSize: 20, color: isActive('/dashboardmenu/complaints') ? websiteSettings.textColor : '#6B7280', }} />
+                  </ListItemIcon>
+                  {isExpanded && (
+                    <ListItemText>
+                      <Typography className="activeSidebarText" sx={{ fontSize: "15px", color: isActive('/dashboardmenu/complaints') ? websiteSettings.textColor : '#000' }}>
+                        Complaints
+                      </Typography>
+                    </ListItemText>
+                  )}
+                </Box>
+              </CustomTooltip>
+            </ListItem>
+          )}
 
           <Box sx={{ backgroundColor: websiteSettings.backgroundColor }}>
             <Box px={3}>

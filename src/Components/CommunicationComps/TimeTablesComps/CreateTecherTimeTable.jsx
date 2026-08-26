@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Box, TextField, Typography, Button, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, Autocomplete, Paper, Table, TableContainer, TableHead, TableRow, TableCell, TableBody, InputAdornment, Grid, } from "@mui/material";
+import { Box, TextField, Typography, Button, Chip, IconButton, Dialog, DialogActions, Table, TableContainer, TableHead, TableRow, TableCell, TableBody, InputAdornment, Tooltip, } from "@mui/material";
 import dayjs from "dayjs";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
@@ -14,6 +14,9 @@ import axios from "axios";
 import { deleteTeachersTimeTable, fetchTeachersTimeTable, postTeachersTimeTable, updateTeachersTimeTable } from "../../../Api/Api";
 import CloseIcon from '@mui/icons-material/Close';
 import Loader from "../../Loader";
+import UploadFileIcon from "@mui/icons-material/UploadFile";
+import HighlightOffIcon from "@mui/icons-material/HighlightOff";
+import BadgeOutlinedIcon from "@mui/icons-material/BadgeOutlined";
 
 
 export default function CreateTeacherTimeTablesPage() {
@@ -31,7 +34,8 @@ export default function CreateTeacherTimeTablesPage() {
     const websiteSettings = useSelector(selectWebsiteSettings);
     const [changesHappended, setChangesHappended] = useState(false);
     const [openAlert, setOpenAlert] = useState(false);
-    const fileInputRef = useRef(null);
+    const fileInputRefs = useRef({});
+    const [stagedFor, setStagedFor] = useState(null);
     const [openImage, setOpenImage] = useState(false);
     const [openPreview, setOpenPreview] = useState(false);
     const [selectedImage, setSelectedImage] = useState("");
@@ -75,14 +79,8 @@ export default function CreateTeacherTimeTablesPage() {
 
     };
 
-    const cellStyle = {
-        borderRight: 1,
-        borderColor: "#E8DDEA",
-        textAlign: "center",
-        minWidth: 120,
-    };
-    const handleUploadClick = () => {
-        fileInputRef.current.click();
+    const handleUploadClick = (employeeCode) => {
+        fileInputRefs.current[employeeCode]?.click();
     };
 
     const handleFileChange = (e, employeeCode) => {
@@ -94,6 +92,7 @@ export default function CreateTeacherTimeTablesPage() {
                 return;
             }
             setUploadedFiles(file);
+            setStagedFor(employeeCode);
             setEnable((prevState) => ({
                 ...prevState,
                 [employeeCode]: true,
@@ -148,7 +147,7 @@ export default function CreateTeacherTimeTablesPage() {
                 setColor(true);
                 setStatus(true);
                 setMessage("Timetable Added Successfully");
-                setUploadedFiles(null)
+                setUploadedFiles(null); setStagedFor(null);
             } else {
                 setOpen(true);
                 setColor(false);
@@ -180,7 +179,7 @@ export default function CreateTeacherTimeTablesPage() {
                 setColor(true);
                 setStatus(true);
                 setMessage("Timetable Updated Successfully");
-                setUploadedFiles(null)
+                setUploadedFiles(null); setStagedFor(null);
             } else {
                 setOpen(true);
                 setColor(false);
@@ -242,299 +241,459 @@ export default function CreateTeacherTimeTablesPage() {
             setIsLoading(false);
         }
     };
+    const ghostButtonSx = {
+        textTransform: "none",
+        borderRadius: "10px",
+        fontSize: "12.5px",
+        fontWeight: 600,
+        px: 2.4,
+        py: 0.6,
+        color: "#374151",
+        borderColor: "#D6DAE1",
+        backgroundColor: "#fff",
+        "&:hover": { borderColor: "#9AA3AF", backgroundColor: "#F7F8FA" },
+    };
+
+    const primaryButtonSx = {
+        textTransform: "none",
+        borderRadius: "10px",
+        fontSize: "12.5px",
+        fontWeight: 700,
+        px: 2.4,
+        py: 0.7,
+        boxShadow: "none",
+        whiteSpace: "nowrap",
+        backgroundColor: websiteSettings.mainColor,
+        color: websiteSettings.textColor,
+        "&:hover": { backgroundColor: websiteSettings.mainColor, opacity: 0.9, boxShadow: "none" },
+    };
+
+    const headCellSx = {
+        borderRight: "1px solid #EDEFF3",
+        borderBottom: "1px solid #E6E8EC",
+        backgroundColor: "#FAFBFC",
+        color: "#6B7280",
+        fontSize: "10.5px",
+        fontWeight: 700,
+        letterSpacing: "0.06em",
+        textTransform: "uppercase",
+        textAlign: "center",
+        py: 1.2,
+        whiteSpace: "nowrap",
+    };
+
+    const bodyCellSx = {
+        borderRight: "1px solid #F3F4F6",
+        borderBottom: "1px solid #F3F4F6",
+        textAlign: "center",
+        minWidth: 120,
+        py: 1,
+    };
+
+    const smallIconSx = {
+        width: "26px",
+        height: "26px",
+        border: "1px solid #DDE1E6",
+        backgroundColor: "#fff",
+        transition: "0.2s",
+        "&:hover": { backgroundColor: "#FEF2F2", borderColor: "#f44336" },
+    };
+
+    const uploadedCount = filteredData.filter((r) => r.preView).length;
+
     return (
         <Box sx={{ width: "100%" }}>
-             {isLoading && <Loader />}
+            {isLoading && <Loader />}
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
+
             <Box sx={{
-                position: "fixed", zIndex: 100, backgroundColor: "#f2f2f2", display: "flex", alignItems: "center", width: "100%", py: 1.5, marginTop: "-2px",   borderBottom:"1px solid #ddd", px:2
+                position: "fixed", zIndex: 100, backgroundColor: "#f2f2f2",
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                width: "100%", py: 1.5, marginTop: "-2px",
+                borderBottom: "1px solid #ddd", px: 2
             }}>
-                <IconButton onClick={handleBackClick} sx={{ width: "27px", height: "27px", marginTop: '2px' }}>
-                    <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
-                </IconButton>
-                <Typography sx={{ fontWeight: "600", fontSize: "20px" }}>Create Teachers Time Tables</Typography>
+                <Box sx={{ display: "flex", alignItems: "center", minWidth: 0 }}>
+                    <IconButton onClick={handleBackClick} sx={{ width: "27px", height: "27px", marginTop: '2px' }}>
+                        <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
+                    </IconButton>
+                    <Typography sx={{ fontWeight: "600", fontSize: "20px" }}>Create Teachers Time Tables</Typography>
+                </Box>
+
+                <Chip
+                    size="small"
+                    icon={<BadgeOutlinedIcon sx={{ fontSize: 16 }} />}
+                    label="Teaching Staff"
+                    sx={{
+                        mr: 2,
+                        display: { xs: "none", sm: "inline-flex" },
+                        fontSize: "12px",
+                        fontWeight: 600,
+                        borderRadius: "8px",
+                        border: "1px solid #C9DCF5",
+                        backgroundColor: "#EEF5FF",
+                        color: "#2563EB",
+                        "& .MuiChip-icon": { color: "inherit" },
+                    }}
+                />
             </Box>
 
-            <Box sx={{ pt: 10 }}>
-                <Grid container sx={{ display: "flex", justifyContent: "end", px: 2 }}>
-                    <Grid size={{ lg: 3, xs: 12, sm: 12, md: 4 }}>
-                        <TextField
-                            fullWidth
-                            variant="outlined"
-                            placeholder="Search Teachers by Name or Employee Code"
-                            InputProps={{
-                                startAdornment: (
-                                    <InputAdornment position="start">
-                                        <SearchIcon />
-                                    </InputAdornment>
-                                ),
-                                sx: {
-                                    padding: "0 10px",
-                                    borderRadius: "50px",
-                                    height: "28px",
-                                    fontSize: "12px",
-                                },
-                            }}
-                            sx={{
-                                "& .MuiOutlinedInput-root": {
-                                    minHeight: "28px",
-                                    paddingRight: "3px",
-                                    backgroundColor: "#fff",
-                                },
-                                "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                                    borderColor: websiteSettings.mainColor,
-                                },
-                            }}
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
-                    </Grid>
-                </Grid>
-
-                <Dialog open={openImage} onClose={() => setOpenImage(false)} sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    '& .MuiPaper-root': {
-                        backgroundColor: 'transparent',
-                        boxShadow: 'none',
-                        borderRadius: 0,
-                        padding: 0,
-                        overflow: 'visible',
-                        maxWidth: '90vw',
-                        maxHeight: '90vh',
-                    },
-                }}
-                    BackdropProps={{
-                        style: { backgroundColor: 'rgba(0, 0, 0, 0.8)' },
+            <Box sx={{ pt: 9 }}>
+                <Box sx={{ px: 2, pb: 2 }}>
+                    <Box sx={{
+                        border: "1px solid #E6E8EC",
+                        boxShadow: "0px 1px 3px rgba(16,24,40,0.06)",
+                        borderRadius: "12px",
+                        backgroundColor: "#fff",
+                        overflow: "hidden",
                     }}>
-                    <img
-                        src={selectedImage}
-                        alt="Popup"
-                        style={{ width: 'auto', height: 'auto', maxWidth: '80vw', maxHeight: '80vh', display: 'block', margin: 'auto', }}
-                    />
-                    <DialogActions
-                        sx={{ position: 'absolute', top: '-40px', right: "-50px", padding: 0, }}
-                    >
-                        <IconButton
-                            onClick={handleImageClose}
-                            sx={{ position: 'absolute', top: 10, right: 10, color: '#fff', }}
-                        >
-                            <CloseIcon />
-                        </IconButton>
-                    </DialogActions>
-                </Dialog>
-                <Dialog open={openPreview} onClose={() => setOpenPreview(false)} sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    '& .MuiPaper-root': {
-                        backgroundColor: 'transparent',
-                        boxShadow: 'none',
-                        borderRadius: 0,
-                        padding: 0,
-                        overflow: 'visible',
-                        maxWidth: '90vw',
-                        maxHeight: '90vh',
-                    },
-                }}
-                    BackdropProps={{
-                        style: { backgroundColor: 'rgba(0, 0, 0, 0.8)' },
-                    }}>
-                    <img
-                        src={selectedPreviewImage}
-                        alt="Popup"
-                        style={{ width: 'auto', height: 'auto', maxWidth: '80vw', maxHeight: '80vh', display: 'block', margin: 'auto', }}
-                    />
-                    <DialogActions
-                        sx={{ position: 'absolute', top: '-40px', right: "-50px", padding: 0, }}
-                    >
-                        <IconButton
-                            onClick={handleImageClose1}
-                            sx={{ position: 'absolute', top: 10, right: 10, color: '#fff', }}
-                        >
-                            <CloseIcon />
-                        </IconButton>
-                    </DialogActions>
-                </Dialog>
-                <Dialog open={openAlert} onClose={() => setOpenAlert(false)}>
-                    <Box sx={{ display: "flex", justifyContent: "center", p: 2, backgroundColor: '#fff', }}>
-
+                        {/* Panel header — title, progress and search on one row */}
                         <Box sx={{
-                            textAlign: 'center',
-                            backgroundColor: '#fff',
-                            p: 3,
-                            width: "70%",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: 1.5,
+                            flexWrap: "wrap",
+                            px: 2,
+                            py: 1.4,
+                            borderBottom: "1px solid #EDEFF3",
                         }}>
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, minWidth: 0 }}>
+                                <Box sx={{ width: 3, height: 20, borderRadius: "5px", backgroundColor: "#2563EB", flexShrink: 0 }} />
+                                <Box sx={{ minWidth: 0 }}>
+                                    <Typography sx={{ fontSize: "14.5px", fontWeight: 700, color: "#111827", lineHeight: 1.35 }}>
+                                        Teaching Staff
+                                    </Typography>
+                                    <Typography sx={{ fontSize: "11.5px", color: "#6B7280", mt: 0.1 }}>
+                                        {uploadedCount} of {filteredData.length} have a timetable uploaded
+                                    </Typography>
+                                </Box>
+                            </Box>
 
-                            <Typography sx={{ fontSize: "20px" }}> Do you really want to delete this news?</Typography>
-                            <DialogActions sx={{
-                                justifyContent: 'center',
-                                backgroundColor: '#fff',
-                                pt: 2
-                            }}>
-                                <Button
-                                    onClick={() => handleCloseDialog(false)}
-                                    sx={{
-                                        textTransform: 'none',
-                                        width: "80px",
-                                        borderRadius: '30px',
-                                        fontSize: '16px',
-                                        py: 0.2,
-                                        border: '1px solid black',
-                                        color: 'black',
-                                    }}
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    onClick={() => handleCloseDialog(true)}
-                                    sx={{
-                                        textTransform: 'none',
-                                        backgroundColor: websiteSettings.mainColor,
-                                        width: "90px",
-                                        borderRadius: '30px',
-                                        fontSize: '16px',
-                                        py: 0.2,
-                                        color: websiteSettings.textColor,
-                                    }}
-                                >
-                                    Delete
-                                </Button>
-                            </DialogActions>
+                            <TextField
+                                variant="outlined"
+                                placeholder="Search by name or employee code"
+                                slotProps={{
+                                    input: {
+                                        startAdornment: (
+                                            <InputAdornment position="start">
+                                                <SearchIcon sx={{ fontSize: 17, color: "#8A93A0" }} />
+                                            </InputAdornment>
+                                        ),
+                                        endAdornment: searchQuery ? (
+                                            <InputAdornment position="end">
+                                                <IconButton size="small" onClick={() => setSearchQuery("")} sx={{ p: 0.2 }}>
+                                                    <HighlightOffIcon sx={{ fontSize: 15, color: "#8A93A0" }} />
+                                                </IconButton>
+                                            </InputAdornment>
+                                        ) : null,
+                                        sx: {
+                                            padding: "0 10px",
+                                            borderRadius: "50px",
+                                            height: "28px",
+                                            fontSize: "12px",
+                                        },
+                                    },
+                                }}
+                                sx={{
+                                    width: { xs: "100%", sm: 300 },
+                                    "& .MuiOutlinedInput-root": {
+                                        minHeight: "28px",
+                                        paddingRight: "3px",
+                                        backgroundColor: "#fff",
+                                    },
+                                    "& .MuiOutlinedInput-root .MuiOutlinedInput-notchedOutline": {
+                                        borderColor: "#DDE1E6",
+                                    },
+                                    "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                                        borderColor: websiteSettings.mainColor,
+                                    },
+                                }}
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
                         </Box>
 
-                    </Box>
-                </Dialog>
-                <Box sx={{ px: 2, pb: 2 }}>
-                    <Box
-                        sx={{
-                            background: "linear-gradient(180deg, #307EB9 0%, #00467B 100%)",
-                            width: "150px",
-                            textAlign: "center",
-                            color: "#fff",
-                            borderRadius: "5px 0px 0px 0px",
-                            padding: "5px 0",
-                        }}
-                    >
-                        Teaching Staff
-                    </Box>
-
-                    <TableContainer
-                        sx={{
-                            width: "100%",
-                            maxWidth: "100%",
-                            overflowX: "auto",
-                            border: "1px solid #E8DDEA",
-                            position: "relative",
-                            bottom: 0,
-                            backgroundColor: "#fff"
-                        }}
-                    >
-                        <Table stickyHeader sx={{ minWidth: 650 }}>
-                            <TableHead>
-                                <TableRow>
-                                    {["S.No", "Employee Code", "Name", "Photo", "Upload Image", "Preview", "Delete", "Submit"].map(
-                                        (header) => (
-                                            <TableCell
-                                                key={header}
-                                                sx={{
-                                                    borderRight: 1,
-                                                    borderColor: "#E8DDEA",
-                                                    textAlign: "center",
-                                                    backgroundColor: "#FFF7F7",
-                                                }}
-                                            >
-                                                {header}
-                                            </TableCell>
-                                        )
-                                    )}
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {filteredData.map((row, index) => (
-                                    <TableRow key={row.employeeCode}>
-                                        <TableCell sx={cellStyle}>{index + 1}</TableCell>
-                                        <TableCell sx={cellStyle}>{row.employeeCode}</TableCell>
-                                        <TableCell sx={cellStyle}>{row.name}</TableCell>
-                                        <TableCell sx={cellStyle}>
-                                            <Button
-                                                sx={{ color: "#000", textTransform: "none" }}
-                                                onClick={() => handleViewClick(row.photo)}
-                                            >
-                                                <ImageIcon sx={{ color: "#000", marginRight: 1 }} />
-                                                View
-                                            </Button>
-                                        </TableCell>
-                                        <TableCell sx={cellStyle}>
-                                            <Button
-                                                variant="outlined"
-                                                sx={{
-                                                    border: "1px solid black",
-                                                    width: "135px",
-                                                    fontSize: "13px",
-                                                    py: 0,
-                                                    color: "#000",
-                                                    textTransform: "none",
-                                                    borderRadius: "50px",
-                                                }}
-                                                onClick={handleUploadClick}
-                                            >
-                                                {row.preView == null || row.preView === "" ? "Upload Image" : "Reupload Image"}
-                                            </Button>
-
-                                            <input
-                                                type="file"
-                                                ref={fileInputRef}
-                                                onChange={(e) => handleFileChange(e, row.employeeCode)}
-                                                style={{ display: "none" }}
-                                            />
-                                        </TableCell>
-                                        <TableCell sx={cellStyle}>
-                                            <Button
-                                                sx={{ color: "#E60154", textTransform: "none", borderRadius: "50px", py: 0, backgroundColor: "#fcf6f0" }}
-                                                disabled={row.preView == null || row.preView === ""}
-                                                onClick={() => handlePreview(row.preView)}
-                                            >
-                                                View Image
-                                            </Button>
-                                        </TableCell>
-
-                                        <TableCell sx={cellStyle}>
-                                            <IconButton
-                                                onClick={() => handleDelete(row.employeeCode)}
-                                                sx={{
-                                                    border: "1px solid black",
-                                                    width: "25px",
-                                                    height: "25px",
-                                                    backgroundColor: "#fff",
-                                                }}
-                                            >
-                                                <DeleteOutlineOutlinedIcon
-                                                    style={{ fontSize: "15px", color: "#000" }}
-
-                                                />
-                                            </IconButton>
-                                        </TableCell>
-                                        <TableCell sx={cellStyle}>
-                                            {row.preView == null || row.preView === "" ? (
-                                                <Button
-                                                    // disabled={!enable[row.employeeCode]}
-                                                    onClick={() => savePostData(row.employeeCode)} sx={{ color: websiteSettings.textColor, textTransform: "none", backgroundColor: websiteSettings.mainColor, py: 0, borderRadius: "50px", fontSize: "13px", }}>Save</Button>
-                                            ) : (
-                                                <Button
-                                                    // disabled={!uploadedFiles[row.employeeCode]}
-                                                    onClick={() => UpdateData(row.employeeCode)} sx={{ color: websiteSettings.textColor, textTransform: "none", backgroundColor: websiteSettings.mainColor, py: 0, borderRadius: "50px", fontSize: "13px", width: "70px" }}>Update</Button>
+                        {filteredData.length === 0 ? (
+                            <Box sx={{ py: 8, textAlign: "center" }}>
+                                <Typography sx={{ fontSize: "15px", fontWeight: 600, color: "#374151" }}>
+                                    {searchQuery ? "No teachers match your search" : "No teaching staff found"}
+                                </Typography>
+                                <Typography sx={{ fontSize: "13px", color: "#8A93A0", mt: 0.5 }}>
+                                    {searchQuery
+                                        ? "Try a different name or employee code."
+                                        : "Once staff records exist they will be listed here."}
+                                </Typography>
+                            </Box>
+                        ) : (
+                            <TableContainer sx={{ width: "100%", maxWidth: "100%", overflowX: "auto", maxHeight: "66vh" }}>
+                                <Table stickyHeader sx={{ minWidth: 900 }}>
+                                    <TableHead>
+                                        <TableRow>
+                                            {["S.No", "Employee Code", "Name", "Photo", "Timetable", "Preview", "Delete", "Save"].map(
+                                                (header) => (
+                                                    <TableCell key={header} sx={headCellSx}>
+                                                        {header}
+                                                    </TableCell>
+                                                )
                                             )}
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </TableContainer>
+                                        </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                        {filteredData.map((row, index) => {
+                                            const hasTimetable = Boolean(row.preView);
+                                            const staged = uploadedFiles && uploadedFiles.name && stagedFor === row.employeeCode;
+                                            return (
+                                                <TableRow
+                                                    key={row.employeeCode}
+                                                    sx={{
+                                                        transition: "background-color 0.15s",
+                                                        "&:hover": { backgroundColor: "#FAFBFC" },
+                                                    }}
+                                                >
+                                                    <TableCell sx={bodyCellSx}>
+                                                        <Typography sx={{ fontSize: "12.5px", color: "#6B7280" }}>{index + 1}</Typography>
+                                                    </TableCell>
+                                                    <TableCell sx={bodyCellSx}>
+                                                        <Typography sx={{ fontSize: "12.5px", fontWeight: 600, color: "#374151" }}>
+                                                            {row.employeeCode}
+                                                        </Typography>
+                                                    </TableCell>
+                                                    <TableCell sx={{ ...bodyCellSx, textAlign: "left" }}>
+                                                        <Typography sx={{ fontSize: "13px", fontWeight: 700, color: "#111827" }}>
+                                                            {row.name}
+                                                        </Typography>
+                                                        <Box sx={{ mt: 0.4 }}>
+                                                            <Chip
+                                                                size="small"
+                                                                label={hasTimetable ? "Uploaded" : "Not uploaded"}
+                                                                sx={{
+                                                                    height: "18px",
+                                                                    fontSize: "10px",
+                                                                    fontWeight: 700,
+                                                                    borderRadius: "6px",
+                                                                    backgroundColor: hasTimetable ? "#ECFDF5" : "#F3F4F6",
+                                                                    color: hasTimetable ? "#059669" : "#6B7280",
+                                                                }}
+                                                            />
+                                                        </Box>
+                                                    </TableCell>
+                                                    <TableCell sx={bodyCellSx}>
+                                                        <Button
+                                                            startIcon={<ImageIcon sx={{ fontSize: 16 }} />}
+                                                            sx={{
+                                                                color: "#374151",
+                                                                textTransform: "none",
+                                                                fontSize: "12px",
+                                                                fontWeight: 600,
+                                                                borderRadius: "50px",
+                                                                py: 0.2,
+                                                            }}
+                                                            onClick={() => handleViewClick(row.photo)}
+                                                        >
+                                                            View
+                                                        </Button>
+                                                    </TableCell>
+                                                    <TableCell sx={bodyCellSx}>
+                                                        <Button
+                                                            variant="outlined"
+                                                            startIcon={<UploadFileIcon sx={{ fontSize: 15 }} />}
+                                                            sx={{
+                                                                border: "1px solid #D6DAE1",
+                                                                width: "150px",
+                                                                fontSize: "12px",
+                                                                fontWeight: 600,
+                                                                py: 0.2,
+                                                                color: "#374151",
+                                                                backgroundColor: "#fff",
+                                                                textTransform: "none",
+                                                                borderRadius: "50px",
+                                                                "&:hover": { borderColor: "#9AA3AF", backgroundColor: "#F7F8FA" },
+                                                            }}
+                                                            onClick={() => handleUploadClick(row.employeeCode)}
+                                                        >
+                                                            {hasTimetable ? "Reupload Image" : "Upload Image"}
+                                                        </Button>
 
+                                                        <input
+                                                            type="file"
+                                                            ref={(el) => { fileInputRefs.current[row.employeeCode] = el; }}
+                                                            onChange={(e) => handleFileChange(e, row.employeeCode)}
+                                                            style={{ display: "none" }}
+                                                            accept=".jpg, .jpeg, .webp, .png"
+                                                        />
+
+                                                        {staged && (
+                                                            <Typography sx={{
+                                                                fontSize: "10.5px",
+                                                                color: "#059669",
+                                                                fontWeight: 600,
+                                                                mt: 0.4,
+                                                                maxWidth: 150,
+                                                                mx: "auto",
+                                                                overflow: "hidden",
+                                                                textOverflow: "ellipsis",
+                                                                whiteSpace: "nowrap",
+                                                            }}>
+                                                                {uploadedFiles.name} ready
+                                                            </Typography>
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell sx={bodyCellSx}>
+                                                        <Button
+                                                            sx={{
+                                                                color: "#E60154",
+                                                                textTransform: "none",
+                                                                borderRadius: "50px",
+                                                                py: 0.2,
+                                                                fontSize: "12px",
+                                                                fontWeight: 600,
+                                                                backgroundColor: "#fcf6f0",
+                                                                "&.Mui-disabled": { backgroundColor: "#F3F4F6", color: "#9AA3AF" },
+                                                            }}
+                                                            disabled={!hasTimetable}
+                                                            onClick={() => handlePreview(row.preView)}
+                                                        >
+                                                            View Image
+                                                        </Button>
+                                                    </TableCell>
+                                                    <TableCell sx={bodyCellSx}>
+                                                        <Tooltip title={hasTimetable ? "Delete timetable" : "Nothing to delete"}>
+                                                            <span>
+                                                                <IconButton
+                                                                    onClick={() => handleDelete(row.employeeCode)}
+                                                                    disabled={!hasTimetable}
+                                                                    sx={smallIconSx}
+                                                                >
+                                                                    <DeleteOutlineOutlinedIcon sx={{ fontSize: 15, color: hasTimetable ? "#f44336" : "#9AA3AF" }} />
+                                                                </IconButton>
+                                                            </span>
+                                                        </Tooltip>
+                                                    </TableCell>
+                                                    <TableCell sx={bodyCellSx}>
+                                                        <Button
+                                                            onClick={() => (hasTimetable ? UpdateData(row.employeeCode) : savePostData(row.employeeCode))}
+                                                            sx={{
+                                                                color: websiteSettings.textColor,
+                                                                textTransform: "none",
+                                                                backgroundColor: websiteSettings.mainColor,
+                                                                py: 0.2,
+                                                                borderRadius: "50px",
+                                                                fontSize: "12px",
+                                                                fontWeight: 700,
+                                                                minWidth: "78px",
+                                                                boxShadow: "none",
+                                                                "&:hover": { backgroundColor: websiteSettings.mainColor, opacity: 0.9 },
+                                                            }}
+                                                        >
+                                                            {hasTimetable ? "Update" : "Save"}
+                                                        </Button>
+                                                    </TableCell>
+                                                </TableRow>
+                                            );
+                                        })}
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+                        )}
+                    </Box>
                 </Box>
             </Box>
+
+            {/* ═══ Staff photo lightbox ═══ */}
+            <Dialog
+                open={openImage}
+                onClose={() => setOpenImage(false)}
+                sx={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    '& .MuiPaper-root': {
+                        backgroundColor: 'transparent', boxShadow: 'none', borderRadius: 0,
+                        padding: 0, overflow: 'visible', maxWidth: '90vw', maxHeight: '90vh',
+                    },
+                }}
+                BackdropProps={{ style: { backgroundColor: 'rgba(0, 0, 0, 0.8)' } }}
+            >
+                <Box sx={{ position: 'relative' }}>
+                    <img
+                        src={selectedImage}
+                        alt="Staff"
+                        style={{ width: 'auto', height: 'auto', maxWidth: '80vw', maxHeight: '80vh', display: 'block', margin: 'auto', borderRadius: '10px' }}
+                    />
+                    <IconButton
+                        onClick={handleImageClose}
+                        sx={{
+                            position: 'absolute', top: 8, right: 8, color: '#fff',
+                            backgroundColor: 'rgba(0,0,0,0.45)',
+                            '&:hover': { backgroundColor: 'rgba(0,0,0,0.65)' },
+                        }}
+                    >
+                        <CloseIcon sx={{ fontSize: 20 }} />
+                    </IconButton>
+                </Box>
+            </Dialog>
+
+            {/* ═══ Timetable lightbox ═══ */}
+            <Dialog
+                open={openPreview}
+                onClose={() => setOpenPreview(false)}
+                sx={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    '& .MuiPaper-root': {
+                        backgroundColor: 'transparent', boxShadow: 'none', borderRadius: 0,
+                        padding: 0, overflow: 'visible', maxWidth: '90vw', maxHeight: '90vh',
+                    },
+                }}
+                BackdropProps={{ style: { backgroundColor: 'rgba(0, 0, 0, 0.8)' } }}
+            >
+                <Box sx={{ position: 'relative' }}>
+                    <img
+                        src={selectedPreviewImage}
+                        alt="Timetable"
+                        style={{ width: 'auto', height: 'auto', maxWidth: '80vw', maxHeight: '80vh', display: 'block', margin: 'auto', borderRadius: '10px' }}
+                    />
+                    <IconButton
+                        onClick={handleImageClose1}
+                        sx={{
+                            position: 'absolute', top: 8, right: 8, color: '#fff',
+                            backgroundColor: 'rgba(0,0,0,0.45)',
+                            '&:hover': { backgroundColor: 'rgba(0,0,0,0.65)' },
+                        }}
+                    >
+                        <CloseIcon sx={{ fontSize: 20 }} />
+                    </IconButton>
+                </Box>
+            </Dialog>
+
+            {/* ═══ Delete confirmation ═══ */}
+            <Dialog
+                open={openAlert}
+                onClose={() => setOpenAlert(false)}
+                slotProps={{ paper: { sx: { borderRadius: "14px", maxWidth: "420px" } } }}
+            >
+                <Box sx={{ p: 3, backgroundColor: '#fff', textAlign: 'center' }}>
+                    <Typography sx={{ fontSize: "17px", fontWeight: 600, color: "#111827" }}>
+                        Delete this timetable?
+                    </Typography>
+                    <Typography sx={{ fontSize: "13px", color: "#6B7280", mt: 0.8 }}>
+                        The uploaded timetable for this staff member will be removed. This cannot be undone.
+                    </Typography>
+                    <DialogActions sx={{ justifyContent: 'center', backgroundColor: '#fff', pt: 2.5, gap: 1 }}>
+                        <Button variant="outlined" onClick={() => handleCloseDialog(false)} sx={ghostButtonSx}>
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={() => handleCloseDialog(true)}
+                            sx={{
+                                ...primaryButtonSx,
+                                backgroundColor: "#f44336",
+                                color: "#fff",
+                                "&:hover": { backgroundColor: "#DC2626", boxShadow: "none" },
+                            }}
+                        >
+                            Delete
+                        </Button>
+                    </DialogActions>
+                </Box>
+            </Dialog>
         </Box>
     );
 }

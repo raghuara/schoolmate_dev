@@ -398,6 +398,9 @@ const TriggerManualSync = `${biometrics}TriggerManualSync/`;
 const GetBiometricMappings = `${biometrics}GetBiometricMappings/`;
 const PostBiometricMappings = `${biometrics}PostBiometricMappings/`;
 const UpdateBiometricMappings = `${biometrics}UpdateBiometricMappings/`;
+const GetBiometricAttendanceLogs = `${biometrics}GetBiometricAttendanceLogs/`;
+const RebuildFromRecords = `${biometrics}RebuildFromRecords/`;
+const SyncSummary = `${biometrics}SyncSummary/`;
 
 const attendance = `${baseApiurl}attendance/`;
 const postAttendanceTeachers = `${attendance}postAttendanceTeachers`;
@@ -405,6 +408,7 @@ const GetAttendanceTeacherBefore = `${baseApiurl}teachersattendance/GetAttendanc
 const updateTeachersAttendance = `${attendance}updateTeachersAttendance`;
 const getAttendanceDashboard = `${attendance}getAttendanceDashboard`;
 const getStaffAttendanceOverview = `${baseApiurl}teachersattendance/getStaffAttendanceOverview`;
+const GetMyAttendanceStatus = `${baseApiurl}teachersattendance/GetMyAttendanceStatus`;
 const reportsLeaveManagement = `${baseApiurl}reports/reportsLeaveManagement`;
 const reportsLeaveManagementFullReport = `${baseApiurl}reports/reportsLeaveManagementFullReport`;
 
@@ -415,10 +419,15 @@ const leaveApprovalStatusCheck = `${baseApiurl}leaveApprovalStatusCheck`;
 const updateLeaveApprovalAction = `${baseApiurl}updateLeaveApprovalAction`;
 const getLeaveDashboard = `${leave}getLeaveDashboard`;
 const getLeaveApprovalDashboard = `${leave}getLeaveApprovalDashboard`;
+const GetUserAttendanceLeaveSummary = `${leave}GetUserAttendanceLeaveSummary`;
+const getLeaveConfig = `${leave}getLeaveConfig`;
+const saveLeaveConfig = `${leave}saveLeaveConfig`;
 
 const payRoll = `${baseApiurl}payRoll/`;
 const postSalaryStructure = `${payRoll}postSalaryStructure`;
 const getEmployees = `${payRoll}getEmployees`;
+const getEmployeesWithoutSalaryStructure = `${payRoll}getEmployeesWithoutSalaryStructure`;
+const getEmployeesWithoutBankDetails = `${payRoll}getEmployeesWithoutBankDetails`;
 const updateSalaryStructureByRollnumber = `${payRoll}updateSalaryStructureByRollnumber`;
 const deleteSalaryStructureByRollnumber = `${payRoll}deleteSalaryStructureByRollnumber`;
 const salaryStructureDashboard = `${payRoll}salaryStructureDashboard`;
@@ -434,6 +443,11 @@ const GetWorkingcalendar = `${leavePolicy}GetWorkingcalendar`;
 const UpdateleaveTypeByID = `${leavePolicy}UpdateleaveTypeByID`;
 const DeleteleaveTypeByID = `${leavePolicy}DeleteleaveTypeByID`;
 const GetEmployeeLeaveBalance = `${leavePolicy}GetEmployeeLeaveBalance`;
+const GetunassignedStaff = `${leavePolicy}GetunassignedStaff`;
+const GetShiftAssignedStaffs = `${leavePolicy}GetShiftAssignedStaffs`;
+const assignStaffToShift = `${leavePolicy}assignStaffToShift`;
+const UpdateAssignedStaff = `${leavePolicy}UpdateAssignedStaff`;
+const unassignStaff = `${leavePolicy}unassignStaff`;
 
 
 const postPFConfiguration = `${payRoll}postPFConfiguration`;
@@ -453,6 +467,18 @@ const getPayrollPayslipByRollNumber = `${payRoll}getPayrollPayslipByRollNumber`;
 const postLeaveType = `${payRoll}postLeaveType`;
 const updateLeaveTypeById = `${payRoll}updateLeaveTypeById`;
 const approvePayrollPayslipsDashboard = `${payRoll}approvePayrollPayslipsDashboard`;
+
+// Payroll cycle 
+const payrollCycle = `${baseApiurl}payroll/`;
+const getPayrollCycle = `${payrollCycle}cycle`;
+const payrollCycleLockAttendance = `${payrollCycle}lockattendance`;
+const payrollCycleCalculate = `${payrollCycle}calculate`;
+const payrollCycleApprove = `${payrollCycle}approve`;
+const payrollCycleMarkCredited = `${payrollCycle}markcredited`;
+const payrollCycleRollback = `${payrollCycle}rollback`;
+const getPayrollRegister = `${payrollCycle}register`;
+const getPayrollPayslip = `${payrollCycle}payslip`;
+const getMyPayrollPayslip = `${payrollCycle}mypayslip`;
 
 // Transport 
 const vehicle = `${baseApiurl}vehicle/`;
@@ -870,12 +896,17 @@ export {
     updateLeaveApprovalAction,
     getLeaveDashboard,
     getLeaveApprovalDashboard,
+    GetUserAttendanceLeaveSummary,
+    getLeaveConfig,
+    saveLeaveConfig,
     getAttendanceDashboard,
     getStaffAttendanceOverview,
     reportsLeaveManagement,
     reportsLeaveManagementFullReport,
     postSalaryStructure,
     getEmployees,
+    getEmployeesWithoutSalaryStructure,
+    getEmployeesWithoutBankDetails,
     updateSalaryStructureByRollnumber,
     deleteSalaryStructureByRollnumber,
     salaryStructureDashboard,
@@ -894,6 +925,15 @@ export {
     updateLeaveTypeById,
     getPayrollPayslipByRollNumber,
     approvePayrollPayslipsDashboard,
+    getPayrollCycle,
+    payrollCycleLockAttendance,
+    payrollCycleCalculate,
+    payrollCycleApprove,
+    payrollCycleMarkCredited,
+    payrollCycleRollback,
+    getPayrollRegister,
+    getPayrollPayslip,
+    getMyPayrollPayslip,
     postGrade,
     postSection,
     deleteSection,
@@ -926,6 +966,11 @@ export {
     UpdateleaveTypeByID,
     DeleteleaveTypeByID,
     GetEmployeeLeaveBalance,
+    GetunassignedStaff,
+    GetShiftAssignedStaffs,
+    assignStaffToShift,
+    UpdateAssignedStaff,
+    unassignStaff,
     PostPromoteStudents,
     FetchPromotableStudents,
     FetchPromotedStudents,
@@ -942,9 +987,13 @@ export {
     viewTrackingStatus,
     PostBiometricMappings,
     UpdateBiometricMappings,
+    GetBiometricAttendanceLogs,
+    RebuildFromRecords,
+    SyncSummary,
     PostTeachersManualAttendance,
     GetTeachersAttendance,
     GetTeachersAttendanceAudit,
+    GetMyAttendanceStatus,
     PostAcademicYearConfig,
     GetAcademicYearConfig,
     GetExitFeesSummary,

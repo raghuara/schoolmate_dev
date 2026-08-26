@@ -240,6 +240,9 @@ export default function CreateHomeWorkPage() {
             : { label: "Publish Now", status: "post", icon: <PublishOutlinedIcon sx={{ fontSize: 17 }} /> })
         : { label: "Send for Approval", status: DTValue ? "schedule" : "post", icon: <SendOutlinedIcon sx={{ fontSize: 17 }} /> };
 
+    const fieldLabelSx = { fontSize: "13px", fontWeight: 600, color: "#374151", mb: 0.7 };
+    const requiredSx = { color: "#E30053" };
+
     const ghostButtonSx = {
         textTransform: "none",
         borderRadius: "10px",
@@ -478,7 +481,7 @@ export default function CreateHomeWorkPage() {
                                     md: 6,
                                     lg: 6
                                 }}>
-                                <Typography sx={{ mb: 0.5 }}>Select Class</Typography>
+                                <Typography sx={fieldLabelSx}>Class <span style={requiredSx}>*</span></Typography>
                                 <Autocomplete
                                     disablePortal
                                     options={grades}
@@ -531,7 +534,7 @@ export default function CreateHomeWorkPage() {
                                     md: 6,
                                     lg: 6
                                 }}>
-                                <Typography sx={{ mb: 0.5, ml: 1 }}>Select Sections</Typography>
+                                <Typography sx={fieldLabelSx}>Sections <span style={requiredSx}>*</span></Typography>
                                 <Box>
                                     <Button
                                         variant="outlined"
@@ -648,7 +651,7 @@ export default function CreateHomeWorkPage() {
                                     lg: 12
                                 }}>
 
-                                <Typography sx={{ mt: 2 }}>Add Heading</Typography>
+                                <Typography sx={{ ...fieldLabelSx, mt: 2 }}>Heading <span style={requiredSx}>*</span></Typography>
                                 <TextField
                                     id="outlined-size-small"
                                     size="small"
@@ -662,7 +665,7 @@ export default function CreateHomeWorkPage() {
                                 size={{
                                     lg: 12
                                 }}>
-                                <Typography sx={{ mb: 0.5, mt: 2, }}>Select Image</Typography>
+                                <Typography sx={{ ...fieldLabelSx, mt: 2 }}>Attachment <span style={{ color: "#8A93A0", fontWeight: 400, fontSize: "12px" }}>(optional)</span></Typography>
                                 <Box sx={{ mt: 1, textAlign: "center" }}>
                                     <Box
                                         {...getRootProps()}
@@ -708,7 +711,7 @@ export default function CreateHomeWorkPage() {
                                                     }}
                                                 >
                                                     <img
-                                                        src={uploadedFiles[0] instanceof File ? URL.createObjectURL(uploadedFiles[0]) : uploadedFiles[0].url || uploadedFiles[0]}
+                                                        src={filePreviewUrl}
                                                         alt="Selected"
                                                         style={{
                                                             width: "100%",
@@ -741,7 +744,7 @@ export default function CreateHomeWorkPage() {
                                 size={{
                                     lg: 12
                                 }}>
-                                <Typography sx={{ mt: 2 }}>Schedule Post</Typography>
+                                <Typography sx={{ ...fieldLabelSx, mt: 2 }}>Schedule for later <span style={{ color: "#8A93A0", fontWeight: 400, fontSize: "12px" }}>(optional)</span></Typography>
                                 <ThemeProvider theme={theme}>
                                     <LocalizationProvider dateAdapter={AdapterDayjs}>
                                         <Stack spacing={2}>

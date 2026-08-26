@@ -372,6 +372,11 @@ export default function RouterPage() {
 
                 {/* --------------------------------------------------------------------------------------------------- */}
 
+                {/* Support - Complaints & Redressal */}
+                <Route path="complaints" element={<SoonPage />} />
+
+                {/* --------------------------------------------------------------------------------------------------- */}
+
                 {/* Transport */}
                 {/* duplicate of the transport route declared earlier - only the
                     first ever matches, so this one is dead. */}
