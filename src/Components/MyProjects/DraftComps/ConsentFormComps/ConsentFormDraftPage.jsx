@@ -191,9 +191,9 @@ export default function ConsentFormDraftPage() {
         try {
             const res = await axios.get(ConsentFetchFetchDradt, {
                 params: {
-                    RollNumber: rollNumber,
-                    UserType: userType,
-                    Date: formattedDate || '',
+                    rollNumber: rollNumber,
+                    userType: userType,
+                    date: formattedDate || '',
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -213,7 +213,7 @@ export default function ConsentFormDraftPage() {
         try {
             const res = await axios.delete(DeleteConsentForm, {
                 params: {
-                    Id: id
+                    id: id
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -238,8 +238,8 @@ export default function ConsentFormDraftPage() {
         try {
             const res = await axios.delete(DeleteAllDraft, {
                 params: {
-                    RollNumber: rollNumber,
-                    Module: "consentform",
+                    rollNumber: rollNumber,
+                    module: "consentform",
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,

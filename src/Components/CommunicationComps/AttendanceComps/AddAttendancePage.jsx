@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Dialog, IconButton, Box, Typography, ThemeProvider, createTheme, Button, Grid, Tabs, Tab, DialogContent, DialogActions, TextField, InputAdornment, FormControl, FormLabel, RadioGroup, FormControlLabel, Radio, Autocomplete, Snackbar } from "@mui/material";
+import { Dialog, IconButton, Box, Typography, ThemeProvider, createTheme, Button, Grid, Tabs, Tab, DialogContent, DialogActions, TextField, InputAdornment, FormControl, FormLabel, RadioGroup, FormControlLabel, Radio, Autocomplete, Snackbar, CircularProgress, Avatar, Tooltip } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import { display, keyframes, useMediaQuery, useTheme } from "@mui/system";
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
@@ -24,13 +24,14 @@ import { Link } from "react-router-dom";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useSelector } from "react-redux";
 import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlice";
+import { findSubMenuPermissions } from "../../../Redux/Slices/AuthSlice";
 import AddIcon from '@mui/icons-material/Add';
-import ImageIcon from '@mui/icons-material/Image';
 import SnackBar from "../../SnackBar";
 import fallbackImage from "../../../Images/PagesImage/dummy-image.jpg";
 import { selectGrades } from "../../../Redux/Slices/DropdownController";
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
+import EventAvailableIcon from '@mui/icons-material/EventAvailable';
 
 export default function AddAttendancePage() {
     const today = dayjs().format("DD-MM-YYYY");
@@ -53,6 +54,9 @@ export default function AddAttendancePage() {
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const isMediumScreen = useMediaQuery(theme.breakpoints.between('sm', 'md'));
     const websiteSettings = useSelector(selectWebsiteSettings);
+    const attendancePerms = findSubMenuPermissions(user.permissions, "communication", "attendance") || {};
+    const canCreate = attendancePerms.create === "Y";
+    const canEdit = attendancePerms.edit === "Y";
     const [value, setValue] = useState(0);
     const [selectedClass, setSelectedClass] = useState("PreKG");
     const [selectedClassSection, setSelectedClassSection] = useState("A1");
@@ -61,7 +65,8 @@ export default function AddAttendancePage() {
         present: 0,
         absent: 0,
         leave: 0,
-        late: 0
+        late: 0,
+        halfday: 0
     });
 
     const [filteredData, setFilteredData] = useState([]);
@@ -69,6 +74,7 @@ export default function AddAttendancePage() {
     const [searchQuery, setSearchQuery] = useState("");
 
     const fileInputRef = useRef(null);
+    const dateAnchorRef = useRef(null);
     const [selectedActions, setSelectedActions] = useState({});
     const [open, setOpen] = useState(false);
     const [status, setStatus] = useState(false);
@@ -79,15 +85,29 @@ export default function AddAttendancePage() {
     const [selectedSection, setSelectedSection] = useState("all");
     const [studentsGraphData, setStudentsGraphData] = useState([]);
     const [allData, setAllData] = useState([]);
+    const canMarkNew = allData.isAttendanceAdded === "N" && canCreate;
+    const canMarkUpdate = allData.isUpdateAvailable === "Y" && canEdit;
+    const canModifyAttendance = canMarkNew || canMarkUpdate;
     const [attendanceDataLoading, setAttendanceDataLoading] = useState(false);
     const [sortByNameAsc, setSortByNameAsc] = useState(false);
-
+    const isExpanded = useSelector((state) => state.sidebar.isExpanded);
     // Students with an approved leave for the selected date (StudentsOnLeaveToday API)
     const [leaveStudents, setLeaveStudents] = useState([]);
     const leaveRollSet = useMemo(
         () => new Set(leaveStudents.map((s) => String(s.rollNumber))),
         [leaveStudents]
     );
+
+    // Half-day config per student → { half: 'first' | 'second' }
+    const [halfDayConfig, setHalfDayConfig] = useState({});
+    const updateHalfDay = (roll, field, val) => {
+        setHalfDayConfig((prev) => ({
+            ...prev,
+            [roll]: { half: "first", ...prev[roll], [field]: val },
+        }));
+    };
+    const getHalfConfig = (roll) => halfDayConfig[roll] || { half: "first" };
+    const halfDayLabel = (cfg) => (cfg.half === "first" ? "1st Half" : "2nd Half");
 
     const selectedGrade = grades.find((grade) => grade.id === selectedGradeId);
     const sections = selectedGrade?.sections.map((section) => ({ sectionName: section })) || [];
@@ -108,7 +128,8 @@ export default function AddAttendancePage() {
             present: 0,
             absent: 0,
             leave: 0,
-            late: 0
+            late: 0,
+            halfday: 0
         };
 
         filteredData.forEach(row => {
@@ -134,6 +155,12 @@ export default function AddAttendancePage() {
     }, [filteredData, leaveRollSet]);
 
     const handleAttendanceChange = (rollNumber, value) => {
+        if (!canModifyAttendance) return;
+        if (value === "halfday") {
+            setHalfDayConfig((prev) =>
+                prev[rollNumber] ? prev : { ...prev, [rollNumber]: { half: "first" } }
+            );
+        }
         setSelectedActions((prev) => {
             const prevStatus = prev[rollNumber] || "present";
             const newSelected = { ...prev, [rollNumber]: value };
@@ -163,6 +190,15 @@ export default function AddAttendancePage() {
             const rollNumber = row.rollNumber;
             const status = selectedActions[rollNumber] ||
                 (row.attendanceAction?.toLowerCase() === "no data" ? "present" : row.attendanceAction?.toLowerCase());
+
+            if (status === "halfday") {
+                const cfg = getHalfConfig(rollNumber);
+                return {
+                    rollNumber,
+                    status: "HalfDay",
+                    half: cfg.half === "first" ? "FirstHalf" : "SecondHalf",
+                };
+            }
 
             return {
                 rollNumber,
@@ -210,10 +246,12 @@ export default function AddAttendancePage() {
 
 
     const handleUploadClick = () => {
+        if (!canModifyAttendance) return;
         fileInputRef.current.click();
     };
 
     const handleFileChange = (e) => {
+        if (!canModifyAttendance) return;
         const file = e.target.files[0];
         if (!file) return;
 
@@ -270,6 +308,8 @@ export default function AddAttendancePage() {
                 return "#9E35C7";
             case "late":
                 return "#3D49D6";
+            case "halfday":
+                return "#D97706";
             default:
                 return "#777";
         }
@@ -327,10 +367,10 @@ export default function AddAttendancePage() {
         try {
             const res = await axios.get(fetchAttendance, {
                 params: {
-                    Date: formattedDate,
-                    Grade: selectedGradeSign || grades?.[0]?.sign || "",
-                    Section: selectedSection || "all",
-                    Status: selectedFilter || "overall",
+                    date: formattedDate,
+                    grade: selectedGradeSign || grades?.[0]?.sign || "",
+                    section: selectedSection || "all",
+                    status: selectedFilter || "overall",
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -373,9 +413,9 @@ export default function AddAttendancePage() {
         try {
             const res = await axios.get(DashboardStudentsAttendance, {
                 params: {
-                    RollNumber: rollNumber,
-                    UserType: userType,
-                    Date: formattedDate,
+                    rollNumber: rollNumber,
+                    userType: userType,
+                    date: formattedDate,
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -390,6 +430,7 @@ export default function AddAttendancePage() {
     };
 
     const handleSaveAttendance = async () => {
+        if (!canCreate) return;
         setIsLoading(true);
         try {
             const res = await axios.post(
@@ -422,6 +463,7 @@ export default function AddAttendancePage() {
     };
 
     const handleUpdateAttendance = async () => {
+        if (!canEdit) return;
         setIsLoading(true);
         try {
             const res = await axios.put(
@@ -460,10 +502,23 @@ export default function AddAttendancePage() {
     };
 
     return (
-        <Box sx={{ backgroundColor: "#F6F6F8", height: "100%" }}>
+        <Box sx={{ backgroundColor: "#F6F6F8", overflow: "hidden", display: "flex", flexDirection: "column" }}>
             {isLoading && <Loader />}
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
-            <Box p={3}>
+            <Box sx={{
+                position: "fixed",
+                top: "60px",
+                left: isExpanded ? "479px" : "298px",
+                right: 0,
+                backgroundColor: "#f2f2f2",
+                px: 2,
+                pb: 0.5,
+                pt:0.5,
+                borderBottom: "1px solid #ddd",
+                borderTop: "1px solid #ddd",
+                zIndex: 1200,
+                transition: "left 0.3s ease-in-out",
+            }}>
                 <Grid container >
                     <Grid
                         size={{
@@ -492,7 +547,18 @@ export default function AddAttendancePage() {
                                     </Typography>
                                 </Box>
 
-                                <Box sx={{ display: "flex" }}>
+                                <Box sx={{ display: "inline-flex", ml: "34px", mt: "1px" }}>
+                                    <Box
+                                        ref={dateAnchorRef}
+                                        onClick={handleOpen}
+                                        sx={{ display: "inline-flex", alignItems: "center", cursor: "pointer" }}
+                                    >
+                                        <CalendarMonthIcon sx={{ fontSize: "18px", mr: "5px", color: "#555" }} />
+                                        <Typography sx={{ fontSize: "12px", color: "#777", borderBottom: "1px solid #000", lineHeight: 1.2 }}>
+                                            {dayjs(selectedDate).format('DD MMMM YYYY')}
+                                        </Typography>
+                                    </Box>
+
                                     <ThemeProvider theme={darkTheme}>
                                         <LocalizationProvider dateAdapter={AdapterDayjs}>
                                             <DatePicker
@@ -507,23 +573,16 @@ export default function AddAttendancePage() {
                                                 }}
                                                 disableFuture
                                                 views={['year', 'month', 'day']}
-                                                renderInput={() => null}
-                                                sx={{
-                                                    opacity: 0,
-                                                    pointerEvents: 'none',
-                                                    width: "10px",
-                                                    height: "10px",
-                                                    marginTop: "-30px",
+                                                slotProps={{
+                                                    textField: { sx: { display: "none" } },
+                                                    popper: {
+                                                        anchorEl: () => dateAnchorRef.current,
+                                                        placement: "bottom-start",
+                                                    },
                                                 }}
                                             />
                                         </LocalizationProvider>
                                     </ThemeProvider>
-                                    <Box onClick={handleOpen} sx={{ display: "flex", cursor: "pointer" }}>
-                                        <CalendarMonthIcon style={{ marginTop: "0px", fontSize: "20px", marginRight: "5px", textDecoration: "underline" }} />
-                                        <Typography style={{ fontSize: "12px", color: "#777", borderBottom: "1px solid #000" }}>
-                                            {dayjs(selectedDate).format('DD MMMM YYYY')}
-                                        </Typography>
-                                    </Box>
                                 </Box>
 
                             </Grid>
@@ -597,12 +656,23 @@ export default function AddAttendancePage() {
                                             {...props}
                                             style={{
                                                 ...props.style,
-                                                maxHeight: "150px",
                                                 backgroundColor: "#000",
                                                 color: "#fff",
                                             }}
                                         />
                                     )}
+                                    ListboxProps={{
+                                        sx: {
+                                            maxHeight: 200,
+                                            overflowY: "auto",
+                                            "&::-webkit-scrollbar": { width: "6px" },
+                                            "&::-webkit-scrollbar-thumb": {
+                                                backgroundColor: "rgba(255,255,255,0.3)",
+                                                borderRadius: "6px",
+                                            },
+                                            "&::-webkit-scrollbar-track": { backgroundColor: "transparent" },
+                                        },
+                                    }}
                                     renderOption={(props, option) => (
                                         <li {...props} className="classdropdownOptions">
                                             {option.sign}
@@ -663,12 +733,23 @@ export default function AddAttendancePage() {
                                             {...props}
                                             style={{
                                                 ...props.style,
-                                                maxHeight: "150px",
                                                 backgroundColor: "#000",
                                                 color: "#fff",
                                             }}
                                         />
                                     )}
+                                    ListboxProps={{
+                                        sx: {
+                                            maxHeight: 200,
+                                            overflowY: "auto",
+                                            "&::-webkit-scrollbar": { width: "6px" },
+                                            "&::-webkit-scrollbar-thumb": {
+                                                backgroundColor: "rgba(255,255,255,0.3)",
+                                                borderRadius: "6px",
+                                            },
+                                            "&::-webkit-scrollbar-track": { backgroundColor: "transparent" },
+                                        },
+                                    }}
                                     renderOption={(props, option) => (
                                         <li {...props} className="classdropdownOptions">
                                             {option.sectionName}
@@ -708,12 +789,23 @@ export default function AddAttendancePage() {
                                             {...props}
                                             style={{
                                                 ...props.style,
-                                                height: '150px',
                                                 backgroundColor: '#000',
                                                 color: '#fff',
                                             }}
                                         />
                                     )}
+                                    ListboxProps={{
+                                        sx: {
+                                            maxHeight: 200,
+                                            overflowY: "auto",
+                                            "&::-webkit-scrollbar": { width: "6px" },
+                                            "&::-webkit-scrollbar-thumb": {
+                                                backgroundColor: "rgba(255,255,255,0.3)",
+                                                borderRadius: "6px",
+                                            },
+                                            "&::-webkit-scrollbar-track": { backgroundColor: "transparent" },
+                                        },
+                                    }}
                                     renderOption={(props, option) => (
                                         <li
                                             {...props}
@@ -748,143 +840,157 @@ export default function AddAttendancePage() {
                                     lg: 2.4
                                 }}>
                                 <Button
-                                    variant="outlined"
                                     onClick={handleExport}
+                                    startIcon={<ExitToAppIcon sx={{ fontSize: "18px" }} />}
                                     sx={{
-                                        borderColor: "#A9A9A9",
-                                        backgroundColor: "#fff",
-                                        py: 0.3,
                                         width: "100%",
-                                        color: "#000",
+                                        py: 0.6,
+                                        borderRadius: "50px",
                                         textTransform: "none",
-                                        mb: 1
+                                        fontWeight: 600,
+                                        fontSize: "13px",
+                                        color: "#E25C2A",
+                                        backgroundColor: "#FDEDE6",
+                                        border: "1px solid #F6C9B5",
+                                        boxShadow: "none",
+                                        mb: 1,
+                                        "&:hover": {
+                                            backgroundColor: "#FBE0D3",
+                                            border: "1px solid #F0B79C",
+                                            boxShadow: "none",
+                                        },
                                     }}>
-                                    <ExitToAppIcon sx={{ fontSize: "20px" }} />
-                                    &nbsp;Export
+                                    Export
                                 </Button>
                             </Grid>
                             <Grid
                                 size={{
                                     lg: 2.4
                                 }}>
-                                <Button
-                                    variant="outlined"
-                                    sx={{
-                                        borderColor: "#A9A9A9",
-                                        backgroundColor: "#000",
-                                        py: 0.3,
-                                        width: "100%",
-                                        color: "#fff",
-                                        textTransform: "none",
-                                        border: "none",
-                                        mb: 1
-                                    }}
-                                    onClick={handleUploadClick}
-                                >
-                                    <AddIcon sx={{ fontSize: "20px" }} />
-                                    &nbsp;Upload
-                                </Button>
+                                {canModifyAttendance && (
+                                    <>
+                                        <Button
+                                            onClick={handleUploadClick}
+                                            startIcon={<AddIcon sx={{ fontSize: "18px" }} />}
+                                            sx={{
+                                                width: "100%",
+                                                py: 0.6,
+                                                borderRadius: "50px",
+                                                textTransform: "none",
+                                                fontWeight: 600,
+                                                fontSize: "13px",
+                                                color: "#fff",
+                                                backgroundColor: "#15233E",
+                                                boxShadow: "none",
+                                                mb: 1,
+                                                "&:hover": {
+                                                    backgroundColor: "#0F1A2E",
+                                                    boxShadow: "none",
+                                                },
+                                            }}
+                                        >
+                                            Upload
+                                        </Button>
 
-                                <input
-                                    type="file"
-                                    ref={fileInputRef}
-                                    onChange={handleFileChange}
-                                    style={{ display: "none" }}
-                                />
+                                        <input
+                                            type="file"
+                                            ref={fileInputRef}
+                                            onChange={handleFileChange}
+                                            style={{ display: "none" }}
+                                        />
+                                    </>
+                                )}
                             </Grid>
                         </Grid>
 
                     </Grid>
                 </Grid>
+            </Box>
 
+            <Box sx={{ pt: "78px", pb: 2, px: 2, flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
                 {/* <Box hidden={value !== 0}> */}
-                <Box sx={{}}>
-                    <Box sx={{ display: "flex" }}>
-                        <Grid container sx={{ width: "100%" }}>
-                            <Grid
-                                size={{
-                                    xs: 12,
-                                    sm: 12,
-                                    md: 5,
-                                    lg: 3
-                                }}>
-                                <Box sx={{ display: "flex", mt: 2.8 }}>
-                                    <Typography sx={{ fontSize: "12px", color: "#fff", backgroundColor: "#307EB9", padding: "0px 5px 0px 5px", borderRadius: "4px 0px 0px 0px", fontWeight: "600", }}>
-                                        {selectedGradeSign || "PREKG"} - {selectedSection}
-                                    </Typography>
-                                    {/* <Typography sx={{ fontSize: "12px", color: "#000", px: 1, }}>
-                                        Class Teacher - {attendanceData.classTeacher}
-                                    </Typography> */}
-                                </Box>
-                            </Grid>
-                            <Grid
-                                size={{
-                                    xs: 12,
-                                    sm: 12,
-                                    md: 5,
-                                    lg: 3
-                                }}>
-                            </Grid>
-                            <Grid
-                                sx={{ display: "flex", marginTop: "-5px", }}
-                                size={{
-                                    xs: 12,
-                                    sm: 12,
-                                    md: 5,
-                                    lg: 6
-                                }}>
-                                <Box sx={{ display: "flex", mt: 2.8, px: 2, width: "100%" }}>
-                                    {selectedSection?.toLowerCase() !== "all" && (
-                                        <Grid container sx={{ width: "100%" }}>
-                                            <Grid sx={{ display: "flex", justifyContent: "end" }} size={{
-                                                lg: 3
-                                            }}>
-                                                <Typography sx={{ fontSize: "14px", color: "#000", fontWeight: "600" }}>
-                                                    Present: {attendanceData.present}
-                                                </Typography>
-                                            </Grid>
-                                            <Grid sx={{ display: "flex", justifyContent: "end" }} size={{
-                                                lg: 3
-                                            }}>
-                                                <Typography sx={{ fontSize: "14px", color: "#000", fontWeight: "600" }}>
-                                                    Absent: {attendanceData.absent}
-                                                </Typography>
-                                            </Grid>
-                                            <Grid sx={{ display: "flex", justifyContent: "end" }} size={{
-                                                lg: 3
-                                            }}>
-                                                <Typography sx={{ fontSize: "14px", color: "#000", fontWeight: "600" }}>
-                                                    Leave: {attendanceData.leave}
-                                                </Typography>
-                                            </Grid>
-                                            <Grid sx={{ display: "flex", justifyContent: "end" }} size={{
-                                                lg: 3
-                                            }}>
-                                                <Typography sx={{ fontSize: "14px", color: "#000", fontWeight: "600" }}>
-                                                    Late: {attendanceData.late}
-                                                </Typography>
-                                            </Grid>
-                                        </Grid>
-                                    )}
-                                </Box>
-                            </Grid>
-
-                        </Grid>
+                <Box sx={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+                    <Box
+                        sx={{
+                            display: "flex",
+                            flexWrap: "wrap",
+                            alignItems: "center",
+                            justifyContent: "flex-end",
+                            gap: 1.5,
+                            mb: 1.5,
+                        }}
+                    >
+                        {selectedSection?.toLowerCase() !== "all" && (
+                            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+                                {[
+                                    { label: "Present", value: attendanceData.present, color: "#018535", bg: "#E7F6EE" },
+                                    { label: "Absent", value: attendanceData.absent, color: "#D84600", bg: "#FBEAE1" },
+                                    { label: "Leave", value: attendanceData.leave, color: "#9E35C7", bg: "#F5E9FB" },
+                                    { label: "Late", value: attendanceData.late, color: "#3D49D6", bg: "#E8EAFB" },
+                                    { label: "Half Day", value: attendanceData.halfday, color: "#D97706", bg: "#FEF3E2" },
+                                ].map((s) => (
+                                    <Box
+                                        key={s.label}
+                                        sx={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: 0.7,
+                                            backgroundColor: s.bg,
+                                            border: `1px solid ${s.color}22`,
+                                            borderRadius: "10px",
+                                            px: 1.2,
+                                            py: 0.5,
+                                        }}
+                                    >
+                                        <Box sx={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: s.color }} />
+                                        <Typography sx={{ fontSize: "12px", fontWeight: 600, color: "#475569" }}>
+                                            {s.label}
+                                        </Typography>
+                                        <Typography sx={{ fontSize: "13px", fontWeight: 800, color: s.color }}>
+                                            {s.value}
+                                        </Typography>
+                                    </Box>
+                                ))}
+                            </Box>
+                        )}
                     </Box>
-                    <Box sx={{ width: "100%", overflowX: "auto" }}>
+                    <Box sx={{ flex: 1, minHeight: 0, width: "100%", display: "flex" }}>
                         {attendanceDataLoading ? (
-                            <Box sx={{ height: "70vh" }}>
-                                <Typography
-                                    sx={{
-                                        textAlign: "center",
-                                        mt: 5,
-                                        mb: 5,
-                                        fontSize: "16px",
-                                        fontWeight: 500,
-                                        color: "#555",
-                                    }}
-                                >
+                            <Box
+                                sx={{
+                                    flex: 1,
+                                    width: "100%",
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    gap: 2,
+                                }}
+                            >
+                                <CircularProgress size={38} sx={{ color: "#307EB9" }} />
+                                <Typography sx={{ fontSize: "14px", fontWeight: 500, color: "#64748B" }}>
                                     Fetching attendance records, please wait...
+                                </Typography>
+                            </Box>
+
+                        ) : finalData.length === 0 ? (
+                            <Box
+                                sx={{
+                                    flex: 1,
+                                    width: "100%",
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    gap: 1,
+                                }}
+                            >
+                                <EventAvailableIcon sx={{ fontSize: 46, color: "#CBD5E1" }} />
+                                <Typography sx={{ fontSize: "15px", fontWeight: 600, color: "#475569" }}>
+                                    No students found
+                                </Typography>
+                                <Typography sx={{ fontSize: "12.5px", color: "#94A3B8" }}>
+                                    Try a different class, section or search term.
                                 </Typography>
                             </Box>
 
@@ -892,19 +998,30 @@ export default function AddAttendancePage() {
                             <TableContainer
                                 sx={{
                                     border: "1px solid #E8DDEA",
-                                    maxHeight: "74vh",
-                                    width: "77vw",
-                                    overflowY: "auto",
-
+                                    borderRadius: "14px",
+                                    flex: 1,
+                                    minHeight: 0,
+                                    width: "100%",
+                                    overflow: "auto",
+                                    boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
                                 }}
                             >
-                                <Table stickyHeader aria-label="attendance table" sx={{ minWidth: '100%' }}>
+                                <Table
+                                    stickyHeader
+                                    size="small"
+                                    aria-label="attendance table"
+                                    sx={{
+                                        minWidth: '100%',
+                                        "& .MuiTableCell-body": { py: 1 },
+                                        "& .MuiTableCell-head": { py: 1.2 },
+                                    }}
+                                >
                                     <TableHead>
                                         <TableRow>
-                                            <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#faf6fc" }}>
+                                            <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#F8F4FB", fontWeight: 700, fontSize: "12.5px", color: "#475569", textTransform: "uppercase", letterSpacing: "0.3px" }}>
                                                 S.No
                                             </TableCell>
-                                            <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#faf6fc" }}>
+                                            <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#F8F4FB", fontWeight: 700, fontSize: "12.5px", color: "#475569", textTransform: "uppercase", letterSpacing: "0.3px" }}>
                                                 Roll Number
                                             </TableCell>
                                             <TableCell
@@ -912,20 +1029,21 @@ export default function AddAttendancePage() {
                                                     borderRight: 1,
                                                     borderColor: "#E8DDEA",
                                                     textAlign: "center",
-                                                    backgroundColor: "#faf6fc",
-                                                    fontWeight: 600,
-                                                    fontSize: "14px",
-                                                    color: "#000",
+                                                    backgroundColor: "#F8F4FB",
+                                                    fontWeight: 700,
+                                                    fontSize: "12.5px",
+                                                    color: "#475569",
                                                 }}
                                             >
                                                 <Button
                                                     onClick={() => setSortByNameAsc((prev) => !prev)}
                                                     sx={{
                                                         gap: "4px",
-                                                        textTransform: "none",
-                                                        color: "#000",
-                                                        fontWeight: 600,
-                                                        fontSize: "14px",
+                                                        textTransform: "uppercase",
+                                                        letterSpacing: "0.3px",
+                                                        color: "#475569",
+                                                        fontWeight: 700,
+                                                        fontSize: "12.5px",
                                                         minWidth: "auto",
                                                         padding: 0,
                                                         "&:hover": {
@@ -955,39 +1073,43 @@ export default function AddAttendancePage() {
                                                 </Button>
                                             </TableCell>
 
-                                            <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#faf6fc" }}>
+                                            <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#F8F4FB", fontWeight: 700, fontSize: "12.5px", color: "#475569", textTransform: "uppercase", letterSpacing: "0.3px" }}>
                                                 Class
                                             </TableCell>
-                                            <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#faf6fc" }}>
-                                                Student Picture
+                                            <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#F8F4FB", fontWeight: 700, fontSize: "12.5px", color: "#475569", textTransform: "uppercase", letterSpacing: "0.3px" }}>
+                                                Profile
                                             </TableCell>
-                                            <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#faf6fc" }}>
+                                            <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#F8F4FB", fontWeight: 700, fontSize: "12.5px", color: "#475569", textTransform: "uppercase", letterSpacing: "0.3px" }}>
                                                 Attendance Action
                                             </TableCell>
-                                            <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#faf6fc" }}>
+                                            <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#F8F4FB", fontWeight: 700, fontSize: "12.5px", color: "#475569", textTransform: "uppercase", letterSpacing: "0.3px" }}>
                                                 Current Status
                                             </TableCell>
-                                            <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#faf6fc" }}>
+                                            <TableCell sx={{ textAlign: "center", backgroundColor: "#F8F4FB", fontWeight: 700, fontSize: "12.5px", color: "#475569", textTransform: "uppercase", letterSpacing: "0.3px" }}>
                                                 Attendance%
-                                            </TableCell>
-                                            <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#faf6fc" }}>
-                                                Student History
                                             </TableCell>
                                         </TableRow>
                                     </TableHead>
                                     <TableBody>
                                         {finalData.map((row, index) => (
-                                            <TableRow key={row.rollNumber}>
-                                                <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center" }}>
+                                            <TableRow
+                                                key={row.rollNumber}
+                                                sx={{
+                                                    backgroundColor: index % 2 === 0 ? "#fff" : "#FBFAFC",
+                                                    transition: "background-color 0.15s",
+                                                    "&:hover": { backgroundColor: "#F3F0FA" },
+                                                }}
+                                            >
+                                                <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", fontSize: "13px", color: "#64748B" }}>
                                                     {index + 1}
                                                 </TableCell>
-                                                <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center" }}>
+                                                <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", fontSize: "13px", fontWeight: 600, color: "#334155" }}>
                                                     {row.rollNumber}
                                                 </TableCell>
-                                                <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center" }}>
+                                                <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", fontSize: "13.5px", fontWeight: 600, color: "#1E293B" }}>
                                                     {row.studentName}
                                                 </TableCell>
-                                                <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", }}>{row.grade} - {row.section}</TableCell>
+                                                <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", fontSize: "13px", color: "#475569" }}>{row.grade} - {row.section}</TableCell>
                                                 <TableCell
                                                     sx={{
                                                         borderRight: 1,
@@ -995,17 +1117,25 @@ export default function AddAttendancePage() {
                                                         textAlign: "center",
                                                     }}
                                                 >
-                                                    <Button
-                                                        sx={{ color: "#000", textTransform: "none" }}
-                                                        onClick={() => handleViewClick(row.studentPicture)}
-                                                    >
-                                                        <ImageIcon sx={{ color: "#000", marginRight: 1 }} />
-                                                        View
-                                                    </Button>
+                                                    <Tooltip title="View picture" arrow>
+                                                        <Avatar
+                                                            src={row.studentPicture}
+                                                            onClick={() => handleViewClick(row.studentPicture)}
+                                                            sx={{
+                                                                width: 38,
+                                                                height: 38,
+                                                                margin: "0 auto",
+                                                                cursor: "pointer",
+                                                                border: "2px solid #E2E8F0",
+                                                                transition: "0.2s",
+                                                                "&:hover": { borderColor: "#307EB9", transform: "scale(1.05)" },
+                                                            }}
+                                                        />
+                                                    </Tooltip>
                                                 </TableCell>
 
-                                                <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", pl: 1, py: 0, pr: 0, width: "180px" }}>
-                                                    <FormControl>
+                                                <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", pl: 1, py: 0.5, pr: 0.5, width: "210px" }}>
+                                                    <FormControl sx={{ width: "100%" }}>
                                                         <RadioGroup
                                                             value={selectedActions[row.rollNumber] ||
                                                                 (row.attendanceAction?.toLowerCase() === "no data" ? "present" : row.attendanceAction?.toLowerCase())}
@@ -1022,24 +1152,90 @@ export default function AddAttendancePage() {
                                                                             value={status}
                                                                             control={
                                                                                 <Radio
+                                                                                    size="small"
+                                                                                    disabled={!canModifyAttendance}
                                                                                     sx={{
-                                                                                        transform: "scale(0.8)",
-                                                                                        marginRight: "-10px",
+                                                                                        p: "3px",
+                                                                                        ml: "4px",
                                                                                         color: "#777",
                                                                                         "&.Mui-checked": {
                                                                                             color: getColor(status),
                                                                                         },
-                                                                                        ...(index === 1 && { marginLeft: "0px" }),
                                                                                     }}
                                                                                 />
                                                                             }
                                                                             label={status.charAt(0).toUpperCase() + status.slice(1)}
-                                                                            sx={{ marginRight: "0", "& .MuiTypography-root": { fontSize: "14px" } }}
+                                                                            sx={{ marginRight: "0", my: 0, "& .MuiTypography-root": { fontSize: "13px" } }}
                                                                         />
                                                                     </Grid>
                                                                 ))}
+                                                                <Grid size={{ lg: 12 }}>
+                                                                    <FormControlLabel
+                                                                        value="halfday"
+                                                                        control={
+                                                                            <Radio
+                                                                                size="small"
+                                                                                disabled={!canModifyAttendance}
+                                                                                sx={{
+                                                                                    p: "3px",
+                                                                                    ml: "4px",
+                                                                                    color: "#777",
+                                                                                    "&.Mui-checked": { color: getColor("halfday") },
+                                                                                }}
+                                                                            />
+                                                                        }
+                                                                        label="Half Day"
+                                                                        sx={{ marginRight: "0", my: 0, "& .MuiTypography-root": { fontSize: "13px" } }}
+                                                                    />
+                                                                </Grid>
                                                             </Grid>
                                                         </RadioGroup>
+
+                                                        {selectedActions[row.rollNumber] === "halfday" && (() => {
+                                                            const cfg = getHalfConfig(row.rollNumber);
+                                                            return (
+                                                                <Box
+                                                                    sx={{
+                                                                        mt: 0.5,
+                                                                        p: 0.8,
+                                                                        borderRadius: "8px",
+                                                                        backgroundColor: "#FFF7ED",
+                                                                        border: "1px solid #FED7AA",
+                                                                    }}
+                                                                >
+                                                                    <Typography sx={{ fontSize: "10px", fontWeight: 700, color: "#9A3412", mb: 0.4 }}>
+                                                                        Which Half
+                                                                    </Typography>
+                                                                    <Box sx={{ display: "flex", gap: 0.5, mb: 0.7 }}>
+                                                                        {[
+                                                                            { key: "first", label: "1st Half" },
+                                                                            { key: "second", label: "2nd Half" },
+                                                                        ].map((h) => (
+                                                                            <Box
+                                                                                key={h.key}
+                                                                                onClick={() => updateHalfDay(row.rollNumber, "half", h.key)}
+                                                                                sx={{
+                                                                                    flex: 1,
+                                                                                    textAlign: "center",
+                                                                                    cursor: "pointer",
+                                                                                    fontSize: "10.5px",
+                                                                                    fontWeight: 700,
+                                                                                    py: 0.4,
+                                                                                    borderRadius: "20px",
+                                                                                    border: "1px solid",
+                                                                                    borderColor: cfg.half === h.key ? "#D97706" : "#E5E7EB",
+                                                                                    backgroundColor: cfg.half === h.key ? "#D97706" : "#fff",
+                                                                                    color: cfg.half === h.key ? "#fff" : "#6B7280",
+                                                                                    transition: "0.2s",
+                                                                                }}
+                                                                            >
+                                                                                {h.label}
+                                                                            </Box>
+                                                                        ))}
+                                                                    </Box>
+                                                                </Box>
+                                                            );
+                                                        })()}
                                                     </FormControl>
                                                 </TableCell>
 
@@ -1052,6 +1248,10 @@ export default function AddAttendancePage() {
                                                 >
                                                     <Box
                                                         sx={{
+                                                            display: "inline-flex",
+                                                            alignItems: "center",
+                                                            justifyContent: "center",
+                                                            minWidth: "78px",
                                                             backgroundColor: (() => {
                                                                 const value =
                                                                     selectedActions[row.rollNumber] ||
@@ -1065,21 +1265,33 @@ export default function AddAttendancePage() {
                                                                         return "#9E35C7";
                                                                     case "late":
                                                                         return "#3D49D6";
+                                                                    case "halfday":
+                                                                        return "#D97706";
                                                                     default:
                                                                         return "#ccc";
                                                                 }
                                                             })(),
                                                             color: "#fff",
+                                                            fontSize: "12px",
+                                                            fontWeight: 700,
                                                             borderRadius: "30px",
-                                                            px: 1,
+                                                            px: 1.5,
                                                             py: 0.5,
                                                         }}
                                                     >
-                                                        {capitalizeFirstLetter(
-                                                            selectedActions[row.rollNumber] ||
-                                                            (row.attendanceAction?.toLowerCase() === "no data" ? "Present" : row.attendanceAction)
-                                                        )}
+                                                        {(selectedActions[row.rollNumber] ||
+                                                            (row.attendanceAction?.toLowerCase() === "no data" ? "present" : row.attendanceAction))?.toLowerCase() === "halfday"
+                                                            ? "Half Day"
+                                                            : capitalizeFirstLetter(
+                                                                selectedActions[row.rollNumber] ||
+                                                                (row.attendanceAction?.toLowerCase() === "no data" ? "Present" : row.attendanceAction)
+                                                            )}
                                                     </Box>
+                                                    {selectedActions[row.rollNumber] === "halfday" && (
+                                                        <Typography sx={{ fontSize: "10.5px", color: "#9A3412", fontWeight: 600, mt: 0.4 }}>
+                                                            {halfDayLabel(getHalfConfig(row.rollNumber))}
+                                                        </Typography>
+                                                    )}
                                                     {leaveRollSet.has(String(row.rollNumber)) && (
                                                         <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0.3, mt: 0.5 }}>
                                                             <CheckCircleIcon sx={{ fontSize: 13, color: "#16A34A" }} />
@@ -1109,17 +1321,20 @@ export default function AddAttendancePage() {
                                             </Box>
                                         </TableCell> */}
 
-                                                <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", }}>{row.attendancePercent}%</TableCell>
-                                                <TableCell
-                                                    sx={{
-                                                        borderRight: 1,
-                                                        borderColor: "#E8DDEA",
-                                                        textAlign: "center",
-                                                    }}
-                                                >
-                                                    <Button sx={{ color: "#000", textTransform: "none" }}>
-                                                        View Details
-                                                    </Button>
+                                                <TableCell sx={{ textAlign: "center" }}>
+                                                    <Typography
+                                                        component="span"
+                                                        sx={{
+                                                            fontSize: "13px",
+                                                            fontWeight: 700,
+                                                            color:
+                                                                Number(row.attendancePercent) >= 75 ? "#018535" :
+                                                                    Number(row.attendancePercent) >= 50 ? "#D97706" :
+                                                                        "#D84600",
+                                                        }}
+                                                    >
+                                                        {row.attendancePercent}%
+                                                    </Typography>
                                                 </TableCell>
                                             </TableRow>
                                         ))}
@@ -1132,8 +1347,8 @@ export default function AddAttendancePage() {
                 </Box>
 
                 {dayjs().isSame(selectedDate, 'day') && selectedSection?.toLowerCase() !== "all" && (
-                    <Box sx={{ display: "flex", justifyContent: "center" }}>
-                        {allData.isAttendanceAdded === "N" &&
+                    <Box sx={{ display: "flex", justifyContent: "center", gap: 1.5, mt: 2.5 }}>
+                        {canMarkNew &&
                             <Button
                                 onClick={handleSaveAttendance}
                                 variant="contained"
@@ -1143,18 +1358,16 @@ export default function AddAttendancePage() {
                                     color: websiteSettings.textColor,
                                     fontWeight: '600',
                                     borderRadius: '50px',
-                                    paddingTop: '0px',
-                                    paddingBottom: '0px',
-                                    px: 3,
-                                    boxShadow: "none",
-                                    mt: 2
+                                    py: 0.7,
+                                    px: 4,
+                                    boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
                                 }}
                             >
-                                Save
+                                Save Attendance
                             </Button>
                         }
 
-                        {allData.isUpdateAvailable === "Y" &&
+                        {canMarkUpdate &&
                             <Button
                                 onClick={handleUpdateAttendance}
                                 variant="contained"
@@ -1164,18 +1377,15 @@ export default function AddAttendancePage() {
                                     color: websiteSettings.textColor,
                                     fontWeight: '600',
                                     borderRadius: '50px',
-                                    paddingTop: '0px',
-                                    paddingBottom: '0px',
-                                    px: 3,
-                                    boxShadow: "none",
-                                    mt: 2
+                                    py: 0.7,
+                                    px: 4,
+                                    boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
                                 }}
                             >
-                                Update
-
+                                Update Attendance
                             </Button>
                         }
-                        {(allData.isAttendanceAdded === "N" || allData.isUpdateAvailable === "Y") &&
+                        {canModifyAttendance &&
 
                             <Button
                                 variant="outlined"
@@ -1183,16 +1393,14 @@ export default function AddAttendancePage() {
                                 sx={{
                                     backgroundColor: '#fff',
                                     textTransform: 'none',
-                                    color: '#000',
+                                    color: '#334155',
                                     fontWeight: '600',
                                     borderRadius: '50px',
-                                    paddingTop: '0px',
-                                    paddingBottom: '0px',
-                                    borderColor: "black",
-                                    px: 3,
+                                    py: 0.7,
+                                    px: 4,
+                                    borderColor: "#CBD5E1",
                                     boxShadow: "none",
-                                    ml: 2,
-                                    mt: 2
+                                    "&:hover": { borderColor: "#94A3B8", backgroundColor: "#F8FAFC" },
                                 }}
                             >
                                 Cancel

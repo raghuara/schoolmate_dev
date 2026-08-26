@@ -18,6 +18,7 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
+import { findSubMenuPermissions } from '../../Redux/Slices/AuthSlice';
 import axios from 'axios';
 import { selectGrades, selectGradesLoading, fetchGradesData } from '../../Redux/Slices/DropdownController';
 import {
@@ -60,10 +61,15 @@ export default function StudentPromotionPage() {
     const grades = useSelector(selectGrades) || [];
     const isLoadingGrades = useSelector(selectGradesLoading);
     const authUser = useSelector(state => state.auth);
+    // Promoting students and re-routing ones already promoted are separate grants.
+    const rbacReady = (authUser?.permissions?.mainMenus || []).length > 0;
+    const promoPerms = findSubMenuPermissions(authUser?.permissions, "accesscontrol", "studentpromotion") || {};
+    const canPromote = !rbacReady || promoPerms.allowstudentpromotion === "Y";
+    const canEditPromoted = !rbacReady || promoPerms.alloweditpromotedstudents === "Y";
     const promotedByRollNumber = authUser?.rollNumber || '';
 
     // 'promote' = move not-yet-promoted students; 'edit' = re-route already-promoted students
-    const [mode, setMode] = useState('promote');
+    const [mode, setMode] = useState(canPromote ? 'promote' : 'edit');
     const isEditMode = mode === 'edit';
     const T = isEditMode ? EDIT_THEME : PROMOTE_THEME;
 
@@ -365,6 +371,8 @@ export default function StudentPromotionPage() {
 
     const handleModeChange = (next) => {
         if (next === mode) return;
+        if (next === 'promote' && !canPromote) return;
+        if (next === 'edit' && !canEditPromoted) return;
         setMode(next);
         setSrcClassId(''); setSrcSection('');
         setPickClassId(''); setPickSection('');
@@ -472,9 +480,9 @@ export default function StudentPromotionPage() {
                         boxShadow: `0 1px 2px ${T.main}1A`,
                     }}>
                         {[
-                            { key: 'promote', label: 'Promote New', tone: PROMOTE_THEME },
-                            { key: 'edit',    label: 'Edit Promoted', tone: EDIT_THEME },
-                        ].map(opt => {
+                            { key: 'promote', label: 'Promote New', tone: PROMOTE_THEME, show: canPromote },
+                            { key: 'edit',    label: 'Edit Promoted', tone: EDIT_THEME, show: canEditPromoted },
+                        ].filter(opt => opt.show).map(opt => {
                             const active = mode === opt.key;
                             return (
                                 <Tooltip

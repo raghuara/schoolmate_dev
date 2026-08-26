@@ -9,6 +9,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { selectGrades } from '../../../../Redux/Slices/DropdownController';
 import { selectWebsiteSettings } from '../../../../Redux/Slices/websiteSettingsSlice';
 import { selectAcademicYear } from '../../../../Redux/Slices/academicYearSlice';
+import { findSubMenuPermissions } from '../../../../Redux/Slices/AuthSlice';
 import avatarImage from '../../../../Images/PagesImage/avatar.png';
 import ClearIcon from '@mui/icons-material/Clear';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
@@ -98,6 +99,11 @@ export default function BillingScreen() {
 
   // Academic year is set globally in the dashboard header (Redux)
   const selectedYear = useSelector(selectAcademicYear);
+  // Granting a concession is a separate right from taking a payment.
+  const auth = useSelector((state) => state.auth);
+  const rbacReady = (auth.permissions?.mainMenus || []).length > 0;
+  const canConcession = !rbacReady
+    || findSubMenuPermissions(auth.permissions, "feeandfinance", "billingscreen")?.allowconcession === "Y";
 
   const [counts, setCounts] = useState(
     notesList.reduce((acc, n) => ({ ...acc, [n]: 0 }), {})
@@ -324,9 +330,18 @@ export default function BillingScreen() {
     setPaymentSuccess(false);
   };
 
+  // A fee can be paid only when it has a pending amount AND no payment request is
+  // awaiting approval. "Pending" approval blocks re-payment; "Rejected"/"Approved"/none
+  // allow paying whatever is still pending.
+  const isRowPayable = (row) => {
+    const appr = String(row?.paymentApprovalStatus || '').toLowerCase();
+    if (appr === 'pending') return false;
+    return (Number(row?.pendingAmount) || 0) > 0;
+  };
+
   const handleSelect = (index) => {
     const currentFeeData = getCurrentFeeData();
-    if (currentFeeData[index]?.pendingAmount === 0) return;
+    if (!isRowPayable(currentFeeData[index])) return;
     setSelectedRows((prev) =>
       prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index]
     );
@@ -818,8 +833,8 @@ export default function BillingScreen() {
 
       const requestConfig = {
         params: {
-          RollNumber: rollNumber,
-          Year: selectedYear
+          rollNumber: rollNumber,
+          year: selectedYear
         },
         headers: {
           Authorization: `Bearer ${token}`,
@@ -832,7 +847,7 @@ export default function BillingScreen() {
       const formData = new FormData();
       formData.append('request', JSON.stringify(payload));
       if (selectedPaymentMethod === 'upi' && upiProofFile) {
-        formData.append('UPIProofFile', upiProofFile);
+        formData.append('upiProofFile', upiProofFile);
       }
       const requestBody = formData;
       // Content-Type (with multipart boundary) is set automatically by the browser
@@ -1250,8 +1265,8 @@ export default function BillingScreen() {
     try {
       const res = await axios.get(findStudentSchoolFeesBilling, {
         params: {
-          RollNumber: rollNumber,
-          Year: selectedYear
+          rollNumber: rollNumber,
+          year: selectedYear
         },
         headers: {
           Authorization: `Bearer ${token}`,
@@ -1273,8 +1288,8 @@ export default function BillingScreen() {
     try {
       const res = await axios.get(findStudentEcaFeesBilling, {
         params: {
-          RollNumber: rollNumber,
-          Year: selectedYear
+          rollNumber: rollNumber,
+          year: selectedYear
         },
         headers: {
           Authorization: `Bearer ${token}`,
@@ -1295,8 +1310,8 @@ export default function BillingScreen() {
     try {
       const res = await axios.get(findStudentTransportFeesBilling, {
         params: {
-          RollNumber: rollNumber,
-          Year: selectedYear
+          rollNumber: rollNumber,
+          year: selectedYear
         },
         headers: {
           Authorization: `Bearer ${token}`
@@ -1333,8 +1348,8 @@ export default function BillingScreen() {
     try {
       const res = await axios.get(findStudentAdditionalFeesBilling, {
         params: {
-          RollNumber: rollNumber,
-          Year: selectedYear
+          rollNumber: rollNumber,
+          year: selectedYear
         },
         headers: {
           Authorization: `Bearer ${token}`,
@@ -1367,6 +1382,7 @@ export default function BillingScreen() {
 
           <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }} sx={{ display: "flex", alignItems: "center", justifyContent: 'end' }}>
             <Box sx={{ display: "flex", alignItems: "center", }}>
+              {canConcession && (
               <Button
                 onClick={() => navigate('/dashboardmenu/fee/special', {
                   state: {
@@ -1390,6 +1406,7 @@ export default function BillingScreen() {
                   height: "33px"
                 }}
               >Special Concession / Reconcession</Button>
+              )}
             </Box>
           </Grid>
         </Grid>
@@ -1800,6 +1817,33 @@ export default function BillingScreen() {
           
        
 
+          {(() => {
+            const fees = getCurrentFeeData() || [];
+            const inReview = fees.filter((f) => String(f.paymentApprovalStatus || '').toLowerCase() === 'pending').length;
+            const rejected = fees.filter((f) => String(f.paymentApprovalStatus || '').toLowerCase() === 'rejected').length;
+            if (!inReview && !rejected) return null;
+            return (
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 1.5 }}>
+                {inReview > 0 && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 1, borderRadius: '8px', backgroundColor: '#FEF3C7', border: '1px solid #FCD34D' }}>
+                    <Typography sx={{ fontSize: 16 }}>⏳</Typography>
+                    <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#92400E' }}>
+                      {inReview} payment{inReview > 1 ? 's' : ''} in review — awaiting accounts team approval. These can't be paid until approved.
+                    </Typography>
+                  </Box>
+                )}
+                {rejected > 0 && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 1, borderRadius: '8px', backgroundColor: '#FEE2E2', border: '1px solid #FCA5A5' }}>
+                    <Typography sx={{ fontSize: 16 }}>⚠️</Typography>
+                    <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#991B1B' }}>
+                      {rejected} payment{rejected > 1 ? 's' : ''} rejected — please review and submit again.
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+            );
+          })()}
+
           <TableContainer
             sx={{
               border: "1px solid #E601542A",
@@ -1875,10 +1919,10 @@ export default function BillingScreen() {
                         key={rowIndex}
                         onClick={() => handleSelect(rowIndex)}
                         sx={{
-                          cursor: row.pendingAmount === 0 ? "default" : "pointer",
+                          cursor: !isRowPayable(row) ? "default" : "pointer",
                           backgroundColor: isSelected ? "#FFF7F7" : "transparent",
                           "&:hover": {
-                            backgroundColor: row.pendingAmount === 0 ? "transparent" : isSelected ? "#ff00001A" : "#fafafa",
+                            backgroundColor: !isRowPayable(row) ? "transparent" : isSelected ? "#ff00001A" : "#fafafa",
                           },
                           transition: "background-color 0.2s ease",
                         }}
@@ -1902,7 +1946,7 @@ export default function BillingScreen() {
                             <Checkbox
                               size="small"
                               checked={isSelected}
-                              disabled={row.pendingAmount === 0}
+                              disabled={!isRowPayable(row)}
                               onChange={() => handleSelect(rowIndex)}
                               color="secondary"
                               sx={{
@@ -1983,37 +2027,62 @@ export default function BillingScreen() {
                         >
                           {(() => {
                             const status = row.status?.toLowerCase();
+                            const appr = String(row.paymentApprovalStatus || '').toLowerCase();
+                            const pending = Number(row.pendingAmount) || 0;
                             let statusConfig = {
                               text: 'Unknown',
                               color: '#64748b',
                               bgColor: '#f1f5f9',
-                              icon: '❓'
+                              icon: '❓',
+                              tooltip: '',
                             };
 
-                            if (status === 'paid') {
+                            if (appr === 'pending') {
+                              statusConfig = {
+                                text: 'In Review',
+                                color: '#f59e0b',
+                                bgColor: '#fef3c7',
+                                icon: '⏳',
+                                tooltip: 'Payment sent for approval to the accounts team. Once approved, the status will update here.',
+                              };
+                            } else if (appr === 'rejected') {
+                              const reason = row.rejectionReason || row.approvalRemarks || row.paymentApprovalRemarks || row.rejectedReason || '';
+                              statusConfig = {
+                                text: 'Rejected',
+                                color: '#ef4444',
+                                bgColor: '#fee2e2',
+                                icon: '⚠️',
+                                tooltip: reason
+                                  ? `Rejected: ${reason} — please review and submit the payment again.`
+                                  : 'Your last payment request was rejected. Please review and submit the payment again.',
+                              };
+                            } else if (status === 'paid' || pending === 0) {
                               statusConfig = {
                                 text: 'Paid',
                                 color: '#10b981',
                                 bgColor: '#d1fae5',
-                                icon: '✓'
-                              };
-                            } else if (status === 'notpaid') {
-                              statusConfig = {
-                                text: 'Not Paid',
-                                color: '#ef4444',
-                                bgColor: '#fee2e2',
-                                icon: '✗'
+                                icon: '✓',
+                                tooltip: '',
                               };
                             } else if (status === 'partiallypaid') {
                               statusConfig = {
                                 text: 'Partially Paid',
                                 color: '#f59e0b',
                                 bgColor: '#fef3c7',
-                                icon: '◐'
+                                icon: '◐',
+                                tooltip: '',
+                              };
+                            } else if (status === 'notpaid') {
+                              statusConfig = {
+                                text: 'Not Paid',
+                                color: '#ef4444',
+                                bgColor: '#fee2e2',
+                                icon: '✗',
+                                tooltip: '',
                               };
                             }
 
-                            return (
+                            const chip = (
                               <Box
                                 sx={{
                                   display: "inline-flex",
@@ -2024,6 +2093,7 @@ export default function BillingScreen() {
                                   borderRadius: "6px",
                                   backgroundColor: statusConfig.bgColor,
                                   border: `1px solid ${statusConfig.color}30`,
+                                  cursor: statusConfig.tooltip ? 'help' : 'default',
                                 }}
                               >
                                 <Typography sx={{ fontSize: "14px" }}>
@@ -2040,6 +2110,10 @@ export default function BillingScreen() {
                                 </Typography>
                               </Box>
                             );
+
+                            return statusConfig.tooltip
+                              ? <Tooltip title={statusConfig.tooltip} arrow>{chip}</Tooltip>
+                              : chip;
                           })()}
                         </TableCell>
 
@@ -2076,7 +2150,7 @@ export default function BillingScreen() {
                             type="number"
                             value={toPayAmounts[rowIndex] || 0}
                             onChange={(e) => handleToPayChange(rowIndex, e.target.value)}
-                            disabled={!isSelected || row.pendingAmount === 0}
+                            disabled={!isSelected || !isRowPayable(row)}
                             inputProps={{
                               min: 0,
                               max: row.pendingAmount,

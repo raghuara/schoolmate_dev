@@ -22,6 +22,7 @@ import AddIcon from '@mui/icons-material/Add';
 import ImageIcon from '@mui/icons-material/Image';
 import SnackBar from "../../SnackBar";
 import { selectGrades } from "../../../Redux/Slices/DropdownController";
+import { findSubMenuPermissions } from "../../../Redux/Slices/AuthSlice";
 import avatarImage from '../../../Images/PagesImage/avatar.png'
 
 export default function StaffPage() {
@@ -31,8 +32,11 @@ export default function StaffPage() {
     const token = '123';
     const user = useSelector((state) => state.auth);
     const rollNumber = user.rollNumber
-    const userType = user.userType
     const userName = user.name
+    const staffPerms = findSubMenuPermissions(user.permissions, "profilemanagement", "staffmanagement") || {};
+    const canView = staffPerms.view === "Y";
+    const canCreate = staffPerms.create === "Y";
+    const canEdit = staffPerms.edit === "Y";
     const [isLoading, setIsLoading] = useState(false);
     const [openImage, setOpenImage] = useState(false);
     const [imageUrl, setImageUrl] = useState('');
@@ -166,23 +170,25 @@ export default function StaffPage() {
                         }}
                         sx={{ display: "flex", justifyContent: "end", alignItems: "center", pr: 5 }}
                     >
-                        <Button
-                            variant="outlined"
-                            sx={{
-                                borderColor: "#A9A9A9",
-                                backgroundColor: "#000",
-                                py: 0.3,
-                                width: "200px",
-                                color: "#fff",
-                                textTransform: "none",
-                                border: "none",
+                        {canCreate && (
+                            <Button
+                                variant="outlined"
+                                sx={{
+                                    borderColor: "#A9A9A9",
+                                    backgroundColor: "#000",
+                                    py: 0.3,
+                                    width: "200px",
+                                    color: "#fff",
+                                    textTransform: "none",
+                                    border: "none",
 
-                            }}
-                            onClick={handleAddStaff}
-                        >
-                            <AddIcon sx={{ fontSize: "20px" }} />
-                            &nbsp;Add Staff details
-                        </Button>
+                                }}
+                                onClick={handleAddStaff}
+                            >
+                                <AddIcon sx={{ fontSize: "20px" }} />
+                                &nbsp;Add Staff details
+                            </Button>
+                        )}
                     </Grid>
                 </Grid>
             </Box>
@@ -235,6 +241,7 @@ export default function StaffPage() {
 
                         </Grid>
                     </Box>
+                    {canView ? (
                     <TableContainer
                         sx={{
                             border: "1px solid #E8DDEA",
@@ -301,9 +308,11 @@ export default function StaffPage() {
                                             </Button>
                                         </TableCell>
                                         <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center" }}>
-                                            <Button onClick={() => handleViewInfo(row.rollNumber)} sx={{ color: "#000", textTransform: "none" }}>
-                                                View Info
-                                            </Button>
+                                            {(canView || canEdit) && (
+                                                <Button onClick={() => handleViewInfo(row.rollNumber)} sx={{ color: "#000", textTransform: "none" }}>
+                                                    View Info
+                                                </Button>
+                                            )}
                                         </TableCell>
                                     </TableRow>
                                 ))}
@@ -311,6 +320,13 @@ export default function StaffPage() {
                         </Table>
                         <Box sx={{ height: '50px' }}></Box>
                     </TableContainer>
+                    ) : (
+                        <Box sx={{ mt: 4, textAlign: "center" }}>
+                            <Typography sx={{ fontSize: "14px", color: "#888" }}>
+                                You don't have permission to view staff records.
+                            </Typography>
+                        </Box>
+                    )}
                 </Box>
                 <Dialog
                     open={openImage}

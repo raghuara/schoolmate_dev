@@ -11,6 +11,10 @@ import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { selectGrades } from '../../Redux/Slices/DropdownController';
 import { selectWebsiteSettings } from '../../Redux/Slices/websiteSettingsSlice';
+import { findSubMenuPermissions } from '../../Redux/Slices/AuthSlice';
+import { ContactCardSkeleton } from '../InnerLoader';
+import RestartAltIcon from '@mui/icons-material/RestartAlt';
+import ClassOutlinedIcon from '@mui/icons-material/ClassOutlined';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import PersonAddAlt1Icon from '@mui/icons-material/PersonAddAlt1';
 import ContactPhoneIcon from '@mui/icons-material/ContactPhone';
@@ -35,6 +39,11 @@ export default function ContactDetails() {
     const websiteSettings = useSelector(selectWebsiteSettings);
     const academicYear = useSelector(selectAcademicYear);
     const authRollNumber = useSelector((state) => state?.auth?.rollNumber || '');
+    const user = useSelector((state) => state.auth);
+    const contactPerms = findSubMenuPermissions(user.permissions, "communication", "contactdetails") || {};
+    const canCreate = contactPerms.create === "Y";
+    const canEdit = contactPerms.edit === "Y";
+    const canDelete = contactPerms.delete === "Y";
     const mainColor = websiteSettings?.mainColor || '#E30053';
     const textColor = websiteSettings?.textColor || '#fff';
 
@@ -85,9 +94,9 @@ export default function ContactDetails() {
         try {
             const res = await axios.get(getContactDetails, {
                 params: {
-                    AcademicYear: academicYear,
-                    GradeID: filterGradeId || 0,
-                    Section: filterSection || 'All Sections',
+                    academicYear: academicYear,
+                    gradeID: filterGradeId || 0,
+                    section: filterSection || 'All Sections',
                 },
                 headers: { Authorization: `Bearer ${TOKEN}` },
             });
@@ -143,8 +152,8 @@ export default function ContactDetails() {
         try {
             await axios.delete(deleteContactDetailsById, {
                 params: {
-                    ContactHeaderID: deleteTarget.contactHeaderID,
-                    DeletedByRollNumber: authRollNumber,
+                    contactHeaderID: deleteTarget.contactHeaderID,
+                    deletedByRollNumber: authRollNumber,
                 },
                 headers: { Authorization: `Bearer ${TOKEN}` },
             });
@@ -288,71 +297,144 @@ export default function ContactDetails() {
     };
 
     return (
-        <Box sx={{ border: '1px solid #ccc', borderRadius: '20px', p: 2, height: '86vh', display: 'flex', flexDirection: 'column' }}>
-            {/* Header */}
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <IconButton onClick={() => navigate(-1)} sx={{ width: 28, height: 28 }}>
-                        <ArrowBackIcon sx={{ fontSize: 20, color: '#000' }} />
-                    </IconButton>
-                    <Box sx={{ width: 32, height: 32, borderRadius: '8px', bgcolor: `${mainColor}1A`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <ContactPhoneIcon sx={{ fontSize: 18, color: mainColor }} />
-                    </Box>
-                    <Box>
-                        <Typography sx={{ fontWeight: 700, fontSize: '18px', color: '#111827', lineHeight: 1.1 }}>Contact Details</Typography>
-                        <Typography sx={{ fontSize: '11px', color: '#6B7280', mt: 0.2 }}>Important school contacts by class & section</Typography>
-                    </Box>
-                </Box>
+        <Box sx={{ width: '100%' }}>
+            {/* Header — the shared Communication bar */}
+            <Box sx={{ backgroundColor: "#f2f2f2", px: 2, borderRadius: "10px 10px 10px 0px", borderBottom: "1px solid #ddd", mb: 0.13, py: 1,}}>
+                <Grid container alignItems="center">
+                    <Grid size={{ xs: 12, sm: 12, md: 5, lg: 5 }} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {/* negative margin keeps the button's padding from setting the bar height */}
+                        <IconButton onClick={() => navigate(-1)} sx={{ width: 26, height: 26, my: '-5px', flexShrink: 0 }}>
+                            <ArrowBackIcon sx={{ fontSize: 18, color: '#000' }} />
+                        </IconButton>
+                        <ContactPhoneIcon sx={{ fontSize: 19, color: mainColor, flexShrink: 0 }} />
+                        <Typography sx={{ fontWeight: "600", fontSize: "20px", flexShrink: 0 }}>Contact Details</Typography>
+                        <Typography sx={{
+                            fontSize: '11.5px', color: '#6B7280', minWidth: 0,
+                            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                            display: { xs: 'none', lg: 'block' },
+                        }}>
+                            Important school contacts by class &amp; section
+                        </Typography>
+                    </Grid>
 
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                    <Grid size={{ xs: 12, sm: 12, md: 7, lg: 7 }} sx={{ display: 'flex', alignItems: 'center', justifyContent: { md: 'flex-end', xs: 'flex-start' }, gap: 1, flexWrap: 'wrap' }}>
                     {/* Class / Section view filter */}
-                    <FormControl size="small" sx={{ minWidth: 120 }}>
-                        <Select
-                            value={filterGradeId}
-                            displayEmpty
-                            onChange={(e) => { setFilterGradeId(e.target.value); setFilterSection(''); }}
-                            sx={{ borderRadius: '8px', height: 36, fontSize: 13, fontWeight: 600 }}
-                        >
-                            <MenuItem value="" sx={{ fontSize: 13 }}>All Classes</MenuItem>
-                            {grades.map((g) => (
-                                <MenuItem key={g.id} value={g.id} sx={{ fontSize: 13, textTransform: 'uppercase', fontWeight: 600 }}>{g.sign}</MenuItem>
-                            ))}
-                        </Select>
-                    </FormControl>
-                    <FormControl size="small" sx={{ minWidth: 110 }} disabled={!filterGrade}>
-                        <Select
-                            value={filterSection}
-                            displayEmpty
-                            onChange={(e) => setFilterSection(e.target.value)}
-                            sx={{ borderRadius: '8px', height: 36, fontSize: 13, fontWeight: 600 }}
-                        >
-                            <MenuItem value="" sx={{ fontSize: 13 }}>All Sections</MenuItem>
-                            {(filterGrade?.sections || []).map((s) => (
-                                <MenuItem key={s} value={s} sx={{ fontSize: 13 }}>{s}</MenuItem>
-                            ))}
-                        </Select>
-                    </FormControl>
+                    {!isLoading && (
+                        <Box sx={{
+                            display: 'flex', alignItems: 'center', gap: 0.5,
+                            px: 1, height: 30, borderRadius: '5px',
+                            bgcolor: '#fff', border: '1px solid #ddd',
+                        }}>
+                            <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>
+                                {filteredContacts.length}
+                            </Typography>
+                            <Typography sx={{ fontSize: 11.5, color: '#6B7280' }}>
+                                contact{filteredContacts.length !== 1 ? 's' : ''}
+                            </Typography>
+                        </Box>
+                    )}
 
-                    <Button
-                        onClick={openCreate}
-                        startIcon={<PersonAddAlt1Icon sx={{ fontSize: 18 }} />}
-                        variant="contained"
-                        disableElevation
-                        sx={{ textTransform: 'none', fontSize: 13, fontWeight: 700, bgcolor: mainColor, color: textColor, borderRadius: '8px', px: 2, height: 36, '&:hover': { bgcolor: mainColor, filter: 'brightness(0.92)' } }}
-                    >
-                        Add Contact
-                    </Button>
-                </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
+                        <ClassOutlinedIcon sx={{ fontSize: 16, color: '#6B7280' }} />
+                        <FormControl size="small" sx={{ minWidth: 118 }}>
+                            <Select
+                                value={filterGradeId}
+                                displayEmpty
+                                onChange={(e) => { setFilterGradeId(e.target.value); setFilterSection(''); }}
+                                sx={{
+                                    borderRadius: '5px', height: 30, fontSize: 12.5, fontWeight: 600,
+                                    bgcolor: '#fff',
+                                    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#ddd' },
+                                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#bbb' },
+                                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: mainColor },
+                                }}
+                            >
+                                <MenuItem value="" sx={{ fontSize: 12.5 }}>All Classes</MenuItem>
+                                {grades.map((g) => (
+                                    <MenuItem key={g.id} value={g.id} sx={{ fontSize: 12.5, textTransform: 'uppercase', fontWeight: 600 }}>{g.sign}</MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                        <FormControl size="small" sx={{ minWidth: 108 }} disabled={!filterGrade}>
+                            <Select
+                                value={filterSection}
+                                displayEmpty
+                                onChange={(e) => setFilterSection(e.target.value)}
+                                sx={{
+                                    borderRadius: '5px', height: 30, fontSize: 12.5, fontWeight: 600,
+                                    bgcolor: '#fff',
+                                    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#ddd' },
+                                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#bbb' },
+                                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: mainColor },
+                                }}
+                            >
+                                <MenuItem value="" sx={{ fontSize: 12.5 }}>All Sections</MenuItem>
+                                {(filterGrade?.sections || []).map((s) => (
+                                    <MenuItem key={s} value={s} sx={{ fontSize: 12.5 }}>{s}</MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                    </Box>
+
+                    {(filterGradeId || filterSection) && (
+                        <Button
+                            onClick={() => { setFilterGradeId(''); setFilterSection(''); }}
+                            startIcon={<RestartAltIcon sx={{ fontSize: 15 }} />}
+                            sx={{
+                                textTransform: 'none', fontSize: 12, fontWeight: 700,
+                                height: 30, px: 1.2, borderRadius: '5px',
+                                color: '#DC2626', bgcolor: '#fff', border: '1px solid #F5C2C2',
+                                '&:hover': { bgcolor: '#FEF5F5' },
+                            }}
+                        >
+                            Reset
+                        </Button>
+                    )}
+
+                    {canCreate && (
+                        <Button
+                            onClick={openCreate}
+                            startIcon={<PersonAddAlt1Icon sx={{ fontSize: 17 }} />}
+                            variant="contained"
+                            disableElevation
+                            sx={{ textTransform: 'none', fontSize: 12.5, fontWeight: 700, bgcolor: mainColor, color: textColor, borderRadius: '5px', px: 1.8, height: 30, '&:hover': { bgcolor: mainColor, filter: 'brightness(0.92)' } }}
+                        >
+                            Add Contact
+                        </Button>
+                    )}
+                    </Grid>
+                </Grid>
             </Box>
 
-            <Divider sx={{ my: 1.5 }} />
-
             {/* Contact list */}
-            <Box sx={{ flex: 1, overflowY: 'auto', pr: 0.5 }}>
+            <Box sx={{ height: '80vh', overflowY: 'auto', p: 2 }}>
                 <Grid container spacing={1.5}>
-                    {filteredContacts.map((c) => (
+                    {/* Same grid sizes and margin as the real cards, so nothing
+                        shifts when the data lands. */}
+                    {isLoading && Array.from({ length: 6 }).map((_, i) => (
+                        <Grid size={{ xs: 12, sm: 6, md: 4 }} key={`contact-skeleton-${i}`} sx={{ display: 'flex', mb: 4 }}>
+                            <ContactCardSkeleton lines={i % 3 === 0 ? 1 : 2} />
+                        </Grid>
+                    ))}
+                    {!isLoading && filteredContacts.map((c) => (
                         <Grid size={{ xs: 12, sm: 6, md: 4 }} key={c.id} sx={{ display: 'flex', mb:4 }}>
-                            <Box sx={{ p: 1.6, borderRadius: '12px', border: '1px solid #E5E7EB', bgcolor: '#fff', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', transition: '0.2s', '&:hover': { boxShadow: '0 2px 10px rgba(0,0,0,0.07)' } }}>
+                            <Box sx={{
+                                p: 1.6,
+                                borderRadius: '5px',
+                                border: '1px solid #E6E8EC',
+                                boxShadow: '0px 1px 3px rgba(16,24,40,0.06)',
+                                bgcolor: '#fff',
+                                width: '100%',
+                                height: '100%',
+                                boxSizing: 'border-box',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                transition: 'box-shadow 0.2s, border-color 0.2s',
+                                '&:hover': {
+                                    boxShadow: '0px 4px 14px rgba(16,24,40,0.10)',
+                                    borderColor: '#D6DAE1',
+                                },
+                            }}>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, mb: 1 }}>
                                     <Avatar sx={{ width: 42, height: 42, bgcolor: colorFor(c.name), fontSize: 14, fontWeight: 700 }}>{getInitials(c.name)}</Avatar>
                                     <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -361,20 +443,8 @@ export default function ContactDetails() {
                                             size="small"
                                             icon={c.everyone ? <GroupsIcon sx={{ fontSize: '13px !important' }} /> : undefined}
                                             label={c.everyone ? 'Everyone' : `${c.selectedIds.length} class(es)`}
-                                            sx={{ height: 18, fontSize: 10, fontWeight: 700, bgcolor: `${mainColor}14`, color: mainColor, mt: 0.3, '& .MuiChip-icon': { color: mainColor } }}
+                                            sx={{ height: 18, fontSize: 10, fontWeight: 700, borderRadius: '5px', bgcolor: `${mainColor}14`, color: mainColor, mt: 0.3, '& .MuiChip-icon': { color: mainColor } }}
                                         />
-                                    </Box>
-                                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.2 }}>
-                                        <Tooltip title="Edit contact" arrow>
-                                            <IconButton size="small" onClick={() => openEdit(c)} sx={{ width: 28, height: 28, color: '#6B7280', '&:hover': { color: mainColor, bgcolor: `${mainColor}14` } }}>
-                                                <EditOutlinedIcon sx={{ fontSize: 16 }} />
-                                            </IconButton>
-                                        </Tooltip>
-                                        <Tooltip title="Delete contact" arrow>
-                                            <IconButton size="small" onClick={() => setDeleteTarget(c)} sx={{ width: 28, height: 28, color: '#9CA3AF', '&:hover': { color: '#DC2626', bgcolor: '#FEF2F2' } }}>
-                                                <DeleteOutlineIcon sx={{ fontSize: 16 }} />
-                                            </IconButton>
-                                        </Tooltip>
                                     </Box>
                                 </Box>
                                 <Divider sx={{ mb: 1 }} />
@@ -386,10 +456,53 @@ export default function ContactDetails() {
                                         </Box>
                                     ))}
                                 </Box>
+
+                                {(canEdit || canDelete) && (
+                                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 'auto', pt: 1.4 }}>
+                                        {canEdit && (
+                                            <Button
+                                                variant="outlined"
+                                                startIcon={<EditOutlinedIcon sx={{ fontSize: '15px' }} />}
+                                                onClick={() => openEdit(c)}
+                                                sx={{
+                                                    textTransform: 'none',
+                                                    py: 0.2,
+                                                    px: 1.5,
+                                                    borderRadius: '8px',
+                                                    fontSize: '11px',
+                                                    borderColor: '#D6DAE1',
+                                                    color: '#374151',
+                                                    fontWeight: 600,
+                                                    backgroundColor: '#fff',
+                                                    '&:hover': { borderColor: '#9AA3AF', backgroundColor: '#F7F8FA' },
+                                                }}
+                                            >
+                                                Edit
+                                            </Button>
+                                        )}
+                                        {canDelete && (
+                                            <Tooltip title="Delete">
+                                                <IconButton
+                                                    onClick={() => setDeleteTarget(c)}
+                                                    sx={{
+                                                        border: '1px solid #D6DAE1',
+                                                        borderRadius: '8px',
+                                                        width: '27px',
+                                                        height: '27px',
+                                                        backgroundColor: '#fff',
+                                                        '&:hover': { borderColor: '#f44336', backgroundColor: '#FFF5F5' },
+                                                    }}
+                                                >
+                                                    <DeleteOutlineIcon sx={{ fontSize: '15px', color: '#f44336' }} />
+                                                </IconButton>
+                                            </Tooltip>
+                                        )}
+                                    </Box>
+                                )}
                             </Box>
                         </Grid>
                     ))}
-                    {filteredContacts.length === 0 && (
+                    {!isLoading && filteredContacts.length === 0 && (
                         <Grid size={{ xs: 12 }}>
                             <Box sx={{ p: 5, textAlign: 'center', borderRadius: '12px', border: '1px dashed #E5E7EB', bgcolor: '#FAFAFA' }}>
                                 <ContactPhoneIcon sx={{ fontSize: 44, color: '#D1D5DB', mb: 1 }} />

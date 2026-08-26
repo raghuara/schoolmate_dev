@@ -28,6 +28,7 @@ import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import PaidIcon from '@mui/icons-material/Paid';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
+import { findSubMenuPermissions } from '../../Redux/Slices/AuthSlice';
 import axios from 'axios';
 import { selectGrades, selectGradesLoading, fetchGradesData } from '../../Redux/Slices/DropdownController';
 import { PostStudentExit, FetchExitHistory, GetExitFeesSummary, getUsersByUserType } from '../../Api/Api';
@@ -175,6 +176,11 @@ export default function IssueTcPage() {
     const grades = useSelector(selectGrades) || [];
     const isLoadingGrades = useSelector(selectGradesLoading);
     const authUser = useSelector(state => state.auth);
+    // Issuing an exit and reviewing past exits are separate grants.
+    const rbacReady = (authUser?.permissions?.mainMenus || []).length > 0;
+    const tcPerms = findSubMenuPermissions(authUser?.permissions, "accesscontrol", "issuetc") || {};
+    const canIssue = !rbacReady || tcPerms.allowissuetc === "Y";
+    const canViewHistory = !rbacReady || tcPerms.allowdiscontinue === "Y";
     const actorRollNumber = authUser?.rollNumber || '';
 
     useEffect(() => {
@@ -185,7 +191,7 @@ export default function IssueTcPage() {
     }, []);
 
     // ── View mode (Issue / History) ─────────────────────────────────────────
-    const [viewMode, setViewMode] = useState('issue'); // 'issue' | 'history'
+    const [viewMode, setViewMode] = useState(canIssue ? 'issue' : 'history'); // 'issue' | 'history'
 
     // ── Mode (TC vs Discontinue) ────────────────────────────────────────────
     const [mode, setMode] = useState('tc'); // 'tc' | 'discontinue'
@@ -711,9 +717,9 @@ export default function IssueTcPage() {
                         width: 'fit-content', flexWrap: 'wrap',
                     }}>
                         {[
-                            { key: 'issue',   label: 'Issue Exit',  icon: OutboxIcon,  color: theme.primary },
-                            { key: 'history', label: 'Exit History', icon: HistoryIcon, color: '#0891B2' },
-                        ].map((v) => {
+                            { key: 'issue',   label: 'Issue Exit',  icon: OutboxIcon,  color: theme.primary, show: canIssue },
+                            { key: 'history', label: 'Exit History', icon: HistoryIcon, color: '#0891B2', show: canViewHistory },
+                        ].filter((v) => v.show).map((v) => {
                             const Icon = v.icon;
                             const active = viewMode === v.key;
                             return (
@@ -743,7 +749,7 @@ export default function IssueTcPage() {
                     </Box>
 
                     {/* ─── Exit History view ─────────────────────────────── */}
-                    {viewMode === 'history' && (
+                    {viewMode === 'history' && canViewHistory && (
                         <>
                             {/* Context selector */}
                             <Box sx={{ p: 2, borderRadius: '10px', bgcolor: '#fff', border: '1px solid #E5E7EB', mb: 2 }}>
@@ -1053,7 +1059,7 @@ export default function IssueTcPage() {
                     )}
 
                     {/* ─── Issue Exit view (existing form) ─────────────── */}
-                    {viewMode === 'issue' && (
+                    {viewMode === 'issue' && canIssue && (
                     <>
                     {/* ─── Mode toggle ─────────────────────────────────────── */}
                     <Box sx={{ p: 2, borderRadius: '10px', bgcolor: '#fff', border: '1px solid #E5E7EB', mb: 2 }}>

@@ -1,7 +1,7 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import {
     Box, Grid, Typography, Button, TextField, InputAdornment, IconButton, Switch, Chip,
-    Avatar, AvatarGroup, Dialog, DialogTitle, DialogContent, Menu, MenuItem, Divider, Tooltip,
+    Avatar, AvatarGroup, Dialog, DialogTitle, DialogContent, Menu, MenuItem, Divider, Tooltip, CircularProgress,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import SearchIcon from "@mui/icons-material/Search";
@@ -17,8 +17,23 @@ import DirectionsBusOutlinedIcon from "@mui/icons-material/DirectionsBusOutlined
 import WorkOutlineOutlinedIcon from "@mui/icons-material/WorkOutlineOutlined";
 import AdminPanelSettingsOutlinedIcon from "@mui/icons-material/AdminPanelSettingsOutlined";
 import { useNavigate, useLocation } from "react-router-dom";
+import axios from "axios";
 import SnackBar from "../SnackBar";
 import { useSelector } from "react-redux";
+import { GetUserTypePermissions, UpdateUsersUserType } from "../../Api/Api";
+
+const TOKEN = "123";
+
+// Map each UI module to the backend `mainMenu` key returned by GetUserTypePermissions.
+const MODULE_TO_MAINMENU = {
+    profile: "profilemanagement",
+    communication: "communication",
+    finance: "feeandfinance",
+    leave: "leaveandpayroll",
+    transport: "transport",
+    myprojects: "myprojects",
+    access: "accesscontrol",
+};
 
 const ACCENT = "#4338CA";
 
@@ -36,12 +51,8 @@ const MODULES = [
 const AVATAR_PALETTE = ["#0E7490", "#6D28D9", "#C2410C", "#047857", "#1D4ED8", "#BE185D", "#A16207", "#0F766E"];
 const colorFor = (s = "") => AVATAR_PALETTE[(s.charCodeAt(0) || 0) % AVATAR_PALETTE.length];
 const getInitials = (n = "") => n.split(" ").map((p) => p[0]).filter(Boolean).slice(0, 2).join("").toUpperCase();
-const buildMembers = (role) =>
-    Array.from({ length: Math.min(role?.userCount || 0, 8) }, (_, i) => ({
-        id: `${role.id}-${i + 1}`,
-        name: `${(role.name || "Member").split(" ")[0]} Member ${i + 1}`,
-        rollNumber: `${role.id}${String(i + 1).padStart(4, "0")}`,
-    }));
+const roleMembers = (role) =>
+    (role?.users || []).map((u) => ({ id: u.rollNumber, name: u.name, rollNumber: u.rollNumber }));
 
 export default function FeaturePermissionsPage() {
     const navigate = useNavigate();
@@ -51,18 +62,50 @@ export default function FeaturePermissionsPage() {
     const isSuperAdmin = (role.name || "").toLowerCase() === "super admin";
 
     const [search, setSearch] = useState("");
-    // Access map — super admin has everything; otherwise default all on (tweak as needed)
-    const [access, setAccess] = useState(() => Object.fromEntries(MODULES.map((m) => [m.key, true])));
+    // Access map — driven by GetUserTypePermissions (super admin always full).
+    const [access, setAccess] = useState(() => Object.fromEntries(MODULES.map((m) => [m.key, isSuperAdmin])));
+    const [permissions, setPermissions] = useState(null);
+    const [loadingPerms, setLoadingPerms] = useState(false);
 
     // Members / move
     const [membersOpen, setMembersOpen] = useState(false);
     const [members, setMembers] = useState([]);
     const [moveAnchor, setMoveAnchor] = useState(null);
     const [moveMember, setMoveMember] = useState(null);
+    const [movingId, setMovingId] = useState(null);
 
     const isExpanded = useSelector((state) => state.sidebar.isExpanded);
     const [snack, setSnack] = useState({ open: false, ok: true, msg: "" });
     const showSnack = (msg, ok = true) => setSnack({ open: true, ok, msg });
+
+    const fetchPermissions = async () => {
+        if (role?.id == null) return;
+        setLoadingPerms(true);
+        try {
+            const res = await axios.post(
+                GetUserTypePermissions,
+                { userTypeID: role.id, userType: role.name },
+                { headers: { Authorization: `Bearer ${TOKEN}` } },
+            );
+            const data = res?.data?.data || null;
+            setPermissions(data);
+            const menus = data?.mainMenus || [];
+            // A module is enabled if its mainMenu is present in the response (super admin = all on).
+            setAccess(Object.fromEntries(MODULES.map((m) => {
+                const present = menus.some((x) => x.mainMenu === MODULE_TO_MAINMENU[m.key]);
+                return [m.key, isSuperAdmin ? true : present];
+            })));
+        } catch (err) {
+            showSnack(err?.response?.data?.message || "Failed to load permissions for this user type.", false);
+        } finally {
+            setLoadingPerms(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchPermissions();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [role?.id]);
 
     const toggle = (key) => {
         if (isSuperAdmin) { showSnack("Super Admin always has full access.", false); return; }
@@ -77,17 +120,32 @@ export default function FeaturePermissionsPage() {
 
     const enabledCount = MODULES.filter((m) => access[m.key]).length;
 
-    const openMembers = () => { setMembers(buildMembers(role)); setMembersOpen(true); };
+    const openMembers = () => { setMembers(roleMembers(role)); setMembersOpen(true); };
     const openMoveMenu = (e, m) => { setMoveAnchor(e.currentTarget); setMoveMember(m); };
     const closeMoveMenu = () => { setMoveAnchor(null); setMoveMember(null); };
-    const handleMove = (target) => {
-        setMembers((prev) => prev.filter((m) => m.id !== moveMember.id));
-        showSnack(`Moved ${moveMember.name} to ${target.name}.`);
+    const handleMove = async (target) => {
+        const member = moveMember;
         closeMoveMenu();
-        // TODO: PUT move-member-to-role
+        if (!member || target?.id == null) return;
+        setMovingId(member.id);
+        try {
+            const res = await axios.put(
+                UpdateUsersUserType,
+                { userTypeID: target.id, rollNumbers: [member.rollNumber] },
+                { headers: { Authorization: `Bearer ${TOKEN}` } },
+            );
+            const ok = !res?.data || res.data.error === false || res.status === 200;
+            if (!ok) { showSnack(res?.data?.message || "Could not move the user.", false); return; }
+            setMembers((prev) => prev.filter((m) => m.id !== member.id));
+            showSnack(res?.data?.message || `Moved ${member.name} to ${target.name}.`);
+        } catch (err) {
+            showSnack(err?.response?.data?.message || "Failed to move the user. Please try again.", false);
+        } finally {
+            setMovingId(null);
+        }
     };
 
-    const memberAvatars = buildMembers(role);
+    const memberAvatars = roleMembers(role);
 
     return (
         <Box sx={{ width: "100%" }}>
@@ -225,7 +283,7 @@ export default function FeaturePermissionsPage() {
                                     <Box sx={{ height: "1px", bgcolor: "#F1F3F5", mt: "auto", mb: 1.4 }} />
                                     <Button
                                         onClick={() => (on
-                                            ? navigate(`/dashboardmenu/access/config/${m.key}`, { state: { role, roles: allRoles } })
+                                            ? navigate(`/dashboardmenu/access/config/${m.key}`, { state: { role, roles: allRoles, permissions, mainMenu: MODULE_TO_MAINMENU[m.key] } })
                                             : showSnack(`Enable ${m.name} first.`, false))}
                                         endIcon={<ArrowForwardIcon sx={{ fontSize: 15 }} />}
                                         disabled={!on}
@@ -249,7 +307,7 @@ export default function FeaturePermissionsPage() {
                 <DialogTitle sx={{ p: 2, display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #F3F4F6" }}>
                     <Box>
                         <Typography sx={{ fontSize: 16, fontWeight: 800 }}>{role.name} — Users</Typography>
-                        <Typography sx={{ fontSize: 11.5, color: "#6B7280" }}>{(role.userCount || 0).toLocaleString()} users in this role</Typography>
+                        <Typography sx={{ fontSize: 11.5, color: "#6B7280" }}>{members.length.toLocaleString()} users in this role</Typography>
                     </Box>
                     <IconButton size="small" onClick={() => setMembersOpen(false)}><CloseIcon sx={{ fontSize: 18 }} /></IconButton>
                 </DialogTitle>
@@ -269,14 +327,17 @@ export default function FeaturePermissionsPage() {
                                     </Box>
                                 </Box>
                                 <Tooltip title="Move to another user type" arrow>
-                                    <Button
-                                        size="small"
-                                        onClick={(e) => openMoveMenu(e, m)}
-                                        startIcon={<SwapHorizIcon sx={{ fontSize: 15 }} />}
-                                        sx={{ textTransform: "none", fontWeight: 700, fontSize: 11.5, color: "#374151", border: "1px solid #E5E7EB", borderRadius: "8px", height: 30, px: 1.2, "&:hover": { bgcolor: "#F9FAFB" } }}
-                                    >
-                                        Move
-                                    </Button>
+                                    <span>
+                                        <Button
+                                            size="small"
+                                            onClick={(e) => openMoveMenu(e, m)}
+                                            disabled={movingId === m.id}
+                                            startIcon={movingId === m.id ? <CircularProgress size={13} sx={{ color: "#374151" }} /> : <SwapHorizIcon sx={{ fontSize: 15 }} />}
+                                            sx={{ textTransform: "none", fontWeight: 700, fontSize: 11.5, color: "#374151", border: "1px solid #E5E7EB", borderRadius: "8px", height: 30, px: 1.2, "&:hover": { bgcolor: "#F9FAFB" }, "&.Mui-disabled": { color: "#9CA3AF", borderColor: "#E5E7EB" } }}
+                                        >
+                                            {movingId === m.id ? "Moving…" : "Move"}
+                                        </Button>
+                                    </span>
                                 </Tooltip>
                             </Box>
                             {i < members.length - 1 && <Divider />}
@@ -288,11 +349,16 @@ export default function FeaturePermissionsPage() {
             {/* Move target menu */}
             <Menu anchorEl={moveAnchor} open={Boolean(moveAnchor)} onClose={closeMoveMenu} slotProps={{ paper: { sx: { borderRadius: "10px", minWidth: 180 } } }}>
                 <Typography sx={{ px: 1.6, py: 0.8, fontSize: 10.5, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: 0.4 }}>Move to</Typography>
-                {(allRoles.length ? allRoles : MODULES.map((m, i) => ({ id: i, name: m.name })))
-                    .filter((r) => r.name !== role.name && r.name !== "Student")
-                    .map((r) => (
-                        <MenuItem key={r.id} onClick={() => handleMove(r)} sx={{ fontSize: 13, fontWeight: 600 }}>{r.name}</MenuItem>
-                    ))}
+                {(() => {
+                    const targets = (allRoles || []).filter((r) => r.id !== role.id && !r.isStudent);
+                    return targets.length === 0 ? (
+                        <MenuItem disabled sx={{ fontSize: 12.5 }}>No other user types</MenuItem>
+                    ) : (
+                        targets.map((r) => (
+                            <MenuItem key={r.id} onClick={() => handleMove(r)} sx={{ fontSize: 13, fontWeight: 600 }}>{r.name}</MenuItem>
+                        ))
+                    );
+                })()}
             </Menu>
         </Box>
     );

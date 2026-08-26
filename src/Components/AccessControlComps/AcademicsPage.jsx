@@ -1,6 +1,7 @@
-import { Box, Button, Grid, IconButton, Tab, Tabs, Typography } from "@mui/material";
+import { Box, Grid, IconButton, Tab, Tabs, Typography } from "@mui/material";
 import { useSelector } from "react-redux";
 import { selectWebsiteSettings } from "../../Redux/Slices/websiteSettingsSlice";
+import { hasPermission } from "../../Redux/Slices/AuthSlice";
 import Loader from "../Loader";
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { useEffect, useState } from "react";
@@ -19,20 +20,22 @@ export default function AcademicsPage() {
     const [homeworkIntimation, setHomeworkIntimation] = useState(false);
     const user = useSelector((state) => state.auth);
     const rollNumber = user.rollNumber
-    const userType = user.userType
     const userName = user.name
+    const permissions = useSelector((state) => state.auth.permissions);
     const websiteSettings = useSelector(selectWebsiteSettings);
     const token = "123"
 
-    const items = [
-        { color: "#1976D2", icon: ClassIcon, text: "Class & Section Management", bgColor: "#F5F9FF", iconBgColor: "#E3F0FD", path: '/dashboardmenu/access/class-section', intimation: false },
-        { color: "#A749CC", icon: ArticleIcon, text: "Exam Management", bgColor: "#FBF9FC", iconBgColor: "#F7F0F9", path: '/dashboardmenu/access/exam', intimation: newsIntimation },
-        { color: "#ED9146", icon: SubjectIcon, text: "Subject Management", bgColor: "#FCFBF9", iconBgColor: "#FBF4EF", path: '/dashboardmenu/access/subject', intimation: messageIntimation },
-    ];
+    // Every tile and the Academic Year button follow the academics permissions
+    // that came back with the login response.
+    const can = (key) => hasPermission(permissions, "accesscontrol", "academics", key);
 
-    if (userType !== "superadmin" && userType !== "admin" && userType !== "staff") {
-        return <Navigate to="/dashboardmenu/dashboard" replace />;
-    }
+    const items = [
+        { color: "#059669", icon: CalendarMonthOutlinedIcon, text: "Academic Year", bgColor: "#F5FCF9", iconBgColor: "#E6F7F0", path: '/dashboardmenu/access/academics/academic-year', intimation: false, show: can("allowacademicyear") },
+        { color: "#1976D2", icon: ClassIcon, text: "Class & Section Management", bgColor: "#F5F9FF", iconBgColor: "#E3F0FD", path: '/dashboardmenu/access/class-section', intimation: false, show: can("allowclasssectionmanagement") },
+        { color: "#A749CC", icon: ArticleIcon, text: "Exam Management", bgColor: "#FBF9FC", iconBgColor: "#F7F0F9", path: '/dashboardmenu/access/exam', intimation: newsIntimation, show: can("allowexammanagement") },
+        { color: "#ED9146", icon: SubjectIcon, text: "Subject Management", bgColor: "#FCFBF9", iconBgColor: "#FBF4EF", path: '/dashboardmenu/access/subject', intimation: messageIntimation, show: can("allowsubjectmanagement") },
+    ].filter((item) => item.show);
+
 
     return (
         <Box sx={{ width: "100%", }}>
@@ -42,10 +45,10 @@ export default function AcademicsPage() {
                     <Grid
                         sx={{ display: "flex", alignItems: "center", }}
                         size={{
-                            xs: 6,
-                            sm: 6,
-                            md: 3,
-                            lg: 3
+                            xs: 12,
+                            sm: 12,
+                            md: 12,
+                            lg: 12
                         }}>
                         <Link style={{ textDecoration: "none" }} to="/dashboardmenu/access">
                             <IconButton sx={{ width: "27px", height: "27px", marginTop: '2px' }}>
@@ -54,50 +57,19 @@ export default function AcademicsPage() {
                         </Link>
                         <Typography sx={{ fontWeight: "600", fontSize: "20px", }} >Academics</Typography>
                     </Grid>
-                    <Grid
-                        sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center", pr: 1 }}
-                        size={{
-                            xs: 6,
-                            sm: 6,
-                            md: 9,
-                            lg: 9
-                        }}>
-                        {userType === 'superadmin' && (
-                            <Link
-                                to="/dashboardmenu/access/academics/academic-year"
-                                style={{ textDecoration: 'none' }}
-                            >
-                                <Button
-                                    variant="contained"
-                                    disableElevation
-                                    startIcon={<CalendarMonthOutlinedIcon sx={{ fontSize: 18 }} />}
-                                    sx={{
-                                        textTransform: 'none',
-                                        fontSize: '13px',
-                                        fontWeight: 700,
-                                        bgcolor: '#059669',
-                                        color: '#fff',
-                                        borderRadius: '8px',
-                                        px: 2.2,
-                                        height: 36,
-                                        boxShadow: '0 2px 6px rgba(5, 150, 105, 0.2)',
-                                        '&:hover': {
-                                            bgcolor: '#047857',
-                                            boxShadow: '0 4px 12px rgba(5, 150, 105, 0.35)',
-                                        },
-                                    }}
-                                >
-                                    Academic Year
-                                </Button>
-                            </Link>
-                        )}
-                    </Grid>
                 </Grid>
             </Box>
             <Box>
                 <Box sx={{ p: 2, }}>
                 <Box sx={{ display: "flex", justifyContent: "center", height: "70vh", overflowY: "auto" }}>
-                        <Grid container spacing={2} sx={{ width: "100%" }}>
+                        <Grid container spacing={2} sx={{ width: "100%", alignContent: "flex-start" }}>
+                            {items.length === 0 && (
+                                <Grid size={{ xs: 12 }}>
+                                    <Typography sx={{ fontSize: "13px", color: "#6B7280", textAlign: "center", py: 4 }}>
+                                        You do not have access to any academics setup screen.
+                                    </Typography>
+                                </Grid>
+                            )}
                             {items.map((item, index) => {
                                 const IconComponent = item.icon;
 

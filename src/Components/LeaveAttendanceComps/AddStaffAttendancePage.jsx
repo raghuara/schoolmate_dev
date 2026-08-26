@@ -852,7 +852,7 @@ export default function AddStaffAttendancePage() {
             const results = await Promise.allSettled(
                 FETCH_USER_TYPES.map(uType =>
                     axios.get(GetAttendanceTeacherBefore, {
-                        params: { AcademicYear: academicYear, UserType: uType },
+                        params: { academicYear: academicYear, userType: uType },
                         headers: { Authorization: `Bearer ${token}` },
                     })
                 )
@@ -892,7 +892,7 @@ export default function AddStaffAttendancePage() {
         const academicYear = getCurrentAcademicYear();
         try {
             const res = await axios.get(GetAttendanceTeacherBefore, {
-                params: { AcademicYear: academicYear, UserType: apiUType },
+                params: { academicYear: academicYear, userType: apiUType },
                 headers: { Authorization: `Bearer ${token}` },
             });
             if (!res.data.error) {

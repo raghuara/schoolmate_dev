@@ -27,9 +27,9 @@ const AttendanceTablePage = () => {
         try {
             const res = await axios.get(DashboardStudentsAttendance, {
                 params: {
-                    RollNumber: rollNumber,
-                    UserType: userType,
-                    Date: formattedDate,
+                    rollNumber: rollNumber,
+                    userType: userType,
+                    date: formattedDate,
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,

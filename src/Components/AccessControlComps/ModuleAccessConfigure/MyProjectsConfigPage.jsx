@@ -1,20 +1,24 @@
 import React from "react";
+import axios from "axios";
 import ModuleConfigShell from "./ModuleConfigShell";
+import { UpdateUserTypePermissions } from "../../../Api/Api";
+
+const TOKEN = "123";
 
 const MODULE = { key: "myprojects", name: "My Projects", color: "#0891B2" };
 const PAGES = ["Workdone"];
 
-// Workdone shows only its options (no standard view/create/edit/delete)
 const PAGE_OVERRIDES = {
     "Workdone": { opsKeys: [] },
 };
 
+// Keys MUST match the backend permission keys exactly (lowercase).
 const EXTRA_OPS = {
     "Workdone": [
-        { key: "allowDailyEntry", label: "Allow Daily Entry" },
-        { key: "allowTeacherWise", label: "Allow Teacher Wise" },
-        { key: "allowClassWise", label: "Allow Class Wise" },
-        { key: "allowPeriodSettings", label: "Allow Period Settings" },
+        { key: "allowdailyentry", label: "Allow Daily Entry" },
+        { key: "allowteacherwise", label: "Allow Teacher Wise" },
+        { key: "allowclasswise", label: "Allow Class Wise" },
+        { key: "allowperiodsettings", label: "Allow Period Settings" },
     ],
 };
 
@@ -23,8 +27,13 @@ const EXTRA_OPS_LABELS = {
 };
 
 export default function MyProjectsConfigPage() {
-    // Add My Projects-specific validation here if needed.
     const validate = () => null;
+
+    // The shell builds the payload from this file's keys; this file owns the PUT.
+    const handleSave = async (payload) => {
+        const res = await axios.put(UpdateUserTypePermissions, payload, { headers: { Authorization: `Bearer ${TOKEN}` } });
+        return res?.data;
+    };
 
     return (
         <ModuleConfigShell
@@ -36,6 +45,7 @@ export default function MyProjectsConfigPage() {
             pageOverrides={PAGE_OVERRIDES}
             extraOps={EXTRA_OPS}
             extraOpsLabels={EXTRA_OPS_LABELS}
+            onSave={handleSave}
         />
     );
 }

@@ -13,6 +13,7 @@ import { FindStudentManagementDetails, postNews, postStudentAcademicInformation,
 import axios from "axios";
 import DropDownList from "../../DropdownList";
 import { selectGrades } from "../../../Redux/Slices/DropdownController";
+import { findSubMenuPermissions } from "../../../Redux/Slices/AuthSlice";
 import Loader from "../../Loader";
 import SnackBar from "../../SnackBar";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
@@ -39,8 +40,8 @@ export default function StudentInfoPage() {
     const theme = useTheme();
     const user = useSelector((state) => state.auth);
     const RollNumber = user.rollNumber
-    const userType = user.userType
     const userName = user.name
+    const canEdit = (findSubMenuPermissions(user.permissions, "profilemanagement", "studentmanagement") || {}).edit === "Y";
     const location = useLocation();
     const selectedRollNumber = location.state?.rollNumber;
     const navigate = useNavigate()
@@ -444,7 +445,8 @@ export default function StudentInfoPage() {
         try {
             const res = await axios.get(FindStudentManagementDetails, {
                 params: {
-                    RollNumber: selectedRollNumber || "",
+                    rollNumber: selectedRollNumber || "",
+                    createRollNumber: RollNumber,
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -845,12 +847,14 @@ export default function StudentInfoPage() {
                                 </Grid>
                             </Grid>
                         </Grid>
-                        <Button
-                            onClick={() => handleEditClick(studentAcademicInfo?.[0]?.rollNumber)}
-                            variant="outlined"
-                            sx={{ position: "absolute", bottom: "10px", right: "10px", textTransform: "none", py: 0, borderRadius: "30px", color: "black", borderColor: "black" }}>
-                            Edit
-                        </Button>
+                        {canEdit && (
+                            <Button
+                                onClick={() => handleEditClick(studentAcademicInfo?.[0]?.rollNumber)}
+                                variant="outlined"
+                                sx={{ position: "absolute", bottom: "10px", right: "10px", textTransform: "none", py: 0, borderRadius: "30px", color: "black", borderColor: "black" }}>
+                                Edit
+                            </Button>
+                        )}
                     </Box>
                 </Box>
                 <Box sx={{ p: 2 }}>

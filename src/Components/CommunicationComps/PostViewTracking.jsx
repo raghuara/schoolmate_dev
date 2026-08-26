@@ -72,7 +72,7 @@ export default function PostViewTracking() {
         if (!academicYear) { setPosts([]); return undefined; }
         let cancelled = false;
         setPostsLoading(true);
-        axios.get(viewTracking, { params: { Module: tab.module, AcademicYear: academicYear }, headers: authHeaders })
+        axios.get(viewTracking, { params: { module: tab.module, academicYear: academicYear }, headers: authHeaders })
             .then((res) => {
                 if (cancelled) return;
                 const d = res?.data || {};

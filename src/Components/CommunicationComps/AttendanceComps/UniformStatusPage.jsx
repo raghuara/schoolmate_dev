@@ -139,9 +139,9 @@ export default function UniformStatusPage() {
         try {
             const res = await axios.get(fetchDressCodeStatus, {
                 params: {
-                    Class: selectedGradeId || grades?.[0]?.id || "",
-                    Section: selectedSection || grades?.[0]?.sections?.[0] || "",
-                    Date: formattedDate,
+                    class: selectedGradeId || grades?.[0]?.id || "",
+                    section: selectedSection || grades?.[0]?.sections?.[0] || "",
+                    date: formattedDate,
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -228,16 +228,16 @@ export default function UniformStatusPage() {
         try {
             const res = await axios.get(dresscodeStatusReport, {
                 params: {
-                    FromDate: fromDate ? dayjs(fromDate).format("DD-MM-YYYY") : "",
-                    ToDate: onlyFromDate
+                    fromDate: fromDate ? dayjs(fromDate).format("DD-MM-YYYY") : "",
+                    toDate: onlyFromDate
                         ? fromDate
                             ? dayjs(fromDate).format("DD-MM-YYYY")
                             : ""
                         : toDate
                             ? dayjs(toDate).format("DD-MM-YYYY")
                             : "",
-                    Class: selectedGradeId || grades?.[0]?.id || "",
-                    Section: selectedSection || grades?.[0]?.sections?.[0] || "",
+                    class: selectedGradeId || grades?.[0]?.id || "",
+                    section: selectedSection || grades?.[0]?.sections?.[0] || "",
                 },
 
                 headers: {

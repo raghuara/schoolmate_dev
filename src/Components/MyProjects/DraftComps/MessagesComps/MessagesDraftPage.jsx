@@ -225,10 +225,10 @@ export default function MessagesDraftPage() {
         try {
             const res = await axios.get(MessageFetchDraft, {
                 params: {
-                    RollNumber: rollNumber,
-                    UserType: userType,
-                    Date: formattedDate || '',
-                    IsMyProject: isMyProject,
+                    rollNumber: rollNumber,
+                    userType: userType,
+                    date: formattedDate || '',
+                    isMyProject: isMyProject,
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -248,9 +248,9 @@ export default function MessagesDraftPage() {
         try {
             const res = await axios.delete(DeleteMessage, {
                 params: {
-                    Id: id,
-                    RollNumber: rollNumber,
-                    UserType: userType,
+                    id: id,
+                    rollNumber: rollNumber,
+                    userType: userType,
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -282,8 +282,8 @@ export default function MessagesDraftPage() {
         try {
             const res = await axios.delete(DeleteAllDraft, {
                 params: {
-                    RollNumber: rollNumber,
-                    Module: "message",
+                    rollNumber: rollNumber,
+                    module: "message",
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,

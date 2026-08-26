@@ -97,8 +97,8 @@ export default function MyLeaveStatusPage() {
         try {
             const res = await axios.get(getLeaveApprovalDashboard, {
                 params: {
-                    RollNumber: rollNumber,
-                    AcademicYear: getCurrentAcademicYear(),
+                    rollNumber: rollNumber,
+                    academicYear: getCurrentAcademicYear(),
                 },
                 headers: { Authorization: `Bearer ${token}` },
             });

@@ -204,7 +204,7 @@ export default function ConsentFormDraftEditPage() {
         try {
             const res = await axios.get(GetConsentFormById, {
                 params: {
-                    Id: id
+                    id: id
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,

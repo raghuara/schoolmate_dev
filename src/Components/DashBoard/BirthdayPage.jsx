@@ -12,7 +12,7 @@ import dayjs from 'dayjs';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import axios from 'axios';
-import { DashboardBirthday } from '../../Api/Api';
+import { DashboardBirthdayUpdated } from '../../Api/Api';
 import Loader from '../Loader';
 import { useSelector } from 'react-redux';
 import { selectWebsiteSettings } from '../../Redux/Slices/websiteSettingsSlice';
@@ -40,6 +40,7 @@ export default function BirthdayPage() {
 
     const [birthdayDetails, setBirthdayDetails] = useState([]);
     const [studentsBirthday, setStudentsBirthday] = useState([]);
+    const [upcomingStaffBirthday, setUpcomingStaffBirthday] = useState([]);
 
     useEffect(() => {
         fetchBirthdayData();
@@ -48,13 +49,19 @@ export default function BirthdayPage() {
     const fetchBirthdayData = async () => {
         setIsLoading(true);
         try {
-            const res = await axios.get(DashboardBirthday, {
-                params: { RollNumber: rollNumber, UserType: userType, Date: formattedDate },
+            const res = await axios.get(DashboardBirthdayUpdated, {
+                params: { date: formattedDate },
                 headers: { Authorization: `Bearer ${token}` },
             });
-            const AllData = res.data.staffsbirthday;
-            setBirthdayDetails(AllData.teaching);
-            setStudentsBirthday(res.data.studentsbirthday);
+            const todays = res.data?.todaysBirthday || {};
+            const upcoming = res.data?.upcomingBirthdays || [];
+            setBirthdayDetails(todays.users || []);
+            setStudentsBirthday(todays.students || []);
+            setUpcomingStaffBirthday(
+                upcoming.flatMap((group) =>
+                    (group.users || []).map((person) => ({ ...person, date: group.date, day: group.day }))
+                )
+            );
         } catch (error) {
             console.error(error);
         } finally {
@@ -75,6 +82,57 @@ export default function BirthdayPage() {
     };
 
     const isToday = selectedDate.isSame(today, 'day');
+
+    const parseApiDate = (raw) => {
+        if (!raw) return null;
+        if (typeof raw === 'string' && /^\d{2}-\d{2}-\d{4}$/.test(raw)) {
+            const [dd, mm, yyyy] = raw.split('-');
+            const d = dayjs(`${yyyy}-${mm}-${dd}`);
+            return d.isValid() ? d : null;
+        }
+        const d = dayjs(raw);
+        return d.isValid() ? d : null;
+    };
+
+    const upcomingInfo = (person) => {
+        const d = parseApiDate(person.date);
+        if (!d) return { dateText: '', daysText: '' };
+        const diff = d.startOf('day').diff(selectedDate.startOf('day'), 'day');
+        const daysText = diff <= 0 ? 'Today' : diff === 1 ? 'Tomorrow' : `In ${diff} days`;
+        return { dateText: d.format('DD MMM'), daysText };
+    };
+
+    const renderStaffRow = (person, key, showDivider, trailing) => (
+        <Box key={key}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: 1, px: 1, borderRadius: '8px', '&:hover': { bgcolor: '#fafafa' }, transition: '0.15s' }}>
+                <Box sx={{ position: 'relative' }}>
+                    <Avatar
+                        src={person.filepath || ProfileImage}
+                        onError={(e) => { e.target.src = ProfileImage; }}
+                        sx={{ width: 38, height: 38, border: '2px solid #E3F2FD' }}
+                    />
+                    <Box sx={{
+                        position: 'absolute', bottom: -2, right: -2,
+                        width: 16, height: 16, borderRadius: '50%',
+                        bgcolor: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
+                    }}>
+                        <CakeIcon sx={{ fontSize: 10, color: '#E91E8C' }} />
+                    </Box>
+                </Box>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography sx={{ fontWeight: 600, fontSize: '13px', color: '#222', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {person.name}
+                    </Typography>
+                    <Typography sx={{ fontSize: '11px', color: '#888' }}>
+                        {person.userType ? person.userType.charAt(0).toUpperCase() + person.userType.slice(1) : ''} · {person.rollNumber}
+                    </Typography>
+                </Box>
+                {trailing}
+            </Box>
+            {showDivider && <Divider sx={{ mx: 1, borderColor: '#f5f5f5' }} />}
+        </Box>
+    );
 
     return (
         <Box sx={{ bgcolor: '#fff', mt: 2, borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.07)', overflow: 'hidden' }}>
@@ -144,46 +202,49 @@ export default function BirthdayPage() {
                                 />
                             </Box>
 
-                            <Box sx={{ maxHeight: '220px', overflowY: 'auto', p: 1 }}>
+                            <Box sx={{ maxHeight: '300px', overflowY: 'auto', p: 1 }}>
+                                <Typography sx={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: 0.5, px: 1, pt: 0.5, pb: 0.5 }}>
+                                    Today
+                                </Typography>
                                 {birthdayDetails && birthdayDetails.length > 0 ? (
-                                    birthdayDetails.map((person, index) => (
-                                        <Box key={index}>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: 1, px: 1, borderRadius: '8px', '&:hover': { bgcolor: '#fafafa' }, transition: '0.15s' }}>
-                                                <Box sx={{ position: 'relative' }}>
-                                                    <Avatar
-                                                        src={person.filepath || ProfileImage}
-                                                        onError={(e) => { e.target.src = ProfileImage; }}
-                                                        sx={{ width: 38, height: 38, border: '2px solid #E3F2FD' }}
-                                                    />
-                                                    <Box sx={{
-                                                        position: 'absolute', bottom: -2, right: -2,
-                                                        width: 16, height: 16, borderRadius: '50%',
-                                                        bgcolor: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                        boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
-                                                    }}>
-                                                        <CakeIcon sx={{ fontSize: 10, color: '#E91E8C' }} />
-                                                    </Box>
-                                                </Box>
-                                                <Box sx={{ flex: 1, minWidth: 0 }}>
-                                                    <Typography sx={{ fontWeight: 600, fontSize: '13px', color: '#222', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                        {person.name}
-                                                    </Typography>
-                                                    <Typography sx={{ fontSize: '11px', color: '#888' }}>
-                                                        {person.userType
-                                                            ? person.userType.charAt(0).toUpperCase() + person.userType.slice(1)
-                                                            : ''
-                                                        } · {person.rollNumber}
-                                                    </Typography>
-                                                </Box>
-                                                <CakeIcon sx={{ fontSize: 16, color: '#FFD54F', flexShrink: 0 }} />
-                                            </Box>
-                                            {index < birthdayDetails.length - 1 && (
-                                                <Divider sx={{ mx: 1, borderColor: '#f5f5f5' }} />
-                                            )}
-                                        </Box>
-                                    ))
+                                    birthdayDetails.map((person, index) =>
+                                        renderStaffRow(
+                                            person,
+                                            `today-${index}`,
+                                            index < birthdayDetails.length - 1,
+                                            <CakeIcon sx={{ fontSize: 16, color: '#FFD54F', flexShrink: 0 }} />
+                                        )
+                                    )
                                 ) : (
-                                    <EmptyState label="staff" />
+                                    <Typography sx={{ fontSize: '12px', color: '#bbb', fontStyle: 'italic', textAlign: 'center', py: 2 }}>
+                                        No staff birthdays today
+                                    </Typography>
+                                )}
+
+                                <Typography sx={{ fontSize: '10px', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: 0.5, px: 1, pt: 1.5, pb: 0.5, borderTop: '1px solid #f5f5f5', mt: 1 }}>
+                                    Upcoming · Next 10 days
+                                </Typography>
+                                {upcomingStaffBirthday && upcomingStaffBirthday.length > 0 ? (
+                                    upcomingStaffBirthday.map((person, index) => {
+                                        const info = upcomingInfo(person);
+                                        return renderStaffRow(
+                                            person,
+                                            `upcoming-${index}`,
+                                            index < upcomingStaffBirthday.length - 1,
+                                            <Box sx={{ textAlign: 'right', flexShrink: 0, minWidth: 58 }}>
+                                                <Typography sx={{ fontSize: '11px', fontWeight: 700, color: websiteSettings.mainColor, lineHeight: 1.2 }}>
+                                                    {info.daysText}
+                                                </Typography>
+                                                <Typography sx={{ fontSize: '10px', color: '#999' }}>
+                                                    {info.dateText}
+                                                </Typography>
+                                            </Box>
+                                        );
+                                    })
+                                ) : (
+                                    <Typography sx={{ fontSize: '12px', color: '#bbb', fontStyle: 'italic', textAlign: 'center', py: 2 }}>
+                                        No upcoming staff birthdays
+                                    </Typography>
                                 )}
                             </Box>
                         </Box>
@@ -229,7 +290,7 @@ export default function BirthdayPage() {
                                                         {person.name}
                                                     </Typography>
                                                     <Typography sx={{ fontSize: '11px', color: '#888' }}>
-                                                        {person.rollNumber} · {person.grade} – {person.section}
+                                                        {person.rollNumber}{person.grade ? ` · ${person.grade} – ${person.section || ''}` : ''}
                                                     </Typography>
                                                 </Box>
                                                 <CakeIcon sx={{ fontSize: 16, color: '#FFD54F', flexShrink: 0 }} />

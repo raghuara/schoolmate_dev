@@ -1,17 +1,16 @@
 import React, { useState, useEffect } from "react";
-import {
-    Box,
-    Typography,
-    Tabs,
-    Tab,
-    IconButton
-} from "@mui/material";
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import { Box, Tab, Tabs, Typography } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import DirectionsBusIcon from "@mui/icons-material/DirectionsBus";
+import ShieldOutlinedIcon from "@mui/icons-material/ShieldOutlined";
+import BadgeOutlinedIcon from "@mui/icons-material/BadgeOutlined";
 import { generateVehicleAssetId } from "../../../../Api/Api";
 import VehicleAssetInformation from "./VehicleCreationPage";
 import VehicleSafetyCompliancePage from "./VehicleSafetyCompliancePage";
+import { DASH, RADIUS, PageHeader } from "../../../DashBoardComps/dashboardTheme";
+
+const ACCENT = "#A749CC";
 
 function TabPanel({ children, value, index }) {
     return (
@@ -53,52 +52,90 @@ export default function VehicleManagementPage() {
     };
 
     return (
-        <Box sx={{ backgroundColor: "#FAFAFA", minHeight: "100vh" }}>
-            {/* Header */}
-            <Box sx={{
-                backgroundColor: "#f2f2f2",
-                px: 2,
-                py: 1.5,
-                borderBottom: "1px solid #ddd",
-                display: "flex",
-                alignItems: "center"
-            }}>
-                <IconButton onClick={() => navigate(-1)} sx={{ mr: 1 }}>
-                    <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
-                </IconButton>
-                <Typography fontWeight={600} fontSize="18px">
-                    Vehicle Management
-                </Typography>
-            </Box>
+        <Box
+            sx={{
+                px: { xs: 1.5, md: 3 },
+                pt: { xs: 1.5, md: 2 },
+                pb: 4,
+                bgcolor: DASH.canvas,
+            }}
+        >
+            <PageHeader
+                title="Vehicle Management"
+                subtitle="Add a vehicle to the fleet and record its safety compliance"
+                onBack={() => navigate(-1)}
+                right={
+                    <Box
+                        sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 0.8,
+                            height: 34,
+                            px: 1.4,
+                            borderRadius: RADIUS,
+                            bgcolor: `${ACCENT}0F`,
+                            border: `1px solid ${ACCENT}24`,
+                        }}
+                    >
+                        <BadgeOutlinedIcon sx={{ fontSize: 16, color: ACCENT }} />
+                        <Typography sx={{ fontSize: "11px", fontWeight: 700, color: DASH.muted, letterSpacing: "0.05em", textTransform: "uppercase" }}>
+                            Asset ID
+                        </Typography>
+                        <Typography sx={{ fontSize: "12.5px", fontWeight: 700, color: ACCENT }}>
+                            {isLoading ? "Generating..." : (generatedVehicleId || "Not generated")}
+                        </Typography>
+                    </Box>
+                }
+            />
 
-            {/* Tabs */}
-            <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 2 }}>
-                <Tabs
-                    value={tabValue}
-                    onChange={handleTabChange}
-                    sx={{
-                        "& .MuiTab-root": {
-                            textTransform: "none",
-                            fontWeight: 600,
-                            fontSize: "14px"
-                        },
-                        "& .Mui-selected": {
-                            color: "#1976D2"
-                        }
-                    }}
-                >
-                    <Tab label="Vehicle Asset Information" />
-                    <Tab label="Safety & Compliance" />
-                </Tabs>
-            </Box>
+            <Box
+                sx={{
+                    bgcolor: "#fff",
+                    border: `1px solid ${DASH.line}`,
+                    borderRadius: RADIUS,
+                    overflow: "hidden",
+                }}
+            >
+                <Box sx={{ borderBottom: `1px solid ${DASH.line}`, px: { xs: 0.5, md: 1 } }}>
+                    <Tabs
+                        value={tabValue}
+                        onChange={handleTabChange}
+                        variant="scrollable"
+                        scrollButtons="auto"
+                        sx={{
+                            minHeight: 44,
+                            "& .MuiTab-root": {
+                                textTransform: "none",
+                                fontSize: "13px",
+                                fontWeight: 600,
+                                minHeight: 44,
+                                color: DASH.muted,
+                                px: 2,
+                            },
+                            "& .Mui-selected": { color: `${DASH.ink} !important` },
+                            "& .MuiTabs-indicator": { backgroundColor: ACCENT, height: 2.5, borderRadius: "3px 3px 0 0" },
+                        }}
+                    >
+                        <Tab
+                            icon={<DirectionsBusIcon sx={{ fontSize: 18 }} />}
+                            iconPosition="start"
+                            label="Vehicle Asset Information"
+                        />
+                        <Tab
+                            icon={<ShieldOutlinedIcon sx={{ fontSize: 18 }} />}
+                            iconPosition="start"
+                            label="Safety & Compliance"
+                        />
+                    </Tabs>
+                </Box>
 
-            {/* Tab Panels */}
-            <TabPanel value={tabValue} index={0}>
-                <VehicleAssetInformation generatedVehicleId={generatedVehicleId} />
-            </TabPanel>
-            <TabPanel value={tabValue} index={1}>
-                <VehicleSafetyCompliancePage vehicleAssetId={generatedVehicleId} />
-            </TabPanel>
+                <TabPanel value={tabValue} index={0}>
+                    <VehicleAssetInformation generatedVehicleId={generatedVehicleId} />
+                </TabPanel>
+                <TabPanel value={tabValue} index={1}>
+                    <VehicleSafetyCompliancePage vehicleAssetId={generatedVehicleId} />
+                </TabPanel>
+            </Box>
         </Box>
     );
 }

@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from "react";
-import { Box, Grid, TextField, Typography, Button, Tabs, Tab, Switch, Stack, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, createTheme, ThemeProvider, Autocomplete, Paper, FormControl, Select, OutlinedInput, MenuItem, Checkbox, Popper, ClickAwayListener, AccordionSummary, Accordion, AccordionDetails, FormControlLabel } from "@mui/material";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Box, Grid, TextField, Typography, Button, Tabs, Tab, Switch, Stack, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, createTheme, ThemeProvider, Autocomplete, Paper, FormControl, Select, OutlinedInput, MenuItem, Checkbox, Popper, ClickAwayListener, AccordionSummary, Accordion, AccordionDetails, FormControlLabel, Chip, Divider, Tooltip } from "@mui/material";
 import RichTextEditor from "../../TextEditor";
 import axios from "axios";
 import { useDropzone } from "react-dropzone";
@@ -11,7 +11,12 @@ import dayjs from "dayjs";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
+import { selectUserTypeID } from "../../../Redux/Slices/AuthSlice";
+import {
+    APPROVAL_SUBMENUS, approvalRoleFor, selectApprovalMatrix,
+} from "../../../Redux/Slices/approvalMatrixSlice";
 import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlice";
+import { selectAcademicYear } from "../../../Redux/Slices/academicYearSlice";
 import { GettingGrades, GetUsersBaseDetails, postCircular, postNews } from "../../../Api/Api";
 import SnackBar from "../../SnackBar";
 import CancelIcon from "@mui/icons-material/Cancel";
@@ -20,6 +25,16 @@ import { selectGrades } from "../../../Redux/Slices/DropdownController";
 import Loader from "../../Loader";
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import AddAdmissionNumbersDialog from "../../AddAdmissionNumberDialog";
+// import SaveOutlinedIcon from "@mui/icons-material/SaveOutlined"; // used by the commented Save as Draft button
+import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
+import SendOutlinedIcon from "@mui/icons-material/SendOutlined";
+import ScheduleSendOutlinedIcon from "@mui/icons-material/ScheduleSendOutlined";
+import PublishOutlinedIcon from "@mui/icons-material/PublishOutlined";
+import CloseOutlinedIcon from "@mui/icons-material/CloseOutlined";
+import VerifiedOutlinedIcon from "@mui/icons-material/VerifiedOutlined";
+import AccountTreeOutlinedIcon from "@mui/icons-material/AccountTreeOutlined";
+import GroupOutlinedIcon from "@mui/icons-material/GroupOutlined";
+import ArticleOutlinedIcon from "@mui/icons-material/ArticleOutlined";
 
 export default function CreateNewsPage() {
     const navigate = useNavigate()
@@ -55,7 +70,6 @@ export default function CreateNewsPage() {
     const [expandedGrade, setExpandedGrade] = useState(null);
     const [anchorEl, setAnchorEl] = useState(null);
     const [isEveryone, setIsEveryone] = useState(false);
-    const [isPreview, setIsPreview] = useState(false);
     const [specificNo, setSpecificNo] = useState("");
     const [openTextarea, setOpenTextarea] = useState(false);
     const [staffAnchorEl, setStaffAnchorEl] = useState(null);
@@ -67,14 +81,84 @@ export default function CreateNewsPage() {
     const allSelected = staffOptions.every(option => selectedStaffOptions.includes(option));
     const isIndeterminate = selectedStaffOptions.length > 0 && !allSelected;
 
-    const [previewData, setPreviewData] = useState({
-        heading: '',
-        content: '',
-        uploadedFiles: [],
-        pastedLink: '',
-    });
+    // Remounting the editor is the only reliable way to clear it - Jodit keeps
+    // its own DOM, so pushing an empty value down does not always reach it.
+    const [editorResetKey, setEditorResetKey] = useState(0);
 
     const websiteSettings = useSelector(selectWebsiteSettings);
+    const academicYear = useSelector(selectAcademicYear);
+
+    // Whether this user posts straight to live or raises a request is decided by
+    // the approval flow configured in Access Control, not by their user type.
+    const approvalMatrix = useSelector(selectApprovalMatrix);
+    const userTypeID = useSelector(selectUserTypeID);
+    const approval = useMemo(
+        () => approvalRoleFor(approvalMatrix, APPROVAL_SUBMENUS.CIRCULAR, userTypeID),
+        [approvalMatrix, userTypeID],
+    );
+    const canPublishCircular = approval.canPublishDirect;
+
+    // Names of the approvers this circular has to travel through, nearest one first.
+    const approverNames = approval.chain.map(
+        (lvl) => approval.flow?.["level" + lvl]?.userType || ("Level " + lvl),
+    );
+    const approvalNote = canPublishCircular
+        ? (approval.required
+            ? "You are the top level approver for Circulars, so whatever you post goes out straight away."
+            : "No approval flow is set for Circulars yet, so whatever you post goes out straight away.")
+        : (approverNames.length
+            ? "This circular will be sent to " + approverNames.join(", then ") + " for approval before it goes out."
+            : "This circular will be sent for approval before it goes out.");
+
+    // One blob URL per selected file instead of a fresh one on every keystroke.
+    const imagePreviewUrl = useMemo(() => {
+        const file = uploadedFiles[0];
+        if (!file) return "";
+        return file instanceof File ? URL.createObjectURL(file) : (file.url || file);
+    }, [uploadedFiles]);
+
+    useEffect(() => {
+        if (!imagePreviewUrl.startsWith("blob:")) return undefined;
+        return () => URL.revokeObjectURL(imagePreviewUrl);
+    }, [imagePreviewUrl]);
+
+    const isPdfUpload = (uploadedFiles[0]?.type || "").includes("pdf");
+
+    const fieldLabelSx = { fontSize: "13px", fontWeight: 600, color: "#374151", mb: 0.7 };
+    const requiredSx = { color: "#E30053" };
+
+    const ghostButtonSx = {
+        textTransform: "none",
+        borderRadius: "10px",
+        fontSize: "12.5px",
+        fontWeight: 600,
+        px: 1.8,
+        py: 0.6,
+        color: "#374151",
+        borderColor: "#D6DAE1",
+        backgroundColor: "#fff",
+        "&:hover": { borderColor: "#9AA3AF", backgroundColor: "#F7F8FA" },
+    };
+
+    const primaryButtonSx = {
+        textTransform: "none",
+        borderRadius: "10px",
+        fontSize: "12.5px",
+        fontWeight: 700,
+        px: 2.4,
+        py: 0.7,
+        boxShadow: "none",
+        whiteSpace: "nowrap",
+        backgroundColor: websiteSettings.mainColor,
+        color: websiteSettings.textColor,
+        "&:hover": { backgroundColor: websiteSettings.mainColor, opacity: 0.9, boxShadow: "none" },
+    };
+
+    const primaryAction = canPublishCircular
+        ? (DTValue
+            ? { label: "Schedule Circular", status: "schedule", icon: <ScheduleSendOutlinedIcon sx={{ fontSize: 17 }} /> }
+            : { label: "Publish Now", status: "post", icon: <PublishOutlinedIcon sx={{ fontSize: 17 }} /> })
+        : { label: "Send for Approval", status: DTValue ? "schedule" : "post", icon: <SendOutlinedIcon sx={{ fontSize: 17 }} /> };
 
     const theme = createTheme({
         palette: {
@@ -181,21 +265,11 @@ export default function CreateNewsPage() {
         }
     };
 
-    const handleRichTextChange = (htmlContent) => {
+    // Stable identity so the memoised editor is not re-rendered on every keystroke.
+    const handleRichTextChange = useCallback((htmlContent) => {
         setChangesHappended(true)
         setNewsContentHTML(htmlContent);
-    };
-
-
-    const handlePreview = () => {
-        setIsPreview(true)
-        setPreviewData({
-            heading,
-            content: newsContentHTML,
-            uploadedFiles,
-            pastedLink,
-        });
-    };
+    }, []);
 
     const handleBackClick = () => {
         if (changesHappended) {
@@ -340,10 +414,6 @@ export default function CreateNewsPage() {
         return selectedData.length > 0 ? selectedData.join(", ") : "Select Class & Section";
     };
 
-    const handleShow = (event) => {
-        setIsPreview(false)
-    };
-
     useEffect(() => {
         fetchClass()
     }, []);
@@ -461,16 +531,16 @@ export default function CreateNewsPage() {
 
         try {
             const sendData = new FormData();
-            sendData.append("HeadLine", heading);
-            sendData.append("Circular", newsContentHTML);
-            sendData.append("UserType", userType);
-            sendData.append("RollNumber", rollNumber);
-            sendData.append("PostedOn", todayDateTime);
-            sendData.append("Status", status);
-            sendData.append("ScheduleOn", formattedDTValue || "");
-            sendData.append("DraftedOn", status === 'draft' ? todayDateTime : "");
-            sendData.append("FileType", fileType || "empty");
-            sendData.append("File", uploadedFiles[0] || '');
+            sendData.append("headLine", heading);
+            sendData.append("circular", newsContentHTML);
+            sendData.append("userType", userType);
+            sendData.append("rollNumber", rollNumber);
+            sendData.append("postedOn", todayDateTime);
+            sendData.append("status", status);
+            sendData.append("scheduleOn", formattedDTValue || "");
+            sendData.append("draftedOn", status === 'draft' ? todayDateTime : "");
+            sendData.append("fileType", fileType || "empty");
+            sendData.append("file", uploadedFiles[0] || '');
             sendData.append("everyone", isEveryone ? "Y" : "");
 
             const { gradeSections } = getGradeSectionsPayload();
@@ -506,6 +576,8 @@ export default function CreateNewsPage() {
                 sendData.append("specific", "");
             }
 
+            sendData.append("academicYear", academicYear || "");
+
 
             const res = await axios.post(postCircular, sendData, {
                 headers: {
@@ -515,7 +587,7 @@ export default function CreateNewsPage() {
             setOpen(true);
             setColor(true);
             setStatus(true);
-            if (userType === "superadmin") {
+            if (canPublishCircular) {
                 if (status === "post") {
                     setMessage("Circulars created successfully");
                 } else if (status === "schedule") {
@@ -525,7 +597,7 @@ export default function CreateNewsPage() {
                 }
             }
 
-            if (userType !== "superadmin") {
+            if (!canPublishCircular) {
                 if (status === "draft") {
                     setMessage("Draft saved successfully");
                 } else {
@@ -543,11 +615,8 @@ export default function CreateNewsPage() {
             setDTValue(null)
             setFileType("empty")
             setUploadedFiles([]);
-            setPreviewData({
-                heading: '',
-                content: '',
-                uploadedFiles: [],
-            });
+            setChangesHappended(false)
+            setEditorResetKey((k) => k + 1);
             console.log("Response:", res.data);
         } catch (error) {
             console.error("Error while inserting circular data:", error);
@@ -556,9 +625,6 @@ export default function CreateNewsPage() {
         }
     };
 
-    if (userType !== "superadmin" && userType !== "admin" && userType !== "staff") {
-        return <Navigate to="/dashboardmenu/circulars" replace />;
-    }
 
     return (
         <Box sx={{ width: "100%" }}>
@@ -572,14 +638,38 @@ export default function CreateNewsPage() {
                 display: "flex",
                 px: 2,
                 alignItems: "center",
+                justifyContent: "space-between",
                 width: "100%",
                 py: 1.5,
                 marginTop: "-2px"
             }}>
-                <IconButton onClick={handleBackClick} sx={{ width: "27px", height: "27px", marginTop: '2px' }}>
-                    <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
-                </IconButton>
-                <Typography sx={{ fontWeight: "600", fontSize: "20px" }}>Create Circulars</Typography>
+                <Box sx={{ display: "flex", alignItems: "center" }}>
+                    <IconButton onClick={handleBackClick} sx={{ width: "27px", height: "27px", marginTop: '2px' }}>
+                        <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
+                    </IconButton>
+                    <Typography sx={{ fontWeight: "600", fontSize: "20px" }}>Create Circulars</Typography>
+                </Box>
+
+                <Tooltip title={approvalNote} placement="bottom-end">
+                    <Chip
+                        size="small"
+                        icon={canPublishCircular
+                            ? <VerifiedOutlinedIcon sx={{ fontSize: 16 }} />
+                            : <AccountTreeOutlinedIcon sx={{ fontSize: 16 }} />}
+                        label={canPublishCircular ? "Publishes instantly" : "Needs approval"}
+                        sx={{
+                            mr: 4,
+                            display: { xs: "none", sm: "inline-flex" },
+                            fontSize: "12px",
+                            fontWeight: 600,
+                            borderRadius: "8px",
+                            border: canPublishCircular ? "1px solid #CBE3B4" : "1px solid #FFD9A0",
+                            backgroundColor: canPublishCircular ? "#F1F8E9" : "#FFF7E6",
+                            color: canPublishCircular ? "#4E7A2E" : "#B36A00",
+                            "& .MuiChip-icon": { color: "inherit" },
+                        }}
+                    />
+                </Tooltip>
             </Box>
             <Grid container >
                 <Grid
@@ -591,7 +681,38 @@ export default function CreateNewsPage() {
                         md: 6,
                         lg: 6
                     }}>
-                    <Box sx={{ border: "1px solid #E0E0E0", backgroundColor: "#fbfbfb", p: 2, borderRadius: "7px", mt: 4.5, maxHeight: "75.6vh", overflowY: "auto" }}>
+                    <Box sx={{
+                        border: "1px solid #E6E8EC",
+                        backgroundColor: "#fff",
+                        p: 2,
+                        borderRadius: "12px",
+                        mt: 4.5,
+                        maxHeight: "75.6vh",
+                        overflow: "hidden auto",
+                    }}>
+                        <Box sx={{
+                            display: "flex",
+                            alignItems: "flex-start",
+                            gap: 1.2,
+                            p: 1.5,
+                            mb: 2.5,
+                            borderRadius: "10px",
+                            border: canPublishCircular ? "1px solid #DCEDC8" : "1px solid #FFE3B0",
+                            backgroundColor: canPublishCircular ? "#F5FAF0" : "#FFFAF0",
+                        }}>
+                            {canPublishCircular
+                                ? <VerifiedOutlinedIcon sx={{ fontSize: 18, color: "#4E7A2E", mt: "1px" }} />
+                                : <AccountTreeOutlinedIcon sx={{ fontSize: 18, color: "#B36A00", mt: "1px" }} />}
+                            <Box>
+                                <Typography sx={{ fontSize: "13px", fontWeight: 600, color: canPublishCircular ? "#4E7A2E" : "#B36A00" }}>
+                                    {canPublishCircular ? "You can publish directly" : "Approval needed before this goes out"}
+                                </Typography>
+                                <Typography sx={{ fontSize: "12px", color: "#5B6472", mt: 0.2 }}>
+                                    {approvalNote}
+                                </Typography>
+                            </Box>
+                        </Box>
+
                         <Grid container spacing={2}>
                             <Grid
                                 size={{
@@ -874,12 +995,9 @@ export default function CreateNewsPage() {
                                 />
 
                             </Grid>
-                            {isPreview &&
-                                <Box onClick={handleShow} sx={{ fontSize: "13px", ml: 2, mt: 0.5, cursor: "pointer", color: "#777", textDecoration: "underline" }}>Show selected items ᐅ</Box>
-                            }
                         </Grid>
 
-                        <Typography sx={{ mt: 2 }}>Add Heading <span style={{ color: "#777", fontSize: "13px", }}> (Required)</span></Typography>
+                        <Typography sx={{ ...fieldLabelSx, mt: 2.5 }}>Headline <span style={requiredSx}>*</span></Typography>
 
                         <TextField
                             sx={{ backgroundColor: "#fff", }}
@@ -887,19 +1005,22 @@ export default function CreateNewsPage() {
                             size="small"
                             fullWidth
                             required
+                            placeholder="A short, clear headline"
                             value={heading}
                             onChange={handleHeadingChange}
                         />
 
-                        <Typography sx={{ fontSize: "12px" }} color="textSecondary">
+                        <Typography sx={{ fontSize: "11px", mt: 0.5, textAlign: "right", color: heading.length >= 100 ? "#f44336" : "#8A93A0" }}>
                             {`${heading.length}/100`}
                         </Typography>
 
-                        <Typography sx={{ pt: 3 }}>Add Description<span style={{ color: "#777", fontSize: "13px" }}> (Required)</span></Typography>
+                        <Typography sx={{ ...fieldLabelSx, pt: 2 }}>Description <span style={requiredSx}>*</span></Typography>
 
                         <SimpleTextEditor
-                            value={newsContentHTML}
+                            key={editorResetKey}
+                            value=""
                             onContentChange={handleRichTextChange}
+                            onLiveChange={handleRichTextChange}
                         />
 
 
@@ -1023,213 +1144,73 @@ export default function CreateNewsPage() {
                             </ThemeProvider>
                         </Box>
 
-                        <Box sx={{ mt: 3 }}>
-                            <Grid container>
-                                <Grid
-                                    size={{
-                                        xs: 6,
-                                        sm: 6,
-                                        md: 6,
-                                        lg: 4.4
-                                    }}>
+                        <Divider sx={{ mt: 3 }} />
+                        <Box sx={{ mt: 2 }}>
+                            <Box sx={{
+                                display: "flex",
+                                flexWrap: "wrap",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                gap: 1,
+                            }}>
+                                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
                                     <Button
                                         variant="outlined"
-                                        sx={{
-                                            textTransform: 'none',
-                                            width: "120px",
-                                            borderRadius: '30px',
-                                            fontSize: '12px',
-                                            py: 0.2,
-                                            border: '1px solid black',
-                                            color: 'black',
-                                            fontWeight: "600",
-                                            backgroundColor: "#fff"
-                                        }}
-                                        onClick={() => handleInsertNewsData('draft')}>
-                                        Save as Draft
-                                    </Button>
-                                </Grid>
-                                <Grid
-                                    sx={{ display: "flex", justifyContent: "end" }}
-                                    size={{
-                                        xs: 6,
-                                        sm: 6,
-                                        md: 6,
-                                        lg: 2.3
-                                    }}>
-                                    <Button
-                                        sx={{
-                                            textTransform: 'none',
-                                            width: "80px",
-                                            borderRadius: '30px',
-                                            fontSize: '12px',
-                                            py: 0.2,
-                                            color: 'black',
-                                            fontWeight: "600",
-                                        }}
-                                        onClick={handlePreview}>
-                                        Preview
-                                    </Button>
-                                </Grid>
-                                <Grid
-                                    sx={{ display: "flex", justifyContent: "end" }}
-                                    size={{
-                                        xs: 6,
-                                        sm: 6,
-                                        md: 6,
-                                        lg: 2.3
-                                    }}>
-                                    <Button
-                                        sx={{
-                                            textTransform: 'none',
-                                            width: "80px",
-                                            borderRadius: '30px',
-                                            fontSize: '12px',
-                                            py: 0.2,
-                                            border: '1px solid black',
-                                            color: 'black',
-                                            fontWeight: "600",
-                                            backgroundColor: "#fff"
-                                        }}
+                                        startIcon={<CloseOutlinedIcon sx={{ fontSize: 16 }} />}
+                                        sx={ghostButtonSx}
                                         onClick={handleCancelClick}>
                                         Cancel
                                     </Button>
-                                </Grid>
+                                    {/* Draft feature is no longer used - kept here in case it comes back.
+                                    <Button
+                                        variant="outlined"
+                                        startIcon={<SaveOutlinedIcon sx={{ fontSize: 16 }} />}
+                                        sx={ghostButtonSx}
+                                        onClick={() => handleInsertNewsData('draft')}>
+                                        Save as Draft
+                                    </Button>
+                                    */}
+                                </Box>
 
-                                <Dialog open={openAlert} onClose={() => setOpenAlert(false)}>
-                                    <Box sx={{ display: "flex", justifyContent: "center", p: 2, backgroundColor: '#fff', }}>
+                                <Tooltip title={approvalNote} placement="top">
+                                    <Button
+                                        startIcon={primaryAction.icon}
+                                        sx={primaryButtonSx}
+                                        onClick={() => handleInsertNewsData(primaryAction.status)}>
+                                        {primaryAction.label}
+                                    </Button>
+                                </Tooltip>
+                            </Box>
 
-                                        <Box sx={{
-                                            textAlign: 'center',
-                                            backgroundColor: '#fff',
-                                            p: 3,
-                                            width: "70%",
-                                        }}>
-
-                                            <Typography sx={{ fontSize: "20px" }}> Do you really want to cancel? Your changes might not be saved.</Typography>
-                                            <DialogActions sx={{
-                                                justifyContent: 'center',
-                                                backgroundColor: '#fff',
-                                                pt: 2
-                                            }}>
-                                                <Button
-                                                    onClick={() => handleCloseDialog(false)}
-                                                    sx={{
-                                                        textTransform: 'none',
-                                                        width: "80px",
-                                                        borderRadius: '30px',
-                                                        fontSize: '16px',
-                                                        py: 0.2,
-                                                        border: '1px solid black',
-                                                        color: 'black',
-                                                    }}
-                                                >
-                                                    No
-                                                </Button>
-                                                <Button
-                                                    onClick={() => handleCloseDialog(true)}
-                                                    sx={{
-                                                        textTransform: 'none',
-                                                        backgroundColor: websiteSettings.mainColor,
-                                                        width: "90px",
-                                                        borderRadius: '30px',
-                                                        fontSize: '16px',
-                                                        py: 0.2,
-                                                        color: websiteSettings.textColor,
-                                                    }}
-                                                >
-                                                    Yes
-                                                </Button>
-                                            </DialogActions>
-                                        </Box>
-
-                                    </Box>
-                                </Dialog>
-
-                                {userType === "superadmin" &&
-                                    <>
-                                        {!DTValue && (
-                                            <Grid
-                                                sx={{ display: "flex", justifyContent: "end" }}
-                                                size={{
-                                                    xs: 6,
-                                                    sm: 6,
-                                                    md: 6,
-                                                    lg: 3
-                                                }}>
-                                                <Button
-                                                    sx={{
-                                                        textTransform: 'none',
-                                                        backgroundColor: websiteSettings.mainColor,
-                                                        width: "80px",
-                                                        borderRadius: '30px',
-                                                        fontSize: '12px',
-                                                        py: 0.2,
-                                                        color: websiteSettings.textColor,
-                                                        fontWeight: "600",
-                                                    }}
-                                                    onClick={() => handleInsertNewsData('post')}>
-                                                    Publish
-                                                </Button>
-                                            </Grid>
-                                        )}
-                                        {DTValue && (
-                                            <Grid
-                                                sx={{ display: "flex", justifyContent: "end" }}
-                                                size={{
-                                                    xs: 6,
-                                                    sm: 6,
-                                                    md: 6,
-                                                    lg: 3
-                                                }}>
-                                                <Button
-                                                    sx={{
-                                                        textTransform: 'none',
-                                                        backgroundColor: websiteSettings.mainColor,
-                                                        width: "80px",
-                                                        borderRadius: '30px',
-                                                        fontSize: '12px',
-                                                        py: 0.2,
-                                                        color: websiteSettings.textColor,
-                                                        fontWeight: "600",
-                                                    }}
-                                                    onClick={() => handleInsertNewsData('schedule')}>
-                                                    Schedule
-                                                </Button>
-                                            </Grid>
-                                        )}
-                                    </>}
-
-                                {userType !== "superadmin" &&
-                                    <>
-                                        <Grid
-                                            sx={{ display: "flex", justifyContent: "end" }}
-                                            size={{
-                                                xs: 6,
-                                                sm: 6,
-                                                md: 6,
-                                                lg: 3
-                                            }}>
-
-                                            <Button
-                                                sx={{
-                                                    textTransform: 'none',
-                                                    backgroundColor: websiteSettings.mainColor,
-                                                    width: "100px",
-                                                    borderRadius: '30px',
-                                                    fontSize: '12px',
-                                                    py: 0.2,
-                                                    color: websiteSettings.textColor,
-                                                    fontWeight: "600",
-                                                }}
-                                                onClick={() => handleInsertNewsData(DTValue ? 'schedule' : 'post')}>
-                                                Request Now
-                                            </Button>
-                                        </Grid>
-                                    </>
-                                }
-
-                            </Grid>
+                            <Dialog
+                                open={openAlert}
+                                onClose={() => setOpenAlert(false)}
+                                slotProps={{ paper: { sx: { borderRadius: "14px", maxWidth: "420px" } } }}
+                            >
+                                <Box sx={{ p: 3, backgroundColor: '#fff', textAlign: 'center' }}>
+                                    <Typography sx={{ fontSize: "17px", fontWeight: 600, color: "#111827" }}>
+                                        Discard this circular?
+                                    </Typography>
+                                    <Typography sx={{ fontSize: "13px", color: "#6B7280", mt: 0.8 }}>
+                                        Your changes have not been saved yet and will be lost.
+                                    </Typography>
+                                    <DialogActions sx={{ justifyContent: 'center', backgroundColor: '#fff', pt: 2.5, gap: 1 }}>
+                                        <Button
+                                            variant="outlined"
+                                            onClick={() => handleCloseDialog(false)}
+                                            sx={{ ...ghostButtonSx, px: 2.4 }}
+                                        >
+                                            Keep editing
+                                        </Button>
+                                        <Button
+                                            onClick={() => handleCloseDialog(true)}
+                                            sx={primaryButtonSx}
+                                        >
+                                            Discard
+                                        </Button>
+                                    </DialogActions>
+                                </Box>
+                            </Dialog>
                         </Box>
 
                     </Box>
@@ -1244,126 +1225,148 @@ export default function CreateNewsPage() {
                         md: 6,
                         lg: 6
                     }}>
-                    <Box sx={{ border: "1px solid #E0E0E0", backgroundColor: "#fbfbfb", p: 2, borderRadius: "6px", height: "75.6vh", overflowY: "auto" }}>
-                        <Typography sx={{ fontSize: "14px", color: "rgba(0,0,0,0.7)" }}>Live Preview</Typography>
-                        <hr style={{ border: "0.5px solid #CFCFCF" }} />
-                        {!isPreview &&
-                            (isEveryone ? (
-                                <Typography sx={{ fontWeight: 600, fontSize: "14px", color: "#333" }}>
-                                    For Everyone
+                    <Box sx={{ border: "1px solid #E6E8EC", backgroundColor: "#fff", p: 2, borderRadius: "12px", height: "75.6vh", overflow: "hidden auto" }}>
+                        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                <ArticleOutlinedIcon sx={{ fontSize: 18, color: "#6B7280" }} />
+                                <Typography sx={{ fontSize: "14px", fontWeight: 600, color: "#374151" }}>Live Preview</Typography>
+                            </Box>
+                            <Typography sx={{ fontSize: "11px", color: "#8A93A0" }}>Updates as you type</Typography>
+                        </Box>
+                        <Divider sx={{ my: 1.5 }} />
+
+                        <Box
+                            sx={{
+                                backgroundColor: "#FAFBFC",
+                                borderRadius: "10px",
+                                p: 1.5,
+                                border: "1px solid #EDEFF3",
+                            }}
+                        >
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 0.8, mb: isEveryone ? 0 : 1.2 }}>
+                                <GroupOutlinedIcon sx={{ fontSize: 16, color: "#6B7280" }} />
+                                <Typography sx={{ fontWeight: 600, fontSize: "12.5px", color: "#374151" }}>
+                                    Sending to
                                 </Typography>
-                            ) : (
-                                <Box
-                                    sx={{
-                                        backgroundColor: "#f9f9f9",
-                                        borderRadius: "8px",
-                                        p: 2,
-                                        border: "1px solid #ddd",
-                                        boxShadow: "0px 1px 3px rgba(0,0,0,0.05)",
-                                    }}
-                                >
-                                    {/* Selected Students */}
-                                    <Box sx={{ mb: 2 }}>
-                                        <Typography sx={{ fontWeight: 600, fontSize: "14px", color: "#333" }}>
-                                            Selected Class & Section
+                                {isEveryone && (
+                                    <Chip
+                                        size="small"
+                                        label="Everyone"
+                                        sx={{
+                                            height: "20px",
+                                            fontSize: "11px",
+                                            fontWeight: 600,
+                                            borderRadius: "6px",
+                                            backgroundColor: "#E8F5E9",
+                                            color: "#4E7A2E",
+                                        }}
+                                    />
+                                )}
+                            </Box>
+
+                            {!isEveryone && (
+                                <>
+                                    <Box sx={{ mb: 1.2 }}>
+                                        <Typography sx={{ fontWeight: 600, fontSize: "12px", color: "#6B7280" }}>
+                                            Class and Section
                                         </Typography>
-                                        <Typography
-                                            sx={{
-                                                fontSize: "13px",
-                                                color: "#555",
-                                                mt: 0.5,
-                                                wordBreak: "break-word",
-                                            }}
-                                        >
+                                        <Typography sx={{ fontSize: "12.5px", color: "#374151", mt: 0.3, wordBreak: "break-word" }}>
                                             {renderValue() || "None"}
                                         </Typography>
                                     </Box>
 
-                                    {/* Selected Staffs */}
-                                    <Box sx={{ mb: 2 }}>
-                                        <Typography sx={{ fontWeight: 600, fontSize: "14px", color: "#333" }}>
-                                            Selected Staff
+                                    <Box sx={{ mb: 1.2 }}>
+                                        <Typography sx={{ fontWeight: 600, fontSize: "12px", color: "#6B7280" }}>
+                                            Staff
                                         </Typography>
-                                        <Typography
-                                            sx={{
-                                                fontSize: "13px",
-                                                color: "#555",
-                                                mt: 0.5,
-                                                wordBreak: "break-word",
-                                            }}
-                                        >
+                                        <Typography sx={{ fontSize: "12.5px", color: "#374151", mt: 0.3, wordBreak: "break-word" }}>
                                             {selectedStaffOptions && selectedStaffOptions.length > 0
                                                 ? selectedStaffOptions.join(', ')
                                                 : "None"}
                                         </Typography>
-
                                     </Box>
 
-                                    {/* Specific */}
                                     <Box>
-                                        <Typography sx={{ fontWeight: 600, fontSize: "14px", color: "#333" }}>
+                                        <Typography sx={{ fontWeight: 600, fontSize: "12px", color: "#6B7280" }}>
                                             Specific Members
                                         </Typography>
-                                        <Typography
-                                            sx={{
-                                                fontSize: "13px",
-                                                color: "#555",
-                                                mt: 0.5,
-                                                wordBreak: "break-word",
-                                            }}
-                                        >
+                                        <Typography sx={{ fontSize: "12.5px", color: "#374151", mt: 0.3, wordBreak: "break-word" }}>
                                             {specificNo || "None"}
                                         </Typography>
                                     </Box>
-                                </Box>
-                            ))}
-                        {isPreview &&
+                                </>
+                            )}
+                        </Box>
+
+                        <Divider sx={{ my: 1.5 }} />
+
+                        {!heading.trim() && !newsContentHTML.trim() && !imagePreviewUrl ? (
+                            <Box sx={{
+                                height: "40vh",
+                                display: "flex",
+                                flexDirection: "column",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                gap: 1,
+                                textAlign: "center",
+                                color: "#9AA3AF",
+                            }}>
+                                <VisibilityOutlinedIcon sx={{ fontSize: 34, color: "#C9CFD8" }} />
+                                <Typography sx={{ fontSize: "13px", fontWeight: 600, color: "#6B7280" }}>Nothing to preview yet</Typography>
+                                <Typography sx={{ fontSize: "12px", maxWidth: "260px" }}>
+                                    Start typing the headline or description and it will show up here straight away.
+                                </Typography>
+                            </Box>
+                        ) : (
                             <Box>
-                                {previewData.heading && (
-                                    <Typography sx={{ fontWeight: "600", fontSize: "16px" }}>
-                                        {previewData.heading}
+                                {heading && (
+                                    <Typography sx={{ fontWeight: "600", fontSize: "16px", wordBreak: "break-word" }}>
+                                        {heading}
                                     </Typography>
                                 )}
 
-                                {previewData.content && (
+                                {newsContentHTML && (
                                     <Typography
-                                        sx={{ fontSize: "14px", pt: 1 }}
-                                        dangerouslySetInnerHTML={{ __html: previewData.content }}
+                                        component="div"
+                                        sx={{
+                                            fontSize: "14px",
+                                            pt: 1,
+                                            wordBreak: "break-word",
+                                            "& img": { maxWidth: "100%", height: "auto" },
+                                            "& table": { maxWidth: "100%" },
+                                        }}
+                                        dangerouslySetInnerHTML={{ __html: newsContentHTML }}
                                     />
                                 )}
 
-                                <Grid container spacing={2} mt={2}>
-                                    {previewData.uploadedFiles.map((file, index) => (
-                                        <Grid
-                                            key={index}
-                                            sx={{ display: "flex", py: 1 }}
-                                            size={{
-                                                xs: 12,
-                                                sm: 12,
-                                                md: 5,
-                                                lg: 12
-                                            }}>
-                                            {fileType === "image" ? (
-                                                <img
-                                                    src={URL.createObjectURL(file)}
-                                                    width={'273px'}
-                                                    height={'210px'}
-                                                    alt={`Uploaded file ${index + 1}`}
-                                                />
-                                            ) : fileType === "pdf" ? (
-                                                <iframe
-                                                    src={URL.createObjectURL(file)}
-                                                    width="400px"
-                                                    height="400px"
-                                                    title={`Uploaded PDF ${index + 1}`}
-                                                ></iframe>
-
-                                            ) : null}
-                                        </Grid>
-                                    ))}
-                                </Grid>
+                                {!!imagePreviewUrl && (
+                                    <Box sx={{ pt: 1.5 }}>
+                                        {isPdfUpload ? (
+                                            <iframe
+                                                src={imagePreviewUrl}
+                                                width="100%"
+                                                height="400px"
+                                                title="Circular PDF"
+                                                style={{ border: "1px solid #E6E8EC", borderRadius: "10px" }}
+                                            ></iframe>
+                                        ) : (
+                                            <img
+                                                src={imagePreviewUrl}
+                                                alt="Circular"
+                                                style={{
+                                                    width: "273px",
+                                                    height: "210px",
+                                                    objectFit: "cover",
+                                                    maxWidth: "100%",
+                                                    borderRadius: "10px",
+                                                    border: "1px solid #E6E8EC",
+                                                }}
+                                            />
+                                        )}
+                                    </Box>
+                                )}
                             </Box>
-                        }
+                        )}
                     </Box>
                 </Grid>
 

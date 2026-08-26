@@ -13,7 +13,7 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 const ECA_COLOR = '#3457D5';
 const ECA_LIGHT = '#EEF1FD';
 
-export default function EcaStudentSelectionPopup({ open, onClose, users = [], onSave, existingStudents = [], activity = null }) {
+export default function EcaStudentSelectionPopup({ open, onClose, users = [], onSave, existingStudents = [], activity = null, canMapStudent = true, canEditStudent = true }) {
     const [searchQuery, setSearchQuery] = useState('');
     const [classFilter, setClassFilter] = useState('');
     const [sectionFilter, setSectionFilter] = useState('');
@@ -62,12 +62,20 @@ export default function EcaStudentSelectionPopup({ open, onClose, users = [], on
     });
 
     const addStudent = (student) => {
+        if (!canMapStudent) return;
         if (!selectedRolls.includes(student.rollNumber)) {
             setSelectedRolls((prev) => [...prev, student.rollNumber]);
         }
     };
 
+    // Mapping and editing are separate grants. Adding a student is mapping.
+    // Taking off a student who was already saved against this activity is
+    // editing - but undoing your own unsaved pick is neither, so that stays.
+    const wasAlreadyMapped = (rollNumber) => existingStudents.includes(rollNumber);
+    const canRemove = (rollNumber) => (wasAlreadyMapped(rollNumber) ? canEditStudent : true);
+
     const removeStudent = (rollNumber) => {
+        if (!canRemove(rollNumber)) return;
         setSelectedRolls((prev) => prev.filter((r) => r !== rollNumber));
     };
 
@@ -100,11 +108,18 @@ export default function EcaStudentSelectionPopup({ open, onClose, users = [], on
                     </Box>
                     <Box>
                         <Typography sx={{ fontSize: 17, fontWeight: 700, color: '#fff', lineHeight: 1.2 }}>
-                            Add Students to Activity
+                            {canMapStudent ? 'Add Students to Activity' : 'Edit Mapped Students'}
                         </Typography>
                         <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', mt: 0.3 }}>
                             {activity ? `${activity.activityCategory} - ${activity.activityName}` : 'Search and select eligible students'}
                         </Typography>
+                        {!(canMapStudent && canEditStudent) && (
+                            <Typography sx={{ fontSize: 11, fontWeight: 600, color: '#FFE08A', mt: 0.4 }}>
+                                {canMapStudent
+                                    ? 'You can add students, but not remove ones already mapped.'
+                                    : 'You can remove mapped students, but not add new ones.'}
+                            </Typography>
+                        )}
                     </Box>
                 </Box>
                 <IconButton onClick={handleClose} sx={{ color: 'rgba(255,255,255,0.8)', '&:hover': { color: '#fff', backgroundColor: 'rgba(255,255,255,0.15)' } }}>
@@ -195,6 +210,7 @@ export default function EcaStudentSelectionPopup({ open, onClose, users = [], on
                                                     <ListItemButton
                                                         key={student.rollNumber}
                                                         onClick={() => !isSelected && addStudent(student)}
+                                                        disabled={!canMapStudent && !isSelected}
                                                         sx={{
                                                             borderRadius: '8px', mb: 0.5, px: 1.5, py: 0.8,
                                                             border: '1px solid',
@@ -264,7 +280,7 @@ export default function EcaStudentSelectionPopup({ open, onClose, users = [], on
                                                             <Typography sx={{ fontSize: 10, color: ECA_COLOR + '99', lineHeight: 1.2 }}>{rollNumber}</Typography>
                                                         </Box>
                                                     }
-                                                    onDelete={() => removeStudent(rollNumber)}
+                                                    onDelete={canRemove(rollNumber) ? () => removeStudent(rollNumber) : undefined}
                                                     sx={{
                                                         height: 'auto', py: 0.5, fontSize: '12px', fontWeight: 600,
                                                         backgroundColor: ECA_LIGHT, color: ECA_COLOR,

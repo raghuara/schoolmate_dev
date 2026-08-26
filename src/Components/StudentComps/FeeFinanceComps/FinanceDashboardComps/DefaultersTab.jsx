@@ -47,6 +47,7 @@ import { selectGrades } from '../../../../Redux/Slices/DropdownController';
 import { defaulters, sendFeeReminder, getLastFeeReminder } from '../../../../Api/Api';
 import axios from 'axios';
 import SnackBar from '../../../SnackBar';
+import { findSubMenuPermissions } from '../../../../Redux/Slices/AuthSlice';
 
 const token = "123";
 
@@ -115,6 +116,11 @@ const getAvatarColor = (str) => {
 export default function DefaultersTab({ selectedYear }) {
     const grades = useSelector(selectGrades);
     const auth = useSelector((state) => state.auth);
+    // Seeing who is behind on fees and being allowed to chase them are separate
+    // grants: the list stays visible, the reminder controls do not.
+    const rbacReady = (auth.permissions?.mainMenus || []).length > 0;
+    const canSendReminders = !rbacReady
+        || findSubMenuPermissions(auth.permissions, "feeandfinance", "financedashboard")?.sendremindertodefaulters === "Y";
 
     const [isLoading, setIsLoading] = useState(false);
     const [defaultersData, setDefaultersData] = useState(null);
@@ -502,6 +508,7 @@ export default function DefaultersTab({ selectedYear }) {
                                     Showing <strong>{filteredDefaulters.length}</strong> of {defaultersData?.defaulters?.length || 0} defaulters
                                 </Typography>
                                 <Box sx={{ display: 'flex', gap: 1 }}>
+                                    {canSendReminders && (
                                     <Button
                                         variant="outlined"
                                         size="small"
@@ -517,6 +524,8 @@ export default function DefaultersTab({ selectedYear }) {
                                     >
                                         Reminder History
                                     </Button>
+                                    )}
+                                    {canSendReminders && (
                                     <Button
                                         variant="contained"
                                         size="small"
@@ -533,6 +542,7 @@ export default function DefaultersTab({ selectedYear }) {
                                     >
                                         Send Reminder to All
                                     </Button>
+                                    )}
                                 </Box>
                             </Box>
 
@@ -547,7 +557,7 @@ export default function DefaultersTab({ selectedYear }) {
                                     <Table size="small" stickyHeader>
                                         <TableHead>
                                             <TableRow>
-                                                {['Student Details', 'Grade & Section', 'Pending Amount', 'Fee Type', 'Due Date', 'Days Overdue', 'Last Reminded', 'Action'].map((h) => (
+                                                {['Student Details', 'Grade & Section', 'Pending Amount', 'Fee Type', 'Due Date', 'Days Overdue', 'Last Reminded', ...(canSendReminders ? ['Action'] : [])].map((h) => (
                                                     <TableCell key={h} sx={{ fontWeight: '700', fontSize: '11px', bgcolor: '#FAFAFA', color: '#555', letterSpacing: '0.3px', textTransform: 'uppercase' }}>
                                                         {h}
                                                     </TableCell>
@@ -692,6 +702,7 @@ export default function DefaultersTab({ selectedYear }) {
                                                                 )}
                                                             </TableCell>
                                                             {/* Action */}
+                                                            {canSendReminders && (
                                                             <TableCell>
                                                                 <Button
                                                                     size="small"
@@ -714,6 +725,7 @@ export default function DefaultersTab({ selectedYear }) {
                                                                     {lastReminder ? 'Remind Again' : 'Remind'}
                                                                 </Button>
                                                             </TableCell>
+                                                            )}
                                                         </TableRow>
                                                     );
                                                 })

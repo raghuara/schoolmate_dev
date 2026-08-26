@@ -1,9 +1,12 @@
 import { Box } from '@mui/system'
+import { selectAcademicYear } from "../../../../Redux/Slices/academicYearSlice";
+import { APPROVAL_SUBMENUS, approvalRoleFor, selectApprovalMatrix } from "../../../../Redux/Slices/approvalMatrixSlice";
+import { selectUserTypeID } from "../../../../Redux/Slices/AuthSlice";
 import React, { useEffect, useState } from 'react'
 import Loader from '../../../Loader'
 import SnackBar from '../../../SnackBar'
 import {
-  Autocomplete, Button, Chip, Dialog, Grid, IconButton,
+  Button, Chip, Dialog, Grid, IconButton,
   InputAdornment, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, TextField, Tooltip, Typography
 } from '@mui/material'
@@ -30,21 +33,19 @@ export default function CreatedEcaFees() {
   const navigate = useNavigate()
   const user = useSelector((state) => state.auth)
   const rollNumber = user.rollNumber
-  const userType = user.userType
+  // createfeesstructure is an approval module: the matrix decides whether this
+  // role posts straight through or has to raise a request.
+  const userTypeID = useSelector(selectUserTypeID);
+  const approvalMatrix = useSelector(selectApprovalMatrix);
+  const canActDirect = approvalRoleFor(approvalMatrix, APPROVAL_SUBMENUS.FEE_STRUCTURE, userTypeID).canPublishDirect;
   const token = '123'
   const grades = useSelector(selectGrades)
   const websiteSettings = useSelector(selectWebsiteSettings)
   const isExpanded = useSelector((state) => state.sidebar.isExpanded)
 
-  const currentYear = new Date().getFullYear()
-  const currentAcademicYear = `${currentYear}-${currentYear + 1}`
-  const academicYears = [
-    `${currentYear - 2}-${currentYear - 1}`,
-    `${currentYear - 1}-${currentYear}`,
-    `${currentYear}-${currentYear + 1}`,
-  ]
 
-  const [selectedYear, setSelectedYear] = useState(currentAcademicYear)
+  // The academic year comes from the header - one picker for the whole site.
+  const selectedYear = useSelector(selectAcademicYear);
   const [ecaList, setEcaList] = useState([])
   const [isLoading, setIsLoading] = useState(false)
 
@@ -80,7 +81,7 @@ export default function CreatedEcaFees() {
     setIsLoading(true)
     try {
       const res = await axios.get(ecaFeeFetch, {
-        params: { Year: selectedYear },
+        params: { year: selectedYear },
         headers: { Authorization: `Bearer ${token}` },
       })
       setEcaList(res.data)
@@ -169,7 +170,7 @@ export default function CreatedEcaFees() {
       await axios.put(ECAupdateSchoolFee, sendData, {
         headers: { Authorization: `Bearer ${token}` },
       })
-      setMessage(userType === 'superadmin' ? 'ECA Fee updated successfully' : 'Update request sent successfully')
+      setMessage(canActDirect ? 'ECA Fee updated successfully' : 'Update request sent successfully')
       setOpen(true); setColor(true); setStatus(true)
       setEditOpen(false)
       getEcaFees()
@@ -194,11 +195,11 @@ export default function CreatedEcaFees() {
       await axios.delete(deleteEcaFeesStructure, {
         params: {
           ecaFeesID: deleteTarget.ecaFeesID || deleteTarget.id,
-          RollNumber: rollNumber,
+          rollNumber: rollNumber,
         },
         headers: { Authorization: `Bearer ${token}` },
       })
-      setMessage(userType === 'superadmin' ? 'ECA Fee deleted successfully' : 'Delete request sent successfully')
+      setMessage(canActDirect ? 'ECA Fee deleted successfully' : 'Delete request sent successfully')
       setOpen(true); setColor(true); setStatus(true)
       setDeleteOpen(false); setDeleteTarget(null)
       getEcaFees()
@@ -237,30 +238,11 @@ export default function CreatedEcaFees() {
           zIndex: 1200, transition: 'left 0.3s ease-in-out', py: 0.7,
         }}>
           <Grid container>
-            <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }} sx={{ display: 'flex', alignItems: 'center' }}>
+            <Grid size={{ xs: 12, sm: 12, md: 12, lg: 12 }} sx={{ display: 'flex', alignItems: 'center' }}>
               <IconButton onClick={() => navigate(-1)} sx={{ width: '27px', height: '27px', mt: '2px' }}>
                 <ArrowBackIcon sx={{ fontSize: 20, color: '#000' }} />
               </IconButton>
               <Typography sx={{ fontWeight: '600', fontSize: '19px' }}>Created ECA Activity Fees</Typography>
-            </Grid>
-            <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'end' }}>
-              <Autocomplete
-                size="small"
-                options={academicYears}
-                sx={{ width: '170px' }}
-                value={selectedYear}
-                onChange={(e, newValue) => setSelectedYear(newValue)}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    variant="outlined"
-                    sx={{
-                      '& .MuiOutlinedInput-root': { borderRadius: '5px', fontSize: 14, height: 35 },
-                      '& .MuiOutlinedInput-input': { textAlign: 'center', fontWeight: '600' },
-                    }}
-                  />
-                )}
-              />
             </Grid>
           </Grid>
         </Box>
@@ -319,7 +301,7 @@ export default function CreatedEcaFees() {
                         </IconButton>
                       </span>
                     </Tooltip>
-                    <Tooltip title={activity.isAnyStudentPaid ? 'Cannot delete — a student has already paid' : (userType === 'superadmin' ? 'Delete Activity' : 'Request for Delete')} arrow>
+                    <Tooltip title={activity.isAnyStudentPaid ? 'Cannot delete — a student has already paid' : (canActDirect ? 'Delete Activity' : 'Request for Delete')} arrow>
                       <span>
                         <IconButton
                           onClick={() => handleDeleteClick(activity)}
@@ -536,7 +518,7 @@ export default function CreatedEcaFees() {
                 px: 3, height: '30px', color: websiteSettings.textColor,
               }}
             >
-              {userType === 'superadmin' ? 'Update' : 'Send for Approval'}
+              {canActDirect ? 'Update' : 'Send for Approval'}
             </Button>
           </Box>
         </Dialog>
@@ -555,10 +537,10 @@ export default function CreatedEcaFees() {
             </Box>
             <Box sx={{ p: 3 }}>
               <Typography sx={{ fontSize: '17px', fontWeight: 600, color: '#111827', mb: 1 }}>
-                {userType === 'superadmin' ? 'Delete ECA Fee?' : 'Request for Delete?'}
+                {canActDirect ? 'Delete ECA Fee?' : 'Request for Delete?'}
               </Typography>
               <Typography sx={{ fontSize: '13px', color: '#6B7280', mb: 3, lineHeight: 1.6 }}>
-                {userType === 'superadmin'
+                {canActDirect
                   ? <>Are you sure you want to delete <strong>"{deleteTarget?.activityName}"</strong>?<br />This action cannot be undone.</>
                   : <>Are you sure you want to send a delete request for <strong>"{deleteTarget?.activityName}"</strong>?<br />This will be sent for admin approval.</>
                 }
@@ -577,8 +559,8 @@ export default function CreatedEcaFees() {
                   sx={{ textTransform: 'none', backgroundColor: '#DC2626', color: '#fff', fontWeight: 500, borderRadius: '30px', px: 3, py: 0.8, boxShadow: 'none', '&:hover': { backgroundColor: '#B91C1C' } }}
                 >
                   {isLoading
-                    ? (userType === 'superadmin' ? 'Deleting...' : 'Sending...')
-                    : (userType === 'superadmin' ? 'Delete' : 'Send Request')
+                    ? (canActDirect ? 'Deleting...' : 'Sending...')
+                    : (canActDirect ? 'Delete' : 'Send Request')
                   }
                 </Button>
               </Box>

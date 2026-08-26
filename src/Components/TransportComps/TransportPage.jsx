@@ -1,185 +1,113 @@
-import { Box, Button, Grid, IconButton, Tab, Tabs, Typography } from "@mui/material";
+import { Box, Grid } from "@mui/material";
+import React from "react";
 import { useSelector } from "react-redux";
-import { selectWebsiteSettings } from "../../Redux/Slices/websiteSettingsSlice";
-import Loader from "../Loader";
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import { useEffect, useState } from "react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
-import AirportShuttleIcon from '@mui/icons-material/AirportShuttle';
-import SettingsIcon from '@mui/icons-material/Settings';
-import AirlineStopsIcon from '@mui/icons-material/AirlineStops';
-import AccountTreeIcon from '@mui/icons-material/AccountTree';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import { useNavigate } from "react-router-dom";
+import { findSubMenuPermissions } from "../../Redux/Slices/AuthSlice";
+import DirectionsBusIcon from "@mui/icons-material/DirectionsBus";
+import AltRouteIcon from "@mui/icons-material/AltRoute";
+import HowToRegIcon from "@mui/icons-material/HowToReg";
+import AppsIcon from "@mui/icons-material/Apps";
+import { DASH, RADIUS, EmptyNote, ModuleCard, PageHeader, SectionTitle } from "../DashBoardComps/dashboardTheme";
 
-export default function TrasnportPage() {
-  const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(false);
-  const [newsIntimation, setNewsIntimation] = useState(false);
-  const user = useSelector((state) => state.auth);
-  const rollNumber = user.rollNumber
-  const userType = user.userType
-  const userName = user.name
-  const websiteSettings = useSelector(selectWebsiteSettings);
-  const token = "123"
+const MAIN_MENU = "transport";
 
-  const items = [
-    { color: "#A749CC", icon: SettingsIcon, text: "Vehicle Details", bgColor: "#FBF9FC", iconBgColor: "#F7F0F9", path: 'details', },
-    { color: "#ED9146", icon: AirlineStopsIcon, text: "Route Management", bgColor: "#FCFBF9", iconBgColor: "#FBF4EF", path: 'route', },
-    { color: "#7DC353", icon: AccountTreeIcon, text: "Student Mapping", bgColor: "#F9FBF7", iconBgColor: "#F2F8EE", path: 'student-map' },
-    // { color: "#E10052", icon: AccountTreeIcon, text: "Vehicle Safety & Compliance", bgColor: "#FCF8F9", iconBgColor: "#FBEBF1", path: 'safety-compliance', },
-  ];
+const items = [
+    {
+        accent: "#A749CC",
+        icon: DirectionsBusIcon,
+        text: "Vehicle Details",
+        desc: "Fleet records, documents and vehicle safety details.",
+        path: "details",
+        subMenu: "vehicledetails",
+        needs: ["view", "create", "edit", "delete"],
+        links: [
+            { label: "Vehicle List", path: "details", needs: ["view", "create", "edit", "delete"] },
+            { label: "Add Vehicle", path: "details/add", needs: ["create"] },
+        ],
+    },
+    {
+        accent: "#ED9146",
+        icon: AltRouteIcon,
+        text: "Route Management",
+        desc: "Routes, stops and the vehicle running each trip.",
+        path: "route",
+        subMenu: "routemanagement",
+        needs: ["view", "create", "edit", "delete"],
+        links: [
+            { label: "Route List", path: "route", needs: ["view", "create", "edit", "delete"] },
+        ],
+    },
+    {
+        accent: "#7DC353",
+        icon: HowToRegIcon,
+        text: "Transport Student Mapping",
+        desc: "Assign students to a route, stop and vehicle.",
+        path: "student-map",
+        subMenu: "studentmapping",
+        needs: ["allowstudentmapping", "allowediting"],
+        links: [
+            { label: "Mapped Students", path: "student-map", needs: ["allowstudentmapping", "allowediting"] },
+        ],
+    },
+];
 
-  if (userType !== "superadmin" && userType !== "admin" && userType !== "staff") {
-    return <Navigate to="/dashboardmenu/dashboard" replace />;
-  }
+export default function TransportPage() {
+    const navigate = useNavigate();
+    const user = useSelector((state) => state.auth);
 
-  return (
-    <Box sx={{ width: "100%", }}>
-      {isLoading && <Loader />}
-      <Box sx={{ backgroundColor: "#f2f2f2", p: 1.5, borderRadius: "10px 10px 10px 0px", borderBottom: "1px solid #ddd", }}>
-        <Grid container sx={{ width: "100%" }}>
-          <Grid
-            sx={{ display: "flex", alignItems: "center", }}
-            size={{
-              xs: 6,
-              sm: 6,
-              md: 3,
-              lg: 3
-            }}>
-            <IconButton onClick={() => navigate(-1)} sx={{ width: "30px", height: "30px", marginTop: '2px', }}>
-              <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
-            </IconButton>
-            <Typography sx={{ fontWeight: "600", fontSize: "20px", ml: 0.5}} >Transport Page</Typography>
-          </Grid>
-          <Grid
-            sx={{ display: "flex", justifyContent: "center", alignItems: "center" }}
-            size={{
-              xs: 6,
-              sm: 6,
-              md: 3,
-              lg: 6
-            }}>
-          </Grid>
-        </Grid>
-      </Box>
-      <Box>
-        <Box sx={{ p: 2, }}>
-          <Box sx={{ display: "flex", justifyContent: "center", height: "70vh", overflowY: "auto" }}>
-            <Grid container spacing={2} sx={{ width: "100%" }}>
-              {items.map((item, index) => {
-                const IconComponent = item.icon;
-                return (
-                  <Grid
-                    sx={{ display: "flex", justifyContent: "center" }}
-                    key={index}
-                    size={{
-                      xs: 12,
-                      sm: 6,
-                      md: 3
-                    }}>
-                    <Link
-                      to={item.path}
-                      state={{ value: 'N' }}
-                      style={{
-                        textDecoration: 'none',
-                        height: "60px",
-                        width: "100%",
-                      }}
+    const permsFor = (subMenu) => findSubMenuPermissions(user.permissions, MAIN_MENU, subMenu) || null;
+
+    const holdsAny = (perms, keys) => !!perms && keys.some((k) => perms[k] === "Y");
+
+    const visibleItems = items
+        .map((item) => {
+            const perms = permsFor(item.subMenu);
+            return { ...item, perms, links: item.links.filter((l) => holdsAny(perms, l.needs)) };
+        })
+        .filter((item) => holdsAny(item.perms, item.needs));
+
+    return (
+        <Box
+            sx={{
+                px: { xs: 1.5, md: 3 },
+                pt: { xs: 1.5, md: 2 },
+                pb: 4,
+                bgcolor: DASH.canvas,
+                boxSizing: "border-box",
+            }}
+        >
+            <PageHeader
+                title="Transport"
+                subtitle="Vehicles, routes and student mapping"
+                onBack={() => navigate(-1)}
+            />
+
+            <SectionTitle icon={AppsIcon}>Modules</SectionTitle>
+
+            {visibleItems.length === 0 && (
+                <Box sx={{ bgcolor: "#fff", border: `1px solid ${DASH.line}`, borderRadius: RADIUS, p: 3 }}>
+                    <EmptyNote text="You do not have access to any transport records." />
+                </Box>
+            )}
+
+            <Grid container spacing={2} alignItems="stretch" sx={{ pb: 1 }}>
+                {visibleItems.map((item) => (
+                    <Grid
+                        key={item.subMenu}
+                        size={{ xs: 12, sm: 6, md: 4, lg: 3 }}
+                        sx={{ display: "flex" }}
                     >
-                      <Box
-                        sx={{
-                          position: "relative",
-                          backgroundColor: item.bgColor,
-                          boxShadow: "1px 1px 2px 0.5px rgba(0, 0, 0, 0.2)",
-                          borderTop: "1px solid rgba(0, 0, 0, 0.08)",
-                          width: "100%",
-                          height: "105px",
-                          borderRadius: "7px",
-                          cursor: "pointer",
-                          '&:hover': {
-                            '.arrowIcon': {
-                              opacity: 1,
-                            },
-                          },
-                        }}
-                      >
-                        <Grid container spacing={1} sx={{ height: '100%', px: 2, }}>
-                          <Grid
-                            sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}
-                            size={{
-                              md: 0.5
-                            }}>
-                            <Box
-                              sx={{
-                                width: '7px',
-                                backgroundColor: item.color,
-                                height: '100%',
-                                position: 'absolute',
-                                left: 0,
-                                top: 0,
-                                borderTopLeftRadius: '5px',
-                                borderBottomLeftRadius: '5px',
-                              }}
-                            />
-                          </Grid>
-                          <Grid
-                            sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}
-                            size={{
-                              md: 2
-                            }}>
-                            <Box sx={{
-                              backgroundColor: item.iconBgColor,
-                              borderRadius: "50px",
-                              width: "25px",
-                              height: "25px",
-                              p: 1.3,
-                              display: "flex",
-                              justifyContent: "center",
-                              alignItems: "center"
-                            }}>
-                              {/* <img src={item.icon} width={25} height={25} /> */}
-                              <IconComponent sx={{ color: item.color, fontSize: "23px" }} />
-                            </Box>
-                          </Grid>
-                          <Grid
-                            sx={{
-                              display: 'flex',
-                              justifyContent: 'center',
-                              alignItems: 'center',
-                            }}
-                            size={{
-                              md: 7
-                            }}>
-                            <Typography sx={{ fontWeight: "600", color: "#000" }}>
-                              {item.text}
-                            </Typography>
-                          </Grid>
-                          <Grid
-                            sx={{
-                              display: 'flex',
-                              justifyContent: "center",
-                              alignItems: 'center',
-                              height: '100%'
-                            }}
-                            size={{
-                              md: 2
-                            }}>
-                            <ArrowForwardIcon className="arrowIcon" sx={{
-                              opacity: 0,
-                              transition: 'opacity 0.3s ease',
-                              color: item.color,
-                            }} />
-                          </Grid>
-                        </Grid>
-                      </Box>
-                    </Link>
-                  </Grid>
-                )
-              })}
+                        <ModuleCard
+                            accent={item.accent}
+                            icon={item.icon}
+                            title={item.text}
+                            desc={item.desc}
+                            to={item.path}
+                            links={item.links}
+                        />
+                    </Grid>
+                ))}
             </Grid>
-          </Box>
         </Box>
-      </Box>
-    </Box>
-  );
+    );
 }

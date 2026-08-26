@@ -1,9 +1,12 @@
-import { Autocomplete, Box, Button, createTheme, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Fab, Grid, IconButton, InputAdornment, Paper, styled, Switch, Tab, Tabs, TextField, ThemeProvider, Tooltip, Typography } from "@mui/material";
+import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Fab, Grid, IconButton, InputAdornment, Tab, Tabs, TextField, Tooltip, Typography } from "@mui/material";
 import axios from "axios";
 import React, { useEffect, useRef, useState } from "react";
-import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { selectWebsiteSettings } from "../../../../Redux/Slices/websiteSettingsSlice";
 import { useDispatch, useSelector } from "react-redux";
+import { selectAcademicYear } from "../../../../Redux/Slices/academicYearSlice";
+import { findSubMenuPermissions, selectUserTypeID } from "../../../../Redux/Slices/AuthSlice";
+import { APPROVAL_SUBMENUS, mustRequestApproval, selectApprovalMatrix, selectApprovalMatrixReady } from "../../../../Redux/Slices/approvalMatrixSlice";
 import SearchIcon from '@mui/icons-material/Search';
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
@@ -16,10 +19,10 @@ import { ApprovalStatusCircularFetch, ApprovalStatusHomeWorkFetch, ApprovalStatu
 import Loader from "../../../Loader";
 import SnackBar from "../../../SnackBar";
 import NoData from '../../../../Images/Login/No Data.png'
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import HighlightOffIcon from '@mui/icons-material/HighlightOff';
+import { DASH, RADIUS, PageHeader } from "../../../DashBoardComps/dashboardTheme";
 import pdfDemo from '../../../../Images/PDF.png'
 import { selectGrades } from "../../../../Redux/Slices/DropdownController";
 
@@ -38,8 +41,26 @@ export default function ApprovalStatusHomeworkPage() {
     const [imageUrl, setImageUrl] = useState('');
     const [statusData, setStatusData] = useState([]);
     const user = useSelector((state) => state.auth);
+    const academicYear = useSelector(selectAcademicYear);
     const rollNumber = user.rollNumber
+    // Kept for the API payloads below, which send it as data. It is not a
+    // permission check - see canTrackThis.
     const userType = user.userType
+    const userTypeID = useSelector(selectUserTypeID);
+    const approvalMatrix = useSelector(selectApprovalMatrix);
+    const matrixReady = useSelector(selectApprovalMatrixReady);
+    const rbacReady = (user?.permissions?.mainMenus || []).length > 0;
+    /*
+       Same test the Approval Status hub uses to offer this card: you can create
+       homework, and your homework actually goes for approval.
+
+       Until both the permission tree and the approval matrix have loaded, "not
+       allowed" is indistinguishable from "not loaded yet", so treat that window
+       as allowed - redirecting there throws out a user who is entitled to be here.
+    */
+    const canTrackThis = !rbacReady || !matrixReady
+        || (findSubMenuPermissions(user?.permissions, "communication", "homework")?.create === "Y"
+            && mustRequestApproval(approvalMatrix, APPROVAL_SUBMENUS.HOMEWORK, userTypeID));
     const userName = user.name
     const [isLoading, setIsLoading] = useState(false);
     const token = '123';
@@ -122,20 +143,6 @@ export default function ApprovalStatusHomeworkPage() {
             .filter(Boolean)
             .join(', ');
     };
-    const darkTheme = createTheme({
-        palette: {
-            mode: 'dark',
-            primary: {
-                main: '#90caf9',
-            },
-            background: {
-                paper: '#121212',
-            },
-            text: {
-                primary: '#ffffff',
-            },
-        },
-    });
 
 
     const handleChange = (event, newValue) => {
@@ -199,11 +206,12 @@ export default function ApprovalStatusHomeworkPage() {
         try {
             const res = await axios.get(ApprovalStatusHomeWorkFetch, {
                 params: {
-                    RollNumber: rollNumber,
-                    UserType: userType,
-                    Date: formattedDate || '',
-                    Status: selectedValue || "all",
-                    Screen: "maker"
+                    rollNumber: rollNumber,
+                    userType: userType,
+                    date: formattedDate || '',
+                    status: selectedValue || "all",
+                    screen: "maker",
+                    academicYear: academicYear || ''
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -222,9 +230,9 @@ export default function ApprovalStatusHomeworkPage() {
         try {
             const res = await axios.delete(DeleteHomeWork, {
                 params: {
-                    Id: id,
-                    RollNumber: rollNumber,
-                    UserType: userType,
+                    id: id,
+                    rollNumber: rollNumber,
+                    userType: userType,
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -246,160 +254,160 @@ export default function ApprovalStatusHomeworkPage() {
         }
     };
 
-    if (userType !== "admin" && userType !== "staff") {
-        return <Navigate to="/dashboardmenu/dashboard" replace />;
+    // Back to the hub rather than the dashboard - it is where this page was
+    // opened from, and it decides for itself what is left to show.
+    if (!canTrackThis) {
+        return <Navigate to="/dashboardmenu/status" replace />;
     }
 
     return (
-        <Box sx={{ width: "100%", }}>
+        <Box
+            sx={{
+                px: { xs: 1.5, md: 3 },
+                pt: { xs: 1.5, md: 2 },
+                pb: { xs: 2, md: 3 },
+                bgcolor: DASH.canvas,
+                height: "100%",
+                boxSizing: "border-box",
+                display: "flex",
+                flexDirection: "column",
+            }}
+        >
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
             {isLoading && <Loader />}
-            <Box sx={{ backgroundColor: "#f2f2f2", px: 2, borderRadius: "10px 10px 10px 0px", borderBottom: "1px solid #ddd", }}>
-                <Grid container>
-                    <Grid size={{ xs: 12, sm: 12, md: 12, lg: 6.5 }} sx={{ display: "flex", alignItems: "center", py: 1.5 }}>
-                        <Link style={{ textDecoration: "none" }} to="/dashboardmenu/status">
-                            <IconButton sx={{ width: "27px", height: "27px", marginTop: '2px' }}>
-                                <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
-                            </IconButton>
-                        </Link>
-                        <Typography sx={{ fontWeight: "600", fontSize: "20px" }} >Homework Approval Status</Typography>
-                    </Grid>
-                    <Grid size={{ xs: 6, sm: 6, md: 3, lg: 4 }} sx={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
-                        <TextField
-                            fullWidth
-                            variant="outlined"
-                            placeholder="Search News by Heading"
-                            InputProps={{
+
+            <PageHeader
+                title="Homework Approval Status"
+                subtitle="Homework you sent for approval and where each one stands"
+                onBack={() => navigate("/dashboardmenu/status")}
+            />
+
+            <Box
+                sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 1.5,
+                    flexWrap: "wrap",
+                    borderBottom: `1px solid ${DASH.line}`,
+                    mb: 2,
+                }}
+            >
+                <Tabs
+                    value={value}
+                    onChange={handleChange}
+                    variant="scrollable"
+                    scrollButtons="auto"
+                    sx={{
+                        minHeight: 40,
+                        '& .MuiTab-root': {
+                            textTransform: 'none',
+                            fontSize: '13px',
+                            fontWeight: 600,
+                            minHeight: 40,
+                            color: DASH.muted,
+                            px: 2,
+                        },
+                        '& .Mui-selected': { color: `${DASH.ink} !important` },
+                        '& .MuiTabs-indicator': { backgroundColor: DASH.primary, height: 2.5, borderRadius: '3px 3px 0 0' },
+                    }}
+                >
+                    <Tab label="All" />
+                    <Tab label="Pending" />
+                    <Tab label="Declined" />
+                </Tabs>
+
+                <Box
+                    sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 0.5,
+                        pb: 0.8,
+                        flex: { xs: "1 1 100%", sm: "0 0 auto" },
+                    }}
+                >
+                    <TextField
+                        placeholder="Search homework by heading"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        sx={{
+                            width: { xs: "100%", sm: 240 },
+                            "& .MuiOutlinedInput-root": {
+                                height: 34,
+                                borderRadius: RADIUS,
+                                bgcolor: "#fff",
+                                fontSize: "13px",
+                                "& fieldset": { borderColor: DASH.line },
+                                "&:hover fieldset": { borderColor: DASH.faint },
+                                "&.Mui-focused fieldset": { borderColor: DASH.primary },
+                            },
+                        }}
+                        slotProps={{
+                            input: {
                                 startAdornment: (
                                     <InputAdornment position="start">
-                                        <SearchIcon />
+                                        <SearchIcon sx={{ fontSize: 18, color: DASH.faint }} />
                                     </InputAdornment>
                                 ),
-                                sx: {
-                                    padding: "0 10px",
-                                    borderRadius: "50px",
-                                    height: "28px",
-                                    fontSize: "12px",
-                                },
+                                endAdornment: searchQuery ? (
+                                    <InputAdornment position="end">
+                                        <IconButton
+                                            size="small"
+                                            onClick={() => setSearchQuery("")}
+                                            sx={{ width: 22, height: 22 }}
+                                        >
+                                            <CloseIcon sx={{ fontSize: 15, color: DASH.faint }} />
+                                        </IconButton>
+                                    </InputAdornment>
+                                ) : null,
+                            },
+                        }}
+                    />
+
+                    <LocalizationProvider dateAdapter={AdapterDayjs}>
+                        <DatePicker
+                            open={openCal}
+                            onClose={handleClose}
+                            value={selectedDate}
+                            onChange={(newValue) => {
+                                setSelectedDate(newValue);
+                                setFormattedDate(dayjs(newValue).format('DD-MM-YYYY'));
+                                handleClose();
                             }}
-                            sx={{
-                                "& .MuiOutlinedInput-root": {
-                                    minHeight: "28px",
-                                    paddingRight: "3px",
-                                    backgroundColor: "#fff",
-                                },
-                                "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                                    borderColor: websiteSettings.mainColor,
-                                },
-                            }}
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
+                            disableFuture
+                            views={['year', 'month', 'day']}
+                            sx={{ opacity: 0, pointerEvents: 'none', width: 0, height: 0 }}
                         />
-                    </Grid>
 
-                    <Grid size={{ xs: 6, sm: 6, md: 3, lg: 1.5 }} sx={{ display: "flex", justifyContent: "end", alignItems: "center", px: 1 }}>
-                        <Box sx={{ px: 1, }}>
-                            <ThemeProvider theme={darkTheme}>
-                                <LocalizationProvider dateAdapter={AdapterDayjs}>
-                                    <DatePicker
-                                        open={openCal}
-                                        onClose={handleClose}
-                                        value={selectedDate}
-                                        onChange={(newValue) => {
-                                            setSelectedDate(newValue);
-                                            const newFormattedDate = dayjs(newValue).format('DD-MM-YYYY');
-                                            setFormattedDate(newFormattedDate);
-                                            handleClose();
-                                        }}
-                                        disableFuture
-                                        views={['year', 'month', 'day']}
-                                        renderInput={() => null}
-                                        sx={{
-                                            opacity: 0,
-                                            pointerEvents: 'none',
-                                            width: "0px",
-                                        }}
+                        <Tooltip title={selectedDate ? formattedDate : "Filter by date"}>
+                            <IconButton
+                                onClick={handleOpen}
+                                sx={{
+                                    width: 34,
+                                    height: 34,
+                                    borderRadius: RADIUS,
+                                    border: `1px solid ${selectedDate ? DASH.primary : DASH.line}`,
+                                    bgcolor: selectedDate ? DASH.primaryLight : "#fff",
+                                    "&:hover": { bgcolor: DASH.lineSoft },
+                                }}
+                            >
+                                <CalendarMonthIcon sx={{ fontSize: 18, color: selectedDate ? DASH.primary : DASH.muted }} />
+                            </IconButton>
+                        </Tooltip>
 
-                                    />
-
-                                    <IconButton sx={{
-                                        width: '40px',
-                                        mt: 0.8,
-                                        height: '40px',
-                                        transition: 'color 0.3s, background-color 0.3s',
-                                        '&:hover': {
-                                            color: '#fff',
-                                            backgroundColor: 'rgba(0,0,0,0.1)',
-                                        },
-
-                                    }}
-                                        onClick={handleOpen}>
-                                        <CalendarMonthIcon style={{ color: "#000" }} />
-                                    </IconButton>
-                                    {selectedDate ? (
-                                        <Tooltip title="Clear Date">
-                                            <IconButton sx={{
-                                                marginTop: '10px',
-                                                width: '40px',
-                                                mt: 0.8,
-                                                height: '40px',
-                                                transition: 'color 0.3s, background-color 0.3s',
-                                                '&:hover': {
-                                                    color: '#fff',
-                                                    backgroundColor: 'rgba(0,0,0,0.1)',
-                                                },
-                                            }} onClick={handleClearDate}>
-                                                <HighlightOffIcon style={{ color: "#000" }} />
-                                            </IconButton>
-                                        </Tooltip>
-                                    ) : (
-                                        <Box sx={{ width: "80px" }}>
-                                        </Box>
-                                    )}
-                                </LocalizationProvider>
-                            </ThemeProvider>
-                        </Box>
-                    </Grid>
-                </Grid>
+                        {selectedDate && (
+                            <Tooltip title="Clear date">
+                                <IconButton onClick={handleClearDate} sx={{ width: 30, height: 30 }}>
+                                    <HighlightOffIcon sx={{ fontSize: 18, color: DASH.red }} />
+                                </IconButton>
+                            </Tooltip>
+                        )}
+                    </LocalizationProvider>
+                </Box>
             </Box>
-            <Box ref={boxRef} sx={{ maxHeight: "83vh", overflowY: "auto" }}>
-                <Box sx={{ p: 2 }}>
-                    <Box sx={{ display: "flex", justifyContent: "end", mb: 2 }}>
-                        <Tabs
-                            value={value}
-                            onChange={handleChange}
-                            aria-label="attendance tabs"
-                            variant="scrollable"
-                            TabIndicatorProps={{
-                                sx: { display: 'none' },
-                            }}
-                            sx={{
-                                backgroundColor: '#fff',
-                                minHeight: "10px",
-                                borderRadius: "50px",
-                                '& .MuiTab-root': {
-                                    textTransform: 'none',
-                                    fontSize: '12px',
-                                    color: '#555',
-                                    fontWeight: 'bold',
-                                    minWidth: 0,
-                                    paddingX: 1,
-                                    minHeight: '30px',
-                                    height: '30px',
-                                    px: 2,
-                                },
-                                '& .Mui-selected': {
-                                    color: '#fff !important',
-                                    bgcolor: '#000',
-                                    borderRadius: "50px",
-                                },
-                            }}
-                        >
-                            <Tab label="All" />
-                            <Tab label="Pending" />
-                            <Tab label="Declined" />
-                        </Tabs>
-                    </Box>
+
+            <Box ref={boxRef} sx={{ flex: 1, minHeight: 0, overflowY: "auto", pr: 0.5 }}>
+                <Box sx={{ pb: 2 }}>
                     {filteredStatusData.length > 0 ? (
                         <Grid container spacing={2}>
                             {filteredStatusData.map((statusItem) => {
@@ -782,7 +790,7 @@ export default function ApprovalStatusHomeworkPage() {
                                 flexDirection: "column",
                                 alignItems: "center",
                                 justifyContent: "center",
-                                height: "77vh",
+                                minHeight: "52vh",
                                 textAlign: "center",
                             }}
                         >
@@ -795,6 +803,9 @@ export default function ApprovalStatusHomeworkPage() {
                                     marginBottom: "16px",
                                 }}
                             />
+                            <Typography sx={{ fontSize: "12.5px", color: DASH.faint }}>
+                                {searchQuery ? "No homework matches your search." : "Nothing sent for approval yet."}
+                            </Typography>
                         </Box>
 
                     )}
@@ -802,19 +813,22 @@ export default function ApprovalStatusHomeworkPage() {
 
                 {showButton && (
                     <Fab
-                        color="primary"
                         onClick={scrollToTop}
-                        style={{
+                        sx={{
                             position: 'absolute',
-                            width: "35px",
-                            height: "35px",
-                            bottom: '18px',
-                            right: '18px',
+                            width: 35,
+                            height: 35,
+                            minHeight: 35,
+                            bottom: 18,
+                            right: 18,
                             zIndex: 1000,
-                            backgroundColor: "#000"
+                            bgcolor: '#fff',
+                            border: `1px solid ${DASH.line}`,
+                            boxShadow: '0 4px 16px rgba(17,24,39,0.12)',
+                            '&:hover': { bgcolor: DASH.lineSoft },
                         }}
                     >
-                        <ArrowUpwardIcon />
+                        <ArrowUpwardIcon sx={{ fontSize: 18, color: DASH.ink }} />
                     </Fab>
                 )}
             </Box>

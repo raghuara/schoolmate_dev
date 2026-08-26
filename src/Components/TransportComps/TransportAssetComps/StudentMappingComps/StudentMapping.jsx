@@ -58,6 +58,7 @@ import StudentSelectionPopup from '../../../Tools/StudentSelectionPopup'
 import axios from 'axios'
 import { getRouteFullDetailsById, GetUsersBaseDetails, postStudentRouteMapping, getAllStudentMappingCards } from '../../../../Api/Api'
 import { selectAcademicYear } from '../../../../Redux/Slices/academicYearSlice'
+import { findSubMenuPermissions } from '../../../../Redux/Slices/AuthSlice'
 
 // Color palette for bus cards - darker header/buttons with light card bg
 const busColors = [
@@ -125,7 +126,9 @@ const BusCard = ({
     bus,
     colorScheme,
     onAddStudents,
-    onViewExisting
+    onViewExisting,
+    canMapStudent = true,
+    canEditMapping = true
 }) => {
     const [showStops, setShowStops] = useState(false);
 
@@ -345,6 +348,7 @@ const BusCard = ({
                 <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
                     {/* Primary Actions Row */}
                     <Box sx={{ display: "flex", gap: 1 }}>
+                        {(canMapStudent || canEditMapping) && (
                         <Button
                             fullWidth
                             variant="contained"
@@ -365,8 +369,11 @@ const BusCard = ({
                                 }
                             }}
                         >
-                            Add / Remove
+                            {canMapStudent && canEditMapping
+                                ? "Add / Remove"
+                                : canMapStudent ? "Add Students" : "Remove Students"}
                         </Button>
+                        )}
                         {/* <Button
                             fullWidth
                             variant="contained"
@@ -472,6 +479,13 @@ export default function StudentMapping() {
 
     // Academic year is set globally in the dashboard header (Redux)
     const selectedYear = useSelector(selectAcademicYear);
+    // Mapping a student onto a route and changing an existing mapping are
+    // separate grants.
+    const auth = useSelector((state) => state.auth);
+    const rbacReady = (auth.permissions?.mainMenus || []).length > 0;
+    const mapPerms = findSubMenuPermissions(auth.permissions, "transport", "studentmapping") || {};
+    const canMapStudent = !rbacReady || mapPerms.allowstudentmapping === "Y";
+    const canEditMapping = !rbacReady || mapPerms.allowediting === "Y";
 
     // Fetch initial data
     useEffect(() => {
@@ -506,7 +520,7 @@ export default function StudentMapping() {
         try {
             const response = await axios.get(getAllStudentMappingCards, {
                 params:{
-                    Year:selectedYear,
+                    year:selectedYear,
                 },
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -847,7 +861,7 @@ export default function StudentMapping() {
                         <ArrowBackIcon />
                     </IconButton>
                     <Typography sx={{ fontWeight: 600, fontSize: 20 }}>
-                        Student Mapping
+                        Transport Student Mapping
                     </Typography>
                 </Box>
 
@@ -882,6 +896,8 @@ export default function StudentMapping() {
                                 colorScheme={busColors[index % busColors.length]}
                                 onAddStudents={handleAddStudents}
                                 onViewExisting={handleViewExisting}
+                                canMapStudent={canMapStudent}
+                                canEditMapping={canEditMapping}
                             />
                         </Grid>
                     ))}
@@ -907,6 +923,8 @@ export default function StudentMapping() {
                 onClose={handleCloseStudentPopup}
                 activity={routeDetails}
                 year={selectedYear}
+                canMapStudent={canMapStudent}
+                canEditMapping={canEditMapping}
                 token={token}
                 onSave={(payload) => handleSaveStudents(payload)}
             />

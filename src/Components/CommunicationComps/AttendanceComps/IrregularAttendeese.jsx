@@ -27,6 +27,7 @@ import { Link, useLocation } from "react-router-dom";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useSelector } from "react-redux";
 import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlice";
+import { findSubMenuPermissions } from "../../../Redux/Slices/AuthSlice";
 import ImageIcon from '@mui/icons-material/Image';
 import '../../../Css/Page.css'
 import SnackBar from "../../SnackBar";
@@ -387,6 +388,10 @@ export default function IrregularAttendeesPage({ onClose }) {
     const rollNumber = user.rollNumber
     const userType = user.userType
     const userName = user.name
+    // Messaging parents about an absence writes a notification, so it rides on
+    // the attendance create permission rather than a user type.
+    const attendancePerms = findSubMenuPermissions(user.permissions, "communication", "attendance") || {};
+    const canNotify = attendancePerms.create === "Y";
     const [teachersGraphData, setTeachersGraphData] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
 
@@ -459,7 +464,7 @@ export default function IrregularAttendeesPage({ onClose }) {
         try {
             const res = await axios.get(sectionsDropdown, {
                 params: {
-                    Grade: selectedClass,
+                    grade: selectedClass,
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -487,10 +492,10 @@ export default function IrregularAttendeesPage({ onClose }) {
         try {
             const res = await axios.get(irregularAttendees, {
                 params: {
-                    Date: formattedDate,
-                    Grade: selectedClass || "overall",
-                    Section: selectedClassSection || "overall",
-                    Status: "absent",
+                    date: formattedDate,
+                    grade: selectedClass || "overall",
+                    section: selectedClassSection || "overall",
+                    status: "absent",
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -513,10 +518,10 @@ export default function IrregularAttendeesPage({ onClose }) {
         try {
             const res = await axios.get(irregularAttendees, {
                 params: {
-                    Date: formattedDate,
-                    Grade: selectedClass || "overall",
-                    Section: selectedClassSection || "overall",
-                    Status: "leave",
+                    date: formattedDate,
+                    grade: selectedClass || "overall",
+                    section: selectedClassSection || "overall",
+                    status: "leave",
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -535,10 +540,10 @@ export default function IrregularAttendeesPage({ onClose }) {
         try {
             const res = await axios.get(irregularAttendees, {
                 params: {
-                    Date: formattedDate,
-                    Grade: selectedClass || "overall",
-                    Section: selectedClassSection || "overall",
-                    Status: "late",
+                    date: formattedDate,
+                    grade: selectedClass || "overall",
+                    section: selectedClassSection || "overall",
+                    status: "late",
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -943,7 +948,7 @@ export default function IrregularAttendeesPage({ onClose }) {
                         />
                     </Box>
 
-                    {userType !== "teacher" &&
+                    {canNotify &&
                         <Box sx={{ display: "flex", justifyContent: "center" }}>
                             <Button
                                 variant="contained"
@@ -978,7 +983,7 @@ export default function IrregularAttendeesPage({ onClose }) {
                         />
                     </Box>
                     <Box sx={{ display: "flex", justifyContent: "center" }}>
-                        {userType !== "teacher" &&
+                        {canNotify &&
                             <Button
                                 variant="contained"
                                 onClick={() => handleNotifyClick("leave", leaveData)}
@@ -1012,7 +1017,7 @@ export default function IrregularAttendeesPage({ onClose }) {
                         />
                     </Box>
                     <Box sx={{ display: "flex", justifyContent: "center" }}>
-                        {userType !== "teacher" &&
+                        {canNotify &&
                             <Button
                                 variant="contained"
                                 onClick={() => handleNotifyClick("late", lateData)}

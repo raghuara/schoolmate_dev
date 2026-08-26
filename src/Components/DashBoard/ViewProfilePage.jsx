@@ -50,7 +50,7 @@ export default function ViewProfilePage() {
     const fetchStaffDetails = async () => {
         try {
             const res = await axios.get(FindStaffManagementDetails, {
-                params: { RollNumber: rollNumber },
+                params: { rollNumber: rollNumber },
                 headers: { Authorization: `Bearer ${token}` },
             });
             if (res.data.staffinfo && res.data.staffinfo.length > 0) {

@@ -308,10 +308,10 @@ export default function MarksDraftEditPage() {
         try {
             const res = await axios.get(MarksStudentsFetch, {
                 params: {
-                    RollNumber: rollNumber,
-                    UserType: userType,
-                    GradeId: selectedGradeId || "131",
-                    Section: selectedSection || "A1",
+                    rollNumber: rollNumber,
+                    userType: userType,
+                    gradeId: selectedGradeId || "131",
+                    section: selectedSection || "A1",
                 },
 
                 headers: {

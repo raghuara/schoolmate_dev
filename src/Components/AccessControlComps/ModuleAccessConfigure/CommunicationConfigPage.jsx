@@ -1,5 +1,9 @@
 import React from "react";
+import axios from "axios";
 import ModuleConfigShell from "./ModuleConfigShell";
+import { UpdateUserTypePermissions } from "../../../Api/Api";
+
+const TOKEN = "123";
 
 const MODULE = { key: "communication", name: "Communication", color: "#2563EB" };
 const PAGES = [
@@ -21,25 +25,40 @@ const PAGES = [
     "Notification",
 ];
 
-// Per-page overrides. By default a page has all ops + approval; only the exceptions are listed.
+// `subMenu` values MUST match the backend permission keys exactly.
 const PAGE_OVERRIDES = {
-    "Dashboard": { opsKeys: ["view"], approval: false },
-    "Contact Details": { approval: false },
-    "Timetables": { approval: false },
-    "Exam Timetables": { approval: false },
-    "Study Materials": { approval: false },
-    "Marks": { approval: false },
-    "School Calendar": { approval: false },
-    "Events": { approval: false },
-    "Birthday Post": { opsKeys: ["view"], approval: false },
-    "Feedback": { approval: false },
-    "Attendance": { opsKeys: ["view", "create", "edit"], approval: false },
-    "Notification": { opsKeys: ["create"], approval: false },
+    "Dashboard": { subMenu: "dashboard", opsKeys: ["view"], approval: false },
+    "News": { subMenu: "news", approval: true },
+    "Messages": { subMenu: "message", approval: true },
+    "Circulars": { subMenu: "circular", approval: true },
+    "Contact Details": { subMenu: "contactdetails", approval: false },
+    "Timetables": { subMenu: "timetable", approval: false },
+    "Homework": { subMenu: "homework", approval: true },
+    "Exam Timetables": { subMenu: "examtimetable", approval: false },
+    "Study Materials": { subMenu: "studymaterial", approval: false },
+    "Marks": { subMenu: "marks", approval: false },
+    "School Calendar": { subMenu: "schoolcalender", approval: false },
+    "Events": { subMenu: "events", opsKeys: ["view"], approval: false },
+    "Birthday Post": { subMenu: "birthdaypost", opsKeys: ["view"], approval: false },
+    "Feedback": { subMenu: "feedback", approval: false },
+    "Attendance": { subMenu: "attendance", opsKeys: ["view", "create", "edit"], approval: false },
+    "Notification": { subMenu: "notification", opsKeys: ["create"], approval: false },
+};
+
+// Events is a tab inside School Calendar, not a page of its own - the calendar
+// screen reads both keys and hides the tab without schoolcalender view. Granting
+// Events alone would be a permission nobody could ever use.
+const PAGE_REQUIRES = {
+    "Events": { page: "School Calendar", key: "view" },
 };
 
 export default function CommunicationConfigPage() {
-    // Add Communication-specific validation here if needed.
     const validate = () => null;
+
+    const handleSave = async (payload) => {
+        const res = await axios.put(UpdateUserTypePermissions, payload, { headers: { Authorization: `Bearer ${TOKEN}` } });
+        return res?.data;
+    };
 
     return (
         <ModuleConfigShell
@@ -49,6 +68,8 @@ export default function CommunicationConfigPage() {
             approval={true}
             validate={validate}
             pageOverrides={PAGE_OVERRIDES}
+            pageRequires={PAGE_REQUIRES}
+            onSave={handleSave}
         />
     );
 }

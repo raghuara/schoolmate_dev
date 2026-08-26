@@ -27,6 +27,8 @@ import { useSelector } from 'react-redux';
 import { selectWebsiteSettings } from '../../Redux/Slices/websiteSettingsSlice';
 import { BirthdayInstagramPost } from '../../Api/Api';
 import Loader from '../Loader';
+import { Skeleton } from '@mui/material';
+import { TileSkeleton, TableRowsSkeleton } from '../InnerLoader';
 import SnackBar from '../SnackBar';
 import ProfileImage from '../../Images/PagesImage/dummy-image.jpg';
 
@@ -51,6 +53,8 @@ export default function BirthdayPostPage() {
 
     const [isLoading, setIsLoading] = useState(false);
     const [students, setStudents] = useState([]);
+    // Only the birthday fetch, so posting does not blank the panels behind the overlay.
+    const [dataLoading, setDataLoading] = useState(true);
     const [search, setSearch] = useState('');
 
     // Snackbar
@@ -76,6 +80,7 @@ export default function BirthdayPostPage() {
 
     const fetchInstagramPost = async () => {
         setIsLoading(true);
+        setDataLoading(true);
         try {
             const res = await axios.get(BirthdayInstagramPost, {
                 params: { date: apiDate },
@@ -112,6 +117,7 @@ export default function BirthdayPostPage() {
             showSnack('Failed to load birthday post for this date.', false);
         } finally {
             setIsLoading(false);
+            setDataLoading(false);
         }
     };
 
@@ -158,42 +164,33 @@ export default function BirthdayPostPage() {
     const hasPost = !!postInfo.postUrl;
 
     return (
-        <Box sx={{ p: 2, height: '86vh', overflowY: 'auto', bgcolor: '#fafafa' }}>
+        <Box sx={{height: '86vh', overflowY: 'auto', bgcolor: '#fafafa' }}>
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
             {isLoading && <Loader />}
 
             {/* Header */}
-            <Box sx={{
-                bgcolor: '#fff',
-                border: '1px solid #E8DDEA',
-                borderRadius: '10px',
-                p: 1.5,
-                mb: 2,
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                flexWrap: 'wrap', gap: 1.5,
-            }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <IconButton onClick={() => navigate(-1)} sx={{ width: 32, height: 32 }}>
+            <Box sx={{ backgroundColor: "#f2f2f2", px: 2,py: 1, borderRadius: "10px 10px 10px 0px", borderBottom: "1px solid #ddd", mb: 0.13, }}>
+                <Grid container alignItems="center">
+                <Grid size={{ xs: 12, sm: 12, md: 7, lg: 7 }} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {/* negative margin keeps the button's padding from setting the bar height */}
+                    <IconButton onClick={() => navigate(-1)} sx={{ width: 26, height: 26, my: '-5px', flexShrink: 0 }}>
                         <ArrowBackIcon sx={{ fontSize: 18 }} />
                     </IconButton>
-                    <Box sx={{
-                        width: 36, height: 36, borderRadius: '10px',
-                        bgcolor: '#FCE7F3', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    <CakeIcon sx={{ color: '#E91E8C', fontSize: 19, flexShrink: 0 }} />
+                    <Typography sx={{ fontWeight: "600", fontSize: "20px", flexShrink: 0 }}>
+                        Birthday Post
+                    </Typography>
+                    <Typography sx={{
+                        fontSize: '11.5px', color: '#666', minWidth: 0,
+                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                        display: { xs: 'none', lg: 'block' },
                     }}>
-                        <CakeIcon sx={{ color: '#E91E8C', fontSize: 20 }} />
-                    </Box>
-                    <Box>
-                        <Typography sx={{ fontSize: 18, fontWeight: 700, color: '#111', lineHeight: 1.1 }}>
-                            Birthday Post
-                        </Typography>
-                        <Typography sx={{ fontSize: 11, color: '#666' }}>
-                            See the post sent to students whose birthday is on the selected date — and who's viewed it
-                        </Typography>
-                    </Box>
-                </Box>
+                        The post sent to students with a birthday on this date, and who has viewed it
+                    </Typography>
+                </Grid>
 
                 {/* Date picker */}
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Grid size={{ xs: 12, sm: 12, md: 5, lg: 5 }} sx={{ display: 'flex', alignItems: 'center', justifyContent: { md: 'flex-end', xs: 'flex-start' }, gap: 1 }}>
                     <CalendarMonthIcon sx={{ fontSize: 18, color: '#666' }} />
                     <LocalizationProvider dateAdapter={AdapterDayjs}>
                         <DatePicker
@@ -206,18 +203,19 @@ export default function BirthdayPostPage() {
                                     sx: {
                                         width: 180,
                                         '& .MuiOutlinedInput-root': {
-                                            borderRadius: '8px', fontSize: 13, bgcolor: '#fff',
+                                            borderRadius: '8px', fontSize: 13, bgcolor: '#fff', height: 30,
                                         },
                                     }
                                 }
                             }}
                         />
                     </LocalizationProvider>
-                </Box>
+                </Grid>
+                </Grid>
             </Box>
 
            
-            <Grid container spacing={2} sx={{ mb: 2 }}>
+            <Grid container spacing={2} sx={{ mb: 2, p: 2,  }}>
               
                 <Grid size={{ xs: 12, md: 5, lg: 4 }}>
                     <Box sx={{
@@ -246,7 +244,14 @@ export default function BirthdayPostPage() {
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 position: 'relative',
                             }}>
-                                {postInfo.images.length > 0 ? (
+                                {dataLoading ? (
+                                    <Skeleton
+                                        variant="rectangular"
+                                        width="100%"
+                                        height="100%"
+                                        sx={{ bgcolor: '#F7E9F1' }}
+                                    />
+                                ) : postInfo.images.length > 0 ? (
                                     <>
                                         <img
                                             key={currentImageIdx}
@@ -388,7 +393,12 @@ export default function BirthdayPostPage() {
                         <Box sx={{ p: 2, flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
                            
                             <Grid container spacing={1.5}>
-                                <Grid size={{ xs: 12, sm: 4 }}>
+                                {dataLoading && Array.from({ length: 3 }).map((_, i) => (
+                                    <Grid size={{ xs: 12, sm: 4 }} key={`kpi-skeleton-${i}`}>
+                                        <TileSkeleton height={76} />
+                                    </Grid>
+                                ))}
+                                {!dataLoading && <Grid size={{ xs: 12, sm: 4 }}>
                                     <KpiTile
                                         label="Date"
                                         value={selectedDate.format('DD MMM YYYY')}
@@ -396,8 +406,8 @@ export default function BirthdayPostPage() {
                                         bgColor="#E3F2FD"
                                         textColor="#1565C0"
                                     />
-                                </Grid>
-                                <Grid size={{ xs: 12, sm: 4 }}>
+                                </Grid>}
+                                {!dataLoading && <Grid size={{ xs: 12, sm: 4 }}>
                                     <KpiTile
                                         label="Birthday Students"
                                         value={totalCount}
@@ -405,8 +415,8 @@ export default function BirthdayPostPage() {
                                         bgColor="#FCE7F3"
                                         textColor="#9F1239"
                                     />
-                                </Grid>
-                                <Grid size={{ xs: 12, sm: 4 }}>
+                                </Grid>}
+                                {!dataLoading && <Grid size={{ xs: 12, sm: 4 }}>
                                     <KpiTile
                                         label="Post Viewed"
                                         value={hasPost ? `${viewedCount} / ${totalCount}` : '—'}
@@ -415,7 +425,7 @@ export default function BirthdayPostPage() {
                                         bgColor="#F0FDF4"
                                         textColor="#15803D"
                                     />
-                                </Grid>
+                                </Grid>}
                             </Grid>
 
                             
@@ -510,7 +520,27 @@ export default function BirthdayPostPage() {
                     />
                 </Box>
 
-                {filteredStudents.length === 0 ? (
+                {dataLoading ? (
+                    <TableContainer sx={{ maxHeight: 420 }}>
+                        <Table size="small" stickyHeader>
+                            <TableHead>
+                                <TableRow sx={{ bgcolor: '#F9FAFB' }}>
+                                    {['#', 'Roll No', 'Student', 'Class', 'Acknowledgement', 'Viewed Time'].map(h => (
+                                        <TableCell key={h} sx={{
+                                            fontWeight: 700, fontSize: 11, color: '#6B7280',
+                                            textTransform: 'uppercase', letterSpacing: 0.4, bgcolor: '#F9FAFB',
+                                        }}>
+                                            {h}
+                                        </TableCell>
+                                    ))}
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                <TableRowsSkeleton rows={6} columns={6} wideColumn={2} />
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
+                ) : filteredStudents.length === 0 ? (
                     <Box sx={{ py: 6, textAlign: 'center' }}>
                         <CakeIcon sx={{ fontSize: 36, color: '#E5E7EB', mb: 1 }} />
                         <Typography sx={{ fontSize: 13, color: '#9CA3AF' }}>

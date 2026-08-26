@@ -20,6 +20,7 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import axios from "axios";
 import SnackBar from "../../../SnackBar";
+import { DASH, RADIUS } from "../../../DashBoardComps/dashboardTheme";
 import {
     postVehicleFCDetail,
     postVehiclePermitDetail,
@@ -31,64 +32,95 @@ import {
 } from "../../../../Api/Api";
 
 // Reusable style objects
+const ACCENT = "#A749CC";
+const ACCENT_DEEP = "#8600BB";
+const ACCENT_DARK = "#6D0F97";
+
 const inputSx = {
     "& .MuiOutlinedInput-root": {
-        height: 40,
-        borderRadius: "8px",
+        height: 38,
+        borderRadius: RADIUS,
         fontSize: "13px",
         backgroundColor: "#fff",
+        "& fieldset": { borderColor: DASH.line },
+        "&:hover fieldset": { borderColor: DASH.faint },
+        "&.Mui-focused fieldset": { borderColor: ACCENT },
     }
 };
 
 const selectSx = {
-    height: 40,
-    borderRadius: "8px",
+    height: 38,
+    borderRadius: RADIUS,
     fontSize: "13px",
     backgroundColor: "#fff",
+    "& fieldset": { borderColor: DASH.line },
+    "&:hover fieldset": { borderColor: DASH.faint },
+    "&.Mui-focused fieldset": { borderColor: ACCENT },
 };
 
 const labelSx = {
-    color: "#ff0000",
+    color: DASH.text,
     fontWeight: 600,
-    fontSize: "11px",
-    mb: 0.5
+    fontSize: "12px",
+    mb: 0.4
 };
 
 const blackLabelSx = {
-    color: "#000",
-    fontWeight: 600,
-    fontSize: "11px",
-    mb: 0.5
+    color: DASH.ink,
+    fontWeight: 700,
+    fontSize: "12px",
+    mb: 0.4
 };
 
 // Expandable Section Component
 const ExpandableSection = ({ title, expanded, onToggle, children }) => (
-    <Paper sx={{borderRadius:"5px",  mb: 2, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
+    <Box
+        sx={{
+            mb: 1.5,
+            bgcolor: "#fff",
+            border: `1px solid ${expanded ? `${ACCENT}47` : DASH.line}`,
+            borderRadius: RADIUS,
+            overflow: "hidden",
+            transition: "border-color 0.2s ease",
+        }}
+    >
         <Box
             onClick={onToggle}
             sx={{
-                backgroundColor: "#FFF1F1",
-                borderTopLeftRadius:"5px",
-                borderTopRightRadius:"5px",
-                border:"1px solid rgba(0, 0, 0, 0.1)",
-                p: 1.5,
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
+                gap: 1,
+                px: 1.6,
+                py: 1.1,
                 cursor: "pointer",
+                bgcolor: expanded ? `${ACCENT}14` : DASH.surface,
+                borderBottom: `1px solid ${expanded ? `${ACCENT}47` : "transparent"}`,
+                transition: "background-color 0.15s ease",
                 "&:hover": {
-                    backgroundColor: "#FFE4E4"
+                    bgcolor: expanded ? `${ACCENT}1F` : DASH.lineSoft
                 }
             }}
         >
-            <Typography fontWeight={600} fontSize="15px" color="#333">
-                {title}
-            </Typography>
-            <IconButton size="small" sx={{ p: 0 }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, minWidth: 0 }}>
+                <Box
+                    sx={{
+                        width: 3,
+                        height: 18,
+                        borderRadius: RADIUS,
+                        bgcolor: expanded ? ACCENT_DEEP : DASH.faint,
+                        flexShrink: 0,
+                    }}
+                />
+                <Typography sx={{ fontSize: "13.5px", fontWeight: 700, color: DASH.ink }}>
+                    {title}
+                </Typography>
+            </Box>
+            <IconButton size="small" sx={{ p: 0.2 }}>
                 {expanded ? (
-                    <ExpandLessIcon sx={{ color: "#333", fontSize: 20 }} />
+                    <ExpandLessIcon sx={{ color: ACCENT_DEEP, fontSize: 20 }} />
                 ) : (
-                    <ExpandMoreIcon sx={{ color: "#333", fontSize: 20 }} />
+                    <ExpandMoreIcon sx={{ color: DASH.muted, fontSize: 20 }} />
                 )}
             </IconButton>
         </Box>
@@ -97,7 +129,7 @@ const ExpandableSection = ({ title, expanded, onToggle, children }) => (
                 {children}
             </Box>
         </Collapse>
-    </Paper>
+    </Box>
 );
 
 // Document Upload Box Component
@@ -120,22 +152,25 @@ const DocumentUploadBox = ({ label, file, preview, onFileChange, onDrop, inputRe
                 onDrop={onDrop}
                 onDragOver={handleDragOver}
                 sx={{
-                    width: 180,
-                    height: 150,
-                    border: "2px dashed #1976D2",
-                    borderRadius: "12px",
+                    width: "100%",
+                    maxWidth: 150,
+                    height: 86,
+                    border: `1.5px dashed ${preview ? `${ACCENT}59` : DASH.line}`,
+                    borderRadius: RADIUS,
                     display: "flex",
                     flexDirection: "column",
                     alignItems: "center",
                     justifyContent: "center",
+                    gap: 0.4,
                     cursor: "pointer",
-                    backgroundColor: "#E3F2FD",
+                    backgroundColor: preview ? "#fff" : DASH.surface,
                     mx: "auto",
-                    mb: 0.5,
+                    mb: 0.6,
                     overflow: "hidden",
+                    transition: "border-color 0.15s ease, background-color 0.15s ease",
                     "&:hover": {
-                        backgroundColor: "#BBDEFB",
-                        borderColor: "#1565C0"
+                        backgroundColor: `${ACCENT}0A`,
+                        borderColor: ACCENT
                     }
                 }}
             >
@@ -143,42 +178,28 @@ const DocumentUploadBox = ({ label, file, preview, onFileChange, onDrop, inputRe
                     <img src={preview} alt={label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
                     <>
-                        <Box sx={{ position: "relative", mb: 1.5 }}>
-                            <UploadFileIcon sx={{ color: "#000", fontSize: 48 }} />
-                            <Box
-                                sx={{
-                                    position: "absolute",
-                                    bottom: -4,
-                                    right: -8,
-                                    backgroundColor: "#1976D2",
-                                    borderRadius: "50%",
-                                    width: 22,
-                                    height: 22,
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center"
-                                }}
-                            >
-                                <Typography sx={{ color: "#fff", fontSize: 14, fontWeight: "bold", lineHeight: 1 }}>↑</Typography>
-                            </Box>
-                        </Box>
-                        <Typography fontSize={12} textAlign="center" color="#333" fontWeight={500}>
-                            Drag and Drop files here
+                        <UploadFileIcon sx={{ color: ACCENT, fontSize: 20 }} />
+                        <Typography sx={{ fontSize: "10.5px", fontWeight: 600, color: DASH.text }}>
+                            Drag & drop
                         </Typography>
-                        <Typography fontSize={12} textAlign="center" color="#333">
-                            or <span style={{ textDecoration: "underline", fontWeight: 500 }}>Choose file</span>
+                        <Typography sx={{ fontSize: "10.5px", color: ACCENT, fontWeight: 600, textDecoration: "underline" }}>
+                            Choose file
                         </Typography>
                     </>
                 )}
             </Box>
-            <Typography color="#ff0000" fontSize={10} fontWeight={600}>
+            <Typography sx={{ fontSize: "11px", fontWeight: 600, color: DASH.text, lineHeight: 1.3 }}>
                 {label}
             </Typography>
             {preview && (
                 <Typography
-                    color="#4CAF50"
-                    fontSize={10}
-                    sx={{ cursor: "pointer", "&:hover": { textDecoration: "underline" } }}
+                    sx={{
+                        fontSize: "10.5px",
+                        fontWeight: 700,
+                        color: ACCENT_DEEP,
+                        cursor: "pointer",
+                        "&:hover": { textDecoration: "underline" }
+                    }}
                     onClick={() => window.open(preview, '_blank')}
                 >
                     View Document
@@ -217,22 +238,25 @@ const BrandingImageUploadBoxWithRadio = ({ side, label, value, onChange, file, p
                 onDrop={onDrop}
                 onDragOver={handleDragOver}
                 sx={{
-                    width: 180,
-                    height: 150,
-                    border: "2px dashed #1976D2",
-                    borderRadius: "12px",
+                    width: "100%",
+                    maxWidth: 150,
+                    height: 86,
+                    border: `1.5px dashed ${preview ? `${ACCENT}59` : DASH.line}`,
+                    borderRadius: RADIUS,
                     display: "flex",
                     flexDirection: "column",
                     alignItems: "center",
                     justifyContent: "center",
+                    gap: 0.4,
                     cursor: "pointer",
-                    backgroundColor: "#E3F2FD",
+                    backgroundColor: preview ? "#fff" : DASH.surface,
                     mx: "auto",
-                    mb: 0.5,
+                    mb: 0.6,
                     overflow: "hidden",
+                    transition: "border-color 0.15s ease, background-color 0.15s ease",
                     "&:hover": {
-                        backgroundColor: "#BBDEFB",
-                        borderColor: "#1565C0"
+                        backgroundColor: `${ACCENT}0A`,
+                        borderColor: ACCENT
                     }
                 }}
             >
@@ -240,42 +264,28 @@ const BrandingImageUploadBoxWithRadio = ({ side, label, value, onChange, file, p
                     <img src={preview} alt={label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
                     <>
-                        <Box sx={{ position: "relative", mb: 1.5 }}>
-                            <UploadFileIcon sx={{ color: "#000", fontSize: 48 }} />
-                            <Box
-                                sx={{
-                                    position: "absolute",
-                                    bottom: -4,
-                                    right: -8,
-                                    backgroundColor: "#1976D2",
-                                    borderRadius: "50%",
-                                    width: 22,
-                                    height: 22,
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center"
-                                }}
-                            >
-                                <Typography sx={{ color: "#fff", fontSize: 14, fontWeight: "bold", lineHeight: 1 }}>↑</Typography>
-                            </Box>
-                        </Box>
-                        <Typography fontSize={12} textAlign="center" color="#333" fontWeight={500}>
-                            Drag and Drop files here
+                        <UploadFileIcon sx={{ color: ACCENT, fontSize: 20 }} />
+                        <Typography sx={{ fontSize: "10.5px", fontWeight: 600, color: DASH.text }}>
+                            Drag & drop
                         </Typography>
-                        <Typography fontSize={12} textAlign="center" color="#333">
-                            or <span style={{ textDecoration: "underline", fontWeight: 500 }}>Choose file</span>
+                        <Typography sx={{ fontSize: "10.5px", color: ACCENT, fontWeight: 600, textDecoration: "underline" }}>
+                            Choose file
                         </Typography>
                     </>
                 )}
             </Box>
-            <Typography color="#ff0000" fontSize={10} fontWeight={600}>
+            <Typography sx={{ fontSize: "11px", fontWeight: 600, color: DASH.text, lineHeight: 1.3 }}>
                 {label}
             </Typography>
             {preview && (
                 <Typography
-                    color="#4CAF50"
-                    fontSize={10}
-                    sx={{ cursor: "pointer", "&:hover": { textDecoration: "underline" } }}
+                    sx={{
+                        fontSize: "10.5px",
+                        fontWeight: 700,
+                        color: ACCENT_DEEP,
+                        cursor: "pointer",
+                        "&:hover": { textDecoration: "underline" }
+                    }}
                     onClick={() => window.open(preview, '_blank')}
                 >
                     View Photo
@@ -287,31 +297,37 @@ const BrandingImageUploadBoxWithRadio = ({ side, label, value, onChange, file, p
 
 // Action Buttons Component
 const ActionButtons = ({ onClear, onSave }) => (
-    <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2, mt: 2 }}>
+    <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1, mt: 2, pt: 1.5, borderTop: `1px solid ${DASH.lineSoft}` }}>
         <Button
-            variant="text"
             onClick={onClear}
             sx={{
-                color: "#000",
                 textTransform: "none",
-                fontWeight: 600,
-                fontSize: "12px"
+                fontSize: "13px",
+                fontWeight: 700,
+                height: 34,
+                px: 2,
+                borderRadius: RADIUS,
+                color: DASH.text,
+                bgcolor: "#fff",
+                border: `1px solid ${DASH.line}`,
+                "&:hover": { bgcolor: DASH.lineSoft }
             }}
         >
             Clear
         </Button>
         <Button
-            variant="contained"
             onClick={onSave}
+            disableElevation
             sx={{
-                backgroundColor: "#FBBF24",
-                color: "#000",
                 textTransform: "none",
-                fontWeight: 600,
-                borderRadius: "20px",
+                fontSize: "13px",
+                fontWeight: 700,
+                height: 34,
                 px: 3,
-                fontSize: "12px",
-                "&:hover": { backgroundColor: "#F59E0B" }
+                borderRadius: RADIUS,
+                bgcolor: ACCENT_DEEP,
+                color: "#fff",
+                "&:hover": { bgcolor: ACCENT_DARK }
             }}
         >
             Save
@@ -735,16 +751,16 @@ export default function VehicleSafetyCompliancePage({ vehicleAssetId }) {
         setIsLoading(true);
         try {
             const sendData = {
-                VehicleAssetID: vehicleAssetId,
-                FCType: fcType,
-                FCNumber: fcNumber,
-                FCIssueDate: formatDateToDDMMYYYY(fcIssueDate),
-                FCExpiryDate: formatDateToDDMMYYYY(fcExpiryDate),
-                FCValidityDuration: fcValidityDuration,
-                LastValidDate: formatDateToDDMMYYYY(fcLastValidDate),
-                RenewalReminder: fcRenewalReminder,
-                CurrentFCStatus: fcCurrentStatus,
-                NotesAboutInspection: fcNotesAboutInspection
+                vehicleAssetID: vehicleAssetId,
+                fcType: fcType,
+                fcNumber: fcNumber,
+                fcIssueDate: formatDateToDDMMYYYY(fcIssueDate),
+                fcExpiryDate: formatDateToDDMMYYYY(fcExpiryDate),
+                fcValidityDuration: fcValidityDuration,
+                lastValidDate: formatDateToDDMMYYYY(fcLastValidDate),
+                renewalReminder: fcRenewalReminder,
+                currentFCStatus: fcCurrentStatus,
+                notesAboutInspection: fcNotesAboutInspection
             };
 
             await axios.post(postVehicleFCDetail, sendData, {
@@ -790,15 +806,15 @@ export default function VehicleSafetyCompliancePage({ vehicleAssetId }) {
         setIsLoading(true);
         try {
             const sendData = {
-                VehicleAssetID: vehicleAssetId,
-                PermitNumber: permitNumber,
-                PermitType: permitType,
-                IssuingRTO: issuingRto,
-                ValidDateFrom: formatDateToDDMMYYYY(permitValidDateFrom),
-                ValidTill: formatDateToDDMMYYYY(permitValidTill),
-                PermitValidityDuration: permitValidityDuration,
-                PermitAreaOfOperation: permitAreaOfOperation,
-                PermitRoute: permitRoute
+                vehicleAssetID: vehicleAssetId,
+                permitNumber: permitNumber,
+                permitType: permitType,
+                issuingRTO: issuingRto,
+                validDateFrom: formatDateToDDMMYYYY(permitValidDateFrom),
+                validTill: formatDateToDDMMYYYY(permitValidTill),
+                permitValidityDuration: permitValidityDuration,
+                permitAreaOfOperation: permitAreaOfOperation,
+                permitRoute: permitRoute
             };
 
             await axios.post(postVehiclePermitDetail, sendData, {
@@ -844,11 +860,11 @@ export default function VehicleSafetyCompliancePage({ vehicleAssetId }) {
         setIsLoading(true);
         try {
             const sendData = {
-                VehicleAssetID: vehicleAssetId,
-                PUCNumber: pucCertificateNumber,
-                PUCIssueDate: formatDateToDDMMYYYY(pucIssueDate),
-                PUCExpiryDate: formatDateToDDMMYYYY(pucExpiryDate),
-                PUCValidityStatus: pucValidityStatus
+                vehicleAssetID: vehicleAssetId,
+                pucNumber: pucCertificateNumber,
+                pucIssueDate: formatDateToDDMMYYYY(pucIssueDate),
+                pucExpiryDate: formatDateToDDMMYYYY(pucExpiryDate),
+                pucValidityStatus: pucValidityStatus
             };
 
             await axios.post(postVehiclePUCDetail, sendData, {
@@ -886,11 +902,11 @@ export default function VehicleSafetyCompliancePage({ vehicleAssetId }) {
         setIsLoading(true);
         try {
             const sendData = {
-                VehicleAssetID: vehicleAssetId,
-                TaxType: taxType,
-                TaxPaidDate: formatDateToDDMMYYYY(taxPaidDate),
-                TaxValidDate: formatDateToDDMMYYYY(taxExpiryDate),
-                TaxStatus: taxStatus
+                vehicleAssetID: vehicleAssetId,
+                taxType: taxType,
+                taxPaidDate: formatDateToDDMMYYYY(taxPaidDate),
+                taxValidDate: formatDateToDDMMYYYY(taxExpiryDate),
+                taxStatus: taxStatus
             };
 
             await axios.post(postVehicleRoadTransportTax, sendData, {
@@ -928,56 +944,56 @@ export default function VehicleSafetyCompliancePage({ vehicleAssetId }) {
         setIsLoading(true);
         try {
             const sendData = {
-                VehicleAssetID: vehicleAssetId,
-                CCTVInstalled: cctvInstalled,
-                NumberOfCameras: numberOfCameras,
-                CCTVDealerInstallerSame: cctvDealerInstallerSame,
+                vehicleAssetID: vehicleAssetId,
+                cctvInstalled: cctvInstalled,
+                numberOfCameras: numberOfCameras,
+                cctvDealerInstallerSame: cctvDealerInstallerSame,
                 // Camera 1 Details
                 Camera1DateOfInstallation: formatDateToDDMMYYYY(camera1DateOfInstallation),
-                Camera1DealerInstallerName: camera1DealerInstallerName,
-                Camera1Type: camera1Type,
-                Camera1DealerInstallerName2: camera1DealerInstallerName2,
-                Camera1VendorContactDetails: camera1VendorContactDetails,
-                Camera1Remarks: camera1Remarks,
+                camera1DealerInstallerName: camera1DealerInstallerName,
+                camera1Type: camera1Type,
+                camera1DealerInstallerName2: camera1DealerInstallerName2,
+                camera1VendorContactDetails: camera1VendorContactDetails,
+                camera1Remarks: camera1Remarks,
                 // First Aid Kit
                 FirstAidKitInstallation: firstAidKitInstallation,
-                FirstAidDateOfInstallation: formatDateToDDMMYYYY(firstAidDateOfInstallation),
-                FirstAidExpiryCheckDueDate: formatDateToDDMMYYYY(firstAidExpiryCheckDueDate),
-                FirstAidLastInspectionDate: formatDateToDDMMYYYY(firstAidLastInspectionDate),
-                FirstAidRemarks: firstAidRemarks,
+                firstAidDateOfInstallation: formatDateToDDMMYYYY(firstAidDateOfInstallation),
+                firstAidExpiryCheckDueDate: formatDateToDDMMYYYY(firstAidExpiryCheckDueDate),
+                firstAidLastInspectionDate: formatDateToDDMMYYYY(firstAidLastInspectionDate),
+                firstAidRemarks: firstAidRemarks,
                 // Safety Grills & Exit Doors
                 SafetyGrillsInstallation: safetyGrillsInstallation,
-                SafetyGrillsInstalled: safetyGrillsInstalled,
-                GrillLocation: grillLocation,
-                EmergencyExitAvailable: emergencyExitAvailable,
-                EmergencyExitLocation: emergencyExitLocation,
-                ComplianceAsPerNorms: complianceAsPerNorms,
-                SafetyInstallationInspectionDate: formatDateToDDMMYYYY(safetyInstallationInspectionDate),
-                SafetyRemarks: safetyRemarks,
+                safetyGrillsInstalled: safetyGrillsInstalled,
+                grillLocation: grillLocation,
+                emergencyExitAvailable: emergencyExitAvailable,
+                emergencyExitLocation: emergencyExitLocation,
+                complianceAsPerNorms: complianceAsPerNorms,
+                safetyInstallationInspectionDate: formatDateToDDMMYYYY(safetyInstallationInspectionDate),
+                safetyRemarks: safetyRemarks,
                 // Speed Governor
                 SpeedGovernorInstallation: speedGovernorInstallation,
-                SpeedGovernorDateOfInstallation: formatDateToDDMMYYYY(speedGovernorDateOfInstallation),
-                SpeedGovernorVendorName: speedGovernorVendorName,
-                SpeedLimitSet: speedLimitSet,
-                SpeedGovernorCertificateNumber: speedGovernorCertificateNumber,
-                SpeedGovernorValidityDate: formatDateToDDMMYYYY(speedGovernorValidityDate),
-                SpeedGovernorRemarks: speedGovernorRemarks,
+                speedGovernorDateOfInstallation: formatDateToDDMMYYYY(speedGovernorDateOfInstallation),
+                speedGovernorVendorName: speedGovernorVendorName,
+                speedLimitSet: speedLimitSet,
+                speedGovernorCertificateNumber: speedGovernorCertificateNumber,
+                speedGovernorValidityDate: formatDateToDDMMYYYY(speedGovernorValidityDate),
+                speedGovernorRemarks: speedGovernorRemarks,
                 // Fire Extinguisher
                 FireExtinguisherInstallation: fireExtinguisherInstallation,
-                FireExtinguisherDateOfInstallation: formatDateToDDMMYYYY(fireExtinguisherDateOfInstallation),
-                FireExtinguisherExpiryDate: formatDateToDDMMYYYY(fireExtinguisherExpiryDate),
-                ExtinguisherTypeCapacity: extinguisherTypeCapacity,
-                FireExtinguisherVendorDetails: fireExtinguisherVendorDetails,
-                FireExtinguisherRemarks: fireExtinguisherRemarks,
+                fireExtinguisherDateOfInstallation: formatDateToDDMMYYYY(fireExtinguisherDateOfInstallation),
+                fireExtinguisherExpiryDate: formatDateToDDMMYYYY(fireExtinguisherExpiryDate),
+                extinguisherTypeCapacity: extinguisherTypeCapacity,
+                fireExtinguisherVendorDetails: fireExtinguisherVendorDetails,
+                fireExtinguisherRemarks: fireExtinguisherRemarks,
                 // GPS Tracker
                 GPSTrackerInstallation: gpsTrackerInstallation,
-                GPSDateOfInstallation: formatDateToDDMMYYYY(gpsDateOfInstallation),
-                GPSDeviceIdIMEI: gpsDeviceIdImei,
-                GPSHardwareWarranty: gpsHardwareWarranty,
-                GPSOwnerNameAddress: gpsOwnerNameAddress,
-                GPSSimNumber: gpsSimNumber,
-                GPSSubscriptionValidTill: formatDateToDDMMYYYY(gpsSubscriptionValidTill),
-                GPSRemarks: gpsRemarks
+                gpsDateOfInstallation: formatDateToDDMMYYYY(gpsDateOfInstallation),
+                gpsDeviceIdIMEI: gpsDeviceIdImei,
+                gpsHardwareWarranty: gpsHardwareWarranty,
+                gpsOwnerNameAddress: gpsOwnerNameAddress,
+                gpsSimNumber: gpsSimNumber,
+                gpsSubscriptionValidTill: formatDateToDDMMYYYY(gpsSubscriptionValidTill),
+                gpsRemarks: gpsRemarks
             };
 
             await axios.post(postVehicleCctvCameraInstallation, sendData, {
@@ -1015,102 +1031,102 @@ export default function VehicleSafetyCompliancePage({ vehicleAssetId }) {
         setIsLoading(true);
         try {
             const sendData = new FormData();
-            sendData.append("VehicleAssetID", vehicleAssetId);
+            sendData.append("vehicleAssetID", vehicleAssetId);
 
             // School Name Display
-            sendData.append("SchoolNameFrontSide", schoolNameFrontSide);
-            sendData.append("SchoolNameBackSide", schoolNameBackSide);
-            sendData.append("SchoolNameLeftSide", schoolNameLeftSide);
-            sendData.append("SchoolNameRightSide", schoolNameRightSide);
+            sendData.append("schoolNameFrontSide", schoolNameFrontSide);
+            sendData.append("schoolNameBackSide", schoolNameBackSide);
+            sendData.append("schoolNameLeftSide", schoolNameLeftSide);
+            sendData.append("schoolNameRightSide", schoolNameRightSide);
 
             // Internal Name & Photo Display
-            sendData.append("InternalNameFrontSide", internalNameFrontSide);
-            sendData.append("InternalNameBackSide", internalNameBackSide);
-            sendData.append("InternalNameLeftSide", internalNameLeftSide);
-            sendData.append("InternalNameRightSide", internalNameRightSide);
+            sendData.append("internalNameFrontSide", internalNameFrontSide);
+            sendData.append("internalNameBackSide", internalNameBackSide);
+            sendData.append("internalNameLeftSide", internalNameLeftSide);
+            sendData.append("internalNameRightSide", internalNameRightSide);
 
             // Reflective Tapes Display
-            sendData.append("ReflectiveTapesFrontSide", reflectiveTapesFrontSide);
-            sendData.append("ReflectiveTapesBackSide", reflectiveTapesBackSide);
-            sendData.append("ReflectiveTapesLeftSide", reflectiveTapesLeftSide);
-            sendData.append("ReflectiveTapesRightSide", reflectiveTapesRightSide);
+            sendData.append("reflectiveTapesFrontSide", reflectiveTapesFrontSide);
+            sendData.append("reflectiveTapesBackSide", reflectiveTapesBackSide);
+            sendData.append("reflectiveTapesLeftSide", reflectiveTapesLeftSide);
+            sendData.append("reflectiveTapesRightSide", reflectiveTapesRightSide);
 
             // Signage Display
-            sendData.append("SignageFrontSide", signageFrontSide);
-            sendData.append("SignageBackSide", signageBackSide);
-            sendData.append("SignageLeftSide", signageLeftSide);
-            sendData.append("SignageRightSide", signageRightSide);
+            sendData.append("signageFrontSide", signageFrontSide);
+            sendData.append("signageBackSide", signageBackSide);
+            sendData.append("signageLeftSide", signageLeftSide);
+            sendData.append("signageRightSide", signageRightSide);
 
             // School Name Display Files
             if (schoolNameFrontFile) {
-                sendData.append("SchoolNameFrontFile", schoolNameFrontFile);
-                sendData.append("SchoolNameFrontFileType", schoolNameFrontFile.type.startsWith('image/') ? 'image' : 'pdf');
+                sendData.append("schoolNameFrontFile", schoolNameFrontFile);
+                sendData.append("schoolNameFrontFileType", schoolNameFrontFile.type.startsWith('image/') ? 'image' : 'pdf');
             }
             if (schoolNameBackFile) {
-                sendData.append("SchoolNameBackFile", schoolNameBackFile);
-                sendData.append("SchoolNameBackFileType", schoolNameBackFile.type.startsWith('image/') ? 'image' : 'pdf');
+                sendData.append("schoolNameBackFile", schoolNameBackFile);
+                sendData.append("schoolNameBackFileType", schoolNameBackFile.type.startsWith('image/') ? 'image' : 'pdf');
             }
             if (schoolNameLeftFile) {
-                sendData.append("SchoolNameLeftFile", schoolNameLeftFile);
-                sendData.append("SchoolNameLeftFileType", schoolNameLeftFile.type.startsWith('image/') ? 'image' : 'pdf');
+                sendData.append("schoolNameLeftFile", schoolNameLeftFile);
+                sendData.append("schoolNameLeftFileType", schoolNameLeftFile.type.startsWith('image/') ? 'image' : 'pdf');
             }
             if (schoolNameRightFile) {
-                sendData.append("SchoolNameRightFile", schoolNameRightFile);
-                sendData.append("SchoolNameRightFileType", schoolNameRightFile.type.startsWith('image/') ? 'image' : 'pdf');
+                sendData.append("schoolNameRightFile", schoolNameRightFile);
+                sendData.append("schoolNameRightFileType", schoolNameRightFile.type.startsWith('image/') ? 'image' : 'pdf');
             }
 
             // Internal Name & Photo Display Files
             if (internalNameFrontFile) {
-                sendData.append("InternalNameFrontFile", internalNameFrontFile);
-                sendData.append("InternalNameFrontFileType", internalNameFrontFile.type.startsWith('image/') ? 'image' : 'pdf');
+                sendData.append("internalNameFrontFile", internalNameFrontFile);
+                sendData.append("internalNameFrontFileType", internalNameFrontFile.type.startsWith('image/') ? 'image' : 'pdf');
             }
             if (internalNameBackFile) {
-                sendData.append("InternalNameBackFile", internalNameBackFile);
-                sendData.append("InternalNameBackFileType", internalNameBackFile.type.startsWith('image/') ? 'image' : 'pdf');
+                sendData.append("internalNameBackFile", internalNameBackFile);
+                sendData.append("internalNameBackFileType", internalNameBackFile.type.startsWith('image/') ? 'image' : 'pdf');
             }
             if (internalNameLeftFile) {
-                sendData.append("InternalNameLeftFile", internalNameLeftFile);
-                sendData.append("InternalNameLeftFileType", internalNameLeftFile.type.startsWith('image/') ? 'image' : 'pdf');
+                sendData.append("internalNameLeftFile", internalNameLeftFile);
+                sendData.append("internalNameLeftFileType", internalNameLeftFile.type.startsWith('image/') ? 'image' : 'pdf');
             }
             if (internalNameRightFile) {
-                sendData.append("InternalNameRightFile", internalNameRightFile);
-                sendData.append("InternalNameRightFileType", internalNameRightFile.type.startsWith('image/') ? 'image' : 'pdf');
+                sendData.append("internalNameRightFile", internalNameRightFile);
+                sendData.append("internalNameRightFileType", internalNameRightFile.type.startsWith('image/') ? 'image' : 'pdf');
             }
 
             // Reflective Tapes Display Files
             if (reflectiveTapesFrontFile) {
-                sendData.append("ReflectiveTapesFrontFile", reflectiveTapesFrontFile);
-                sendData.append("ReflectiveTapesFrontFileType", reflectiveTapesFrontFile.type.startsWith('image/') ? 'image' : 'pdf');
+                sendData.append("reflectiveTapesFrontFile", reflectiveTapesFrontFile);
+                sendData.append("reflectiveTapesFrontFileType", reflectiveTapesFrontFile.type.startsWith('image/') ? 'image' : 'pdf');
             }
             if (reflectiveTapesBackFile) {
-                sendData.append("ReflectiveTapesBackFile", reflectiveTapesBackFile);
-                sendData.append("ReflectiveTapesBackFileType", reflectiveTapesBackFile.type.startsWith('image/') ? 'image' : 'pdf');
+                sendData.append("reflectiveTapesBackFile", reflectiveTapesBackFile);
+                sendData.append("reflectiveTapesBackFileType", reflectiveTapesBackFile.type.startsWith('image/') ? 'image' : 'pdf');
             }
             if (reflectiveTapesLeftFile) {
-                sendData.append("ReflectiveTapesLeftFile", reflectiveTapesLeftFile);
-                sendData.append("ReflectiveTapesLeftFileType", reflectiveTapesLeftFile.type.startsWith('image/') ? 'image' : 'pdf');
+                sendData.append("reflectiveTapesLeftFile", reflectiveTapesLeftFile);
+                sendData.append("reflectiveTapesLeftFileType", reflectiveTapesLeftFile.type.startsWith('image/') ? 'image' : 'pdf');
             }
             if (reflectiveTapesRightFile) {
-                sendData.append("ReflectiveTapesRightFile", reflectiveTapesRightFile);
-                sendData.append("ReflectiveTapesRightFileType", reflectiveTapesRightFile.type.startsWith('image/') ? 'image' : 'pdf');
+                sendData.append("reflectiveTapesRightFile", reflectiveTapesRightFile);
+                sendData.append("reflectiveTapesRightFileType", reflectiveTapesRightFile.type.startsWith('image/') ? 'image' : 'pdf');
             }
 
             // Signage Display Files
             if (signageFrontFile) {
-                sendData.append("SignageFrontFile", signageFrontFile);
-                sendData.append("SignageFrontFileType", signageFrontFile.type.startsWith('image/') ? 'image' : 'pdf');
+                sendData.append("signageFrontFile", signageFrontFile);
+                sendData.append("signageFrontFileType", signageFrontFile.type.startsWith('image/') ? 'image' : 'pdf');
             }
             if (signageBackFile) {
-                sendData.append("SignageBackFile", signageBackFile);
-                sendData.append("SignageBackFileType", signageBackFile.type.startsWith('image/') ? 'image' : 'pdf');
+                sendData.append("signageBackFile", signageBackFile);
+                sendData.append("signageBackFileType", signageBackFile.type.startsWith('image/') ? 'image' : 'pdf');
             }
             if (signageLeftFile) {
-                sendData.append("SignageLeftFile", signageLeftFile);
-                sendData.append("SignageLeftFileType", signageLeftFile.type.startsWith('image/') ? 'image' : 'pdf');
+                sendData.append("signageLeftFile", signageLeftFile);
+                sendData.append("signageLeftFileType", signageLeftFile.type.startsWith('image/') ? 'image' : 'pdf');
             }
             if (signageRightFile) {
-                sendData.append("SignageRightFile", signageRightFile);
-                sendData.append("SignageRightFileType", signageRightFile.type.startsWith('image/') ? 'image' : 'pdf');
+                sendData.append("signageRightFile", signageRightFile);
+                sendData.append("signageRightFileType", signageRightFile.type.startsWith('image/') ? 'image' : 'pdf');
             }
 
             await axios.post(postVehicleBusBrandingVisualIdentity, sendData, {
@@ -1380,7 +1396,7 @@ export default function VehicleSafetyCompliancePage({ vehicleAssetId }) {
                         </Grid>
                         <Grid size={{ xs: 12, md: 5 }}>
                             <Box sx={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 2 }}>
-                                <Typography fontSize="11px" fontWeight={600} color="#ff0000" sx={{ whiteSpace: "nowrap" }}>
+                                <Typography sx={{ fontSize: "12px", fontWeight: 600, color: DASH.text, whiteSpace: "nowrap" }}>
                                     Is the CCTV dealer and installer the same ?
                                 </Typography>
                                 <RadioGroup row value={cctvDealerInstallerSame} onChange={(e) => setCctvDealerInstallerSame(e.target.value)}>

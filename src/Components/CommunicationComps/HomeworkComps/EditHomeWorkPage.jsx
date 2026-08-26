@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { Box, Grid, TextField, Typography, Button, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, Autocomplete, Paper, ThemeProvider, createTheme, } from "@mui/material";
+import React, { useEffect, useMemo, useState } from "react";
+import { Box, Grid, TextField, Typography, Button, Divider, IconButton, Dialog, DialogActions, Autocomplete, Paper, ThemeProvider, createTheme, } from "@mui/material";
 import axios from "axios";
 import { useDropzone } from "react-dropzone";
 import dayjs from "dayjs";
@@ -7,6 +7,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlice";
+import { selectAcademicYear } from "../../../Redux/Slices/academicYearSlice";
 import { FindHomeWork, updateHomeWork } from "../../../Api/Api";
 import SnackBar from "../../SnackBar";
 import UploadFileIcon from '@mui/icons-material/UploadFile';
@@ -16,6 +17,10 @@ import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { DateTimePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { Stack } from "react-bootstrap";
 import Loader from "../../Loader";
+import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
+import CloseOutlinedIcon from "@mui/icons-material/CloseOutlined";
+import PublishOutlinedIcon from "@mui/icons-material/PublishOutlined";
+import ScheduleSendOutlinedIcon from "@mui/icons-material/ScheduleSendOutlined";
 
 export default function EditHomeWorkPage() {
     const navigate = useNavigate();
@@ -36,6 +41,7 @@ export default function EditHomeWorkPage() {
     const [selectedGradeId, setSelectedGradeId] = useState(0);
     const [selectedSection, setSelectedSection] = useState(null);
     const websiteSettings = useSelector(selectWebsiteSettings);
+    const academicYear = useSelector(selectAcademicYear);
     const [DTValue, setDTValue] = useState(null);
     const [changesHappended, setChangesHappended] = useState(false);
     const [openAlert, setOpenAlert] = useState(false);
@@ -136,10 +142,47 @@ export default function EditHomeWorkPage() {
         }
     };
 
-    const [previewData, setPreviewData] = useState({
-        heading: '',
-        uploadedFiles: [],
-    });
+    // One blob URL per selected file instead of a fresh one on every render.
+    const filePreviewUrl = useMemo(() => {
+        const file = uploadedFiles[0];
+        if (!file) return "";
+        return file instanceof File ? URL.createObjectURL(file) : (file.url || file);
+    }, [uploadedFiles]);
+
+    useEffect(() => {
+        if (!filePreviewUrl.startsWith("blob:")) return undefined;
+        return () => URL.revokeObjectURL(filePreviewUrl);
+    }, [filePreviewUrl]);
+
+    const fieldLabelSx = { fontSize: "13px", fontWeight: 600, color: "#374151", mb: 0.7 };
+    const requiredSx = { color: "#E30053" };
+
+    const ghostButtonSx = {
+        textTransform: "none",
+        borderRadius: "10px",
+        fontSize: "12.5px",
+        fontWeight: 600,
+        px: 1.8,
+        py: 0.6,
+        color: "#374151",
+        borderColor: "#D6DAE1",
+        backgroundColor: "#fff",
+        "&:hover": { borderColor: "#9AA3AF", backgroundColor: "#F7F8FA" },
+    };
+
+    const primaryButtonSx = {
+        textTransform: "none",
+        borderRadius: "10px",
+        fontSize: "12.5px",
+        fontWeight: 700,
+        px: 2.4,
+        py: 0.7,
+        boxShadow: "none",
+        whiteSpace: "nowrap",
+        backgroundColor: websiteSettings.mainColor,
+        color: websiteSettings.textColor,
+        "&:hover": { backgroundColor: websiteSettings.mainColor, opacity: 0.9, boxShadow: "none" },
+    };
 
     const handleDateChange = (newDTValue) => {
         setChangesHappended(true)
@@ -151,13 +194,6 @@ export default function EditHomeWorkPage() {
         } else {
             setDTValue(null);
         }
-    };
-
-    const handlePreview = () => {
-        setPreviewData({
-            heading,
-            uploadedFiles,
-        });
     };
 
     const handleCloseDialog = (confirmed) => {
@@ -220,7 +256,8 @@ export default function EditHomeWorkPage() {
         try {
             const res = await axios.get(FindHomeWork, {
                 params: {
-                    Id: id
+                    id: id,
+                    academicYear: academicYear || "",
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -265,16 +302,18 @@ export default function EditHomeWorkPage() {
 
         try {
             const sendData = new FormData();
-            sendData.append("Id", id);
-            sendData.append("UserType", userType);
-            sendData.append("RollNumber", rollNumber);
-            sendData.append("HeadLine", heading);
-            sendData.append("FileType", fileType);
-            sendData.append("File", uploadedFiles[0] || '');
-            sendData.append("Status", status);
-            sendData.append("PostedOn", status === 'post' ? todayDateTime : "");
-            sendData.append("UpdatedOn", todayDateTime);
-            sendData.append("ScheduleOn", formattedDTValue || dateTimeValue || "");
+            sendData.append("id", id);
+            sendData.append("userType", userType);
+            sendData.append("rollNumber", rollNumber);
+            sendData.append("headLine", heading);
+            sendData.append("fileType", fileType);
+            sendData.append("file", uploadedFiles[0] || '');
+            sendData.append("status", status);
+            sendData.append("postedOn", status === 'post' ? todayDateTime : "");
+            sendData.append("updatedOn", todayDateTime);
+            sendData.append("scheduleOn", formattedDTValue || dateTimeValue || "");
+
+            sendData.append("academicYear", academicYear || "");
 
             const res = await axios.put(updateHomeWork, sendData, {
                 headers: {
@@ -332,7 +371,7 @@ export default function EditHomeWorkPage() {
                         md: 6,
                         lg: 6
                     }}>
-                    <Box sx={{ border: "1px solid #E0E0E0", backgroundColor: "#fbfbfb", py: 2, borderRadius: "7px", mt: 4.5, height: "75.6vh", overflowY: "auto", position: "relative" }}>
+                    <Box sx={{ border: "1px solid #E6E8EC", backgroundColor: "#fff", py: 2, borderRadius: "12px", mt: 4.5, maxHeight: "75.6vh", overflow: "hidden auto" }}>
                         <Grid container spacing={2} sx={{ px: 2 }}>
                             <Grid
                                 size={{
@@ -341,7 +380,7 @@ export default function EditHomeWorkPage() {
                                     md: 6,
                                     lg: 6
                                 }}>
-                                <Typography sx={{ mb: 0.5 }}>Select class</Typography>
+                                <Typography sx={fieldLabelSx}>Class <span style={requiredSx}>*</span></Typography>
                                 <Autocomplete
                                     disablePortal
                                     disabled
@@ -395,7 +434,7 @@ export default function EditHomeWorkPage() {
                                     md: 6,
                                     lg: 6
                                 }}>
-                                <Typography sx={{ mb: 0.5, ml: 1 }}>Select Class</Typography>
+                                <Typography sx={fieldLabelSx}>Section <span style={requiredSx}>*</span></Typography>
                                 <TextField
                                     sx={{ backgroundColor: "#fff" }}
                                     id="outlined-size-small"
@@ -411,7 +450,7 @@ export default function EditHomeWorkPage() {
                                 size={{
                                     lg: 12
                                 }}>
-                                <Typography sx={{ mt: 2 }}>Add Heading</Typography>
+                                <Typography sx={{ ...fieldLabelSx, mt: 2 }}>Heading <span style={requiredSx}>*</span></Typography>
                                 <TextField
                                     id="outlined-size-small"
                                     size="small"
@@ -426,7 +465,7 @@ export default function EditHomeWorkPage() {
                                 size={{
                                     lg: 12
                                 }}>
-                                <Typography sx={{ mb: 0.5, mt: 3, }}>Select Image</Typography>
+                                <Typography sx={{ ...fieldLabelSx, mt: 3 }}>Attachment <span style={{ color: "#8A93A0", fontWeight: 400, fontSize: "12px" }}>(optional)</span></Typography>
                                 <Box sx={{ mt: 1, textAlign: "center" }}>
                                     <Box
                                         {...getRootProps()}
@@ -472,7 +511,7 @@ export default function EditHomeWorkPage() {
                                                     }}
                                                 >
                                                     <img
-                                                        src={uploadedFiles[0] instanceof File ? URL.createObjectURL(uploadedFiles[0]) : uploadedFiles[0].url || uploadedFiles[0]}
+                                                        src={filePreviewUrl}
                                                         alt="Selected"
                                                         style={{
                                                             width: "100%",
@@ -505,7 +544,7 @@ export default function EditHomeWorkPage() {
                                     size={{
                                         lg: 12
                                     }}>
-                                    <Typography sx={{ mt: 2 }}>Schedule</Typography>
+                                    <Typography sx={{ ...fieldLabelSx, mt: 2 }}>Scheduled for</Typography>
                                     <ThemeProvider theme={theme}>
                                         <LocalizationProvider dateAdapter={AdapterDayjs}>
                                             <Stack spacing={2} >
@@ -543,162 +582,59 @@ export default function EditHomeWorkPage() {
                                 </Grid>
                             }
                         </Grid>
-                        <Dialog open={openAlert} onClose={() => setOpenAlert(false)}>
-                            <Box sx={{ display: "flex", justifyContent: "center", p: 2, backgroundColor: '#fff', }}>
-
-                                <Box sx={{
-                                    textAlign: 'center',
-                                    backgroundColor: '#fff',
-                                    p: 3,
-                                    width: "70%",
-                                }}>
-
-                                    <Typography sx={{ fontSize: "20px" }}> Do you really want to cancel? Your changes might not be saved.</Typography>
-                                    <DialogActions sx={{
-                                        justifyContent: 'center',
-                                        backgroundColor: '#fff',
-                                        pt: 2
-                                    }}>
-                                        <Button
-                                            onClick={() => handleCloseDialog(false)}
-                                            sx={{
-                                                textTransform: 'none',
-                                                width: "80px",
-                                                borderRadius: '30px',
-                                                fontSize: '16px',
-                                                py: 0.2,
-                                                border: '1px solid black',
-                                                color: 'black',
-                                            }}
-                                        >
-                                            No
-                                        </Button>
-                                        <Button
-                                            onClick={() => handleCloseDialog(true)}
-                                            sx={{
-                                                textTransform: 'none',
-                                                backgroundColor: websiteSettings.mainColor,
-                                                width: "90px",
-                                                borderRadius: '30px',
-                                                fontSize: '16px',
-                                                py: 0.2,
-                                                color: websiteSettings.textColor,
-                                            }}
-                                        >
-                                            Yes
-                                        </Button>
-                                    </DialogActions>
-                                </Box>
-
+                        <Dialog
+                            open={openAlert}
+                            onClose={() => setOpenAlert(false)}
+                            slotProps={{ paper: { sx: { borderRadius: "14px", maxWidth: "420px" } } }}
+                        >
+                            <Box sx={{ p: 3, backgroundColor: '#fff', textAlign: 'center' }}>
+                                <Typography sx={{ fontSize: "17px", fontWeight: 600, color: "#111827" }}>
+                                    Discard your changes?
+                                </Typography>
+                                <Typography sx={{ fontSize: "13px", color: "#6B7280", mt: 0.8 }}>
+                                    The edits you made to this homework have not been saved yet and will be lost.
+                                </Typography>
+                                <DialogActions sx={{ justifyContent: 'center', backgroundColor: '#fff', pt: 2.5, gap: 1 }}>
+                                    <Button
+                                        variant="outlined"
+                                        onClick={() => handleCloseDialog(false)}
+                                        sx={{ ...ghostButtonSx, px: 2.4 }}
+                                    >
+                                        Keep editing
+                                    </Button>
+                                    <Button onClick={() => handleCloseDialog(true)} sx={primaryButtonSx}>
+                                        Discard
+                                    </Button>
+                                </DialogActions>
                             </Box>
                         </Dialog>
-                        <Box sx={{ mt: 17, }}>
-                            <Grid container spacing={2} sx={{ px: 2 }}>
-                                <Grid
-                                    size={{
-                                        xs: 6,
-                                        sm: 6,
-                                        md: 6,
-                                        lg: 5
-                                    }}>
-                                </Grid>
-                                <Grid
-                                    sx={{ display: "flex", justifyContent: "end" }}
-                                    size={{
-                                        xs: 6,
-                                        sm: 6,
-                                        md: 6,
-                                        lg: 2.3
-                                    }}>
-                                    <Button
-                                        sx={{
-                                            textTransform: 'none',
-                                            width: "100%",
-                                            borderRadius: '30px',
-                                            fontSize: '12px',
-                                            py: 0.2,
-                                            color: 'black',
-                                            fontWeight: "600",
-                                        }}
-                                        onClick={handlePreview}>
-                                        Preview
-                                    </Button>
-                                </Grid>
-                                <Grid
-                                    sx={{ display: "flex", justifyContent: "end" }}
-                                    size={{
-                                        xs: 6,
-                                        sm: 6,
-                                        md: 6,
-                                        lg: 2.3
-                                    }}>
-                                    <Button
-                                        sx={{
-                                            textTransform: 'none',
-                                            width: "80px",
-                                            borderRadius: '30px',
-                                            fontSize: '12px',
-                                            py: 0.2,
-                                            border: '1px solid black',
-                                            color: 'black',
-                                            fontWeight: "600",
-                                        }}
-                                        onClick={handleCancelClick}>
-                                        Cancel
-                                    </Button>
-                                </Grid>
-                                {!DTValue && (
-                                    <Grid
-                                        sx={{ display: "flex", justifyContent: "end" }}
-                                        size={{
-                                            xs: 6,
-                                            sm: 6,
-                                            md: 6,
-                                            lg: 2.4
-                                        }}>
-                                        <Button
-                                            sx={{
-                                                textTransform: 'none',
-                                                backgroundColor: websiteSettings.mainColor,
-                                                width: "80px",
-                                                borderRadius: '30px',
-                                                fontSize: '12px',
-                                                py: 0.2,
-                                                color: websiteSettings.textColor,
-                                                fontWeight: "600",
-                                            }}
-                                            onClick={() => handleUpdate('post')}>
-                                            Update
-                                        </Button>
-                                    </Grid>
-                                )}
-                                {DTValue && (
-                                    <Grid
-                                        sx={{ display: "flex", justifyContent: "end" }}
-                                        size={{
-                                            xs: 6,
-                                            sm: 6,
-                                            md: 6,
-                                            lg: 2.4
-                                        }}>
-                                        <Button
-                                            sx={{
-                                                textTransform: 'none',
-                                                backgroundColor: websiteSettings.mainColor,
-                                                width: "80px",
-                                                borderRadius: '30px',
-                                                fontSize: '12px',
-                                                py: 0.2,
-                                                color: websiteSettings.textColor,
-                                                fontWeight: "600",
-                                            }}
-                                            onClick={() => handleUpdate('schedule')}>
-                                            Schedule
-                                        </Button>
-                                    </Grid>
-                                )}
-
-                            </Grid>
+                        <Divider sx={{ mt: 3, mx: 2 }} />
+                        <Box sx={{
+                            mt: 2,
+                            px: 2,
+                            display: "flex",
+                            flexWrap: "wrap",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: 1,
+                        }}>
+                            <Button
+                                variant="outlined"
+                                startIcon={<CloseOutlinedIcon sx={{ fontSize: 16 }} />}
+                                sx={ghostButtonSx}
+                                onClick={handleCancelClick}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                startIcon={DTValue
+                                    ? <ScheduleSendOutlinedIcon sx={{ fontSize: 16 }} />
+                                    : <PublishOutlinedIcon sx={{ fontSize: 17 }} />}
+                                sx={primaryButtonSx}
+                                onClick={() => handleUpdate(DTValue ? 'schedule' : 'post')}
+                            >
+                                {DTValue ? 'Schedule' : 'Update'}
+                            </Button>
                         </Box>
 
                     </Box>
@@ -712,47 +648,77 @@ export default function EditHomeWorkPage() {
                         md: 6,
                         lg: 6
                     }}>
-                    <Box sx={{ border: "1px solid #E0E0E0", backgroundColor: "#fbfbfb", p: 2, borderRadius: "6px", height: "75.6vh", overflowY: "auto" }}>
-                        <Typography sx={{ fontSize: "14px", color: "rgba(0,0,0,0.7)" }}>Live Preview</Typography>
-                        <hr style={{ border: "0.5px solid #CFCFCF" }} />
-                        <Box>
-                        {previewData.heading && (
-                                <Typography sx={{ fontWeight: "600", fontSize: "16px" }}>
-                                    {previewData.heading}
-                                </Typography>
-                            )}
-                            <Grid container spacing={2}>
-                                {previewData.uploadedFiles.map((file, index) => (
-                                    <Grid
-                                        key={index}
-                                        sx={{ display: "flex", py: 1 }}
-                                        size={{
-                                            xs: 12,
-                                            sm: 12,
-                                            md: 5,
-                                            lg: 12
-                                        }}>
-                                        {fileType === "image" ? (
-                                            <img
-                                                src={URL.createObjectURL(file)}
-                                                width={'273px'}
-                                                height={'210px'}
-                                                alt={`Uploaded file ${index + 1}`}
-                                            />
-                                        ) : fileType === "pdf" ? (
-                                            <iframe
-                                                src={URL.createObjectURL(file)}
-                                                width="400px"
-                                                height="400px"
-                                                title={`Uploaded PDF ${index + 1}`}
-                                            ></iframe>
-
-                                        ) : null}
-                                    </Grid>
-                                ))}
-                            </Grid>
-
+                    <Box sx={{ border: "1px solid #E6E8EC", backgroundColor: "#fff", p: 2, borderRadius: "12px", height: "75.6vh", overflow: "hidden auto" }}>
+                        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                <VisibilityOutlinedIcon sx={{ fontSize: 18, color: "#6B7280" }} />
+                                <Typography sx={{ fontSize: "14px", fontWeight: 600, color: "#374151" }}>Live Preview</Typography>
+                            </Box>
+                            <Typography sx={{ fontSize: "11px", color: "#8A93A0" }}>Updates as you type</Typography>
                         </Box>
+                        <Divider sx={{ my: 1.5 }} />
+                        {!heading && !filePreviewUrl ? (
+                            <Box sx={{
+                                height: "60vh",
+                                display: "flex",
+                                flexDirection: "column",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                gap: 1,
+                                textAlign: "center",
+                                color: "#9AA3AF",
+                            }}>
+                                <VisibilityOutlinedIcon sx={{ fontSize: 34, color: "#C9CFD8" }} />
+                                <Typography sx={{ fontSize: "13px", fontWeight: 600, color: "#6B7280" }}>
+                                    Nothing to preview yet
+                                </Typography>
+                                <Typography sx={{ fontSize: "12px", maxWidth: "260px" }}>
+                                    Start typing the heading or pick an attachment and it will show up here straight away.
+                                </Typography>
+                            </Box>
+                        ) : (
+                            <Box>
+                                {heading && (
+                                    <Typography sx={{ fontWeight: "600", fontSize: "16px", wordBreak: "break-word" }}>
+                                        {heading}
+                                    </Typography>
+                                )}
+
+                                {filePreviewUrl && fileType === "image" && (
+                                    <Box sx={{ pt: 1.5 }}>
+                                        <img
+                                            src={filePreviewUrl}
+                                            alt="Homework attachment"
+                                            style={{
+                                                width: "273px",
+                                                height: "210px",
+                                                objectFit: "cover",
+                                                maxWidth: "100%",
+                                                borderRadius: "10px",
+                                                border: "1px solid #E6E8EC",
+                                                display: "block",
+                                            }}
+                                        />
+                                    </Box>
+                                )}
+
+                                {filePreviewUrl && fileType === "pdf" && (
+                                    <Box sx={{
+                                        pt: 1.5,
+                                        height: 420,
+                                        border: "1px solid #E6E8EC",
+                                        borderRadius: "10px",
+                                        overflow: "hidden",
+                                    }}>
+                                        <iframe
+                                            src={filePreviewUrl}
+                                            title="Homework PDF"
+                                            style={{ width: "100%", height: "100%", border: "none", display: "block" }}
+                                        />
+                                    </Box>
+                                )}
+                            </Box>
+                        )}
                     </Box>
                 </Grid>
 

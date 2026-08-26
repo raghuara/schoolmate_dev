@@ -1,12 +1,17 @@
-import React, { useEffect, useRef, useState } from "react";
-import { Box, Grid, TextField, Typography, Button, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, Autocomplete, Paper, createTheme, ThemeProvider, Stack, Popper, ClickAwayListener, MenuItem, Checkbox, } from "@mui/material";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Box, Grid, TextField, Typography, Button, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, Autocomplete, Paper, createTheme, ThemeProvider, Stack, Popper, ClickAwayListener, MenuItem, Checkbox, Chip, Divider, Tooltip, } from "@mui/material";
 import axios from "axios";
 import { useDropzone } from "react-dropzone";
 import dayjs from "dayjs";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
+import { selectUserTypeID } from "../../../Redux/Slices/AuthSlice";
+import {
+    APPROVAL_SUBMENUS, approvalRoleFor, selectApprovalMatrix,
+} from "../../../Redux/Slices/approvalMatrixSlice";
 import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlice";
+import { selectAcademicYear } from "../../../Redux/Slices/academicYearSlice";
 import { GettingGrades, postHomeWork, postMessage, postNews, postTimeTable, sectionsDropdown, TimeTableFetch } from "../../../Api/Api";
 import SnackBar from "../../SnackBar";
 import UploadFileIcon from '@mui/icons-material/UploadFile';
@@ -15,6 +20,14 @@ import { selectGrades } from "../../../Redux/Slices/DropdownController";
 import { DateTimePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import Loader from "../../Loader";
+import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
+import SendOutlinedIcon from "@mui/icons-material/SendOutlined";
+import ScheduleSendOutlinedIcon from "@mui/icons-material/ScheduleSendOutlined";
+import PublishOutlinedIcon from "@mui/icons-material/PublishOutlined";
+import CloseOutlinedIcon from "@mui/icons-material/CloseOutlined";
+import VerifiedOutlinedIcon from "@mui/icons-material/VerifiedOutlined";
+import AccountTreeOutlinedIcon from "@mui/icons-material/AccountTreeOutlined";
+import ArticleOutlinedIcon from "@mui/icons-material/ArticleOutlined";
 
 
 
@@ -37,6 +50,7 @@ export default function CreateHomeWorkPage() {
     const [selectedGradeId, setSelectedGradeId] = useState(0);
     const [selectedSection, setSelectedSection] = useState(null);
     const websiteSettings = useSelector(selectWebsiteSettings);
+    const academicYear = useSelector(selectAcademicYear);
     const [sectionError, setSectionError] = useState(false);
     const [fileError, setFileError] = useState(false);
     const [gradeError, setGradeError] = useState(false);
@@ -184,16 +198,76 @@ export default function CreateHomeWorkPage() {
         setSelectedSection(newValue?.sectionName || null);
         setSectionError(false);
     };
-    const [previewData, setPreviewData] = useState({
-        heading: '',
-        uploadedFiles: [],
-    });
+    // Whether this user posts straight to live or raises a request is decided by
+    // the approval flow configured in Access Control, not by their user type.
+    const approvalMatrix = useSelector(selectApprovalMatrix);
+    const userTypeID = useSelector(selectUserTypeID);
+    const approval = useMemo(
+        () => approvalRoleFor(approvalMatrix, APPROVAL_SUBMENUS.HOMEWORK, userTypeID),
+        [approvalMatrix, userTypeID],
+    );
+    const canPublishHomework = approval.canPublishDirect;
 
-    const handlePreview = () => {
-        setPreviewData({
-            heading,
-            uploadedFiles,
-        });
+    // Names of the approvers this homework has to travel through, nearest one first.
+    const approverNames = approval.chain.map(
+        (lvl) => approval.flow?.["level" + lvl]?.userType || ("Level " + lvl),
+    );
+    const approvalNote = canPublishHomework
+        ? (approval.required
+            ? "You are the top level approver for Homework, so whatever you post goes out straight away."
+            : "No approval flow is set for Homework yet, so whatever you post goes out straight away.")
+        : (approverNames.length
+            ? "This homework will be sent to " + approverNames.join(", then ") + " for approval before it goes out."
+            : "This homework will be sent for approval before it goes out.");
+
+    // One blob URL per selected file instead of a fresh one on every keystroke.
+    const filePreviewUrl = useMemo(() => {
+        const file = uploadedFiles[0];
+        if (!file) return "";
+        return file instanceof File ? URL.createObjectURL(file) : (file.url || file);
+    }, [uploadedFiles]);
+
+    useEffect(() => {
+        if (!filePreviewUrl.startsWith("blob:")) return undefined;
+        return () => URL.revokeObjectURL(filePreviewUrl);
+    }, [filePreviewUrl]);
+
+    const isPdfUpload = (uploadedFiles[0]?.type || "").includes("pdf");
+
+    const primaryAction = canPublishHomework
+        ? (DTValue
+            ? { label: "Schedule Homework", status: "schedule", icon: <ScheduleSendOutlinedIcon sx={{ fontSize: 17 }} /> }
+            : { label: "Publish Now", status: "post", icon: <PublishOutlinedIcon sx={{ fontSize: 17 }} /> })
+        : { label: "Send for Approval", status: DTValue ? "schedule" : "post", icon: <SendOutlinedIcon sx={{ fontSize: 17 }} /> };
+
+    const fieldLabelSx = { fontSize: "13px", fontWeight: 600, color: "#374151", mb: 0.7 };
+    const requiredSx = { color: "#E30053" };
+
+    const ghostButtonSx = {
+        textTransform: "none",
+        borderRadius: "10px",
+        fontSize: "12.5px",
+        fontWeight: 600,
+        px: 1.8,
+        py: 0.6,
+        color: "#374151",
+        borderColor: "#D6DAE1",
+        backgroundColor: "#fff",
+        "&:hover": { borderColor: "#9AA3AF", backgroundColor: "#F7F8FA" },
+    };
+
+    const primaryButtonSx = {
+        textTransform: "none",
+        borderRadius: "10px",
+        fontSize: "12.5px",
+        fontWeight: 700,
+        px: 2.4,
+        py: 0.7,
+        boxShadow: "none",
+        whiteSpace: "nowrap",
+        backgroundColor: websiteSettings.mainColor,
+        color: websiteSettings.textColor,
+        "&:hover": { backgroundColor: websiteSettings.mainColor, opacity: 0.9, boxShadow: "none" },
     };
     const handleCloseDialog = (confirmed) => {
         setOpenAlert(false);
@@ -286,20 +360,22 @@ export default function CreateHomeWorkPage() {
 
         try {
             const sendData = new FormData();
-            sendData.append("GradeId", selectedGradeId);
-            sendData.append("UserType", userType);
-            sendData.append("RollNumber", rollNumber);
-            sendData.append("HeadLine", heading);
-            sendData.append("FileType", fileType);
-            sendData.append("File", uploadedFiles[0] || '');
-            sendData.append("Status", status);
-            sendData.append("PostedOn", status === 'post' ? todayDateTime : "");
-            sendData.append("DraftedOn", status === 'draft' ? todayDateTime : "");
-            sendData.append("ScheduleOn", formattedDTValue || "");
+            sendData.append("gradeId", selectedGradeId);
+            sendData.append("userType", userType);
+            sendData.append("rollNumber", rollNumber);
+            sendData.append("headLine", heading);
+            sendData.append("fileType", fileType);
+            sendData.append("file", uploadedFiles[0] || '');
+            sendData.append("status", status);
+            sendData.append("postedOn", status === 'post' ? todayDateTime : "");
+            sendData.append("draftedOn", status === 'draft' ? todayDateTime : "");
+            sendData.append("scheduleOn", formattedDTValue || "");
 
             selectedSections.forEach((section, index) => {
                 sendData.append(`Section[${index}]`, section.sectionName);
             });
+
+            sendData.append("academicYear", academicYear || "");
 
             const res = await axios.post(postHomeWork, sendData, {
                 headers: {
@@ -311,7 +387,7 @@ export default function CreateHomeWorkPage() {
             setColor(true);
             setStatus(true);
 
-            if (userType === "superadmin") {
+            if (canPublishHomework) {
                 if (status === "post") {
                     setMessage("Homework created successfully");
                 } else if (status === "schedule") {
@@ -321,7 +397,7 @@ export default function CreateHomeWorkPage() {
                 }
             }
 
-            if (userType !== "superadmin") {
+            if (!canPublishHomework) {
                 setMessage("Requested successfully");
             }
 
@@ -330,10 +406,7 @@ export default function CreateHomeWorkPage() {
             setUploadedFiles([]);
             setHeading("")
             setDTValue(null)
-            setPreviewData({
-                heading: '',
-                uploadedFiles: [],
-            });
+            setChangesHappended(false)
         } catch (error) {
             setMessage("An error occurred while creating homework.");
             setOpen(true);
@@ -358,12 +431,36 @@ export default function CreateHomeWorkPage() {
                 py: 1.5,
                 borderBottom: "1px solid #ddd",
                 px: 2,
+                justifyContent: "space-between",
                 marginTop: "-2px"
             }}>
-                <IconButton onClick={handleBackClick} sx={{ width: "27px", height: "27px", marginTop: '2px' }}>
-                    <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
-                </IconButton>
-                <Typography sx={{ fontWeight: "600", fontSize: "20px" }}>Create Homework</Typography>
+                <Box sx={{ display: "flex", alignItems: "center" }}>
+                    <IconButton onClick={handleBackClick} sx={{ width: "27px", height: "27px", marginTop: '2px' }}>
+                        <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
+                    </IconButton>
+                    <Typography sx={{ fontWeight: "600", fontSize: "20px" }}>Create Homework</Typography>
+                </Box>
+
+                <Tooltip title={approvalNote} placement="bottom-end">
+                    <Chip
+                        size="small"
+                        icon={canPublishHomework
+                            ? <VerifiedOutlinedIcon sx={{ fontSize: 16 }} />
+                            : <AccountTreeOutlinedIcon sx={{ fontSize: 16 }} />}
+                        label={canPublishHomework ? "Publishes instantly" : "Needs approval"}
+                        sx={{
+                            mr: 4,
+                            display: { xs: "none", sm: "inline-flex" },
+                            fontSize: "12px",
+                            fontWeight: 600,
+                            borderRadius: "8px",
+                            border: canPublishHomework ? "1px solid #CBE3B4" : "1px solid #FFD9A0",
+                            backgroundColor: canPublishHomework ? "#F1F8E9" : "#FFF7E6",
+                            color: canPublishHomework ? "#4E7A2E" : "#B36A00",
+                            "& .MuiChip-icon": { color: "inherit" },
+                        }}
+                    />
+                </Tooltip>
             </Box>
             <Grid container >
                 <Grid
@@ -384,7 +481,7 @@ export default function CreateHomeWorkPage() {
                                     md: 6,
                                     lg: 6
                                 }}>
-                                <Typography sx={{ mb: 0.5 }}>Select Class</Typography>
+                                <Typography sx={fieldLabelSx}>Class <span style={requiredSx}>*</span></Typography>
                                 <Autocomplete
                                     disablePortal
                                     options={grades}
@@ -437,7 +534,7 @@ export default function CreateHomeWorkPage() {
                                     md: 6,
                                     lg: 6
                                 }}>
-                                <Typography sx={{ mb: 0.5, ml: 1 }}>Select Sections</Typography>
+                                <Typography sx={fieldLabelSx}>Sections <span style={requiredSx}>*</span></Typography>
                                 <Box>
                                     <Button
                                         variant="outlined"
@@ -554,7 +651,7 @@ export default function CreateHomeWorkPage() {
                                     lg: 12
                                 }}>
 
-                                <Typography sx={{ mt: 2 }}>Add Heading</Typography>
+                                <Typography sx={{ ...fieldLabelSx, mt: 2 }}>Heading <span style={requiredSx}>*</span></Typography>
                                 <TextField
                                     id="outlined-size-small"
                                     size="small"
@@ -568,7 +665,7 @@ export default function CreateHomeWorkPage() {
                                 size={{
                                     lg: 12
                                 }}>
-                                <Typography sx={{ mb: 0.5, mt: 2, }}>Select Image</Typography>
+                                <Typography sx={{ ...fieldLabelSx, mt: 2 }}>Attachment <span style={{ color: "#8A93A0", fontWeight: 400, fontSize: "12px" }}>(optional)</span></Typography>
                                 <Box sx={{ mt: 1, textAlign: "center" }}>
                                     <Box
                                         {...getRootProps()}
@@ -614,7 +711,7 @@ export default function CreateHomeWorkPage() {
                                                     }}
                                                 >
                                                     <img
-                                                        src={uploadedFiles[0] instanceof File ? URL.createObjectURL(uploadedFiles[0]) : uploadedFiles[0].url || uploadedFiles[0]}
+                                                        src={filePreviewUrl}
                                                         alt="Selected"
                                                         style={{
                                                             width: "100%",
@@ -647,7 +744,7 @@ export default function CreateHomeWorkPage() {
                                 size={{
                                     lg: 12
                                 }}>
-                                <Typography sx={{ mt: 2 }}>Schedule Post</Typography>
+                                <Typography sx={{ ...fieldLabelSx, mt: 2 }}>Schedule for later <span style={{ color: "#8A93A0", fontWeight: 400, fontSize: "12px" }}>(optional)</span></Typography>
                                 <ThemeProvider theme={theme}>
                                     <LocalizationProvider dateAdapter={AdapterDayjs}>
                                         <Stack spacing={2}>
@@ -735,144 +832,32 @@ export default function CreateHomeWorkPage() {
 
                             </Box>
                         </Dialog>
-                        <Box sx={{ mt: 6, px: 2 }}>
-                            <Grid container spacing={2}>
-                                <Grid
-                                    size={{
-                                        xs: 6,
-                                        sm: 6,
-                                        md: 6,
-                                        lg: 3.5
-                                    }}>
-                                </Grid>
-                                <Grid
-                                    sx={{ display: "flex", justifyContent: "end" }}
-                                    size={{
-                                        xs: 6,
-                                        sm: 6,
-                                        md: 6,
-                                        lg: 3
-                                    }}>
-                                    <Button
-                                        sx={{
-                                            textTransform: 'none',
-                                            width: "80px",
-                                            borderRadius: '30px',
-                                            fontSize: '12px',
-                                            py: 0.2,
-                                            color: 'black',
-                                            fontWeight: "600",
-                                        }}
-                                        onClick={handlePreview}>
-                                        Preview
-                                    </Button>
-                                </Grid>
-                                <Grid
-                                    sx={{ display: "flex", justifyContent: "end" }}
-                                    size={{
-                                        xs: 6,
-                                        sm: 6,
-                                        md: 6,
-                                        lg: 2.5
-                                    }}>
-                                    <Button
-                                        sx={{
-                                            textTransform: 'none',
-                                            width: "80px",
-                                            borderRadius: '30px',
-                                            fontSize: '12px',
-                                            py: 0.2,
-                                            border: '1px solid black',
-                                            color: 'black',
-                                            fontWeight: "600",
-                                        }}
-                                        onClick={handleCancelClick}>
-                                        Cancel
-                                    </Button>
-                                </Grid>
-                                {userType === "superadmin" &&
-                                    <>
-                                        {!DTValue && (
-                                            <Grid
-                                                sx={{ display: "flex", justifyContent: "end" }}
-                                                size={{
-                                                    xs: 6,
-                                                    sm: 6,
-                                                    md: 6,
-                                                    lg: 3
-                                                }}>
-                                                <Button
-                                                    sx={{
-                                                        textTransform: 'none',
-                                                        backgroundColor: websiteSettings.mainColor,
-                                                        width: "80px",
-                                                        borderRadius: '30px',
-                                                        fontSize: '12px',
-                                                        py: 0.2,
-                                                        color: websiteSettings.textColor,
-                                                        fontWeight: "600",
-                                                    }}
-                                                    onClick={() => handleSubmit('post')}>
-                                                    Publish
-                                                </Button>
-                                            </Grid>
-                                        )}
-                                        {DTValue && (
-                                            <Grid
-                                                sx={{ display: "flex", justifyContent: "end" }}
-                                                size={{
-                                                    xs: 6,
-                                                    sm: 6,
-                                                    md: 6,
-                                                    lg: 3
-                                                }}>
-                                                <Button
-                                                    sx={{
-                                                        textTransform: 'none',
-                                                        backgroundColor: websiteSettings.mainColor,
-                                                        width: "80px",
-                                                        borderRadius: '30px',
-                                                        fontSize: '12px',
-                                                        py: 0.2,
-                                                        color: websiteSettings.textColor,
-                                                        fontWeight: "600",
-                                                    }}
-                                                    onClick={() => handleSubmit('schedule')}>
-                                                    Schedule
-                                                </Button>
-                                            </Grid>
-                                        )}
-                                    </>}
+                        <Divider sx={{ mt: 3 }} />
+                        <Box sx={{ mt: 2, px: 2, pb: 1 }}>
+                            <Box sx={{
+                                display: "flex",
+                                flexWrap: "wrap",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                gap: 1,
+                            }}>
+                                <Button
+                                    variant="outlined"
+                                    startIcon={<CloseOutlinedIcon sx={{ fontSize: 16 }} />}
+                                    sx={ghostButtonSx}
+                                    onClick={handleCancelClick}>
+                                    Cancel
+                                </Button>
 
-                                {userType !== "superadmin" &&
-                                    <>
-                                        <Grid
-                                            sx={{ display: "flex", justifyContent: "end" }}
-                                            size={{
-                                                xs: 6,
-                                                sm: 6,
-                                                md: 6,
-                                                lg: 3
-                                            }}>
-
-                                            <Button
-                                                sx={{
-                                                    textTransform: 'none',
-                                                    backgroundColor: websiteSettings.mainColor,
-                                                    width: "100px",
-                                                    borderRadius: '30px',
-                                                    fontSize: '12px',
-                                                    py: 0.2,
-                                                    color: websiteSettings.textColor,
-                                                    fontWeight: "600",
-                                                }}
-                                                onClick={() => handleSubmit(DTValue ? 'schedule' : 'post')}>
-                                                Request Now
-                                            </Button>
-                                        </Grid>
-                                    </>
-                                }
-                            </Grid>
+                                <Tooltip title={approvalNote} placement="top">
+                                    <Button
+                                        startIcon={primaryAction.icon}
+                                        sx={primaryButtonSx}
+                                        onClick={() => handleSubmit(primaryAction.status)}>
+                                        {primaryAction.label}
+                                    </Button>
+                                </Tooltip>
+                            </Box>
                         </Box>
                     </Box>
                 </Grid>
@@ -884,46 +869,69 @@ export default function CreateHomeWorkPage() {
                         md: 6,
                         lg: 6
                     }}>
-                    <Box sx={{ border: "1px solid #E0E0E0", backgroundColor: "#fbfbfb", p: 2, borderRadius: "6px", height: "75.6vh", overflowY: "auto" }}>
-                        <Typography sx={{ fontSize: "14px", color: "rgba(0,0,0,0.7)" }}>Live Preview</Typography>
-                        <hr style={{ border: "0.5px solid #CFCFCF" }} />
-                        <Box sx={{pt:3}}>
-                            <Grid container spacing={2}>
-                            {previewData.heading && (
-                                <Typography sx={{ fontWeight: "600", fontSize: "16px",px:2 }}>
-                                    {previewData.heading}
-                                </Typography>
+                    <Box sx={{ border: "1px solid #E6E8EC", backgroundColor: "#fff", p: 2, borderRadius: "12px", height: "75.6vh", overflow: "hidden auto" }}>
+                        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                <ArticleOutlinedIcon sx={{ fontSize: 18, color: "#6B7280" }} />
+                                <Typography sx={{ fontSize: "14px", fontWeight: 600, color: "#374151" }}>Live Preview</Typography>
+                            </Box>
+                            <Typography sx={{ fontSize: "11px", color: "#8A93A0" }}>Updates as you type</Typography>
+                        </Box>
+                        <Divider sx={{ my: 1.5 }} />
+                        <Box>
+                            {!heading.trim() && !filePreviewUrl ? (
+                                <Box sx={{
+                                    height: "60vh",
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    gap: 1,
+                                    textAlign: "center",
+                                    color: "#9AA3AF",
+                                }}>
+                                    <VisibilityOutlinedIcon sx={{ fontSize: 34, color: "#C9CFD8" }} />
+                                    <Typography sx={{ fontSize: "13px", fontWeight: 600, color: "#6B7280" }}>Nothing to preview yet</Typography>
+                                    <Typography sx={{ fontSize: "12px", maxWidth: "260px" }}>
+                                        Add a headline or attach the homework and it will show up here straight away.
+                                    </Typography>
+                                </Box>
+                            ) : (
+                                <Box>
+                                    {heading && (
+                                        <Typography sx={{ fontWeight: "600", fontSize: "16px", wordBreak: "break-word" }}>
+                                            {heading}
+                                        </Typography>
+                                    )}
+
+                                    {!!filePreviewUrl && (
+                                        <Box sx={{ pt: 1.5 }}>
+                                            {isPdfUpload ? (
+                                                <iframe
+                                                    src={filePreviewUrl}
+                                                    width="100%"
+                                                    height="400px"
+                                                    title="Homework PDF"
+                                                    style={{ border: "1px solid #E6E8EC", borderRadius: "10px" }}
+                                                ></iframe>
+                                            ) : (
+                                                <img
+                                                    src={filePreviewUrl}
+                                                    alt="Homework"
+                                                    style={{
+                                                        width: "273px",
+                                                        height: "210px",
+                                                        objectFit: "cover",
+                                                        maxWidth: "100%",
+                                                        borderRadius: "10px",
+                                                        border: "1px solid #E6E8EC",
+                                                    }}
+                                                />
+                                            )}
+                                        </Box>
+                                    )}
+                                </Box>
                             )}
-                                {previewData.uploadedFiles.map((file, index) => (
-                                    <Grid
-                                        key={index}
-                                        sx={{ display: "flex", py: 1 }}
-                                        size={{
-                                            xs: 12,
-                                            sm: 12,
-                                            md: 5,
-                                            lg: 12
-                                        }}>
-                                        {fileType === "image" ? (
-                                            <img
-                                                src={URL.createObjectURL(file)}
-                                                width={'273px'}
-                                                height={'210px'}
-                                                alt={`Uploaded file ${index + 1}`}
-                                            />
-                                        ) : fileType === "pdf" ? (
-                                            <iframe
-                                                src={URL.createObjectURL(file)}
-                                                width="400px"
-                                                height="400px"
-                                                title={`Uploaded PDF ${index + 1}`}
-                                            ></iframe>
-
-                                        ) : null}
-                                    </Grid>
-                                ))}
-                            </Grid>
-
                         </Box>
                     </Box>
                 </Grid>

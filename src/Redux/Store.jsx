@@ -11,11 +11,36 @@ import authReducer from './Slices/AuthSlice';
 import sidebarReducer from './Slices/sidebarSlice';
 import versionReducer from './Slices/versionSlice';
 import academicYearReducer from './Slices/academicYearSlice';
+import chatReducer from './Slices/chatSlice';
+import userTypesReducer from './Slices/userTypesSlice';
+import approvalMatrixReducer from './Slices/approvalMatrixSlice';
 
 const authPersistConfig = {
   key: 'auth',
   storage,
-  whitelist: ['name', 'rollNumber', 'userType', 'grade', 'section', 'isAuthenticated'],
+  whitelist: [
+    'name',
+    'rollNumber',
+    'userType',
+    'financeUserType',
+    'position',
+    'grade',
+    'gradeID',
+    'section',
+    'bloodGroup',
+    'studentPermanentNumber',
+    'fatherNameInEnglish',
+    'fatherMobileNumber',
+    'motherNameInEnglish',
+    'motherMobileNumber',
+    'guardianNameInEnglish',
+    'guardianMobileNumber',
+    'siblingCount',
+    'siblingDetails',
+    'isAuthenticated',
+    'userTypeID',
+    'permissions',
+  ],
 };
 
 const gradesPersistConfig = {
@@ -41,11 +66,27 @@ const academicYearPersistConfig = {
   whitelist: ['selectedYear', 'currentYear'],
 };
 
+const userTypesPersistConfig = {
+  key: 'userTypes',
+  storage,
+  whitelist: ['list', 'lastFetched'],
+};
+
+// Persisted so a page can decide Publish vs Request on first paint, without
+// waiting for the matrix call to come back.
+const approvalMatrixPersistConfig = {
+  key: 'approvalMatrix',
+  storage,
+  whitelist: ['list', 'lastFetched'],
+};
+
 const persistedAuthReducer = persistReducer(authPersistConfig, authReducer);
 const persistedGradesReducer = persistReducer(gradesPersistConfig, gradesReducer);
 const persistedSidebarReducer = persistReducer(sidebarPersistConfig, sidebarReducer);
 const persistedVersionReducer = persistReducer(versionPersistConfig, versionReducer);
 const persistedAcademicYearReducer = persistReducer(academicYearPersistConfig, academicYearReducer);
+const persistedUserTypesReducer = persistReducer(userTypesPersistConfig, userTypesReducer);
+const persistedApprovalMatrixReducer = persistReducer(approvalMatrixPersistConfig, approvalMatrixReducer);
 
 const store = configureStore({
   reducer: {
@@ -59,6 +100,9 @@ const store = configureStore({
     sidebar: persistedSidebarReducer,
     version: persistedVersionReducer,
     academicYear: persistedAcademicYearReducer,
+    chat: chatReducer,
+    userTypes: persistedUserTypesReducer,
+    approvalMatrix: persistedApprovalMatrixReducer,
   },
 });
 

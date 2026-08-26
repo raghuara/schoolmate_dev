@@ -7,7 +7,10 @@ import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import dayjs from "dayjs";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { selectUserTypeID } from "../../../../Redux/Slices/AuthSlice";
+import { APPROVAL_SUBMENUS, isApproverFor, selectApprovalMatrix, selectApprovalMatrixReady } from "../../../../Redux/Slices/approvalMatrixSlice";
 import { useDispatch, useSelector } from "react-redux";
+import { selectAcademicYear } from "../../../../Redux/Slices/academicYearSlice";
 import { selectWebsiteSettings } from "../../../../Redux/Slices/websiteSettingsSlice";
 import ReactPlayer from "react-player";
 import { FindMessage, GettingGrades, postNews, updateMessage } from "../../../../Api/Api";
@@ -16,6 +19,7 @@ import SimpleTextEditor from "../../../EditTextEditor";
 import { selectGrades } from "../../../../Redux/Slices/DropdownController";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
+import { DASH } from "../../../DashBoardComps/dashboardTheme";
 
 export default function MessagesApprovalEditPage() {
     const navigate = useNavigate()
@@ -23,8 +27,17 @@ export default function MessagesApprovalEditPage() {
     const [heading, setHeading] = useState("");
     const [newsContentHTML, setNewsContentHTML] = useState("");
     const user = useSelector((state) => state.auth);
+    const academicYear = useSelector(selectAcademicYear);
     const rollNumber = user.rollNumber
     const userType = user.userType
+    // Kept only as payload data below - never as a gate.
+    const userTypeID = useSelector(selectUserTypeID);
+    const approvalMatrix = useSelector(selectApprovalMatrix);
+    const matrixReady = useSelector(selectApprovalMatrixReady);
+    // Do not redirect while the matrix is still loading, or an approver gets
+    // thrown out on a slow connection.
+    const canApproveThis = !matrixReady
+        || isApproverFor(approvalMatrix, APPROVAL_SUBMENUS.MESSAGE, userTypeID);
     const userName = user.name
     const todayDateTime = dayjs().format('DD-MM-YYYY HH:mm');
     const [DTValue, setDTValue] = useState(null);
@@ -230,7 +243,8 @@ export default function MessagesApprovalEditPage() {
         try {
             const res = await axios.get(FindMessage, {
                 params: {
-                    Id: id
+                    id: id,
+                    academicYear: academicYear || ''
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -307,6 +321,8 @@ export default function MessagesApprovalEditPage() {
                 specificUsers: specificUsers || [],
             };
 
+            sendData.academicYear = academicYear || "";
+
             const res = await axios.put(updateMessage, sendData, {
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -336,26 +352,25 @@ export default function MessagesApprovalEditPage() {
             setIsLoading(false);
         }
     };
-    if (userType !== "superadmin" && userType !== "admin") {
+    if (!canApproveThis) {
         return <Navigate to="/dashboardmenu/dashboard" replace />;
     }
     return (
-        <Box sx={{ width: "100%" }}>
+        <Box
+            sx={{
+                px: { xs: 1.5, md: 3 },
+                pt: { xs: 1.5, md: 2 },
+                pb: { xs: 2, md: 3 },
+                bgcolor: DASH.canvas,
+                boxSizing: "border-box",
+            }}
+        >
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
-            <Box sx={{
-                position: "fixed",
-                zIndex: 100,
-                backgroundColor: "#f2f2f2",
-                display: "flex",
-                alignItems: "center",
-                width: "100%",
-                py: 1.5,
-                marginTop: "-2px"
-            }}>
+            <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
                 <IconButton onClick={handleBackClick} sx={{ width: "27px", height: "27px", marginTop: '2px' }}>
-                    <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
+                    <ArrowBackIcon sx={{ fontSize: 20, color: DASH.ink }} />
                 </IconButton>
-                <Typography sx={{ fontWeight: "600", fontSize: "20px" }}>Edit Message</Typography>
+                <Typography sx={{ fontSize: "20px", fontWeight: 700, color: DASH.ink, lineHeight: 1.2 }}>Edit Message</Typography>
             </Box>
             <Grid container >
                 <Grid

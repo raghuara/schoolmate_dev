@@ -19,6 +19,7 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import SnackBar from '../SnackBar';
+import { hasPermission } from '../../Redux/Slices/AuthSlice';
 import { PostAcademicYearConfig, GetAcademicYearConfig } from '../../Api/Api';
 
 const token = '123';
@@ -39,9 +40,9 @@ const endMonthFor = (startMonth) => (startMonth + 11) % 12;
 export default function AcademicYearSetupPage() {
     const navigate = useNavigate();
     const user = useSelector((state) => state.auth);
-    const userType = user?.userType;
+    const permissions = useSelector((state) => state.auth.permissions);
     const rollNumber = user?.rollNumber;
-    const isAdmin = userType === 'superadmin' || userType === 'admin';
+    const canManage = hasPermission(permissions, 'accesscontrol', 'academics', 'allowacademicyear');
 
     const currentYear = new Date().getFullYear();
     const currentMonthIdx = new Date().getMonth();
@@ -158,8 +159,8 @@ export default function AcademicYearSetupPage() {
     // One-time only — server has no PUT endpoint, so on success we flip isLocked
     // to true and the UI becomes read-only.
     const handleSave = async () => {
-        if (!isAdmin) {
-            showSnack('Only admins can save the academic year window.', false);
+        if (!canManage) {
+            showSnack('You do not have permission to configure the academic year.', false);
             return;
         }
         if (isLocked) {
@@ -170,7 +171,6 @@ export default function AcademicYearSetupPage() {
         try {
             const body = {
                 createdByRollNumber: rollNumber || '',
-                createdByUserType: userType || '',
                 startMonth: startMonth + 1,
             };
             const res = await axios.post(PostAcademicYearConfig, body, {
@@ -195,8 +195,8 @@ export default function AcademicYearSetupPage() {
     };
 
     const openConfirm = () => {
-        if (!isAdmin) {
-            showSnack('Only admins can save the academic year window.', false);
+        if (!canManage) {
+            showSnack('You do not have permission to configure the academic year.', false);
             return;
         }
         if (isLocked) {
@@ -490,7 +490,7 @@ export default function AcademicYearSetupPage() {
                                     <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
                                         <Button
                                             onClick={openConfirm}
-                                            disabled={isSaving || isFetching || !hasLoadedStored || isLocked}
+                                            disabled={isSaving || isFetching || !hasLoadedStored || isLocked || !canManage}
                                             startIcon={isSaving
                                                 ? <HistoryToggleOffIcon sx={{ fontSize: 16 }} />
                                                 : isLocked

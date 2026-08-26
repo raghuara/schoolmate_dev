@@ -211,11 +211,11 @@ export default function ResponsesPage() {
         try {
             const res = await axios.get(ConsentFormFetchAll, {
                 params: {
-                    RollNumber: rollNumber,
-                    UserType: userType,
-                    Date: formattedDate || '',
-                    GradeId: selectedGradeId || "131",
-                    Section: selectedSection || "A1"
+                    rollNumber: rollNumber,
+                    userType: userType,
+                    date: formattedDate || '',
+                    gradeId: selectedGradeId || "131",
+                    section: selectedSection || "A1"
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -234,7 +234,7 @@ export default function ResponsesPage() {
         try {
             const res = await axios.delete(DeleteNewsApi, {
                 params: {
-                    Id: id
+                    id: id
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,

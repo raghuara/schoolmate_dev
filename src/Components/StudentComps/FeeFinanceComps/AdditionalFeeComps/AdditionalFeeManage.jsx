@@ -20,6 +20,7 @@ import SnackBar from "../../../SnackBar";
 import Loader from "../../../Loader";
 import { useSelector } from "react-redux";
 import { selectAcademicYear } from "../../../../Redux/Slices/academicYearSlice";
+import { findSubMenuPermissions } from "../../../../Redux/Slices/AuthSlice";
 import { selectGrades } from "../../../../Redux/Slices/DropdownController";
 import AdditionalStudentSelectionPopup from "../../../Tools/AdditionalStudentSelectionPopup";
 
@@ -30,13 +31,22 @@ export default function AdditionalFeeManage() {
     // Academic year is set globally in the dashboard header (Redux)
     const selectedYear = useSelector(selectAcademicYear);
     const navigate = useNavigate();
-    const [isLoading, setIsLoading] = useState([])
+    const [isLoading, setIsLoading] = useState(false)
 
     const [openTextarea, setOpenTextarea] = useState(false);
     const [openAddPopup, setOpenAddPopup] = useState(false);
     const [users, setUsers] = useState([]);
     const [specificNo, setSpecificNo] = useState("");
     const [additionalFetch, setAddtionalFetch] = useState([]);
+    // The API returns the fees directly; the old code filtered on a "level"
+    // field this model has never had, so nothing ever rendered.
+    const activities = Array.isArray(additionalFetch) ? additionalFetch : (additionalFetch?.additionalFees || []);
+    // Mapping students onto a fee and editing them are separate grants.
+    const user = useSelector((state) => state.auth);
+    const rbacReady = (user.permissions?.mainMenus || []).length > 0;
+    const addPerms = findSubMenuPermissions(user.permissions, "feeandfinance", "additionalfeemanagement") || {};
+    const canMapStudent = !rbacReady || addPerms.allowmapstudent === "Y";
+    const canEditStudent = !rbacReady || addPerms.editstudent === "Y";
 
     const [openStudentPopup, setOpenStudentPopup] = useState(false);
     const [selectedActivity, setSelectedActivity] = useState(null);
@@ -119,7 +129,7 @@ export default function AdditionalFeeManage() {
         try {
             const res = await axios.get(additionalFeeFetch, {
                 params: {
-                    Year: selectedYear
+                    year: selectedYear
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -139,7 +149,7 @@ export default function AdditionalFeeManage() {
         try {
             const res = await axios.get(additionalFeeFetchID, {
                 params: {
-                    Id: activityId,
+                    id: activityId,
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -248,9 +258,20 @@ export default function AdditionalFeeManage() {
                     </Button>
                 </Stack> */}
 
+                {!isLoading && activities.length === 0 && (
+                    <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", py: 10, gap: 1 }}>
+                        <Typography sx={{ fontSize: "15px", fontWeight: 600, color: "#374151" }}>
+                            No additional fees for {selectedYear}
+                        </Typography>
+                        <Typography sx={{ fontSize: "13px", color: "#6B7280" }}>
+                            Create an additional fee structure for this year to see it here.
+                        </Typography>
+                    </Box>
+                )}
+
                 <Grid container spacing={3} px={3} pb={3} pt={3} alignItems="stretch">
 
-                    {additionalFetch.filter((activity) => activity.level === "A").map((activity) => (
+                    {activities.map((activity) => (
                         <Grid size={{ sm: 12, xs: 12, lg: 3, md: 6 }} key={activity.id} >
                             <Card
                                 sx={{
@@ -489,6 +510,7 @@ export default function AdditionalFeeManage() {
                                     })()}
 
                                     <Box sx={{ mt: "auto" }}>
+                                        {(canMapStudent || canEditStudent) && (
                                         <Button
                                             onClick={() => {
                                                 handleOpenStudentPopup(activity);
@@ -504,8 +526,11 @@ export default function AdditionalFeeManage() {
                                                 fontSize: "14px",
                                             }}
                                         >
-                                            Add / Remove Student
+                                            {canMapStudent && canEditStudent
+                                                ? "Add / Remove Student"
+                                                : canMapStudent ? "Add Student" : "Edit Student"}
                                         </Button>
+                                        )}
                                     </Box>
 
                                 </Box>
@@ -520,6 +545,8 @@ export default function AdditionalFeeManage() {
                     users={users}
                     activity={selectedActivity}
                     existingStudents={existingStudents}
+                    canMapStudent={canMapStudent}
+                    canEditStudent={canEditStudent}
                     onSave={(payload) => handleSaveStudents(payload)}
                 />
             </Box>

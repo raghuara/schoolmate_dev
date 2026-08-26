@@ -61,7 +61,7 @@ export default function ClasswiseCollectionTab({ selectedYear }) {
         setIsLoading(true);
         try {
             const res = await axios.get(classWiseCollection, {
-                params: { year: selectedYear, FeeType: selectedFeeType },
+                params: { year: selectedYear, feeType: selectedFeeType },
                 headers: { Authorization: `Bearer ${token}` },
             });
             setClasswiseData(res.data.data.grades || []);

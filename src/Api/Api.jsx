@@ -1,6 +1,47 @@
 // UAT Link
 const baseApiurl = `https://schoolcommunicationwebapimsmsuat-dredbbfmhzergfhw.canadacentral-01.azurewebsites.net/api/`;
 
+
+
+
+
+
+//----------------------------------- Chat Hub ----------------------------------
+//----------------------------------- xxxxxxxx ----------------------------------
+
+const chatHubBaseUrl = `https://schoolcommunicationwebapimsmsuat-dredbbfmhzergfhw.canadacentral-01.azurewebsites.net`;
+
+const chathub = `${chatHubBaseUrl}/chathub`;
+
+const creategroup = `${chatHubBaseUrl}/api/chat/creategroup`;
+const fetchgroups = `${chatHubBaseUrl}/api/chat/fetchgroups`;
+const fetchmedia = `${chatHubBaseUrl}/api/chat/fetchmedia`;
+const fetchgroupinfo = `${chatHubBaseUrl}/api/chat/fetchgroupinfo`;
+const sendmessage = `${chatHubBaseUrl}/api/chat/sendmessage`;
+const fetchmessages = `${chatHubBaseUrl}/api/chat/fetchmessages`;
+const searchusers = `${chatHubBaseUrl}/api/chat/searchusers`;
+const getchatusers = `${chatHubBaseUrl}/api/chat/getchatusers`;
+const updatememberrole = `${chatHubBaseUrl}/api/chat/updatememberrole`;
+const leavegroup = `${chatHubBaseUrl}/api/chat/leavegroup`;
+const deletegroup = `${chatHubBaseUrl}/api/chat/deletegroup`;
+const clearchat = `${chatHubBaseUrl}/api/chat/clearchat`;
+const editmessage = `${chatHubBaseUrl}/api/chat/editmessage`;
+const markread = `${chatHubBaseUrl}/api/chat/markread`;
+const pinmessage = `${chatHubBaseUrl}/api/chat/pinmessage`;
+const deletemessage = `${chatHubBaseUrl}/api/chat/deletemessage`;
+const updategroup = `${chatHubBaseUrl}/api/chat/updategroup`;
+const updategroupmembers = `${chatHubBaseUrl}/api/chat/updategroupmembers`;
+const mutegroup = `${chatHubBaseUrl}/api/chat/mutegroup`;
+const uploadfile = `${chatHubBaseUrl}/api/uploadfile`;
+const reactmessage = `${chatHubBaseUrl}/api/chat/reactmessage`;
+const messagereadinfo = `${chatHubBaseUrl}/api/chat/messagereadinfo`;
+const searchmessages = `${chatHubBaseUrl}/api/chat/searchmessages`;
+
+//-----------------------------------xxxxxxxx----------------------------------
+
+
+
+
 const Login = `${baseApiurl}Login`;
 
 // Common Apis 
@@ -26,14 +67,20 @@ const getDashboardSliders = `${baseApiurl}dashboardSliders/getDashboardSliders`;
 const deleteDashboardSlider = `${baseApiurl}dashboardSliders/deleteDashboardSlider`;
 const UsersPassword = `${baseApiurl}Dashboard/UsersPassword`;
 const updateUserPassword = `${baseApiurl}Dashboard/UpdateUserPassword`;
+const DashboardBirthdayUpdated = `${baseApiurl}Dashboard/DashboardBirthdayUpdated`;
+
 const PostTeachersManualAttendance = `${baseApiurl}teachersattendance/PostTeachersManualAttendance`;
 const GetTeachersAttendanceAudit = `${baseApiurl}teachersattendance/GetTeachersAttendanceAudit`;
 const GetTeachersAttendance = `${baseApiurl}teachersattendance/GetTeachersAttendance`;
+
 
 // Communication 
 const fetchDashboard = `${baseApiurl}communicationActivityDashboard/fetchDashboard`;
 const viewTracking = `${baseApiurl}communicationActivityDashboard/viewTracking`;
 const viewTrackingStatus = `${baseApiurl}communicationActivityDashboard/viewTrackingStatus`;
+
+
+
 
 
 // Contact Details
@@ -163,12 +210,7 @@ const FetchAllCalenderEvent = `${baseApiurl}changeEventCalender/FetchAllSchoolCa
 
 // Feedback
 const feedBack = `${baseApiurl}feedBack/`;
-const postFeedBack = `${baseApiurl}FeedBack/postFeedBack`;
-const FeedBackFetchFetch = `${feedBack}FeedBackFetchFetch`;
-const UpdateFeedBackSection = `${feedBack}UpdateFeedBackSection`;
 const FeedBackFetchFetchDraft = `${feedBack}FeedBackFetchFetchDraft`;
-const feedBackFetchAll = `${baseApiurl}feedBackAll/feedBackFetchAll`;
-const DeleteFeedBackForm = `${feedBack}DeleteFeedBackForm`;
 const parentsFeedBackFetchAll = `${baseApiurl}parentsFeedBack/parentsFeedBackFetchAll`;
 const updateFeedBack = `${baseApiurl}FeedBack/updateFeedBack`;
 const GetFeedBackDetailByID = `${baseApiurl}feedBack/GetFeedBackDetailByID`;
@@ -356,6 +398,9 @@ const TriggerManualSync = `${biometrics}TriggerManualSync/`;
 const GetBiometricMappings = `${biometrics}GetBiometricMappings/`;
 const PostBiometricMappings = `${biometrics}PostBiometricMappings/`;
 const UpdateBiometricMappings = `${biometrics}UpdateBiometricMappings/`;
+const GetBiometricAttendanceLogs = `${biometrics}GetBiometricAttendanceLogs/`;
+const RebuildFromRecords = `${biometrics}RebuildFromRecords/`;
+const SyncSummary = `${biometrics}SyncSummary/`;
 
 const attendance = `${baseApiurl}attendance/`;
 const postAttendanceTeachers = `${attendance}postAttendanceTeachers`;
@@ -363,6 +408,7 @@ const GetAttendanceTeacherBefore = `${baseApiurl}teachersattendance/GetAttendanc
 const updateTeachersAttendance = `${attendance}updateTeachersAttendance`;
 const getAttendanceDashboard = `${attendance}getAttendanceDashboard`;
 const getStaffAttendanceOverview = `${baseApiurl}teachersattendance/getStaffAttendanceOverview`;
+const GetMyAttendanceStatus = `${baseApiurl}teachersattendance/GetMyAttendanceStatus`;
 const reportsLeaveManagement = `${baseApiurl}reports/reportsLeaveManagement`;
 const reportsLeaveManagementFullReport = `${baseApiurl}reports/reportsLeaveManagementFullReport`;
 
@@ -373,10 +419,15 @@ const leaveApprovalStatusCheck = `${baseApiurl}leaveApprovalStatusCheck`;
 const updateLeaveApprovalAction = `${baseApiurl}updateLeaveApprovalAction`;
 const getLeaveDashboard = `${leave}getLeaveDashboard`;
 const getLeaveApprovalDashboard = `${leave}getLeaveApprovalDashboard`;
+const GetUserAttendanceLeaveSummary = `${leave}GetUserAttendanceLeaveSummary`;
+const getLeaveConfig = `${leave}getLeaveConfig`;
+const saveLeaveConfig = `${leave}saveLeaveConfig`;
 
 const payRoll = `${baseApiurl}payRoll/`;
 const postSalaryStructure = `${payRoll}postSalaryStructure`;
 const getEmployees = `${payRoll}getEmployees`;
+const getEmployeesWithoutSalaryStructure = `${payRoll}getEmployeesWithoutSalaryStructure`;
+const getEmployeesWithoutBankDetails = `${payRoll}getEmployeesWithoutBankDetails`;
 const updateSalaryStructureByRollnumber = `${payRoll}updateSalaryStructureByRollnumber`;
 const deleteSalaryStructureByRollnumber = `${payRoll}deleteSalaryStructureByRollnumber`;
 const salaryStructureDashboard = `${payRoll}salaryStructureDashboard`;
@@ -392,6 +443,11 @@ const GetWorkingcalendar = `${leavePolicy}GetWorkingcalendar`;
 const UpdateleaveTypeByID = `${leavePolicy}UpdateleaveTypeByID`;
 const DeleteleaveTypeByID = `${leavePolicy}DeleteleaveTypeByID`;
 const GetEmployeeLeaveBalance = `${leavePolicy}GetEmployeeLeaveBalance`;
+const GetunassignedStaff = `${leavePolicy}GetunassignedStaff`;
+const GetShiftAssignedStaffs = `${leavePolicy}GetShiftAssignedStaffs`;
+const assignStaffToShift = `${leavePolicy}assignStaffToShift`;
+const UpdateAssignedStaff = `${leavePolicy}UpdateAssignedStaff`;
+const unassignStaff = `${leavePolicy}unassignStaff`;
 
 
 const postPFConfiguration = `${payRoll}postPFConfiguration`;
@@ -411,6 +467,18 @@ const getPayrollPayslipByRollNumber = `${payRoll}getPayrollPayslipByRollNumber`;
 const postLeaveType = `${payRoll}postLeaveType`;
 const updateLeaveTypeById = `${payRoll}updateLeaveTypeById`;
 const approvePayrollPayslipsDashboard = `${payRoll}approvePayrollPayslipsDashboard`;
+
+// Payroll cycle 
+const payrollCycle = `${baseApiurl}payroll/`;
+const getPayrollCycle = `${payrollCycle}cycle`;
+const payrollCycleLockAttendance = `${payrollCycle}lockattendance`;
+const payrollCycleCalculate = `${payrollCycle}calculate`;
+const payrollCycleApprove = `${payrollCycle}approve`;
+const payrollCycleMarkCredited = `${payrollCycle}markcredited`;
+const payrollCycleRollback = `${payrollCycle}rollback`;
+const getPayrollRegister = `${payrollCycle}register`;
+const getPayrollPayslip = `${payrollCycle}payslip`;
+const getMyPayrollPayslip = `${payrollCycle}mypayslip`;
 
 // Transport 
 const vehicle = `${baseApiurl}vehicle/`;
@@ -506,6 +574,18 @@ const PostAcademicYearConfig = `${baseApiurl}academicyear/PostAcademicYearConfig
 const GetAcademicYearConfig = `${baseApiurl}academicyear/GetAcademicYearConfig`;
 const GetExitFeesSummary = `${baseApiurl}studentExit/GetExitFeesSummary`;
 
+// Role based access 
+const UserTypes = `${baseApiurl}/UserTypes/`;
+const AddUserType = `${UserTypes}/AddUserType`;
+const GetAllUserTypes = `${UserTypes}/GetAllUserTypes`;
+const UpdateUsersUserType = `${UserTypes}/UpdateUsersUserType`;
+const GetNonStudentUsers = `${UserTypes}/GetNonStudentUsers`;
+const GetUserTypePermissions = `${UserTypes}/GetUserTypePermissions`;
+const UpdateUserTypePermissions = `${UserTypes}/UpdateUserTypePermissions`;
+const GetAllApprovalMatrix = `${UserTypes}/GetAllApprovalMatrix`;
+const UpdateApprovalMatrix = `${UserTypes}/UpdateApprovalMatrix`;
+
+
 // Class & Section Management
 const postGrade = `${baseApiurl}GradeValueFetch/postGrade`;
 const postSection = `${baseApiurl}GradeValueFetch/postSection`;
@@ -517,6 +597,22 @@ const fetchSubjectsByID = `${baseApiurl}GradeValueFetch/fetchSubjectsByID`;
 const updatePrimaryAndSecondarySubjects = `${baseApiurl}GradeValueFetch/updatePrimaryAndSecondarySubjects`;
 const AddClass = `${baseApiurl}GradeValueFetch/AddClass`;
 const AddClassSection = `${baseApiurl}GradeValueFetch/AddClassSection`;
+
+//----------------------------------- Online Quiz ----------------------------------
+//----------------------------------- xxxxxxxx ----------------------------------
+
+const QuizLimits = `${baseApiurl}qtest/limits`;
+const GenerateQuizQuestions = `${baseApiurl}qtest/generateQuestions`;
+const PostQuizQuestions = `${baseApiurl}qtest/postQuzeQuestions`;
+const GetQuizApprovalRequests = `${baseApiurl}qtest/getQuzeApprovalRequests`;
+const GetQuizById = `${baseApiurl}qtest/getQuzeById`;
+const UpdateQuizApproval = `${baseApiurl}qtest/updateQuzeApproval`;
+const GetQuizDashboard = `${baseApiurl}qtest/getQuzeDashboard`;
+const GetAllQuizzesForAdmin = `${baseApiurl}qtest/getAllQuzesForAdmin`;
+const GetQuizSingleAnalytics = `${baseApiurl}qtest/getQuzeSingleAnalytics`;
+const GetStudentQuizWarningCount = `${baseApiurl}qtest/getStudentQuzeResultReviewWarningCount`;
+
+//----------------------------------- xxxxxxxx ----------------------------------
 
 export {
     poststudyMaterial,
@@ -602,13 +698,8 @@ export {
     DeleteEventCalender,
     postSchoolCalender,
     parentsFeedBackFetchAll,
-    UpdateFeedBackSection,
     FindSchoolCalender,
-    feedBackFetchAll,
-    DeleteFeedBackForm,
     DeleteSchoolCalender,
-    postFeedBack,
-    FeedBackFetchFetch,
     StudyMaterialFetch,
     updateStudyMaterial,
     DeleteStudyMaterial,
@@ -805,12 +896,17 @@ export {
     updateLeaveApprovalAction,
     getLeaveDashboard,
     getLeaveApprovalDashboard,
+    GetUserAttendanceLeaveSummary,
+    getLeaveConfig,
+    saveLeaveConfig,
     getAttendanceDashboard,
     getStaffAttendanceOverview,
     reportsLeaveManagement,
     reportsLeaveManagementFullReport,
     postSalaryStructure,
     getEmployees,
+    getEmployeesWithoutSalaryStructure,
+    getEmployeesWithoutBankDetails,
     updateSalaryStructureByRollnumber,
     deleteSalaryStructureByRollnumber,
     salaryStructureDashboard,
@@ -829,6 +925,15 @@ export {
     updateLeaveTypeById,
     getPayrollPayslipByRollNumber,
     approvePayrollPayslipsDashboard,
+    getPayrollCycle,
+    payrollCycleLockAttendance,
+    payrollCycleCalculate,
+    payrollCycleApprove,
+    payrollCycleMarkCredited,
+    payrollCycleRollback,
+    getPayrollRegister,
+    getPayrollPayslip,
+    getMyPayrollPayslip,
     postGrade,
     postSection,
     deleteSection,
@@ -861,6 +966,11 @@ export {
     UpdateleaveTypeByID,
     DeleteleaveTypeByID,
     GetEmployeeLeaveBalance,
+    GetunassignedStaff,
+    GetShiftAssignedStaffs,
+    assignStaffToShift,
+    UpdateAssignedStaff,
+    unassignStaff,
     PostPromoteStudents,
     FetchPromotableStudents,
     FetchPromotedStudents,
@@ -877,9 +987,13 @@ export {
     viewTrackingStatus,
     PostBiometricMappings,
     UpdateBiometricMappings,
+    GetBiometricAttendanceLogs,
+    RebuildFromRecords,
+    SyncSummary,
     PostTeachersManualAttendance,
     GetTeachersAttendance,
     GetTeachersAttendanceAudit,
+    GetMyAttendanceStatus,
     PostAcademicYearConfig,
     GetAcademicYearConfig,
     GetExitFeesSummary,
@@ -904,5 +1018,48 @@ export {
     paymentApprovalUpdate,
     GetOverallLeaveDetails,
     StudentsOnLeaveToday,
-    LeaveApproval
+    LeaveApproval,
+    creategroup,
+    fetchgroups,
+    fetchgroupinfo,
+    sendmessage,
+    fetchmessages,
+    searchusers,
+    getchatusers,
+    updatememberrole,
+    leavegroup,
+    deletegroup,
+    clearchat,
+    editmessage,
+    markread,
+    pinmessage,
+    deletemessage,
+    updategroup,
+    updategroupmembers,
+    mutegroup,
+    uploadfile,
+    chathub,
+    reactmessage,
+    messagereadinfo,
+    searchmessages,
+    fetchmedia,
+    AddUserType,
+    GetAllUserTypes,
+    GetAllApprovalMatrix,
+    UpdateApprovalMatrix,
+    UpdateUsersUserType,
+    GetNonStudentUsers,
+    GetUserTypePermissions,
+    UpdateUserTypePermissions,
+    DashboardBirthdayUpdated,
+    QuizLimits,
+    GenerateQuizQuestions,
+    PostQuizQuestions,
+    GetQuizApprovalRequests,
+    GetQuizById,
+    UpdateQuizApproval,
+    GetQuizDashboard,
+    GetAllQuizzesForAdmin,
+    GetQuizSingleAnalytics,
+    GetStudentQuizWarningCount
 }

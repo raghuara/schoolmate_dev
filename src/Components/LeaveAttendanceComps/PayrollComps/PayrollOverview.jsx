@@ -328,7 +328,7 @@ export default function PayrollOverview({ isEmbedded = false, onBack }) {
             </Box>
             <Grid container spacing={2}>
                 {payrollModules.filter(m =>
-                    userType === 'superadmin' || userType === 'admin'
+                    userType === 'Super Admin' || userType === 'admin'
                         ? true
                         : m.text === 'Bank Details' || m.text === 'Audit-Ready Salary Register'
                 ).map((m, idx) => {
@@ -386,7 +386,7 @@ export default function PayrollOverview({ isEmbedded = false, onBack }) {
                 '&::-webkit-scrollbar-thumb': { bgcolor: '#D1D5DB', borderRadius: 10 },
             }}>
                 {renderCycleProgress()}
-                {(userType === 'superadmin' || userType === 'admin' || userType === 'staff') && renderModules()}
+                {(userType === 'Super Admin' || userType === 'admin' || userType === 'staff') && renderModules()}
             </Box>
         </Box>
     );

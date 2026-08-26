@@ -21,15 +21,19 @@ import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlic
 import ImageIcon from '@mui/icons-material/Image';
 import SnackBar from "../../SnackBar";
 import { selectGrades } from "../../../Redux/Slices/DropdownController";
+import { selectHasPermission } from "../../../Redux/Slices/AuthSlice";
 import fallbackImage from '../../../Images/PagesImage/dummy-image.jpg';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import BackupOutlinedIcon from '@mui/icons-material/BackupOutlined';
+import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 
 export default function AddMarksPage() {
     const today = dayjs().format("DD-MM-YYYY");
     const token = '123';
     const user = useSelector((state) => state.auth);
+    const canCreateMarks = useSelector(selectHasPermission('communication', 'marks', 'create'));
+    const canEditMarks = useSelector(selectHasPermission('communication', 'marks', 'edit'));
     const rollNumber = user.rollNumber
     const userType = user.userType
     const userName = user.name
@@ -124,6 +128,73 @@ export default function AddMarksPage() {
         }
     };
 
+    const notify = (msg, ok = false) => {
+        setMessage(msg);
+        setColor(ok);
+        setStatus(ok);
+        setOpen(true);
+    };
+
+    const handleDownloadTemplate = () => {
+        const subjectColumns = [...(getDataSubjects || []), ...(secondarySubjects || [])];
+
+        if (!getDataStudents.length) {
+            notify("No students found for the selected class, section and exam.");
+            return;
+        }
+
+        if (!subjectColumns.length) {
+            notify("No subjects found for the selected class.");
+            return;
+        }
+
+        const limit = Number(maxMarks || 100);
+
+        const header = ["Roll Number", "Student Name", ...subjectColumns];
+        const rows = getDataStudents.map((student) => [
+            student.rollNumber,
+            student.name,
+            ...subjectColumns.map(() => ""),
+        ]);
+
+        const marksSheet = XLSX.utils.aoa_to_sheet([header, ...rows]);
+        marksSheet["!cols"] = [
+            { wch: 14 },
+            { wch: 26 },
+            ...subjectColumns.map((subject) => ({ wch: Math.max(12, subject.length + 4) })),
+        ];
+
+        const instructionsSheet = XLSX.utils.aoa_to_sheet([
+            ["Marks Import Template"],
+            [],
+            ["Class", selectedGrade?.sign || ""],
+            ["Section", selectedSection || ""],
+            ["Exam", selectedExam || ""],
+            ["Maximum marks per subject", limit],
+            ["Students", getDataStudents.length],
+            [],
+            ["How to use"],
+            ["1. Enter marks in the 'Marks' sheet only. Do not rename, reorder or delete the columns."],
+            ["2. Do not edit the Roll Number column - marks are matched to students using it."],
+            ["3. Enter a number between 0 and " + limit + " for each subject."],
+            ["4. Enter AB (or A) if the student was absent."],
+            ["5. Leave a cell blank to skip that subject - blank cells are ignored on import."],
+            ["6. Save the file, then use the Import button on the Add Marks screen."],
+        ]);
+        instructionsSheet["!cols"] = [{ wch: 30 }, { wch: 22 }];
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, marksSheet, "Marks");
+        XLSX.utils.book_append_sheet(wb, instructionsSheet, "Instructions");
+
+        const namePart = [selectedGrade?.sign, selectedSection, selectedExam]
+            .filter(Boolean)
+            .join("_")
+            .replace(/\s+/g, "-");
+
+        XLSX.writeFile(wb, `Marks_Template_${namePart || "All"}.xlsx`);
+    };
+
     const handleImport = () => {
         fileInputRef.current.click();
     }
@@ -170,8 +241,8 @@ export default function AddMarksPage() {
                     if (markValue === "A") markValue = "AB";
     
                     if (markValue === "AB") {
-                      
-                    } else if (!isNaN(Number(markValue))) {
+
+                    } else if (markValue !== "" && !isNaN(Number(markValue))) {
                         markValue = Number(markValue);
                     } else {
                         markValue = "";
@@ -461,12 +532,12 @@ export default function AddMarksPage() {
         try {
             const res = await axios.get(MarksStudentsFetch, {
                 params: {
-                    RollNumber: rollNumber,
-                    UserType: userType,
-                    GradeId: selectedGradeId || grades?.[0]?.id,
-                    Section: selectedSection || grades?.[0]?.sections[0],
-                    Exam: selectedExam || grades?.[0]?.exams[0],
-                    Group: selectedGroup,
+                    rollNumber: rollNumber,
+                    userType: userType,
+                    gradeId: selectedGradeId || grades?.[0]?.id,
+                    section: selectedSection || grades?.[0]?.sections[0],
+                    exam: selectedExam || grades?.[0]?.exams[0],
+                    group: selectedGroup,
                 },
 
                 headers: {
@@ -500,7 +571,17 @@ export default function AddMarksPage() {
 
 
 
+    const isUpdatingPostedMarks = isPosted === "Y";
+    const canSubmitMarks = isUpdatingPostedMarks ? canEditMarks : canCreateMarks;
+
     const handleSaveMarks = async (status) => {
+        if (!canSubmitMarks) {
+            setOpen(true);
+            setColor(false);
+            setStatus(false);
+            setMessage("You don't have permission to perform this action.");
+            return;
+        }
         setIsLoading(true);
 
         const all_marksRequest = getDataStudents.map((row) => {
@@ -544,7 +625,7 @@ export default function AddMarksPage() {
         const payload = {
             gradeId: selectedGradeId || grades?.[0]?.id,
             status: status,
-            MaxMark: maxMarks || 100,
+            maxMark: maxMarks || 100,
             group: selectedGroup || "",
             all_marksRequest,
         };
@@ -648,13 +729,13 @@ export default function AddMarksPage() {
         try {
             const res = await axios.get(fetchAllMarksStudents02, {
                 params: {
-                    RollNumber: rollNumber,
-                    UserType: userType,
-                    GradeId: selectedGradeId || grades?.[0]?.id,
-                    Section: selectedSection || grades?.[0]?.sections[0],
-                    Exam: selectedExam || grades?.[0]?.exams[0],
-                    Group: selectedGroup || "",
-                    Status: status,
+                    rollNumber: rollNumber,
+                    userType: userType,
+                    gradeId: selectedGradeId || grades?.[0]?.id,
+                    section: selectedSection || grades?.[0]?.sections[0],
+                    exam: selectedExam || grades?.[0]?.exams[0],
+                    group: selectedGroup || "",
+                    status: status,
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -1066,6 +1147,32 @@ export default function AddMarksPage() {
 
                             <Grid
                                 size={{
+                                    xs: 6,
+                                    sm: 4,
+                                    md: 3,
+                                    lg: 2.4
+                                }}>
+                                <Button
+                                    variant="outlined"
+                                    sx={{
+                                        borderColor: "#A9A9A9",
+                                        height: "33px",
+                                        width: "100%",
+                                        color: "#000",
+                                        textTransform: "none",
+                                    }}
+                                    onClick={handleDownloadTemplate}
+                                >
+                                    <FileDownloadOutlinedIcon sx={{ fontSize: "20px" }} />
+                                    &nbsp;Format
+                                </Button>
+                            </Grid>
+
+                            <Grid
+                                size={{
+                                    xs: 6,
+                                    sm: 4,
+                                    md: 3,
                                     lg: 2.4
                                 }}>
                                 <Button
@@ -1088,6 +1195,7 @@ export default function AddMarksPage() {
                                 <input
                                     type="file"
                                     ref={fileInputRef}
+                                    accept=".xlsx,.xls,.csv"
                                     onChange={handleFileChange}
                                     style={{ display: "none" }}
                                 />
@@ -1768,7 +1876,7 @@ export default function AddMarksPage() {
                     <Box sx={{ display: "flex", justifyContent: "center", gap: 2, position: "relative", bottom: "-10px" }}>
                         <Button
                             variant="outlined"
-                            disabled={isPosted === "Y"}
+                            disabled={isPosted === "Y" || !canCreateMarks}
                             onClick={() => handleSaveMarks('draft')}
                             sx={{
                                 backgroundColor: '#fff',
@@ -1800,7 +1908,7 @@ export default function AddMarksPage() {
                                 px: 3,
                                 boxShadow: "none",
                             }}
-                            disabled={!isFormValid()}
+                            disabled={!isFormValid() || !canSubmitMarks}
                         >
                             {isPosted === "N" ? "Publish" : "Update"}
                         </Button>

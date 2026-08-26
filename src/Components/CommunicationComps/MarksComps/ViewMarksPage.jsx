@@ -285,12 +285,12 @@ export default function ViewMarksPage() {
         try {
             const res = await axios.get(MarksStudentsFetch, {
                 params: {
-                    RollNumber: rollNumber,
-                    UserType: userType,
-                    GradeId: selectedGradeId || passedGradeId || grades?.[0]?.id,
-                    Section: selectedSection || grades?.[0]?.sections[0],
-                    Exam: selectedExam || grades?.[0]?.exams[0],
-                    Group: selectedGroup,
+                    rollNumber: rollNumber,
+                    userType: userType,
+                    gradeId: selectedGradeId || passedGradeId || grades?.[0]?.id,
+                    section: selectedSection || grades?.[0]?.sections[0],
+                    exam: selectedExam || grades?.[0]?.exams[0],
+                    group: selectedGroup,
                 },
 
                 headers: {
@@ -315,13 +315,13 @@ export default function ViewMarksPage() {
         try {
             const res = await axios.get(fetchAllMarksStudents02, {
                 params: {
-                    RollNumber: rollNumber,
-                    UserType: userType,
-                    GradeId: selectedGradeId || passedGradeId || grades?.[0]?.id,
-                    Section: selectedSection || grades?.[0]?.sections?.[0],
-                    Exam: selectedExam || grades?.[0]?.exams?.[0]?.exam,
-                    Group: selectedGroup || "",
-                    Status: "post"
+                    rollNumber: rollNumber,
+                    userType: userType,
+                    gradeId: selectedGradeId || passedGradeId || grades?.[0]?.id,
+                    section: selectedSection || grades?.[0]?.sections?.[0],
+                    exam: selectedExam || grades?.[0]?.exams?.[0]?.exam,
+                    group: selectedGroup || "",
+                    status: "post"
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,

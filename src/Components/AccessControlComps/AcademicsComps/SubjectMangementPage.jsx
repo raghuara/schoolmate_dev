@@ -45,7 +45,7 @@ export default function SubjectMangementPage() {
         setIsLoading(true);
         try {
             const res = await axios.get(fetchAllSubjects, {
-                params: { RollNumber: rollNumber, UserType: userType },
+                params: { rollNumber: rollNumber, userType: userType },
                 headers: { Authorization: `Bearer ${token}` },
             });
             setAllExamsData(res.data);

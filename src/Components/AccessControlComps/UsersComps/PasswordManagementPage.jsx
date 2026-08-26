@@ -16,6 +16,7 @@ import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import { useNavigate, Navigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlice";
+import { hasPermission } from "../../../Redux/Slices/AuthSlice";
 import Loader from "../../Loader";
 import SnackBar from "../../SnackBar";
 import axios from "axios";
@@ -27,11 +28,13 @@ import dayjs from "dayjs";
 const USER_TYPE_COLORS = {
     Student: { color: "#1976D2", bg: "#E3F2FD" },
     Teacher: { color: "#388E3C", bg: "#E8F5E9" },
-    Staff:   { color: "#F57C00", bg: "#FFF3E0" },
-    Parent:  { color: "#8E24AA", bg: "#F3E5F5" },
+    Staff: { color: "#F57C00", bg: "#FFF3E0" },
+    Parent: { color: "#8E24AA", bg: "#F3E5F5" },
 };
 
 const ROWS_OPTIONS = [10, 25, 50, 100];
+
+const isStudentRow = (row) => String(row?.userType || "").toLowerCase() === "student";
 
 // ─── Memoised table — skips re-render when dialog state changes ───────────────
 const PasswordTable = React.memo(({ pageData, allData, page, rowsPerPage, onPageChange, onRowsPerPageChange, onChangePassword, onViewImage }) => (
@@ -178,13 +181,20 @@ const PasswordTable = React.memo(({ pageData, allData, page, rowsPerPage, onPage
 export default function PasswordManagementPage() {
     const navigate = useNavigate();
     const token = "123";
-    const user = useSelector((state) => state.auth);
+    const permissions = useSelector((state) => state.auth.permissions);
     const websiteSettings = useSelector(selectWebsiteSettings);
+
+    // Which side of the roster this user may reset passwords for.
+    const canStudents = hasPermission(permissions, "accesscontrol", "users", "allowpasswordmanagementstudent");
+    const canStaff = hasPermission(permissions, "accesscontrol", "users", "allowpasswordmanagementstaff");
+    const canBoth = canStudents && canStaff;
 
     const [isLoading, setIsLoading] = useState(false);
     const [passwords, setPasswords] = useState([]);
     const [filteredData, setFilteredData] = useState([]);
     const [searchQuery, setSearchQuery] = useState("");
+    // Only meaningful when both sides are allowed.
+    const [audience, setAudience] = useState("all");
 
     // Pagination
     const [page, setPage] = useState(0);
@@ -207,16 +217,25 @@ export default function PasswordManagementPage() {
     // SnackBar — single object to avoid multiple setStates
     const [snack, setSnack] = useState({ open: false, status: false, color: false, message: "" });
 
-    useEffect(() => { fetchAllData(); }, []);
-
-    const fetchAllData = async () => {
+    // Rows the permissions allow, narrowed further by the audience toggle when
+    // the user is allowed to see both sides.
+    const fetchAllData = useCallback(async () => {
         setIsLoading(true);
         try {
             const res = await axios.get(UsersPassword, {
                 headers: { Authorization: `Bearer ${token}` },
             });
-            setPasswords(res.data);
-            setFilteredData(res.data);
+            const data = (res.data || []).filter((row) => {
+                const student = isStudentRow(row);
+                if (student && !canStudents) return false;
+                if (!student && !canStaff) return false;
+                if (canBoth && audience === "student") return student;
+                if (canBoth && audience === "staff") return !student;
+                return true;
+            });
+
+            setPasswords(data);
+            setFilteredData(data);
             setPage(0);
         } catch (error) {
             console.error(error);
@@ -224,7 +243,9 @@ export default function PasswordManagementPage() {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [canStudents, canStaff, canBoth, audience]);
+
+    useEffect(() => { fetchAllData(); }, [fetchAllData]);
 
     const handleSearchChange = (e) => {
         const query = e.target.value.toLowerCase();
@@ -283,6 +304,12 @@ export default function PasswordManagementPage() {
 
     const handleChangePassword = async () => {
         if (!passwordsMatch) return;
+        // The list is already filtered, but never let a reset through for a side
+        // this user was not granted.
+        if (isStudentRow(dialog.user) ? !canStudents : !canStaff) {
+            setSnack({ open: true, status: false, color: false, message: "You do not have permission to reset this password." });
+            return;
+        }
         setIsLoading(true);
         try {
             await axios.put(
@@ -304,11 +331,6 @@ export default function PasswordManagementPage() {
         }
     };
 
-    // Route guard — only superadmin can access this page.
-    // Placed AFTER all hooks to comply with react-hooks/rules-of-hooks.
-    if (user?.userType !== "superadmin") {
-        return <Navigate to="/dashboardmenu/dashboard" replace />;
-    }
 
     return (
         <Box sx={{ width: "100%" }}>
@@ -329,6 +351,24 @@ export default function PasswordManagementPage() {
                             <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
                         </IconButton>
                         <Typography sx={{ fontWeight: 600, fontSize: "20px" }}>Password Management</Typography>
+                        {canBoth ? (
+                            <Select
+                                size="small"
+                                value={audience}
+                                onChange={(e) => setAudience(e.target.value)}
+                                sx={{ fontSize: "12.5px", height: 30, borderRadius: "6px", bgcolor: "#fff", ml: 1 }}
+                            >
+                                <MenuItem value="all" sx={{ fontSize: "12.5px" }}>Students &amp; Staff</MenuItem>
+                                <MenuItem value="student" sx={{ fontSize: "12.5px" }}>Students only</MenuItem>
+                                <MenuItem value="staff" sx={{ fontSize: "12.5px" }}>Staff only</MenuItem>
+                            </Select>
+                        ) : (
+                            <Chip
+                                label={canStudents ? "Students" : "Staff"}
+                                size="small"
+                                sx={{ ml: 1, height: 22, fontSize: "11px", fontWeight: 600, bgcolor: "#EDE7F6", color: "#5E35B1" }}
+                            />
+                        )}
                     </Grid>
 
                     <Grid size={{ xs: 12, sm: 5 }}>

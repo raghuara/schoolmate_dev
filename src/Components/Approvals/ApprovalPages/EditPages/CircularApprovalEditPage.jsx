@@ -9,7 +9,10 @@ import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import dayjs from "dayjs";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { selectUserTypeID } from "../../../../Redux/Slices/AuthSlice";
+import { APPROVAL_SUBMENUS, canPublishDirect, isApproverFor, selectApprovalMatrix, selectApprovalMatrixReady } from "../../../../Redux/Slices/approvalMatrixSlice";
 import { useDispatch, useSelector } from "react-redux";
+import { selectAcademicYear } from "../../../../Redux/Slices/academicYearSlice";
 import { selectWebsiteSettings } from "../../../../Redux/Slices/websiteSettingsSlice";
 import ReactPlayer from "react-player";
 import { FindCircular, GettingGrades, postCircular, postNews, updateCircular } from "../../../../Api/Api";
@@ -17,6 +20,7 @@ import SnackBar from "../../../SnackBar";
 import CancelIcon from "@mui/icons-material/Cancel";
 import SimpleTextEditor from "../../../EditTextEditor";
 import { selectGrades } from "../../../../Redux/Slices/DropdownController";
+import { DASH } from "../../../DashBoardComps/dashboardTheme";
 
 export default function CircularsApprovalEditPage() {
     const navigate = useNavigate()
@@ -24,8 +28,20 @@ export default function CircularsApprovalEditPage() {
     const [heading, setHeading] = useState("");
     const [newsContentHTML, setNewsContentHTML] = useState("");
     const user = useSelector((state) => state.auth);
+    const academicYear = useSelector(selectAcademicYear);
     const rollNumber = user.rollNumber
     const userType = user.userType
+    // Kept only as payload data below - never as a gate.
+    const userTypeID = useSelector(selectUserTypeID);
+    const approvalMatrix = useSelector(selectApprovalMatrix);
+    const matrixReady = useSelector(selectApprovalMatrixReady);
+    // Do not redirect while the matrix is still loading, or an approver gets
+    // thrown out on a slow connection.
+    const canApproveThis = !matrixReady
+        || isApproverFor(approvalMatrix, APPROVAL_SUBMENUS.CIRCULAR, userTypeID);
+    // Level 1 posts straight out; every level below sends it up the chain, so
+    // they get "Request Now" instead of "Update" / "Schedule".
+    const postsDirectly = canPublishDirect(approvalMatrix, APPROVAL_SUBMENUS.CIRCULAR, userTypeID);
     const userName = user.name
     const todayDateTime = dayjs().format('DD-MM-YYYY HH:mm');
     const [activeTab, setActiveTab] = useState(0);
@@ -312,7 +328,8 @@ export default function CircularsApprovalEditPage() {
         try {
             const res = await axios.get(FindCircular, {
                 params: {
-                    Id: id
+                    id: id,
+                    academicYear: academicYear || ''
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -398,23 +415,23 @@ export default function CircularsApprovalEditPage() {
         try {
             const sendData = new FormData();
 
-            sendData.append("Id", id);
-            sendData.append("RollNumber", rollNumber);
-            sendData.append("UserType", userType);
-            sendData.append("HeadLine", heading);
-            sendData.append("Circular", newsContentHTML);
-            sendData.append("File", uploadedFiles[0] || '');
-            sendData.append("FileType", fileType);
+            sendData.append("id", id);
+            sendData.append("rollNumber", rollNumber);
+            sendData.append("userType", userType);
+            sendData.append("headLine", heading);
+            sendData.append("circular", newsContentHTML);
+            sendData.append("file", uploadedFiles[0] || '');
+            sendData.append("fileType", fileType);
             {
                 status == "schedule" &&
-                    sendData.append("ScheduleOn", formattedDTValue || dateTimeValue || "");
+                    sendData.append("scheduleOn", formattedDTValue || dateTimeValue || "");
             }
-            sendData.append("UpdatedOn", todayDateTime || "");
-            sendData.append("Everyone", isEveryone || "");
-            sendData.append("Students", isStudents || "");
-            sendData.append("Staffs", isStaffs || "");
-            sendData.append("Specific", isSpecific || "");
-            sendData.append("Action", "accept");
+            sendData.append("updatedOn", todayDateTime || "");
+            sendData.append("everyone", isEveryone || "");
+            sendData.append("students", isStudents || "");
+            sendData.append("staffs", isStaffs || "");
+            sendData.append("specific", isSpecific || "");
+            sendData.append("action", "accept");
 
             const { gradeSections } = getGradeSectionsPayload();
             gradeSections.forEach((item, index) => {
@@ -435,6 +452,8 @@ export default function CircularsApprovalEditPage() {
                     sendData.append(`SpecificUsers[${index}]`, userId);
                 });
             }
+
+            sendData.append("academicYear", academicYear || "");
 
             const res = await axios.put(updateCircular, sendData, {
                 headers: {
@@ -464,27 +483,26 @@ export default function CircularsApprovalEditPage() {
         }
     };
 
-    if (userType !== "superadmin" && userType !== "admin") {
+    if (!canApproveThis) {
         return <Navigate to="/dashboardmenu/dashboard" replace />;
     }
 
     return (
-        <Box sx={{ width: "100%" }}>
+        <Box
+            sx={{
+                px: { xs: 1.5, md: 3 },
+                pt: { xs: 1.5, md: 2 },
+                pb: { xs: 2, md: 3 },
+                bgcolor: DASH.canvas,
+                boxSizing: "border-box",
+            }}
+        >
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
-            <Box sx={{
-                position: "fixed",
-                zIndex: 100,
-                backgroundColor: "#f2f2f2",
-                display: "flex",
-                alignItems: "center",
-                width: "100%",
-                py: 1.5,
-                marginTop: "-2px"
-            }}>
+            <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
                 <IconButton onClick={handleBackClick} sx={{ width: "27px", height: "27px", marginTop: '2px' }}>
-                    <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
+                    <ArrowBackIcon sx={{ fontSize: 20, color: DASH.ink }} />
                 </IconButton>
-                <Typography sx={{ fontWeight: "600", fontSize: "20px" }}>Edit Circulars</Typography>
+                <Typography sx={{ fontSize: "20px", fontWeight: 700, color: DASH.ink, lineHeight: 1.2 }}>Edit Circulars</Typography>
             </Box>
             <Grid container >
                 <Grid
@@ -806,7 +824,7 @@ export default function CircularsApprovalEditPage() {
                                     </Box>
                                 </Dialog>
 
-                                {userType === "superadmin" &&
+                                {postsDirectly &&
                                     <>
 
                                         {!DTValue && (
@@ -861,7 +879,7 @@ export default function CircularsApprovalEditPage() {
                                     </>
                                 }
 
-                                {userType !== "superadmin" &&
+                                {!postsDirectly &&
                                     <>
                                         <Grid
                                             sx={{ display: "flex", justifyContent: "center" }}

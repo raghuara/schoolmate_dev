@@ -11,7 +11,17 @@
       "Bash(npx react-scripts:*)",
       "Bash(npx -y acorn-jsx --ecma2020 src/Components/StudentComps/FeeFinanceComps/ExpenseComps/ExpensePage.jsx)",
       "Bash(ipconfig)",
-      "Bash(npx eslint *)"
+      "Bash(npx eslint *)",
+      "Bash(node \"C:/Users/demom/AppData/Local/Temp/claude/c--Users-demom-React-Projects-schoolmate-dev/b231fa9e-35d5-4196-871c-6391f5896443/scratchpad/audit_usertype.js\")",
+      "Bash(cd \"c:/Users/demom/React Projects/schoolmate_dev\" && mkdir -p .lintcheck/DashBoard && git show HEAD:src/Components/DashBoard/SideBar.jsx > .lintcheck/DashBoard/SideBar.jsx && echo \"BEFORE:\" && npx eslint .lintcheck --ext .jsx 2>&1 | grep -c \"warning\" && echo \"AFTER:\" && npx eslint src/Components/DashBoard/SideBar.jsx 2>&1 | grep -c \"warning\" && rm -rf .lintcheck)",
+      "Bash(node -e ' *)",
+      "Bash(node \"C:/Users/demom/AppData/Local/Temp/claude/c--Users-demom-React-Projects-schoolmate-dev/b231fa9e-35d5-4196-871c-6391f5896443/scratchpad/fix_create_news.js\")",
+      "Bash(grep -A8 \"CommunicationComps\\\\\\\\\\\\\\\\NewsPage.jsx\")",
+      "Bash(python -c ' *)",
+      "Bash(node \"C:/Users/demom/AppData/Local/Temp/claude/c--Users-demom-React-Projects-schoolmate-dev/b231fa9e-35d5-4196-871c-6391f5896443/scratchpad/circ_preview.js\")"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\demom\\React Projects\\schoolmate_dev"
     ]
   }
 }

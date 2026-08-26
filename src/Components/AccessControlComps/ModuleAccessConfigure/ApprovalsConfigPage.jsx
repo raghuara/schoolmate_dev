@@ -5,7 +5,6 @@ const MODULE = { key: "approvals", name: "Approvals", color: "#DB2777" };
 const PAGES = ["Pending", "History"];
 
 export default function ApprovalsConfigPage() {
-    // Add Approvals-specific validation here if needed.
     const validate = () => null;
 
     return (

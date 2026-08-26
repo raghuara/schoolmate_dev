@@ -7,6 +7,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlice";
+import { selectAcademicYear } from "../../../Redux/Slices/academicYearSlice";
 import { FindTimeTable, GettingGrades, postMessage, postNews, postTimeTable, sectionsDropdown, TimeTableFetch, updateTimeTable } from "../../../Api/Api";
 import SnackBar from "../../SnackBar";
 import UploadFileIcon from '@mui/icons-material/UploadFile';
@@ -33,6 +34,7 @@ export default function EditTimeTablesPage() {
     const [selectedGradeId, setSelectedGradeId] = useState(0);
     const [selectedSection, setSelectedSection] = useState(null);
     const websiteSettings = useSelector(selectWebsiteSettings);
+    const academicYear = useSelector(selectAcademicYear);
     const [changesHappended, setChangesHappended] = useState(false);
     const [openAlert, setOpenAlert] = useState(false);
     const location = useLocation();
@@ -118,7 +120,8 @@ export default function EditTimeTablesPage() {
         try {
             const res = await axios.get(FindTimeTable, {
                 params: {
-                    Id: id
+                    id: id,
+                    academicYear: academicYear || "",
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -146,12 +149,14 @@ export default function EditTimeTablesPage() {
 
         try {
             const sendData = new FormData();
-            sendData.append("Id", id);
-            sendData.append("UserType", userType);
-            sendData.append("RollNumber", rollNumber);
-            sendData.append("FileType", "image");
-            sendData.append("File", uploadedFiles[0] || '');
-            sendData.append("UpdatedOn", todayDateTime);
+            sendData.append("id", id);
+            sendData.append("userType", userType);
+            sendData.append("rollNumber", rollNumber);
+            sendData.append("fileType", "image");
+            sendData.append("file", uploadedFiles[0] || '');
+            sendData.append("updatedOn", todayDateTime);
+
+            sendData.append("academicYear", academicYear || "");
 
             const res = await axios.put(updateTimeTable, sendData, {
                 headers: {
@@ -180,9 +185,6 @@ export default function EditTimeTablesPage() {
         }
     };
 
-    if (userType !== "superadmin" && userType !== "admin" && userType !== "staff") {
-        return <Navigate to="/dashboardmenu/timetables" replace />;
-    }
 
     return (
         <Box sx={{ width: "100%" }}>

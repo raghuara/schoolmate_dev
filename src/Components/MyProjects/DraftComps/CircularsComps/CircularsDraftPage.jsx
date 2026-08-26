@@ -239,9 +239,9 @@ export default function CircularsDraftPage() {
         try {
             const res = await axios.get(CircularFetchDraft, {
                 params: {
-                    RollNumber: rollNumber,
-                    UserType: userType,
-                    Date: formattedDate || '',
+                    rollNumber: rollNumber,
+                    userType: userType,
+                    date: formattedDate || '',
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -260,9 +260,9 @@ export default function CircularsDraftPage() {
         try {
             const res = await axios.delete(DeleteCircular, {
                 params: {
-                    Id: id,
-                    RollNumber: rollNumber,
-                    UserType: userType,
+                    id: id,
+                    rollNumber: rollNumber,
+                    userType: userType,
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -294,8 +294,8 @@ export default function CircularsDraftPage() {
         try {
             const res = await axios.delete(DeleteAllDraft, {
                 params: {
-                    RollNumber: rollNumber,
-                    Module: "circular",
+                    rollNumber: rollNumber,
+                    module: "circular",
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,

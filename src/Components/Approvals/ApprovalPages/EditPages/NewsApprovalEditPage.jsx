@@ -10,7 +10,10 @@ import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import dayjs from "dayjs";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { selectUserTypeID } from "../../../../Redux/Slices/AuthSlice";
+import { APPROVAL_SUBMENUS, isApproverFor, selectApprovalMatrix, selectApprovalMatrixReady } from "../../../../Redux/Slices/approvalMatrixSlice";
 import { useSelector } from "react-redux";
+import { selectAcademicYear } from "../../../../Redux/Slices/academicYearSlice";
 import { selectWebsiteSettings } from "../../../../Redux/Slices/websiteSettingsSlice";
 import ReactPlayer from "react-player";
 import { FindNews, postNews, updateNews } from "../../../../Api/Api";
@@ -18,6 +21,7 @@ import SnackBar from "../../../SnackBar";
 import CancelIcon from "@mui/icons-material/Cancel";
 import SimpleTextEditor from "../../../EditTextEditor";
 import Loader from "../../../Loader";
+import { DASH } from "../../../DashBoardComps/dashboardTheme";
 
 export default function NewsApprovalEditPage() {
     const navigate = useNavigate()
@@ -26,8 +30,17 @@ export default function NewsApprovalEditPage() {
     const [newsStatus, setNewsStatus] = useState("");
     const [newsContentHTML, setNewsContentHTML] = useState("");
     const user = useSelector((state) => state.auth);
+    const academicYear = useSelector(selectAcademicYear);
     const rollNumber = user.rollNumber
     const userType = user.userType
+    // Kept only as payload data below - never as a gate.
+    const userTypeID = useSelector(selectUserTypeID);
+    const approvalMatrix = useSelector(selectApprovalMatrix);
+    const matrixReady = useSelector(selectApprovalMatrixReady);
+    // Do not redirect while the matrix is still loading, or an approver gets
+    // thrown out on a slow connection.
+    const canApproveThis = !matrixReady
+        || isApproverFor(approvalMatrix, APPROVAL_SUBMENUS.NEWS, userTypeID);
     const userName = user.name
 
     const todayDateTime = dayjs().format('DD-MM-YYYY HH:mm');
@@ -288,7 +301,8 @@ export default function NewsApprovalEditPage() {
         try {
             const res = await axios.get(FindNews, {
                 params: {
-                    Id: id
+                    id: id,
+                    academicYear: academicYear || ''
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -364,20 +378,22 @@ export default function NewsApprovalEditPage() {
 
         try {
             const sendData = new FormData();
-            sendData.append("Id", id);
-            sendData.append("RollNumber", rollNumber);
-            sendData.append("HeadLine", heading);
-            sendData.append("News", newsContentHTML);
-            sendData.append("File", uploadedFiles[0] || '');
-            sendData.append("FileType", fileType || "empty");
-            sendData.append("UserType", userType);
-            sendData.append("Link", pastedLink || '');
+            sendData.append("id", id);
+            sendData.append("rollNumber", rollNumber);
+            sendData.append("headLine", heading);
+            sendData.append("news", newsContentHTML);
+            sendData.append("file", uploadedFiles[0] || '');
+            sendData.append("fileType", fileType || "empty");
+            sendData.append("userType", userType);
+            sendData.append("link", pastedLink || '');
             {
                 status == "schedule" &&
-                    sendData.append("ScheduleOn", formattedDTValue || dateTimeValue || "");
+                    sendData.append("scheduleOn", formattedDTValue || dateTimeValue || "");
             }
-            sendData.append("UpdatedOn", todayDateTime || "");
-            sendData.append("Action", "accept");
+            sendData.append("updatedOn", todayDateTime || "");
+            sendData.append("action", "accept");
+
+            sendData.append("academicYear", academicYear || "");
 
             const res = await axios.put(updateNews, sendData, {
                 headers: {
@@ -406,28 +422,27 @@ export default function NewsApprovalEditPage() {
             setIsLoading(false);
         }
     };
-    if (userType !== "superadmin" && userType !== "admin") {
+    if (!canApproveThis) {
         return <Navigate to="/dashboardmenu/dashboard" replace />;
     }
     return (
-        <Box sx={{ width: "100%" }}>
+        <Box
+            sx={{
+                px: { xs: 1.5, md: 3 },
+                pt: { xs: 1.5, md: 2 },
+                pb: { xs: 2, md: 3 },
+                bgcolor: DASH.canvas,
+                boxSizing: "border-box",
+            }}
+        >
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
             {isLoading && <Loader />}
-            <Box sx={{
-                position: "fixed",
-                zIndex: 100,
-                backgroundColor: "#f2f2f2",
-                display: "flex",
-                alignItems: "center",
-                width: "100%",
-                py: 1.5,
-                marginTop: "-2px"
-            }}>
+            <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
 
                 <IconButton onClick={handleBackClick} sx={{ width: "27px", height: "27px", marginTop: '2px' }}>
-                    <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
+                    <ArrowBackIcon sx={{ fontSize: 20, color: DASH.ink }} />
                 </IconButton>
-                <Typography sx={{ fontWeight: "600", fontSize: "20px" }}>Edit News</Typography>
+                <Typography sx={{ fontSize: "20px", fontWeight: 700, color: DASH.ink, lineHeight: 1.2 }}>Edit News</Typography>
             </Box>
             <Grid container >
                 <Grid

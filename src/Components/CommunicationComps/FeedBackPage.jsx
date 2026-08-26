@@ -3,6 +3,7 @@ import axios from "axios";
 import React, { useEffect, useRef, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { selectWebsiteSettings } from "../../Redux/Slices/websiteSettingsSlice";
+import { findSubMenuPermissions } from "../../Redux/Slices/AuthSlice";
 import { useSelector } from "react-redux";
 import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
@@ -18,6 +19,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import { ConsentFetchFetch, DeleteConsentForm, DeleteNewsApi, NewsFetch, parentsFeedbackAdminUpdate, parentsFeedBackFetchAll } from "../../Api/Api";
 import Loader from "../Loader";
+import { FeedbackListSkeleton } from "../InnerLoader";
 import SnackBar from "../SnackBar";
 import NoData from '../../Images/Login/No Data.png'
 import { Textarea } from "@mui/joy";
@@ -46,7 +48,16 @@ export default function FeedBackPage() {
     const rollNumber = user.rollNumber
     const userType = user.userType
     const userName = user.name
+    const feedbackPerms = findSubMenuPermissions(user.permissions, "communication", "feedback") || {};
+    const canView = feedbackPerms.view === "Y";
+    const canCreate = feedbackPerms.create === "Y";
+    // Answering a parent's feedback writes back to the record, so it rides on the
+    // edit permission rather than a user type.
+    const canReply = feedbackPerms.edit === "Y";
     const [isLoading, setIsLoading] = useState(false);
+    // Hold the list's shape until the first fetch has genuinely finished, so the
+    // empty state does not flash before the data arrives.
+    const [hasLoaded, setHasLoaded] = useState(false);
     const token = '123';
 
     const [searchQuery, setSearchQuery] = useState("");
@@ -166,13 +177,12 @@ export default function FeedBackPage() {
     }, [checked, formattedDate, filter])
 
     const fetchData = async () => {
-        setIsLoading(true);
         try {
             const res = await axios.get(parentsFeedBackFetchAll, {
                 params: {
-                    RollNumber: rollNumber,
-                    UserType: userType,
-                    Type: filter || '',
+                    rollNumber: rollNumber,
+                    userType: userType,
+                    type: filter || '',
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -192,6 +202,7 @@ export default function FeedBackPage() {
             console.error(error);
         } finally {
             setIsLoading(false);
+            setHasLoaded(true);
         }
     };
 
@@ -243,7 +254,7 @@ export default function FeedBackPage() {
         try {
             const res = await axios.delete(DeleteConsentForm, {
                 params: {
-                    Id: id
+                    id: id
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -264,18 +275,15 @@ export default function FeedBackPage() {
         }
     };
 
-    if (userType !== "superadmin" && userType !== "admin" && userType !== "staff") {
-        return <Navigate to="/dashboardmenu/dashboard" replace />;
-    }
     return (
         <Box sx={{ width: "100%", }}>
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
             {isLoading && <Loader />}
-            <Box sx={{ backgroundColor: "#f2f2f2", px: 2.5, py: 1.2, borderBottom: "1px solid #E5E7EB" }}>
+            <Box sx={{ backgroundColor: "#f2f2f2", px: 2, py: 1,borderRadius: "10px 10px 10px 0px", borderBottom: "1px solid #ddd", mb: 0.13, }}>
                 <Grid container alignItems="center" spacing={1.5}>
                     {/* Title */}
                     <Grid size={{ xs: 12, sm: 12, md: 3, lg: 3 }} sx={{ display: "flex", alignItems: "center" }}>
-                        <Typography sx={{ fontWeight: 700, fontSize: "18px", color: "#1F2937" }}>
+                        <Typography sx={{ fontWeight: "600", fontSize: "20px" }}>
                             Feedback from Parents
                         </Typography>
                     </Grid>
@@ -339,32 +347,37 @@ export default function FeedBackPage() {
                     {/* Action Buttons — right aligned */}
                     <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6.5 }}
                         sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 1.2, flexWrap: "wrap" }}>
-                        <Link to="questions" style={{ textDecoration: "none" }}>
-                            <Button
-                                size="small"
-                                sx={{
-                                    textTransform: "none", fontSize: "12px", fontWeight: 600,
-                                    color: "#D84600", bgcolor: "rgba(216, 70, 0, 0.1)",
-                                    border: "1px solid rgba(216, 70, 0, 0.25)",
-                                    borderRadius: "20px", px: 2.5, height: 33,
-                                    "&:hover": { bgcolor: "rgba(216, 70, 0, 0.18)" },
-                                }}>
-                                Created Feedback
-                            </Button>
-                        </Link>
-                        <Link to="responses" style={{ textDecoration: "none" }}>
-                            <Button
-                                size="small"
-                                sx={{
-                                    textTransform: "none", fontSize: "12px", fontWeight: 600,
-                                    color: "#6366F1", bgcolor: "rgba(99, 102, 241, 0.1)",
-                                    border: "1px solid rgba(99, 102, 241, 0.25)",
-                                    borderRadius: "20px", px: 2.5, height: 33,
-                                    "&:hover": { bgcolor: "rgba(99, 102, 241, 0.18)" },
-                                }}>
-                                Responses Received
-                            </Button>
-                        </Link>
+                        {canView && (
+                            <Link to="questions" style={{ textDecoration: "none" }}>
+                                <Button
+                                    size="small"
+                                    sx={{
+                                        textTransform: "none", fontSize: "12px", fontWeight: 600,
+                                        color: "#D84600", bgcolor: "rgba(216, 70, 0, 0.1)",
+                                        border: "1px solid rgba(216, 70, 0, 0.25)",
+                                        borderRadius: "20px", px: 2.5, height: 33,
+                                        "&:hover": { bgcolor: "rgba(216, 70, 0, 0.18)" },
+                                    }}>
+                                    Created Feedback
+                                </Button>
+                            </Link>
+                        )}
+                        {canView && (
+                            <Link to="responses" style={{ textDecoration: "none" }}>
+                                <Button
+                                    size="small"
+                                    sx={{
+                                        textTransform: "none", fontSize: "12px", fontWeight: 600,
+                                        color: "#6366F1", bgcolor: "rgba(99, 102, 241, 0.1)",
+                                        border: "1px solid rgba(99, 102, 241, 0.25)",
+                                        borderRadius: "20px", px: 2.5, height: 33,
+                                        "&:hover": { bgcolor: "rgba(99, 102, 241, 0.18)" },
+                                    }}>
+                                    Responses Received
+                                </Button>
+                            </Link>
+                        )}
+                        {canCreate && (
                         <Button
                             onClick={handleCreateNews}
                             variant="contained"
@@ -384,6 +397,7 @@ export default function FeedBackPage() {
                         >
                             New Feedback
                         </Button>
+                        )}
                     </Grid>
                 </Grid>
             </Box>
@@ -439,7 +453,9 @@ export default function FeedBackPage() {
                     </Box>
                 </Dialog>
                 <Box sx={{ p: 2 }}>
-                    {newsData.length > 0 ? (
+                    {!hasLoaded ? (
+                        <FeedbackListSkeleton groups={1} perGroup={2} withReply={canReply} />
+                    ) : newsData.length > 0 ? (
                         newsData.map((dateGroup, index) => (
                             <Box key={index} sx={{ mb: 4 }}>
                                 {/* Render date */}
@@ -538,7 +554,7 @@ export default function FeedBackPage() {
                                                                 dangerouslySetInnerHTML={{ __html: newsItem.question }}
                                                             />
                                                         </Grid>
-                                                        {(userType === "superadmin" || userType === "admin") &&
+                                                        {canReply &&
                                                             <Grid sx={{ position: "relative" }} size={12}>
                                                                 <TextareaAutosize
                                                                     key={newsItem.id}

@@ -1,9 +1,12 @@
 import { Autocomplete, Box, Button, createTheme, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Fab, Grid, IconButton, InputAdornment, Paper, styled, Switch, Tab, Tabs, TextareaAutosize, TextField, ThemeProvider, Typography } from "@mui/material";
 import axios from "axios";
 import React, { useEffect, useRef, useState } from "react";
-import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { selectUserTypeID } from "../../../Redux/Slices/AuthSlice";
+import { APPROVAL_SUBMENUS, isApproverFor, selectApprovalMatrix, selectApprovalMatrixReady } from "../../../Redux/Slices/approvalMatrixSlice";
 import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlice";
 import { useSelector } from "react-redux";
+import { selectAcademicYear } from "../../../Redux/Slices/academicYearSlice";
 import SearchIcon from '@mui/icons-material/Search';
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
@@ -15,10 +18,10 @@ import { ApprovalStatusNewsFetch, DeleteNewsApi, NewsFetch, updateNewsApprovalAc
 import Loader from "../../Loader";
 import SnackBar from "../../SnackBar";
 import NoData from '../../../Images/Login/No Data.png'
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import HighlightOffIcon from '@mui/icons-material/HighlightOff';
+import { DASH, RADIUS, PageHeader } from "../../DashBoardComps/dashboardTheme";
 
 export default function NewsApprovalPage() {
     const handleOpen = () => setOpenCal(true);
@@ -36,8 +39,17 @@ export default function NewsApprovalPage() {
     const [statusData, setStatusData] = useState([]);
     const [scheduleData, setScheduleData] = useState([]);
     const user = useSelector((state) => state.auth);
+    const academicYear = useSelector(selectAcademicYear);
     const rollNumber = user.rollNumber
     const userType = user.userType
+    // Kept only as payload data below - never as a gate.
+    const userTypeID = useSelector(selectUserTypeID);
+    const approvalMatrix = useSelector(selectApprovalMatrix);
+    const matrixReady = useSelector(selectApprovalMatrixReady);
+    // Do not redirect while the matrix is still loading, or an approver gets
+    // thrown out on a slow connection.
+    const canApproveThis = !matrixReady
+        || isApproverFor(approvalMatrix, APPROVAL_SUBMENUS.NEWS, userTypeID);
     const userName = user.name
     const [isLoading, setIsLoading] = useState(false);
     const token = '123';
@@ -163,10 +175,11 @@ export default function NewsApprovalPage() {
         try {
             const res = await axios.get(ApprovalStatusNewsFetch, {
                 params: {
-                    RollNumber: rollNumber,
-                    UserType: userType,
-                    Date: formattedDate || '',
-                    Screen: "approver"
+                    rollNumber: rollNumber,
+                    userType: userType,
+                    date: formattedDate || '',
+                    screen: "approver",
+                    academicYear: academicYear || ''
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -258,9 +271,9 @@ export default function NewsApprovalPage() {
         try {
             const res = await axios.delete(DeleteNewsApi, {
                 params: {
-                    Id: id,
-                    RollNumber: rollNumber,
-                    UserType: userType,
+                    id: id,
+                    rollNumber: rollNumber,
+                    userType: userType,
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -281,40 +294,38 @@ export default function NewsApprovalPage() {
             setIsLoading(false);
         }
     };
-    if (userType !== "superadmin" && userType !== "admin") {
+    if (!canApproveThis) {
         return <Navigate to="/dashboardmenu/dashboard" replace />;
     }
     return (
-        <Box sx={{ width: "100%", }}>
+        <Box
+            sx={{
+                px: { xs: 1.5, md: 3 },
+                pt: { xs: 1.5, md: 2 },
+                pb: { xs: 2, md: 3 },
+                bgcolor: DASH.canvas,
+                height: "100%",
+                boxSizing: "border-box",
+                display: "flex",
+                flexDirection: "column",
+            }}
+        >
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
             {isLoading && <Loader />}
-            <Box sx={{ backgroundColor: "#f2f2f2", px: 2, borderRadius: "10px 10px 10px 0px", borderBottom: "1px solid #ddd", }}>
-                <Grid container>
-                    <Grid size={{ xs: 12, sm: 12, md: 12, lg: 12 }} sx={{ display: "flex", alignItems: "center", py: 1.5 }}>
-                        <IconButton
-                            onClick={() =>
-                                navigate("/dashboardmenu/approvals", {
-                                    state: { tabIndex: 0 },
-                                })
-                            }
-                            sx={{ width: "27px", height: "27px", marginTop: "2px" }}
-                        >
-                            <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
-                        </IconButton>
-
-                        <Typography sx={{ fontWeight: "600", fontSize: "20px" }} >News Approval</Typography>
-                    </Grid>
-                </Grid>
-            </Box>
-            <Box ref={boxRef} sx={{ maxHeight: "83vh", overflowY: "auto" }}>
+            <PageHeader
+                title="News Approval"
+                subtitle="Review news posts before they reach parents and students"
+                onBack={() => navigate("/dashboardmenu/approvals", { state: { tabId: "communication" } })}
+            />
+            <Box ref={boxRef} sx={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
                 <Box sx={{ p: 2 }}>
                     {visibleData.length > 0 &&
-                        <Box sx={{ backgroundColor: "#8338EC", width: "200px", borderRadius: "50px", display: "flex", justifyContent: "center", alignItems: "center", }}>
+                        <Box sx={{ bgcolor: `${DASH.violet}14`, border: `1px solid ${DASH.violet}3D`, width: "200px", borderRadius: "50px", mb: 1, display: "flex", justifyContent: "center", alignItems: "center", }}>
                             <Typography
                                 sx={{
-                                    fontSize: "16px",
-                                    fontWeight: "600",
-                                    color: "#fff",
+                                    fontSize: "13px",
+                                    fontWeight: 700,
+                                    color: DASH.violet,
                                     py: 0.5,
 
                                 }}
@@ -331,15 +342,16 @@ export default function NewsApprovalPage() {
                                 return (
                                     <>
                                         <Box sx={{ display: "flex", justifyContent: "end" }}>
-                                            <Box sx={{ backgroundColor: "#FFF9EC", py: 0.5, width: "200px", textAlign: "center", borderRadius: "5px 5px 0px 0px", mr: 2 }}>
+                                            <Box sx={{ backgroundColor: DASH.amberLight, color: "#92400E", fontSize: "11.5px", fontWeight: 600, border: "1px solid #FDE68A", borderBottom: "none", py: 0.5, width: "200px", textAlign: "center", borderRadius: "5px 5px 0px 0px", mr: 2 }}>
                                                 Requested For : <b>{statusItem.requestFor}</b>
                                             </Box>
                                         </Box>
                                         <Box
                                             key={statusItem.id}
                                             sx={{
-                                                boxShadow: "0px 2px 4px 0px rgba(0,0,0,0.19)",
-                                                borderRadius: "7px",
+                                                boxShadow: "0 1px 2px rgba(16,24,40,0.06)",
+                                                borderRadius: RADIUS,
+                                                border: `1px solid ${DASH.line}`,
                                                 backgroundColor: "#fff",
                                                 p: 2,
                                                 mb: 2,
@@ -359,13 +371,13 @@ export default function NewsApprovalPage() {
                                                     size={{ xs: 12, sm: 12, lg: 2.2 }}
                                                     sx={{ textAlign: "left" }}
                                                 >
-                                                    <Typography sx={{ fontSize: "11px", color: "#8a8a8a" }}>
+                                                    <Typography sx={{ fontSize: "11px", color: DASH.faint }}>
                                                         Created on : {statusItem.onDate}
                                                     </Typography>
-                                                    <Typography sx={{ fontSize: "11px", color: "#8a8a8a" }}>
+                                                    <Typography sx={{ fontSize: "11px", color: DASH.faint }}>
                                                         Created by : {statusItem.createdByUserType.charAt(0).toUpperCase() + statusItem.createdByUserType.slice(1).toLowerCase()} - {statusItem.createdByName}
                                                     </Typography>
-                                                    <Typography sx={{ fontSize: "11px", color: "#8a8a8a" }}>
+                                                    <Typography sx={{ fontSize: "11px", color: DASH.faint }}>
                                                         Time: {statusItem.onTime}
                                                     </Typography>
                                                 </Grid>
@@ -654,12 +666,11 @@ export default function NewsApprovalPage() {
                                                             style={{
                                                                 width: '100%',
                                                                 padding: '12px',
-                                                                borderRadius: '6px',
-                                                                border: '1px solid #ccc',
+                                                                borderRadius: RADIUS,
+                                                                border: `1px solid ${DASH.line}`,
                                                                 fontSize: '14px',
                                                                 marginBottom: '20px',
                                                                 resize: 'none',
-                                                                border: "none",
                                                                 outline: 'none',
                                                             }}
                                                         />
@@ -703,7 +714,7 @@ export default function NewsApprovalPage() {
                                                     sx={{
                                                         fontWeight: "600",
                                                         fontSize: "12px",
-                                                        color: "#8338EC",
+                                                        color: DASH.violet,
                                                         px: 1,
                                                         textAlign: "center",
                                                     }}
@@ -711,7 +722,7 @@ export default function NewsApprovalPage() {
                                                     <span style={{
                                                         height: '8px',
                                                         width: '8px',
-                                                        backgroundColor: '#8338EC',
+                                                        backgroundColor: DASH.violet,
                                                         borderRadius: ' 50%',
                                                         display: 'inline-block'
                                                     }} ></span>  Scheduled For {statusItem.onDate} - {statusItem.onDay} at {statusItem.onTime}
@@ -726,9 +737,9 @@ export default function NewsApprovalPage() {
                         <Box sx={{ backgroundColor: "#A749CC", width: "200px", borderRadius: "0px 8px 8px 0px ", display: "flex", justifyContent: "center", alignItems: "center" }}>
                             <Typography
                                 sx={{
-                                    fontSize: "16px",
-                                    fontWeight: "600",
-                                    color: "#fff",
+                                    fontSize: "13px",
+                                    fontWeight: 700,
+                                    color: DASH.violet,
                                     py: 0.5,
 
                                 }}
@@ -745,15 +756,16 @@ export default function NewsApprovalPage() {
                                 return (
                                     <>
                                         <Box sx={{ display: "flex", justifyContent: "end" }}>
-                                            <Box sx={{ backgroundColor: "#FFF9EC", py: 0.5, width: "200px", textAlign: "center", borderRadius: "5px 5px 0px 0px", mr: 2 }}>
+                                            <Box sx={{ backgroundColor: DASH.amberLight, color: "#92400E", fontSize: "11.5px", fontWeight: 600, border: "1px solid #FDE68A", borderBottom: "none", py: 0.5, width: "200px", textAlign: "center", borderRadius: "5px 5px 0px 0px", mr: 2 }}>
                                                 Requested For : <b>{statusItem.requestFor}</b>
                                             </Box>
                                         </Box>
                                         <Box
                                             key={statusItem.id}
                                             sx={{
-                                                boxShadow: "0px 2px 4px 0px rgba(0,0,0,0.19)",
-                                                borderRadius: "7px",
+                                                boxShadow: "0 1px 2px rgba(16,24,40,0.06)",
+                                                borderRadius: RADIUS,
+                                                border: `1px solid ${DASH.line}`,
                                                 backgroundColor: "#fff",
                                                 p: 2,
                                                 mb: 2,
@@ -773,13 +785,13 @@ export default function NewsApprovalPage() {
                                                     size={{ xs: 12, sm: 12, lg: 2.2 }}
                                                     sx={{ textAlign: "left" }}
                                                 >
-                                                    <Typography sx={{ fontSize: "11px", color: "#8a8a8a" }}>
+                                                    <Typography sx={{ fontSize: "11px", color: DASH.faint }}>
                                                         Created on : {statusItem.onDate}
                                                     </Typography>
-                                                    <Typography sx={{ fontSize: "11px", color: "#8a8a8a" }}>
+                                                    <Typography sx={{ fontSize: "11px", color: DASH.faint }}>
                                                         Created by : {statusItem.createdByUserType.charAt(0).toUpperCase() + statusItem.createdByUserType.slice(1).toLowerCase()} - {statusItem.createdByName}
                                                     </Typography>
-                                                    <Typography sx={{ fontSize: "11px", color: "#8a8a8a" }}>
+                                                    <Typography sx={{ fontSize: "11px", color: DASH.faint }}>
                                                         Time: {statusItem.onTime}
                                                     </Typography>
                                                 </Grid>
@@ -1067,12 +1079,11 @@ export default function NewsApprovalPage() {
                                                             style={{
                                                                 width: '100%',
                                                                 padding: '12px',
-                                                                borderRadius: '6px',
-                                                                border: '1px solid #ccc',
+                                                                borderRadius: RADIUS,
+                                                                border: `1px solid ${DASH.line}`,
                                                                 fontSize: '14px',
                                                                 marginBottom: '20px',
                                                                 resize: 'none',
-                                                                border: "none",
                                                                 outline: 'none',
                                                             }}
                                                         />
@@ -1116,7 +1127,7 @@ export default function NewsApprovalPage() {
                                                     sx={{
                                                         fontWeight: "600",
                                                         fontSize: "12px",
-                                                        color: "#8338EC",
+                                                        color: DASH.violet,
                                                         px: 1,
                                                         textAlign: "center",
                                                     }}
@@ -1124,7 +1135,7 @@ export default function NewsApprovalPage() {
                                                     <span style={{
                                                         height: '8px',
                                                         width: '8px',
-                                                        backgroundColor: '#8338EC',
+                                                        backgroundColor: DASH.violet,
                                                         borderRadius: ' 50%',
                                                         display: 'inline-block'
                                                     }} ></span>  Scheduled For {statusItem.onDate} - {statusItem.onDay} at {statusItem.onTime}

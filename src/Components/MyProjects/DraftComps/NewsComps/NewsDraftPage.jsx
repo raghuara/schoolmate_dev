@@ -213,9 +213,9 @@ export default function NewsDraftPage() {
         try {
             const res = await axios.get(NewsFetchDraft, {
                 params: {
-                    RollNumber: rollNumber,
-                    UserType: userType,
-                    Date: formattedDate || '',
+                    rollNumber: rollNumber,
+                    userType: userType,
+                    date: formattedDate || '',
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -235,9 +235,9 @@ export default function NewsDraftPage() {
         try {
             const res = await axios.delete(DeleteNewsApi, {
                 params: {
-                    Id: id,
-                    RollNumber: rollNumber,
-                    UserType: userType,
+                    id: id,
+                    rollNumber: rollNumber,
+                    userType: userType,
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -269,8 +269,8 @@ export default function NewsDraftPage() {
         try {
             const res = await axios.delete(DeleteAllDraft, {
                 params: {
-                    RollNumber: rollNumber,
-                    Module: "news",
+                    rollNumber: rollNumber,
+                    module: "news",
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,

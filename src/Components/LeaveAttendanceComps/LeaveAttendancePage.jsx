@@ -1,2341 +1,4881 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from "react";
 import {
-    Box, Card, CardContent, Grid, Typography, IconButton, Button, Chip,
-    Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-    Avatar, Divider, Tabs, Tab, CircularProgress, Tooltip, Menu, MenuItem,
-    Dialog, DialogTitle, DialogContent, DialogActions, TextField, InputAdornment,
-    Stack, LinearProgress, Paper, ListItemIcon, ListItemText, Backdrop, Autocomplete,
-} from '@mui/material';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import CancelIcon from '@mui/icons-material/Cancel';
-import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import EventIcon from '@mui/icons-material/Event';
-import AddIcon from '@mui/icons-material/Add';
-import FingerprintIcon from '@mui/icons-material/Fingerprint';
-import EditNoteIcon from '@mui/icons-material/EditNote';
-import SyncIcon from '@mui/icons-material/Sync';
-import DevicesIcon from '@mui/icons-material/Devices';
-import FaceIcon from '@mui/icons-material/Face';
-import CreditCardIcon from '@mui/icons-material/CreditCard';
-import KeyIcon from '@mui/icons-material/Key';
-import WifiTetheringIcon from '@mui/icons-material/WifiTethering';
-import SearchIcon from '@mui/icons-material/Search';
-import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
-import PersonIcon from '@mui/icons-material/Person';
-import DownloadIcon from '@mui/icons-material/Download';
-import CloseIcon from '@mui/icons-material/Close';
-import SpaceDashboardOutlinedIcon from '@mui/icons-material/SpaceDashboardOutlined';
-import HowToRegOutlinedIcon from '@mui/icons-material/HowToRegOutlined';
-import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
-import ListAltOutlinedIcon from '@mui/icons-material/ListAltOutlined';
-import FactCheckOutlinedIcon from '@mui/icons-material/FactCheckOutlined';
-import InsertChartOutlinedIcon from '@mui/icons-material/InsertChartOutlined';
-import LocalCafeIcon from '@mui/icons-material/LocalCafe';
-import TimerOutlinedIcon from '@mui/icons-material/TimerOutlined';
-import TodayIcon from '@mui/icons-material/Today';
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import PeopleAltOutlinedIcon from '@mui/icons-material/PeopleAltOutlined';
-import CircleIcon from '@mui/icons-material/Circle';
-import CheckIcon from '@mui/icons-material/Check';
-import RestartAltIcon from '@mui/icons-material/RestartAlt';
-import LaptopMacIcon from '@mui/icons-material/LaptopMac';
-import WifiOffIcon from '@mui/icons-material/WifiOff';
-import CloudSyncIcon from '@mui/icons-material/CloudSync';
-import HistoryToggleOffIcon from '@mui/icons-material/HistoryToggleOff';
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
-import { useNavigate } from 'react-router-dom';
-import { useSelector } from 'react-redux';
-import axios from 'axios';
-import { SyncStatus, TriggerManualSync, GetTeachersAttendance } from '../../Api/Api';
-import SnackBar from '../SnackBar';
+    Box,
+    Typography,
+    IconButton,
+    Button,
+    TextField,
+    InputAdornment,
+    MenuItem,
+    Menu,
+    Chip,
+    Avatar,
+    Grid,
+    Switch,
+    Tooltip,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
+    Dialog,
+    DialogContent,
+    DialogActions,
+} from "@mui/material";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import CloseIcon from "@mui/icons-material/Close";
+import EventNoteIcon from "@mui/icons-material/EventNote";
+import FingerprintIcon from "@mui/icons-material/Fingerprint";
+import AddIcon from "@mui/icons-material/Add";
+import SpaceDashboardOutlinedIcon from "@mui/icons-material/SpaceDashboardOutlined";
+import PersonAddAltIcon from "@mui/icons-material/PersonAddAlt";
+import CalendarMonthOutlinedIcon from "@mui/icons-material/CalendarMonthOutlined";
+import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
+import ListAltOutlinedIcon from "@mui/icons-material/ListAltOutlined";
+import BarChartOutlinedIcon from "@mui/icons-material/BarChartOutlined";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import CancelIcon from "@mui/icons-material/Cancel";
+import AccessTimeIcon from "@mui/icons-material/AccessTime";
+import EventAvailableIcon from "@mui/icons-material/EventAvailable";
+import FreeBreakfastOutlinedIcon from "@mui/icons-material/FreeBreakfastOutlined";
+import TimerOutlinedIcon from "@mui/icons-material/TimerOutlined";
+import SearchIcon from "@mui/icons-material/Search";
+import FileDownloadOutlinedIcon from "@mui/icons-material/FileDownloadOutlined";
+import PersonIcon from "@mui/icons-material/Person";
+import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
+import GroupsIcon from "@mui/icons-material/Groups";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import DoneAllIcon from "@mui/icons-material/DoneAll";
+import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
+import BoltIcon from "@mui/icons-material/Bolt";
+import StickyNote2OutlinedIcon from "@mui/icons-material/StickyNote2Outlined";
+import SubjectIcon from "@mui/icons-material/Subject";
+import WarningAmberIcon from "@mui/icons-material/WarningAmber";
+import EventBusyOutlinedIcon from "@mui/icons-material/EventBusyOutlined";
+import HistoryToggleOffIcon from "@mui/icons-material/HistoryToggleOff";
+import EventAvailableOutlinedIcon from "@mui/icons-material/EventAvailableOutlined";
+import ApplyLeavePage from "./ApplyLeavePage";
+import FilterAltOutlinedIcon from "@mui/icons-material/FilterAltOutlined";
+import ManageHistoryOutlinedIcon from "@mui/icons-material/ManageHistoryOutlined";
+import { useNavigate } from "react-router-dom";
+import { useSelector } from "react-redux";
 
-import StaffAttendanceOverviewPage from './StaffAttendanceOverviewPage';
-import LeaveManagementPage from './LeaveManagementPage';
-import AttendanceReportsPage from './AttendanceReportsPage';
-import AddStaffAttendancePage from './AddStaffAttendancePage';
+import SnackBar from "../SnackBar";
+import { fetchLeaveTypes } from "./leavePolicyApi";
+import {
+    fetchApprovalDashboard,
+    fetchMyLeaveStatus,
+    updateLeaveAction,
+    fetchAttendanceOverview,
+    fetchTeachersAttendance,
+    fetchAttendanceRoster,
+    postManualAttendance,
+    fetchLeaveReport,
+    fetchMyAttendanceStatus,
+    fetchLeaveFullReport,
+    fetchAttendanceAudit,
+    fetchAttendanceLeaveSummary,
+    REPORT_CATEGORIES,
+    REPORT_ATTENDANCE_STATUSES,
+} from "./leaveAttendanceApi";
 
+/* ───────────────────────── Theme tokens ───────────────────────── */
+export const GREEN = { main: "#059669", dark: "#047857", bg: "#ECFDF5", border: "#A7F3D0" };
+export const RED = { main: "#DC2626", bg: "#FEF2F2", border: "#FECACA" };
+export const AMBER = { main: "#D97706", bg: "#FFFBEB", border: "#FDE68A" };
+export const BLUE = { main: "#2563EB", bg: "#EFF6FF", border: "#BFDBFE" };
+export const INDIGO = { main: "#4F46E5", bg: "#EEF2FF", border: "#C7D2FE" };
+const PURPLE = { main: "#7C3AED", bg: "#F5F3FF", border: "#DDD6FE" };
+/* Deliberately grey. "Not marked" is the absence of a judgement, not a bad outcome, so it
+   must not read like the red ABSENT card sitting next to it. */
+const SLATE_TONE = { main: "#64748B", bg: "#F8FAFC", border: "#E2E8F0" };
 
-const token = "123";
+const PAGE_BG = "#F7F9F9";
 
-// ─── Theme ──────────────────────────────────────────────────────────────────
-const PRIMARY = '#059669';
-const PRIMARY_LIGHT = '#ECFDF5';
-const PRIMARY_DARK = '#047857';
-const PRIMARY_BORDER = '#A7F3D0';
-
-// ─── Config ─────────────────────────────────────────────────────────────────
-const SCHOOL_START_HOUR = 9;      // 9:00 AM
-const LATE_THRESHOLD_MIN = 15;    // > 9:15 → Late
-
-// ─── Utils ──────────────────────────────────────────────────────────────────
-const formatDateForApi = (dateObj) => {
-    const d = String(dateObj.getDate()).padStart(2, '0');
-    const m = String(dateObj.getMonth() + 1).padStart(2, '0');
-    const y = dateObj.getFullYear();
-    return `${d}-${m}-${y}`;
-};
-
-const toHHmm = (isoOrDate) => {
-    if (!isoOrDate) return '';
-    const d = isoOrDate instanceof Date ? isoOrDate : new Date(isoOrDate);
-    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-};
-
-const mapRole = (role = '') => {
-    const r = role.toLowerCase();
-    if (r === 'teaching') return 'Teaching Staff';
-    if (r === 'nonteaching') return 'Non Teaching Staff';
-    return 'Supporting Staff';
-};
-
-const mapStatus = (status = '', attendance = '') => {
-    const s = (status || attendance || '').toLowerCase();
-    if (s === 'present') return 'Present';
-    if (s === 'late') return 'Late';
-    if (s === 'onleave' || s === 'on leave') return 'On Leave';
-    if (s === 'absent') return 'Absent';
-    return 'Absent';
-};
-
-const getInitials = (name = '') =>
-    name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
-
-const capitalize = (str = '') =>
-    str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
-
-// ─── Time / duration helpers (for personal attendance ticker) ──────────────
-const formatDuration = (ms) => {
-    if (!Number.isFinite(ms) || ms < 0) ms = 0;
-    const totalSeconds = Math.floor(ms / 1000);
-    const h = Math.floor(totalSeconds / 3600);
-    const m = Math.floor((totalSeconds % 3600) / 60);
-    const s = totalSeconds % 60;
-    return {
-        h, m, s,
-        hhmmss: `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`,
-        short: h > 0 ? `${h}h ${m}m` : `${m}m`,
-    };
-};
-
-const formatTimeOfDay = (date) => {
-    if (!date) return '—';
-    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-};
-
-const formatRelativeTime = (isoOrDate) => {
-    if (!isoOrDate) return '—';
-    const d = isoOrDate instanceof Date ? isoOrDate : new Date(isoOrDate);
-    if (Number.isNaN(d.getTime())) return '—';
-    const diffMs = Date.now() - d.getTime();
-    if (diffMs < 0) return 'just now';
-    const sec = Math.floor(diffMs / 1000);
-    if (sec < 30) return 'just now';
-    if (sec < 60) return `${sec}s ago`;
-    const min = Math.floor(sec / 60);
-    if (min < 60) return `${min}m ago`;
-    const hr = Math.floor(min / 60);
-    if (hr < 24) return `${hr}h ago`;
-    const days = Math.floor(hr / 24);
-    if (days < 7) return `${days}d ago`;
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-};
-
-const formatHHMMSS = (totalSec) => {
-    if (!Number.isFinite(totalSec) || totalSec < 0) return '00:00';
-    const m = Math.floor(totalSec / 60);
-    const s = totalSec % 60;
-    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-};
-
-// ─── Biometric sync constants ──────────────────────────────────────────────
-const SYNC_COOLDOWN_MS    = 5 * 60 * 1000; // 5 min between manual triggers
-const SYNC_TIMEOUT_MS     = 90 * 1000;     // 1.5 min safety timeout on the loader
-const POLL_INTERVAL_IDLE  = 10 * 1000;     // poll SyncStatus every 10s when idle
-const POLL_INTERVAL_BUSY  = 4 * 1000;      // poll every 4s while a sync is running
-
-// ─── Idle redirect constants ──────────────────────────────────────────────
-// If the user stays on this page without any input for N minutes, we route
-// them back to the dashboard so the SyncStatus polling stops generating load.
-const IDLE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes of inactivity
-const IDLE_EVENTS = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'wheel'];
-
-// ─── Biometric data normalizer ──────────────────────────────────────────────
-/**
- * Converts raw Hikvision ACS event JSON → unified attendance records
- * (one record per employee, with first punch = check-in, last = check-out)
- */
-const normalizeBiometricData = (acsData, markedByRollNumber = '') => {
-    const events = acsData?.AcsEvent?.InfoList || [];
-    const grouped = {};
-    events.forEach(e => {
-        const id = e.employeeNoString;
-        if (!grouped[id]) grouped[id] = [];
-        grouped[id].push(e);
-    });
-
-    return Object.values(grouped).map(punches => {
-        punches.sort((a, b) => new Date(a.time) - new Date(b.time));
-        const first = punches[0];
-        const last = punches[punches.length - 1];
-        const checkIn = new Date(first.time);
-
-        const isLate =
-            checkIn.getHours() > SCHOOL_START_HOUR ||
-            (checkIn.getHours() === SCHOOL_START_HOUR && checkIn.getMinutes() > LATE_THRESHOLD_MIN);
-
-        return {
-            source: 'biometric',
-            rollNumber: first.employeeNoString,
-            employeeNoString: first.employeeNoString,
-            name: first.name,
-            date: formatDateForApi(checkIn),
-            status: isLate ? 'late' : 'present',
-            loginTime: toHHmm(first.time),
-            logoutTime: last !== first ? toHHmm(last.time) : null,
-            verifyMode: first.currentVerifyMode,
-            deviceDoor: first.doorNo,
-            deviceReader: first.cardReaderNo,
-            pictureURL: first.pictureURL,
-            punchCount: punches.length,
-            markedBy: markedByRollNumber,
-            allPunches: punches.map(p => ({
-                time: p.time, serialNo: p.serialNo, verifyMode: p.currentVerifyMode, pictureURL: p.pictureURL,
-            })),
-        };
-    });
-};
-
-// ─── Theme / Config maps ────────────────────────────────────────────────────
-const USER_TYPE_CONFIG = {
-    'Super Admin': { color: '#7C3AED', bg: '#EDE9FE' },
-    'Admin':       { color: '#2563EB', bg: '#DBEAFE' },
-    'Staff':       { color: '#0891B2', bg: '#E0F7FA' },
-    'Teacher':     { color: '#16A34A', bg: '#DCFCE7' },
-};
-
-const ROLE_CONFIG = {
-    'Teaching Staff':     { color: '#6D28D9', bg: '#F5F3FF', border: '#DDD6FE' },
-    'Non Teaching Staff': { color: '#0E7490', bg: '#ECFEFF', border: '#A5F3FC' },
-    'Supporting Staff':   { color: '#C2410C', bg: '#FFF7ED', border: '#FED7AA' },
-};
-
+/* Status chip styling shared by the attendance tables */
 const STATUS_STYLE = {
-    Present:   { color: '#047857', bg: '#ECFDF5', border: '#A7F3D0' },
-    Late:      { color: '#B45309', bg: '#FFFBEB', border: '#FDE68A' },
-    'On Leave':{ color: '#1D4ED8', bg: '#EFF6FF', border: '#BFDBFE' },
-    Absent:    { color: '#B91C1C', bg: '#FEF2F2', border: '#FECACA' },
+    Present: { color: GREEN.main, bg: GREEN.bg, border: GREEN.border },
+    Late: { color: AMBER.main, bg: AMBER.bg, border: AMBER.border },
+    Absent: { color: RED.main, bg: RED.bg, border: RED.border },
+    "On Leave": { color: BLUE.main, bg: BLUE.bg, border: BLUE.border },
 };
 
-const AVATAR_PALETTE = ['#0E7490', '#6D28D9', '#C2410C', '#047857', '#1D4ED8', '#BE185D', '#A16207', '#0F766E'];
-const avatarColorFor = (name = '') => {
-    const code = (name.charCodeAt(0) || 0) + (name.charCodeAt(1) || 0);
-    return AVATAR_PALETTE[code % AVATAR_PALETTE.length];
+const ACADEMIC_YEARS = ["2026-2027", "2025-2026", "2024-2025"];
+
+const TABS = [
+    { key: "dashboard", label: "Dashboard", icon: SpaceDashboardOutlinedIcon },
+    { key: "add", label: "Add Attendance", icon: PersonAddAltIcon },
+    { key: "today", label: "Today's Attendance", icon: CalendarMonthOutlinedIcon },
+    { key: "overview", label: "Overview", icon: VisibilityOutlinedIcon },
+    { key: "leave", label: "Leave Management", icon: ListAltOutlinedIcon },
+    { key: "reports", label: "Reports", icon: BarChartOutlinedIcon },
+];
+
+
+const TOTAL_STAFF = 32;
+
+/* ── Staff directory used by the manual-entry screen ──
+   Expected from API: GetStaffList. Generated deterministically so the list is
+   stable across renders — no random ids. */
+export const ROLE_STYLE = {
+    "Teaching Staff": { color: "#7C3AED", bg: "#F5F3FF", border: "#DDD6FE" },
+    "Non Teaching Staff": { color: "#0D9488", bg: "#F0FDFA", border: "#99F6E4" },
 };
 
-const VERIFY_MODE_ICON = (mode = '') => {
-    const m = mode.toLowerCase();
-    if (m.includes('face')) return <FaceIcon sx={{ fontSize: 14 }} />;
-    if (m.includes('fp') || m.includes('finger')) return <FingerprintIcon sx={{ fontSize: 14 }} />;
-    if (m.includes('card')) return <CreditCardIcon sx={{ fontSize: 14 }} />;
-    if (m.includes('pw') || m.includes('pass')) return <KeyIcon sx={{ fontSize: 14 }} />;
-    return <FingerprintIcon sx={{ fontSize: 14 }} />;
+const ROLE_FILTERS = ["All Roles", "Teacher", "Non Teaching", "Support Staff"];
+
+const FIRST_NAMES = [
+    "Sneha", "Karthik", "Meera", "Arjun", "Divya", "Rahul", "Lakshmi", "Vikram",
+    "Anita", "Suresh", "Pooja", "Imran", "Kavya", "Manoj", "Deepa", "Faisal",
+    "Harini", "Gopal", "Rekha", "Vinod",
+];
+const LAST_NAMES = [
+    "Reddy", "Verma", "Nair", "Iyer", "Sharma", "Menon", "Rao", "Gupta",
+    "Pillai", "Shetty", "Desai", "Joshi", "Kumar", "George", "Bhat",
+];
+
+const buildStaffDirectory = () => {
+    const list = [{ id: 1, name: "Sneha Reddy", empId: "102733", category: "Teacher" }];
+    // 112 teachers in total, then support categories — 165 staff overall
+    for (let i = 1; i < 165; i += 1) {
+        const category = i < 112 ? "Teacher" : i < 142 ? "Non Teaching" : "Support Staff";
+        list.push({
+            id: i + 1,
+            name: `${FIRST_NAMES[i % FIRST_NAMES.length]} ${LAST_NAMES[(i * 7) % LAST_NAMES.length]}`,
+            empId: String(100000 + ((i * 3697) % 899999)),
+            category,
+        });
+    }
+    return list;
 };
 
-const VERIFY_MODE_LABEL = (mode = '') => {
-    const m = mode.toLowerCase();
-    if (m === 'faceorfporcardorpw') return 'Multi-Factor';
-    if (m.includes('face')) return 'Face';
-    if (m.includes('fp') || m.includes('finger')) return 'Fingerprint';
-    if (m.includes('card')) return 'Card';
-    if (m.includes('pw')) return 'Password';
-    return capitalize(mode);
+export const STAFF_DIRECTORY = buildStaffDirectory();
+
+export const roleLabelOf = (category) => (category === "Teacher" ? "Teaching Staff" : "Non Teaching Staff");
+
+const ATTENDANCE_STATUSES = ["Present", "Late", "Absent", "On Leave"];
+
+/* One-click break presets offered on the Break In / Break Out panel */
+const BREAK_PRESETS = [
+    { label: "Morning Tea", out: "10:30", in: "10:45" },
+    { label: "Lunch", out: "13:00", in: "13:45" },
+    { label: "Evening Tea", out: "15:30", in: "15:45" },
+];
+
+/* Avatar tint is per person, so a long staff list stays scannable */
+const AVATAR_COLORS = [
+    { color: "#7C3AED", bg: "#F5F3FF" },
+    { color: "#059669", bg: "#ECFDF5" },
+    { color: "#EA580C", bg: "#FFF7ED" },
+    { color: "#2563EB", bg: "#EFF6FF" },
+    { color: "#DB2777", bg: "#FDF2F8" },
+    { color: "#0891B2", bg: "#ECFEFF" },
+];
+/* Ids may be numbers or roll-number strings like "MAMS-550", so hash rather than
+   modulo — a string would give NaN and index off the end of the palette. */
+export const avatarToneOf = (staffId) => {
+    const key = String(staffId ?? "");
+    let hash = 0;
+    for (let i = 0; i < key.length; i += 1) hash = (hash * 31 + key.charCodeAt(i)) % 100000;
+    return AVATAR_COLORS[hash % AVATAR_COLORS.length];
 };
+
+const minutesBetween = (start, end) => {
+    if (!start || !end) return 0;
+    const [sh, sm] = start.split(":").map(Number);
+    const [eh, em] = end.split(":").map(Number);
+    const diff = eh * 60 + em - (sh * 60 + sm);
+    return Number.isNaN(diff) || diff <= 0 ? 0 : diff;
+};
+
+const formatMinutes = (minutes) =>
+    minutes >= 60 ? `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, "0")}m` : `${minutes}m`;
+
+const totalBreakMinutes = (breaks) =>
+    (breaks || []).reduce((sum, item) => sum + minutesBetween(item.out, item.in), 0);
+
+/* "09:15" + "17:45" → "8h 30m" */
+const workingHoursBetween = (start, end) => {
+    if (!start || !end) return "";
+    const [sh, sm] = start.split(":").map(Number);
+    const [eh, em] = end.split(":").map(Number);
+    const minutes = eh * 60 + em - (sh * 60 + sm);
+    if (Number.isNaN(minutes) || minutes <= 0) return "";
+    return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, "0")}m`;
+};
+
+const toTimeValue = (date) =>
+    `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+
+const toDateValue = (date) =>
+    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+
+/* Leave rows come from getLeaveApprovalDashboard / leaveApprovalStatusCheck.
+   Approver rows: { leaveApplicationId, forRollNumber, name, leaveType, fromDate, toDate,
+   days, reason, appliedOn, status, rejectReason } — dates already dd-MM-yyyy.
+   Leave types come from GetleaveTypes, plus "Loss of Pay" as a fixed extra option. */
+
+/* Signed-in user — My Requests is filtered to them */
+/* The signed-in user now comes from state.auth, not a constant */
+
+const LEAVE_VIEWS = [
+    { key: "applications", label: "Applications", icon: ListAltOutlinedIcon },
+    { key: "apply", label: "Apply Leave", icon: EventAvailableOutlinedIcon },
+    { key: "my", label: "My Requests", icon: HistoryToggleOffIcon },
+];
+
+/* Leave dates arrive already formatted dd-MM-yyyy, so no client formatting is needed */
+
+const LEAVE_STATUS_STYLE = {
+    Pending: { color: AMBER.main, bg: AMBER.bg, border: AMBER.border },
+    Approved: { color: GREEN.main, bg: GREEN.bg, border: GREEN.border },
+    Rejected: { color: RED.main, bg: RED.bg, border: RED.border },
+};
+
+/* Cell marks keyed by the status strings the overview returns. An empty status means
+   the day has no record and renders as a dash. `weekend` comes from the saved working
+   calendar, not from Sat/Sun. */
+const OVERVIEW_MARK = {
+    present: { label: "P", color: GREEN.main, bg: GREEN.bg, border: GREEN.border },
+    late: { label: "L", color: AMBER.main, bg: AMBER.bg, border: AMBER.border },
+    absent: { label: "A", color: RED.main, bg: RED.bg, border: RED.border },
+    onleave: { label: "LV", color: BLUE.main, bg: BLUE.bg, border: BLUE.border },
+    on_leave: { label: "LV", color: BLUE.main, bg: BLUE.bg, border: BLUE.border },
+    onduty: { label: "OD", color: INDIGO.main, bg: INDIGO.bg, border: INDIGO.border },
+    halfday: { label: "HD", color: PURPLE.main, bg: PURPLE.bg, border: PURPLE.border },
+    weekend: { label: "W", color: "#6B7280", bg: "#F3F4F6", border: "#E5E7EB" },
+    unmarked: { label: "—", color: "#D1D5DB", bg: "#FFFFFF", border: "#F3F4F6" },
+};
+
+/* "18-08-2026" → "Tue" */
+const weekdayOfApiDate = (value) => {
+    const [day, month, year] = String(value || "").split("-");
+    if (!day || !month || !year) return "";
+    const date = new Date(Number(year), Number(month) - 1, Number(day));
+    return Number.isNaN(date.getTime()) ? "" : SHORT_WEEKDAYS[date.getDay()];
+};
+
+const USER_TYPES = ["All User Types", "Teacher", "Non Teaching", "Support Staff"];
+
+/* The log grid uses one avatar colour for the whole list */
+const LOG_AVATAR = "#3B4FE0";
+/* Category now comes straight from the overview response */
+
+const SHORT_WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+const addDays = (date, amount) => {
+    const next = new Date(date);
+    next.setDate(next.getDate() + amount);
+    return next;
+};
+
+
+/* Report date-range presets — each resolves to a concrete from/to pair */
+const REPORT_PRESETS = ["Today", "Yesterday", "Last 7 Days", "This Month", "Last 30 Days", "Last Month"];
+
+/* Cell colours for the full report's calendar block and daily log. Keys are the
+   lowercased status strings the reports API returns. */
+const REPORT_DAY_STYLE = {
+    present: { color: "#059669", bg: "#ECFDF5", border: "#A7F3D0" },
+    late: { color: "#B45309", bg: "#FFFBEB", border: "#FDE68A" },
+    absent: { color: "#DC2626", bg: "#FEF2F2", border: "#FECACA" },
+    leave: { color: "#2563EB", bg: "#EFF6FF", border: "#BFDBFE" },
+    onleave: { color: "#2563EB", bg: "#EFF6FF", border: "#BFDBFE" },
+    "on leave": { color: "#2563EB", bg: "#EFF6FF", border: "#BFDBFE" },
+    halfday: { color: "#7C3AED", bg: "#F5F3FF", border: "#DDD6FE" },
+    onduty: { color: "#0891B2", bg: "#ECFEFF", border: "#A5F3FC" },
+    holiday: { color: "#6B7280", bg: "#F9FAFB", border: "#E5E7EB" },
+    weekend: { color: "#6B7280", bg: "#F9FAFB", border: "#E5E7EB" },
+    unmarked: { color: "#9CA3AF", bg: "#fff", border: "#E5E7EB" },
+    notmarked: { color: "#64748B", bg: "#F8FAFC", border: "#E2E8F0" },
+    "not marked": { color: "#64748B", bg: "#F8FAFC", border: "#E2E8F0" },
+};
+const reportDayStyle = (status) =>
+    REPORT_DAY_STYLE[String(status || "").toLowerCase()] || REPORT_DAY_STYLE.unmarked;
+
+const ddmmyyyy = (value) => {
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return "—";
+    return `${String(date.getDate()).padStart(2, "0")}-${String(date.getMonth() + 1).padStart(2, "0")}-${date.getFullYear()}`;
+};
+
+/* 23415 → "06:30:15" */
+const formatHms = (totalSeconds) => {
+    const s = Math.max(0, Math.floor(totalSeconds || 0));
+    const pad2 = (n) => String(n).padStart(2, "0");
+    return `${pad2(Math.floor(s / 3600))}:${pad2(Math.floor((s % 3600) / 60))}:${pad2(s % 60)}`;
+};
+
+const WEEKDAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const MONTH_NAMES = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
+];
+
+const formatLongDate = (date) =>
+    `${WEEKDAY_NAMES[date.getDay()]}, ${date.getDate()} ${MONTH_NAMES[date.getMonth()]} ${date.getFullYear()}`;
+
+export const initialsOf = (name) =>
+    String(name || "")
+        .split(" ")
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0])
+        .join("")
+        .toUpperCase();
+
+export const inputSx = {
+    "& .MuiOutlinedInput-root": { borderRadius: "8px", fontSize: "13.5px", bgcolor: "#fff" },
+};
+
+/* ───────────────────────── Building blocks ───────────────────────── */
+
+/* White panel with a title row */
+function Panel({ title, icon: Icon, tone, action, children, dense }) {
+    return (
+        <Box
+            sx={{
+                bgcolor: "#fff",
+                border: "1px solid #E5E7EB",
+                borderRadius: "12px",
+                p: dense ? 1.8 : 2.2,
+                height: "100%",
+                boxSizing: "border-box",
+            }}
+        >
+            {title && (
+                <Box
+                    sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 1.5,
+                        flexWrap: "wrap",
+                        mb: 1.8,
+                    }}
+                >
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, minWidth: 0 }}>
+                        {Icon && (
+                            <Box
+                                sx={{
+                                    width: 32,
+                                    height: 32,
+                                    borderRadius: "8px",
+                                    bgcolor: tone?.bg || GREEN.bg,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    flexShrink: 0,
+                                }}
+                            >
+                                <Icon sx={{ fontSize: "18px", color: tone?.main || GREEN.main }} />
+                            </Box>
+                        )}
+                        <Typography sx={{ fontSize: "16px", fontWeight: "700", color: "#111827" }}>{title}</Typography>
+                    </Box>
+                    {action}
+                </Box>
+            )}
+            {children}
+        </Box>
+    );
+}
+
+/* Small labelled figure used in the session strip */
+function MiniStat({ icon: Icon, label, value, tone }) {
+    return (
+        <Box
+            sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 1.2,
+                px: 1.8,
+                py: 1.4,
+                borderRadius: "10px",
+                bgcolor: tone.bg,
+                border: `1px solid ${tone.border}`,
+                flex: 1,
+                minWidth: "180px",
+                boxSizing: "border-box",
+            }}
+        >
+            <Box
+                sx={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: "50%",
+                    bgcolor: "#fff",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                }}
+            >
+                <Icon sx={{ fontSize: "18px", color: tone.main }} />
+            </Box>
+            <Box sx={{ minWidth: 0 }}>
+                <Typography
+                    sx={{ fontSize: "10.5px", fontWeight: "700", color: tone.main, letterSpacing: "0.6px" }}
+                >
+                    {label}
+                </Typography>
+                <Typography sx={{ fontSize: "16px", fontWeight: "700", color: "#111827", lineHeight: 1.2 }}>
+                    {value}
+                </Typography>
+            </Box>
+        </Box>
+    );
+}
+
+/* Status pill shared by both attendance tables */
+function StatusChip({ status }) {
+    const cfg = STATUS_STYLE[status] || STATUS_STYLE.Present;
+    return (
+        <Chip
+            label={status}
+            size="small"
+            sx={{
+                bgcolor: cfg.bg,
+                color: cfg.color,
+                border: `1px solid ${cfg.border}`,
+                fontWeight: "700",
+                fontSize: "11px",
+            }}
+        />
+    );
+}
+
+/* ───────────────────────── Page ───────────────────────── */
 
 export default function LeaveAttendancePage() {
     const navigate = useNavigate();
-    const user = useSelector((state) => state.auth);
-    const rollNumber = user.rollNumber;
-    const userType = user.userType;
-    // SyncStatus polling is admin-only — staff/teachers don't need this live data,
-    // and excluding them sharply reduces backend traffic.
-    const isAdminUser = userType === 'superadmin' || userType === 'admin';
+    const [today] = useState(() => new Date());
+    const [tab, setTab] = useState("dashboard");
+    const [academicYear, setAcademicYear] = useState(ACADEMIC_YEARS[0]);
+    const [search, setSearch] = useState("");
+    const [todayRole, setTodayRole] = useState("All Roles");
+    const [todayStatus, setTodayStatus] = useState("All Status");
+    // ─── Overview tab ───
+    const [overviewSearch, setOverviewSearch] = useState("");
+    const [overviewType, setOverviewType] = useState("All User Types");
+    const [overviewRange, setOverviewRange] = useState("7");
+    const [overviewFrom, setOverviewFrom] = useState("");
+    const [overviewTo, setOverviewTo] = useState("");
+    // Server-built matrix: headers, per-staff day cells and the summary cards
+    const [overview, setOverview] = useState({ cards: null, dateHeaders: [], details: [] });
+    const [loadingOverview, setLoadingOverview] = useState(false);
+    // ─── Leave Management tab ───
+    const [leaveView, setLeaveView] = useState("applications");
+    const [leaveFilter, setLeaveFilter] = useState("All Leaves");
+    const [leaveSearch, setLeaveSearch] = useState("");
+    const [leaveType, setLeaveType] = useState("All Types");
+    // Filled from getLeaveApprovalDashboard
+    const [leaveRequests, setLeaveRequests] = useState([]);
+    // ─── Reports tab ───
+    const [reportPreset, setReportPreset] = useState("Today");
+    const [reportFrom, setReportFrom] = useState(() => toDateValue(new Date()));
+    const [reportTo, setReportTo] = useState(() => toDateValue(new Date()));
+    const [reportSearch, setReportSearch] = useState("");
+    // Both hold API values, not labels: "All" | teaching | nonteaching | supporting,
+    // and "" | present | late | absent | leave.
+    const [reportCategory, setReportCategory] = useState("All");
+    const [reportStatus, setReportStatus] = useState("");
+    // Range cards + one summary row per staff member, straight from reportsLeaveManagement
+    const [report, setReport] = useState({ cards: null, summary: [], totals: null });
 
-    const [tabValue, setTabValue] = useState(0);
-    // Sub-view of the Leave Management tab — controlled by quick-nav clicks here
-    const [leaveSubView, setLeaveSubView] = useState('applications');
 
-    // Helper for dashboard navigation that jumps into Leave Management at a specific sub-view
-    const goToLeaveManagement = (subView = 'applications') => {
-        setLeaveSubView(subView);
-        setTabValue(4);
+    const [loadingReport, setLoadingReport] = useState(false);
+    // The summary row whose "View" was clicked, and the per-person report it loads
+    const [reportViewStaff, setReportViewStaff] = useState(null);
+    const [fullReport, setFullReport] = useState(null);
+    const [loadingFullReport, setLoadingFullReport] = useState(false);
+    // GetUserAttendanceLeaveSummary for the same person and range, shown beside it
+    const [personSummary, setPersonSummary] = useState(null);
+
+    // ─── Attendance audit trail ───
+    // { rollNumber, name, date } while open; entries come from GetTeachersAttendanceAudit
+    const [auditFor, setAuditFor] = useState(null);
+    const [auditEntries, setAuditEntries] = useState([]);
+    const [auditNote, setAuditNote] = useState("");
+    const [loadingAudit, setLoadingAudit] = useState(false);
+
+    const applyReportPreset = (preset) => {
+        const end = new Date(today);
+        let start = new Date(today);
+        if (preset === "Yesterday") {
+            start = addDays(today, -1);
+            end.setDate(end.getDate() - 1);
+        } else if (preset === "Last 7 Days") {
+            start = addDays(today, -6);
+        } else if (preset === "This Month") {
+            start = new Date(today.getFullYear(), today.getMonth(), 1);
+        } else if (preset === "Last 30 Days") {
+            start = addDays(today, -29);
+        } else if (preset === "Last Month") {
+            start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+            const lastDay = new Date(today.getFullYear(), today.getMonth(), 0);
+            end.setTime(lastDay.getTime());
+        }
+        setReportPreset(preset);
+        setReportFrom(toDateValue(start));
+        setReportTo(toDateValue(end));
     };
 
-    // SnackBar
-    const [snackOpen, setSnackOpen] = useState(false);
-    const [snackStatus, setSnackStatus] = useState(false);
-    const [snackColor, setSnackColor] = useState(false);
-    const [snackMessage, setSnackMessage] = useState('');
-    const showSnack = (msg, success) => {
-        setSnackMessage(msg); setSnackOpen(true); setSnackColor(success); setSnackStatus(success);
-    };
+    // ─── Leave ↔ api/leave ───
+    // academicYear comes from the header select, so the calls follow whatever is chosen there
+    const authUser = useSelector((state) => state.auth);
 
-    // ─── Biometric Sync State ──────────────────────────────────────────────
-    // Full latest response from the SyncStatus endpoint (or null if not loaded).
-    const [syncStatus, setSyncStatus] = useState(null);
-    // True while the blocking sync overlay is visible. Driven by isPending + manual trigger.
-    const [isSyncing, setIsSyncing] = useState(false);
-    // Local timestamp when the user triggered the sync — used to enforce the safety timeout.
-    const [syncStartedAt, setSyncStartedAt] = useState(null);
-    // Manual-sync date picker
-    const [manualSyncOpen, setManualSyncOpen] = useState(false);
-    const [manualSyncDate, setManualSyncDate] = useState(() => {
-        const d = new Date();
-        d.setDate(d.getDate() - 1); // default to yesterday — most common case
-        return d.toISOString().split('T')[0];
+    /* The signed-in person's own status for today, behind the dashboard strip. */
+    const [myStatus, setMyStatus] = useState(null);
+    /* Seconds elapsed since the last successful fetch, so an open punch keeps counting
+       between polls rather than freezing for a minute at a time. */
+    const [tickSeconds, setTickSeconds] = useState(0);
+
+    /* Server minutes plus the seconds ticked since that reading, so an open punch keeps
+       moving between the 60s polls. null when nothing was ever punched — the strip renders
+       a dash for that rather than a zero. */
+    /* A half-day leave keeps the tiles: they worked half the day, so the figures mean
+       something. A full day of approved leave usually has no attendance row at all. */
+    const onFullDayLeave =
+        Boolean(myStatus?.isOnApprovedLeave) && myStatus?.approvedLeaveIsHalfDay !== true;
+    const hideMyTiles = onFullDayLeave;
+
+    const myStatusLabel = myStatus?.isOnApprovedLeave
+        ? myStatus.approvedLeaveIsHalfDay
+            ? "Half Day Leave"
+            : "On Leave"
+        : myStatus?.status || "Not Marked";
+
+    const myStatusTone = reportDayStyle(String(myStatusLabel).toLowerCase().replace(/\s+/g, ""));
+
+    const todayLabel = new Date().toLocaleDateString("en-GB", {
+        weekday: "long",
+        day: "numeric",
+        month: "short",
+        year: "numeric",
     });
-    const [isTriggering, setIsTriggering] = useState(false);
-    // 1Hz tick to refresh cooldown timer / "X seconds ago" labels
-    const [, setCooldownTick] = useState(0);
 
-    const pollIntervalRef = useRef(null);
-    const syncTimeoutRef = useRef(null);
+    const myWorked =
+        myStatus && myStatus.loginTime
+            ? myStatus.workedMinutes * 60 + (myStatus.isClockedIn ? tickSeconds : 0)
+            : null;
 
-    // Academic year selector — matches Create School Fee page behaviour.
-    // Defaults to the current academic year; options span previous two years + current.
-    const currentYear = new Date().getFullYear();
-    const currentAcademicYear = `${currentYear}-${currentYear + 1}`;
-    const academicYears = [
-        `${currentYear - 2}-${currentYear - 1}`,
-        `${currentYear - 1}-${currentYear}`,
-        `${currentYear}-${currentYear + 1}`,
-    ];
-    const [selectedAcademicYear, setSelectedAcademicYear] = useState(currentAcademicYear);
+    const loadMyStatus = useCallback(async () => {
+        if (!authUser?.rollNumber) return;
+        const result = await fetchMyAttendanceStatus({ rollNumber: authUser.rollNumber });
+        // A failure here should not shout — the strip simply falls back to dashes
+        setMyStatus(result.ok ? result : null);
+        setTickSeconds(0);
+    }, [authUser?.rollNumber]);
 
-    // Today's Attendance tab filters
-    const [todayAttSearch, setTodayAttSearch] = useState('');
-    const [todayAttRoleFilter, setTodayAttRoleFilter] = useState('all');
-    const [todayAttStatusFilter, setTodayAttStatusFilter] = useState('all');
-    const [todayRoleMenuAnchor, setTodayRoleMenuAnchor] = useState(null);
-    const [todayStatusMenuAnchor, setTodayStatusMenuAnchor] = useState(null);
-
-    // Today's Attendance live data — fetched directly from GetTeachersAttendance
-    // (independent of the dashboard payload so we can refresh in isolation).
-    const [todayAttendanceList, setTodayAttendanceList] = useState([]);
-    const [isLoadingTodayList, setIsLoadingTodayList] = useState(false);
-
-    const clearTodayFilters = () => {
-        setTodayAttSearch('');
-        setTodayAttRoleFilter('all');
-        setTodayAttStatusFilter('all');
-    };
-
-    // ─── Personal attendance (read-only display) ────────────────────────────
-    // Driven by the logged-in user's own record from todayAttendanceList
-    // (populated by GetTeachersAttendance). Falls back gracefully when the
-    // user has no record yet — the LOGIN tile shows "—", the ticker reads 0.
-    const [currentTime, setCurrentTime] = useState(new Date());
-
-    // Live ticker — increments the "logged in for" counter every second.
     useEffect(() => {
-        const id = setInterval(() => setCurrentTime(new Date()), 1000);
-        return () => clearInterval(id);
-    }, []);
+        loadMyStatus();
+        /* Polled because workedMinutes counts up to NOW for an open punch. Paused while the
+           tab is hidden so a backgrounded dashboard is not calling all day. */
+        const poll = setInterval(() => {
+            if (document.visibilityState === "visible") loadMyStatus();
+        }, 60000);
+        return () => clearInterval(poll);
+    }, [loadMyStatus]);
 
-    // Parse "HH:MM" / "HH:MM:SS" → Date object anchored to today.
-    const hhmmToTodayDate = (timeStr) => {
-        if (!timeStr || typeof timeStr !== 'string') return null;
-        const parts = timeStr.split(':').map(Number);
-        if (parts.length < 2 || Number.isNaN(parts[0]) || Number.isNaN(parts[1])) return null;
-        const d = new Date();
-        d.setHours(parts[0], parts[1], parts[2] || 0, 0);
-        return d;
-    };
+    useEffect(() => {
+        if (!myStatus?.isClockedIn) return undefined;
+        const tick = setInterval(() => setTickSeconds((s) => s + 1), 1000);
+        return () => clearInterval(tick);
+    }, [myStatus?.isClockedIn]);
 
-    // The logged-in user's row from today's attendance fetch.
-    const myAttendanceRecord = useMemo(() => {
-        if (!rollNumber || !Array.isArray(todayAttendanceList) || todayAttendanceList.length === 0) return null;
-        return todayAttendanceList.find(r => String(r.rollNumber) === String(rollNumber)) || null;
-    }, [todayAttendanceList, rollNumber]);
+    const [snack, setSnack] = useState({ open: false, message: "", ok: true });
+    const showSnack = (message, ok = true) => setSnack({ open: true, message, ok });
 
-    // First punch's loginTime — null until the user has clocked in today.
-    const loginTime = useMemo(() => {
-        const first = myAttendanceRecord?.rawPunches?.[0];
-        return hhmmToTodayDate(first?.loginTime || myAttendanceRecord?.loginTime || '');
-    }, [myAttendanceRecord]);
+    // cards carry the full counts even when a filter narrows the lists
+    const [leaveCards, setLeaveCards] = useState({ pendingCount: 0, approvedCount: 0, rejectedCount: 0 });
+    const [loadingLeave, setLoadingLeave] = useState(false);
+    const [actioningId, setActioningId] = useState(null);
+    const [declineFor, setDeclineFor] = useState(null);
+    const [declineReason, setDeclineReason] = useState("");
+    // { id, name } pairs — LeaveTypeId and LeaveType must agree on apply
+    const [availableTypes, setAvailableTypes] = useState([]);
 
-    // Completed-break list: [{ start: Date, end: Date }] — only fully-closed
-    // breaks (both breakOut + breakIn present) are counted.
-    const breaks = useMemo(() => {
-        const list = myAttendanceRecord?.rawBreaks || [];
-        return list
-            .map(b => ({
-                start: hhmmToTodayDate(b.breakOutTime),
-                end:   hhmmToTodayDate(b.breakInTime),
-                breakNo: b.breakNo,
-            }))
-            .filter(b => b.start && b.end && b.end >= b.start);
-    }, [myAttendanceRecord]);
+    const loadLeaveTypesForApply = useCallback(async () => {
+        const result = await fetchLeaveTypes(academicYear);
+        if (result.ok) setAvailableTypes(result.items);
+    }, [academicYear]);
 
-    const loggedInMs   = loginTime ? Math.max(0, currentTime - loginTime) : 0;
-    const totalBreakMs = breaks.reduce((sum, b) => sum + (b.end - b.start), 0);
-    const netWorkMs    = Math.max(0, loggedInMs - totalBreakMs);
-
-    const loggedInDur = formatDuration(loggedInMs);
-    const breakDur    = formatDuration(totalBreakMs);
-    const netWorkDur  = formatDuration(netWorkMs);
-
-    // GET /teachersattendance/GetTeachersAttendance
-    //   ?fromDate=YYYY-MM-DD&toDate=YYYY-MM-DD&academicYear=YYYY-YYYY
-    // For the Today's Attendance tab fromDate === toDate === today, so the
-    // response always contains zero or one record per staff member for today.
-    //
-    // Each row's status is derived in this order:
-    //   1. leaves[0].isOnApprovedLeave === true  → "On Leave"
-    //      (approvedLeaveIsHalfDay decorates the chip with a half-day badge)
-    //   2. punches has entries                   → "Late" if loginTime > 09:15
-    //                                              else "Present"
-    //   3. otherwise                             → "Absent"
-    // The normalized record uses the same field names the existing render
-    // already consumes (rollNumber, name, role, status, loginTime, logoutTime,
-    // source) so the table / filters / chips keep working unchanged.
-    const normalizeTodayRecord = (rec) => {
-        const userType = String(rec.userType || '').toLowerCase();
-        const role = userType === 'teacher' ? 'teaching' : 'nonteaching';
-
-        const firstPunch = Array.isArray(rec.punches) && rec.punches.length > 0 ? rec.punches[0] : null;
-        const lastPunch  = Array.isArray(rec.punches) && rec.punches.length > 0 ? rec.punches[rec.punches.length - 1] : null;
-        const loginRaw   = firstPunch?.loginTime  || '';
-        const logoutRaw  = lastPunch?.logoutTime  || '';
-        // Server gives "HH:MM:SS" — trim to "HH:MM" for display consistency.
-        const trimSec = (t) => (t && t.length >= 5 ? t.slice(0, 5) : t || '');
-
-        const onLeave = Array.isArray(rec.leaves) && rec.leaves.some(l => l?.isOnApprovedLeave === true);
-        const isHalfDay = onLeave && rec.leaves.some(l => l?.isOnApprovedLeave === true && l?.approvedLeaveIsHalfDay === true);
-
-        let status = 'absent';
-        if (onLeave) {
-            status = 'onleave';
-        } else if (loginRaw) {
-            const [hh, mm] = loginRaw.split(':').map(Number);
-            const lateAfter = SCHOOL_START_HOUR * 60 + LATE_THRESHOLD_MIN;
-            status = (hh * 60 + (mm || 0)) > lateAfter ? 'late' : 'present';
-        }
-
-        const source = firstPunch
-            ? (String(firstPunch.loginSource || '').toLowerCase() === 'manual' ? 'manual' : 'biometric')
-            : '';
-
-        return {
-            rollNumber: rec.rollNumber || '',
-            name: rec.name || '',
-            userType: rec.userType || '',
-            role,
+    const loadApprovalQueue = useCallback(async () => {
+        if (!authUser?.rollNumber) return;
+        setLoadingLeave(true);
+        const status = leaveFilter === "All Leaves" ? undefined : leaveFilter.toLowerCase();
+        const result = await fetchApprovalDashboard({
+            rollNumber: authUser.rollNumber,
+            academicYear,
             status,
-            attendance: status,
-            loginTime: trimSec(loginRaw),
-            logoutTime: trimSec(logoutRaw),
-            source,
-            isHalfDayLeave: isHalfDay,
-            rawPunches: rec.punches || [],
-            rawBreaks: rec.breaks || [],
-            rawLeaves: rec.leaves || [],
-        };
-    };
+        });
+        if (!result.ok) {
+            showSnack(result.message, false);
+        } else {
+            setLeaveCards(result.cards);
+            // Status comes from which list the row arrived in, not a field
+            setLeaveRequests([
+                ...result.pending.map((row) => ({ ...row, status: "Pending" })),
+                ...result.approved.map((row) => ({ ...row, status: "Approved" })),
+                ...result.rejected.map((row) => ({ ...row, status: "Rejected" })),
+            ]);
+        }
+        setLoadingLeave(false);
+    }, [authUser?.rollNumber, academicYear, leaveFilter]);
 
-    const fetchTodaysAttendance = async () => {
-        setIsLoadingTodayList(true);
-        try {
-            const todayIso = new Date().toISOString().split('T')[0];
-            const res = await axios.get(GetTeachersAttendance, {
-                params: {
-                    fromDate: todayIso,
-                    toDate: todayIso,
-                    academicYear: selectedAcademicYear || currentAcademicYear,
+    const loadMyRequests = useCallback(async () => {
+        if (!authUser?.rollNumber) return;
+        setLoadingLeave(true);
+        const result = await fetchMyLeaveStatus({ rollNumber: authUser.rollNumber, academicYear });
+        if (!result.ok) showSnack(result.message, false);
+        else setMyLeaves(result.leaves);
+        setLoadingLeave(false);
+    }, [authUser?.rollNumber, academicYear]);
+
+    const [myLeaves, setMyLeaves] = useState([]);
+
+    useEffect(() => {
+        if (tab !== "leave") return;
+        loadLeaveTypesForApply();
+        if (leaveView === "my") loadMyRequests();
+        else loadApprovalQueue();
+    }, [tab, leaveView, loadLeaveTypesForApply, loadMyRequests, loadApprovalQueue]);
+
+    // ─── Today's Attendance ↔ GetTeachersAttendance ───
+    const [loadingRecords, setLoadingRecords] = useState(false);
+
+    const loadTodayAttendance = useCallback(async () => {
+        const day = toDateValue(today);
+        setLoadingRecords(true);
+        const result = await fetchTeachersAttendance({ academicYear, fromDate: day, toDate: day });
+        if (!result.ok) {
+            /* Clear rather than leave the previous day's rows standing under today's date —
+               stale data reads as current, which is worse than an empty state. */
+            setRecords([]);
+            showSnack(result.message, false);
+        } else {
+            setRecords(result.rows);
+        }
+        setLoadingRecords(false);
+    }, [academicYear, today]);
+
+    useEffect(() => {
+        if (tab === "today" || tab === "dashboard") loadTodayAttendance();
+    }, [tab, loadTodayAttendance]);
+
+
+    // ─── Overview ↔ api/teachersattendance ───
+    const overviewWindow = useCallback(() => {
+        if (overviewRange === "custom" && overviewFrom && overviewTo) {
+            return { from: overviewFrom, to: overviewTo };
+        }
+        const length = overviewRange === "15" ? 15 : 7;
+        return { from: toDateValue(addDays(today, -(length - 1))), to: toDateValue(today) };
+    }, [overviewRange, overviewFrom, overviewTo, today]);
+
+    const loadOverview = useCallback(async () => {
+        const { from, to } = overviewWindow();
+        if (!from || !to) return;
+        setLoadingOverview(true);
+        const result = await fetchAttendanceOverview({
+            academicYear,
+            fromDate: from,
+            toDate: to,
+            // "All User Types" means send nothing rather than a literal
+            userType: overviewType === "All User Types" ? undefined : overviewType.toLowerCase(),
+        });
+        if (!result.ok) showSnack(result.message, false);
+        else setOverview({ cards: result.cards, dateHeaders: result.dateHeaders, details: result.details });
+        setLoadingOverview(false);
+    }, [academicYear, overviewType, overviewWindow]);
+
+    useEffect(() => {
+        if (tab === "overview") loadOverview();
+    }, [tab, loadOverview]);
+
+    // ─── Reports ↔ api/reports ───
+    const loadReport = useCallback(async () => {
+        if (!reportFrom || !reportTo) return;
+        setLoadingReport(true);
+        const result = await fetchLeaveReport({
+            fromDate: reportFrom,
+            toDate: reportTo,
+            category: reportCategory,
+            attendanceStatus: reportStatus,
+            // clamps the range into the year's window and reports when it did
+            academicYear,
+        });
+        if (!result.ok) {
+            showSnack(result.message, false);
+            setReport({ cards: null, summary: [], totals: null });
+        } else {
+            setReport({
+                cards: result.cards,
+                summary: result.summary,
+                /* Per the working calendar, not the calendar span — and elapsed vs upcoming,
+                   because days that have not happened are no longer counted as absences. */
+                totals: {
+                    workingDays: result.workingDays,
+                    holidayDays: result.holidayDays,
+                    elapsedWorkingDays: result.elapsedWorkingDays,
+                    upcomingDays: result.upcomingDays,
+                    clamped: result.clampedToAcademicYear,
+                    academicYear: result.academicYear,
                 },
-                headers: { Authorization: `Bearer ${token}` },
             });
-            if (res?.data && !res.data.error) {
-                const rows = Array.isArray(res.data.data) ? res.data.data : [];
-                setTodayAttendanceList(rows.map(normalizeTodayRecord));
-            } else {
-                setTodayAttendanceList([]);
-            }
-        } catch (err) {
-            console.error("Failed to load today's attendance:", err);
-            setTodayAttendanceList([]);
-            showSnack("Failed to load today's attendance", false);
-        } finally {
-            setIsLoadingTodayList(false);
         }
+        setLoadingReport(false);
+    }, [reportFrom, reportTo, reportCategory, reportStatus, academicYear]);
+
+    useEffect(() => {
+        if (tab === "reports") loadReport();
+    }, [tab, loadReport]);
+
+    /* The per-person view pulls two independent reads for the same window: the full
+       report (calendar + daily log) and the attendance/leave summary. The summary is
+       best-effort — it needs the roll number to exist in `users`, which a register row
+       does not guarantee, so a failure there leaves the panel out instead of erroring. */
+    const openFullReport = async (row) => {
+        setReportViewStaff(row);
+        setFullReport(null);
+        setPersonSummary(null);
+        setLoadingFullReport(true);
+
+        const [detail, summary] = await Promise.all([
+            fetchLeaveFullReport({ rollNumber: row.rollNumber, fromDate: reportFrom, toDate: reportTo }),
+            fetchAttendanceLeaveSummary({
+                rollNumber: row.rollNumber,
+                academicYear,
+                fromDate: reportFrom,
+                toDate: reportTo,
+            }),
+        ]);
+
+        if (detail.ok) setFullReport(detail);
+        else showSnack(detail.message, false);
+        if (summary.ok) setPersonSummary(summary);
+        setLoadingFullReport(false);
     };
 
-    const handleTabChange = (_e, newValue) => setTabValue(newValue);
-
-    // ─── Biometric Sync ────────────────────────────────────────────────────
-    // Stop the loader: cleans up the safety timeout + flips isSyncing off.
-    const stopSyncLoader = () => {
-        setIsSyncing(false);
-        setSyncStartedAt(null);
-        if (syncTimeoutRef.current) {
-            clearTimeout(syncTimeoutRef.current);
-            syncTimeoutRef.current = null;
-        }
+    /* Downloads exactly what the register returned — every column the API sends,
+       including the ones the table abbreviates. */
+    const exportReportCsv = () => {
+        const headers = [
+            "S.No", "Staff Member", "Roll Number", "Biometric ID", "Category",
+            "Working Days", "Present", "Late", "Absent", "Leave", "Attendance %",
+        ];
+        const escape = (value) => {
+            const text = String(value ?? "");
+            return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+        };
+        const lines = [
+            headers.join(","),
+            ...report.summary.map((row) =>
+                [
+                    row.sNo, row.staffMember, row.rollNumber, row.biometricId ?? "", row.category,
+                    row.workingDays, row.present, row.late, row.absent, row.leave, row.attendancePercent,
+                ]
+                    .map(escape)
+                    .join(",")
+            ),
+        ];
+        const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `attendance-report-${reportFrom}-to-${reportTo}.csv`;
+        link.click();
+        URL.revokeObjectURL(url);
     };
 
-    // GET SyncStatus — pulls latest status of the biometric worker + device.
-    const fetchSyncStatus = async () => {
-        try {
-            const res = await axios.get(SyncStatus, {
-                headers: { Authorization: `Bearer ${token}` },
+    // ─── Audit trail ↔ GetTeachersAttendanceAudit ───
+    /* A day nobody has edited answers 404, which the api layer turns into an empty list
+       plus the server's own wording — shown as a note rather than as an error. */
+    const openAudit = async ({ rollNumber, name, date }) => {
+        setAuditFor({ rollNumber, name, date });
+        setAuditEntries([]);
+        setAuditNote("");
+        setLoadingAudit(true);
+        const result = await fetchAttendanceAudit({ rollNumber, date });
+        if (!result.ok) {
+            showSnack(result.message, false);
+            setAuditFor(null);
+        } else {
+            setAuditEntries(result.entries);
+            setAuditNote(result.entries.length ? "" : result.message || "No changes recorded for this day.");
+        }
+        setLoadingAudit(false);
+    };
+
+    const actOnLeave = async (row, action, reason = "") => {
+        setActioningId(row.leaveApplicationId);
+        const result = await updateLeaveAction({
+            leaveApplicationId: row.leaveApplicationId,
+            rollNumber: authUser.rollNumber,
+            action,
+            reason,
+            academicYear,
+        });
+        showSnack(result.message, result.ok);
+        setActioningId(null);
+        if (result.ok) {
+            setDeclineFor(null);
+            setDeclineReason("");
+            loadApprovalQueue();
+        }
+    };
+    const [records, setRecords] = useState([]);
+
+    // ─── Manual entry (Add Attendance tab) ───
+    const [entryDate, setEntryDate] = useState(() => toDateValue(new Date()));
+    const [entryRole, setEntryRole] = useState("Teacher");
+    const [entrySearch, setEntrySearch] = useState("");
+    const [entryPanel, setEntryPanel] = useState("punch"); // punch | break
+    // Recorded on every audit row the save creates
+    const [entryReason, setEntryReason] = useState("");
+
+    // ─── Add Attendance ↔ roster + manual post ───
+    const [roster, setRoster] = useState([]);
+    const [loadingRoster, setLoadingRoster] = useState(false);
+    const [savingAttendance, setSavingAttendance] = useState(false);
+
+    // The roster route needs a concrete UserType, so the role filter maps onto it
+    const rosterUserType = entryRole === "Teacher" ? "teacher" : entryRole === "Support Staff" ? "admin" : "staff";
+
+    const loadRoster = useCallback(async () => {
+        setLoadingRoster(true);
+        const result = await fetchAttendanceRoster({ academicYear, userType: rosterUserType });
+        if (!result.ok) showSnack(result.message, false);
+        else setRoster(result.staff);
+        setLoadingRoster(false);
+    }, [academicYear, rosterUserType]);
+
+    useEffect(() => {
+        if (tab === "add") loadRoster();
+    }, [tab, loadRoster]);
+    const [sameTimeForAll, setSameTimeForAll] = useState(false);
+    const [sharedTimes, setSharedTimes] = useState({ checkIn: "", checkOut: "" });
+    const [bulkAnchor, setBulkAnchor] = useState(null);
+    const [noteFor, setNoteFor] = useState(null);
+    // Keyed by staff id — only rows the user has touched appear here
+    const [entries, setEntries] = useState({});
+
+    const entryOf = (staffId) =>
+        entries[staffId] || { status: "", checkIn: "", checkOut: "", breaks: [], note: "" };
+
+    const patchEntry = (staffId, patch) =>
+        setEntries((prev) => ({ ...prev, [staffId]: { ...entryOf(staffId), ...patch } }));
+
+    // ─── Break helpers ───
+    const addBreak = (staffId, preset) => {
+        const list = entryOf(staffId).breaks;
+        const nextId = list.length ? Math.max(...list.map((b) => b.id)) + 1 : 1;
+        patchEntry(staffId, {
+            breaks: [...list, { id: nextId, out: preset?.out || "", in: preset?.in || "" }],
+        });
+    };
+
+    const updateBreak = (staffId, breakId, field, value) =>
+        patchEntry(staffId, {
+            breaks: entryOf(staffId).breaks.map((item) =>
+                item.id === breakId ? { ...item, [field]: value } : item
+            ),
+        });
+
+    const removeBreak = (staffId, breakId) =>
+        patchEntry(staffId, { breaks: entryOf(staffId).breaks.filter((item) => item.id !== breakId) });
+
+    // The roster is already scoped by UserType server-side; search filters what came back.
+    // `id` keys the local edit state and is the roll number, since that is what the API keys on.
+    const entryStaff = roster
+        .map((row) => ({
+            id: row.rollNumber,
+            rollNumber: row.rollNumber,
+            name: row.name,
+            employeeId: row.biometricId || row.BiometricId || "",
+            category: row.userType || row.UserType || "",
+        }))
+        .filter((row) => {
+            const term = entrySearch.trim().toLowerCase();
+            if (!term) return true;
+            return row.name.toLowerCase().includes(term) || String(row.rollNumber).toLowerCase().includes(term);
+        });
+
+    const entryCountOf = (status) =>
+        entryStaff.filter((row) => entryOf(row.id).status === status).length;
+
+    const punchedCount = entryStaff.filter((row) => {
+        const value = entryOf(row.id);
+        return Boolean(value.checkIn || value.checkOut);
+    }).length;
+
+    const breakCount = entryStaff.filter((row) => entryOf(row.id).breaks.length > 0).length;
+
+    const applyBulkStatus = (status) => {
+        setEntries((prev) => {
+            const updated = { ...prev };
+            entryStaff.forEach((row) => {
+                updated[row.id] = { ...entryOf(row.id), status };
             });
-            if (res?.data && !res.data.error) {
-                setSyncStatus(res.data);
-                // If we were waiting for a sync to finish and the backend says it's done,
-                // close the loader + refresh dashboard so the new punches show.
-                if (isSyncing && res.data.isPending === false) {
-                    stopSyncLoader();
-                    fetchTodaysAttendance();
-                    showSnack('Sync completed — attendance data refreshed', true);
-                }
-            }
-        } catch (err) {
-            console.error('SyncStatus fetch failed:', err);
-        }
+            return updated;
+        });
+        setBulkAnchor(null);
     };
 
-    // POST TriggerManualSync — kicks off a sync from the chosen "from date"
-    // through to today. The user only picks the FROM date; the TO date is
-    // always the current date so we catch everything missed up to now.
-    const handleTriggerManualSync = async () => {
-        if (!manualSyncDate) {
-            showSnack('Please pick a from-date to sync', false);
+    const clearAllEntries = () => {
+        setEntries({});
+        setSharedTimes({ checkIn: "", checkOut: "" });
+        setBulkAnchor(null);
+    };
+
+    const useCurrentTime = () => {
+        const now = toTimeValue(new Date());
+        if (sameTimeForAll) {
+            setSharedTimes((prev) => ({ ...prev, checkIn: now }));
             return;
         }
-        const todayIso = new Date().toISOString().split('T')[0];
-        setIsTriggering(true);
-        try {
-            const res = await axios.post(TriggerManualSync, null, {
-                params: { fromDate: manualSyncDate, toDate: todayIso },
-                headers: { Authorization: `Bearer ${token}` },
+        setEntries((prev) => {
+            const updated = { ...prev };
+            entryStaff.forEach((row) => {
+                const current = entryOf(row.id);
+                if (current.status === "Absent" || current.status === "On Leave") return;
+                updated[row.id] = { ...current, checkIn: now };
             });
-            if (res?.data && res.data.error) {
-                showSnack(res.data.message || 'Failed to trigger sync', false);
-            } else {
-                // Open the blocking loader. The polling watcher will close it when isPending=false.
-                setManualSyncOpen(false);
-                setIsSyncing(true);
-                setSyncStartedAt(Date.now());
-                showSnack('Sync started — fetching previous punches from device…', true);
-                // Safety timeout: force-close after 90s even if backend never flips isPending.
-                if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
-                syncTimeoutRef.current = setTimeout(() => {
-                    stopSyncLoader();
-                    fetchTodaysAttendance();
-                    showSnack('Sync still running in the background — refreshing now', true);
-                }, SYNC_TIMEOUT_MS);
-                // Trigger an immediate status fetch so the UI reflects the new lastTriggeredAt.
-                fetchSyncStatus();
-            }
-        } catch (err) {
-            console.error('TriggerManualSync failed:', err);
-            const msg = err?.response?.data?.message || 'Failed to trigger sync';
-            showSnack(msg, false);
-        } finally {
-            setIsTriggering(false);
-        }
+            return updated;
+        });
     };
 
-    // Polling guard — SyncStatus only runs when ALL of these hold:
-    //   1. The user is an admin / superadmin (existing rule)
-    //   2. The user is currently on the Dashboard tab (tab index 0). The
-    //      Sync Worker (PC) + Biometric Reachability tiles that consume this
-    //      data only render on the dashboard, so polling on any other tab is
-    //      wasted backend load.
-    const isDashboardTab = tabValue === 0;
-    const shouldPollSyncStatus = isAdminUser && isDashboardTab;
+    // With "same time for all" on, every row reads from the shared fields
+    const resolvedTime = (staffId, field) => (sameTimeForAll ? sharedTimes[field] : entryOf(staffId)[field]);
 
-    // Fetch the Today's Attendance list whenever the tab becomes active OR the
-    // academic year changes. Both the Dashboard (preview, top 10) and the
-    // Today's Attendance tab (full list) share the same fetch + state.
-    useEffect(() => {
-        if (tabValue === 0 || tabValue === 2) {
-            fetchTodaysAttendance();
+    const setResolvedTime = (staffId, field, value) => {
+        if (sameTimeForAll) setSharedTimes((prev) => ({ ...prev, [field]: value }));
+        else patchEntry(staffId, { [field]: value });
+    };
+
+    const saveManualAttendance = async () => {
+        // A row with only a time and no status is still valid — the server keeps the
+        // existing status when Status is omitted
+        const touched = entryStaff.filter((row) => {
+            const value = entryOf(row.id);
+            return value.status || value.checkIn || value.checkOut || value.breaks?.length;
+        });
+        if (!touched.length) return;
+        if (!authUser?.rollNumber) {
+            showSnack("Cannot save: no signed-in user found.", false);
+            return;
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [tabValue, selectedAcademicYear]);
 
-    // Initial fetch + polling — admin/superadmin AND on the Dashboard tab only.
-    // Switching to any other tab tears down the poll; switching back re-fires it.
-    useEffect(() => {
-        if (!shouldPollSyncStatus) return;
-        fetchSyncStatus();
-        return () => {
-            if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-            if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
-        };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [shouldPollSyncStatus]);
+        setSavingAttendance(true);
+        const result = await postManualAttendance({
+            editorRollNumber: authUser.rollNumber,
+            date: entryDate,
+            academicYear,
+            reason: entryReason,
+            items: touched.map((row) => {
+                const value = entryOf(row.id);
+                return {
+                    rollNumber: row.rollNumber,
+                    employeeId: row.employeeId,
+                    status: value.status,
+                    loginTime: resolvedTime(row.id, "checkIn"),
+                    logoutTime: resolvedTime(row.id, "checkOut"),
+                    breaks: value.breaks,
+                };
+            }),
+        });
 
-    useEffect(() => {
-        if (!shouldPollSyncStatus) return;
-        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-        const interval = isSyncing ? POLL_INTERVAL_BUSY : POLL_INTERVAL_IDLE;
-        pollIntervalRef.current = setInterval(fetchSyncStatus, interval);
-        return () => clearInterval(pollIntervalRef.current);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isSyncing, shouldPollSyncStatus]);
+        if (result.ok) {
+            // The response is per-item, so name anything the server skipped
+            const failed = (result.results || []).filter((item) => item.ok === false);
+            showSnack(
+                failed.length
+                    ? `${result.saved} saved, ${failed.length} skipped — ${failed[0].rollNumber}: ${failed[0].message}`
+                    : result.message,
+                !failed.length
+            );
+            if (!failed.length) {
+                setEntries({});
+                setTab("today");
+            }
+        } else {
+            // Unassigned shift and payroll-locked months both land here, and both name
+            // the fix in the message
+            showSnack(result.message, false);
+        }
+        setSavingAttendance(false);
+    };
 
-    // ─── Idle redirect ─────────────────────────────────────────────────────
-    // If the user doesn't touch the page for IDLE_TIMEOUT_MS we route them
-    // away to /dashboardmenu/dashboard, which unmounts this component and
-    // tears down the SyncStatus polling. Saves backend load when people
-    // leave a tab open in the corner of their screen all day.
-    //
-    // Same guard as polling: only matters when we'd actually be polling, i.e.
-    // an admin sitting on the Dashboard tab. On other tabs there's no poll
-    // to suppress, so the redirect would just be obnoxious.
-    useEffect(() => {
-        if (!shouldPollSyncStatus) return;
+    // KPI figures are derived from the records so they never drift apart
+    const countOf = (status) => records.filter((r) => r.status === status).length;
+    const kpis = [
+        { label: "PRESENT", value: countOf("Present"), total: TOTAL_STAFF, icon: CheckCircleIcon, tone: GREEN },
+        { label: "ABSENT", value: countOf("Absent"), icon: CancelIcon, tone: RED },
+        { label: "LATE", value: countOf("Late"), icon: AccessTimeIcon, tone: AMBER },
+        { label: "ON LEAVE", value: countOf("On Leave"), icon: EventAvailableIcon, tone: BLUE },
+    ];
 
-        let idleTimer = null;
-        const resetIdle = () => {
-            if (idleTimer) clearTimeout(idleTimer);
-            idleTimer = setTimeout(() => {
-                // Don't yank an admin away mid-sync — they need to wait it out.
-                if (isSyncing) {
-                    resetIdle(); // give them another full window
-                    return;
-                }
-                navigate('/dashboardmenu/dashboard');
-            }, IDLE_TIMEOUT_MS);
-        };
+    const query = search.trim().toLowerCase();
+    const filteredRecords = records.filter((row) =>
+        !query
+            ? true
+            : [row.name, row.role, row.source, row.status].some((value) =>
+                  String(value).toLowerCase().includes(query)
+              )
+    );
 
-        IDLE_EVENTS.forEach((evt) => window.addEventListener(evt, resetIdle, { passive: true }));
-        resetIdle(); // start the timer
+    const quickNav = [
+        { title: "Today's Attendance", desc: "Logins of all staff today", tone: BLUE, icon: CalendarMonthOutlinedIcon, target: "today" },
+        { title: "Overview", desc: "Monthly attendance trends", tone: PURPLE, icon: VisibilityOutlinedIcon, target: "overview" },
+        { title: "Leave Management", desc: "Requests waiting for approval", tone: GREEN, icon: ListAltOutlinedIcon, target: "leave" },
+        { title: "Reports", desc: "Download attendance reports", tone: AMBER, icon: BarChartOutlinedIcon, target: "reports" },
+    ];
 
-        return () => {
-            if (idleTimer) clearTimeout(idleTimer);
-            IDLE_EVENTS.forEach((evt) => window.removeEventListener(evt, resetIdle));
-        };
-    }, [shouldPollSyncStatus, isSyncing, navigate]);
+    /* ─────────────── Attendance table (shared) ─────────────── */
+    const renderAttendanceTable = () => (
+        <TableContainer>
+            <Table size="small">
+                <TableHead>
+                    <TableRow sx={{ bgcolor: GREEN.bg }}>
+                        {["S.NO", "STAFF MEMBER", "ROLE", "SOURCE", "CHECK-IN", "CHECK-OUT", "STATUS", "HISTORY"].map((head) => (
+                            <TableCell
+                                key={head}
+                                sx={{
+                                    fontSize: "11px",
+                                    fontWeight: "700",
+                                    color: "#374151",
+                                    letterSpacing: "0.5px",
+                                    borderBottom: `1px solid ${GREEN.border}`,
+                                    py: 1.4,
+                                }}
+                            >
+                                {head}
+                            </TableCell>
+                        ))}
+                    </TableRow>
+                </TableHead>
+                <TableBody>
+                    {filteredRecords.map((row, index) => (
+                        <TableRow
+                            key={row.id}
+                            hover
+                            sx={{ "&:nth-of-type(even)": { bgcolor: "#F9FAFB" } }}
+                        >
+                            <TableCell sx={{ fontSize: "13px", color: "#9CA3AF", py: 1.3 }}>{index + 1}</TableCell>
+                            <TableCell>
+                                <Box sx={{ display: "flex", alignItems: "center", gap: 1.2 }}>
+                                    <Avatar sx={{ width: 32, height: 32, bgcolor: BLUE.bg, color: BLUE.main }}>
+                                        <PersonIcon sx={{ fontSize: "18px" }} />
+                                    </Avatar>
+                                    <Typography sx={{ fontSize: "13px", fontWeight: "600", color: "#111827" }}>
+                                        {row.name}
+                                    </Typography>
+                                </Box>
+                            </TableCell>
+                            <TableCell>
+                                <Chip
+                                    label={row.role}
+                                    size="small"
+                                    sx={{
+                                        bgcolor: "#F0FDFA",
+                                        color: "#0D9488",
+                                        border: "1px solid #99F6E4",
+                                        fontWeight: "600",
+                                        fontSize: "11px",
+                                    }}
+                                />
+                            </TableCell>
+                            <TableCell>
+                                <Chip
+                                    icon={
+                                        row.source === "Biometric" ? (
+                                            <FingerprintIcon sx={{ fontSize: "14px !important", color: `${INDIGO.main} !important` }} />
+                                        ) : undefined
+                                    }
+                                    label={row.source}
+                                    size="small"
+                                    sx={{
+                                        bgcolor: INDIGO.bg,
+                                        color: INDIGO.main,
+                                        border: `1px solid ${INDIGO.border}`,
+                                        fontWeight: "600",
+                                        fontSize: "11px",
+                                    }}
+                                />
+                            </TableCell>
+                            <TableCell sx={{ fontSize: "13px", fontWeight: "700", color: "#111827" }}>
+                                {row.checkIn || "—"}
+                            </TableCell>
+                            <TableCell sx={{ fontSize: "13px", color: "#9CA3AF" }}>{row.checkOut || "—"}</TableCell>
+                            <TableCell>
+                                <StatusChip status={row.status} />
+                            </TableCell>
+                            <TableCell>
+                                {/* Who changed this person-day, and what it was before */}
+                                <Tooltip title="View change history" arrow>
+                                    <IconButton
+                                        size="small"
+                                        onClick={() =>
+                                            openAudit({
+                                                rollNumber: row.rollNumber,
+                                                name: row.name,
+                                                date: row.date || toDateValue(today),
+                                            })
+                                        }
+                                    >
+                                        <ManageHistoryOutlinedIcon sx={{ fontSize: "17px", color: "#9CA3AF" }} />
+                                    </IconButton>
+                                </Tooltip>
+                            </TableCell>
+                        </TableRow>
+                    ))}
+                    {filteredRecords.length === 0 && (
+                        <TableRow>
+                            <TableCell colSpan={8} sx={{ textAlign: "center", py: 5, color: "#9CA3AF", fontSize: "13px" }}>
+                                {loadingRecords ? "Loading attendance…" : "No attendance records match your search"}
+                            </TableCell>
+                        </TableRow>
+                    )}
+                </TableBody>
+            </Table>
+        </TableContainer>
+    );
 
-    // 1Hz tick to refresh cooldown / "X seconds ago" labels (only when needed).
-    useEffect(() => {
-        const lastTrig = syncStatus?.lastTriggeredAt ? new Date(syncStatus.lastTriggeredAt).getTime() : 0;
-        const cooldownEnds = lastTrig + SYNC_COOLDOWN_MS;
-        const inCooldown = cooldownEnds > Date.now();
-        if (!inCooldown && !isSyncing) return;
-        const id = setInterval(() => setCooldownTick(t => t + 1), 1000);
-        return () => clearInterval(id);
-    }, [syncStatus, isSyncing]);
+    const searchAndExport = (
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, flexWrap: "wrap" }}>
+            <TextField
+                size="small"
+                placeholder="Search..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                sx={{
+                    ...inputSx,
+                    minWidth: "220px",
+                    "& .MuiOutlinedInput-root": { borderRadius: "50px", fontSize: "13.5px", bgcolor: "#fff" },
+                }}
+                slotProps={{
+                    input: {
+                        startAdornment: (
+                            <InputAdornment position="start">
+                                <SearchIcon sx={{ fontSize: "18px", color: "#9CA3AF" }} />
+                            </InputAdornment>
+                        ),
+                    },
+                }}
+            />
+            <Button
+                startIcon={<FileDownloadOutlinedIcon />}
+                sx={{
+                    textTransform: "none",
+                    borderRadius: "8px",
+                    border: "1px solid #E5E7EB",
+                    color: "#374151",
+                    fontSize: "13px",
+                    fontWeight: "600",
+                    px: 2,
+                    "&:hover": { bgcolor: "#F9FAFB" },
+                }}
+            >
+                Export
+            </Button>
+        </Box>
+    );
 
-    // Derived sync values
-    const lastTrigTs = syncStatus?.lastTriggeredAt ? new Date(syncStatus.lastTriggeredAt).getTime() : 0;
-    const cooldownEndsAt = lastTrigTs + SYNC_COOLDOWN_MS;
-    const cooldownLeftSec = Math.max(0, Math.ceil((cooldownEndsAt - Date.now()) / 1000));
-    const inCooldown = cooldownLeftSec > 0;
-    const elapsedSec = syncStartedAt ? Math.floor((Date.now() - syncStartedAt) / 1000) : 0;
-    const isWorkerAlive = !!syncStatus?.isWorkerAlive;
-    const isDeviceReachable = !!syncStatus?.isDeviceReachable;
-    // Both devices must be online before a manual sync can be triggered.
-    const devicesOnline = isWorkerAlive && isDeviceReachable;
-    const offlineDeviceLabel = !isWorkerAlive && !isDeviceReachable
-        ? 'Worker PC and Biometric device'
-        : !isWorkerAlive ? 'Worker PC' : !isDeviceReachable ? 'Biometric device' : '';
-    const canTrigger = !isSyncing && !inCooldown && devicesOnline;
+    /* ─────────────── Dashboard tab ─────────────── */
+    const renderDashboard = () => (
+        <>
+            {/* ── Live session strip ── */}
+            <Box
+                sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 2.5,
+                    flexWrap: "wrap",
+                    p: 2,
+                    mb: 2,
+                    borderRadius: "12px",
+                    bgcolor: GREEN.bg,
+                    border: `1px solid ${GREEN.border}`,
+                }}
+            >
+                {/* Status + date, above everything else on the strip. */}
+                <Box sx={{ width: "100%", display: "flex", alignItems: "center", gap: 1.2, flexWrap: "wrap" }}>
+                    <Chip
+                        size="small"
+                        label={myStatusLabel}
+                        sx={{
+                            height: 24,
+                            bgcolor: myStatusTone.bg,
+                            color: myStatusTone.color,
+                            border: `1px solid ${myStatusTone.border}`,
+                            fontWeight: "700",
+                            fontSize: "11.5px",
+                        }}
+                    />
+                    <Typography sx={{ fontSize: "12.5px", color: "#6B7280" }}>
+                        {todayLabel}
+                    </Typography>
+                </Box>
+                <Box sx={{ position: "relative" }}>
+                    <Box
+                        sx={{
+                            width: 58,
+                            height: 58,
+                            borderRadius: "50%",
+                            bgcolor: "#fff",
+                            border: `2px solid ${GREEN.border}`,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                        }}
+                    >
+                        <Typography sx={{ fontSize: "17px", fontWeight: "700", color: GREEN.main }}>
+                            {initialsOf(myStatus?.name || authUser?.name) || "—"}
+                        </Typography>
+                    </Box>
+                    <Box
+                        sx={{
+                            position: "absolute",
+                            right: 2,
+                            bottom: 2,
+                            width: 13,
+                            height: 13,
+                            borderRadius: "50%",
+                            // green only while actually clocked in; grey otherwise
+                            bgcolor: myStatus?.isClockedIn ? GREEN.main : "#D1D5DB",
+                            border: "2px solid #fff",
+                        }}
+                    />
+                </Box>
 
+                <Box sx={{ minWidth: "200px" }}>
+                    <Typography
+                        sx={{ fontSize: "11px", fontWeight: "700", color: GREEN.main, letterSpacing: "0.7px" }}
+                    >
+                        LOGGED IN FOR
+                    </Typography>
+                    <Typography
+                        sx={{
+                            fontSize: "27px",
+                            fontWeight: "700",
+                            color: myWorked === null ? "#D1D5DB" : "#111827",
+                            fontFamily: "monospace",
+                            lineHeight: 1.2,
+                        }}
+                    >
+                        {/* An em dash, never 00:00:00, when nothing was ever punched. Zero
+                            reads as "worked nothing"; a dash reads as "no data" — the truth. */}
+                        {myWorked === null ? "—" : formatHms(myWorked)}
+                    </Typography>
+                    <Typography sx={{ fontSize: "11.5px", color: "#6B7280" }}>
+                        {myStatus?.loginTime
+                            ? `Since ${myStatus.loginTime}${myStatus.loginSource ? ` · ${myStatus.loginSource}` : ""}`
+                            : "No punch recorded today"}
+                    </Typography>
+                </Box>
 
-    // ─── Dashboard render ──────────────────────────────────────────────────
-    const renderDashboard = () => {
-        // Dashboard's Today's Attendance preview + KPI cards are both derived
-        // from GetTeachersAttendance (normalized). One fetch powers everything.
-        const todaysAttendance = todayAttendanceList;
+                {hideMyTiles ? (
+                    <Box sx={{ flex: 1, minWidth: "220px" }}>
+                        <Typography sx={{ fontSize: "13px", color: "#374151" }}>
+                            On approved leave today — no attendance is expected.
+                        </Typography>
+                    </Box>
+                ) : (
+                <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap", flex: 1 }}>
+                    <MiniStat
+                        icon={CheckCircleIcon}
+                        label="LOGIN"
+                        value={myStatus?.loginTime || "—"}
+                        tone={GREEN}
+                    />
+                    <MiniStat
+                        icon={FreeBreakfastOutlinedIcon}
+                        label="BREAK TIME"
+                        // completed breaks only — an open break would otherwise eat net hours as it ran
+                        value={myStatus?.loginTime ? formatMinutes(myStatus.breakMinutes) : "—"}
+                        tone={AMBER}
+                    />
+                    <MiniStat
+                        icon={TimerOutlinedIcon}
+                        label="NET HOURS"
+                        value={myStatus?.loginTime ? formatMinutes(myStatus.netMinutes) : "—"}
+                        tone={INDIGO}
+                    />
+                </Box>
+                )}
+            </Box>
 
-        // KPI counts derived in a single pass over the list.
-        const counts = todaysAttendance.reduce((acc, emp) => {
-            const s = (emp.status || '').toLowerCase();
-            if (s === 'present')  acc.present += 1;
-            else if (s === 'late')    acc.late    += 1;
-            else if (s === 'absent')  acc.absent  += 1;
-            else if (s === 'onleave' || s === 'on leave') acc.onLeave += 1;
-            return acc;
-        }, { present: 0, late: 0, absent: 0, onLeave: 0 });
+            <Grid container spacing={2}>
+                {/* ── Left: KPIs + today's table ── */}
+                <Grid size={{ xs: 12, sm: 12, md: 12, lg: 8.5 }}>
+                    <Grid container spacing={2} sx={{ mb: 2 }}>
+                        {kpis.map((kpi) => {
+                            const KpiIcon = kpi.icon;
+                            return (
+                                <Grid key={kpi.label} size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
+                                    <Box
+                                        sx={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "space-between",
+                                            gap: 1,
+                                            p: 2,
+                                            height: "100%",
+                                            boxSizing: "border-box",
+                                            borderRadius: "12px",
+                                            bgcolor: kpi.tone.bg,
+                                            border: `1px solid ${kpi.tone.border}`,
+                                        }}
+                                    >
+                                        <Box sx={{ minWidth: 0 }}>
+                                            <Typography
+                                                sx={{
+                                                    fontSize: "11.5px",
+                                                    fontWeight: "700",
+                                                    color: kpi.tone.main,
+                                                    letterSpacing: "0.6px",
+                                                }}
+                                            >
+                                                {kpi.label}
+                                            </Typography>
+                                            <Typography
+                                                sx={{ fontSize: "30px", fontWeight: "700", color: "#111827", lineHeight: 1.25 }}
+                                            >
+                                                {kpi.value}
+                                                {kpi.total !== undefined && (
+                                                    <Box
+                                                        component="span"
+                                                        sx={{ fontSize: "14px", color: "#9CA3AF", fontWeight: 500 }}
+                                                    >
+                                                        /{kpi.total}
+                                                    </Box>
+                                                )}
+                                            </Typography>
+                                        </Box>
+                                        <Box
+                                            sx={{
+                                                width: 38,
+                                                height: 38,
+                                                borderRadius: "9px",
+                                                bgcolor: "#fff",
+                                                display: "flex",
+                                                alignItems: "center",
+                                                justifyContent: "center",
+                                                flexShrink: 0,
+                                            }}
+                                        >
+                                            <KpiIcon sx={{ fontSize: "22px", color: kpi.tone.main }} />
+                                        </Box>
+                                    </Box>
+                                </Grid>
+                            );
+                        })}
+                    </Grid>
 
-        const totalStaff = todaysAttendance.length;
-        const presentCount = counts.present;
+                    <Panel>
+                        <Box
+                            sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                gap: 1.5,
+                                flexWrap: "wrap",
+                                mb: 1.8,
+                            }}
+                        >
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 1.2 }}>
+                                <Typography sx={{ fontSize: "18px", fontWeight: "700", color: "#111827" }}>
+                                    Today's Attendance
+                                </Typography>
+                                <Chip
+                                    label={`${filteredRecords.length} records`}
+                                    size="small"
+                                    sx={{ bgcolor: "#F3F4F6", color: "#6B7280", fontWeight: "600", fontSize: "11.5px" }}
+                                />
+                            </Box>
+                            {searchAndExport}
+                        </Box>
+                        {renderAttendanceTable()}
+                    </Panel>
+                </Grid>
 
-        const kpiCards = [
-            { label: 'Present',    value: presentCount,    sub: `/${totalStaff}`, color: '#059669', bg: '#ECFDF5', border: '#A7F3D0', icon: CheckCircleIcon },
-            { label: 'Absent',     value: counts.absent,                          color: '#DC2626', bg: '#FEF2F2', border: '#FECACA', icon: CancelIcon },
-            { label: 'Late',       value: counts.late,                            color: '#D97706', bg: '#FFFBEB', border: '#FDE68A', icon: AccessTimeIcon },
-            { label: 'On Leave',   value: counts.onLeave,                         color: '#2563EB', bg: '#EFF6FF', border: '#BFDBFE', icon: EventIcon },
+                {/* ── Right: leave centre + quick nav ── */}
+                <Grid size={{ xs: 12, sm: 12, md: 12, lg: 3.5 }}>
+                    <Box sx={{ mb: 2 }}>
+                        <Panel title="Leave Center" icon={EventNoteIcon} tone={GREEN}>
+                            <Box
+                                sx={{
+                                    p: 1.8,
+                                    borderRadius: "10px",
+                                    bgcolor: GREEN.bg,
+                                    border: `1px solid ${GREEN.border}`,
+                                }}
+                            >
+                                <Typography sx={{ fontSize: "14px", fontWeight: "700", color: GREEN.dark }}>
+                                    Apply for Leave
+                                </Typography>
+                                <Typography sx={{ fontSize: "12.5px", color: "#6B7280", mt: 0.4, mb: 1.8, lineHeight: 1.6 }}>
+                                    Submit a new leave request with dates and reason.
+                                </Typography>
+                                <Button
+                                    fullWidth
+                                    variant="contained"
+                                    onClick={() => navigate("/dashboardmenu/apply-leave", { state: { value: "Y" } })}
+                                    sx={{
+                                        textTransform: "none",
+                                        borderRadius: "8px",
+                                        fontSize: "13.5px",
+                                        fontWeight: "700",
+                                        py: 1.1,
+                                        bgcolor: GREEN.dark,
+                                        "&:hover": { bgcolor: "#065F46" },
+                                    }}
+                                >
+                                    Go to Apply Leave
+                                </Button>
+                            </Box>
+                        </Panel>
+                    </Box>
+
+                    <Panel title="Quick Navigation" icon={SpaceDashboardOutlinedIcon} tone={INDIGO}>
+                        {quickNav.map((item, index) => {
+                            const NavIcon = item.icon;
+                            return (
+                                <Box
+                                    key={item.title}
+                                    onClick={() => setTab(item.target)}
+                                    sx={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: 1.3,
+                                        p: 1.4,
+                                        mb: index === quickNav.length - 1 ? 0 : 1.2,
+                                        borderRadius: "10px",
+                                        border: "1px solid #E5E7EB",
+                                        cursor: "pointer",
+                                        transition: "0.2s",
+                                        "&:hover": { borderColor: item.tone.main, bgcolor: item.tone.bg },
+                                    }}
+                                >
+                                    <Box
+                                        sx={{
+                                            width: 34,
+                                            height: 34,
+                                            borderRadius: "8px",
+                                            bgcolor: item.tone.bg,
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            flexShrink: 0,
+                                        }}
+                                    >
+                                        <NavIcon sx={{ fontSize: "19px", color: item.tone.main }} />
+                                    </Box>
+                                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                                        <Typography sx={{ fontSize: "13.5px", fontWeight: "700", color: "#111827" }}>
+                                            {item.title}
+                                        </Typography>
+                                        <Typography sx={{ fontSize: "11.5px", color: "#9CA3AF" }}>{item.desc}</Typography>
+                                    </Box>
+                                    <ArrowForwardIosIcon sx={{ fontSize: "13px", color: "#D1D5DB" }} />
+                                </Box>
+                            );
+                        })}
+                    </Panel>
+                </Grid>
+            </Grid>
+        </>
+    );
+
+    /* ─────────────── Add Attendance tab ─────────────── */
+    const renderAddAttendance = () => {
+        const entryKpis = [
+            { label: "PRESENT", value: entryCountOf("Present"), icon: CheckCircleIcon, tone: GREEN },
+            { label: "LATE", value: entryCountOf("Late"), icon: AccessTimeIcon, tone: AMBER },
+            { label: "ABSENT", value: entryCountOf("Absent"), icon: SubjectIcon, tone: RED },
+            { label: "ON LEAVE", value: entryCountOf("On Leave"), icon: EventAvailableIcon, tone: BLUE },
         ];
 
-        return (
-            <Box>
-                {/* ─── Biometric Device Status + Manual Sync (admin/superadmin only) ─── */}
-                {isAdminUser && (
-                <Paper elevation={0} sx={{
-                    mb: 2, borderRadius: '12px',
-                    border: '1px solid #E5E7EB', bgcolor: '#fff',
-                    overflow: 'hidden',
-                }}>
-                    <Box sx={{ p: 1.8 }}>
-                        <Grid container spacing={1.5} alignItems="center">
-                            {/* Worker (laptop) card */}
-                            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-                                <Box sx={{
-                                    p: 1.2, borderRadius: '10px',
-                                    border: `1px solid ${isWorkerAlive ? '#A7F3D0' : '#FECACA'}`,
-                                    bgcolor: isWorkerAlive ? '#ECFDF5' : '#FEF2F2',
-                                    display: 'flex', alignItems: 'center', gap: 1.2,
-                                }}>
-                                    <Box sx={{
-                                        width: 38, height: 38, borderRadius: '10px', flexShrink: 0,
-                                        bgcolor: '#fff', border: `1px solid ${isWorkerAlive ? '#A7F3D0' : '#FECACA'}`,
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    }}>
-                                        <LaptopMacIcon sx={{ fontSize: 20, color: isWorkerAlive ? '#047857' : '#B91C1C' }} />
-                                    </Box>
-                                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
-                                            <Typography sx={{ fontSize: 13, fontWeight: 800, color: '#111827', lineHeight: 1.1 }} noWrap>
-                                                Sync Worker (PC)
-                                            </Typography>
-                                            <Chip
-                                                size="small"
-                                                icon={isWorkerAlive
-                                                    ? <CircleIcon sx={{ fontSize: '8px !important' }} />
-                                                    : <CircleIcon sx={{ fontSize: '8px !important' }} />}
-                                                label={isWorkerAlive ? 'Online' : 'Offline'}
-                                                sx={{
-                                                    height: 18, fontSize: 9.5, fontWeight: 800,
-                                                    bgcolor: '#fff',
-                                                    color: isWorkerAlive ? '#047857' : '#B91C1C',
-                                                    border: `1px solid ${isWorkerAlive ? '#A7F3D0' : '#FECACA'}`,
-                                                    '& .MuiChip-icon': { color: 'inherit', ml: '4px' },
-                                                }}
-                                            />
-                                        </Box>
-                                        <Typography sx={{ fontSize: 10.5, color: '#4B5563', mt: 0.3 }} noWrap>
-                                            Last heartbeat:{' '}
-                                            <strong>{formatRelativeTime(syncStatus?.lastHeartbeatAt)}</strong>
-                                        </Typography>
-                                    </Box>
-                                </Box>
-                            </Grid>
+        const isBreakPanel = entryPanel === "break";
+        const columns = isBreakPanel
+            ? ["#", "STAFF MEMBER", "BREAKS (OUT → IN)", "TOTAL BREAK", "BREAKS COUNT"]
+            : ["#", "STAFF MEMBER", "ROLE", "STATUS", "CHECK-IN", "CHECK-OUT", "WORKING HRS", "NOTES"];
 
-                            {/* Biometric device card */}
-                            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-                                <Box sx={{
-                                    p: 1.2, borderRadius: '10px',
-                                    border: `1px solid ${isDeviceReachable ? '#A7F3D0' : '#FECACA'}`,
-                                    bgcolor: isDeviceReachable ? '#ECFDF5' : '#FEF2F2',
-                                    display: 'flex', alignItems: 'center', gap: 1.2,
-                                }}>
-                                    <Box sx={{
-                                        width: 38, height: 38, borderRadius: '10px', flexShrink: 0,
-                                        bgcolor: '#fff', border: `1px solid ${isDeviceReachable ? '#A7F3D0' : '#FECACA'}`,
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    }}>
-                                        {isDeviceReachable
-                                            ? <FingerprintIcon sx={{ fontSize: 20, color: '#047857' }} />
-                                            : <WifiOffIcon sx={{ fontSize: 20, color: '#B91C1C' }} />}
-                                    </Box>
-                                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
-                                            <Typography sx={{ fontSize: 13, fontWeight: 800, color: '#111827', lineHeight: 1.1 }} noWrap>
-                                                Biometric Reachability
-                                            </Typography>
-                                            <Chip
-                                                size="small"
-                                                icon={<CircleIcon sx={{ fontSize: '8px !important' }} />}
-                                                label={isDeviceReachable ? 'Reachable' : 'Unreachable'}
-                                                sx={{
-                                                    height: 18, fontSize: 9.5, fontWeight: 800,
-                                                    bgcolor: '#fff',
-                                                    color: isDeviceReachable ? '#047857' : '#B91C1C',
-                                                    border: `1px solid ${isDeviceReachable ? '#A7F3D0' : '#FECACA'}`,
-                                                    '& .MuiChip-icon': { color: 'inherit', ml: '4px' },
-                                                }}
-                                            />
-                                        </Box>
-                                        <Tooltip arrow title={syncStatus?.lastDeviceError || ''}>
-                                            <Typography sx={{ fontSize: 10.5, color: '#4B5563', mt: 0.3 }} noWrap>
-                                                Last contact:{' '}
-                                                <strong>{formatRelativeTime(syncStatus?.lastDeviceContactAt)}</strong>
-                                            </Typography>
-                                        </Tooltip>
-                                    </Box>
-                                </Box>
-                            </Grid>
-
-                            {/* Sync action */}
-                            <Grid size={{ xs: 12, md: 4 }}>
-                                <Box sx={{
-                                    display: 'flex', flexDirection: 'column',
-                                    gap: 0.5, alignItems: { xs: 'stretch', md: 'flex-end' },
-                                }}>
-                                    {userType !== 'teacher' && (
-                                        <Tooltip
-                                            arrow
-                                            title={
-                                                isSyncing ? 'A sync is currently running'
-                                                : !devicesOnline ? `${offlineDeviceLabel} is offline — both must be online to sync`
-                                                : inCooldown ? `Cooldown — try again in ${formatHHMMSS(cooldownLeftSec)}`
-                                                : 'Manually sync past punches from the biometric device'
-                                            }
-                                        >
-                                            <Box sx={{ display: 'inline-flex', width: '100%', justifyContent: { md: 'flex-end' } }}>
-                                                <Button
-                                                    onClick={() => setManualSyncOpen(true)}
-                                                    disabled={!canTrigger}
-                                                    startIcon={
-                                                        isSyncing
-                                                            ? <CircularProgress size={14} sx={{ color: '#fff' }} />
-                                                            : !devicesOnline
-                                                                ? <WifiOffIcon sx={{ fontSize: 18 }} />
-                                                                : <CloudSyncIcon sx={{ fontSize: 18 }} />
-                                                    }
-                                                    sx={{
-                                                        textTransform: 'none',
-                                                        bgcolor: '#4338CA', color: '#fff',
-                                                        borderRadius: '10px',
-                                                        fontSize: 13, fontWeight: 700,
-                                                        px: 2.5, height: 38,
-                                                        boxShadow: '0 4px 12px rgba(67,56,202,0.35)',
-                                                        '&:hover': {
-                                                            bgcolor: '#3730A3',
-                                                            boxShadow: '0 6px 16px rgba(67,56,202,0.5)',
-                                                        },
-                                                        '&.Mui-disabled': {
-                                                            bgcolor: '#E5E7EB', color: '#9CA3AF', boxShadow: 'none',
-                                                        },
-                                                    }}
-                                                >
-                                                    {isSyncing
-                                                        ? 'Syncing…'
-                                                        : !devicesOnline
-                                                            ? 'Device Offline'
-                                                            : inCooldown
-                                                                ? `Cooldown ${formatHHMMSS(cooldownLeftSec)}`
-                                                                : 'Sync Last Data'}
-                                                </Button>
-                                            </Box>
-                                        </Tooltip>
-                                    )}
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: '#6B7280', flexWrap: 'wrap', justifyContent: { md: 'flex-end' } }}>
-                                        <HistoryToggleOffIcon sx={{ fontSize: 13, color: '#9CA3AF' }} />
-                                        <Typography sx={{ fontSize: 10.5 }}>
-                                            Last triggered:{' '}
-                                            <strong style={{ color: '#374151' }}>
-                                                {syncStatus?.lastTriggeredAt
-                                                    ? formatRelativeTime(syncStatus.lastTriggeredAt)
-                                                    : 'never'}
-                                            </strong>
-                                        </Typography>
-                                    </Box>
-                                </Box>
-                            </Grid>
-                        </Grid>
+        /* Name + staff id cell, shared by both panels */
+        const staffCell = (row) => {
+            const tone = avatarToneOf(row.id);
+            return (
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1.2 }}>
+                    <Avatar
+                        sx={{
+                            width: 34,
+                            height: 34,
+                            bgcolor: tone.bg,
+                            color: tone.color,
+                            fontSize: "12px",
+                            fontWeight: "700",
+                        }}
+                    >
+                        {initialsOf(row.name)}
+                    </Avatar>
+                    <Box sx={{ minWidth: 0 }}>
+                        <Typography sx={{ fontSize: "13.5px", fontWeight: "700", color: "#111827", lineHeight: 1.3 }}>
+                            {row.name}
+                        </Typography>
+                        <Typography sx={{ fontSize: "11.5px", color: "#9CA3AF" }}>{row.rollNumber}</Typography>
                     </Box>
-                </Paper>
-                )}
+                </Box>
+            );
+        };
 
-                {/* ─── My Attendance Today (personal ticker + break tracking) ─── */}
-                <Paper elevation={0} sx={{
-                    mb: 2,
-                    borderRadius: '12px',
-                    border: `1px solid ${PRIMARY_BORDER}`,
-                    bgcolor: '#fff',
-                    overflow: 'hidden',
-                    background: `linear-gradient(135deg, ${PRIMARY_LIGHT} 0%, #fff 55%)`,
-                }}>
-                    <Box sx={{ p: 1.8 }}>
-                        <Grid container spacing={1.5} alignItems="center">
-                            {/* Left: avatar + live ticker */}
-                            <Grid size={{ xs: 12, md: 4 }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                    <Box sx={{ position: 'relative' }}>
-                                        <Avatar sx={{
-                                            width: 52, height: 52,
-                                            bgcolor: '#fff',
-                                            color: PRIMARY_DARK,
-                                            fontWeight: 800,
-                                            fontSize: '16px',
-                                            border: `2px solid ${PRIMARY_BORDER}`,
-                                        }}>
-                                            {getInitials(user.name || 'You')}
-                                        </Avatar>
-                                        {/* Active status pulse dot */}
-                                        <Box sx={{
-                                            position: 'absolute',
-                                            bottom: -2, right: -2,
-                                            width: 14, height: 14, borderRadius: '50%',
-                                            bgcolor: '#22C55E',
-                                            border: '2px solid #fff',
-                                            boxShadow: `0 0 0 4px #DCFCE7`,
-                                            animation: 'pulse 1.6s infinite',
-                                            '@keyframes pulse': {
-                                                '0%, 100%': { transform: 'scale(1)', opacity: 1 },
-                                                '50%': { transform: 'scale(1.12)', opacity: 0.85 },
-                                            },
-                                        }} />
+        const markedCount = entryStaff.filter((row) => entryOf(row.id).status).length;
+
+        return (
+            <>
+                {/* ── Screen header + date ── */}
+                <Box
+                    sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 2,
+                        flexWrap: "wrap",
+                        p: 2,
+                        mb: 2,
+                        bgcolor: "#fff",
+                        border: "1px solid #E5E7EB",
+                        borderRadius: "12px",
+                    }}
+                >
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.4, minWidth: 0 }}>
+                        <Box
+                            sx={{
+                                width: 40,
+                                height: 40,
+                                borderRadius: "10px",
+                                bgcolor: GREEN.bg,
+                                border: `1px solid ${GREEN.border}`,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                flexShrink: 0,
+                            }}
+                        >
+                            <GroupsIcon sx={{ fontSize: "21px", color: GREEN.main }} />
+                        </Box>
+                        <Box sx={{ minWidth: 0 }}>
+                            <Typography sx={{ fontSize: "18px", fontWeight: "700", color: "#111827", lineHeight: 1.25 }}>
+                                Mark Staff Attendance
+                            </Typography>
+                            <Typography sx={{ fontSize: "12.5px", color: "#6B7280" }}>Manual entry · Today</Typography>
+                        </Box>
+                    </Box>
+
+                    <TextField
+                        size="small"
+                        type="date"
+                        value={entryDate}
+                        onChange={(e) => setEntryDate(e.target.value)}
+                        sx={{ ...inputSx, minWidth: "215px" }}
+                        slotProps={{
+                            input: {
+                                startAdornment: (
+                                    <InputAdornment position="start">
+                                        <CalendarMonthOutlinedIcon sx={{ fontSize: "18px", color: GREEN.main }} />
+                                    </InputAdornment>
+                                ),
+                            },
+                        }}
+                    />
+                </Box>
+
+                {/* ── Manual entry notice ── */}
+                <Box
+                    sx={{
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: 1.5,
+                        p: 2,
+                        mb: 2,
+                        borderRadius: "12px",
+                        bgcolor: BLUE.bg,
+                        border: `1px solid ${BLUE.border}`,
+                    }}
+                >
+                    <Box
+                        sx={{
+                            width: 34,
+                            height: 34,
+                            borderRadius: "9px",
+                            bgcolor: INDIGO.bg,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            flexShrink: 0,
+                        }}
+                    >
+                        <FingerprintIcon sx={{ fontSize: "19px", color: INDIGO.main }} />
+                    </Box>
+                    <Box sx={{ minWidth: 0 }}>
+                        <Typography sx={{ fontSize: "13.5px", fontWeight: "700", color: INDIGO.main }}>
+                            Manual Entry Mode · Biometric Fallback
+                        </Typography>
+                        <Typography sx={{ fontSize: "12.5px", color: "#374151", lineHeight: 1.7, mt: 0.3 }}>
+                            Use this screen{" "}
+                            <strong>only when the biometric device is offline or to correct existing punches</strong>.
+                            All check-in / check-out and break records are tagged{" "}
+                            <Box
+                                component="span"
+                                sx={{
+                                    px: 0.8,
+                                    py: 0.2,
+                                    mx: 0.3,
+                                    borderRadius: "4px",
+                                    bgcolor: "#DBEAFE",
+                                    color: INDIGO.main,
+                                    fontFamily: "monospace",
+                                    fontSize: "11.5px",
+                                    fontWeight: 700,
+                                }}
+                            >
+                                source: manual
+                            </Box>{" "}
+                            {/* The editor is whoever is signed in — this is the roll number the
+                                save sends as EditorRollNumber and every audit row is filed under */}
+                            and audit-logged against <strong>{authUser?.rollNumber || "the signed-in user"}</strong>.
+                        </Typography>
+                    </Box>
+                </Box>
+
+                {/* ── Live counts ── */}
+                <Grid container spacing={2} sx={{ mb: 2 }}>
+                    {entryKpis.map((kpi) => {
+                        const KpiIcon = kpi.icon;
+                        return (
+                            <Grid key={kpi.label} size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
+                                <Box
+                                    sx={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "space-between",
+                                        gap: 1,
+                                        p: 2,
+                                        height: "100%",
+                                        boxSizing: "border-box",
+                                        borderRadius: "12px",
+                                        bgcolor: kpi.tone.bg,
+                                        border: `1px solid ${kpi.tone.border}`,
+                                    }}
+                                >
+                                    <Box sx={{ minWidth: 0 }}>
+                                        <Typography
+                                            sx={{
+                                                fontSize: "11.5px",
+                                                fontWeight: "700",
+                                                color: kpi.tone.main,
+                                                letterSpacing: "0.6px",
+                                            }}
+                                        >
+                                            {kpi.label}
+                                        </Typography>
+                                        <Typography
+                                            sx={{ fontSize: "30px", fontWeight: "700", color: "#111827", lineHeight: 1.25 }}
+                                        >
+                                            {kpi.value}
+                                        </Typography>
                                     </Box>
-                                    <Box sx={{ minWidth: 0, flex: 1 }}>
-                                        <Typography sx={{
-                                            fontSize: '10px', color: PRIMARY_DARK, fontWeight: 700,
-                                            textTransform: 'uppercase', letterSpacing: 0.6,
-                                        }}>
-                                            Logged In For
-                                        </Typography>
-                                        <Typography sx={{
-                                            fontSize: '26px', fontWeight: 800, color: PRIMARY_DARK,
-                                            fontFamily: 'monospace', lineHeight: 1.05, letterSpacing: 1,
-                                        }}>
-                                            {loggedInDur.hhmmss}
-                                        </Typography>
-                                        <Typography sx={{ fontSize: '10.5px', color: '#4B5563', mt: 0.2 }}>
-                                            Since <strong>{formatTimeOfDay(loginTime)}</strong> · Punches synced from device
-                                        </Typography>
+                                    <Box
+                                        sx={{
+                                            width: 38,
+                                            height: 38,
+                                            borderRadius: "9px",
+                                            bgcolor: "#fff",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            flexShrink: 0,
+                                        }}
+                                    >
+                                        <KpiIcon sx={{ fontSize: "21px", color: kpi.tone.main }} />
                                     </Box>
                                 </Box>
                             </Grid>
+                        );
+                    })}
+                </Grid>
 
-                            {/* Right: mini stats (fills the space left by the action buttons) */}
-                            <Grid size={{ xs: 12, md: 8 }}>
-                                <Grid container spacing={1}>
-                                    {[
-                                        { label: 'Login',      value: formatTimeOfDay(loginTime),                                                color: '#059669', icon: CheckCircleIcon,    bg: '#ECFDF5', border: '#A7F3D0' },
-                                        { label: 'Break Time', value: breakDur.h > 0 ? `${breakDur.h}h ${breakDur.m}m` : `${breakDur.m}m`,        color: '#D97706', icon: LocalCafeIcon,      bg: '#FFFBEB', border: '#FDE68A' },
-                                        { label: 'Net Hours',  value: netWorkDur.h > 0 ? `${netWorkDur.h}h ${netWorkDur.m}m` : `${netWorkDur.m}m`, color: '#4338CA', icon: TimerOutlinedIcon,  bg: '#EEF2FF', border: '#C7D2FE' },
-                                    ].map((s) => {
-                                        const SIcon = s.icon;
-                                        return (
-                                            <Grid size={4} key={s.label}>
-                                                <Box sx={{
-                                                    p: 1, borderRadius: '10px',
-                                                    bgcolor: s.bg, border: `1px solid ${s.border}`,
-                                                    display: 'flex', alignItems: 'center', gap: 0.8,
-                                                }}>
-                                                    <Box sx={{
-                                                        width: 28, height: 28, borderRadius: '8px',
-                                                        bgcolor: '#fff', border: `1px solid ${s.border}`,
-                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                        flexShrink: 0,
-                                                    }}>
-                                                        <SIcon sx={{ fontSize: 16, color: s.color }} />
-                                                    </Box>
-                                                    <Box sx={{ minWidth: 0 }}>
-                                                        <Typography sx={{
-                                                            fontSize: '9.5px', color: s.color, fontWeight: 700,
-                                                            textTransform: 'uppercase', letterSpacing: 0.4, lineHeight: 1.1,
-                                                        }}>
-                                                            {s.label}
-                                                        </Typography>
-                                                        <Typography sx={{
-                                                            fontSize: '13px', fontWeight: 700, color: '#111827',
-                                                            lineHeight: 1.1, mt: 0.2,
-                                                        }} noWrap>
-                                                            {s.value}
-                                                        </Typography>
-                                                    </Box>
-                                                </Box>
-                                            </Grid>
-                                        );
-                                    })}
-                                </Grid>
-                            </Grid>
+                {/* ── Filters ── */}
+                <Box
+                    sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1.5,
+                        flexWrap: "wrap",
+                        mb: 1.5,
+                    }}
+                >
+                    <TextField
+                        size="small"
+                        placeholder="Search staff name or ID..."
+                        value={entrySearch}
+                        onChange={(e) => setEntrySearch(e.target.value)}
+                        sx={{
+                            minWidth: "260px",
+                            "& .MuiOutlinedInput-root": { borderRadius: "50px", fontSize: "13.5px", bgcolor: "#fff" },
+                        }}
+                        slotProps={{
+                            input: {
+                                startAdornment: (
+                                    <InputAdornment position="start">
+                                        <SearchIcon sx={{ fontSize: "18px", color: "#9CA3AF" }} />
+                                    </InputAdornment>
+                                ),
+                            },
+                        }}
+                    />
 
-                        </Grid>
+                    <TextField
+                        select
+                        size="small"
+                        value={entryRole}
+                        onChange={(e) => setEntryRole(e.target.value)}
+                        sx={{
+                            minWidth: "180px",
+                            "& .MuiOutlinedInput-root": { borderRadius: "50px", fontSize: "13.5px", bgcolor: "#fff" },
+                        }}
+                    >
+                        {ROLE_FILTERS.map((role) => (
+                            <MenuItem key={role} value={role} sx={{ fontSize: "13.5px" }}>
+                                {role}
+                            </MenuItem>
+                        ))}
+                    </TextField>
 
-                        {/* Today's breaks chips */}
-                        {breaks.length > 0 && (
-                            <Box sx={{ mt: 1.5, pt: 1.2, borderTop: `1px dashed ${PRIMARY_BORDER}` }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.6, flexWrap: 'wrap' }}>
-                                    <Typography sx={{
-                                        fontSize: '10px', color: '#6B7280', fontWeight: 700,
-                                        textTransform: 'uppercase', letterSpacing: 0.5,
-                                    }}>
-                                        Today's Breaks
-                                    </Typography>
-                                    <Chip
-                                        label={`${breaks.length} · ${breakDur.h > 0 ? `${breakDur.h}h ` : ''}${breakDur.m}m total`}
-                                        size="small"
-                                        sx={{ height: 18, fontSize: '9.5px', fontWeight: 700, bgcolor: '#F3F4F6', color: '#374151' }}
-                                    />
-                                </Box>
-                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.6 }}>
-                                    {breaks.map((b, idx) => {
-                                        const dur = formatDuration(b.end - b.start);
-                                        return (
-                                            <Chip
-                                                key={idx}
-                                                icon={<LocalCafeIcon sx={{ fontSize: '12px !important' }} />}
-                                                label={`${formatTimeOfDay(b.start)} → ${formatTimeOfDay(b.end)} · ${dur.h > 0 ? `${dur.h}h ` : ''}${dur.m}m`}
-                                                size="small"
-                                                sx={{
-                                                    height: 22, fontSize: '10.5px', fontWeight: 600,
-                                                    bgcolor: '#FFFBEB', color: '#92400E',
-                                                    border: '1px solid #FDE68A',
-                                                    '& .MuiChip-icon': { color: '#D97706', ml: '6px' },
-                                                }}
-                                            />
-                                        );
-                                    })}
-                                </Box>
+                    <Button
+                        startIcon={<DoneAllIcon />}
+                        endIcon={<MoreHorizIcon />}
+                        onClick={(e) => setBulkAnchor(e.currentTarget)}
+                        sx={{
+                            textTransform: "none",
+                            borderRadius: "50px",
+                            border: "1px solid #E5E7EB",
+                            bgcolor: "#fff",
+                            color: "#374151",
+                            fontSize: "13.5px",
+                            fontWeight: "600",
+                            px: 2.2,
+                            py: 0.9,
+                            "&:hover": { bgcolor: "#F9FAFB" },
+                        }}
+                    >
+                        Bulk Actions
+                    </Button>
+
+                    <Menu anchorEl={bulkAnchor} open={Boolean(bulkAnchor)} onClose={() => setBulkAnchor(null)}>
+                        {ATTENDANCE_STATUSES.map((status) => (
+                            <MenuItem key={status} onClick={() => applyBulkStatus(status)} sx={{ fontSize: "13.5px" }}>
+                                Mark all as {status}
+                            </MenuItem>
+                        ))}
+                        <MenuItem onClick={clearAllEntries} sx={{ fontSize: "13.5px", color: RED.main }}>
+                            Clear all
+                        </MenuItem>
+                    </Menu>
+
+                    <Box sx={{ flex: 1 }} />
+
+                    <Typography sx={{ fontSize: "13px", color: "#9CA3AF" }}>
+                        {entryStaff.length} members
+                    </Typography>
+                </Box>
+
+                {/* ── Shared time controls ── */}
+                <Box
+                    sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 1.5,
+                        flexWrap: "wrap",
+                        px: 2,
+                        py: 1.2,
+                        mb: 2,
+                        bgcolor: "#fff",
+                        border: "1px solid #E5E7EB",
+                        borderRadius: "12px",
+                    }}
+                >
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                        <Switch
+                            checked={sameTimeForAll}
+                            onChange={(e) => setSameTimeForAll(e.target.checked)}
+                            sx={{
+                                "& .MuiSwitch-switchBase.Mui-checked": { color: GREEN.main },
+                                "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": {
+                                    backgroundColor: GREEN.main,
+                                    opacity: 1,
+                                },
+                            }}
+                        />
+                        <Typography sx={{ fontSize: "13.5px", fontWeight: "700", color: "#111827" }}>
+                            Same time for all
+                        </Typography>
+                        <Tooltip title="Applies one check-in / check-out time to every listed staff member">
+                            <InfoOutlinedIcon sx={{ fontSize: "16px", color: "#9CA3AF" }} />
+                        </Tooltip>
+
+                        {sameTimeForAll && (
+                            <Box sx={{ display: "flex", gap: 1, ml: 1.5, flexWrap: "wrap" }}>
+                                <TextField
+                                    size="small"
+                                    type="time"
+                                    value={sharedTimes.checkIn}
+                                    onChange={(e) => setSharedTimes((prev) => ({ ...prev, checkIn: e.target.value }))}
+                                    sx={{ ...inputSx, width: "130px" }}
+                                />
+                                <TextField
+                                    size="small"
+                                    type="time"
+                                    value={sharedTimes.checkOut}
+                                    onChange={(e) => setSharedTimes((prev) => ({ ...prev, checkOut: e.target.value }))}
+                                    sx={{ ...inputSx, width: "130px" }}
+                                />
                             </Box>
                         )}
                     </Box>
-                </Paper>
 
+                    <Button
+                        startIcon={<BoltIcon />}
+                        onClick={useCurrentTime}
+                        sx={{
+                            textTransform: "none",
+                            fontSize: "13.5px",
+                            fontWeight: "700",
+                            color: GREEN.main,
+                            "&:hover": { bgcolor: GREEN.bg },
+                        }}
+                    >
+                        Use Current Time
+                    </Button>
+                </Box>
 
-                <Grid container spacing={2}>
-                    {/* Main Column */}
-                    <Grid size={{ xs: 12, lg: 9 }}>
-                        {/* KPI Cards */}
-                        <Grid container spacing={2} sx={{ mb: 2 }}>
-                            {kpiCards.map((card) => {
-                                const Icon = card.icon;
-                                return (
-                                    <Grid size={{ xs: 12, sm: 6, md: 3 }} key={card.label}>
-                                        <Card sx={{
-                                            border: `1px solid ${card.border}`,
-                                            borderRadius: '12px',
-                                            boxShadow: 'none',
-                                            bgcolor: card.bg,
-                                            height: '100%',
-                                            position: 'relative',
-                                            overflow: 'hidden',
-                                            transition: 'transform 0.15s, box-shadow 0.15s',
-                                            '&:hover': { transform: 'translateY(-2px)', boxShadow: `0 6px 16px ${card.color}22` },
-                                        }}>
-                                            <CardContent sx={{ py: 1.8, '&:last-child': { pb: 1.8 } }}>
-                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                                    <Box>
-                                                        <Typography sx={{ fontSize: '11px', color: card.color, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                                                            {card.label}
-                                                        </Typography>
-                                                        <Typography sx={{ fontSize: '28px', fontWeight: 800, color: '#111827', lineHeight: 1.2, mt: 0.5 }}>
-                                                            {card.value}
-                                                            {card.sub && <Typography component="span" sx={{ fontSize: '14px', color: '#9CA3AF', fontWeight: 600 }}>{card.sub}</Typography>}
-                                                        </Typography>
-                                                    </Box>
-                                                    <Box sx={{
-                                                        width: 38, height: 38, borderRadius: '10px',
-                                                        bgcolor: '#fff', border: `1px solid ${card.border}`,
-                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                    }}>
-                                                        <Icon sx={{ color: card.color, fontSize: 20 }} />
-                                                    </Box>
-                                                </Box>
-                                            </CardContent>
-                                        </Card>
-                                    </Grid>
-                                );
-                            })}
-                        </Grid>
-
-                        {/* Today's Attendance */}
-                        <Card sx={{ border: '1px solid #E5E7EB', borderRadius: '12px', boxShadow: 'none', bgcolor: '#fff' }}>
-                            <CardContent sx={{ pb: '12px !important' }}>
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5, flexWrap: 'wrap', gap: 1 }}>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
-                                        <Typography sx={{ fontSize: '15px', fontWeight: 700, color: '#111827' }}>
-                                            Today's Attendance
-                                        </Typography>
-                                        <Chip label={`${todaysAttendance.length} records`} size="small"
-                                            sx={{ bgcolor: '#F3F4F6', color: '#374151', fontWeight: 600, fontSize: '11px', height: 20 }} />
-                                    </Box>
-                                    <Box sx={{ display: 'flex', gap: 1 }}>
-                                        <TextField
-                                            size="small"
-                                            placeholder="Search..."
-                                            slotProps={{
-                                                input: {
-                                                    startAdornment: (
-                                                        <InputAdornment position="start">
-                                                            <SearchIcon sx={{ fontSize: 16, color: '#9CA3AF' }} />
-                                                        </InputAdornment>
-                                                    ),
-                                                },
-                                            }}
-                                            sx={{
-                                                width: 180,
-                                                '& .MuiOutlinedInput-root': {
-                                                    height: 32, fontSize: '12px', borderRadius: '50px', bgcolor: '#F9FAFB',
-                                                    '& fieldset': { borderColor: '#E5E7EB' },
-                                                },
-                                            }}
-                                        />
-                                        <Button size="small" startIcon={<DownloadIcon sx={{ fontSize: 16 }} />}
-                                            sx={{ textTransform: 'none', fontSize: '12px', fontWeight: 600, color: '#374151', borderRadius: '50px', border: '1px solid #E5E7EB', px: 1.5, '&:hover': { bgcolor: '#F9FAFB' } }}>
-                                            Export
-                                        </Button>
-                                    </Box>
-                                </Box>
-
-                                {isLoadingTodayList ? (
-                                    <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}>
-                                        <CircularProgress size={28} sx={{ color: PRIMARY }} />
-                                    </Box>
-                                ) : (
-                                    <TableContainer sx={{ borderRadius: '10px', overflow: 'hidden', border: '1px solid #E5E7EB' }}>
-                                        <Table size="small">
-                                            <TableHead>
-                                                <TableRow sx={{
-                                                    bgcolor: PRIMARY_LIGHT,
-                                                    borderBottom: `1px solid ${PRIMARY_BORDER}`,
-                                                }}>
-                                                    {['S.No', 'Staff Member', 'Role', 'Source', 'Check-In', 'Check-Out', 'Status'].map(h => (
-                                                        <TableCell key={h} sx={{
-                                                            fontWeight: 700, fontSize: '10px', color: PRIMARY_DARK,
-                                                            textTransform: 'uppercase', whiteSpace: 'nowrap',
-                                                            letterSpacing: 0.6, py: 1.3, borderBottom: 'none',
-                                                        }}>{h}</TableCell>
-                                                    ))}
-                                                </TableRow>
-                                            </TableHead>
-                                            <TableBody>
-                                                {todaysAttendance.length === 0 ? (
-                                                    <TableRow>
-                                                        <TableCell colSpan={7} align="center" sx={{ py: 5, color: '#9CA3AF', fontSize: '13px', borderBottom: 'none' }}>
-                                                            No attendance records yet today
-                                                        </TableCell>
-                                                    </TableRow>
-                                                ) : todaysAttendance.slice(0, 10).map((emp, idx) => {
-                                                    const roleLabel = mapRole(emp.role);
-                                                    const statusLabel = mapStatus(emp.status, emp.attendance);
-                                                    const roleConf = ROLE_CONFIG[roleLabel] || { color: '#6B7280', bg: '#F3F4F6', border: '#E5E7EB' };
-                                                    const statConf = STATUS_STYLE[statusLabel] || STATUS_STYLE.Absent;
-                                                    const isBiometric = (emp.source || '').toLowerCase() === 'biometric';
-                                                    const showTime = statusLabel === 'Present' || statusLabel === 'Late';
-                                                    const avColor = avatarColorFor(emp.name || '');
-
-                                                    return (
-                                                        <TableRow key={emp.rollNumber || idx} sx={{
-                                                            '&:hover': { bgcolor: PRIMARY_LIGHT },
-                                                            borderBottom: '1px solid #F3F4F6',
-                                                            transition: 'background-color 0.15s',
-                                                        }}>
-                                                            <TableCell sx={{ width: 40, borderBottom: '1px solid #F3F4F6' }}>
-                                                                <Typography sx={{ fontSize: '12px', color: '#9CA3AF', fontWeight: 500 }}>{idx + 1}</Typography>
-                                                            </TableCell>
-                                                            <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
-                                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
-                                                                    <Avatar sx={{
-                                                                        width: 32, height: 32,
-                                                                        bgcolor: `${avColor}15`,
-                                                                        color: avColor,
-                                                                        fontSize: '11px', fontWeight: 700,
-                                                                        border: `1px solid ${avColor}33`,
-                                                                    }}>
-                                                                        {getInitials(emp.name)}
-                                                                    </Avatar>
-                                                                    <Box>
-                                                                        <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>{emp.name}</Typography>
-                                                                        <Typography sx={{ fontSize: '10px', color: '#9CA3AF', fontWeight: 500 }}>{emp.rollNumber}</Typography>
-                                                                    </Box>
-                                                                </Box>
-                                                            </TableCell>
-                                                            <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
-                                                                <Chip label={roleLabel} size="small"
-                                                                    sx={{
-                                                                        bgcolor: roleConf.bg, color: roleConf.color,
-                                                                        border: `1px solid ${roleConf.border}`,
-                                                                        fontWeight: 600, fontSize: '10px', height: 22,
-                                                                    }} />
-                                                            </TableCell>
-                                                            <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
-                                                                <Tooltip title={isBiometric ? `Biometric · ${VERIFY_MODE_LABEL(emp.verifyMode || '')}` : 'Manual Entry'} arrow>
-                                                                    <Chip
-                                                                        size="small"
-                                                                        icon={isBiometric ? VERIFY_MODE_ICON(emp.verifyMode || '') : <EditNoteIcon sx={{ fontSize: 14 }} />}
-                                                                        label={isBiometric ? 'Biometric' : 'Manual'}
-                                                                        sx={{
-                                                                            height: 22, fontSize: '10px', fontWeight: 600,
-                                                                            bgcolor: isBiometric ? '#EEF2FF' : '#F9FAFB',
-                                                                            color: isBiometric ? '#4338CA' : '#4B5563',
-                                                                            border: `1px solid ${isBiometric ? '#C7D2FE' : '#E5E7EB'}`,
-                                                                            '& .MuiChip-icon': { color: 'inherit', ml: '6px' },
-                                                                        }}
-                                                                    />
-                                                                </Tooltip>
-                                                            </TableCell>
-                                                            <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
-                                                                {showTime && emp.loginTime ? (
-                                                                    <Typography sx={{ fontSize: '12px', fontWeight: 600, color: '#111827' }}>{emp.loginTime}</Typography>
-                                                                ) : <Typography sx={{ fontSize: '12px', color: '#D1D5DB' }}>—</Typography>}
-                                                            </TableCell>
-                                                            <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
-                                                                {showTime && emp.logoutTime ? (
-                                                                    <Typography sx={{ fontSize: '12px', fontWeight: 600, color: '#111827' }}>{emp.logoutTime}</Typography>
-                                                                ) : <Typography sx={{ fontSize: '12px', color: '#D1D5DB' }}>—</Typography>}
-                                                            </TableCell>
-                                                            <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
-                                                                <Chip label={statusLabel} size="small"
-                                                                    sx={{
-                                                                        bgcolor: statConf.bg, color: statConf.color,
-                                                                        fontWeight: 700, fontSize: '10px', height: 22,
-                                                                        border: `1px solid ${statConf.border}`,
-                                                                    }} />
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    );
-                                                })}
-                                            </TableBody>
-                                        </Table>
-                                    </TableContainer>
-                                )}
-
-                                {todaysAttendance.length > 0 && (
-                                    <Box sx={{ display: 'flex', justifyContent: 'center', mt: 1.5 }}>
-                                        <Button onClick={() => setTabValue(2)}
-                                            sx={{ textTransform: 'none', fontSize: '12px', fontWeight: 700, color: PRIMARY_DARK, '&:hover': { bgcolor: PRIMARY_LIGHT } }}>
-                                            View All Records →
-                                        </Button>
-                                    </Box>
-                                )}
-                            </CardContent>
-                        </Card>
-                    </Grid>
-
-                    {/* Right Panel */}
-                    <Grid size={{ xs: 12, lg: 3 }}>
-                        {/* Attendance Rate */}
-                      
-                        {/* Leave Center quick links */}
-                        <Card sx={{ border: '1px solid #E5E7EB', borderRadius: '12px', boxShadow: 'none', bgcolor: '#fff' }}>
-                            <CardContent sx={{ pb: '12px !important' }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.2 }}>
-                                    <Box sx={{
-                                        width: 28, height: 28, borderRadius: '8px',
-                                        bgcolor: PRIMARY_LIGHT, border: `1px solid ${PRIMARY_BORDER}`,
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    }}>
-                                        <EventIcon sx={{ color: PRIMARY, fontSize: 16 }} />
-                                    </Box>
-                                    <Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>
-                                        Leave Center
+                {/* ── Punch / break table ── */}
+                <Box sx={{ bgcolor: "#fff", border: "1px solid #E5E7EB", borderRadius: "12px", overflow: "hidden" }}>
+                    <Box sx={{ display: "flex", gap: 0.5, px: 2, borderBottom: "1px solid #E5E7EB" }}>
+                        {[
+                            {
+                                key: "punch",
+                                label: "Check In / Check Out",
+                                icon: AccessTimeIcon,
+                                count: punchedCount,
+                                chipBg: GREEN.bg,
+                                chipColor: GREEN.main,
+                            },
+                            {
+                                key: "break",
+                                label: "Break In / Break Out",
+                                icon: FreeBreakfastOutlinedIcon,
+                                count: breakCount,
+                                chipBg: "#FEF3C7",
+                                chipColor: AMBER.main,
+                            },
+                        ].map((panel) => {
+                            const PanelIcon = panel.icon;
+                            const active = entryPanel === panel.key;
+                            return (
+                                <Box
+                                    key={panel.key}
+                                    onClick={() => setEntryPanel(panel.key)}
+                                    sx={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: 1,
+                                        px: 1.5,
+                                        py: 1.6,
+                                        cursor: "pointer",
+                                        userSelect: "none",
+                                        whiteSpace: "nowrap",
+                                        borderBottom: `3px solid ${active ? GREEN.main : "transparent"}`,
+                                        color: active ? GREEN.main : "#6B7280",
+                                        transition: "0.2s",
+                                    }}
+                                >
+                                    <PanelIcon sx={{ fontSize: "18px" }} />
+                                    <Typography sx={{ fontSize: "14px", fontWeight: active ? "700" : "600", color: "inherit" }}>
+                                        {panel.label}
                                     </Typography>
-                                </Box>
-
-                                {/* Apply Leave row */}
-                                <Box sx={{
-                                    p: 1.2, borderRadius: '10px',
-                                    bgcolor: PRIMARY_LIGHT, border: `1px solid ${PRIMARY_BORDER}`,
-                                    mb: 1,
-                                }}>
-                                    <Typography sx={{ fontSize: '12px', fontWeight: 700, color: PRIMARY_DARK, mb: 0.2 }}>
-                                        Apply for Leave
-                                    </Typography>
-                                    <Typography sx={{ fontSize: '10.5px', color: '#4B5563', mb: 1 }}>
-                                        Submit a new leave request with dates and reason.
-                                    </Typography>
-                                    <Button fullWidth variant="contained"
-                                        onClick={() => goToLeaveManagement('apply')}
+                                    <Chip
+                                        label={panel.count}
+                                        size="small"
                                         sx={{
-                                            textTransform: 'none', fontSize: '12px', fontWeight: 700,
-                                            bgcolor: PRIMARY, color: '#fff', borderRadius: '8px',
-                                            boxShadow: `0 2px 6px ${PRIMARY}33`,
-                                            '&:hover': { bgcolor: PRIMARY_DARK, boxShadow: `0 4px 12px ${PRIMARY}55` },
-                                        }}>
-                                        Go to Apply Leave
-                                    </Button>
+                                            height: 20,
+                                            bgcolor: active ? panel.chipBg : "#F3F4F6",
+                                            color: active ? panel.chipColor : "#6B7280",
+                                            fontWeight: "700",
+                                            fontSize: "11px",
+                                        }}
+                                    />
                                 </Box>
+                            );
+                        })}
+                    </Box>
 
-                            </CardContent>
-                        </Card>
+                    {/* How break entry works */}
+                    {isBreakPanel && (
+                        <Box
+                            sx={{
+                                display: "flex",
+                                alignItems: "flex-start",
+                                gap: 1.2,
+                                px: 2,
+                                py: 1.4,
+                                bgcolor: "#FFFBEB",
+                                borderBottom: "1px solid #FDE68A",
+                            }}
+                        >
+                            <WarningAmberIcon sx={{ fontSize: "18px", color: AMBER.main, mt: "1px", flexShrink: 0 }} />
+                            <Typography sx={{ fontSize: "12.5px", color: "#78350F", lineHeight: 1.6 }}>
+                                Record break-out → break-in pairs for each staff. Use the preset chips (
+                                <strong>Morning Tea</strong>, <strong>Lunch</strong>, <strong>Evening Tea</strong>) for
+                                one-click entry, or <strong>Add Break</strong> to enter custom times. Breaks apply only
+                                to <strong>Present / Late</strong> staff.
+                            </Typography>
+                        </Box>
+                    )}
 
-                        {/* ─── Quick Navigation card ─── */}
-                        <Card sx={{ mt: 2, border: '1px solid #E5E7EB', borderRadius: '12px', boxShadow: 'none', bgcolor: '#fff' }}>
-                            <CardContent sx={{ pb: '12px !important' }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.2 }}>
-                                    <Box sx={{
-                                        width: 28, height: 28, borderRadius: '8px',
-                                        bgcolor: '#EEF2FF', border: '1px solid #C7D2FE',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    }}>
-                                        <SpaceDashboardOutlinedIcon sx={{ color: '#4338CA', fontSize: 16 }} />
-                                    </Box>
-                                    <Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>
-                                        Quick Navigation
-                                    </Typography>
-                                </Box>
-
-                                <Stack spacing={0.8}>
-                                    {[
-                                        { label: "Today's Attendance", desc: 'Logins of all staff today',  icon: TodayIcon,                  color: '#0891B2', bg: '#E0F7FA', border: '#A5F3FC', target: 2 },
-                                        { label: 'Overview',            desc: 'Monthly attendance trends', icon: VisibilityOutlinedIcon,    color: '#7C3AED', bg: '#F5F3FF', border: '#DDD6FE', target: 3 },
-                                        { label: 'Leave Management',    desc: 'View your leave history',   icon: ListAltOutlinedIcon,       color: '#059669', bg: '#ECFDF5', border: '#A7F3D0', target: 4, subView: 'applications' },
-                                        ...(userType === 'superadmin' || userType === 'admin' ? [
-                                            { label: 'Leave Approval',  desc: 'Approve pending requests',  icon: FactCheckOutlinedIcon,     color: '#2563EB', bg: '#EFF6FF', border: '#BFDBFE', target: 4, subView: 'approval' },
-                                        ] : []),
-                                        { label: 'Reports',             desc: 'Attendance & leave reports',icon: InsertChartOutlinedIcon,   color: '#DC2626', bg: '#FEF2F2', border: '#FECACA', target: 5 },
-                                    ].map((item) => {
-                                        const Icon = item.icon;
+                    <TableContainer sx={{ maxHeight: "58vh" }}>
+                        <Table size="small" stickyHeader>
+                            <TableHead>
+                                <TableRow>
+                                    {columns.map((head) => (
+                                        <TableCell
+                                            key={head}
+                                            sx={{
+                                                fontSize: "11px",
+                                                fontWeight: "700",
+                                                color: "#374151",
+                                                letterSpacing: "0.5px",
+                                                bgcolor: GREEN.bg,
+                                                borderBottom: `1px solid ${GREEN.border}`,
+                                                py: 1.4,
+                                            }}
+                                        >
+                                            {head}
+                                        </TableCell>
+                                    ))}
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {isBreakPanel &&
+                                    entryStaff.map((row, index) => {
+                                        const value = entryOf(row.id);
+                                        // Breaks only make sense for staff who actually attended
+                                        const applicable = value.status === "Present" || value.status === "Late";
+                                        const totalMinutes = totalBreakMinutes(value.breaks);
                                         return (
-                                            <Box
-                                                key={item.label}
-                                                onClick={() => {
-                                                    if (item.subView) setLeaveSubView(item.subView);
-                                                    setTabValue(item.target);
-                                                }}
-                                                sx={{
-                                                    p: 1, borderRadius: '10px',
-                                                    border: '1px solid #E5E7EB',
-                                                    bgcolor: '#fff',
-                                                    display: 'flex', alignItems: 'center', gap: 1,
-                                                    cursor: 'pointer',
-                                                    transition: 'all 0.15s',
-                                                    '&:hover': {
-                                                        bgcolor: item.bg,
-                                                        borderColor: item.border,
-                                                        transform: 'translateX(2px)',
-                                                        '& .arrowIcon': { opacity: 1, transform: 'translateX(2px)' },
-                                                    },
-                                                }}
-                                            >
-                                                <Box sx={{
-                                                    width: 30, height: 30, borderRadius: '8px',
-                                                    bgcolor: item.bg, border: `1px solid ${item.border}`,
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                    flexShrink: 0,
-                                                }}>
-                                                    <Icon sx={{ color: item.color, fontSize: 16 }} />
-                                                </Box>
-                                                <Box sx={{ flex: 1, minWidth: 0 }}>
-                                                    <Typography sx={{ fontSize: '12px', fontWeight: 700, color: '#111827', lineHeight: 1.1 }}>
-                                                        {item.label}
-                                                    </Typography>
-                                                    <Typography sx={{ fontSize: '10px', color: '#6B7280', mt: 0.2 }} noWrap>
-                                                        {item.desc}
-                                                    </Typography>
-                                                </Box>
-                                                <ArrowForwardIcon className="arrowIcon" sx={{
-                                                    fontSize: 14, color: item.color,
-                                                    opacity: 0, transition: 'all 0.2s',
-                                                }} />
-                                            </Box>
+                                            <TableRow key={row.id} hover>
+                                                <TableCell sx={{ fontSize: "13px", color: "#9CA3AF", verticalAlign: "top", pt: 2 }}>
+                                                    {index + 1}
+                                                </TableCell>
+                                                <TableCell sx={{ verticalAlign: "top", pt: 1.6 }}>{staffCell(row)}</TableCell>
+                                                <TableCell sx={{ verticalAlign: "top", pt: 1.6 }}>
+                                                    {!applicable ? (
+                                                        <Typography
+                                                            sx={{ fontSize: "12.5px", color: "#9CA3AF", fontStyle: "italic" }}
+                                                        >
+                                                            Breaks not applicable
+                                                        </Typography>
+                                                    ) : (
+                                                        <Box>
+                                                            {value.breaks.map((item) => (
+                                                                <Box
+                                                                    key={item.id}
+                                                                    sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}
+                                                                >
+                                                                    <TextField
+                                                                        size="small"
+                                                                        type="time"
+                                                                        value={item.out}
+                                                                        onChange={(e) =>
+                                                                            updateBreak(row.id, item.id, "out", e.target.value)
+                                                                        }
+                                                                        sx={{ ...inputSx, width: "120px" }}
+                                                                    />
+                                                                    <Typography sx={{ fontSize: "13px", color: "#9CA3AF" }}>→</Typography>
+                                                                    <TextField
+                                                                        size="small"
+                                                                        type="time"
+                                                                        value={item.in}
+                                                                        onChange={(e) =>
+                                                                            updateBreak(row.id, item.id, "in", e.target.value)
+                                                                        }
+                                                                        sx={{ ...inputSx, width: "120px" }}
+                                                                    />
+                                                                    <Typography
+                                                                        sx={{ fontSize: "12px", fontWeight: "700", color: AMBER.main, minWidth: "50px" }}
+                                                                    >
+                                                                        {minutesBetween(item.out, item.in)
+                                                                            ? formatMinutes(minutesBetween(item.out, item.in))
+                                                                            : ""}
+                                                                    </Typography>
+                                                                    <IconButton size="small" onClick={() => removeBreak(row.id, item.id)}>
+                                                                        <CloseIcon sx={{ fontSize: "16px", color: "#9CA3AF" }} />
+                                                                    </IconButton>
+                                                                </Box>
+                                                            ))}
+
+                                                            <Box sx={{ display: "flex", alignItems: "center", gap: 0.8, flexWrap: "wrap" }}>
+                                                                {BREAK_PRESETS.map((preset) => (
+                                                                    <Box
+                                                                        key={preset.label}
+                                                                        onClick={() => addBreak(row.id, preset)}
+                                                                        sx={{
+                                                                            px: 1.3,
+                                                                            py: 0.4,
+                                                                            borderRadius: "50px",
+                                                                            cursor: "pointer",
+                                                                            userSelect: "none",
+                                                                            whiteSpace: "nowrap",
+                                                                            fontSize: "11.5px",
+                                                                            fontWeight: "600",
+                                                                            color: AMBER.main,
+                                                                            bgcolor: AMBER.bg,
+                                                                            border: `1px solid ${AMBER.border}`,
+                                                                            "&:hover": { bgcolor: "#FEF3C7" },
+                                                                        }}
+                                                                    >
+                                                                        {preset.label}
+                                                                    </Box>
+                                                                ))}
+                                                                <Button
+                                                                    size="small"
+                                                                    startIcon={<AddIcon />}
+                                                                    onClick={() => addBreak(row.id)}
+                                                                    sx={{
+                                                                        textTransform: "none",
+                                                                        borderRadius: "50px",
+                                                                        fontSize: "11.5px",
+                                                                        fontWeight: "700",
+                                                                        color: GREEN.main,
+                                                                        "&:hover": { bgcolor: GREEN.bg },
+                                                                    }}
+                                                                >
+                                                                    Add Break
+                                                                </Button>
+                                                            </Box>
+                                                        </Box>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell
+                                                    sx={{
+                                                        fontSize: "13px",
+                                                        fontWeight: "700",
+                                                        color: totalMinutes ? "#111827" : "#9CA3AF",
+                                                        verticalAlign: "top",
+                                                        pt: 2,
+                                                    }}
+                                                >
+                                                    {totalMinutes ? formatMinutes(totalMinutes) : "—"}
+                                                </TableCell>
+                                                <TableCell
+                                                    sx={{
+                                                        fontSize: "13px",
+                                                        color: value.breaks.length ? "#111827" : "#9CA3AF",
+                                                        verticalAlign: "top",
+                                                        pt: 2,
+                                                    }}
+                                                >
+                                                    {value.breaks.length || "—"}
+                                                </TableCell>
+                                            </TableRow>
                                         );
                                     })}
-                                </Stack>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-                </Grid>
-            </Box>
+
+                                {!isBreakPanel &&
+                                    entryStaff.map((row, index) => {
+                                    const value = entryOf(row.id);
+                                    const roleLabel = row.category === "teacher" ? "Teaching Staff" : "Non Teaching Staff";
+                                    const roleCfg = ROLE_STYLE[roleLabel];
+                                    const timesDisabled = !value.status || value.status === "Absent" || value.status === "On Leave";
+                                    const inValue = sameTimeForAll ? sharedTimes.checkIn : value.checkIn;
+                                    const outValue = sameTimeForAll ? sharedTimes.checkOut : value.checkOut;
+                                    return (
+                                        <TableRow key={row.id} hover>
+                                            <TableCell sx={{ fontSize: "13px", color: "#9CA3AF" }}>{index + 1}</TableCell>
+                                            <TableCell>{staffCell(row)}</TableCell>
+                                            <TableCell>
+                                                <Chip
+                                                    label={roleLabel}
+                                                    size="small"
+                                                    sx={{
+                                                        bgcolor: roleCfg.bg,
+                                                        color: roleCfg.color,
+                                                        border: `1px solid ${roleCfg.border}`,
+                                                        fontWeight: "700",
+                                                        fontSize: "11px",
+                                                    }}
+                                                />
+                                            </TableCell>
+                                            <TableCell>
+                                                <Box sx={{ display: "flex", gap: 0.7, flexWrap: "wrap" }}>
+                                                    {ATTENDANCE_STATUSES.map((status) => {
+                                                        const cfg = STATUS_STYLE[status];
+                                                        const selected = value.status === status;
+                                                        return (
+                                                            <Box
+                                                                key={status}
+                                                                onClick={() =>
+                                                                    patchEntry(row.id, { status: selected ? "" : status })
+                                                                }
+                                                                sx={{
+                                                                    px: 1.4,
+                                                                    py: 0.5,
+                                                                    borderRadius: "50px",
+                                                                    cursor: "pointer",
+                                                                    userSelect: "none",
+                                                                    whiteSpace: "nowrap",
+                                                                    fontSize: "12px",
+                                                                    fontWeight: selected ? "700" : "600",
+                                                                    color: selected ? cfg.color : "#6B7280",
+                                                                    bgcolor: selected ? cfg.bg : "#fff",
+                                                                    border: `1px solid ${selected ? cfg.border : "#E5E7EB"}`,
+                                                                    transition: "0.15s",
+                                                                    "&:hover": { borderColor: cfg.border, color: cfg.color },
+                                                                }}
+                                                            >
+                                                                {status}
+                                                            </Box>
+                                                        );
+                                                    })}
+                                                </Box>
+                                            </TableCell>
+
+                                            <TableCell sx={{ width: "130px" }}>
+                                                {timesDisabled ? (
+                                                    <Typography sx={{ fontSize: "13px", color: "#9CA3AF" }}>—</Typography>
+                                                ) : (
+                                                    <TextField
+                                                        size="small"
+                                                        type="time"
+                                                        value={inValue || ""}
+                                                        onChange={(e) => setResolvedTime(row.id, "checkIn", e.target.value)}
+                                                        sx={{ ...inputSx, width: "120px" }}
+                                                    />
+                                                )}
+                                            </TableCell>
+                                            <TableCell sx={{ width: "130px" }}>
+                                                {timesDisabled ? (
+                                                    <Typography sx={{ fontSize: "13px", color: "#9CA3AF" }}>—</Typography>
+                                                ) : (
+                                                    <TextField
+                                                        size="small"
+                                                        type="time"
+                                                        value={outValue || ""}
+                                                        onChange={(e) => setResolvedTime(row.id, "checkOut", e.target.value)}
+                                                        sx={{ ...inputSx, width: "120px" }}
+                                                    />
+                                                )}
+                                            </TableCell>
+                                            <TableCell sx={{ fontSize: "13px", fontWeight: "700", color: "#111827" }}>
+                                                {workingHoursBetween(inValue, outValue) || (
+                                                    <Box component="span" sx={{ color: "#9CA3AF", fontWeight: 400 }}>
+                                                        —
+                                                    </Box>
+                                                )}
+                                            </TableCell>
+                                            <TableCell>
+                                                <IconButton size="small" onClick={() => setNoteFor(row)}>
+                                                    <StickyNote2OutlinedIcon
+                                                        sx={{ fontSize: "18px", color: value.note ? GREEN.main : "#9CA3AF" }}
+                                                    />
+                                                </IconButton>
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })}
+                                {entryStaff.length === 0 && (
+                                    <TableRow>
+                                        <TableCell
+                                            colSpan={columns.length}
+                                            sx={{ textAlign: "center", py: 5, color: "#9CA3AF", fontSize: "13px" }}
+                                        >
+                                            {loadingRoster ? "Loading the roster…" : "No staff match your search"}
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
+
+                    <Box
+                        sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: 1.5,
+                            flexWrap: "wrap",
+                            px: 2,
+                            py: 1.5,
+                            borderTop: "1px solid #E5E7EB",
+                        }}
+                    >
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
+                            <Typography sx={{ fontSize: "12.5px", color: "#6B7280" }}>
+                                {markedCount} of {entryStaff.length} marked
+                            </Typography>
+                            {/* Recorded against every audit row this save creates */}
+                            <TextField
+                                size="small"
+                                placeholder="Reason for the manual entry (optional)"
+                                value={entryReason}
+                                onChange={(e) => setEntryReason(e.target.value)}
+                                sx={{ ...inputSx, minWidth: "290px" }}
+                            />
+                        </Box>
+                        <Box sx={{ display: "flex", gap: 1.5 }}>
+                            <Button
+                                onClick={clearAllEntries}
+                                sx={{
+                                    textTransform: "none",
+                                    borderRadius: "8px",
+                                    border: "1px solid #D1D5DB",
+                                    color: "#374151",
+                                    fontSize: "13.5px",
+                                    fontWeight: "600",
+                                    px: 3,
+                                }}
+                            >
+                                Clear
+                            </Button>
+                            <Button
+                                variant="contained"
+                                onClick={saveManualAttendance}
+                                disabled={!markedCount || savingAttendance}
+                                sx={{
+                                    textTransform: "none",
+                                    borderRadius: "8px",
+                                    fontSize: "13.5px",
+                                    fontWeight: "700",
+                                    px: 3,
+                                    bgcolor: GREEN.dark,
+                                    "&:hover": { bgcolor: "#065F46" },
+                                }}
+                            >
+                                {savingAttendance ? "Saving…" : "Save Attendance"}
+                            </Button>
+                        </Box>
+                    </Box>
+                </Box>
+
+                {/* ── Per-row note ── */}
+                <Dialog
+                    open={Boolean(noteFor)}
+                    onClose={() => setNoteFor(null)}
+                    maxWidth="xs"
+                    fullWidth
+                    slotProps={{ paper: { sx: { borderRadius: "14px" } } }}
+                >
+                    {noteFor && (
+                        <>
+                            <Box sx={{ px: 2.5, py: 2, bgcolor: GREEN.bg, borderBottom: `1px solid ${GREEN.border}` }}>
+                                <Typography sx={{ fontSize: "16px", fontWeight: "700", color: "#111827" }}>
+                                    Note · {noteFor.name}
+                                </Typography>
+                                <Typography sx={{ fontSize: "11.5px", color: "#6B7280" }}>
+                                    Saved against this attendance entry
+                                </Typography>
+                            </Box>
+                            <DialogContent sx={{ p: 2.5 }}>
+                                <TextField
+                                    fullWidth
+                                    multiline
+                                    rows={3}
+                                    size="small"
+                                    placeholder="Reason for the manual entry or correction"
+                                    value={entryOf(noteFor.id).note}
+                                    onChange={(e) => patchEntry(noteFor.id, { note: e.target.value })}
+                                    sx={inputSx}
+                                />
+                            </DialogContent>
+                            <DialogActions sx={{ px: 3, py: 2, borderTop: "1px solid #E5E7EB" }}>
+                                <Button
+                                    onClick={() => setNoteFor(null)}
+                                    variant="contained"
+                                    sx={{
+                                        textTransform: "none",
+                                        borderRadius: "50px",
+                                        fontSize: "13.5px",
+                                        fontWeight: "700",
+                                        px: 3,
+                                        bgcolor: GREEN.dark,
+                                        "&:hover": { bgcolor: "#065F46" },
+                                    }}
+                                >
+                                    Done
+                                </Button>
+                            </DialogActions>
+                        </>
+                    )}
+                </Dialog>
+            </>
         );
     };
 
-    // ─── Today's Attendance (full-page view of all staff today) ───────────
-    // Data source: GetTeachersAttendance (fromDate=toDate=today), normalized
-    // into the shape the existing render code already expects.
-    const renderTodaysAttendance = () => {
-        const todaysAttendance = todayAttendanceList;
+    /* ─────────────── Today's Attendance tab ─────────────── */
+    const renderToday = () => {
+        const summaryChips = [
+            { label: "TOTAL", value: records.length, color: "#374151", bg: "#F9FAFB", border: "#E5E7EB" },
+            { label: "PRESENT", value: countOf("Present"), color: GREEN.main, bg: GREEN.bg, border: GREEN.border },
+            { label: "LATE", value: countOf("Late"), color: AMBER.main, bg: AMBER.bg, border: AMBER.border },
+            { label: "ON LEAVE", value: countOf("On Leave"), color: BLUE.main, bg: BLUE.bg, border: BLUE.border },
+            { label: "ABSENT", value: countOf("Absent"), color: RED.main, bg: RED.bg, border: RED.border },
+        ];
 
-        // Parse HH:MM / HH:MM:SS → minutes since midnight.
-        const toMinutes = (timeStr) => {
-            if (!timeStr || typeof timeStr !== 'string') return null;
-            const [h, m] = timeStr.split(':').map(Number);
-            if (Number.isNaN(h) || Number.isNaN(m)) return null;
-            return h * 60 + m;
-        };
+        // Search + role + status all narrow the same list
+        const todayRows = filteredRecords
+            .filter((row) => todayRole === "All Roles" || row.role === todayRole)
+            .filter((row) => todayStatus === "All Status" || row.status === todayStatus);
 
-        // Sum break minutes from the rawBreaks array (each entry has
-        // breakOutTime + breakInTime). Skips incomplete / invalid breaks.
-        const sumBreakMinutes = (rawBreaks = []) => rawBreaks.reduce((sum, b) => {
-            const out = toMinutes(b.breakOutTime);
-            const inn = toMinutes(b.breakInTime);
-            if (out == null || inn == null || inn < out) return sum;
-            return sum + (inn - out);
-        }, 0);
-
-        // "8h 15m" string for minutes — empty when 0.
-        const formatMinutes = (mins) => {
-            if (!Number.isFinite(mins) || mins <= 0) return '0m';
-            const h = Math.floor(mins / 60);
-            const m = mins % 60;
-            return h > 0 ? `${h}h ${m}m` : `${m}m`;
-        };
-
-        // Net worked hours = (logout − login) − Σ breaks. Returns the gross /
-        // break / net minutes so the cell can show a tooltip breakdown too.
-        const computeWorkedBreakdown = (loginStr, logoutStr, rawBreaks) => {
-            const loginMin = toMinutes(loginStr);
-            const logoutMin = toMinutes(logoutStr);
-            if (loginMin == null || logoutMin == null) return null;
-            let gross = logoutMin - loginMin;
-            if (gross < 0) gross += 24 * 60; // overnight safety
-            const breakMin = sumBreakMinutes(rawBreaks);
-            const net = Math.max(0, gross - breakMin);
-            return { gross, breakMin, net, breakCount: (rawBreaks || []).length };
-        };
-
-        // Filter
-        const q = todayAttSearch.trim().toLowerCase();
-        const filtered = todaysAttendance.filter((emp) => {
-            const roleLabel = mapRole(emp.role);
-            const statusLabel = mapStatus(emp.status, emp.attendance);
-            const matchesSearch = !q
-                || (emp.name || '').toLowerCase().includes(q)
-                || String(emp.rollNumber || '').toLowerCase().includes(q);
-            const matchesRole = todayAttRoleFilter === 'all' || roleLabel === todayAttRoleFilter;
-            const matchesStatus = todayAttStatusFilter === 'all' || statusLabel === todayAttStatusFilter;
-            return matchesSearch && matchesRole && matchesStatus;
-        });
-
-        // Stats over filtered set
-        const stats = {
-            total:   filtered.length,
-            present: filtered.filter(e => mapStatus(e.status, e.attendance) === 'Present').length,
-            late:    filtered.filter(e => mapStatus(e.status, e.attendance) === 'Late').length,
-            onLeave: filtered.filter(e => mapStatus(e.status, e.attendance) === 'On Leave').length,
-            absent:  filtered.filter(e => mapStatus(e.status, e.attendance) === 'Absent').length,
-        };
+        const statusDot =
+            todayStatus === "All Status" ? "#9CA3AF" : (STATUS_STYLE[todayStatus] || STATUS_STYLE.Present).color;
 
         return (
-            <Box>
-                {/* Header strip */}
-                <Paper elevation={0} sx={{
-                    p: 1.8, mb: 2, borderRadius: '12px',
-                    border: `1px solid ${PRIMARY_BORDER}`,
-                    background: `linear-gradient(135deg, ${PRIMARY_LIGHT} 0%, #fff 60%)`,
-                }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5, flexWrap: 'wrap' }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                            <Box sx={{
-                                width: 42, height: 42, borderRadius: '10px',
-                                bgcolor: '#fff', border: `1px solid ${PRIMARY_BORDER}`,
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            }}>
-                                <TodayIcon sx={{ color: PRIMARY, fontSize: 22 }} />
+            <>
+                {/* ── Header + counts ── */}
+                <Box
+                    sx={{
+                        p: 2,
+                        mb: 2,
+                        borderRadius: "12px",
+                        background: "linear-gradient(90deg, #ECFDF5 0%, #F0FDFA 60%, #FFFFFF 100%)",
+                        border: `1px solid ${GREEN.border}`,
+                    }}
+                >
+                    <Box
+                        sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: 2,
+                            flexWrap: "wrap",
+                        }}
+                    >
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.4, minWidth: 0 }}>
+                            <Box
+                                sx={{
+                                    width: 42,
+                                    height: 42,
+                                    borderRadius: "10px",
+                                    bgcolor: "#fff",
+                                    border: `1px solid ${GREEN.border}`,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    flexShrink: 0,
+                                }}
+                            >
+                                <CalendarMonthOutlinedIcon sx={{ fontSize: "22px", color: GREEN.main }} />
                             </Box>
-                            <Box>
-                                <Typography sx={{ fontSize: '16px', fontWeight: 800, color: '#111827', lineHeight: 1.1 }}>
+                            <Box sx={{ minWidth: 0 }}>
+                                <Typography sx={{ fontSize: "19px", fontWeight: "700", color: "#111827", lineHeight: 1.25 }}>
                                     Today's Staff Attendance
                                 </Typography>
-                                <Typography sx={{ fontSize: '11px', color: '#4B5563', mt: 0.2 }}>
-                                    {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
-                                    {' · '}
-                                    Login times for each staff member
+                                <Typography sx={{ fontSize: "12.5px", color: "#6B7280" }}>
+                                    {formatLongDate(today)} · Login times for each staff member
                                 </Typography>
                             </Box>
                         </Box>
+
                         <Button
-                            size="small"
-                            startIcon={<DownloadIcon sx={{ fontSize: 16 }} />}
+                            startIcon={<FileDownloadOutlinedIcon />}
                             sx={{
-                                textTransform: 'none', fontSize: '12px', fontWeight: 700,
-                                color: PRIMARY_DARK, bgcolor: '#fff',
-                                border: `1px solid ${PRIMARY_BORDER}`, borderRadius: '8px',
-                                px: 1.5, height: 32,
-                                '&:hover': { bgcolor: PRIMARY_LIGHT, borderColor: PRIMARY },
+                                textTransform: "none",
+                                borderRadius: "8px",
+                                bgcolor: "#fff",
+                                border: `1px solid ${GREEN.border}`,
+                                color: GREEN.dark,
+                                fontSize: "13.5px",
+                                fontWeight: "700",
+                                px: 2.5,
+                                py: 1,
+                                "&:hover": { bgcolor: GREEN.bg },
                             }}
                         >
                             Export
                         </Button>
                     </Box>
 
-                    {/* Summary chips */}
-                    <Box sx={{ display: 'flex', gap: 0.8, mt: 1.5, flexWrap: 'wrap' }}>
-                        {[
-                            { label: 'Total',    value: stats.total,    color: '#374151', bg: '#F3F4F6', border: '#E5E7EB' },
-                            { label: 'Present',  value: stats.present,  color: '#047857', bg: '#ECFDF5', border: '#A7F3D0' },
-                            { label: 'Late',     value: stats.late,     color: '#B45309', bg: '#FFFBEB', border: '#FDE68A' },
-                            { label: 'On Leave', value: stats.onLeave,  color: '#1D4ED8', bg: '#EFF6FF', border: '#BFDBFE' },
-                            { label: 'Absent',   value: stats.absent,   color: '#B91C1C', bg: '#FEF2F2', border: '#FECACA' },
-                        ].map(s => (
-                            <Chip
-                                key={s.label}
-                                label={
-                                    <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.6 }}>
-                                        <Typography sx={{ fontSize: '10px', color: s.color, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4 }}>{s.label}</Typography>
-                                        <Typography sx={{ fontSize: '13px', color: s.color, fontWeight: 800 }}>{s.value}</Typography>
-                                    </Box>
-                                }
+                    <Box sx={{ display: "flex", gap: 1.2, flexWrap: "wrap", mt: 2 }}>
+                        {summaryChips.map((chip) => (
+                            <Box
+                                key={chip.label}
                                 sx={{
-                                    bgcolor: s.bg, border: `1px solid ${s.border}`,
-                                    height: 26, px: 0.6, borderRadius: '8px',
-                                    '& .MuiChip-label': { px: 0.6 },
-                                }}
-                            />
-                        ))}
-                    </Box>
-                </Paper>
-
-                {/* Filters toolbar — search + dropdowns + active filter indicators */}
-                {(() => {
-                    // Per-role / per-status counts (computed over unfiltered set so dropdowns are honest)
-                    const roleCounts = todaysAttendance.reduce((acc, e) => {
-                        const r = mapRole(e.role); acc[r] = (acc[r] || 0) + 1; return acc;
-                    }, {});
-                    const statusCounts = todaysAttendance.reduce((acc, e) => {
-                        const s = mapStatus(e.status, e.attendance); acc[s] = (acc[s] || 0) + 1; return acc;
-                    }, {});
-
-                    const roleItems = [
-                        { key: 'all',                  label: 'All Roles',          color: '#6B7280' },
-                        { key: 'Teaching Staff',       label: 'Teaching Staff',     color: '#6D28D9' },
-                        { key: 'Non Teaching Staff',   label: 'Non Teaching Staff', color: '#0E7490' },
-                        { key: 'Supporting Staff',     label: 'Supporting Staff',   color: '#C2410C' },
-                    ];
-                    const statusItems = [
-                        { key: 'all',       label: 'All Status', color: '#6B7280' },
-                        { key: 'Present',   label: 'Present',    color: STATUS_STYLE.Present.color },
-                        { key: 'Late',      label: 'Late',       color: STATUS_STYLE.Late.color },
-                        { key: 'On Leave',  label: 'On Leave',   color: STATUS_STYLE['On Leave'].color },
-                        { key: 'Absent',    label: 'Absent',     color: STATUS_STYLE.Absent.color },
-                    ];
-
-                    const roleActive = todayAttRoleFilter !== 'all';
-                    const statusActive = todayAttStatusFilter !== 'all';
-                    const searchActive = todayAttSearch.trim().length > 0;
-                    const anyActive = roleActive || statusActive || searchActive;
-
-                    const activeRoleColor = roleItems.find(r => r.key === todayAttRoleFilter)?.color || '#6B7280';
-                    const activeStatusColor = statusItems.find(s => s.key === todayAttStatusFilter)?.color || '#6B7280';
-
-                    const filterButtonSx = (isActive, accent) => ({
-                        textTransform: 'none', fontSize: '12.5px', fontWeight: 600,
-                        height: 34, borderRadius: '8px', px: 1.5, gap: 0.4,
-                        color: isActive ? '#fff' : '#374151',
-                        bgcolor: isActive ? accent : '#fff',
-                        border: `1px solid ${isActive ? accent : '#E5E7EB'}`,
-                        boxShadow: isActive ? `0 1px 3px ${accent}33` : 'none',
-                        '&:hover': {
-                            bgcolor: isActive ? accent : '#F9FAFB',
-                            borderColor: isActive ? accent : '#D1D5DB',
-                            filter: isActive ? 'brightness(0.95)' : 'none',
-                        },
-                    });
-
-                    const renderFilterMenu = (anchor, setAnchor, items, currentKey, onPick, getCount, totalCount) => (
-                        <Menu
-                            anchorEl={anchor}
-                            open={Boolean(anchor)}
-                            onClose={() => setAnchor(null)}
-                            slotProps={{
-                                paper: {
-                                    sx: {
-                                        mt: 0.6, borderRadius: '10px',
-                                        border: '1px solid #E5E7EB',
-                                        boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
-                                        minWidth: 220,
-                                    },
-                                },
-                            }}
-                        >
-                            {items.map((opt) => {
-                                const isActive = currentKey === opt.key;
-                                const count = opt.key === 'all' ? totalCount : (getCount[opt.key] || 0);
-                                return (
-                                    <MenuItem
-                                        key={opt.key}
-                                        onClick={() => { onPick(opt.key); setAnchor(null); }}
-                                        sx={{
-                                            py: 0.8, px: 1.2, gap: 1,
-                                            bgcolor: isActive ? `${opt.color}10` : 'transparent',
-                                            '&:hover': { bgcolor: `${opt.color}15` },
-                                        }}
-                                    >
-                                        <CircleIcon sx={{ fontSize: 9, color: opt.color, flexShrink: 0 }} />
-                                        <Typography sx={{
-                                            fontSize: '13px', fontWeight: isActive ? 700 : 500,
-                                            color: isActive ? opt.color : '#374151', flex: 1,
-                                        }}>
-                                            {opt.label}
-                                        </Typography>
-                                        <Box sx={{
-                                            px: 0.7, py: 0.1, borderRadius: '6px',
-                                            bgcolor: isActive ? '#fff' : '#F3F4F6',
-                                            border: `1px solid ${isActive ? `${opt.color}30` : '#E5E7EB'}`,
-                                        }}>
-                                            <Typography sx={{ fontSize: '10.5px', fontWeight: 700, color: isActive ? opt.color : '#6B7280' }}>
-                                                {count}
-                                            </Typography>
-                                        </Box>
-                                        {isActive && <CheckIcon sx={{ fontSize: 15, color: opt.color, ml: 0.4 }} />}
-                                    </MenuItem>
-                                );
-                            })}
-                        </Menu>
-                    );
-
-                    return (
-                        <Card sx={{ border: '1px solid #E5E7EB', borderRadius: '12px', boxShadow: 'none', bgcolor: '#fff', mb: 2 }}>
-                            <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
-                                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-                                    {/* Search */}
-                                    <TextField
-                                        size="small"
-                                        placeholder="Search by name or roll no..."
-                                        value={todayAttSearch}
-                                        onChange={(e) => setTodayAttSearch(e.target.value)}
-                                        slotProps={{
-                                            input: {
-                                                startAdornment: (
-                                                    <InputAdornment position="start">
-                                                        <SearchIcon sx={{ fontSize: 16, color: searchActive ? PRIMARY : '#9CA3AF' }} />
-                                                    </InputAdornment>
-                                                ),
-                                                endAdornment: searchActive ? (
-                                                    <InputAdornment position="end">
-                                                        <IconButton size="small" onClick={() => setTodayAttSearch('')} sx={{ p: 0.3 }}>
-                                                            <CloseIcon sx={{ fontSize: 14, color: '#9CA3AF' }} />
-                                                        </IconButton>
-                                                    </InputAdornment>
-                                                ) : null,
-                                            },
-                                        }}
-                                        sx={{
-                                            flex: 1, minWidth: 220, maxWidth: 320,
-                                            '& .MuiOutlinedInput-root': {
-                                                height: 34, fontSize: '12.5px', borderRadius: '8px',
-                                                bgcolor: searchActive ? PRIMARY_LIGHT : '#F9FAFB',
-                                                '& fieldset': { borderColor: searchActive ? PRIMARY_BORDER : '#E5E7EB' },
-                                                '&:hover fieldset': { borderColor: '#D1D5DB' },
-                                                '&.Mui-focused fieldset': { borderColor: PRIMARY },
-                                            },
-                                        }}
-                                    />
-
-                                    {/* Vertical divider */}
-                                    <Box sx={{ width: '1px', height: 24, bgcolor: '#E5E7EB' }} />
-
-                                    {/* Role filter button */}
-                                    <Button
-                                        onClick={(e) => setTodayRoleMenuAnchor(e.currentTarget)}
-                                        startIcon={<PeopleAltOutlinedIcon sx={{ fontSize: 16 }} />}
-                                        endIcon={<KeyboardArrowDownIcon sx={{ fontSize: 16 }} />}
-                                        sx={filterButtonSx(roleActive, activeRoleColor)}
-                                    >
-                                        {roleActive ? todayAttRoleFilter : 'Role'}
-                                    </Button>
-                                    {renderFilterMenu(
-                                        todayRoleMenuAnchor, setTodayRoleMenuAnchor,
-                                        roleItems, todayAttRoleFilter, setTodayAttRoleFilter,
-                                        roleCounts, todaysAttendance.length,
-                                    )}
-
-                                    {/* Status filter button */}
-                                    <Button
-                                        onClick={(e) => setTodayStatusMenuAnchor(e.currentTarget)}
-                                        startIcon={<CircleIcon sx={{ fontSize: 10, color: statusActive ? '#fff' : activeStatusColor }} />}
-                                        endIcon={<KeyboardArrowDownIcon sx={{ fontSize: 16 }} />}
-                                        sx={filterButtonSx(statusActive, activeStatusColor)}
-                                    >
-                                        {statusActive ? todayAttStatusFilter : 'Status'}
-                                    </Button>
-                                    {renderFilterMenu(
-                                        todayStatusMenuAnchor, setTodayStatusMenuAnchor,
-                                        statusItems, todayAttStatusFilter, setTodayAttStatusFilter,
-                                        statusCounts, todaysAttendance.length,
-                                    )}
-
-                                    {/* Clear filters — only when something is active */}
-                                    {anyActive && (
-                                        <Button
-                                            size="small"
-                                            startIcon={<RestartAltIcon sx={{ fontSize: 15 }} />}
-                                            onClick={clearTodayFilters}
-                                            sx={{
-                                                textTransform: 'none', fontSize: '12px', fontWeight: 600,
-                                                height: 34, borderRadius: '8px', px: 1.2,
-                                                color: '#DC2626',
-                                                '&:hover': { bgcolor: '#FEF2F2' },
-                                            }}
-                                        >
-                                            Clear
-                                        </Button>
-                                    )}
-
-                                    {/* Result count — pushed to the right */}
-                                    <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.6 }}>
-                                        <Typography sx={{ fontSize: '11.5px', color: '#6B7280' }}>
-                                            Showing
-                                        </Typography>
-                                        <Typography sx={{ fontSize: '13px', fontWeight: 800, color: anyActive ? PRIMARY_DARK : '#111827' }}>
-                                            {filtered.length}
-                                        </Typography>
-                                        <Typography sx={{ fontSize: '11.5px', color: '#6B7280' }}>
-                                            of {todaysAttendance.length} records
-                                        </Typography>
-                                    </Box>
-                                </Box>
-
-                                {/* Active filter pills row — only when active */}
-                                {anyActive && (
-                                    <Box sx={{
-                                        mt: 1.2, pt: 1.2, borderTop: '1px dashed #E5E7EB',
-                                        display: 'flex', alignItems: 'center', gap: 0.7, flexWrap: 'wrap',
-                                    }}>
-                                        <Typography sx={{ fontSize: '10.5px', color: '#9CA3AF', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                                            Active filters:
-                                        </Typography>
-                                        {searchActive && (
-                                            <Chip
-                                                size="small"
-                                                icon={<SearchIcon sx={{ fontSize: '12px !important' }} />}
-                                                label={`"${todayAttSearch}"`}
-                                                onDelete={() => setTodayAttSearch('')}
-                                                deleteIcon={<CloseIcon sx={{ fontSize: '13px !important' }} />}
-                                                sx={{
-                                                    height: 22, fontSize: '11px', fontWeight: 600,
-                                                    bgcolor: PRIMARY_LIGHT, color: PRIMARY_DARK,
-                                                    border: `1px solid ${PRIMARY_BORDER}`,
-                                                    '& .MuiChip-icon': { color: 'inherit', ml: '6px' },
-                                                    '& .MuiChip-deleteIcon': { color: 'inherit', '&:hover': { color: PRIMARY_DARK } },
-                                                }}
-                                            />
-                                        )}
-                                        {roleActive && (
-                                            <Chip
-                                                size="small"
-                                                icon={<PeopleAltOutlinedIcon sx={{ fontSize: '12px !important' }} />}
-                                                label={`Role: ${todayAttRoleFilter}`}
-                                                onDelete={() => setTodayAttRoleFilter('all')}
-                                                deleteIcon={<CloseIcon sx={{ fontSize: '13px !important' }} />}
-                                                sx={{
-                                                    height: 22, fontSize: '11px', fontWeight: 600,
-                                                    bgcolor: `${activeRoleColor}15`, color: activeRoleColor,
-                                                    border: `1px solid ${activeRoleColor}40`,
-                                                    '& .MuiChip-icon': { color: 'inherit', ml: '6px' },
-                                                    '& .MuiChip-deleteIcon': { color: 'inherit' },
-                                                }}
-                                            />
-                                        )}
-                                        {statusActive && (
-                                            <Chip
-                                                size="small"
-                                                icon={<CircleIcon sx={{ fontSize: '9px !important' }} />}
-                                                label={`Status: ${todayAttStatusFilter}`}
-                                                onDelete={() => setTodayAttStatusFilter('all')}
-                                                deleteIcon={<CloseIcon sx={{ fontSize: '13px !important' }} />}
-                                                sx={{
-                                                    height: 22, fontSize: '11px', fontWeight: 600,
-                                                    bgcolor: `${activeStatusColor}15`, color: activeStatusColor,
-                                                    border: `1px solid ${activeStatusColor}40`,
-                                                    '& .MuiChip-icon': { color: 'inherit', ml: '6px' },
-                                                    '& .MuiChip-deleteIcon': { color: 'inherit' },
-                                                }}
-                                            />
-                                        )}
-                                    </Box>
-                                )}
-                            </CardContent>
-                        </Card>
-                    );
-                })()}
-
-                {/* Table */}
-                <Card sx={{ border: '1px solid #E5E7EB', borderRadius: '12px', boxShadow: 'none', bgcolor: '#fff' }}>
-                    <CardContent sx={{ pb: '12px !important' }}>
-                        {isLoadingTodayList ? (
-                            <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-                                <CircularProgress size={32} sx={{ color: PRIMARY }} />
-                            </Box>
-                        ) : filtered.length === 0 ? (
-                            <Box sx={{ py: 6, textAlign: 'center' }}>
-                                <Typography sx={{ fontSize: '13px', color: '#9CA3AF', fontWeight: 600 }}>
-                                    No attendance records match your filters.
-                                </Typography>
-                                <Typography sx={{ fontSize: '11px', color: '#9CA3AF', mt: 0.5 }}>
-                                    Try changing or clearing your filters above.
-                                </Typography>
-                            </Box>
-                        ) : (
-                            <TableContainer sx={{ borderRadius: '10px', overflow: 'hidden', border: '1px solid #E5E7EB' }}>
-                                <Table size="small">
-                                    <TableHead>
-                                        <TableRow sx={{ bgcolor: PRIMARY_LIGHT, borderBottom: `1px solid ${PRIMARY_BORDER}` }}>
-                                            {['S.No', 'Staff Member', 'Role', 'Source', 'Login Time', 'Logout Time', 'Hours', 'Status'].map(h => (
-                                                <TableCell key={h} sx={{
-                                                    fontWeight: 700, fontSize: '10px', color: PRIMARY_DARK,
-                                                    textTransform: 'uppercase', whiteSpace: 'nowrap',
-                                                    letterSpacing: 0.6, py: 1.3, borderBottom: 'none',
-                                                }}>{h}</TableCell>
-                                            ))}
-                                        </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {filtered.map((emp, idx) => {
-                                            const roleLabel = mapRole(emp.role);
-                                            const statusLabel = mapStatus(emp.status, emp.attendance);
-                                            const roleConf = ROLE_CONFIG[roleLabel] || { color: '#6B7280', bg: '#F3F4F6', border: '#E5E7EB' };
-                                            const statConf = STATUS_STYLE[statusLabel] || STATUS_STYLE.Absent;
-                                            const isBiometric = (emp.source || '').toLowerCase() === 'biometric';
-                                            const showTime = statusLabel === 'Present' || statusLabel === 'Late';
-                                            const workedInfo = showTime ? computeWorkedBreakdown(emp.loginTime, emp.logoutTime, emp.rawBreaks) : null;
-                                            const avColor = avatarColorFor(emp.name || '');
-
-                                            return (
-                                                <TableRow key={emp.rollNumber || idx} sx={{
-                                                    '&:hover': { bgcolor: PRIMARY_LIGHT },
-                                                    borderBottom: '1px solid #F3F4F6',
-                                                    transition: 'background-color 0.15s',
-                                                }}>
-                                                    <TableCell sx={{ width: 50, borderBottom: '1px solid #F3F4F6' }}>
-                                                        <Typography sx={{ fontSize: '12px', color: '#9CA3AF', fontWeight: 500 }}>{idx + 1}</Typography>
-                                                    </TableCell>
-                                                    <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
-                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
-                                                            <Avatar sx={{
-                                                                width: 34, height: 34,
-                                                                bgcolor: `${avColor}15`, color: avColor,
-                                                                fontSize: '11px', fontWeight: 700,
-                                                                border: `1px solid ${avColor}33`,
-                                                            }}>
-                                                                {getInitials(emp.name)}
-                                                            </Avatar>
-                                                            <Box>
-                                                                <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>{emp.name}</Typography>
-                                                                <Typography sx={{ fontSize: '10px', color: '#9CA3AF', fontWeight: 500, fontFamily: 'monospace' }}>
-                                                                    {emp.rollNumber}
-                                                                </Typography>
-                                                            </Box>
-                                                        </Box>
-                                                    </TableCell>
-                                                    <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
-                                                        <Chip label={roleLabel} size="small"
-                                                            sx={{
-                                                                bgcolor: roleConf.bg, color: roleConf.color,
-                                                                border: `1px solid ${roleConf.border}`,
-                                                                fontWeight: 600, fontSize: '10px', height: 22,
-                                                            }} />
-                                                    </TableCell>
-                                                    <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
-                                                        <Tooltip title={isBiometric ? `Biometric · ${VERIFY_MODE_LABEL(emp.verifyMode || '')}` : 'Manual Entry'} arrow>
-                                                            <Chip
-                                                                size="small"
-                                                                icon={isBiometric ? VERIFY_MODE_ICON(emp.verifyMode || '') : <EditNoteIcon sx={{ fontSize: 14 }} />}
-                                                                label={isBiometric ? 'Biometric' : 'Manual'}
-                                                                sx={{
-                                                                    height: 22, fontSize: '10px', fontWeight: 600,
-                                                                    bgcolor: isBiometric ? '#EEF2FF' : '#F9FAFB',
-                                                                    color: isBiometric ? '#4338CA' : '#4B5563',
-                                                                    border: `1px solid ${isBiometric ? '#C7D2FE' : '#E5E7EB'}`,
-                                                                    '& .MuiChip-icon': { color: 'inherit', ml: '6px' },
-                                                                }}
-                                                            />
-                                                        </Tooltip>
-                                                    </TableCell>
-                                                    <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
-                                                        {showTime && emp.loginTime ? (
-                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
-                                                                <AccessTimeIcon sx={{ fontSize: 13, color: '#059669' }} />
-                                                                <Typography sx={{ fontSize: '12px', fontWeight: 700, color: '#111827', fontFamily: 'monospace' }}>
-                                                                    {emp.loginTime}
-                                                                </Typography>
-                                                            </Box>
-                                                        ) : <Typography sx={{ fontSize: '12px', color: '#D1D5DB' }}>—</Typography>}
-                                                    </TableCell>
-                                                    <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
-                                                        {showTime && emp.logoutTime ? (
-                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
-                                                                <AccessTimeIcon sx={{ fontSize: 13, color: '#DC2626' }} />
-                                                                <Typography sx={{ fontSize: '12px', fontWeight: 700, color: '#111827', fontFamily: 'monospace' }}>
-                                                                    {emp.logoutTime}
-                                                                </Typography>
-                                                            </Box>
-                                                        ) : showTime ? (
-                                                            <Chip label="Active" size="small"
-                                                                sx={{
-                                                                    height: 20, fontSize: '10px', fontWeight: 700,
-                                                                    bgcolor: '#ECFDF5', color: '#047857',
-                                                                    border: '1px solid #A7F3D0',
-                                                                }}
-                                                            />
-                                                        ) : (
-                                                            <Typography sx={{ fontSize: '12px', color: '#D1D5DB' }}>—</Typography>
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
-                                                        {workedInfo ? (
-                                                            <Tooltip
-                                                                arrow placement="top"
-                                                                title={
-                                                                    <Box sx={{ fontSize: '11px', lineHeight: 1.6 }}>
-                                                                        <div>Gross: <strong>{formatMinutes(workedInfo.gross)}</strong></div>
-                                                                        <div>Breaks: <strong>{formatMinutes(workedInfo.breakMin)}</strong> ({workedInfo.breakCount})</div>
-                                                                        <div>Net: <strong>{formatMinutes(workedInfo.net)}</strong></div>
-                                                                    </Box>
-                                                                }
-                                                            >
-                                                                <Box sx={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                                                                    <Typography sx={{ fontSize: '12px', fontWeight: 700, color: '#4338CA', fontFamily: 'monospace' }}>
-                                                                        {formatMinutes(workedInfo.net)}
-                                                                    </Typography>
-                                                                    {workedInfo.breakMin > 0 && (
-                                                                        <Typography sx={{ fontSize: '9.5px', fontWeight: 600, color: '#D97706', fontFamily: 'monospace' }}>
-                                                                            − {formatMinutes(workedInfo.breakMin)} brk
-                                                                        </Typography>
-                                                                    )}
-                                                                </Box>
-                                                            </Tooltip>
-                                                        ) : (
-                                                            <Typography sx={{ fontSize: '12px', color: '#D1D5DB' }}>—</Typography>
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell sx={{ borderBottom: '1px solid #F3F4F6' }}>
-                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
-                                                            <Chip label={statusLabel} size="small"
-                                                                sx={{
-                                                                    bgcolor: statConf.bg, color: statConf.color,
-                                                                    fontWeight: 700, fontSize: '10px', height: 22,
-                                                                    border: `1px solid ${statConf.border}`,
-                                                                }} />
-                                                            {statusLabel === 'On Leave' && emp.isHalfDayLeave && (
-                                                                <Chip label="Half Day" size="small"
-                                                                    sx={{
-                                                                        bgcolor: '#FFF7ED', color: '#C2410C',
-                                                                        fontWeight: 700, fontSize: '9.5px', height: 20,
-                                                                        border: '1px solid #FED7AA',
-                                                                    }} />
-                                                            )}
-                                                        </Box>
-                                                    </TableCell>
-                                                </TableRow>
-                                            );
-                                        })}
-                                    </TableBody>
-                                </Table>
-                            </TableContainer>
-                        )}
-                    </CardContent>
-                </Card>
-            </Box>
-        );
-    };
-
-    const renderTabContent = () => {
-        if (userType === "teacher") {
-            // Teachers see Leave Management (with Apply Leave sub-tab inside)
-            return <LeaveManagementPage
-                isEmbedded={true}
-                initialSubView={leaveSubView}
-                onSubViewChange={setLeaveSubView}
-            />;
-        }
-
-        // Staff and admin now share the same tab layout —
-        // Apply Leave and Leave Approval are rendered inside Leave Management.
-        switch (tabValue) {
-            case 0: return renderDashboard();
-            case 1: return <AddStaffAttendancePage />;
-            case 2: return renderTodaysAttendance();
-            case 3: return <StaffAttendanceOverviewPage isEmbedded={true} />;
-            case 4: return <LeaveManagementPage
-                isEmbedded={true}
-                initialSubView={leaveSubView}
-                onSubViewChange={setLeaveSubView}
-            />;
-            case 5: return <AttendanceReportsPage isEmbedded={true} />;
-            default: return renderDashboard();
-        }
-    };
-
-    // ─── Manual Sync Date-Picker Dialog ────────────────────────────────────
-    const todayStr = new Date().toISOString().split('T')[0];
-    const renderManualSyncDialog = () => (
-        <Dialog
-            open={manualSyncOpen}
-            onClose={() => !isTriggering && setManualSyncOpen(false)}
-            maxWidth="xs" fullWidth
-            slotProps={{ paper: { sx: { borderRadius: '14px' } } }}
-        >
-            <Box sx={{
-                px: 3, py: 2,
-                background: 'linear-gradient(135deg, #EEF2FF 0%, #fff 60%)',
-                borderBottom: '1px solid #C7D2FE',
-                display: 'flex', alignItems: 'center', gap: 1.2,
-            }}>
-                <Box sx={{
-                    width: 38, height: 38, borderRadius: '10px',
-                    bgcolor: '#fff', border: '1px solid #C7D2FE',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                    <CloudSyncIcon sx={{ color: '#4338CA', fontSize: 22 }} />
-                </Box>
-                <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <Typography sx={{ fontSize: 15, fontWeight: 800, color: '#0F172A', lineHeight: 1.1 }}>
-                        Sync Past Punches
-                    </Typography>
-                    <Typography sx={{ fontSize: 11, color: '#6B7280', mt: 0.2 }}>
-                        Fetch missed punches from the biometric device
-                    </Typography>
-                </Box>
-                <IconButton size="small" onClick={() => setManualSyncOpen(false)} disabled={isTriggering}>
-                    <CloseIcon sx={{ fontSize: 18 }} />
-                </IconButton>
-            </Box>
-            <DialogContent sx={{ p: 3 }}>
-                <Typography sx={{ fontSize: 12.5, color: '#374151', lineHeight: 1.55, mb: 2 }}>
-                    Pick the <strong>From Date</strong> — the day you want to start syncing from.
-                    All punches from that date <strong>up to today</strong> will be fetched.
-                    Use this when the Worker PC was off and punches weren't captured automatically.
-                </Typography>
-                <TextField
-                    fullWidth
-                    type="date"
-                    label="From Date"
-                    value={manualSyncDate}
-                    onChange={(e) => setManualSyncDate(e.target.value)}
-                    slotProps={{
-                        inputLabel: { shrink: true },
-                        htmlInput: { max: todayStr },
-                    }}
-                    sx={{
-                        '& .MuiOutlinedInput-root': {
-                            borderRadius: '8px', fontSize: 13,
-                            '&.Mui-focused fieldset': { borderColor: '#4338CA' },
-                        },
-                    }}
-                />
-
-                {/* Live range preview — "May 11, 2026  →  May 13, 2026 (today)" */}
-                {manualSyncDate && (
-                    <Box sx={{
-                        mt: 1.5, p: 1.2, borderRadius: '8px',
-                        bgcolor: '#EEF2FF', border: '1px solid #C7D2FE',
-                        display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'center', flexWrap: 'wrap',
-                    }}>
-                        <Typography sx={{ fontSize: 11.5, color: '#4338CA', fontWeight: 700, fontFamily: 'monospace' }}>
-                            {new Date(manualSyncDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                        </Typography>
-                        <ArrowForwardIcon sx={{ fontSize: 14, color: '#4338CA' }} />
-                        <Typography sx={{ fontSize: 11.5, color: '#4338CA', fontWeight: 700, fontFamily: 'monospace' }}>
-                            {new Date(todayStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                        </Typography>
-                        <Chip
-                            label="today"
-                            size="small"
-                            sx={{
-                                height: 17, fontSize: 9.5, fontWeight: 800,
-                                bgcolor: '#4338CA', color: '#fff', ml: 0.4,
-                            }}
-                        />
-                    </Box>
-                )}
-                {/* Device-offline warning — blocks the Start button */}
-                {!devicesOnline && (
-                    <Box sx={{
-                        mt: 2, p: 1.2, borderRadius: '8px',
-                        bgcolor: '#FEF2F2', border: '1px solid #FECACA',
-                        display: 'flex', alignItems: 'flex-start', gap: 1,
-                    }}>
-                        <WifiOffIcon sx={{ fontSize: 16, color: '#DC2626', mt: 0.2, flexShrink: 0 }} />
-                        <Typography sx={{ fontSize: 10.5, color: '#991B1B', lineHeight: 1.55 }}>
-                            <strong>{offlineDeviceLabel}</strong>{' '}
-                            {offlineDeviceLabel.includes('and') ? 'are' : 'is'} <strong>offline</strong>.
-                            Sync cannot start until both the Worker PC and Biometric Device are reachable.
-                        </Typography>
-                    </Box>
-                )}
-
-                <Box sx={{
-                    mt: 2, p: 1.2, borderRadius: '8px',
-                    bgcolor: '#FEF3C7', border: '1px solid #FDE68A',
-                    display: 'flex', alignItems: 'flex-start', gap: 1,
-                }}>
-                    <ErrorOutlineIcon sx={{ fontSize: 16, color: '#D97706', mt: 0.2, flexShrink: 0 }} />
-                    <Typography sx={{ fontSize: 10.5, color: '#92400E', lineHeight: 1.55 }}>
-                        After triggering, the sync runs for up to <strong>1.5 minutes</strong>.
-                        You'll be blocked from leaving the page during that time.
-                        Cooldown of <strong>5 minutes</strong> between triggers.
-                    </Typography>
-                </Box>
-            </DialogContent>
-            <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
-                <Button
-                    onClick={() => setManualSyncOpen(false)}
-                    disabled={isTriggering}
-                    sx={{
-                        textTransform: 'none', borderRadius: '8px',
-                        color: '#374151', fontSize: 12.5, fontWeight: 600,
-                        border: '1px solid #E5E7EB', px: 2, height: 36,
-                        '&:hover': { bgcolor: '#F9FAFB' },
-                    }}
-                >
-                    Cancel
-                </Button>
-                <Tooltip
-                    arrow
-                    title={!devicesOnline
-                        ? `${offlineDeviceLabel} is offline`
-                        : inCooldown ? `Cooldown — try again in ${formatHHMMSS(cooldownLeftSec)}`
-                        : ''}
-                >
-                    <Box sx={{ display: 'inline-flex' }}>
-                        <Button
-                            onClick={handleTriggerManualSync}
-                            disabled={isTriggering || !manualSyncDate || inCooldown || !devicesOnline}
-                            startIcon={
-                                isTriggering
-                                    ? <CircularProgress size={14} sx={{ color: '#fff' }} />
-                                    : !devicesOnline
-                                        ? <WifiOffIcon sx={{ fontSize: 16 }} />
-                                        : <CloudSyncIcon sx={{ fontSize: 16 }} />
-                            }
-                            sx={{
-                                textTransform: 'none', borderRadius: '8px',
-                                bgcolor: '#4338CA', color: '#fff',
-                                fontSize: 13, fontWeight: 700, px: 2.5, height: 36,
-                                boxShadow: '0 4px 12px rgba(67,56,202,0.35)',
-                                '&:hover': { bgcolor: '#3730A3', boxShadow: '0 6px 16px rgba(67,56,202,0.5)' },
-                                '&.Mui-disabled': { bgcolor: '#C7D2FE', color: '#fff', boxShadow: 'none' },
-                            }}
-                        >
-                            {isTriggering
-                                ? 'Starting…'
-                                : !devicesOnline
-                                    ? 'Device Offline'
-                                    : 'Start Sync'}
-                        </Button>
-                    </Box>
-                </Tooltip>
-            </DialogActions>
-        </Dialog>
-    );
-
-    // ─── Blocking Sync Overlay (Backdrop) ──────────────────────────────────
-    const renderSyncOverlay = () => {
-        const safetyPct = Math.min(100, (elapsedSec / 90) * 100);
-        return (
-            <Backdrop
-                open={isSyncing}
-                sx={{
-                    zIndex: (t) => t.zIndex.modal + 1,
-                    bgcolor: 'rgba(15,23,42,0.7)',
-                    backdropFilter: 'blur(4px)',
-                }}
-            >
-                <Box sx={{
-                    width: { xs: '90%', sm: 420 },
-                    bgcolor: '#fff', borderRadius: '16px',
-                    p: 3, textAlign: 'center',
-                    boxShadow: '0 24px 60px rgba(0,0,0,0.3)',
-                }}>
-                    {/* Pulsing icon */}
-                    <Box sx={{
-                        width: 72, height: 72, borderRadius: '50%', mx: 'auto', mb: 1.5,
-                        bgcolor: '#EEF2FF', border: '2px solid #C7D2FE',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        animation: 'syncPulse 1.6s infinite ease-in-out',
-                        '@keyframes syncPulse': {
-                            '0%, 100%': { transform: 'scale(1)', boxShadow: '0 0 0 0 rgba(67,56,202,0.4)' },
-                            '50%':      { transform: 'scale(1.08)', boxShadow: '0 0 0 14px rgba(67,56,202,0)' },
-                        },
-                    }}>
-                        <CloudSyncIcon sx={{
-                            color: '#4338CA', fontSize: 36,
-                            animation: 'spin 2s linear infinite',
-                            '@keyframes spin': { from: { transform: 'rotate(0)' }, to: { transform: 'rotate(360deg)' } },
-                        }} />
-                    </Box>
-                    <Typography sx={{ fontSize: 17, fontWeight: 800, color: '#0F172A' }}>
-                        Syncing Previous Data from Biometric
-                    </Typography>
-                    <Typography sx={{ fontSize: 12, color: '#6B7280', mt: 0.6, lineHeight: 1.55 }}>
-                        Fetching punches from <strong>{manualSyncDate}</strong> · Estimated time <strong>~1.5 min</strong>
-                        <br />Please do not navigate away or close the page.
-                    </Typography>
-
-                    {/* Progress bar (counts toward 1.5 min) */}
-                    <Box sx={{ mt: 2.5, mb: 1 }}>
-                        <LinearProgress
-                            variant="determinate"
-                            value={safetyPct}
-                            sx={{
-                                height: 8, borderRadius: 4, bgcolor: '#EEF2FF',
-                                '& .MuiLinearProgress-bar': {
-                                    bgcolor: '#4338CA', borderRadius: 4,
-                                    transition: 'transform 1s linear',
-                                },
-                            }}
-                        />
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.6 }}>
-                            <Typography sx={{ fontSize: 10.5, color: '#6B7280', fontFamily: 'monospace', fontWeight: 700 }}>
-                                Elapsed: {formatHHMMSS(elapsedSec)}
-                            </Typography>
-                            <Typography sx={{ fontSize: 10.5, color: '#6B7280', fontFamily: 'monospace', fontWeight: 700 }}>
-                                Max: 01:30
-                            </Typography>
-                        </Box>
-                    </Box>
-
-                    {/* Live status of device while we wait */}
-                    <Box sx={{
-                        mt: 2, p: 1.2, borderRadius: '10px',
-                        bgcolor: '#F9FAFB', border: '1px solid #E5E7EB',
-                        display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'center',
-                    }}>
-                        <Box sx={{
-                            width: 8, height: 8, borderRadius: '50%',
-                            bgcolor: isDeviceReachable ? '#22C55E' : '#DC2626',
-                            boxShadow: isDeviceReachable
-                                ? '0 0 0 3px rgba(34,197,94,0.2)'
-                                : '0 0 0 3px rgba(220,38,38,0.2)',
-                        }} />
-                        <Typography sx={{ fontSize: 11, color: '#374151', fontWeight: 600 }}>
-                            Device {isDeviceReachable ? 'reachable' : 'unreachable'} ·
-                            Worker {isWorkerAlive ? 'alive' : 'offline'}
-                        </Typography>
-                    </Box>
-                </Box>
-            </Backdrop>
-        );
-    };
-
-    return (
-        <>
-            <SnackBar open={snackOpen} color={snackColor} setOpen={setSnackOpen} status={snackStatus} message={snackMessage} />
-            <Box sx={{
-                border: '1px solid #E5E7EB',
-                borderRadius: '20px',
-                p: 2,
-                height: '86vh',
-                overflow: 'hidden',
-                bgcolor: '#F9FAFB',
-                display: 'flex',
-                flexDirection: 'column',
-            }}>
-                {/* Header */}
-                <Box sx={{ flexShrink: 0 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5, flexWrap: 'wrap', gap: 1 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <IconButton onClick={() => navigate(-1)} sx={{ width: 32, height: 32 }}>
-                                <ArrowBackIcon sx={{ fontSize: 18, color: '#000' }} />
-                            </IconButton>
-                            <Box sx={{
-                                width: 36, height: 36, borderRadius: '10px',
-                                bgcolor: PRIMARY_LIGHT, border: `1px solid ${PRIMARY_BORDER}`,
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            }}>
-                                <EventIcon sx={{ color: PRIMARY, fontSize: 20 }} />
-                            </Box>
-                            <Box>
-                                <Typography sx={{ fontSize: '20px', fontWeight: 700, color: '#111827', lineHeight: 1.1 }}>
-                                    Leave & Attendance
-                                </Typography>
-                                <Typography sx={{ fontSize: '11px', color: '#6B7280', fontWeight: 500 }}>
-                                    {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
-                                </Typography>
-                            </Box>
-                        </Box>
-                        {userType !== "teacher" && (
-                            <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
-                                {/* Biometric Mapping — opens the staff ↔ device-ID sync page on its own route */}
-                                <Button
-                                    onClick={() => navigate('biometric-mapping')}
-                                    startIcon={<FingerprintIcon />}
-                                    variant="outlined"
-                                    sx={{
-                                        textTransform: 'none', borderRadius: '50px',
-                                        bgcolor: '#fff', color: PRIMARY_DARK,
-                                        border: `1px solid ${PRIMARY_BORDER}`,
-                                        fontSize: '13px', fontWeight: 700, px: 2.2,
-                                        boxShadow: 'none',
-                                        '&:hover': { bgcolor: PRIMARY_LIGHT, borderColor: PRIMARY, boxShadow: 'none' },
-                                    }}
-                                >
-                                    Biometric Mapping
-                                </Button>
-                                <Button
-                                    onClick={() => setTabValue(1)}
-                                    startIcon={<AddIcon />}
-                                    variant="contained"
-                                    sx={{
-                                        textTransform: 'none', borderRadius: '50px',
-                                        bgcolor: PRIMARY, color: '#fff',
-                                        fontSize: '13px', fontWeight: 700, px: 2.5,
-                                        boxShadow: `0 2px 6px ${PRIMARY}33`,
-                                        '&:hover': { bgcolor: PRIMARY_DARK, boxShadow: `0 4px 12px ${PRIMARY}55` },
-                                    }}
-                                >
-                                    Mark Attendance
-                                </Button>
-                                <Autocomplete
-                                    size="small"
-                                    options={academicYears}
-                                    sx={{ width: '170px' }}
-                                    value={selectedAcademicYear}
-                                    onChange={(e, newValue) => setSelectedAcademicYear(newValue)}
-                                    renderInput={(params) => (
-                                        <TextField
-                                            placeholder="Select Academic Year"
-                                            {...params}
-                                            variant="outlined"
-                                            sx={{
-                                                '& .MuiOutlinedInput-root': {
-                                                    borderRadius: '5px',
-                                                    fontSize: 14,
-                                                    height: 35,
-                                                },
-                                                '& .MuiOutlinedInput-input': {
-                                                    textAlign: 'center',
-                                                    fontWeight: '600',
-                                                },
-                                            }}
-                                        />
-                                    )}
-                                />
-                            </Box>
-                        )}
-                    </Box>
-
-                    <Divider sx={{ mb: 1.2 }} />
-
-                    {userType !== "teacher" && (
-                        <Box sx={{ borderBottom: '1px solid #E5E7EB', mb: 1.5 }}>
-                            <Tabs
-                                value={tabValue}
-                                onChange={handleTabChange}
-                                variant="scrollable"
-                                scrollButtons="auto"
-                                sx={{
-                                    minHeight: 44,
-                                    '& .MuiTab-root': {
-                                        textTransform: 'none', fontSize: '13px',
-                                        fontWeight: 600, color: '#6B7280',
-                                        minHeight: 44, px: 2, py: 1,
-                                        gap: 0.6,
-                                        '& .MuiSvgIcon-root': { fontSize: 18 },
-                                    },
-                                    '& .Mui-selected': { color: `${PRIMARY_DARK} !important` },
-                                    '& .MuiTabs-indicator': {
-                                        backgroundColor: PRIMARY, height: 2.5,
-                                        borderRadius: '2px 2px 0 0',
-                                    },
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 0.9,
+                                    px: 1.8,
+                                    py: 0.8,
+                                    borderRadius: "50px",
+                                    bgcolor: chip.bg,
+                                    border: `1px solid ${chip.border}`,
                                 }}
                             >
-                                <Tab icon={<SpaceDashboardOutlinedIcon />} iconPosition="start" label="Dashboard" />
-                                <Tab icon={<HowToRegOutlinedIcon />} iconPosition="start" label="Add Attendance" />
-                                <Tab icon={<TodayIcon />} iconPosition="start" label="Today's Attendance" />
-                                <Tab icon={<VisibilityOutlinedIcon />} iconPosition="start" label="Overview" />
-                                <Tab icon={<ListAltOutlinedIcon />} iconPosition="start" label="Leave Management" />
-                                <Tab icon={<InsertChartOutlinedIcon />} iconPosition="start" label="Reports" />
-                            </Tabs>
+                                <Typography
+                                    sx={{ fontSize: "11.5px", fontWeight: "700", color: chip.color, letterSpacing: "0.5px" }}
+                                >
+                                    {chip.label}
+                                </Typography>
+                                <Typography sx={{ fontSize: "14px", fontWeight: "700", color: chip.color }}>
+                                    {chip.value}
+                                </Typography>
+                            </Box>
+                        ))}
+                    </Box>
+                </Box>
+
+                {/* ── Filters ── */}
+                <Box
+                    sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1.5,
+                        flexWrap: "wrap",
+                        p: 1.4,
+                        mb: 2,
+                        bgcolor: "#fff",
+                        border: "1px solid #E5E7EB",
+                        borderRadius: "12px",
+                    }}
+                >
+                    <TextField
+                        size="small"
+                        placeholder="Search by name or roll no..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        sx={{
+                            minWidth: "300px",
+                            "& .MuiOutlinedInput-root": {
+                                borderRadius: "50px",
+                                fontSize: "13.5px",
+                                bgcolor: "#F9FAFB",
+                                "& fieldset": { border: "none" },
+                            },
+                        }}
+                        slotProps={{
+                            input: {
+                                startAdornment: (
+                                    <InputAdornment position="start">
+                                        <SearchIcon sx={{ fontSize: "18px", color: "#9CA3AF" }} />
+                                    </InputAdornment>
+                                ),
+                            },
+                        }}
+                    />
+
+                    <Box sx={{ width: "1px", height: 28, bgcolor: "#E5E7EB" }} />
+
+                    <TextField
+                        select
+                        size="small"
+                        value={todayRole}
+                        onChange={(e) => setTodayRole(e.target.value)}
+                        sx={{
+                            minWidth: "170px",
+                            "& .MuiOutlinedInput-root": { borderRadius: "50px", fontSize: "13.5px", fontWeight: 600 },
+                        }}
+                        slotProps={{
+                            input: {
+                                startAdornment: (
+                                    <InputAdornment position="start">
+                                        <GroupsIcon sx={{ fontSize: "19px", color: "#6B7280" }} />
+                                    </InputAdornment>
+                                ),
+                            },
+                        }}
+                    >
+                        {["All Roles", "Teaching Staff", "Non Teaching Staff"].map((role) => (
+                            <MenuItem key={role} value={role} sx={{ fontSize: "13.5px" }}>
+                                {role === "All Roles" ? "Role" : role}
+                            </MenuItem>
+                        ))}
+                    </TextField>
+
+                    <TextField
+                        select
+                        size="small"
+                        value={todayStatus}
+                        onChange={(e) => setTodayStatus(e.target.value)}
+                        sx={{
+                            minWidth: "160px",
+                            "& .MuiOutlinedInput-root": { borderRadius: "50px", fontSize: "13.5px", fontWeight: 600 },
+                        }}
+                        slotProps={{
+                            input: {
+                                startAdornment: (
+                                    <InputAdornment position="start">
+                                        <Box
+                                            sx={{ width: 14, height: 14, borderRadius: "50%", bgcolor: statusDot, flexShrink: 0 }}
+                                        />
+                                    </InputAdornment>
+                                ),
+                            },
+                        }}
+                    >
+                        {["All Status", ...ATTENDANCE_STATUSES].map((status) => (
+                            <MenuItem key={status} value={status} sx={{ fontSize: "13.5px" }}>
+                                {status === "All Status" ? "Status" : status}
+                            </MenuItem>
+                        ))}
+                    </TextField>
+
+                    <Box sx={{ flex: 1 }} />
+
+                    <Typography sx={{ fontSize: "13px", color: "#9CA3AF" }}>
+                        Showing{" "}
+                        <Box component="span" sx={{ fontWeight: 700, color: "#374151" }}>
+                            {todayRows.length}
+                        </Box>{" "}
+                        of {records.length} records
+                    </Typography>
+                </Box>
+
+                {/* ── Login table ── */}
+                <Box sx={{ bgcolor: "#fff", border: "1px solid #E5E7EB", borderRadius: "12px", overflow: "hidden" }}>
+                    <TableContainer>
+                        <Table size="small">
+                            <TableHead>
+                                <TableRow sx={{ bgcolor: GREEN.bg }}>
+                                    {[
+                                        "S.NO",
+                                        "STAFF MEMBER",
+                                        "ROLE",
+                                        "SOURCE",
+                                        "LOGIN TIME",
+                                        "LOGOUT TIME",
+                                        "HOURS",
+                                        "STATUS",
+                                    ].map((head) => (
+                                        <TableCell
+                                            key={head}
+                                            sx={{
+                                                fontSize: "11.5px",
+                                                fontWeight: "700",
+                                                color: "#374151",
+                                                letterSpacing: "0.5px",
+                                                borderBottom: `1px solid ${GREEN.border}`,
+                                                py: 1.8,
+                                            }}
+                                        >
+                                            {head}
+                                        </TableCell>
+                                    ))}
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {todayRows.map((row, index) => {
+                                    // Still on the clock when there is a login but no logout
+                                    const active = Boolean(row.checkIn) && !row.checkOut;
+                                    const hours = workingHoursBetween(row.checkIn, row.checkOut);
+                                    return (
+                                        <TableRow key={row.id} hover>
+                                            <TableCell sx={{ fontSize: "13px", color: "#9CA3AF", py: 1.5 }}>
+                                                {index + 1}
+                                            </TableCell>
+                                            <TableCell>
+                                                <Box sx={{ display: "flex", alignItems: "center", gap: 1.2 }}>
+                                                    <Avatar sx={{ width: 34, height: 34, bgcolor: BLUE.bg, color: BLUE.main }}>
+                                                        <PersonIcon sx={{ fontSize: "19px" }} />
+                                                    </Avatar>
+                                                    <Typography sx={{ fontSize: "13.5px", fontWeight: "600", color: "#111827" }}>
+                                                        {row.name}
+                                                    </Typography>
+                                                </Box>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Chip
+                                                    label={row.role}
+                                                    size="small"
+                                                    sx={{
+                                                        bgcolor: "#F0FDFA",
+                                                        color: "#0D9488",
+                                                        border: "1px solid #99F6E4",
+                                                        fontWeight: "600",
+                                                        fontSize: "11px",
+                                                    }}
+                                                />
+                                            </TableCell>
+                                            <TableCell>
+                                                <Chip
+                                                    icon={
+                                                        row.source === "Biometric" ? (
+                                                            <FingerprintIcon
+                                                                sx={{ fontSize: "14px !important", color: `${INDIGO.main} !important` }}
+                                                            />
+                                                        ) : undefined
+                                                    }
+                                                    label={row.source}
+                                                    size="small"
+                                                    sx={{
+                                                        bgcolor: INDIGO.bg,
+                                                        color: INDIGO.main,
+                                                        border: `1px solid ${INDIGO.border}`,
+                                                        fontWeight: "600",
+                                                        fontSize: "11px",
+                                                    }}
+                                                />
+                                            </TableCell>
+                                            <TableCell>
+                                                {row.checkIn ? (
+                                                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.7 }}>
+                                                        <AccessTimeIcon sx={{ fontSize: "15px", color: GREEN.main }} />
+                                                        <Typography
+                                                            sx={{ fontSize: "13.5px", fontWeight: "700", color: "#111827" }}
+                                                        >
+                                                            {row.checkIn}
+                                                        </Typography>
+                                                    </Box>
+                                                ) : (
+                                                    <Typography sx={{ fontSize: "13px", color: "#9CA3AF" }}>—</Typography>
+                                                )}
+                                            </TableCell>
+                                            <TableCell>
+                                                {row.checkOut ? (
+                                                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.7 }}>
+                                                        <AccessTimeIcon sx={{ fontSize: "15px", color: "#6B7280" }} />
+                                                        <Typography
+                                                            sx={{ fontSize: "13.5px", fontWeight: "700", color: "#111827" }}
+                                                        >
+                                                            {row.checkOut}
+                                                        </Typography>
+                                                    </Box>
+                                                ) : active ? (
+                                                    <Chip
+                                                        label="Active"
+                                                        size="small"
+                                                        sx={{
+                                                            bgcolor: GREEN.bg,
+                                                            color: GREEN.main,
+                                                            border: `1px solid ${GREEN.border}`,
+                                                            fontWeight: "700",
+                                                            fontSize: "11px",
+                                                        }}
+                                                    />
+                                                ) : (
+                                                    <Typography sx={{ fontSize: "13px", color: "#9CA3AF" }}>—</Typography>
+                                                )}
+                                            </TableCell>
+                                            <TableCell sx={{ fontSize: "13px", fontWeight: "700", color: "#111827" }}>
+                                                {hours || (
+                                                    <Box component="span" sx={{ color: "#9CA3AF", fontWeight: 400 }}>
+                                                        —
+                                                    </Box>
+                                                )}
+                                            </TableCell>
+                                            <TableCell>
+                                                <StatusChip status={row.status} />
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })}
+                                {todayRows.length === 0 && (
+                                    <TableRow>
+                                        <TableCell
+                                            colSpan={8}
+                                            sx={{ textAlign: "center", py: 5, color: "#9CA3AF", fontSize: "13px" }}
+                                        >
+                                            No attendance records match your filters
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
+                </Box>
+            </>
+        );
+    };
+
+    /* ─────────────── Overview tab ─────────────── */
+    const renderOverview = () => {
+        const term = overviewSearch.trim().toLowerCase();
+        // Search is client-side; the user-type filter is applied by the server
+        const overviewStaff = overview.details.filter((row) =>
+            !term
+                ? true
+                : String(row.name).toLowerCase().includes(term) || String(row.rollNumber).toLowerCase().includes(term)
+        );
+
+        // Columns are the server's dateHeaders — days[] aligns to them positionally
+        const rangeDays = overview.dateHeaders;
+        const rangeLabel = `${rangeDays.length} Days`;
+
+        const cards = overview.cards || { totalPresent: 0, totalLate: 0, totalLeave: 0, totalAbsent: 0 };
+        const summaryCards = [
+            { label: "Total Present", value: cards.totalPresent, icon: CheckCircleIcon, tone: GREEN, bg: "#F0FDF4" },
+            { label: "Total Late", value: cards.totalLate, icon: AccessTimeIcon, tone: AMBER, bg: "#FFF7ED" },
+            { label: "Total Leave", value: cards.totalLeave, icon: EventBusyOutlinedIcon, tone: BLUE, bg: "#EFF6FF" },
+            { label: "Total Absent", value: cards.totalAbsent, icon: CancelIcon, tone: RED, bg: "#FEF2F2" },
+        ];
+
+        return (
+            <>
+                {/* ── Staff filters ── */}
+                <Box
+                    sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1.5,
+                        flexWrap: "wrap",
+                        p: 1.4,
+                        mb: 2,
+                        bgcolor: "#fff",
+                        border: "1px solid #E5E7EB",
+                        borderRadius: "12px",
+                    }}
+                >
+                    <TextField
+                        size="small"
+                        placeholder="Search staff name or ID"
+                        value={overviewSearch}
+                        onChange={(e) => setOverviewSearch(e.target.value)}
+                        sx={{
+                            minWidth: "280px",
+                            "& .MuiOutlinedInput-root": {
+                                borderRadius: "8px",
+                                fontSize: "13.5px",
+                                bgcolor: "#F9FAFB",
+                                "& fieldset": { border: "none" },
+                            },
+                        }}
+                        slotProps={{
+                            input: {
+                                startAdornment: (
+                                    <InputAdornment position="start">
+                                        <SearchIcon sx={{ fontSize: "18px", color: "#9CA3AF" }} />
+                                    </InputAdornment>
+                                ),
+                            },
+                        }}
+                    />
+
+                    <TextField
+                        select
+                        size="small"
+                        value={overviewType}
+                        onChange={(e) => setOverviewType(e.target.value)}
+                        sx={{ ...inputSx, minWidth: "190px" }}
+                    >
+                        {USER_TYPES.map((type) => (
+                            <MenuItem key={type} value={type} sx={{ fontSize: "13.5px" }}>
+                                {type}
+                            </MenuItem>
+                        ))}
+                    </TextField>
+
+                    <Box sx={{ flex: 1 }} />
+
+                    <Typography sx={{ fontSize: "13px", color: "#9CA3AF" }}>
+                        {overviewStaff.length} of {overview.details.length} staff members
+                    </Typography>
+                </Box>
+
+                {/* ── Range picker ── */}
+                <Box
+                    sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1.2,
+                        flexWrap: "wrap",
+                        p: 1.4,
+                        mb: 2,
+                        bgcolor: "#fff",
+                        border: "1px solid #E5E7EB",
+                        borderRadius: "12px",
+                    }}
+                >
+                    <CalendarMonthOutlinedIcon sx={{ fontSize: "20px", color: BLUE.main }} />
+                    <Typography sx={{ fontSize: "14px", fontWeight: "700", color: "#111827", mr: 0.5 }}>
+                        View By:
+                    </Typography>
+
+                    {[
+                        { key: "7", label: "7 Days" },
+                        { key: "15", label: "15 Days" },
+                        { key: "custom", label: "From - To" },
+                    ].map((option) => {
+                        const active = overviewRange === option.key;
+                        return (
+                            <Box
+                                key={option.key}
+                                onClick={() => setOverviewRange(option.key)}
+                                sx={{
+                                    px: 2.2,
+                                    py: 0.8,
+                                    borderRadius: "50px",
+                                    cursor: "pointer",
+                                    userSelect: "none",
+                                    whiteSpace: "nowrap",
+                                    fontSize: "13.5px",
+                                    fontWeight: "700",
+                                    color: active ? "#fff" : "#374151",
+                                    bgcolor: active ? "#2563EB" : "#fff",
+                                    border: `1px solid ${active ? "#2563EB" : "#E5E7EB"}`,
+                                    transition: "0.2s",
+                                    "&:hover": { borderColor: "#2563EB" },
+                                }}
+                            >
+                                {option.label}
+                            </Box>
+                        );
+                    })}
+
+                    {overviewRange === "custom" && (
+                        <Box sx={{ display: "flex", gap: 1, ml: 0.5, flexWrap: "wrap" }}>
+                            <TextField
+                                size="small"
+                                type="date"
+                                value={overviewFrom}
+                                onChange={(e) => setOverviewFrom(e.target.value)}
+                                sx={{ ...inputSx, width: "165px" }}
+                            />
+                            <TextField
+                                size="small"
+                                type="date"
+                                value={overviewTo}
+                                onChange={(e) => setOverviewTo(e.target.value)}
+                                sx={{ ...inputSx, width: "165px" }}
+                            />
                         </Box>
                     )}
                 </Box>
 
-                {/* Scrollable content */}
-                <Box sx={{
-                    flex: 1,
-                    overflowY: 'auto',
-                    pr: 0.5,
-                    '&::-webkit-scrollbar': { width: 5 },
-                    '&::-webkit-scrollbar-track': { bgcolor: 'transparent' },
-                    '&::-webkit-scrollbar-thumb': { bgcolor: '#D1D5DB', borderRadius: 10 },
-                }}>
-                    {renderTabContent()}
+                {/* ── Range totals ── */}
+                <Grid container spacing={2} sx={{ mb: 2 }}>
+                    {summaryCards.map((card) => {
+                        const CardIcon = card.icon;
+                        return (
+                            <Grid key={card.label} size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
+                                <Box
+                                    sx={{
+                                        display: "flex",
+                                        alignItems: "flex-start",
+                                        justifyContent: "space-between",
+                                        gap: 1,
+                                        p: 2,
+                                        height: "100%",
+                                        boxSizing: "border-box",
+                                        borderRadius: "12px",
+                                        bgcolor: card.bg,
+                                        border: `1px solid ${card.tone.main}55`,
+                                    }}
+                                >
+                                    <Box sx={{ minWidth: 0 }}>
+                                        <Typography sx={{ fontSize: "13.5px", color: "#374151" }}>{card.label}</Typography>
+                                        <Typography
+                                            sx={{ fontSize: "30px", fontWeight: "700", color: "#111827", lineHeight: 1.4 }}
+                                        >
+                                            {card.value}
+                                        </Typography>
+                                        <Typography sx={{ fontSize: "12px", fontWeight: "700", color: card.tone.main }}>
+                                            {overviewRange === "custom" ? `${rangeDays.length} days` : `Last ${rangeLabel.toLowerCase()}`}
+                                        </Typography>
+                                    </Box>
+                                    <Box
+                                        sx={{
+                                            width: 40,
+                                            height: 40,
+                                            borderRadius: "9px",
+                                            bgcolor: "#fff",
+                                            border: `1px solid ${card.tone.main}55`,
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            flexShrink: 0,
+                                        }}
+                                    >
+                                        <CardIcon sx={{ fontSize: "22px", color: card.tone.main }} />
+                                    </Box>
+                                </Box>
+                            </Grid>
+                        );
+                    })}
+                </Grid>
+
+                {/* ── Day-by-day log ── */}
+                <Box sx={{ bgcolor: "#fff", border: "1px solid #E5E7EB", borderRadius: "12px", overflow: "hidden" }}>
+                    <Box
+                        sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: 1.5,
+                            flexWrap: "wrap",
+                            px: 2.2,
+                            py: 1.8,
+                        }}
+                    >
+                        <Typography sx={{ fontSize: "18px", fontWeight: "700", color: "#111827" }}>
+                            Detailed Attendance Log
+                        </Typography>
+                        <Box
+                            sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 0.8,
+                                px: 1.5,
+                                py: 0.7,
+                                borderRadius: "8px",
+                                bgcolor: BLUE.bg,
+                            }}
+                        >
+                            <CalendarMonthOutlinedIcon sx={{ fontSize: "16px", color: BLUE.main }} />
+                            <Typography sx={{ fontSize: "12.5px", fontWeight: "700", color: BLUE.main }}>
+                                {overviewStaff.length} Staff · {rangeLabel}
+                            </Typography>
+                        </Box>
+                    </Box>
+
+                    <TableContainer sx={{ maxHeight: "55vh" }}>
+                        <Table size="small" stickyHeader>
+                            <TableHead>
+                                <TableRow>
+                                    <TableCell
+                                        sx={{
+                                            fontSize: "11.5px",
+                                            fontWeight: "700",
+                                            color: "#6B7280",
+                                            letterSpacing: "0.5px",
+                                            bgcolor: "#F9FAFB",
+                                            borderBottom: "1px solid #E5E7EB",
+                                            borderRight: "1px solid #E5E7EB",
+                                            minWidth: "260px",
+                                            py: 1.6,
+                                            // Keeps the name column in view while the days scroll
+                                            position: "sticky",
+                                            left: 0,
+                                            zIndex: 3,
+                                        }}
+                                    >
+                                        STAFF MEMBER
+                                    </TableCell>
+                                    {rangeDays.map((header) => (
+                                        <TableCell
+                                            key={header}
+                                            align="center"
+                                            sx={{
+                                                bgcolor: "#F9FAFB",
+                                                borderBottom: "1px solid #E5E7EB",
+                                                borderLeft: "1px solid #F3F4F6",
+                                                minWidth: "84px",
+                                                py: 1.2,
+                                            }}
+                                        >
+                                            <Typography sx={{ fontSize: "14px", fontWeight: "700", color: "#374151" }}>
+                                                {header.slice(0, 2)}
+                                            </Typography>
+                                            <Typography sx={{ fontSize: "11px", color: "#9CA3AF" }}>
+                                                {weekdayOfApiDate(header)}
+                                            </Typography>
+                                        </TableCell>
+                                    ))}
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {overviewStaff.map((row) => {
+                                    return (
+                                        <TableRow
+                                            key={row.rollNumber}
+                                            hover
+                                            sx={{ "&:nth-of-type(even)": { bgcolor: "#F9FAFB" } }}
+                                        >
+                                            <TableCell
+                                                sx={{
+                                                    py: 1.2,
+                                                    // Sticky column keeps its own white background over the stripes
+                                                    position: "sticky",
+                                                    left: 0,
+                                                    zIndex: 1,
+                                                    bgcolor: "#fff",
+                                                    borderRight: "1px solid #E5E7EB",
+                                                }}
+                                            >
+                                                <Box sx={{ display: "flex", alignItems: "center", gap: 1.3 }}>
+                                                    <Avatar
+                                                        sx={{
+                                                            width: 38,
+                                                            height: 38,
+                                                            bgcolor: LOG_AVATAR,
+                                                            color: "#fff",
+                                                            fontSize: "13px",
+                                                            fontWeight: "700",
+                                                        }}
+                                                    >
+                                                        {initialsOf(row.name)}
+                                                    </Avatar>
+                                                    <Box sx={{ minWidth: 0 }}>
+                                                        <Typography
+                                                            sx={{ fontSize: "14px", fontWeight: "700", color: "#111827", lineHeight: 1.3 }}
+                                                        >
+                                                            {row.name}
+                                                        </Typography>
+                                                        <Typography sx={{ fontSize: "11.5px", color: "#9CA3AF" }}>
+                                                            {row.rollNumber} · {row.category || row.userType}
+                                                        </Typography>
+                                                    </Box>
+                                                </Box>
+                                            </TableCell>
+                                            {/* days[] is positionally aligned to dateHeaders — index, never re-sort */}
+                                            {rangeDays.map((header, index) => {
+                                                const mark = OVERVIEW_MARK[row.days?.[index]?.status] || null;
+                                                return (
+                                                    <TableCell
+                                                        key={header}
+                                                        align="center"
+                                                        sx={{ borderLeft: "1px solid #F3F4F6" }}
+                                                    >
+                                                        {mark ? (
+                                                            <Box
+                                                                sx={{
+                                                                    display: "inline-flex",
+                                                                    alignItems: "center",
+                                                                    justifyContent: "center",
+                                                                    minWidth: 30,
+                                                                    px: 0.8,
+                                                                    py: 0.3,
+                                                                    borderRadius: "6px",
+                                                                    bgcolor: mark.bg,
+                                                                    border: `1px solid ${mark.border}`,
+                                                                    color: mark.color,
+                                                                    fontSize: "11.5px",
+                                                                    fontWeight: 700,
+                                                                }}
+                                                            >
+                                                                {mark.label}
+                                                            </Box>
+                                                        ) : (
+                                                            <Typography sx={{ fontSize: "13px", color: "#D1D5DB" }}>—</Typography>
+                                                        )}
+                                                    </TableCell>
+                                                );
+                                            })}
+                                        </TableRow>
+                                    );
+                                })}
+                                {overviewStaff.length === 0 && (
+                                    <TableRow>
+                                        <TableCell
+                                            colSpan={rangeDays.length + 1}
+                                            sx={{ textAlign: "center", py: 5, color: "#9CA3AF", fontSize: "13px" }}
+                                        >
+                                            {loadingOverview ? "Loading attendance…" : "No staff match your search"}
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
                 </Box>
+            </>
+        );
+    };
+
+    /* ─────────────── Leave Management tab ─────────────── */
+    const renderLeave = () => {
+        // Counts come from `cards`, which stays complete even when a filter narrows the lists
+        const pending = leaveCards.pendingCount || 0;
+        const approved = leaveCards.approvedCount || 0;
+        const rejected = leaveCards.rejectedCount || 0;
+        const total = pending + approved + rejected;
+        const approvedPercent = total ? Math.round((approved / total) * 100) : 0;
+
+        const leaveKpis = [
+            { label: "TOTAL LEAVES", value: total, caption: "This Month", icon: CalendarMonthOutlinedIcon, tone: BLUE },
+            { label: "APPROVED", value: approved, caption: `${approvedPercent}% of total`, icon: CheckCircleIcon, tone: GREEN },
+            { label: "PENDING", value: pending, caption: "Needs Review", icon: MoreHorizIcon, tone: AMBER },
+            { label: "REJECTED", value: rejected, caption: "Declined", icon: CancelIcon, tone: RED },
+        ];
+
+        const statusFilters = [
+            { key: "All Leaves", label: "All Leaves", icon: null, count: total },
+            { key: "Pending", label: "Pending", icon: MoreHorizIcon, count: pending },
+            { key: "Approved", label: "Approved", icon: CheckCircleIcon, count: approved },
+            { key: "Rejected", label: "Rejected", icon: CancelIcon, count: rejected },
+        ];
+
+        const term = leaveSearch.trim().toLowerCase();
+        const visibleRequests = leaveRequests
+            .filter((row) => leaveType === "All Types" || row.leaveType === leaveType)
+            .filter((row) =>
+                !term
+                    ? true
+                    : [row.name, row.forRollNumber, row.reason].some((value) =>
+                          String(value).toLowerCase().includes(term)
+                      )
+            );
+
+        const myRequests = myLeaves;
+
+        /* Shared request table */
+        const requestTable = (rows, emptyTitle, emptyHint, showActions = false) => (
+            <TableContainer>
+                <Table size="small">
+                    <TableHead>
+                        <TableRow sx={{ bgcolor: GREEN.bg }}>
+                            {["STAFF MEMBER", "LEAVE TYPE", "DURATION", "DAYS", "REASON", "STATUS", ...(showActions ? ["ACTIONS"] : [])].map((head) => (
+                                <TableCell
+                                    key={head}
+                                    sx={{
+                                        fontSize: "11.5px",
+                                        fontWeight: "700",
+                                        color: "#374151",
+                                        letterSpacing: "0.5px",
+                                        borderBottom: `1px solid ${GREEN.border}`,
+                                        py: 1.8,
+                                    }}
+                                >
+                                    {head}
+                                </TableCell>
+                            ))}
+                        </TableRow>
+                    </TableHead>
+                    <TableBody>
+                        {rows.map((row) => {
+                            const cfg = LEAVE_STATUS_STYLE[row.status];
+                            return (
+                                <TableRow key={row.leaveApplicationId} hover sx={{ "&:nth-of-type(even)": { bgcolor: "#F9FAFB" } }}>
+                                    <TableCell sx={{ py: 1.4 }}>
+                                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.2 }}>
+                                            <Avatar
+                                                sx={{
+                                                    width: 34,
+                                                    height: 34,
+                                                    bgcolor: LOG_AVATAR,
+                                                    color: "#fff",
+                                                    fontSize: "12px",
+                                                    fontWeight: "700",
+                                                }}
+                                            >
+                                                {initialsOf(row.name)}
+                                            </Avatar>
+                                            <Box sx={{ minWidth: 0 }}>
+                                                <Typography
+                                                    sx={{ fontSize: "13.5px", fontWeight: "700", color: "#111827", lineHeight: 1.3 }}
+                                                >
+                                                    {row.name}
+                                                </Typography>
+                                                <Typography sx={{ fontSize: "11.5px", color: "#9CA3AF" }}>
+                                                    {row.forRollNumber}
+                                                </Typography>
+                                            </Box>
+                                        </Box>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Chip
+                                            label={row.leaveType}
+                                            size="small"
+                                            sx={{
+                                                bgcolor: "#F0FDFA",
+                                                color: "#0D9488",
+                                                border: "1px solid #99F6E4",
+                                                fontWeight: "600",
+                                                fontSize: "11px",
+                                            }}
+                                        />
+                                    </TableCell>
+                                    <TableCell sx={{ fontSize: "13px", color: "#374151" }}>
+                                        {row.fromDate} – {row.toDate}
+                                    </TableCell>
+                                    <TableCell sx={{ fontSize: "13px", fontWeight: "700", color: "#111827" }}>
+                                        {row.days}
+                                    </TableCell>
+                                    <TableCell sx={{ fontSize: "13px", color: "#6B7280", maxWidth: "230px" }}>
+                                        {row.reason || "—"}
+                                    </TableCell>
+                                    <TableCell>
+                                        <Chip
+                                            label={row.status}
+                                            size="small"
+                                            sx={{
+                                                bgcolor: cfg.bg,
+                                                color: cfg.color,
+                                                border: `1px solid ${cfg.border}`,
+                                                fontWeight: "700",
+                                                fontSize: "11px",
+                                            }}
+                                        />
+                                        {/* Only populated on a declined row */}
+                                        {row.rejectReason ? (
+                                            <Typography sx={{ fontSize: "11px", color: RED.main, mt: 0.5 }}>
+                                                {row.rejectReason}
+                                            </Typography>
+                                        ) : null}
+                                    </TableCell>
+                                    {showActions && (
+                                        <TableCell>
+                                            {row.status === "Pending" ? (
+                                                <Box sx={{ display: "flex", gap: 0.8 }}>
+                                                    <Button
+                                                        size="small"
+                                                        disabled={actioningId === row.leaveApplicationId}
+                                                        onClick={() => actOnLeave(row, "accept")}
+                                                        sx={{
+                                                            textTransform: "none",
+                                                            borderRadius: "8px",
+                                                            bgcolor: GREEN.bg,
+                                                            border: `1px solid ${GREEN.border}`,
+                                                            color: GREEN.dark,
+                                                            fontSize: "12.5px",
+                                                            fontWeight: "700",
+                                                            px: 1.6,
+                                                        }}
+                                                    >
+                                                        Accept
+                                                    </Button>
+                                                    {/* Declining requires a reason, so it opens a prompt */}
+                                                    <Button
+                                                        size="small"
+                                                        disabled={actioningId === row.leaveApplicationId}
+                                                        onClick={() => {
+                                                            setDeclineReason("");
+                                                            setDeclineFor(row);
+                                                        }}
+                                                        sx={{
+                                                            textTransform: "none",
+                                                            borderRadius: "8px",
+                                                            bgcolor: RED.bg,
+                                                            border: `1px solid ${RED.border}`,
+                                                            color: RED.main,
+                                                            fontSize: "12.5px",
+                                                            fontWeight: "700",
+                                                            px: 1.6,
+                                                        }}
+                                                    >
+                                                        Decline
+                                                    </Button>
+                                                </Box>
+                                            ) : (
+                                                <Typography sx={{ fontSize: "12.5px", color: "#D1D5DB" }}>—</Typography>
+                                            )}
+                                        </TableCell>
+                                    )}
+                                </TableRow>
+                            );
+                        })}
+                        {rows.length === 0 && (
+                            <TableRow>
+                                <TableCell colSpan={showActions ? 7 : 6} sx={{ textAlign: "center", py: 6, border: "none" }}>
+                                    <Typography sx={{ fontSize: "14px", fontWeight: "700", color: "#9CA3AF" }}>
+                                        {emptyTitle}
+                                    </Typography>
+                                    <Typography sx={{ fontSize: "12.5px", color: "#D1D5DB", mt: 0.6 }}>
+                                        {emptyHint}
+                                    </Typography>
+                                </TableCell>
+                            </TableRow>
+                        )}
+                    </TableBody>
+                </Table>
+            </TableContainer>
+        );
+
+        /* Right-hand sidebar */
+        const leaveSidebar = (
+            <>
+                <Box sx={{ mb: 2 }}>
+                    <Panel
+                        title="Available Leave Types"
+                        icon={CalendarMonthOutlinedIcon}
+                        tone={GREEN}
+                        action={
+                            <Box
+                                sx={{
+                                    minWidth: 28,
+                                    px: 1,
+                                    py: 0.3,
+                                    borderRadius: "50px",
+                                    textAlign: "center",
+                                    bgcolor: GREEN.bg,
+                                    color: GREEN.main,
+                                    border: `1px solid ${GREEN.border}`,
+                                    fontSize: "12px",
+                                    fontWeight: "700",
+                                }}
+                            >
+                                {availableTypes.length}
+                            </Box>
+                        }
+                    >
+                        <Typography sx={{ fontSize: "11.5px", color: "#9CA3AF", mt: -1.2, mb: 1.5 }}>
+                            Configured in Leave Master
+                        </Typography>
+                        {availableTypes.map((type, index) => (
+                            <Box
+                                key={type.code}
+                                sx={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 1.3,
+                                    p: 1.3,
+                                    mb: index === availableTypes.length - 1 ? 0 : 1.2,
+                                    borderRadius: "10px",
+                                    border: "1px solid #E5E7EB",
+                                }}
+                            >
+                                <Box
+                                    sx={{
+                                        width: 40,
+                                        height: 34,
+                                        borderRadius: "8px",
+                                        bgcolor: type.bg,
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        flexShrink: 0,
+                                    }}
+                                >
+                                    <Typography sx={{ fontSize: "12px", fontWeight: "700", color: type.color }}>
+                                        {type.code}
+                                    </Typography>
+                                </Box>
+                                <Box sx={{ minWidth: 0 }}>
+                                    <Typography sx={{ fontSize: "13.5px", fontWeight: "700", color: "#111827" }}>
+                                        {type.name}
+                                    </Typography>
+                                    <Typography sx={{ fontSize: "11.5px", fontWeight: "600", color: "#9CA3AF" }}>
+                                        {type.allocation}
+                                    </Typography>
+                                </Box>
+                            </Box>
+                        ))}
+                    </Panel>
+                </Box>
+
+{/* Hidden on the Apply Leave tab — the form is right there. */}
+                {leaveView !== "apply" && (
+                    <Panel title="Quick Actions" icon={AddIcon} tone={INDIGO}>
+                        <Box
+                            sx={{
+                                p: 1.8,
+                                borderRadius: "10px",
+                                bgcolor: GREEN.bg,
+                                border: `1px solid ${GREEN.border}`,
+                            }}
+                        >
+                            <Typography sx={{ fontSize: "14px", fontWeight: "700", color: GREEN.dark }}>
+                                Apply for Leave
+                            </Typography>
+                            <Typography sx={{ fontSize: "12.5px", color: "#6B7280", mt: 0.4, mb: 1.8, lineHeight: 1.6 }}>
+                                Submit a new leave request with dates and reason.
+                            </Typography>
+                            <Button
+                                fullWidth
+                                variant="contained"
+                                onClick={() => setLeaveView("apply")}
+                                sx={{
+                                    textTransform: "none",
+                                    borderRadius: "8px",
+                                    fontSize: "13.5px",
+                                    fontWeight: "700",
+                                    py: 1.1,
+                                    bgcolor: GREEN.dark,
+                                    "&:hover": { bgcolor: "#065F46" },
+                                }}
+                            >
+                                Apply for Leave
+                            </Button>
+                        </Box>
+                    </Panel>
+                )}
+            </>
+        );
+
+        return (
+            <>
+                {/* ── Sub-view switcher ── */}
+                <Box
+                    sx={{
+                        display: "inline-flex",
+                        gap: 0.5,
+                        p: 0.6,
+                        mb: 2,
+                        borderRadius: "12px",
+                        bgcolor: "#fff",
+                        border: "1px solid #E5E7EB",
+                        flexWrap: "wrap",
+                    }}
+                >
+                    {LEAVE_VIEWS.map((view) => {
+                        const ViewIcon = view.icon;
+                        const active = leaveView === view.key;
+                        return (
+                            <Box
+                                key={view.key}
+                                onClick={() => setLeaveView(view.key)}
+                                sx={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 1,
+                                    px: 2,
+                                    py: 1,
+                                    borderRadius: "8px",
+                                    cursor: "pointer",
+                                    userSelect: "none",
+                                    whiteSpace: "nowrap",
+                                    color: active ? GREEN.main : "#6B7280",
+                                    bgcolor: active ? "#fff" : "transparent",
+                                    border: `1px solid ${active ? "#E5E7EB" : "transparent"}`,
+                                    boxShadow: active ? "0 1px 3px rgba(0,0,0,0.06)" : "none",
+                                    transition: "0.2s",
+                                    "&:hover": { color: active ? GREEN.main : "#374151" },
+                                }}
+                            >
+                                <ViewIcon sx={{ fontSize: "18px" }} />
+                                <Typography sx={{ fontSize: "14px", fontWeight: "700", color: "inherit" }}>
+                                    {view.label}
+                                </Typography>
+                            </Box>
+                        );
+                    })}
+                </Box>
+
+                <Grid container spacing={2}>
+                    {/* ── Left: content by sub-view ── */}
+                    <Grid size={{ xs: 12, sm: 12, md: 12, lg: 8.5 }}>
+                        {leaveView === "applications" && (
+                            <>
+                                <Grid container spacing={2} sx={{ mb: 2 }}>
+                                    {leaveKpis.map((kpi) => {
+                                        const KpiIcon = kpi.icon;
+                                        return (
+                                            <Grid key={kpi.label} size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
+                                                <Box
+                                                    sx={{
+                                                        display: "flex",
+                                                        alignItems: "flex-start",
+                                                        justifyContent: "space-between",
+                                                        gap: 1,
+                                                        p: 2,
+                                                        height: "100%",
+                                                        boxSizing: "border-box",
+                                                        borderRadius: "12px",
+                                                        bgcolor: kpi.tone.bg,
+                                                        border: `1px solid ${kpi.tone.border}`,
+                                                    }}
+                                                >
+                                                    <Box sx={{ minWidth: 0 }}>
+                                                        <Typography
+                                                            sx={{
+                                                                fontSize: "11.5px",
+                                                                fontWeight: "700",
+                                                                color: kpi.tone.main,
+                                                                letterSpacing: "0.6px",
+                                                            }}
+                                                        >
+                                                            {kpi.label}
+                                                        </Typography>
+                                                        <Typography
+                                                            sx={{ fontSize: "30px", fontWeight: "700", color: "#111827", lineHeight: 1.35 }}
+                                                        >
+                                                            {kpi.value}
+                                                        </Typography>
+                                                        <Typography
+                                                            sx={{ fontSize: "12px", fontWeight: "700", color: kpi.tone.main }}
+                                                        >
+                                                            {kpi.caption}
+                                                        </Typography>
+                                                    </Box>
+                                                    <Box
+                                                        sx={{
+                                                            width: 38,
+                                                            height: 38,
+                                                            borderRadius: "9px",
+                                                            bgcolor: "#fff",
+                                                            display: "flex",
+                                                            alignItems: "center",
+                                                            justifyContent: "center",
+                                                            flexShrink: 0,
+                                                        }}
+                                                    >
+                                                        <KpiIcon sx={{ fontSize: "21px", color: kpi.tone.main }} />
+                                                    </Box>
+                                                </Box>
+                                            </Grid>
+                                        );
+                                    })}
+                                </Grid>
+
+                                <Box sx={{ bgcolor: "#fff", border: "1px solid #E5E7EB", borderRadius: "12px", p: 2.2 }}>
+                                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, mb: 1.8 }}>
+                                        <Typography sx={{ fontSize: "18px", fontWeight: "700", color: "#111827" }}>
+                                            Leave Applications
+                                        </Typography>
+                                        <Chip
+                                            label={`${total} total`}
+                                            size="small"
+                                            sx={{ bgcolor: "#F3F4F6", color: "#6B7280", fontWeight: "600", fontSize: "11.5px" }}
+                                        />
+                                    </Box>
+
+                                    {/* Status filter pills */}
+                                    <Box
+                                        sx={{
+                                            display: "inline-flex",
+                                            gap: 0.5,
+                                            p: 0.5,
+                                            mb: 1.8,
+                                            borderRadius: "10px",
+                                            bgcolor: "#F9FAFB",
+                                            border: "1px solid #E5E7EB",
+                                            flexWrap: "wrap",
+                                        }}
+                                    >
+                                        {statusFilters.map((filter) => {
+                                            const FilterIcon = filter.icon;
+                                            const active = leaveFilter === filter.key;
+                                            return (
+                                                <Box
+                                                    key={filter.key}
+                                                    onClick={() => setLeaveFilter(filter.key)}
+                                                    sx={{
+                                                        display: "flex",
+                                                        alignItems: "center",
+                                                        gap: 0.8,
+                                                        px: 1.6,
+                                                        py: 0.8,
+                                                        borderRadius: "8px",
+                                                        cursor: "pointer",
+                                                        userSelect: "none",
+                                                        whiteSpace: "nowrap",
+                                                        bgcolor: active ? "#fff" : "transparent",
+                                                        color: active ? "#111827" : "#6B7280",
+                                                        boxShadow: active ? "0 1px 3px rgba(0,0,0,0.06)" : "none",
+                                                        transition: "0.2s",
+                                                    }}
+                                                >
+                                                    {FilterIcon && <FilterIcon sx={{ fontSize: "16px" }} />}
+                                                    <Typography sx={{ fontSize: "13px", fontWeight: "700", color: "inherit" }}>
+                                                        {filter.label}
+                                                    </Typography>
+                                                    <Box
+                                                        sx={{
+                                                            minWidth: 22,
+                                                            px: 0.7,
+                                                            borderRadius: "50px",
+                                                            textAlign: "center",
+                                                            bgcolor: "#F3F4F6",
+                                                            color: "#6B7280",
+                                                            fontSize: "11px",
+                                                            fontWeight: "700",
+                                                        }}
+                                                    >
+                                                        {filter.count}
+                                                    </Box>
+                                                </Box>
+                                            );
+                                        })}
+                                    </Box>
+
+                                    {/* Search + type filter */}
+                                    <Box
+                                        sx={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: 1.5,
+                                            flexWrap: "wrap",
+                                            p: 1.2,
+                                            mb: 2,
+                                            borderRadius: "10px",
+                                            bgcolor: "#F9FAFB",
+                                            border: "1px solid #E5E7EB",
+                                        }}
+                                    >
+                                        <TextField
+                                            size="small"
+                                            placeholder="Search name, roll no, or reason..."
+                                            value={leaveSearch}
+                                            onChange={(e) => setLeaveSearch(e.target.value)}
+                                            sx={{
+                                                minWidth: "280px",
+                                                "& .MuiOutlinedInput-root": {
+                                                    borderRadius: "8px",
+                                                    fontSize: "13.5px",
+                                                    bgcolor: "#fff",
+                                                },
+                                            }}
+                                            slotProps={{
+                                                input: {
+                                                    startAdornment: (
+                                                        <InputAdornment position="start">
+                                                            <SearchIcon sx={{ fontSize: "18px", color: "#9CA3AF" }} />
+                                                        </InputAdornment>
+                                                    ),
+                                                },
+                                            }}
+                                        />
+                                        <TextField
+                                            select
+                                            size="small"
+                                            value={leaveType}
+                                            onChange={(e) => setLeaveType(e.target.value)}
+                                            sx={{
+                                                minWidth: "180px",
+                                                "& .MuiOutlinedInput-root": {
+                                                    borderRadius: "8px",
+                                                    fontSize: "13.5px",
+                                                    fontWeight: 700,
+                                                    bgcolor: "#fff",
+                                                },
+                                            }}
+                                            slotProps={{
+                                                input: {
+                                                    startAdornment: (
+                                                        <InputAdornment position="start">
+                                                            <FilterAltOutlinedIcon sx={{ fontSize: "18px", color: "#6B7280" }} />
+                                                        </InputAdornment>
+                                                    ),
+                                                },
+                                            }}
+                                        >
+                                            <MenuItem value="All Types" sx={{ fontSize: "13.5px" }}>
+                                                Leave Type
+                                            </MenuItem>
+                                            {availableTypes.map((type) => (
+                                                <MenuItem key={type.id} value={type.name} sx={{ fontSize: "13.5px" }}>
+                                                    {type.name}
+                                                </MenuItem>
+                                            ))}
+                                        </TextField>
+
+                                        <Box sx={{ flex: 1 }} />
+
+                                        <Typography sx={{ fontSize: "13px", color: "#9CA3AF" }}>
+                                            Showing{" "}
+                                            <Box component="span" sx={{ fontWeight: 700, color: "#374151" }}>
+                                                {visibleRequests.length}
+                                            </Box>{" "}
+                                            of {total}
+                                        </Typography>
+                                    </Box>
+
+                                    {requestTable(
+                                        visibleRequests,
+                                        loadingLeave ? "Loading applications…" : "No leave applications found",
+                                        loadingLeave ? "" : "When applications are submitted, they will appear here.",
+                                        true
+                                    )}
+                                </Box>
+                            </>
+                        )}
+
+                        {/* The same component the /dashboardmenu/apply-leave route renders,
+                            without its page header. Kept as one component so the two entry
+                            points cannot drift apart. */}
+                        {leaveView === "apply" && <ApplyLeavePage embedded />}
+
+                        {leaveView === "my" && (
+                            <Box sx={{ bgcolor: "#fff", border: "1px solid #E5E7EB", borderRadius: "12px", p: 2.2 }}>
+                                <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, mb: 1.8 }}>
+                                    <Typography sx={{ fontSize: "18px", fontWeight: "700", color: "#111827" }}>
+                                        My Requests
+                                    </Typography>
+                                    <Chip
+                                        label={`${myRequests.length} total`}
+                                        size="small"
+                                        sx={{ bgcolor: "#F3F4F6", color: "#6B7280", fontWeight: "600", fontSize: "11.5px" }}
+                                    />
+                                </Box>
+                                {requestTable(
+                                    myRequests,
+                                    "You have not applied for leave yet",
+                                    "Your submitted requests and their status will show up here."
+                                )}
+                            </Box>
+                        )}
+                    </Grid>
+
+                    {/* ── Right: leave types + quick actions ── */}
+                    <Grid size={{ xs: 12, sm: 12, md: 12, lg: 3.5 }}>{leaveSidebar}</Grid>
+                </Grid>
+            </>
+        );
+    };
+
+    /* ─────────────── Reports tab ─────────────── */
+    const renderReports = () => {
+        /* Category and AttendanceStatus are applied server-side, so the only local
+           narrowing is the free-text search over the rows that came back. */
+        const term = reportSearch.trim().toLowerCase();
+        const rows = report.summary.filter((row) => {
+            if (!term) return true;
+            return (
+                row.staffMember.toLowerCase().includes(term) ||
+                row.rollNumber.toLowerCase().includes(term) ||
+                String(row.biometricId || "").toLowerCase().includes(term)
+            );
+        });
+
+        const cards = report.cards;
+        const reportKpis = [
+            { label: "TOTAL STAFF", value: cards?.totalStaff ?? 0, caption: "In scope", icon: PersonIcon, tone: BLUE, bg: "#EFF6FF" },
+            { label: "PRESENT DAYS", value: cards?.presentDays ?? 0, caption: "Marked present", icon: CheckCircleIcon, tone: GREEN, bg: "#F0FDF4" },
+            { label: "LATE ARRIVALS", value: cards?.lateArrivals ?? 0, caption: "Crossed grace", icon: AccessTimeIcon, tone: AMBER, bg: "#FEFCE8" },
+            { label: "ABSENT DAYS", value: cards?.absentDays ?? 0, caption: "No-show", icon: CancelIcon, tone: RED, bg: "#FEF2F2" },
+            { label: "LEAVE DAYS", value: cards?.leaveDays ?? 0, caption: "Approved leave", icon: EventBusyOutlinedIcon, tone: PURPLE, bg: "#F5F3FF" },
+            // A neutral tone: not-marked is the absence of a judgement, not a bad outcome,
+            // so it must not read like the red ABSENT card next to it.
+            {
+                label: "NOT MARKED",
+                value: cards?.notMarkedDays ?? 0,
+                caption: "Today onwards",
+                icon: MoreHorizIcon,
+                tone: SLATE_TONE,
+                bg: "#F8FAFC",
+            },
+        ];
+
+        const totals = report.totals;
+
+        const statusDot = reportStatus ? reportDayStyle(reportStatus).color : "#9CA3AF";
+
+        /* Shown together so a 20-day range with a denominator of 16 explains itself, and so
+           "not marked" is not mistaken for absence. */
+        const rangeExplainer = totals
+            ? [
+                  `${totals.workingDays} working ${totals.workingDays === 1 ? "day" : "days"}`,
+                  totals.holidayDays ? `${totals.holidayDays} holidays excluded` : "",
+                  totals.upcomingDays ? `${totals.upcomingDays} still to come` : "",
+              ]
+                  .filter(Boolean)
+                  .join(" · ")
+            : "";
+
+        /* Grey when nothing recorded, so the real numbers stand out */
+        const countCell = (value, color) => (
+            <Typography sx={{ fontSize: "13.5px", fontWeight: value ? "700" : "400", color: value ? color : "#D1D5DB" }}>
+                {value}
+            </Typography>
+        );
+
+        return (
+            <>
+                {/* The range asked for reached outside the academic year and was trimmed.
+                    Without saying so, "Last 30 Days" near a year boundary quietly returns
+                    fewer days than requested and the reader cannot tell why. */}
+                {totals?.clamped && (
+                    <Box sx={{ p: 1.5, mb: 2, borderRadius: "10px", bgcolor: AMBER.bg, border: `1px solid ${AMBER.border}` }}>
+                        <Typography sx={{ fontSize: "13px", fontWeight: "700", color: "#92400E" }}>
+                            Range trimmed to {totals.academicYear}
+                        </Typography>
+                        <Typography sx={{ fontSize: "12.5px", color: "#92400E", mt: 0.3 }}>
+                            Part of the dates you picked fall outside the selected academic year, so the
+                            report covers {report.cards ? "the overlapping days only" : "a shorter range"}.
+                        </Typography>
+                    </Box>
+                )}
+
+                {/* ── Range + filters ── */}
+                <Box sx={{ p: 1.8, mb: 2, bgcolor: "#fff", border: "1px solid #E5E7EB", borderRadius: "12px" }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, flexWrap: "wrap", mb: 1.8 }}>
+                        <CalendarMonthOutlinedIcon sx={{ fontSize: "20px", color: GREEN.main }} />
+                        <Typography sx={{ fontSize: "14px", fontWeight: "700", color: "#111827", mr: 0.5 }}>
+                            Date Range:
+                        </Typography>
+
+                        {REPORT_PRESETS.map((preset) => {
+                            const active = reportPreset === preset;
+                            return (
+                                <Box
+                                    key={preset}
+                                    onClick={() => applyReportPreset(preset)}
+                                    sx={{
+                                        px: 2,
+                                        py: 0.8,
+                                        borderRadius: "8px",
+                                        cursor: "pointer",
+                                        userSelect: "none",
+                                        whiteSpace: "nowrap",
+                                        fontSize: "13.5px",
+                                        fontWeight: "700",
+                                        color: active ? "#fff" : "#374151",
+                                        bgcolor: active ? GREEN.dark : "#fff",
+                                        border: `1px solid ${active ? GREEN.dark : "#E5E7EB"}`,
+                                        transition: "0.2s",
+                                        "&:hover": { borderColor: GREEN.main },
+                                    }}
+                                >
+                                    {preset}
+                                </Box>
+                            );
+                        })}
+
+                        <Box sx={{ flex: 1 }} />
+
+                        <TextField
+                            label="From"
+                            size="small"
+                            type="date"
+                            value={reportFrom}
+                            onChange={(e) => {
+                                setReportFrom(e.target.value);
+                                setReportPreset("");
+                            }}
+                            sx={{ ...inputSx, width: "185px" }}
+                            slotProps={{ inputLabel: { shrink: true } }}
+                        />
+                        <TextField
+                            label="To"
+                            size="small"
+                            type="date"
+                            value={reportTo}
+                            onChange={(e) => {
+                                setReportTo(e.target.value);
+                                setReportPreset("");
+                            }}
+                            sx={{ ...inputSx, width: "185px" }}
+                            slotProps={{ inputLabel: { shrink: true } }}
+                        />
+                    </Box>
+
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
+                        <TextField
+                            size="small"
+                            placeholder="Search by name, roll number or biometric ID..."
+                            value={reportSearch}
+                            onChange={(e) => setReportSearch(e.target.value)}
+                            sx={{
+                                minWidth: "300px",
+                                "& .MuiOutlinedInput-root": {
+                                    borderRadius: "8px",
+                                    fontSize: "13.5px",
+                                    bgcolor: "#F9FAFB",
+                                    "& fieldset": { border: "none" },
+                                },
+                            }}
+                            slotProps={{
+                                input: {
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <SearchIcon sx={{ fontSize: "18px", color: "#9CA3AF" }} />
+                                        </InputAdornment>
+                                    ),
+                                },
+                            }}
+                        />
+
+                        <TextField
+                            select
+                            size="small"
+                            value={reportCategory}
+                            onChange={(e) => setReportCategory(e.target.value)}
+                            sx={{ minWidth: "185px", "& .MuiOutlinedInput-root": { borderRadius: "8px", fontSize: "13.5px", fontWeight: 700 } }}
+                            slotProps={{
+                                input: {
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <GroupsIcon sx={{ fontSize: "19px", color: "#6B7280" }} />
+                                        </InputAdornment>
+                                    ),
+                                },
+                            }}
+                        >
+                            {REPORT_CATEGORIES.map((option) => (
+                                <MenuItem key={option.value} value={option.value} sx={{ fontSize: "13.5px" }}>
+                                    {option.label}
+                                </MenuItem>
+                            ))}
+                        </TextField>
+
+                        <TextField
+                            select
+                            size="small"
+                            value={reportStatus}
+                            onChange={(e) => setReportStatus(e.target.value)}
+                            sx={{ minWidth: "165px", "& .MuiOutlinedInput-root": { borderRadius: "8px", fontSize: "13.5px", fontWeight: 700 } }}
+                            slotProps={{
+                                // "All Status" is the empty value; without displayEmpty the select
+                                // renders blank instead of its label
+                                select: { displayEmpty: true },
+                                input: {
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <Box sx={{ width: 14, height: 14, borderRadius: "50%", bgcolor: statusDot, flexShrink: 0 }} />
+                                        </InputAdornment>
+                                    ),
+                                },
+                            }}
+                        >
+                            {REPORT_ATTENDANCE_STATUSES.map((option) => (
+                                <MenuItem key={option.value || "all"} value={option.value} sx={{ fontSize: "13.5px" }}>
+                                    {option.label}
+                                </MenuItem>
+                            ))}
+                        </TextField>
+
+                        <Box sx={{ flex: 1 }} />
+
+                        <Typography sx={{ fontSize: "13px", color: "#9CA3AF" }}>
+                            Showing{" "}
+                            <Box component="span" sx={{ fontWeight: 700, color: "#374151" }}>
+                                {rows.length}
+                            </Box>{" "}
+                            of {report.summary.length} staff
+                        </Typography>
+                    </Box>
+                </Box>
+
+                {/* ── Totals ── */}
+                {rangeExplainer && (
+                    <Typography sx={{ fontSize: "12.5px", color: "#6B7280", mb: 1 }}>
+                        {rangeExplainer}
+                    </Typography>
+                )}
+                <Grid container spacing={2} sx={{ mb: 2 }}>
+                    {reportKpis.map((kpi) => {
+                        const KpiIcon = kpi.icon;
+                        return (
+                            <Grid key={kpi.label} size={{ xs: 12, sm: 6, md: 4, lg: 2.4 }}>
+                                <Box
+                                    sx={{
+                                        display: "flex",
+                                        alignItems: "flex-start",
+                                        justifyContent: "space-between",
+                                        gap: 1,
+                                        p: 2,
+                                        height: "100%",
+                                        boxSizing: "border-box",
+                                        borderRadius: "12px",
+                                        bgcolor: kpi.bg,
+                                        border: `1px solid ${kpi.tone.main}33`,
+                                    }}
+                                >
+                                    <Box sx={{ minWidth: 0 }}>
+                                        <Typography sx={{ fontSize: "11.5px", fontWeight: "700", color: kpi.tone.main, letterSpacing: "0.6px" }}>
+                                            {kpi.label}
+                                        </Typography>
+                                        <Typography sx={{ fontSize: "30px", fontWeight: "700", color: "#111827", lineHeight: 1.35 }}>
+                                            {kpi.value}
+                                        </Typography>
+                                        <Typography sx={{ fontSize: "12px", fontWeight: "700", color: kpi.tone.main }}>
+                                            {kpi.caption}
+                                        </Typography>
+                                    </Box>
+                                    <Box
+                                        sx={{
+                                            width: 38,
+                                            height: 38,
+                                            borderRadius: "9px",
+                                            bgcolor: "#fff",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            flexShrink: 0,
+                                        }}
+                                    >
+                                        <KpiIcon sx={{ fontSize: "21px", color: kpi.tone.main }} />
+                                    </Box>
+                                </Box>
+                            </Grid>
+                        );
+                    })}
+                </Grid>
+
+                {/* ── Per-staff summary ── */}
+                <Box sx={{ bgcolor: "#fff", border: "1px solid #E5E7EB", borderRadius: "12px", overflow: "hidden" }}>
+                    <Box
+                        sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: 1.5,
+                            flexWrap: "wrap",
+                            px: 2.2,
+                            py: 1.8,
+                        }}
+                    >
+                        <Box sx={{ minWidth: 0 }}>
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 1.2 }}>
+                                <Typography sx={{ fontSize: "18px", fontWeight: "700", color: "#111827" }}>
+                                    Staff Attendance Summary
+                                </Typography>
+                                <Chip
+                                    label={`${rows.length} staff`}
+                                    size="small"
+                                    sx={{ bgcolor: "#F3F4F6", color: "#6B7280", fontWeight: "600", fontSize: "11.5px" }}
+                                />
+                            </Box>
+                            <Typography sx={{ fontSize: "12.5px", color: "#9CA3AF", mt: 0.3 }}>
+                                {ddmmyyyy(reportFrom)} → {ddmmyyyy(reportTo)}
+                            </Typography>
+                        </Box>
+
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.2 }}>
+                            <Button
+                                onClick={loadReport}
+                                disabled={loadingReport}
+                                startIcon={<HistoryToggleOffIcon />}
+                                sx={{
+                                    textTransform: "none",
+                                    borderRadius: "8px",
+                                    fontSize: "13.5px",
+                                    fontWeight: "700",
+                                    px: 2,
+                                    color: "#374151",
+                                    border: "1px solid #E5E7EB",
+                                }}
+                            >
+                                {loadingReport ? "Loading…" : "Refresh"}
+                            </Button>
+                            <Button
+                                variant="contained"
+                                onClick={exportReportCsv}
+                                disabled={rows.length === 0}
+                                startIcon={<FileDownloadOutlinedIcon />}
+                                sx={{
+                                    textTransform: "none",
+                                    borderRadius: "8px",
+                                    fontSize: "13.5px",
+                                    fontWeight: "700",
+                                    px: 3,
+                                    py: 1,
+                                    bgcolor: GREEN.dark,
+                                    "&:hover": { bgcolor: "#065F46" },
+                                }}
+                            >
+                                Export CSV
+                            </Button>
+                        </Box>
+                    </Box>
+
+                    <TableContainer sx={{ maxHeight: "55vh" }}>
+                        <Table size="small" stickyHeader>
+                            <TableHead>
+                                <TableRow>
+                                    {[
+                                        "S.NO",
+                                        "STAFF MEMBER",
+                                        "ROLL NUMBER",
+                                        "BIOMETRIC ID",
+                                        "CATEGORY",
+                                        "WORKING",
+                                        "PRESENT",
+                                        "LATE",
+                                        "ABSENT",
+                                        "LEAVE",
+                                        "NOT MARKED",
+                                        "ATTENDANCE %",
+                                        "ACTION",
+                                    ].map((head) => (
+                                        <TableCell
+                                            key={head}
+                                            sx={{
+                                                fontSize: "11.5px",
+                                                fontWeight: "700",
+                                                color: "#374151",
+                                                letterSpacing: "0.5px",
+                                                bgcolor: GREEN.bg,
+                                                borderBottom: `1px solid ${GREEN.border}`,
+                                                py: 1.8,
+                                                whiteSpace: "nowrap",
+                                            }}
+                                        >
+                                            {head}
+                                        </TableCell>
+                                    ))}
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {rows.map((row) => {
+                                    const tone = avatarToneOf(row.rollNumber);
+                                    const percent = Math.round(row.attendancePercent || 0);
+                                    const percentColor = percent >= 75 ? GREEN.main : percent >= 50 ? AMBER.main : RED.main;
+                                    return (
+                                        <TableRow key={`${row.rollNumber}-${row.sNo}`} hover>
+                                            <TableCell sx={{ fontSize: "13px", color: "#9CA3AF", py: 1.3 }}>{row.sNo}</TableCell>
+                                            <TableCell>
+                                                <Box sx={{ display: "flex", alignItems: "center", gap: 1.2 }}>
+                                                    <Avatar
+                                                        sx={{
+                                                            width: 36,
+                                                            height: 36,
+                                                            bgcolor: tone.bg,
+                                                            color: tone.color,
+                                                            fontSize: "12px",
+                                                            fontWeight: "700",
+                                                        }}
+                                                    >
+                                                        {initialsOf(row.staffMember)}
+                                                    </Avatar>
+                                                    <Typography sx={{ fontSize: "14px", fontWeight: "700", color: "#111827", lineHeight: 1.3 }}>
+                                                        {row.staffMember}
+                                                    </Typography>
+                                                </Box>
+                                            </TableCell>
+                                            <TableCell sx={{ fontSize: "13px", color: "#374151", whiteSpace: "nowrap" }}>
+                                                {row.rollNumber}
+                                            </TableCell>
+                                            <TableCell>
+                                                {/* null for everyone without a device enrolment */}
+                                                {row.biometricId ? (
+                                                    <Chip
+                                                        icon={<FingerprintIcon sx={{ fontSize: "14px !important" }} />}
+                                                        label={row.biometricId}
+                                                        size="small"
+                                                        sx={{
+                                                            bgcolor: "#EEF2FF",
+                                                            color: INDIGO.main,
+                                                            border: "1px solid #C7D2FE",
+                                                            fontWeight: "700",
+                                                            fontSize: "11px",
+                                                            "& .MuiChip-icon": { color: INDIGO.main },
+                                                        }}
+                                                    />
+                                                ) : (
+                                                    <Typography sx={{ fontSize: "12.5px", color: "#D1D5DB" }}>Not enrolled</Typography>
+                                                )}
+                                            </TableCell>
+                                            <TableCell>
+                                                <Chip
+                                                    label={row.category || "—"}
+                                                    size="small"
+                                                    sx={{
+                                                        bgcolor: "#F3F4F6",
+                                                        color: "#374151",
+                                                        border: "1px solid #E5E7EB",
+                                                        fontWeight: "700",
+                                                        fontSize: "11px",
+                                                    }}
+                                                />
+                                            </TableCell>
+                                            <TableCell sx={{ fontSize: "13.5px", fontWeight: "700", color: "#111827" }}>
+                                                {row.workingDays}
+                                            </TableCell>
+                                            <TableCell>{countCell(row.present, GREEN.main)}</TableCell>
+                                            <TableCell>{countCell(row.late, AMBER.main)}</TableCell>
+                                            <TableCell>{countCell(row.absent, RED.main)}</TableCell>
+                                            <TableCell>{countCell(row.leave, BLUE.main)}</TableCell>
+                                            <TableCell>{countCell(row.notMarked, SLATE_TONE.main)}</TableCell>
+                                            <TableCell sx={{ minWidth: "130px" }}>
+                                                <Typography sx={{ fontSize: "13px", fontWeight: "700", color: percentColor }}>
+                                                    {row.attendancePercent}%
+                                                </Typography>
+                                                {row.scoredDays > 0 && row.scoredDays !== row.workingDays && (
+                                                    <Typography sx={{ fontSize: "10.5px", color: "#9CA3AF" }}>
+                                                        of {row.scoredDays} scored
+                                                    </Typography>
+                                                )}
+                                                <Box sx={{ mt: 0.6, width: "100%", height: 5, borderRadius: "50px", bgcolor: "#F3F4F6", overflow: "hidden" }}>
+                                                    <Box
+                                                        sx={{
+                                                            width: `${Math.min(percent, 100)}%`,
+                                                            height: "100%",
+                                                            bgcolor: percentColor,
+                                                            transition: "width 0.3s",
+                                                        }}
+                                                    />
+                                                </Box>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Button
+                                                    size="small"
+                                                    startIcon={<VisibilityOutlinedIcon />}
+                                                    onClick={() => openFullReport(row)}
+                                                    sx={{
+                                                        textTransform: "none",
+                                                        borderRadius: "8px",
+                                                        bgcolor: GREEN.bg,
+                                                        border: `1px solid ${GREEN.border}`,
+                                                        color: GREEN.dark,
+                                                        fontSize: "12.5px",
+                                                        fontWeight: "700",
+                                                        px: 1.6,
+                                                        whiteSpace: "nowrap",
+                                                        "&:hover": { bgcolor: "#D1FAE5" },
+                                                    }}
+                                                >
+                                                    {/* The API sends the link label itself */}
+                                                    {row.fullReport || "View"}
+                                                </Button>
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })}
+                                {rows.length === 0 && (
+                                    <TableRow>
+                                        <TableCell colSpan={12} sx={{ textAlign: "center", py: 5, color: "#9CA3AF", fontSize: "13px" }}>
+                                            {loadingReport ? "Loading the register…" : "No staff match your filters"}
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
+                </Box>
+
+                {/* ── Per-person full report ── */}
+                <Dialog
+                    open={Boolean(reportViewStaff)}
+                    onClose={() => setReportViewStaff(null)}
+                    maxWidth="md"
+                    fullWidth
+                    slotProps={{ paper: { sx: { borderRadius: "14px" } } }}
+                >
+                    {reportViewStaff && (
+                        <>
+                            <Box
+                                sx={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 1.5,
+                                    px: 2.5,
+                                    py: 2,
+                                    bgcolor: GREEN.bg,
+                                    borderBottom: `1px solid ${GREEN.border}`,
+                                }}
+                            >
+                                <Avatar sx={{ width: 42, height: 42, bgcolor: "#fff", color: GREEN.main, fontSize: "14px", fontWeight: "700" }}>
+                                    {initialsOf(fullReport?.name || reportViewStaff.staffMember)}
+                                </Avatar>
+                                <Box sx={{ flex: 1, minWidth: 0 }}>
+                                    <Typography sx={{ fontSize: "16px", fontWeight: "700", color: "#111827", lineHeight: 1.2 }}>
+                                        {fullReport?.name || reportViewStaff.staffMember}
+                                    </Typography>
+                                    <Typography sx={{ fontSize: "11.5px", color: "#6B7280" }}>
+                                        {reportViewStaff.rollNumber}
+                                        {fullReport?.department ? ` · ${fullReport.department}` : ""}
+                                        {fullReport?.category ? ` · ${fullReport.category}` : ""}
+                                    </Typography>
+                                    <Typography sx={{ fontSize: "11.5px", color: "#9CA3AF" }}>
+                                        {fullReport?.reportFromDate || ddmmyyyy(reportFrom)} → {fullReport?.reportToDate || ddmmyyyy(reportTo)}
+                                        {fullReport?.biometricId ? ` · Biometric ${fullReport.biometricId}` : " · Not enrolled"}
+                                    </Typography>
+                                </Box>
+                                <IconButton size="small" onClick={() => setReportViewStaff(null)}>
+                                    <CloseIcon sx={{ fontSize: "20px", color: "#6B7280" }} />
+                                </IconButton>
+                            </Box>
+
+                            <DialogContent sx={{ p: 2.5 }}>
+                                {loadingFullReport && (
+                                    <Typography sx={{ textAlign: "center", py: 4, color: "#9CA3AF", fontSize: "13px" }}>
+                                        Loading the full report…
+                                    </Typography>
+                                )}
+
+                                {!loadingFullReport && fullReport && (
+                                    <>
+                                        {/* Range counts */}
+                                        <Grid container spacing={1.2} sx={{ mb: 2.2 }}>
+                                            {[
+                                                { label: "Working", value: fullReport.workingDays, tone: "#374151", bg: "#F9FAFB" },
+                                                { label: "Present", value: fullReport.present, tone: GREEN.main, bg: "#F0FDF4" },
+                                                { label: "Late", value: fullReport.late, tone: AMBER.main, bg: "#FEFCE8" },
+                                                { label: "Absent", value: fullReport.absent, tone: RED.main, bg: "#FEF2F2" },
+                                                { label: "Leave", value: fullReport.leave, tone: BLUE.main, bg: "#EFF6FF" },
+                                                { label: "Attendance", value: `${fullReport.attendancePercent}%`, tone: PURPLE.main, bg: "#F5F3FF" },
+                                            ].map((stat) => (
+                                                <Grid key={stat.label} size={{ xs: 6, sm: 4, md: 2 }}>
+                                                    <Box sx={{ p: 1.3, borderRadius: "10px", bgcolor: stat.bg, border: `1px solid ${stat.tone}22` }}>
+                                                        <Typography sx={{ fontSize: "10.5px", fontWeight: "700", color: "#6B7280", letterSpacing: "0.4px", textTransform: "uppercase" }}>
+                                                            {stat.label}
+                                                        </Typography>
+                                                        <Typography sx={{ fontSize: "20px", fontWeight: "700", color: stat.tone, lineHeight: 1.2 }}>
+                                                            {stat.value}
+                                                        </Typography>
+                                                    </Box>
+                                                </Grid>
+                                            ))}
+                                        </Grid>
+
+                                        {/* Leave side of the same window, when the roll number resolves in users */}
+                                        {personSummary && (
+                                            <Box sx={{ mb: 2.2, p: 1.6, borderRadius: "10px", bgcolor: "#F9FAFB", border: "1px solid #E5E7EB" }}>
+                                                <Typography sx={{ fontSize: "12px", fontWeight: "700", color: "#374151", mb: 1 }}>
+                                                    Leave applications in this window
+                                                </Typography>
+                                                <Box sx={{ display: "flex", gap: 2.5, flexWrap: "wrap" }}>
+                                                    {[
+                                                        { label: "Total taken", value: personSummary.leave.totalLeaveTaken, tone: "#374151" },
+                                                        { label: "Approved", value: personSummary.leave.approvedLeave, tone: GREEN.main },
+                                                        { label: "Pending", value: personSummary.leave.pendingLeave, tone: AMBER.main },
+                                                        { label: "Rejected", value: personSummary.leave.rejectedLeave, tone: RED.main },
+                                                    ].map((item) => (
+                                                        <Box key={item.label}>
+                                                            <Typography sx={{ fontSize: "11px", color: "#9CA3AF" }}>{item.label}</Typography>
+                                                            <Typography sx={{ fontSize: "16px", fontWeight: "700", color: item.tone }}>
+                                                                {item.value}
+                                                            </Typography>
+                                                        </Box>
+                                                    ))}
+                                                </Box>
+                                            </Box>
+                                        )}
+
+                                        {/* Calendar block — one cell per working day in the range */}
+                                        {fullReport.calendar.length > 0 && (
+                                            <Box sx={{ mb: 2.2 }}>
+                                                <Typography sx={{ fontSize: "13px", fontWeight: "700", color: "#111827", mb: 1 }}>
+                                                    Calendar
+                                                </Typography>
+                                                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.8 }}>
+                                                    {fullReport.calendar.map((cell, index) => {
+                                                        const style = reportDayStyle(cell.status);
+                                                        return (
+                                                            <Tooltip key={`${cell.dayNumber}-${index}`} title={cell.status || "unmarked"} arrow>
+                                                                <Box
+                                                                    sx={{
+                                                                        width: 46,
+                                                                        py: 0.7,
+                                                                        borderRadius: "8px",
+                                                                        textAlign: "center",
+                                                                        bgcolor: style.bg,
+                                                                        border: `1px solid ${style.border}`,
+                                                                    }}
+                                                                >
+                                                                    <Typography sx={{ fontSize: "14px", fontWeight: "700", color: style.color, lineHeight: 1.2 }}>
+                                                                        {cell.dayNumber}
+                                                                    </Typography>
+                                                                    <Typography sx={{ fontSize: "9.5px", color: "#9CA3AF" }}>{cell.dayName}</Typography>
+                                                                </Box>
+                                                            </Tooltip>
+                                                        );
+                                                    })}
+                                                </Box>
+                                            </Box>
+                                        )}
+
+                                        {/* Daily log */}
+                                        <Typography sx={{ fontSize: "13px", fontWeight: "700", color: "#111827", mb: 1 }}>
+                                            Daily Log
+                                        </Typography>
+                                        <TableContainer sx={{ maxHeight: "38vh", border: "1px solid #E5E7EB", borderRadius: "10px" }}>
+                                            <Table size="small" stickyHeader>
+                                                <TableHead>
+                                                    <TableRow>
+                                                        {["DATE", "DAY", "STATUS", "LOGIN TIME", "LOGOUT TIME", ""].map((head, index) => (
+                                                            <TableCell
+                                                                key={head || index}
+                                                                sx={{
+                                                                    fontSize: "11px",
+                                                                    fontWeight: "700",
+                                                                    color: "#374151",
+                                                                    bgcolor: "#F9FAFB",
+                                                                    borderBottom: "1px solid #E5E7EB",
+                                                                }}
+                                                            >
+                                                                {head}
+                                                            </TableCell>
+                                                        ))}
+                                                    </TableRow>
+                                                </TableHead>
+                                                <TableBody>
+                                                    {fullReport.dailyLog.map((entry, index) => {
+                                                        const style = reportDayStyle(entry.status);
+                                                        // logged in with no logout yet — today's normal state
+                                                        const stillIn =
+                                                            entry.loginTime &&
+                                                            entry.loginTime !== "-" &&
+                                                            (!entry.logoutTime || entry.logoutTime === "-");
+                                                        return (
+                                                            <TableRow key={`${entry.date}-${index}`} hover>
+                                                                <TableCell sx={{ fontSize: "12.5px", color: "#111827", whiteSpace: "nowrap" }}>
+                                                                    {entry.date}
+                                                                </TableCell>
+                                                                <TableCell sx={{ fontSize: "12.5px", color: "#6B7280" }}>{entry.day}</TableCell>
+                                                                <TableCell>
+                                                                    <Chip
+                                                                        label={entry.status}
+                                                                        size="small"
+                                                                        sx={{
+                                                                            bgcolor: style.bg,
+                                                                            color: style.color,
+                                                                            border: `1px solid ${style.border}`,
+                                                                            fontWeight: "700",
+                                                                            fontSize: "11px",
+                                                                        }}
+                                                                    />
+                                                                </TableCell>
+                                                                <TableCell sx={{ fontSize: "12.5px", color: entry.loginTime === "-" ? "#D1D5DB" : "#111827" }}>
+                                                                    {entry.loginTime || "-"}
+                                                                </TableCell>
+                                                                <TableCell sx={{ fontSize: "12.5px", whiteSpace: "nowrap" }}>
+                                                                    {stillIn ? (
+                                                                        <Typography
+                                                                            component="span"
+                                                                            sx={{ fontSize: "12px", fontWeight: "700", color: GREEN.main }}
+                                                                        >
+                                                                            Still in
+                                                                        </Typography>
+                                                                    ) : (
+                                                                        <Typography
+                                                                            component="span"
+                                                                            sx={{
+                                                                                fontSize: "12.5px",
+                                                                                color: entry.logoutTime === "-" || !entry.logoutTime ? "#D1D5DB" : "#111827",
+                                                                            }}
+                                                                        >
+                                                                            {entry.logoutTime || "-"}
+                                                                        </Typography>
+                                                                    )}
+                                                                </TableCell>
+                                                                <TableCell>
+                                                                    {/* Jumps to the change trail for this person-day */}
+                                                                    <Tooltip title="View change history" arrow>
+                                                                        <IconButton
+                                                                            size="small"
+                                                                            onClick={() =>
+                                                                                openAudit({
+                                                                                    rollNumber: fullReport.rollNumber,
+                                                                                    name: fullReport.name,
+                                                                                    date: entry.date,
+                                                                                })
+                                                                            }
+                                                                        >
+                                                                            <ManageHistoryOutlinedIcon sx={{ fontSize: "17px", color: "#9CA3AF" }} />
+                                                                        </IconButton>
+                                                                    </Tooltip>
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        );
+                                                    })}
+                                                    {fullReport.dailyLog.length === 0 && (
+                                                        <TableRow>
+                                                            <TableCell colSpan={5} sx={{ textAlign: "center", py: 4, color: "#9CA3AF", fontSize: "13px" }}>
+                                                                No days recorded in this range
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    )}
+                                                </TableBody>
+                                            </Table>
+                                        </TableContainer>
+                                    </>
+                                )}
+                            </DialogContent>
+
+                            <DialogActions sx={{ px: 3, py: 2, borderTop: "1px solid #E5E7EB" }}>
+                                <Button
+                                    variant="contained"
+                                    onClick={() => setReportViewStaff(null)}
+                                    sx={{
+                                        textTransform: "none",
+                                        borderRadius: "50px",
+                                        fontSize: "13.5px",
+                                        fontWeight: "700",
+                                        px: 3,
+                                        bgcolor: GREEN.dark,
+                                        "&:hover": { bgcolor: "#065F46" },
+                                    }}
+                                >
+                                    Close
+                                </Button>
+                            </DialogActions>
+                        </>
+                    )}
+                </Dialog>
+            </>
+        );
+    };
+
+    const renderTabContent = () => {
+        switch (tab) {
+            case "add":
+                return renderAddAttendance();
+            case "today":
+                return renderToday();
+            case "overview":
+                return renderOverview();
+            case "leave":
+                return renderLeave();
+            case "reports":
+                return renderReports();
+            default:
+                return renderDashboard();
+        }
+    };
+
+    return (
+        <Box
+            sx={{
+                height: "calc(100vh - 76px)",
+                display: "flex",
+                flexDirection: "column",
+                bgcolor: PAGE_BG,
+                overflow: "hidden",
+            }}
+        >
+            {/* ─── Header ─── */}
+            <Box
+                sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1.5,
+                    flexWrap: "wrap",
+                    px: 2,
+                    py: 1.5,
+                    bgcolor: "#fff",
+                    borderBottom: "1px solid #E5E7EB",
+                    flexShrink: 0,
+                }}
+            >
+                <IconButton onClick={() => navigate(-1)} sx={{ width: 32, height: 32 }}>
+                    <ArrowBackIcon sx={{ fontSize: "18px", color: "#111827" }} />
+                </IconButton>
+                <Box
+                    sx={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: "10px",
+                        bgcolor: GREEN.bg,
+                        border: `1px solid ${GREEN.border}`,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
+                    }}
+                >
+                    <EventNoteIcon sx={{ fontSize: "21px", color: GREEN.main }} />
+                </Box>
+                <Box sx={{ minWidth: 0 }}>
+                    <Typography sx={{ fontSize: "21px", fontWeight: "700", color: "#111827", lineHeight: 1.2 }}>
+                        Leave &amp; Attendance
+                    </Typography>
+                    <Typography sx={{ fontSize: "12.5px", color: "#6B7280" }}>{formatLongDate(today)}</Typography>
+                </Box>
+
+                <Box sx={{ flex: 1 }} />
+
+                <Button
+                    startIcon={<FingerprintIcon />}
+                    onClick={() => navigate("biometric-mapping", { state: { value: "Y" } })}
+                    sx={{
+                        textTransform: "none",
+                        borderRadius: "50px",
+                        border: `1px solid ${GREEN.border}`,
+                        color: GREEN.dark,
+                        fontSize: "13.5px",
+                        fontWeight: "700",
+                        px: 2.5,
+                        py: 0.9,
+                        "&:hover": { bgcolor: GREEN.bg },
+                    }}
+                >
+                    Biometric Mapping
+                </Button>
+                <Button
+                    variant="contained"
+                    startIcon={<AddIcon />}
+                    onClick={() => setTab("add")}
+                    sx={{
+                        textTransform: "none",
+                        borderRadius: "50px",
+                        fontSize: "13.5px",
+                        fontWeight: "700",
+                        px: 3,
+                        py: 0.9,
+                        bgcolor: GREEN.dark,
+                        boxShadow: `0 2px 8px ${GREEN.dark}40`,
+                        "&:hover": { bgcolor: "#065F46" },
+                    }}
+                >
+                    Mark Attendance
+                </Button>
+                <TextField
+                    select
+                    size="small"
+                    value={academicYear}
+                    onChange={(e) => setAcademicYear(e.target.value)}
+                    sx={{ ...inputSx, minWidth: "150px" }}
+                >
+                    {ACADEMIC_YEARS.map((year) => (
+                        <MenuItem key={year} value={year} sx={{ fontSize: "13.5px" }}>
+                            {year}
+                        </MenuItem>
+                    ))}
+                </TextField>
             </Box>
 
-            {renderManualSyncDialog()}
-            {renderSyncOverlay()}
-        </>
+            {/* ─── Tab strip ─── */}
+            <Box
+                sx={{
+                    display: "flex",
+                    gap: 0.5,
+                    px: 2,
+                    bgcolor: "#fff",
+                    borderBottom: "1px solid #E5E7EB",
+                    overflowX: "auto",
+                    flexShrink: 0,
+                }}
+            >
+                {TABS.map((item) => {
+                    const TabIcon = item.icon;
+                    const active = tab === item.key;
+                    return (
+                        <Box
+                            key={item.key}
+                            onClick={() => setTab(item.key)}
+                            sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 1,
+                                px: 2,
+                                py: 1.6,
+                                cursor: "pointer",
+                                userSelect: "none",
+                                whiteSpace: "nowrap",
+                                borderBottom: `3px solid ${active ? GREEN.main : "transparent"}`,
+                                color: active ? GREEN.main : "#6B7280",
+                                transition: "0.2s",
+                                "&:hover": { color: active ? GREEN.main : "#374151" },
+                            }}
+                        >
+                            <TabIcon sx={{ fontSize: "19px" }} />
+                            <Typography sx={{ fontSize: "14px", fontWeight: active ? "700" : "600", color: "inherit" }}>
+                                {item.label}
+                            </Typography>
+                        </Box>
+                    );
+                })}
+            </Box>
+
+            {/* ─── Scrollable body ─── */}
+            <Box sx={{ flex: 1, overflowY: "auto", p: 2, pb: 3.5 }}>{renderTabContent()}</Box>
+
+            {/* ─── Change trail for one person-day ─── */}
+            <Dialog
+                open={Boolean(auditFor)}
+                onClose={() => setAuditFor(null)}
+                maxWidth="md"
+                fullWidth
+                slotProps={{ paper: { sx: { borderRadius: "14px" } } }}
+            >
+                {auditFor && (
+                    <>
+                        <Box
+                            sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 1.5,
+                                px: 2.5,
+                                py: 2,
+                                bgcolor: INDIGO.bg,
+                                borderBottom: `1px solid ${INDIGO.border}`,
+                            }}
+                        >
+                            <Box
+                                sx={{
+                                    width: 38,
+                                    height: 38,
+                                    borderRadius: "10px",
+                                    bgcolor: "#fff",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    flexShrink: 0,
+                                }}
+                            >
+                                <ManageHistoryOutlinedIcon sx={{ fontSize: "20px", color: INDIGO.main }} />
+                            </Box>
+                            <Box sx={{ flex: 1, minWidth: 0 }}>
+                                <Typography sx={{ fontSize: "16px", fontWeight: "700", color: "#111827", lineHeight: 1.2 }}>
+                                    Attendance Change History
+                                </Typography>
+                                <Typography sx={{ fontSize: "11.5px", color: "#6B7280" }}>
+                                    {auditFor.name || auditFor.rollNumber} · {auditFor.rollNumber} · {auditFor.date}
+                                </Typography>
+                            </Box>
+                            <IconButton size="small" onClick={() => setAuditFor(null)}>
+                                <CloseIcon sx={{ fontSize: "20px", color: "#6B7280" }} />
+                            </IconButton>
+                        </Box>
+
+                        <DialogContent sx={{ p: 2.5 }}>
+                            {loadingAudit && (
+                                <Typography sx={{ textAlign: "center", py: 4, color: "#9CA3AF", fontSize: "13px" }}>
+                                    Loading the change trail…
+                                </Typography>
+                            )}
+
+                            {/* A day nobody edited answers 404 — the server's own wording is shown */}
+                            {!loadingAudit && auditEntries.length === 0 && (
+                                <Box sx={{ textAlign: "center", py: 5 }}>
+                                    <HistoryToggleOffIcon sx={{ fontSize: "38px", color: "#D1D5DB" }} />
+                                    <Typography sx={{ fontSize: "13px", color: "#9CA3AF", mt: 1 }}>{auditNote}</Typography>
+                                </Box>
+                            )}
+
+                            {!loadingAudit && auditEntries.length > 0 && (
+                                <TableContainer sx={{ maxHeight: "52vh", border: "1px solid #E5E7EB", borderRadius: "10px" }}>
+                                    <Table size="small" stickyHeader>
+                                        <TableHead>
+                                            <TableRow>
+                                                {["WHEN", "FIELD", "FROM", "TO", "ACTION", "BY", "REASON"].map((head) => (
+                                                    <TableCell
+                                                        key={head}
+                                                        sx={{
+                                                            fontSize: "11px",
+                                                            fontWeight: "700",
+                                                            color: "#374151",
+                                                            bgcolor: "#F9FAFB",
+                                                            borderBottom: "1px solid #E5E7EB",
+                                                            whiteSpace: "nowrap",
+                                                        }}
+                                                    >
+                                                        {head}
+                                                    </TableCell>
+                                                ))}
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {auditEntries.map((entry) => (
+                                                <TableRow key={entry.id} hover>
+                                                    <TableCell sx={{ fontSize: "12.5px", color: "#111827", whiteSpace: "nowrap" }}>
+                                                        {entry.changedOn || "—"}
+                                                    </TableCell>
+                                                    <TableCell sx={{ fontSize: "12.5px", fontWeight: 700, color: "#374151" }}>
+                                                        {entry.field || "—"}
+                                                    </TableCell>
+                                                    <TableCell sx={{ fontSize: "12.5px", color: RED.main }}>
+                                                        {entry.oldValue === "" ? "—" : String(entry.oldValue)}
+                                                    </TableCell>
+                                                    <TableCell sx={{ fontSize: "12.5px", color: GREEN.main, fontWeight: 700 }}>
+                                                        {entry.newValue === "" ? "—" : String(entry.newValue)}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {entry.action || entry.source ? (
+                                                            <Chip
+                                                                label={entry.action || entry.source}
+                                                                size="small"
+                                                                sx={{
+                                                                    bgcolor: "#F3F4F6",
+                                                                    color: "#374151",
+                                                                    fontWeight: "700",
+                                                                    fontSize: "10.5px",
+                                                                }}
+                                                            />
+                                                        ) : (
+                                                            <Typography sx={{ fontSize: "12.5px", color: "#D1D5DB" }}>—</Typography>
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell sx={{ fontSize: "12.5px", color: "#374151", whiteSpace: "nowrap" }}>
+                                                        {entry.changedBy || "—"}
+                                                    </TableCell>
+                                                    <TableCell sx={{ fontSize: "12.5px", color: "#6B7280", maxWidth: 220 }}>
+                                                        {entry.reason || "—"}
+                                                        {/* Anything the mapper did not recognise is still shown rather than dropped */}
+                                                        {entry.extra.map((item) => (
+                                                            <Typography key={item.key} sx={{ fontSize: "10.5px", color: "#9CA3AF" }}>
+                                                                {item.key}: {item.value}
+                                                            </Typography>
+                                                        ))}
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
+                            )}
+                        </DialogContent>
+
+                        <DialogActions sx={{ px: 3, py: 2, borderTop: "1px solid #E5E7EB" }}>
+                            <Button
+                                variant="contained"
+                                onClick={() => setAuditFor(null)}
+                                sx={{
+                                    textTransform: "none",
+                                    borderRadius: "50px",
+                                    fontSize: "13.5px",
+                                    fontWeight: "700",
+                                    px: 3,
+                                    bgcolor: INDIGO.main,
+                                    "&:hover": { bgcolor: "#4338CA" },
+                                }}
+                            >
+                                Close
+                            </Button>
+                        </DialogActions>
+                    </>
+                )}
+            </Dialog>
+
+            {/* ─── Decline needs a reason, so it is collected before the call ─── */}
+            <Dialog
+                open={Boolean(declineFor)}
+                onClose={() => setDeclineFor(null)}
+                maxWidth="xs"
+                fullWidth
+                slotProps={{ paper: { sx: { borderRadius: "14px" } } }}
+            >
+                {declineFor && (
+                    <>
+                        <Box sx={{ px: 2.5, py: 2, bgcolor: RED.bg, borderBottom: `1px solid ${RED.border}` }}>
+                            <Typography sx={{ fontSize: "16px", fontWeight: "700", color: "#111827" }}>
+                                Decline leave request
+                            </Typography>
+                            <Typography sx={{ fontSize: "11.5px", color: "#6B7280" }}>
+                                {declineFor.name} · {declineFor.leaveType} · {declineFor.fromDate} –{" "}
+                                {declineFor.toDate}
+                            </Typography>
+                        </Box>
+                        <DialogContent sx={{ p: 2.5 }}>
+                            <TextField
+                                fullWidth
+                                multiline
+                                rows={3}
+                                size="small"
+                                autoFocus
+                                placeholder="Why is this being declined?"
+                                value={declineReason}
+                                onChange={(e) => setDeclineReason(e.target.value)}
+                                sx={inputSx}
+                            />
+                            <Typography sx={{ fontSize: "11.5px", color: "#9CA3AF", mt: 0.8 }}>
+                                The reason is shown to the applicant and is required.
+                            </Typography>
+                        </DialogContent>
+                        <DialogActions sx={{ px: 3, py: 2, borderTop: "1px solid #E5E7EB" }}>
+                            <Button
+                                onClick={() => setDeclineFor(null)}
+                                sx={{
+                                    textTransform: "none",
+                                    borderRadius: "50px",
+                                    border: "1px solid #D1D5DB",
+                                    color: "#374151",
+                                    fontSize: "13.5px",
+                                    fontWeight: "600",
+                                    px: 3,
+                                }}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                variant="contained"
+                                disabled={!declineReason.trim() || actioningId === declineFor.leaveApplicationId}
+                                onClick={() => actOnLeave(declineFor, "decline", declineReason)}
+                                sx={{
+                                    textTransform: "none",
+                                    borderRadius: "50px",
+                                    fontSize: "13.5px",
+                                    fontWeight: "700",
+                                    px: 3,
+                                    bgcolor: RED.main,
+                                    "&:hover": { bgcolor: "#B91C1C" },
+                                }}
+                            >
+                                Decline
+                            </Button>
+                        </DialogActions>
+                    </>
+                )}
+            </Dialog>
+
+            <SnackBar
+                open={snack.open}
+                setOpen={(open) => setSnack((prev) => ({ ...prev, open }))}
+                status={snack.ok}
+                color={snack.ok}
+                message={snack.message}
+            />
+        </Box>
     );
 }

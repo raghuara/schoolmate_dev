@@ -23,6 +23,7 @@ import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import dayjs from 'dayjs';
+import { DASH } from "../../../DashBoardComps/dashboardTheme";
 
 export default function TransportFeeApprovalStatus() {
   const user = useSelector((state) => state.auth);
@@ -99,7 +100,7 @@ export default function TransportFeeApprovalStatus() {
     setIsLoading(true);
     try {
       const response = await axios.get(approvalStatusCheckTranspoart, {
-        params: { RollNumber: rollNumber, Year: selectedYear, Status: selectedStatus?.value },
+        params: { rollNumber: rollNumber, year: selectedYear, status: selectedStatus?.value },
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -146,7 +147,7 @@ export default function TransportFeeApprovalStatus() {
     setIsLoading(true);
     try {
       await axios.delete(deleteTranspoartFeesStructure, {
-        params: { transpoartFeesID: deleteId, RollNumber: rollNumber },
+        params: { transpoartFeesID: deleteId, rollNumber: rollNumber },
         headers: { Authorization: `Bearer ${token}` },
       });
       fetchStatusDetails();
@@ -171,21 +172,32 @@ export default function TransportFeeApprovalStatus() {
   };
 
   return (
-    <Box sx={{ width: "100%" }}>
+        <Box
+            sx={{
+                px: { xs: 1.5, md: 3 },
+                pt: { xs: 1.5, md: 2 },
+                pb: { xs: 2, md: 3 },
+                bgcolor: DASH.canvas,
+                height: "100%",
+                boxSizing: "border-box",
+                display: "flex",
+                flexDirection: "column",
+            }}
+        >
       <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
       {isLoading && <Loader />}
 
       {/* Header */}
-      <Box sx={{ backgroundColor: "#f2f2f2", px: 2, borderRadius: "10px 10px 10px 0px", borderBottom: "1px solid #ddd" }}>
+      <Box sx={{ mb: 2 }}>
         <Grid container>
           <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }} sx={{ display: "flex", alignItems: "center", py: 1.5 }}>
             <IconButton
               onClick={() => navigate("/dashboardmenu/status", { state: { tabIndex } })}
               sx={{ width: "27px", height: "27px", mt: "3px" }}
             >
-              <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
+              <ArrowBackIcon sx={{ fontSize: 20, color: DASH.ink }} />
             </IconButton>
-            <Typography sx={{ fontWeight: "600", fontSize: "20px" }}>Transport Fee Approval Status</Typography>
+            <Typography sx={{ fontSize: "20px", fontWeight: 700, color: DASH.ink, lineHeight: 1.2 }}>Transport Fee Approval Status</Typography>
           </Grid>
           <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }} sx={{ display: "flex", alignItems: "center", justifyContent: "end", gap: 1.5, py: 1 }}>
             <Autocomplete
@@ -222,7 +234,7 @@ export default function TransportFeeApprovalStatus() {
       </Box>
 
       {/* Main Content */}
-      <Box sx={{ height: "83vh", overflowY: "auto", px: 2 }}>
+      <Box sx={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
         {!groupedFees.length ? (
           <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "77vh", textAlign: "center" }}>
             <img src={NoData} alt="No data" style={{ width: "30%", marginBottom: 16 }} />

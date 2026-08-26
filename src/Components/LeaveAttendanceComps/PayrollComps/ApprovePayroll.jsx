@@ -139,9 +139,9 @@ export default function ApprovePayroll() {
             const res = await axios.get(getPayrollPayslipByRollNumber, {
                 headers: { Authorization: `Bearer ${token}` },
                 params: {
-                    RollNumber: rollNumber,
-                    FromMonth: formatMonthParam(fMonth, fYear),
-                    ToMonth: formatMonthParam(tMonth, tYear),
+                    rollNumber: rollNumber,
+                    fromMonth: formatMonthParam(fMonth, fYear),
+                    toMonth: formatMonthParam(tMonth, tYear),
                 },
             });
             setPayslipData(res.data.data);

@@ -645,7 +645,7 @@ export default function EditVehicleDetails() {
         // Fetch Vehicle Management Details
         try {
             const vehicleRes = await axios.get(findVehicleManagementDetails, {
-                params: { VehicleAssetID: vehicleId },
+                params: { vehicleAssetID: vehicleId },
                 headers: { Authorization: `Bearer ${token}` },
             });
             console.log("Vehicle Details API Response:", vehicleRes.data);
@@ -657,7 +657,7 @@ export default function EditVehicleDetails() {
         // Fetch Safety Compliance Details (separate try-catch to handle 404)
         try {
             const safetyRes = await axios.get(findVehicleSafetyComplianceDetails, {
-                params: { VehicleAssetID: vehicleId },
+                params: { vehicleAssetID: vehicleId },
                 headers: { Authorization: `Bearer ${token}` },
             });
             console.log("✅ Safety Compliance data found:", safetyRes.data);
@@ -1093,21 +1093,21 @@ export default function EditVehicleDetails() {
         setIsLoading(true);
         try {
             const sendData = new FormData();
-            sendData.append("VehicleAssetID", vehicleId);
-            sendData.append("ModeOfAcquisition", modeOfAcquisition);
-            sendData.append("VehicleAcquisitionDate", formatDateToDDMMYYYY(acquisitionDate));
-            sendData.append("VehicleAssetType", vehicleAssetType);
-            sendData.append("VehicleAcquisitionSourceType", acquisitionSourceType);
-            sendData.append("VehicleAssetSubType", assetSubType);
-            sendData.append("VehicleBrand", vehicleBrand);
-            sendData.append("DealerName", dealerName);
-            sendData.append("DealerContactNumber", dealerContactNumber);
-            sendData.append("DealerAddress", dealerAddress);
-            sendData.append("DealerGSTIN", dealerGstin);
-            sendData.append("InvoiceOrTransferOrDonationNumber", invoiceNumber);
+            sendData.append("vehicleAssetID", vehicleId);
+            sendData.append("modeOfAcquisition", modeOfAcquisition);
+            sendData.append("vehicleAcquisitionDate", formatDateToDDMMYYYY(acquisitionDate));
+            sendData.append("vehicleAssetType", vehicleAssetType);
+            sendData.append("vehicleAcquisitionSourceType", acquisitionSourceType);
+            sendData.append("vehicleAssetSubType", assetSubType);
+            sendData.append("vehicleBrand", vehicleBrand);
+            sendData.append("dealerName", dealerName);
+            sendData.append("dealerContactNumber", dealerContactNumber);
+            sendData.append("dealerAddress", dealerAddress);
+            sendData.append("dealerGSTIN", dealerGstin);
+            sendData.append("invoiceOrTransferOrDonationNumber", invoiceNumber);
             if (busPhoto) {
-                sendData.append("BusPhotoFile", busPhoto);
-                sendData.append("BusPhotoFileType", busPhoto.type.startsWith('image/') ? 'image' : 'pdf');
+                sendData.append("busPhotoFile", busPhoto);
+                sendData.append("busPhotoFileType", busPhoto.type.startsWith('image/') ? 'image' : 'pdf');
             }
             await axios.put(updateVehicleAcquisitionDetail, sendData, { headers: { Authorization: `Bearer ${token}` } });
             setMessage("Acquisition Details updated successfully");
@@ -1123,10 +1123,10 @@ export default function EditVehicleDetails() {
         setIsLoading(true);
         try {
             const sendData = {
-                VehicleAssetID: vehicleId, BusModelAndMake: busModelMake, YearOfManufacture: yearOfManufacture,
-                EngineNumberAsPerRC: engineNumber, EngineChasisNumberAsPerRC: engineChassisNumber,
-                FuelTypeAsPerRC: fuelType, VehicleClassAsPerRC: vehicleClass, FuelTankCapacity: fuelTankCapacity,
-                SeatingCapacity: seatingCapacity, SeatsPerRow: seatsPerRow, StandingSpace: blendingSource, VehicleColour: vehicleColor
+                vehicleAssetID: vehicleId, busModelAndMake: busModelMake, yearOfManufacture: yearOfManufacture,
+                engineNumberAsPerRC: engineNumber, engineChasisNumberAsPerRC: engineChassisNumber,
+                fuelTypeAsPerRC: fuelType, vehicleClassAsPerRC: vehicleClass, fuelTankCapacity: fuelTankCapacity,
+                seatingCapacity: seatingCapacity, seatsPerRow: seatsPerRow, standingSpace: blendingSource, vehicleColour: vehicleColor
             };
             await axios.put(updateVehicleSpecification, sendData, { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } });
             setMessage("Vehicle Specification updated successfully");
@@ -1141,10 +1141,10 @@ export default function EditVehicleDetails() {
         setIsLoading(true);
         try {
             const sendData = {
-                VehicleAssetID: vehicleId, RegistrationNumberAsPerRC: registrationNumber, RTONameAndCodeAsPerRC: rtoNameCode,
-                RegistrationDate: formatDateToDDMMYYYY(registrationDate), VehicleOwnershipType: vehicleOwnershipType,
-                VehicleOwnerNameAsPerRC: vehicleOwnerName, OwnerPermanentAddress: ownerPermanentAddress,
-                OwnerContactNumber: ownerContactNumber, VehicleOwnerLegalIdOrGST: vehicleOwnerLegalIdGst
+                vehicleAssetID: vehicleId, registrationNumberAsPerRC: registrationNumber, rtoNameAndCodeAsPerRC: rtoNameCode,
+                registrationDate: formatDateToDDMMYYYY(registrationDate), vehicleOwnershipType: vehicleOwnershipType,
+                vehicleOwnerNameAsPerRC: vehicleOwnerName, ownerPermanentAddress: ownerPermanentAddress,
+                ownerContactNumber: ownerContactNumber, vehicleOwnerLegalIdOrGST: vehicleOwnerLegalIdGst
             };
             await axios.put(updateVehicleRegistrationOwnership, sendData, { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } });
             setMessage("Registration & Ownership updated successfully");
@@ -1159,10 +1159,10 @@ export default function EditVehicleDetails() {
         setIsLoading(true);
         try {
             const sendData = {
-                VehicleAssetID: vehicleId, InsuranceCompanyName: insuranceCompanyName, InsurancePolicyNumber: insurancePolicyNumber,
-                InsurancePolicyType: insurancePolicyType, PolicyStartDate: formatDateToDDMMYYYY(policyStartDate),
-                PolicyEndDate: formatDateToDDMMYYYY(policyEndDate), PrimaryInsuranceIdentifier: primaryInsuranceIdentifier,
-                CurrentInsuranceStatus: currentInsuranceStatus, InsurancePremiumAmount: insurancePremiumAmount
+                vehicleAssetID: vehicleId, insuranceCompanyName: insuranceCompanyName, insurancePolicyNumber: insurancePolicyNumber,
+                insurancePolicyType: insurancePolicyType, policyStartDate: formatDateToDDMMYYYY(policyStartDate),
+                policyEndDate: formatDateToDDMMYYYY(policyEndDate), primaryInsuranceIdentifier: primaryInsuranceIdentifier,
+                currentInsuranceStatus: currentInsuranceStatus, insurancePremiumAmount: insurancePremiumAmount
             };
             await axios.put(updateVehicleInsuranceCompliance, sendData, { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } });
             setMessage("Insurance Details updated successfully");
@@ -1177,11 +1177,11 @@ export default function EditVehicleDetails() {
         setIsLoading(true);
         try {
             const sendData = {
-                VehicleAssetID: vehicleId, Warranty: warrantyProvided, WarrantyProvidedBy: warrantyProvidedBy,
-                WarrantyType: warrantyType, WarrantyCoverageFor: warrantyCoverageFor,
-                FullVehicleWarrantyStartDate: formatDateToDDMMYYYY(fullVehicleWarrantyStartDate),
-                FullVehicleWarrantyEndDate: formatDateToDDMMYYYY(fullVehicleWarrantyEndDate),
-                FullVehicleWarrantyPeriod: fullVehicleWarrantyPeriod
+                vehicleAssetID: vehicleId, warranty: warrantyProvided, warrantyProvidedBy: warrantyProvidedBy,
+                warrantyType: warrantyType, warrantyCoverageFor: warrantyCoverageFor,
+                fullVehicleWarrantyStartDate: formatDateToDDMMYYYY(fullVehicleWarrantyStartDate),
+                fullVehicleWarrantyEndDate: formatDateToDDMMYYYY(fullVehicleWarrantyEndDate),
+                fullVehicleWarrantyPeriod: fullVehicleWarrantyPeriod
             };
             await axios.put(updateVehicleWarrantyServiceClaim, sendData, { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } });
             setMessage("Warranty Details updated successfully");
@@ -1196,13 +1196,13 @@ export default function EditVehicleDetails() {
         setIsLoading(true);
         try {
             const sendData = new FormData();
-            sendData.append("VehicleAssetID", vehicleId);
-            if (rcBook) { sendData.append("RCBookFile", rcBook); sendData.append("RCBookFileType", rcBook.type.startsWith('image/') ? 'image' : 'pdf'); }
-            if (fitnessCertificate) { sendData.append("FitnessCertificateFile", fitnessCertificate); sendData.append("FitnessCertificateFileType", fitnessCertificate.type.startsWith('image/') ? 'image' : 'pdf'); }
-            if (roadTaxCertificate) { sendData.append("RoadTaxCertificateFile", roadTaxCertificate); sendData.append("RoadTaxCertificateFileType", roadTaxCertificate.type.startsWith('image/') ? 'image' : 'pdf'); }
-            if (insuranceDoc) { sendData.append("InsuranceDocumentFile", insuranceDoc); sendData.append("InsuranceDocumentFileType", insuranceDoc.type.startsWith('image/') ? 'image' : 'pdf'); }
-            if (pucCertificate) { sendData.append("PUCCertificateFile", pucCertificate); sendData.append("PUCCertificateFileType", pucCertificate.type.startsWith('image/') ? 'image' : 'pdf'); }
-            if (permitDocument) { sendData.append("PermitDocumentFile", permitDocument); sendData.append("PermitDocumentFileType", permitDocument.type.startsWith('image/') ? 'image' : 'pdf'); }
+            sendData.append("vehicleAssetID", vehicleId);
+            if (rcBook) { sendData.append("rcBookFile", rcBook); sendData.append("rcBookFileType", rcBook.type.startsWith('image/') ? 'image' : 'pdf'); }
+            if (fitnessCertificate) { sendData.append("fitnessCertificateFile", fitnessCertificate); sendData.append("fitnessCertificateFileType", fitnessCertificate.type.startsWith('image/') ? 'image' : 'pdf'); }
+            if (roadTaxCertificate) { sendData.append("roadTaxCertificateFile", roadTaxCertificate); sendData.append("roadTaxCertificateFileType", roadTaxCertificate.type.startsWith('image/') ? 'image' : 'pdf'); }
+            if (insuranceDoc) { sendData.append("insuranceDocumentFile", insuranceDoc); sendData.append("insuranceDocumentFileType", insuranceDoc.type.startsWith('image/') ? 'image' : 'pdf'); }
+            if (pucCertificate) { sendData.append("pucCertificateFile", pucCertificate); sendData.append("pucCertificateFileType", pucCertificate.type.startsWith('image/') ? 'image' : 'pdf'); }
+            if (permitDocument) { sendData.append("permitDocumentFile", permitDocument); sendData.append("permitDocumentFileType", permitDocument.type.startsWith('image/') ? 'image' : 'pdf'); }
             await axios.put(updateVehicleDocuments, sendData, { headers: { Authorization: `Bearer ${token}` } });
             setMessage("Documents updated successfully");
             setOpen(true); setColor(true); setStatus(true);
@@ -1217,9 +1217,9 @@ export default function EditVehicleDetails() {
         setIsLoading(true);
         try {
             const sendData = {
-                VehicleAssetID: vehicleId, FCType: fcType, FCNumber: fcNumber, FCIssueDate: formatDateToDDMMYYYY(fcIssueDate),
-                FCExpiryDate: formatDateToDDMMYYYY(fcExpiryDate), FCValidityDuration: fcValidityDuration,
-                LastValidDate: formatDateToDDMMYYYY(fcLastValidDate), RenewalReminder: fcRenewalReminder,
+                vehicleAssetID: vehicleId, fcType: fcType, fcNumber: fcNumber, fcIssueDate: formatDateToDDMMYYYY(fcIssueDate),
+                fcExpiryDate: formatDateToDDMMYYYY(fcExpiryDate), fcValidityDuration: fcValidityDuration,
+                lastValidDate: formatDateToDDMMYYYY(fcLastValidDate), renewalReminder: fcRenewalReminder,
                 currentFcStatus: fcCurrentStatus, notesAboutInspection: fcNotesAboutInspection
             };
             await axios.put(updateVehicleFCDetail, sendData, { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } });
@@ -1232,9 +1232,9 @@ export default function EditVehicleDetails() {
         setIsLoading(true);
         try {
             const sendData = {
-                VehicleAssetID: vehicleId, PermitNumber: permitNumber, PermitType: permitType, IssuingRTO: issuingRto,
-                ValidDateFrom: formatDateToDDMMYYYY(permitValidDateFrom), ValidTill: formatDateToDDMMYYYY(permitValidTill),
-                PermitValidityDuration: permitValidityDuration, PermitAreaOfOperation: permitAreaOfOperation, PermitRoute: permitRoute
+                vehicleAssetID: vehicleId, permitNumber: permitNumber, permitType: permitType, issuingRTO: issuingRto,
+                validDateFrom: formatDateToDDMMYYYY(permitValidDateFrom), validTill: formatDateToDDMMYYYY(permitValidTill),
+                permitValidityDuration: permitValidityDuration, permitAreaOfOperation: permitAreaOfOperation, permitRoute: permitRoute
             };
             await axios.put(updateVehiclePermitDetail, sendData, { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } });
             setMessage("Permit Details updated successfully"); setOpen(true); setColor(true); setStatus(true);
@@ -1246,8 +1246,8 @@ export default function EditVehicleDetails() {
         setIsLoading(true);
         try {
             const sendData = {
-                VehicleAssetID: vehicleId, PUCCertificateNumber: pucCertificateNumber, PUCIssueDate: formatDateToDDMMYYYY(pucIssueDate),
-                PUCExpiryDate: formatDateToDDMMYYYY(pucExpiryDate), PUCValidityStatus: pucValidityStatus
+                vehicleAssetID: vehicleId, pucCertificateNumber: pucCertificateNumber, pucIssueDate: formatDateToDDMMYYYY(pucIssueDate),
+                pucExpiryDate: formatDateToDDMMYYYY(pucExpiryDate), pucValidityStatus: pucValidityStatus
             };
             await axios.put(updateVehiclePUCDetail, sendData, { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } });
             setMessage("PUC Details updated successfully"); setOpen(true); setColor(true); setStatus(true);
@@ -1259,8 +1259,8 @@ export default function EditVehicleDetails() {
         setIsLoading(true);
         try {
             const sendData = {
-                VehicleAssetID: vehicleId, TaxType: taxType, TaxPaidDate: formatDateToDDMMYYYY(taxPaidDate),
-                TaxExpiryDate: formatDateToDDMMYYYY(taxExpiryDate), TaxStatus: taxStatus, TaxReceiptNumber: taxReceiptNumber
+                vehicleAssetID: vehicleId, taxType: taxType, taxPaidDate: formatDateToDDMMYYYY(taxPaidDate),
+                taxExpiryDate: formatDateToDDMMYYYY(taxExpiryDate), taxStatus: taxStatus, taxReceiptNumber: taxReceiptNumber
             };
             await axios.put(updateVehicleRoadTransportTax, sendData, { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } });
             setMessage("Road Tax Details updated successfully"); setOpen(true); setColor(true); setStatus(true);
@@ -1272,25 +1272,25 @@ export default function EditVehicleDetails() {
         setIsLoading(true);
         try {
             const sendData = {
-                VehicleAssetID: vehicleId, CCTVInstalled: cctvInstalled, NumberOfCameras: numberOfCameras,
-                CCTVDealerInstallerSame: cctvDealerInstallerSame, Camera1DateOfInstallation: formatDateToDDMMYYYY(camera1DateOfInstallation),
-                Camera1DealerInstallerName: camera1DealerInstallerName, Camera1Type: camera1Type,
-                Camera1DealerInstallerName2: camera1DealerInstallerName2, Camera1VendorContactDetails: camera1VendorContactDetails, Camera1Remarks: camera1Remarks,
-                FirstAidKitInstallation: firstAidKitInstallation, FirstAidDateOfInstallation: formatDateToDDMMYYYY(firstAidDateOfInstallation),
-                FirstAidExpiryCheckDueDate: formatDateToDDMMYYYY(firstAidExpiryCheckDueDate), FirstAidLastInspectionDate: formatDateToDDMMYYYY(firstAidLastInspectionDate),
-                FirstAidRemarks: firstAidRemarks, SafetyGrillsInstallation: safetyGrillsInstallation,
-                SafetyGrillsInstalled: safetyGrillsInstalled, GrillLocation: grillLocation, EmergencyExitAvailable: emergencyExitAvailable,
-                EmergencyExitLocation: emergencyExitLocation, ComplianceAsPerNorms: complianceAsPerNorms,
-                SafetyInstallationInspectionDate: formatDateToDDMMYYYY(safetyInstallationInspectionDate), SafetyRemarks: safetyRemarks,
-                SpeedGovernorInstallation: speedGovernorInstallation, SpeedGovernorDateOfInstallation: formatDateToDDMMYYYY(speedGovernorDateOfInstallation),
-                SpeedGovernorVendorName: speedGovernorVendorName, SpeedLimitSet: speedLimitSet, SpeedGovernorCertificateNumber: speedGovernorCertificateNumber,
-                SpeedGovernorValidityDate: formatDateToDDMMYYYY(speedGovernorValidityDate), SpeedGovernorRemarks: speedGovernorRemarks,
-                FireExtinguisherInstallation: fireExtinguisherInstallation, FireExtinguisherDateOfInstallation: formatDateToDDMMYYYY(fireExtinguisherDateOfInstallation),
-                FireExtinguisherExpiryDate: formatDateToDDMMYYYY(fireExtinguisherExpiryDate), ExtinguisherTypeCapacity: extinguisherTypeCapacity,
-                FireExtinguisherVendorDetails: fireExtinguisherVendorDetails, FireExtinguisherRemarks: fireExtinguisherRemarks,
-                GPSTrackerInstallation: gpsTrackerInstallation, GPSDateOfInstallation: formatDateToDDMMYYYY(gpsDateOfInstallation),
-                GPSDeviceIdIMEI: gpsDeviceIdImei, GPSHardwareWarranty: gpsHardwareWarranty, GPSOwnerNameAddress: gpsOwnerNameAddress,
-                GPSSimNumber: gpsSimNumber, GPSSubscriptionValidTill: formatDateToDDMMYYYY(gpsSubscriptionValidTill), GPSRemarks: gpsRemarks
+                vehicleAssetID: vehicleId, cctvInstalled: cctvInstalled, numberOfCameras: numberOfCameras,
+                cctvDealerInstallerSame: cctvDealerInstallerSame, camera1DateOfInstallation: formatDateToDDMMYYYY(camera1DateOfInstallation),
+                camera1DealerInstallerName: camera1DealerInstallerName, camera1Type: camera1Type,
+                camera1DealerInstallerName2: camera1DealerInstallerName2, camera1VendorContactDetails: camera1VendorContactDetails, camera1Remarks: camera1Remarks,
+                firstAidKitInstallation: firstAidKitInstallation, firstAidDateOfInstallation: formatDateToDDMMYYYY(firstAidDateOfInstallation),
+                firstAidExpiryCheckDueDate: formatDateToDDMMYYYY(firstAidExpiryCheckDueDate), firstAidLastInspectionDate: formatDateToDDMMYYYY(firstAidLastInspectionDate),
+                firstAidRemarks: firstAidRemarks, safetyGrillsInstallation: safetyGrillsInstallation,
+                safetyGrillsInstalled: safetyGrillsInstalled, grillLocation: grillLocation, emergencyExitAvailable: emergencyExitAvailable,
+                emergencyExitLocation: emergencyExitLocation, complianceAsPerNorms: complianceAsPerNorms,
+                safetyInstallationInspectionDate: formatDateToDDMMYYYY(safetyInstallationInspectionDate), safetyRemarks: safetyRemarks,
+                speedGovernorInstallation: speedGovernorInstallation, speedGovernorDateOfInstallation: formatDateToDDMMYYYY(speedGovernorDateOfInstallation),
+                speedGovernorVendorName: speedGovernorVendorName, speedLimitSet: speedLimitSet, speedGovernorCertificateNumber: speedGovernorCertificateNumber,
+                speedGovernorValidityDate: formatDateToDDMMYYYY(speedGovernorValidityDate), speedGovernorRemarks: speedGovernorRemarks,
+                fireExtinguisherInstallation: fireExtinguisherInstallation, fireExtinguisherDateOfInstallation: formatDateToDDMMYYYY(fireExtinguisherDateOfInstallation),
+                fireExtinguisherExpiryDate: formatDateToDDMMYYYY(fireExtinguisherExpiryDate), extinguisherTypeCapacity: extinguisherTypeCapacity,
+                fireExtinguisherVendorDetails: fireExtinguisherVendorDetails, fireExtinguisherRemarks: fireExtinguisherRemarks,
+                gpsTrackerInstallation: gpsTrackerInstallation, gpsDateOfInstallation: formatDateToDDMMYYYY(gpsDateOfInstallation),
+                gpsDeviceIdIMEI: gpsDeviceIdImei, gpsHardwareWarranty: gpsHardwareWarranty, gpsOwnerNameAddress: gpsOwnerNameAddress,
+                gpsSimNumber: gpsSimNumber, gpsSubscriptionValidTill: formatDateToDDMMYYYY(gpsSubscriptionValidTill), gpsRemarks: gpsRemarks
             };
             await axios.put(updateVehicleCctvCameraInstallation, sendData, { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } });
             setMessage("CCTV & Safety Details updated successfully"); setOpen(true); setColor(true); setStatus(true);
@@ -1302,13 +1302,13 @@ export default function EditVehicleDetails() {
         setIsLoading(true);
         try {
             const sendData = {
-                VehicleAssetID: vehicleId, SchoolNameFrontSide: schoolNameFrontSide, SchoolNameBackSide: schoolNameBackSide,
-                SchoolNameLeftSide: schoolNameLeftSide, SchoolNameRightSide: schoolNameRightSide,
-                InternalNameFrontSide: internalNameFrontSide, InternalNameBackSide: internalNameBackSide,
-                InternalNameLeftSide: internalNameLeftSide, InternalNameRightSide: internalNameRightSide,
-                ReflectiveTapesFrontSide: reflectiveTapesFrontSide, ReflectiveTapesBackSide: reflectiveTapesBackSide,
-                ReflectiveTapesLeftSide: reflectiveTapesLeftSide, ReflectiveTapesRightSide: reflectiveTapesRightSide,
-                SignageFrontSide: signageFrontSide, SignageBackSide: signageBackSide, SignageLeftSide: signageLeftSide, SignageRightSide: signageRightSide
+                vehicleAssetID: vehicleId, schoolNameFrontSide: schoolNameFrontSide, schoolNameBackSide: schoolNameBackSide,
+                schoolNameLeftSide: schoolNameLeftSide, schoolNameRightSide: schoolNameRightSide,
+                internalNameFrontSide: internalNameFrontSide, internalNameBackSide: internalNameBackSide,
+                internalNameLeftSide: internalNameLeftSide, internalNameRightSide: internalNameRightSide,
+                reflectiveTapesFrontSide: reflectiveTapesFrontSide, reflectiveTapesBackSide: reflectiveTapesBackSide,
+                reflectiveTapesLeftSide: reflectiveTapesLeftSide, reflectiveTapesRightSide: reflectiveTapesRightSide,
+                signageFrontSide: signageFrontSide, signageBackSide: signageBackSide, signageLeftSide: signageLeftSide, signageRightSide: signageRightSide
             };
             await axios.put(updateVehicleBusBrandingVisualIdentity, sendData, { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } });
             setMessage("Bus Branding updated successfully"); setOpen(true); setColor(true); setStatus(true);

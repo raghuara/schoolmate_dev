@@ -1,8 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
     Box, Typography, Button, IconButton, Switch, Chip, Checkbox, FormControlLabel, FormGroup,
-    Accordion, AccordionSummary, AccordionDetails, FormControl, Select, MenuItem, Divider, Tooltip, Grid,
+    Accordion, AccordionSummary, AccordionDetails, FormControl, Select, MenuItem, Divider, Tooltip, Grid, CircularProgress,
 } from "@mui/material";
+import axios from "axios";
+import { UpdateUserTypePermissions, GetUserTypePermissions } from "../../../Api/Api";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import AddIcon from "@mui/icons-material/Add";
@@ -15,6 +17,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import SnackBar from "../../SnackBar";
 import { useSelector } from "react-redux";
 
+const TOKEN = "123";
 const ACCENT = "#4338CA";
 
 export const OPS = [
@@ -24,8 +27,6 @@ export const OPS = [
     { key: "delete", label: "Delete" },
 ];
 
-// What each operation implies. Enabling an op auto-enables (and locks-on) the ops it implies.
-//   Create → View,  Edit → Create + View,  Delete → View only (not Create/Edit).
 const IMPLIES = {
     create: ["view"],
     edit: ["create", "view"],
@@ -39,39 +40,25 @@ export const defaultPageConfig = () => ({
     allowSameLevel: false, // peer approval within the same level (Level 2+)
 });
 
-/**
- * Shared layout + state engine for a module's access-configuration page.
- *
- * Props:
- *  - moduleMeta : { key, name, color }
- *  - pages      : string[]                  pages/screens that belong to this module
- *  - opsKeys      : string[]                  default subset of OPS keys for this module's pages
- *  - approval     : boolean                   default: whether an approval flow applies
- *  - validate     : (config) => string|null   optional module-specific validation
- *  - extraOps     : { [page]: [{key,label}] } page-specific extra permission checkboxes
- *  - pageOverrides: { [page]: { opsKeys?, approval? } } per-page overrides of opsKeys / approval
- */
-export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view", "create", "edit", "delete"], approval = false, validate, extraOps = {}, extraOpsLabels = {}, pageOverrides = {}, approvalText = {}, approvalNoun = "post" }) {
+export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view", "create", "edit", "delete"], approval = false, validate, extraOps = {}, extraOpsLabels = {}, pageOverrides = {}, pageRequires = {}, approvalText = {}, approvalNoun = "post", onSave }) {
     const nounS = approvalNoun;
     const nounP = `${approvalNoun}s`;
     const navigate = useNavigate();
     const location = useLocation();
     const role = location.state?.role || { id: 0, name: "Role" };
     const allRoles = location.state?.roles || [];
+    const mainMenuKey = location.state?.mainMenu || moduleMeta.key;
     const color = moduleMeta.color || ACCENT;
     const isExpanded = useSelector((state) => state.sidebar.isExpanded);
 
-    // Per-page resolvers (fall back to the module-level defaults)
     const pageOpsKeys = (page) => pageOverrides[page]?.opsKeys || opsKeys;
     const pageOps = (page) => OPS.filter((o) => pageOpsKeys(page).includes(o.key));
     const pageApproval = (page) => (pageOverrides[page]?.approval ?? approval);
 
-    // Selectable approver user-types (exclude the Student category)
     const roleOptions = (allRoles.length ? allRoles : [{ id: 1, name: "Admin" }, { id: 2, name: "Office Staffs" }, { id: 3, name: "Teachers" }, { id: 4, name: "Parent" }])
         .filter((r) => r.name !== "Student")
         .map((r) => r.name);
 
-    // Flatten extra ops for a page (handles flat items, grouped { items }, and a group { gate })
     const flatten = (list) => (list || []).flatMap((e) => (e.items ? [...(e.gate ? [e.gate] : []), ...e.items] : [e]));
     const flatExtraOps = (page) => flatten(extraOps[page]);
 
@@ -79,9 +66,38 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
         ...defaultPageConfig(),
         ...Object.fromEntries(flatten(extraOps[p]).map((e) => [e.key, false])),
     }])));
+
+    // Extra permissions refine a page the user can already open, so they only
+    // apply once "View" is granted. A page that declares no View operation of
+    // its own (Billing, ECA, Additional Fee, Expense) has nothing to gate on,
+    // so its extras stay available.
+    // Some pages only exist inside another one - Events is a view of the School
+    // Calendar, so granting it while the calendar is hidden gives a permission
+    // the user can never reach. pageRequires names that dependency.
+    const requiredPageFor = (page) => pageRequires[page] || null;
+    const pageDependencyMet = (page) => {
+        const dep = requiredPageFor(page);
+        if (!dep) return true;
+        return !!config[dep.page]?.[dep.key];
+    };
+    const dependentPagesOf = (page, key) =>
+        Object.entries(pageRequires)
+            .filter(([, dep]) => dep.page === page && dep.key === key)
+            .map(([child]) => child);
+
+    const gatesOnView = (page) => pageOpsKeys(page).includes("view");
+    const extrasEnabled = (page) => !gatesOnView(page) || !!config[page]?.view;
+
+    // An extra op can also depend on another one on the same page - declared as
+    // { key: "allowconcession", requires: "allowbilling" }. Concession is an
+    // action taken while billing, so it cannot be granted on its own.
+    const requirementMet = (page, o) => !o.requires || !!config[page]?.[o.requires];
+    const opEnabled = (page, o) => extrasEnabled(page) && requirementMet(page, o);
+    const dependentsOf = (page, key) => flatExtraOps(page).filter((e) => e.requires === key);
     const [snack, setSnack] = useState({ open: false, ok: true, msg: "" });
     const showSnack = (msg, ok = true) => setSnack({ open: true, ok, msg });
     const [expandedPages, setExpandedPages] = useState({});
+    const [saving, setSaving] = useState(false);
 
     const setPage = (page, patch) => setConfig((prev) => ({ ...prev, [page]: { ...prev[page], ...patch } }));
 
@@ -89,14 +105,31 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
         const cur = config[page];
         const next = { [key]: !cur[key] };
         const keys = pageOpsKeys(page);
-        // Enabling an op auto-enables the ops it implies (Edit → Create + View, Delete → View)
         if (!cur[key] && IMPLIES[key]) {
             IMPLIES[key].forEach((k) => { if (keys.includes(k)) next[k] = true; });
         }
+        // Clearing View closes the page, so nothing that depends on opening it
+        // may stay ticked - neither the operations that imply View nor the
+        // extra permissions. Otherwise a contradictory set gets saved.
+        if (key === "view" && cur[key]) {
+            keys.forEach((k) => { if ((IMPLIES[k] || []).includes("view")) next[k] = false; });
+            flatExtraOps(page).forEach((e) => { next[e.key] = false; });
+        }
+        // Same idea one level down: turning a prerequisite off cannot leave the
+        // permissions that depend on it still ticked.
+        if (cur[key]) dependentsOf(page, key).forEach((e) => { next[e.key] = false; });
         setPage(page, next);
+
+        // A page that only exists inside this one cannot stay granted once this
+        // one is switched off.
+        if (cur[key]) {
+            dependentPagesOf(page, key).forEach((child) => {
+                const childKeys = [...pageOpsKeys(child), ...flatExtraOps(child).map((e) => e.key)];
+                setPage(child, Object.fromEntries(childKeys.map((k) => [k, false])));
+            });
+        }
     };
 
-    // A gated group's toggle — turning it off also clears its child options
     const toggleGate = (page, gateKey, itemKeys) => {
         const turningOff = !!config[page][gateKey];
         const next = { [gateKey]: !config[page][gateKey] };
@@ -104,16 +137,13 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
         setPage(page, next);
     };
 
-    // An op is locked-on while another active op (within this page's ops) implies it
     const isLocked = (cfg, key, keys) =>
         keys.some((k) => k !== key && cfg[k] && (IMPLIES[k] || []).includes(key));
-    // An op can be locked at all only if some op in this page's ops implies it
     const isLockable = (key, keys) =>
         keys.some((k) => k !== key && (IMPLIES[k] || []).includes(key));
     const toggleApproval = (page) => setPage(page, { approval: !config[page].approval });
     const toggleSameLevel = (page) => setPage(page, { allowSameLevel: !config[page].allowSameLevel });
 
-    // "Allow all" — every operation + option checkbox key for a page (approval is excluded)
     const pageAllKeys = (page) => [...pageOpsKeys(page), ...flatExtraOps(page).map((e) => e.key)];
     const isPageAllOn = (page) => {
         const ks = pageAllKeys(page);
@@ -138,6 +168,7 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
         if (config[page].levels.length >= 3) return; // max 3 approval levels
         setPage(page, { levels: [...config[page].levels, ""] });
     };
+    
     const removeLevel = (page, idx) => setPage(page, { levels: config[page].levels.filter((_, i) => i !== idx) });
     const setLevel = (page, idx, value) => {
         const next = [...config[page].levels];
@@ -145,7 +176,6 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
         setPage(page, { levels: next });
     };
 
-    // Built-in validation, then any module-specific rules supplied by the page
     const runValidation = () => {
         for (const page of pages) {
             const c = config[page];
@@ -158,14 +188,102 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
         return null;
     };
 
-    const save = () => {
-        const err = runValidation();
-        if (err) return showSnack(err, false);
-        // TODO: POST the per-page permissions (+ approval hierarchy) for this role & module
-        showSnack(`Saved access configuration for ${moduleMeta.name} · ${role.name}.`);
+    const yn = (v) => (v ? "Y" : "N");
+    const subMenuKey = (page) => pageOverrides[page]?.subMenu || String(page).toLowerCase().replace(/[^a-z0-9]/g, "");
+    const buildPermissions = (page) => {
+        const c = config[page] || {};
+        const keys = [...pageOpsKeys(page), ...flatExtraOps(page).map((e) => e.key)];
+        // The UI greys the extras out when View is off; enforce the same rule on
+        // the way out, so a record that already had them set cannot be saved back
+        // with permissions the role has no page to use them on.
+        const byKey = Object.fromEntries(flatExtraOps(page).map((e) => [e.key, e]));
+        const allowed = (k) => (byKey[k] ? opEnabled(page, byKey[k]) : true);
+        // A page whose parent is off is saved as fully denied, whatever the
+        // stored record said, so opening and saving repairs an old one.
+        if (!pageDependencyMet(page)) return Object.fromEntries(keys.map((k) => [k, yn(false)]));
+        return Object.fromEntries(keys.map((k) => [k, yn(allowed(k) ? c[k] : false)]));
     };
 
-    // Human-readable approval explanation for a page
+    // Map a fetched GetUserTypePermissions payload onto this module's checkboxes.
+    // Same-key mapping: "Y" -> checked, "N" / null / missing -> unchecked.
+    const applyData = (data) => {
+        const menu = (data?.mainMenus || []).find((m) => m.mainMenu === mainMenuKey);
+        if (!menu) return; // nothing saved yet for this module — keep defaults
+        setConfig((prev) => {
+            const next = { ...prev };
+            pages.forEach((page) => {
+                const sm = (menu.subMenus || []).find((s) => s.subMenu === subMenuKey(page));
+                if (!sm) return;
+                const perms = sm.permissions || {};
+                const patch = {};
+                [...pageOpsKeys(page), ...flatExtraOps(page).map((e) => e.key)].forEach((k) => {
+                    patch[k] = perms[k] === "Y";
+                });
+                next[page] = { ...next[page], ...patch };
+            });
+            return next;
+        });
+    };
+
+    const fetchPermissions = async () => {
+        if (role?.id == null) return;
+        try {
+            const res = await axios.post(GetUserTypePermissions, { userTypeID: role.id, userType: role.name }, { headers: { Authorization: `Bearer ${TOKEN}` } });
+            applyData(res?.data?.data || null);
+        } catch (e) {
+            // keep current selections if the refresh fails
+        }
+    };
+
+    useEffect(() => {
+        // Seed instantly from the permissions FeaturePermissionsPage already fetched, then refresh.
+        if (location.state?.permissions) applyData(location.state.permissions);
+        fetchPermissions();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    const save = async () => {
+        const err = runValidation();
+        if (err) return showSnack(err, false);
+
+        const payload = {
+            data: {
+                userTypeID: role.id,
+                userType: role.name,
+                mainMenus: [
+                    {
+                        mainMenu: mainMenuKey,
+                        subMenus: pages.map((page) => ({
+                            subMenu: subMenuKey(page),
+                            permissions: buildPermissions(page),
+                        })),
+                    },
+                ],
+            },
+        };
+
+        setSaving(true);
+        try {
+            // If the wrapper page provides its own save handler, delegate the API call to it.
+            if (typeof onSave === "function") {
+                const res = await onSave(payload, { role, mainMenuKey });
+                if (res?.error === true) { showSnack(res?.message || "Could not save the configuration.", false); return; }
+                showSnack(res?.message || `Saved access configuration for ${moduleMeta.name} · ${role.name}.`);
+                await fetchPermissions(); // re-fetch so the screen shows the stored values
+            } else {
+                const res = await axios.put(UpdateUserTypePermissions, payload, { headers: { Authorization: `Bearer ${TOKEN}` } });
+                const ok = !res?.data || res.data.error === false || res.status === 200;
+                if (!ok) { showSnack(res?.data?.message || "Could not save the configuration.", false); return; }
+                showSnack(res?.data?.message || `Saved access configuration for ${moduleMeta.name} · ${role.name}.`);
+                await fetchPermissions(); // re-fetch so the screen shows the stored values
+            }
+        } catch (e) {
+            showSnack(e?.response?.data?.message || e?.message || "Failed to save the configuration. Please try again.", false);
+        } finally {
+            setSaving(false);
+        }
+    };
+
     const explain = (cfg) => {
         const levels = cfg.levels.filter(Boolean);
         const others = roleOptions.filter((r) => !levels.includes(r));
@@ -186,15 +304,15 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
         return lines;
     };
 
-    // Operation permissions rendered as professional checkbox chips
     const renderOps = (page, cfg) => {
         const keys = pageOpsKeys(page);
         return (
             <FormGroup row sx={{ gap: 1 }}>
                 {pageOps(page).map((o) => {
-                    const active = cfg[o.key];
+                    const depMet = pageDependencyMet(page);
+                    const active = depMet && cfg[o.key];
                     const lockable = isLockable(o.key, keys);
-                    const locked = lockable && isLocked(cfg, o.key, keys);
+                    const locked = (lockable && isLocked(cfg, o.key, keys)) || !depMet;
                     return (
                         <FormControlLabel
                             key={o.key}
@@ -221,28 +339,38 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
         );
     };
 
-    // Page-specific extra permissions (e.g. "Merge Siblings" on Student Management)
-    // One option checkbox (used by both flat and grouped extra-op rendering)
     const extraCheckbox = (page, cfg, o) => {
-        const active = !!cfg[o.key];
-        return (
+        const enabled = opEnabled(page, o);
+        const active = enabled && !!cfg[o.key];
+        // Say which box has to be ticked first, rather than leaving a dead one.
+        const blockedBy = !requirementMet(page, o)
+            ? (flatExtraOps(page).find((e) => e.key === o.requires)?.label || o.requires)
+            : null;
+        const control = (
             <FormControlLabel
                 key={o.key}
+                disabled={!enabled}
                 control={
                     <Checkbox
                         size="small"
                         checked={active}
+                        disabled={!enabled}
                         onChange={() => toggleOp(page, o.key)}
-                        sx={{ p: 0.5, color: "#C7CDD6", "&.Mui-checked": { color } }}
+                        sx={{ p: 0.5, color: "#C7CDD6", "&.Mui-checked": { color }, "&.Mui-disabled": { color: "#E3E6EA" } }}
                     />
                 }
-                label={<Typography sx={{ fontSize: 13, fontWeight: 600, color: active ? "#111827" : "#6B7280" }}>{o.label}</Typography>}
+                label={<Typography sx={{ fontSize: 13, fontWeight: 600, color: !enabled ? "#B6BCC6" : active ? "#111827" : "#6B7280" }}>{o.label}</Typography>}
                 sx={{ m: 0, mr: 1 }}
             />
         );
+        if (!blockedBy) return control;
+        return (
+            <Tooltip key={o.key} title={`Enable "${blockedBy}" first`} arrow placement="top">
+                <Box component="span" sx={{ display: "inline-flex" }}>{control}</Box>
+            </Tooltip>
+        );
     };
 
-    // Extra permissions — supports flat items [{key,label}] or grouped [{group, items:[...]}]
     const renderExtraOps = (page, cfg) => {
         const extras = extraOps[page] || [];
         if (!extras.length) return null;
@@ -250,20 +378,29 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
         const hasGroups = extras.some((e) => e.items);
         return (
             <Box sx={{ mt: pageOps(page).length > 0 ? 1.5 : 0 }}>
-                {heading && <Typography sx={{ fontSize: 11, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: 0.4, mb: 1 }}>{heading}</Typography>}
+                {heading && (
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.8, mb: 1, flexWrap: "wrap" }}>
+                        <Typography sx={{ fontSize: 11, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: 0.4 }}>{heading}</Typography>
+                        {!extrasEnabled(page) && (
+                            <Typography sx={{ fontSize: 11, fontWeight: 600, color: "#B45309", bgcolor: "#FEF3C7", px: 0.9, py: 0.15, borderRadius: "4px" }}>
+                                Enable View first
+                            </Typography>
+                        )}
+                    </Box>
+                )}
                 {hasGroups ? (
                     extras.map((e) => {
                         if (!e.items) {
                             return <FormGroup key={e.key} row sx={{ gap: 1, mb: 1.2 }}>{extraCheckbox(page, cfg, e)}</FormGroup>;
                         }
-                        // Gated group: a toggle that reveals its child options only when enabled
                         if (e.gate) {
                             const gateOn = !!cfg[e.gate.key];
                             return (
                                 <Box key={e.group} sx={{ mb: 1.2 }}>
                                     <FormControlLabel
-                                        control={<Checkbox size="small" checked={gateOn} onChange={() => toggleGate(page, e.gate.key, e.items.map((i) => i.key))} sx={{ p: 0.5, color: "#C7CDD6", "&.Mui-checked": { color } }} />}
-                                        label={<Typography sx={{ fontSize: 13, fontWeight: 600, color: gateOn ? "#111827" : "#6B7280" }}>{e.gate.label}</Typography>}
+                                        disabled={!extrasEnabled(page)}
+                                        control={<Checkbox size="small" checked={gateOn} disabled={!extrasEnabled(page)} onChange={() => toggleGate(page, e.gate.key, e.items.map((i) => i.key))} sx={{ p: 0.5, color: "#C7CDD6", "&.Mui-checked": { color }, "&.Mui-disabled": { color: "#E3E6EA" } }} />}
+                                        label={<Typography sx={{ fontSize: 13, fontWeight: 600, color: !extrasEnabled(page) ? "#B6BCC6" : gateOn ? "#111827" : "#6B7280" }}>{e.gate.label}</Typography>}
                                         sx={{ m: 0 }}
                                     />
                                     {gateOn && (
@@ -303,7 +440,6 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
         <Box sx={{ width: "100%" }}>
             <SnackBar open={snack.open} color={snack.ok} setOpen={(v) => setSnack((s) => ({ ...s, open: v }))} status={snack.ok} message={snack.msg} />
 
-            {/* Header */}
             <Box sx={{
                 position: "fixed",
                 top: "60px",
@@ -332,8 +468,8 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
                         <Typography sx={{ fontSize: 11.5, color: "#6B7280" }}>Feature Permissions / {role.name} / {moduleMeta.name}</Typography>
                     </Box>
                 </Box>
-                <Button onClick={save} startIcon={<SaveOutlinedIcon sx={{ fontSize: 18 }} />} sx={{ textTransform: "none", fontWeight: 700, fontSize: 13, bgcolor: ACCENT, color: "#fff", borderRadius: "8px", height: 38, px: 2, "&:hover": { bgcolor: ACCENT, filter: "brightness(0.92)" } }}>
-                    Save Configuration
+                <Button onClick={save} disabled={saving} startIcon={saving ? <CircularProgress size={16} sx={{ color: "#fff" }} /> : <SaveOutlinedIcon sx={{ fontSize: 18 }} />} sx={{ textTransform: "none", fontWeight: 700, fontSize: 13, bgcolor: ACCENT, color: "#fff", borderRadius: "8px", height: 38, px: 2, "&:hover": { bgcolor: ACCENT, filter: "brightness(0.92)" }, "&.Mui-disabled": { bgcolor: "#C7C9D9", color: "#fff" } }}>
+                    {saving ? "Saving…" : "Save Configuration"}
                 </Button>
             </Box>
 
@@ -365,114 +501,54 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
                                             {pageAllKeys(page).length > 0 && (
                                                 <FormControlLabel
                                                     onClick={(e) => e.stopPropagation()}
-                                                    control={<Switch size="small" checked={isPageAllOn(page)} onChange={() => setPageAll(page, !isPageAllOn(page))} sx={{ "& .MuiSwitch-switchBase.Mui-checked": { color: ACCENT }, "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": { backgroundColor: ACCENT } }} />}
+                                                    control={<Switch size="small" disabled={!pageDependencyMet(page)} checked={pageDependencyMet(page) && isPageAllOn(page)} onChange={() => pageDependencyMet(page) && setPageAll(page, !isPageAllOn(page))} sx={{ "& .MuiSwitch-switchBase.Mui-checked": { color: ACCENT }, "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": { backgroundColor: ACCENT } }} />}
                                                     label={<Typography sx={{ fontSize: 11, fontWeight: 700, color: "#6B7280" }}>Allow all</Typography>}
                                                     sx={{ m: 0, mr: 0.3 }}
                                                 />
                                             )}
+                                            {requiredPageFor(page) && !pageDependencyMet(page) && (
+                                                <Box sx={{ display: "flex", alignItems: "center", gap: 0.4, px: 0.9, height: 20, borderRadius: "10px", bgcolor: "#FEF3C7", border: "1px solid #FDE68A" }}>
+                                                    <LockOutlinedIcon sx={{ fontSize: 12, color: "#B45309" }} />
+                                                    <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: "#B45309" }}>
+                                                        Needs {requiredPageFor(page).page}
+                                                    </Typography>
+                                                </Box>
+                                            )}
                                             {pageAllKeys(page).length > 0 && (() => {
                                                 const total = pageAllKeys(page).length;
-                                                const on = pageAllKeys(page).filter((k) => cfg[k]).length;
+                                                const on = pageDependencyMet(page) ? pageAllKeys(page).filter((k) => cfg[k]).length : 0;
                                                 return (
                                                     <Box sx={{ px: 1, height: 20, borderRadius: "10px", display: "flex", alignItems: "center", fontSize: 10.5, fontWeight: 700, bgcolor: on > 0 ? `${color}14` : "#F8FAFC", color: on > 0 ? color : "#9CA3AF", border: `1px solid ${on > 0 ? `${color}33` : "#E5E7EB"}` }}>
                                                         {on}/{total}
                                                     </Box>
                                                 );
                                             })()}
-                                            {cfg.approval && <Chip size="small" icon={<VerifiedOutlinedIcon sx={{ fontSize: "13px !important" }} />} label="Approval" sx={{ height: 20, fontSize: 10, fontWeight: 700, bgcolor: "#ECFDF5", color: "#047857", "& .MuiChip-icon": { color: "#047857" } }} />}
                                         </Box>
                                     </AccordionSummary>
                                     <AccordionDetails sx={{ p: 2 }}>
+                                        {requiredPageFor(page) && !pageDependencyMet(page) && (
+                                            <Box
+                                                sx={{
+                                                    display: "flex", alignItems: "flex-start", gap: 0.8,
+                                                    bgcolor: "#FEF3C7", border: "1px solid #FDE68A",
+                                                    borderRadius: "6px", px: 1.2, py: 0.8, mb: 1.4,
+                                                }}
+                                            >
+                                                <LockOutlinedIcon sx={{ fontSize: 14, color: "#B45309", mt: "1px" }} />
+                                                <Typography sx={{ fontSize: 11.5, fontWeight: 600, color: "#B45309", lineHeight: 1.45 }}>
+                                                    {page} sits inside {requiredPageFor(page).page}. Turn on
+                                                    {" "}{requiredPageFor(page).key === "view" ? "View" : requiredPageFor(page).key}
+                                                    {" "}for {requiredPageFor(page).page} first - without it this page has no way to be opened.
+                                                </Typography>
+                                            </Box>
+                                        )}
+
                                         {pageOps(page).length > 0 && (<>
                                             <Typography sx={{ fontSize: 11, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: 0.4, mb: 1 }}>Allowed operations</Typography>
                                             {renderOps(page, cfg)}
                                             {viewHint(cfg, page)}
                                         </>)}
                                         {renderExtraOps(page, cfg)}
-
-                                        {pageApproval(page) && (<>
-                                            <Divider sx={{ my: 1.5 }} />
-
-                                            {/* Approval toggle */}
-                                            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
-                                                <Box>
-                                                    <Typography sx={{ fontSize: 13.5, fontWeight: 700, color: "#111827" }}>{approvalText[page]?.title || `Require approval for ${page}`}</Typography>
-                                                    <Typography sx={{ fontSize: 11.5, color: "#6B7280" }}>{approvalText[page]?.subtitle || `Set up multi-level approvers who must approve each ${nounS} before it is finalized.`}</Typography>
-                                                </Box>
-                                                <Switch checked={cfg.approval} onChange={() => toggleApproval(page)} sx={{ "& .MuiSwitch-switchBase.Mui-checked": { color: ACCENT }, "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": { backgroundColor: ACCENT } }} />
-                                            </Box>
-
-                                            {/* Approval builder */}
-                                            {cfg.approval && (
-                                                <Box sx={{ mt: 1.5 }}>
-                                                    <Typography sx={{ fontSize: 11, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: 0.4, mb: 0.8 }}>Approval levels (top → bottom)</Typography>
-
-                                                    {cfg.levels.length === 0 && (
-                                                        <Typography sx={{ fontSize: 12, color: "#9CA3AF", fontStyle: "italic", mb: 1 }}>No approval levels yet — add Level 1 (the final approver).</Typography>
-                                                    )}
-
-                                                    {cfg.levels.map((lvl, idx) => (
-                                                        <Box key={idx} sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-                                                            <Box sx={{ width: 26, height: 26, borderRadius: "50%", bgcolor: idx === 0 ? ACCENT : `${ACCENT}1A`, color: idx === 0 ? "#fff" : ACCENT, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, flexShrink: 0 }}>
-                                                                {idx + 1}
-                                                            </Box>
-                                                            <FormControl size="small" sx={{ width: 220 }}>
-                                                                <Select
-                                                                    value={lvl}
-                                                                    displayEmpty
-                                                                    onChange={(e) => setLevel(page, idx, e.target.value)}
-                                                                    renderValue={(v) => (v ? v : <Typography sx={{ fontSize: 13, color: "#9CA3AF" }}>Select user type</Typography>)}
-                                                                    sx={{ borderRadius: "8px", height: 36, fontSize: 13, fontWeight: 600 }}
-                                                                >
-                                                                    {roleOptions.filter((r) => r === lvl || !cfg.levels.includes(r)).map((r) => (
-                                                                        <MenuItem key={r} value={r} sx={{ fontSize: 13, fontWeight: 600 }}>{r}</MenuItem>
-                                                                    ))}
-                                                                </Select>
-                                                            </FormControl>
-                                                            <Typography sx={{ fontSize: 11, color: "#9CA3AF" }}>
-                                                                {idx === 0 ? "Final approver" : `Approves Level ${idx + 2}+ & Others`}
-                                                            </Typography>
-                                                            <Tooltip title="Remove level" arrow>
-                                                                <IconButton size="small" onClick={() => removeLevel(page, idx)} sx={{ ml: "auto" }}>
-                                                                    <DeleteOutlineIcon sx={{ fontSize: 17, color: "#DC2626" }} />
-                                                                </IconButton>
-                                                            </Tooltip>
-                                                        </Box>
-                                                    ))}
-
-                                                    <Button
-                                                        onClick={() => addLevel(page)}
-                                                        startIcon={<AddIcon sx={{ fontSize: 16 }} />}
-                                                        disabled={cfg.levels.length >= Math.min(3, roleOptions.length)}
-                                                        sx={{ textTransform: "none", fontWeight: 700, fontSize: 12.5, color: ACCENT, borderRadius: "8px", border: `1px dashed ${ACCENT}66`, px: 1.4, height: 32, mt: 0.5, "&:hover": { bgcolor: `${ACCENT}0A` } }}
-                                                    >
-                                                        Add approval level
-                                                    </Button>
-
-                                                    {/* Peer approval (Level 2+) */}
-                                                    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1, mt: 1.5, p: 1.2, borderRadius: "8px", bgcolor: "#F8FAFC", border: "1px solid #EEF0F2" }}>
-                                                        <Box>
-                                                            <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: "#111827" }}>Allow approval within the same level</Typography>
-                                                            <Typography sx={{ fontSize: 11, color: "#6B7280" }}>Members of Level 2 and below can approve each other (not Level 1).</Typography>
-                                                        </Box>
-                                                        <Switch checked={cfg.allowSameLevel} onChange={() => toggleSameLevel(page)} sx={{ "& .MuiSwitch-switchBase.Mui-checked": { color: "#0891B2" }, "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": { backgroundColor: "#0891B2" } }} />
-                                                    </Box>
-
-                                                    {/* Explanation */}
-                                                    {lines.length > 0 && (
-                                                        <Box sx={{ mt: 1.5, p: 1.4, borderRadius: "8px", bgcolor: "#EEF2FF", border: "1px solid #C7D2FE" }}>
-                                                            <Box sx={{ display: "flex", alignItems: "center", gap: 0.6, mb: 0.6 }}>
-                                                                <InfoOutlinedIcon sx={{ fontSize: 16, color: ACCENT }} />
-                                                                <Typography sx={{ fontSize: 11.5, fontWeight: 800, color: "#3730A3", textTransform: "uppercase", letterSpacing: 0.3 }}>How this approval works</Typography>
-                                                            </Box>
-                                                            {lines.map((l) => (
-                                                                <Typography key={l.k} sx={{ fontSize: 12, color: "#3730A3", lineHeight: 1.5, mb: 0.3 }}>• {l.t}</Typography>
-                                                            ))}
-                                                        </Box>
-                                                    )}
-                                                </Box>
-                                            )}
-                                        </>)}
                                     </AccordionDetails>
                                 </Accordion>
                             </Grid>

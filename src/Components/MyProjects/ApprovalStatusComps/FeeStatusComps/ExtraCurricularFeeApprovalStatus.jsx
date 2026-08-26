@@ -16,6 +16,7 @@ import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
+import { DASH } from "../../../DashBoardComps/dashboardTheme";
 
 
 export default function ExtraCurricularFeeApprovalStatus() {
@@ -120,9 +121,9 @@ export default function ExtraCurricularFeeApprovalStatus() {
     try {
       const res = await axios.get(approvalStatusCheckEca, {
         params: {
-          RollNumber: rollNumber,
-          Year: selectedYear,
-          Status: selectedStatus?.value,
+          rollNumber: rollNumber,
+          year: selectedYear,
+          status: selectedStatus?.value,
         },
         headers: {
           Authorization: `Bearer ${token}`,
@@ -154,7 +155,7 @@ export default function ExtraCurricularFeeApprovalStatus() {
       const res = await axios.delete(deleteEcaFeesStructure, {
         params: {
           ecaFeesID: deleteId,
-          RollNumber: rollNumber,
+          rollNumber: rollNumber,
         },
         headers: {
           Authorization: `Bearer ${token}`,
@@ -177,21 +178,18 @@ export default function ExtraCurricularFeeApprovalStatus() {
   };
 
   return (
-    <Box sx={{ width: "100%", }}>
+    <Box
+            sx={{
+                px: { xs: 1.5, md: 3 },
+                pt: { xs: 1.5, md: 2 },
+                pb: { xs: 2, md: 3 },
+                bgcolor: DASH.canvas,
+                boxSizing: "border-box",
+            }}
+        >
       <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
       {isLoading && <Loader />}
-      <Box sx={{
-        position: "fixed",
-        top: "60px",
-        left: isExpanded ? "260px" : "80px",
-        right: 0,
-        backgroundColor: "#f2f2f2",
-        px: 2,
-        borderBottom: "1px solid #ddd",
-        zIndex: 1200,
-        transition: "left 0.3s ease-in-out",
-        overflow: 'hidden',
-      }}>
+      <Box sx={{ mb: 2 }}>
 
         <Grid container>
           <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }} sx={{ display: "flex", alignItems: "center", py: 1.5 }}>
@@ -203,10 +201,10 @@ export default function ExtraCurricularFeeApprovalStatus() {
               }
               sx={{ width: "27px", height: "27px", mt: "3px" }}
             >
-              <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
+              <ArrowBackIcon sx={{ fontSize: 20, color: DASH.ink }} />
             </IconButton>
 
-            <Typography sx={{ fontWeight: "600", fontSize: "20px" }} >ECA Fee Approval Status</Typography>
+            <Typography sx={{ fontSize: "20px", fontWeight: 700, color: DASH.ink, lineHeight: 1.2 }}>ECA Fee Approval Status</Typography>
           </Grid>
           <Grid
             size={{ xs: 0, sm: 0, md: 0, lg: 2 }}
@@ -279,7 +277,7 @@ export default function ExtraCurricularFeeApprovalStatus() {
         </Grid>
       </Box>
       <Box>
-        <Box sx={{ px: 2, pt: "60px" }}>
+        <Box sx={{ pb: 1 }}>
           {/* {showNoData && (
                         <Box
                             sx={{
@@ -287,7 +285,7 @@ export default function ExtraCurricularFeeApprovalStatus() {
                                 flexDirection: "column",
                                 alignItems: "center",
                                 justifyContent: "center",
-                                height: "77vh",
+                                minHeight: "52vh",
                                 textAlign: "center",
                             }}
                         >

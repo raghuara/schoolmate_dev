@@ -7,10 +7,12 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import EventBusyOutlinedIcon from "@mui/icons-material/EventBusyOutlined";
 import TodayOutlinedIcon from "@mui/icons-material/TodayOutlined";
 import { useNavigate, Navigate } from "react-router-dom";
+import { hasMainMenuAccess } from "../../../Redux/Slices/AuthSlice";
 import { useSelector } from "react-redux";
 import axios from "axios";
 import Loader from "../../Loader";
 import { StudentsOnLeaveToday } from "../../../Api/Api";
+import { DASH } from "../../DashBoardComps/dashboardTheme";
 
 const ACCENT = "#3457D5";
 const TOKEN = "123";
@@ -30,7 +32,11 @@ const daysLabel = (row) => {
 export default function OnLeaveStudentsPage() {
     const navigate = useNavigate();
     const user = useSelector((state) => state.auth);
-    const userType = user.userType;
+    // Until the backend publishes an "approvals" main menu the module stays
+    // open; once it arrives it decides on its own.
+    const permissions = user.permissions;
+    const rbacReady = Boolean((permissions?.mainMenus || []).find((mm) => mm.mainMenu === "approvals"));
+    const hasApprovalsAccess = !rbacReady || hasMainMenuAccess(permissions, "approvals");
     const isExpanded = useSelector((state) => state.sidebar.isExpanded);
 
     const [fromDate, setFromDate] = useState(todayISO());
@@ -60,32 +66,27 @@ export default function OnLeaveStudentsPage() {
 
     const setToday = () => { setFromDate(todayISO()); setToDate(todayISO()); };
 
-    if (userType !== "superadmin" && userType !== "admin" && userType !== "staff") {
+    if (!hasApprovalsAccess) {
         return <Navigate to="/dashboardmenu/dashboard" replace />;
     }
 
     const rangeIsToday = fromDate === todayISO() && toDate === todayISO();
 
     return (
-        <Box sx={{ width: "100%" }}>
+        <Box
+            sx={{
+                px: { xs: 1.5, md: 3 },
+                pt: { xs: 1.5, md: 2 },
+                pb: { xs: 2, md: 3 },
+                bgcolor: DASH.canvas,
+                boxSizing: "border-box",
+            }}
+        >
             {isLoading && <Loader />}
             {/* Header */}
-            <Box sx={{
-                position: "fixed",
-                top: "60px",
-                left: isExpanded ? "260px" : "80px",
-                right: 0,
-                backgroundColor: "#f2f2f2",
-                px: 2,
-                borderBottom: "1px solid #ddd",
-                zIndex: 1200,
-                transition: "left 0.3s ease-in-out",
-                overflow: 'hidden',
-                display: "flex",
-                py: 1,
-            }}>
+            <Box sx={{ mb: 2, display: "flex", alignItems: "center" }}>
                 <IconButton onClick={() => navigate(-1)} sx={{ width: 32, height: 32 }}>
-                    <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
+                    <ArrowBackIcon sx={{ fontSize: 20, color: DASH.ink }} />
                 </IconButton>
                 <Box sx={{ width: 38, height: 38, borderRadius: "10px", bgcolor: `${ACCENT}1A`, display: "flex", alignItems: "center", justifyContent: "center" }}>
                     <EventBusyOutlinedIcon sx={{ fontSize: 22, color: ACCENT }} />
@@ -96,7 +97,7 @@ export default function OnLeaveStudentsPage() {
                 </Box>
             </Box>
 
-            <Box sx={{ px: 2, pb: 2, pt: "70px" }}>
+            <Box sx={{ pb: 1 }}>
                 {/* Date range filter */}
                 <Box sx={{ display: "flex", alignItems: "flex-end", gap: 1.5, flexWrap: "wrap", p: 2, mb: 2, borderRadius: "12px", border: "1px solid #E5E7EB", bgcolor: "#fff" }}>
                     <Box>

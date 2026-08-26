@@ -7,11 +7,13 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlice";
+import { selectAcademicYear } from "../../../Redux/Slices/academicYearSlice";
 import { deleteStudyMaterialFolder, getStudyMaterialFoldersByGrade, GettingGrades, postHomeWork, postMessage, postNews, poststudyMaterial, postStudyMaterialFolder, postTimeTable, sectionsDropdown, TimeTableFetch } from "../../../Api/Api";
 import SnackBar from "../../SnackBar";
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import CancelIcon from "@mui/icons-material/Cancel";
 import { selectGrades } from "../../../Redux/Slices/DropdownController";
+import { findSubMenuPermissions } from "../../../Redux/Slices/AuthSlice";
 import { head } from "lodash";
 import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from "@mui/icons-material/Close";
@@ -27,6 +29,9 @@ export default function CreateStudyMaterialsPage() {
     const rollNumber = user.rollNumber
     const userType = user.userType
     const userName = user.name
+    // Adding or removing a study-material folder is a create action on the module.
+    const studyPerms = findSubMenuPermissions(user.permissions, "communication", "studymaterial") || {};
+    const canManageFolders = studyPerms.create === "Y";
     const todayDateTime = dayjs().format('DD-MM-YYYY HH:mm');
     const [uploadedFiles, setUploadedFiles] = useState([]);
     const [isLoading, setIsLoading] = useState('');
@@ -39,6 +44,7 @@ export default function CreateStudyMaterialsPage() {
     const [selectedGradeId, setSelectedGradeId] = useState(null);
     const [selectedSection, setSelectedSection] = useState(null);
     const websiteSettings = useSelector(selectWebsiteSettings);
+    const academicYear = useSelector(selectAcademicYear);
     const [sectionError, setSectionError] = useState(false);
     const [fileError, setFileError] = useState(false);
     const [gradeError, setGradeError] = useState(false);
@@ -177,7 +183,7 @@ export default function CreateStudyMaterialsPage() {
         try {
             const res = await axios.get(getStudyMaterialFoldersByGrade, {
                 params: {
-                    GradeId: selectedGradeId,
+                    gradeId: selectedGradeId,
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -265,20 +271,22 @@ export default function CreateStudyMaterialsPage() {
         try {
 
             const sendData = new FormData();
-            sendData.append("GradeId", selectedGradeId);
+            sendData.append("gradeId", selectedGradeId);
             selectedSectionIds.forEach(section => {
-                sendData.append("Section", section);
+                sendData.append("section", section);
             });
-            sendData.append("UserType", userType);
-            sendData.append("RollNumber", rollNumber);
-            sendData.append("Subject", selectedSubject);
-            sendData.append("Heading", heading);
-            sendData.append("Folder", selectedFolder);
-            sendData.append("FileType", fileType || "");
-            sendData.append("File", uploadedFiles[0] || '');
-            sendData.append("Status", submitStatus);
-            sendData.append("PostedOn", submitStatus === 'post' ? todayDateTime : "");
-            sendData.append("DraftedOn", submitStatus === 'draft' ? todayDateTime : "");
+            sendData.append("userType", userType);
+            sendData.append("rollNumber", rollNumber);
+            sendData.append("subject", selectedSubject);
+            sendData.append("heading", heading);
+            sendData.append("folder", selectedFolder);
+            sendData.append("fileType", fileType || "");
+            sendData.append("file", uploadedFiles[0] || '');
+            sendData.append("status", submitStatus);
+            sendData.append("postedOn", submitStatus === 'post' ? todayDateTime : "");
+            sendData.append("draftedOn", submitStatus === 'draft' ? todayDateTime : "");
+
+            sendData.append("academicYear", academicYear || "");
 
             const res = await axios.post(poststudyMaterial, sendData, {
                 headers: {
@@ -312,9 +320,6 @@ export default function CreateStudyMaterialsPage() {
         }
     };
 
-    if (userType !== "superadmin" && userType !== "admin" && userType !== "staff" && userType !== "teacher") {
-        return <Navigate to="/dashboardmenu/studymaterials" replace />;
-    }
 
     return (
         <Box sx={{ width: "100%" }}>
@@ -572,7 +577,7 @@ export default function CreateStudyMaterialsPage() {
                                 <Typography sx={{ mb: 0.5, }}>Select Folder<span style={{ color: "#777", fontSize: "13px" }}> (Required)</span></Typography>
                                 <Grid container sx={{ display: "flex", alignItems: "center" }}>
                                     <Grid size={{
-                                        lg: userType === "superadmin" || userType === "admin" || userType === "staff" ? 10.5 : 12
+                                        lg: canManageFolders ? 10.5 : 12
                                     }}>
                                         <Autocomplete
                                             disabled={!selectedGradeId}
@@ -625,7 +630,7 @@ export default function CreateStudyMaterialsPage() {
                                         />
 
                                     </Grid>
-                                    {(userType === "superadmin" || userType === "admin" || userType === "staff") &&
+                                    {canManageFolders &&
                                         <Grid
                                             sx={{ display: "flex", justifyContent: "end" }}
                                             size={{
@@ -784,15 +789,10 @@ export default function CreateStudyMaterialsPage() {
                                                                             p: 3,
                                                                             width: "70%",
                                                                         }}>
-                                                                            {userType === "superadmin" ? (
-                                                                                <Typography sx={{ fontSize: "20px" }}>
-                                                                                    Are you sure you want to delete this folder? Deleting this folder will also permanently remove all files contained within it. </Typography>
-                                                                            ) : (
-                                                                                <Typography sx={{ fontSize: "20px" }}>
-                                                                                    Removing this folder will also delete all items contained within it. <br />
-                                                                                    Are you sure you want to continue?
-                                                                                </Typography>
-                                                                            )}
+                                                                            <Typography sx={{ fontSize: "20px" }}>
+                                                                                Are you sure you want to delete this folder? Deleting it will also
+                                                                                permanently remove every file inside it.
+                                                                            </Typography>
                                                                             <DialogActions sx={{
                                                                                 justifyContent: 'center',
                                                                                 backgroundColor: '#fff',

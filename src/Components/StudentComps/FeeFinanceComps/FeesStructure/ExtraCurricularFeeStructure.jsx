@@ -1,8 +1,11 @@
 import { Box } from '@mui/system'
+import { selectAcademicYear } from "../../../../Redux/Slices/academicYearSlice";
+import { APPROVAL_SUBMENUS, approvalRoleFor, selectApprovalMatrix } from "../../../../Redux/Slices/approvalMatrixSlice";
+import { selectUserTypeID } from "../../../../Redux/Slices/AuthSlice";
 import React, { useEffect, useState } from 'react'
 import Loader from '../../../Loader'
 import SnackBar from '../../../SnackBar'
-import { Autocomplete, Button, Card, CardContent, Chip, FormControlLabel, Grid, IconButton, InputAdornment, Switch, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tabs, TextField, Tooltip, Typography } from '@mui/material';
+import { Button, Card, CardContent, Chip, FormControlLabel, Grid, IconButton, InputAdornment, Switch, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tabs, TextField, Tooltip, Typography } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -27,7 +30,11 @@ export default function ExtraCurricularFeeStructure() {
   const navigate = useNavigate()
   const user = useSelector((state) => state.auth);
   const rollNumber = user.rollNumber
-  const userType = user.userType
+  // createfeesstructure is an approval module: the matrix decides whether this
+  // role posts straight through or has to raise a request.
+  const userTypeID = useSelector(selectUserTypeID);
+  const approvalMatrix = useSelector(selectApprovalMatrix);
+  const canActDirect = approvalRoleFor(approvalMatrix, APPROVAL_SUBMENUS.FEE_STRUCTURE, userTypeID).canPublishDirect;
   const dispatch = useDispatch();
   const token = "123";
   const grades = useSelector(selectGrades);
@@ -41,20 +48,14 @@ export default function ExtraCurricularFeeStructure() {
   const [message, setMessage] = useState('');
   const [gradeFees, setGradeFees] = useState({});
   const [tabIndex, setTabIndex] = useState(0);
-  const currentYear = new Date().getFullYear();
-  const currentAcademicYear = `${currentYear}-${currentYear + 1}`;
-  const [selectedYear, setSelectedYear] = useState(currentAcademicYear);
+  // The academic year comes from the header - one picker for the whole site.
+  const selectedYear = useSelector(selectAcademicYear);
   const [ecaFetch, setEcaFetch] = useState([]);
   const [removedGrades, setRemovedGrades] = useState(new Set());
   const [autoFill, setAutoFill] = useState(false);
 
   const isExpanded = useSelector((state) => state.sidebar.isExpanded);
 
-  const academicYears = [
-    `${currentYear - 2}-${currentYear - 1}`,
-    `${currentYear - 1}-${currentYear}`,
-    `${currentYear}-${currentYear + 1}`,
-  ];
 
   const [fees, setFees] = useState({
     activityName: '',
@@ -136,7 +137,7 @@ export default function ExtraCurricularFeeStructure() {
     try {
       const res = await axios.get(ecaFeeFetch, {
         params: {
-          Year: selectedYear
+          year: selectedYear
         },
         headers: {
           Authorization: `Bearer ${token}`,
@@ -197,7 +198,7 @@ export default function ExtraCurricularFeeStructure() {
       const gradePayload = buildGradePayload();
 
       const sendData = {
-        RollNumber: rollNumber,
+        rollNumber: rollNumber,
         year: selectedYear,
         activityCategory: fees.activityCategory,
         activityName: fees.activityName,
@@ -220,7 +221,7 @@ export default function ExtraCurricularFeeStructure() {
       setOpen(true);
       setColor(true);
       setStatus(true);
-      setMessage(userType === "superadmin" ? "ECA Fee Created Successfully" : "Requested Successfully");
+      setMessage(canActDirect ? "ECA Fee Created Successfully" : "Requested Successfully");
       handleReset();
       getEcaFees();
 
@@ -291,33 +292,6 @@ export default function ExtraCurricularFeeStructure() {
                   >
                     Created Fees
                   </Button>
-                </Grid>
-                <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }}>
-                  <Autocomplete
-                    size="small"
-                    options={academicYears}
-                    sx={{ width: "170px" }}
-                    value={selectedYear}
-                    onChange={(e, newValue) => setSelectedYear(newValue)}
-                    renderInput={(params) => (
-                      <TextField
-                        placeholder="Select Academic Year"
-                        {...params}
-                        variant="outlined"
-                        sx={{
-                          "& .MuiOutlinedInput-root": {
-                            borderRadius: "5px",
-                            fontSize: 14,
-                            height: 35,
-                          },
-                          "& .MuiOutlinedInput-input": {
-                            textAlign: "center",
-                            fontWeight: "600"
-                          },
-                        }}
-                      />
-                    )}
-                  />
                 </Grid>
               </Grid>
             </Grid>
@@ -579,7 +553,7 @@ export default function ExtraCurricularFeeStructure() {
                 height: "30px",
                 color: websiteSettings.textColor
               }}>
-              {userType === "superadmin" ? "Apply" : "Send for Approval"}
+              {canActDirect ? "Apply" : "Send for Approval"}
             </Button>
           </Box>
 

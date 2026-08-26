@@ -1,62 +1,101 @@
-import { Box } from '@mui/system'
-import React, { useEffect, useState } from 'react'
-import Loader from '../../../Loader'
-import SnackBar from '../../../SnackBar'
-import { Autocomplete, Button, Card, Grid, IconButton, InputAdornment, Tab, Table, TableBody, TableCell, TableHead, TableRow, Tabs, TextField, Tooltip, Typography } from '@mui/material';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import React, { useEffect, useState } from 'react';
+import { Box, Button, InputAdornment, IconButton, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Tooltip, Typography } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { useDispatch, useSelector } from 'react-redux';
-import { selectGrades } from '../../../../Redux/Slices/DropdownController';
-import { selectWebsiteSettings } from '../../../../Redux/Slices/websiteSettingsSlice';
-import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
-import AddIcon from '@mui/icons-material/Add';
-import RemoveIcon from '@mui/icons-material/Remove';
+import { useSelector } from 'react-redux';
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import AddIcon from '@mui/icons-material/Add';
+import RemoveIcon from '@mui/icons-material/Remove';
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import HighlightOffIcon from '@mui/icons-material/HighlightOff';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
+import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import dayjs from 'dayjs';
-import { getFees, schoolFee, updateSchoolFee } from '../../../../Api/Api';
 import axios from 'axios';
+import Loader from '../../../Loader';
+import SnackBar from '../../../SnackBar';
+import { selectAcademicYear } from '../../../../Redux/Slices/academicYearSlice';
+import { APPROVAL_SUBMENUS, approvalRoleFor, selectApprovalMatrix } from '../../../../Redux/Slices/approvalMatrixSlice';
+import { selectUserTypeID, findSubMenuPermissions } from '../../../../Redux/Slices/AuthSlice';
+import { selectGrades } from '../../../../Redux/Slices/DropdownController';
+import { selectWebsiteSettings } from '../../../../Redux/Slices/websiteSettingsSlice';
+import { getFees, schoolFee, updateSchoolFee } from '../../../../Api/Api';
+import { DASH, RADIUS, SEVERITY, PageHeader, Panel } from '../../../DashBoardComps/dashboardTheme';
+
+const ACCENT = "#8600BB";
+
+const HEAD_CELL = {
+  fontSize: "10.5px",
+  fontWeight: 700,
+  letterSpacing: "0.05em",
+  textTransform: "uppercase",
+  color: DASH.muted,
+  bgcolor: DASH.surface,
+  borderBottom: `1px solid ${DASH.line}`,
+  whiteSpace: "nowrap",
+  py: 1.2,
+};
+
+const BODY_CELL = {
+  borderBottom: `1px solid ${DASH.lineSoft}`,
+  py: 1,
+  verticalAlign: "top",
+};
+
+const FIELD_SX = {
+  "& .MuiOutlinedInput-root": {
+    borderRadius: RADIUS,
+    fontSize: "13px",
+    bgcolor: "#fff",
+    "& fieldset": { borderColor: DASH.line },
+    "&:hover fieldset": { borderColor: `${ACCENT}59` },
+    "&.Mui-focused fieldset": { borderColor: ACCENT },
+  },
+  "& .MuiInputBase-input.Mui-disabled": {
+    WebkitTextFillColor: DASH.ink,
+  },
+  "& .Mui-disabled fieldset": { borderColor: DASH.lineSoft },
+};
 
 export default function SchoolFeeStructure() {
   const navigate = useNavigate();
-  const dispatch = useDispatch();
   const token = "123";
   const user = useSelector((state) => state.auth)
   const rollNumber = user.rollNumber;
-  const userType = user.userType
+  // createfeesstructure is an approval module: the matrix decides whether this
+  // role posts straight through or has to raise a request.
+  const userTypeID = useSelector(selectUserTypeID);
+  const approvalMatrix = useSelector(selectApprovalMatrix);
+  const canActDirect = approvalRoleFor(approvalMatrix, APPROVAL_SUBMENUS.FEE_STRUCTURE, userTypeID).canPublishDirect;
+  const feePerms = findSubMenuPermissions(user.permissions, "feeandfinance", "createfeesstructure") || {};
+  const rbacReady = (user.permissions?.mainMenus || []).length > 0;
+  const canCreate = !rbacReady || feePerms.create === "Y";
+  const canEdit = !rbacReady || feePerms.edit === "Y";
 
   const grades = useSelector(selectGrades);
   const [selectedGrade, setSelectedGrade] = useState(grades?.[0]?.sign || null);
   const websiteSettings = useSelector(selectWebsiteSettings);
-  const handleOpen = () => setOpenCal(true);
-  const handleClose = () => setOpenCal(false);
-  const [selectedDate, setSelectedDate] = useState();
-  const [formattedDate, setFormattedDate] = useState('');
-  const [openCal, setOpenCal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState(false);
   const [color, setColor] = useState(false);
   const [message, setMessage] = useState('');
   const [gradeFees, setGradeFees] = useState({});
-  const [tabIndex, setTabIndex] = useState(0);
 
   const [primeSchoolFeesID, setPrimeSchoolFeesID] = useState(null);
 
-  const currentYear = new Date().getFullYear();
-  const currentAcademicYear = `${currentYear}-${currentYear + 1}`;
-  const [selectedYear, setSelectedYear] = useState(currentAcademicYear);
+  // The academic year comes from the header - one picker for the whole site.
+  const selectedYear = useSelector(selectAcademicYear);
   const [hasApprovedFees, setHasApprovedFees] = useState(false);
   const [isAnyStudentPaid, setIsAnyStudentPaid] = useState(false);
-
-  const isExpanded = useSelector((state) => state.sidebar.isExpanded);
-  const academicYears = [
-    `${currentYear - 2}-${currentYear - 1}`,
-    `${currentYear - 1}-${currentYear}`,
-    `${currentYear}-${currentYear + 1}`,
-  ];
+  // "create" is the right to set up a structure for a grade that has none;
+  // changing one that already exists is "edit". hasApprovedFees tells the two
+  // apart, so view-only sees the figures with no way to alter them.
+  const canSubmitNew = canCreate && !hasApprovedFees;
+  const canUpdateExisting = canEdit && hasApprovedFees;
+  const fieldsEditable = (hasApprovedFees ? canEdit : canCreate) && !isAnyStudentPaid;
+  const showActionButton = (canSubmitNew || canUpdateExisting) && !isAnyStudentPaid;
 
   const makeInitialFeesForGrades = (gradesArr = []) => {
     const initialFees = {};
@@ -97,10 +136,9 @@ export default function SchoolFeeStructure() {
       setIsLoading(true);
       const gradeObj = grades.find((g) => g.sign === gradeSign) || {};
       const gradeId = gradeObj.id || gradeObj.gradeId || gradeObj._id || gradeSign;
-      const year = new Date().getFullYear();
 
       const res = await axios.get(getFees, {
-        params: { gradeId: gradeId, year: selectedYear, Status: "Approved" },
+        params: { gradeId: gradeId, year: selectedYear, status: "Approved" },
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -160,7 +198,6 @@ export default function SchoolFeeStructure() {
       setGradeFees(initial);
       const first = grades[0].sign;
       setSelectedGrade(first);
-      setTabIndex(0);
 
       fetchFeesForGrade(first);
     }
@@ -254,7 +291,6 @@ export default function SchoolFeeStructure() {
 
   if (!grades?.length) return null;
 
-
   const handleResetAll = () => {
     const initialFees = {};
     grades.forEach((g) => {
@@ -270,7 +306,6 @@ export default function SchoolFeeStructure() {
       ];
     });
     setGradeFees(initialFees);
-    setTabIndex(0);
     setSelectedGrade(grades?.[0]?.sign || null);
     setOpen(true);
     setStatus(true);
@@ -278,7 +313,7 @@ export default function SchoolFeeStructure() {
     setMessage("All fee rows reset.");
   };
 
-  const handleSubmit = async (status) => {
+  const handleSubmit = async () => {
     // Block duplicate "Admission Fee" — it's seeded by default, only one allowed
     const feesForGradePreCheck = gradeFees[selectedGrade] || [];
     const admissionCount = feesForGradePreCheck.filter((f) => isAdmissionFeeRow(f.feeName)).length;
@@ -328,7 +363,7 @@ export default function SchoolFeeStructure() {
       setOpen(true);
       setColor(true);
       setStatus(true);
-      setMessage(userType === 'superadmin' ? 'School fee created successfully' : 'Requested successfully');
+      setMessage(canActDirect ? 'School fee created successfully' : 'Requested successfully');
       await fetchFeesForGrade(selectedGrade);
 
     } catch (error) {
@@ -342,7 +377,7 @@ export default function SchoolFeeStructure() {
     }
   };
 
-  const handleUpdate = async (status) => {
+  const handleUpdate = async () => {
     // Block duplicate "Admission Fee" — it's seeded by default, only one allowed
     const feesForGradePreCheck = gradeFees[selectedGrade] || [];
     const admissionCount = feesForGradePreCheck.filter((f) => isAdmissionFeeRow(f.feeName)).length;
@@ -370,7 +405,7 @@ export default function SchoolFeeStructure() {
       );
 
       const sendData = {
-        PrimeSchoolFeesID: primeSchoolFeesID,
+        primeSchoolFeesID: primeSchoolFeesID,
         gradeId: String(gradeId),
         year: selectedYear,
         rollNumber: rollNumber,
@@ -402,7 +437,7 @@ export default function SchoolFeeStructure() {
       setOpen(true);
       setColor(true);
       setStatus(true);
-      setMessage(userType === 'superadmin' ? 'School fee updated successfully' : 'Requested successfully');
+      setMessage(canActDirect ? 'School fee updated successfully' : 'Requested successfully');
       await fetchFeesForGrade(selectedGrade);
 
     } catch (error) {
@@ -416,505 +451,407 @@ export default function SchoolFeeStructure() {
     }
   };
 
+  const fees = gradeFees[selectedGrade] || [];
+  const viewOnly = rbacReady && !fieldsEditable && !isAnyStudentPaid;
+
   return (
-    <Box>
-      <Box sx={{ width: "100%", minHeight: "83vh", }}>
-        <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
-        {isLoading && <Loader />}
-        <Box sx={{
-          position: "fixed",
-          top: "60px",
-          left: isExpanded ? "260px" : "80px",
-          right: 0,
-          backgroundColor: "#f2f2f2",
-          px: 2,
-          borderBottom: "1px solid #ddd",
-          zIndex: 1200,
-          transition: "left 0.3s ease-in-out",
-          overflow: 'hidden',
-        }}>
-          <Grid container>
-            <Grid size={{ xs: 6, sm: 6, md: 9, lg: 9 }} sx={{ display: "flex", alignItems: "center" }}>
-              <IconButton onClick={() => navigate(-1)} sx={{ width: "27px", height: "27px", marginTop: '2px', }}>
-                <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
-              </IconButton>
-              <Typography sx={{ fontWeight: "600", fontSize: "19px" }} >Create School Fee </Typography>
-            </Grid>
-            <Grid
-              size={{ xs: 6, sm: 6, md: 3, lg: 3 }}
+    <Box
+      sx={{
+        px: { xs: 1.5, md: 3 },
+        pt: { xs: 1.5, md: 2 },
+        pb: 4,
+        bgcolor: DASH.canvas,
+        boxSizing: "border-box",
+      }}
+    >
+      <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
+      {isLoading && <Loader />}
+
+      <PageHeader
+        title="Create School Fee"
+        subtitle={selectedYear ? `Grade-wise fee heads for ${selectedYear}` : "Grade-wise fee heads"}
+        onBack={() => navigate(-1)}
+        right={
+          <>
+            {fieldsEditable && (
+              <Button
+                onClick={handleResetAll}
+                startIcon={<RestartAltIcon sx={{ fontSize: 18 }} />}
+                sx={{
+                  textTransform: "none",
+                  fontSize: "13px",
+                  fontWeight: 700,
+                  height: 34,
+                  px: 1.8,
+                  borderRadius: RADIUS,
+                  color: DASH.text,
+                  bgcolor: "#fff",
+                  border: `1px solid ${DASH.line}`,
+                  "&:hover": { bgcolor: DASH.lineSoft },
+                }}
+              >
+                Reset All
+              </Button>
+            )}
+
+            {showActionButton && (
+              <Button
+                onClick={hasApprovedFees ? handleUpdate : handleSubmit}
+                disableElevation
+                sx={{
+                  textTransform: "none",
+                  fontSize: "13px",
+                  fontWeight: 700,
+                  height: 34,
+                  px: 2.2,
+                  borderRadius: RADIUS,
+                  bgcolor: websiteSettings.mainColor,
+                  color: websiteSettings.textColor,
+                  border: "1px solid rgba(0,0,0,0.08)",
+                  "&:hover": { bgcolor: websiteSettings.mainColor, filter: "brightness(0.95)" },
+                }}
+              >
+                {hasApprovedFees
+                  ? "Update Fees"
+                  : canActDirect
+                    ? `Apply for ${selectedGrade}`
+                    : "Request Approval"}
+              </Button>
+            )}
+          </>
+        }
+      />
+
+      {isAnyStudentPaid && (
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 1.2,
+            bgcolor: SEVERITY.warning.bg,
+            border: `1px solid ${SEVERITY.warning.border}`,
+            borderRadius: RADIUS,
+            px: 1.6,
+            py: 1,
+            mb: 2,
+          }}
+        >
+          <WarningAmberIcon sx={{ fontSize: 18, color: SEVERITY.warning.color, flexShrink: 0 }} />
+          <Typography sx={{ fontSize: "12.5px", color: DASH.text }}>
+            One or more students have already paid for {selectedGrade}. Editing is disabled for this grade.
+          </Typography>
+        </Box>
+      )}
+
+      {viewOnly && (
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 1.2,
+            bgcolor: SEVERITY.info.bg,
+            border: `1px solid ${SEVERITY.info.border}`,
+            borderRadius: RADIUS,
+            px: 1.6,
+            py: 1,
+            mb: 2,
+          }}
+        >
+          <VisibilityOutlinedIcon sx={{ fontSize: 18, color: SEVERITY.info.color, flexShrink: 0 }} />
+          <Typography sx={{ fontSize: "12.5px", color: DASH.text }}>
+            You have view only access to fee structures.
+          </Typography>
+        </Box>
+      )}
+
+      <Panel
+        title="Choose Grade"
+        subtitle="Fee heads are saved one grade at a time"
+        accent={ACCENT}
+        sx={{ mb: 2 }}
+      >
+        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+          {grades.map((g) => {
+            const active = selectedGrade === g.sign;
+            return (
+              <Box
+                key={g.sign}
+                onClick={() => setSelectedGrade(g.sign)}
+                sx={{
+                  minWidth: 62,
+                  px: 1.6,
+                  py: 0.6,
+                  textAlign: "center",
+                  borderRadius: RADIUS,
+                  cursor: "pointer",
+                  bgcolor: active ? `${ACCENT}14` : "#fff",
+                  border: `1px solid ${active ? `${ACCENT}59` : DASH.line}`,
+                  transition: "background-color 0.15s ease, border-color 0.15s ease",
+                  "&:hover": { bgcolor: `${ACCENT}0A`, borderColor: `${ACCENT}59` },
+                }}
+              >
+                <Typography
+                  sx={{
+                    fontSize: "12.5px",
+                    fontWeight: active ? 700 : 600,
+                    color: active ? ACCENT : DASH.text,
+                  }}
+                >
+                  {g.sign}
+                </Typography>
+              </Box>
+            );
+          })}
+        </Box>
+      </Panel>
+
+      <Panel
+        title={`${selectedGrade} Fee Heads`}
+        subtitle={hasApprovedFees ? "Approved structure" : "Not set up yet"}
+        accent={ACCENT}
+        right={fieldsEditable && (
+          <Box sx={{ display: "flex", gap: 0.8 }}>
+            <Button
+              onClick={() => handleAddFee(selectedGrade)}
+              startIcon={<AddIcon sx={{ fontSize: 17 }} />}
               sx={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "end",
-                gap: 1.5,
-                borderRadius: "8px",
-                px: 2,
-                py: 1,
+                textTransform: "none",
+                fontSize: "12px",
+                fontWeight: 700,
+                height: 30,
+                px: 1.4,
+                borderRadius: RADIUS,
+                color: ACCENT,
+                bgcolor: `${ACCENT}0F`,
+                border: `1px solid ${ACCENT}24`,
+                "&:hover": { bgcolor: `${ACCENT}1F`, borderColor: `${ACCENT}59` },
               }}
             >
-
-              <Autocomplete
-                size="small"
-                options={academicYears}
-                sx={{ width: "170px" }}
-                value={selectedYear}
-                onChange={(e, newValue) => setSelectedYear(newValue)}
-                renderInput={(params) => (
-                  <TextField
-                    placeholder="Select Academic Year"
-                    {...params}
-                    variant="outlined"
-                    sx={{
-                      "& .MuiOutlinedInput-root": {
-                        borderRadius: "5px",
-                        fontSize: 14,
-                        height: 35,
-                      },
-                      "& .MuiOutlinedInput-input": {
-                        textAlign: "center",
-                        fontWeight: "600"
-                      },
-                    }}
-                  />
-                )}
-              />
-            </Grid>
-          </Grid>
-        </Box>
-        <Box sx={{ px: 2, pb: 2, pt: "68px" }}>
-          <Box sx={{ border: "1px solid #CCC", p: 3, borderRadius: "10px" }}>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-              <Typography fontWeight={600}>Choose Grade</Typography>
-              {isAnyStudentPaid && (
-                <Tooltip
-                  title="One or more students have already paid fees. Editing is disabled for this grade."
-                  arrow
-                  placement="right"
-                >
-                  <Box sx={{
-                    width: 20,
-                    height: 20,
-                    borderRadius: "50%",
-                    bgcolor: "#FFF8E1",
-                    border: "1.5px solid #FFD54F",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    cursor: "pointer",
-                    flexShrink: 0,
-                    transition: "border-color 0.2s",
-                    "&:hover": { borderColor: "#F9A825" },
-                  }}>
-                    <WarningAmberIcon sx={{ fontSize: 12, color: "#F9A825" }} />
-                  </Box>
-                </Tooltip>
-              )}
-            </Box>
-
-            <Grid container spacing={4}>
-              {grades.map((g, index) => (
-                <Grid size={{ lg: 1.5 }} key={g.sign}>
-                  <Tab
-                    label={g.sign}
-                    value={index}
-                    onClick={() => {
-                      setTabIndex(index);
-                      setSelectedGrade(g.sign);
-                    }}
-                    sx={{
-                      width: "100%",
-                      height: "30px",
-                      textTransform: "none",
-                      fontWeight: 500,
-                      fontSize: 13,
-                      minHeight: 5,
-                      borderRadius: "5px",
-                      transition: "all 0.2s ease-in-out",
-                      border: "1px solid rgba(0,0,0,0.1)",
-                      color: selectedGrade === g.sign ? "#000" : "#444",
-                      opacity: 1,
-                      backgroundColor:
-                        selectedGrade === g.sign
-                          ? websiteSettings.mainColor
-                          : "transparent",
-                      boxShadow:
-                        selectedGrade === g.sign
-                          ? "0 1px 3px rgba(0,0,0,0.2)"
-                          : "none",
-                      "&:hover": {
-                        backgroundColor:
-                          selectedGrade === g.sign
-                            ? websiteSettings.mainColor
-                            : "rgba(0,0,0,0.04)",
-                      },
-                    }}
-                  />
-                </Grid>
-              ))}
-            </Grid>
-
-
-            {grades.map((g, idx) => {
-              const fees = gradeFees[g.sign] || [];
-              return (
-                tabIndex === idx && (
-                  <Box key={g.sign} sx={{ position: "relative", width: "100%", mx: "auto" }}>
-                    {!isAnyStudentPaid && (
-                      <Box sx={{ position: "absolute", left: "-33px", bottom: "39px", backgroundColor: "#F3E5F5", borderTopLeftRadius: "20px", borderBottomLeftRadius: "20px", }}>
-                        <IconButton
-                          onClick={() => handleAddFee(g.sign)}
-                          sx={{ width: "33px", height: "33px" }}
-                        >
-                          <AddIcon style={{ fontSize: "18px", color: "#8600BB", marginLeft: "3px" }} />
-                        </IconButton>
-                      </Box>
-                    )}
-                    {!isAnyStudentPaid && fees.length > 1 && (
-                      <Box sx={{ position: "absolute", right: "-33px", bottom: "39px", backgroundColor: "#F3E5F5", borderTopRightRadius: "20px", borderBottomRightRadius: "20px", }}>
-                        <IconButton
-                          onClick={() => handleRemoveFee(g.sign)}
-                          sx={{ width: "33px", height: "33px" }}
-                        >
-                          <RemoveIcon style={{ fontSize: "18px", color: "#8600BB", marginRight: "3px" }} />
-                        </IconButton>
-                      </Box>
-                    )}
-                    <Box
-                      sx={{
-                        bgcolor: "#7B1FA2",
-                        color: "#fff",
-                        fontSize: "13px",
-                        mt: "30px",
-                        px: 3,
-                        py: 0.2,
-                        ml: "15px",
-                        fontWeight: 600,
-                        borderTopLeftRadius: "7px",
-                        borderTopRightRadius: "7px",
-                        width: "fit-content",
-                      }}
-                    >
-                      {g.sign}
-                    </Box>
-                    <Card
-                      sx={{
-                        borderRadius: "0",
-                        overflow: "hidden",
-                        boxShadow: "none",
-                      }}
-                    >
-                      <Box sx={{ pb: 0 }}>
-                        <Table sx={{ borderCollapse: "separate", borderSpacing: 0 }}>
-                          <TableHead sx={{ bgcolor: "#f3e5f5" }}>
-                            <TableRow>
-                              {[
-                                "Fee Details",
-                                "Fee Description",
-                                "Fee Amount",
-                                "Due Date",
-                              ].map((header, i) => (
-                                <TableCell
-                                  key={i}
-                                  sx={{
-                                    fontWeight: 600,
-                                    color: "#000",
-                                    fontSize: 14,
-                                    py: 1.2,
-                                    border: "1px dotted #ccc",
-                                  }}
-                                >
-                                  {header}
-                                </TableCell>
-                              ))}
-                            </TableRow>
-                          </TableHead>
-                          <TableBody>
-                            {fees.map((fee, i) => (
-                              <TableRow
-                                key={i}
-                                sx={{ "&:hover": { bgcolor: "#fafafa" } }}
-                              >
-                                <TableCell sx={{ border: "1px dotted #ccc" }}>
-                                  <TextField
-                                    fullWidth
-                                    size="small"
-                                    value={fee.feeName}
-                                    onChange={(e) =>
-                                      handleChange(g.sign, i, "feeName", e.target.value)
-                                    }
-                                    disabled={fee.mandatory || isAnyStudentPaid}
-                                    variant="outlined"
-                                    sx={{
-                                      "& .MuiOutlinedInput-root": {
-                                        borderRadius: 2,
-                                        fontSize: 14,
-                                        "& fieldset": { border: "none" },
-                                        ...(fee.mandatory && {
-                                          fontWeight: 600,
-                                          color: "#000",
-                                        }),
-                                        "& .MuiInputBase-input.Mui-disabled": {
-                                          WebkitTextFillColor: "#000",
-                                        },
-                                      },
-                                    }}
-                                  />
-                                </TableCell>
-                                <TableCell sx={{ border: "1px dotted #ccc", minWidth: 250 }}>
-                                  <TextField
-                                    fullWidth
-                                    size="small"
-                                    value={fee.desc}
-                                    onChange={(e) =>
-                                      handleChange(g.sign, i, "desc", e.target.value)
-                                    }
-                                    disabled={isAnyStudentPaid}
-                                    variant="outlined"
-                                    multiline
-                                    rows={2}
-                                    sx={{
-                                      "& .MuiOutlinedInput-root": {
-                                        borderRadius: "5px",
-                                        fontSize: 14,
-                                        padding: "8px",
-                                        "& .MuiInputBase-input.Mui-disabled": {
-                                          WebkitTextFillColor: "#000",
-                                        },
-                                      },
-                                    }}
-                                  />
-                                </TableCell>
-
-                                <TableCell sx={{ border: "1px dotted #ccc" }}>
-                                  <TextField
-                                    size="small"
-                                    value={fee.amount ? Number(fee.amount).toLocaleString("en-IN") : ""}
-                                    onChange={(e) => {
-                                      let value = e.target.value.replace(/\D/g, "");
-                                      if (value.length <= 8) {
-                                        handleChange(g.sign, i, "amount", value);
-                                      }
-                                    }}
-                                    disabled={isAnyStudentPaid}
-                                    variant="outlined"
-                                    sx={{
-                                      "& .MuiInputBase-input.Mui-disabled": {
-                                        WebkitTextFillColor: "#000",
-                                      },
-                                    }}
-                                    slotProps={{
-                                      root: {
-                                        sx: {
-                                          width: 150,
-                                        },
-                                      },
-                                      input: {
-                                        startAdornment: <InputAdornment position="start">₹</InputAdornment>,
-                                        inputMode: "numeric",
-                                        pattern: "[0-9]*",
-                                        style: {
-                                          height: 30,
-                                          fontSize: 14,
-                                          padding: "0 8px",
-                                          WebkitAppearance: "textfield",
-                                          MozAppearance: "textfield",
-                                          WebkitTextFillColor: "#000",
-                                        },
-                                      },
-                                      maxLength: 8,
-                                    }}
-                                  />
-
-                                </TableCell>
-                                <TableCell sx={{ display: "flex", justifyContent: "center", alignItems: "center", border: "1px dotted #ccc" }}>
-                                  <LocalizationProvider dateAdapter={AdapterDayjs}>
-                                    <DatePicker
-                                      open={fee.openCal || false}
-                                      onClose={() =>
-                                        setGradeFees((prev) => {
-                                          const updated = { ...prev };
-                                          if (updated[g.sign][i])
-                                            updated[g.sign][i].openCal = false;
-                                          return updated;
-                                        })
-                                      }
-                                      value={fee.dueDate}
-                                      onChange={(newValue) =>
-                                        handleDateChange(g.sign, i, newValue)
-                                      }
-                                      disablePast
-                                      views={['year', 'month', 'day']}
-                                      renderInput={() => null}
-                                      sx={{
-                                        opacity: 0,
-                                        pointerEvents: 'none',
-                                        width: "0px",
-                                      }}
-                                      slotProps={{
-                                        day: {
-                                          sx: (theme) => ({
-                                            '&.Mui-selected': {
-                                              backgroundColor: `${websiteSettings.mainColor} !important`,
-                                              color: '#000',
-                                              border: `1px solid ${websiteSettings.mainColor}`,
-                                            },
-                                            '&.MuiPickersDay-today': {
-                                              border: `1px solid ${websiteSettings.mainColor}`,
-                                              color: '#000',
-                                            },
-                                            '&.Mui-selected.MuiPickersDay-today': {
-                                              backgroundColor: `${websiteSettings.mainColor} !important`,
-                                              border: `1px solid ${websiteSettings.mainColor}`,
-                                              color: '#000',
-                                            },
-                                          }),
-                                        },
-                                      }}
-                                    />
-
-                                    {isAnyStudentPaid ? (
-                                      <Typography sx={{ fontSize: 13, color: "#555", fontWeight: 500 }}>
-                                        {fee.dueDate ? formatDate(fee.dueDate) : "-"}
-                                      </Typography>
-                                    ) : (
-                                      <>
-                                        <Button sx={{
-                                          width: '150px',
-                                          height: '30px',
-                                          backgroundColor: '#F3E5F5',
-                                          textTransform: "none",
-                                          color: "#8600BB",
-                                        }}
-                                          onClick={() =>
-                                            setGradeFees((prev) => {
-                                              const updated = { ...prev };
-                                              updated[g.sign][i].openCal = true;
-                                              return updated;
-                                            })
-                                          }>
-                                          {fee.dueDate ? formatDate(fee.dueDate) : "Add Due Date"}
-                                          <CalendarMonthIcon style={{ color: "#8600BB", marginLeft: "10px", fontSize: '20px' }} />
-                                        </Button>
-                                        {fee.dueDate ? (
-                                          <Tooltip title="Clear Due Date">
-                                            <IconButton sx={{
-                                              width: '33px', height: '33px',
-                                              transition: 'color 0.3s, background-color 0.3s',
-                                              '&:hover': { color: '#fff', backgroundColor: 'rgba(0,0,0,0.1)' },
-                                            }} onClick={() => handleClearDate(g.sign, i)}>
-                                              <HighlightOffIcon style={{ color: "red" }} />
-                                            </IconButton>
-                                          </Tooltip>
-                                        ) : (
-                                          <Box sx={{ width: "33px" }} />
-                                        )}
-                                      </>
-                                    )}
-                                  </LocalizationProvider>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </Box>
-                    </Card>
-                    <Box display={"flex"} justifyContent={"center"}>
-                      <Box
-                        sx={{
-                          display: "flex",
-                          justifyContent: "center",
-                          alignItems: "center",
-                          backgroundColor: "#fff",
-                          width: "55%",
-                          py: 1,
-                          borderBottomRightRadius: "10px",
-                          borderBottomLeftRadius: "10px",
-                          border: "1px solid #ccc",
-                          borderTop: "none",
-                          mt: 0,
-                        }}
-                      >
-                        <Typography fontWeight={600} color="green" fontSize={15}>
-                          Total Fees Amount
-                        </Typography>
-                        <Typography
-                          fontWeight={600}
-                          color="green"
-                          fontSize={15}
-                          sx={{ ml: 6 }}
-                        >
-                          Rs.{total.toLocaleString()}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </Box>
-                )
-              )
-            })}
+              Add Row
+            </Button>
+            {fees.length > 1 && (
+              <Button
+                onClick={() => handleRemoveFee(selectedGrade)}
+                startIcon={<RemoveIcon sx={{ fontSize: 17 }} />}
+                sx={{
+                  textTransform: "none",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  height: 30,
+                  px: 1.4,
+                  borderRadius: RADIUS,
+                  color: DASH.muted,
+                  bgcolor: "#fff",
+                  border: `1px solid ${DASH.line}`,
+                  "&:hover": { bgcolor: DASH.lineSoft },
+                }}
+              >
+                Remove Row
+              </Button>
+            )}
           </Box>
-        </Box>
-      </Box>
-
-      <Box sx={{ display: "flex", justifyContent: "center", pb: 2 }}>
-        {!isAnyStudentPaid && (
-          <Button
-            onClick={handleResetAll}
-            sx={{
-              border: "1px solid #000",
-              borderRadius: "30px",
-              textTransform: "none",
-              width: "100px",
-              height: "30px",
-              color: "#000"
-            }}>
-            Reset All
-          </Button>
         )}
+        bodySx={{ p: 0 }}
+      >
+        <TableContainer sx={{ overflowX: "auto" }}>
+          <Table sx={{ minWidth: 780 }}>
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ ...HEAD_CELL, width: "24%" }}>Fee Details</TableCell>
+                <TableCell sx={{ ...HEAD_CELL, width: "36%" }}>Fee Description</TableCell>
+                <TableCell sx={{ ...HEAD_CELL, width: "18%" }}>Fee Amount</TableCell>
+                <TableCell sx={{ ...HEAD_CELL, width: "22%" }}>Due Date</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {fees.map((fee, i) => (
+                <TableRow key={i} sx={{ "&:hover": { bgcolor: DASH.surface } }}>
+                  <TableCell sx={BODY_CELL}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      placeholder="Fee name"
+                      value={fee.feeName}
+                      onChange={(e) => handleChange(selectedGrade, i, "feeName", e.target.value)}
+                      disabled={fee.mandatory || !fieldsEditable}
+                      sx={{
+                        ...FIELD_SX,
+                        ...(fee.mandatory && {
+                          "& .MuiInputBase-input.Mui-disabled": {
+                            WebkitTextFillColor: DASH.ink,
+                            fontWeight: 700,
+                          },
+                        }),
+                      }}
+                    />
+                  </TableCell>
 
-        {/*  {(userType === "superadmin" || userType === "admin") && (
-          <Button
-            onClick={handleSubmit}
+                  <TableCell sx={BODY_CELL}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      placeholder="What is this fee for"
+                      multiline
+                      rows={2}
+                      value={fee.desc}
+                      onChange={(e) => handleChange(selectedGrade, i, "desc", e.target.value)}
+                      disabled={!fieldsEditable}
+                      sx={FIELD_SX}
+                    />
+                  </TableCell>
+
+                  <TableCell sx={BODY_CELL}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      placeholder="0"
+                      value={fee.amount ? Number(fee.amount).toLocaleString("en-IN") : ""}
+                      onChange={(e) => {
+                        let value = e.target.value.replace(/\D/g, "");
+                        if (value.length <= 8) {
+                          handleChange(selectedGrade, i, "amount", value);
+                        }
+                      }}
+                      disabled={!fieldsEditable}
+                      sx={FIELD_SX}
+                      slotProps={{
+                        input: {
+                          startAdornment: (
+                            <InputAdornment position="start">
+                              <Typography sx={{ fontSize: "13px", color: DASH.muted }}>₹</Typography>
+                            </InputAdornment>
+                          ),
+                          inputMode: "numeric",
+                        },
+                        htmlInput: {
+                          maxLength: 8,
+                          pattern: "[0-9]*",
+                        },
+                      }}
+                    />
+                  </TableCell>
+
+                  <TableCell sx={BODY_CELL}>
+                    <LocalizationProvider dateAdapter={AdapterDayjs}>
+                      <DatePicker
+                        open={fee.openCal || false}
+                        onClose={() =>
+                          setGradeFees((prev) => {
+                            const updated = { ...prev };
+                            if (updated[selectedGrade][i])
+                              updated[selectedGrade][i].openCal = false;
+                            return updated;
+                          })
+                        }
+                        value={fee.dueDate}
+                        onChange={(newValue) => handleDateChange(selectedGrade, i, newValue)}
+                        disablePast
+                        views={['year', 'month', 'day']}
+                        sx={{ opacity: 0, pointerEvents: 'none', width: 0, height: 0 }}
+                        slotProps={{
+                          day: {
+                            sx: {
+                              '&.Mui-selected': {
+                                backgroundColor: `${websiteSettings.mainColor} !important`,
+                                color: '#000',
+                                border: `1px solid ${websiteSettings.mainColor}`,
+                              },
+                              '&.MuiPickersDay-today': {
+                                border: `1px solid ${websiteSettings.mainColor}`,
+                                color: '#000',
+                              },
+                              '&.Mui-selected.MuiPickersDay-today': {
+                                backgroundColor: `${websiteSettings.mainColor} !important`,
+                                border: `1px solid ${websiteSettings.mainColor}`,
+                                color: '#000',
+                              },
+                            },
+                          },
+                        }}
+                      />
+
+                      {!fieldsEditable ? (
+                        <Typography sx={{ fontSize: "12.5px", color: DASH.text, fontWeight: 600, pt: 1 }}>
+                          {fee.dueDate ? formatDate(fee.dueDate) : "-"}
+                        </Typography>
+                      ) : (
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.4 }}>
+                          <Button
+                            onClick={() =>
+                              setGradeFees((prev) => {
+                                const updated = { ...prev };
+                                updated[selectedGrade][i].openCal = true;
+                                return updated;
+                              })
+                            }
+                            endIcon={<CalendarMonthIcon sx={{ fontSize: 17 }} />}
+                            sx={{
+                              flex: 1,
+                              justifyContent: "space-between",
+                              textTransform: "none",
+                              fontSize: "12.5px",
+                              fontWeight: 600,
+                              height: 38,
+                              px: 1.2,
+                              borderRadius: RADIUS,
+                              color: fee.dueDate ? DASH.ink : DASH.faint,
+                              bgcolor: "#fff",
+                              border: `1px solid ${DASH.line}`,
+                              "&:hover": { bgcolor: `${ACCENT}0A`, borderColor: `${ACCENT}59` },
+                            }}
+                          >
+                            {fee.dueDate ? formatDate(fee.dueDate) : "Add Due Date"}
+                          </Button>
+                          {fee.dueDate ? (
+                            <Tooltip title="Clear Due Date">
+                              <IconButton
+                                onClick={() => handleClearDate(selectedGrade, i)}
+                                sx={{ width: 30, height: 30, flexShrink: 0 }}
+                              >
+                                <HighlightOffIcon sx={{ fontSize: 18, color: DASH.red }} />
+                              </IconButton>
+                            </Tooltip>
+                          ) : (
+                            <Box sx={{ width: 30, flexShrink: 0 }} />
+                          )}
+                        </Box>
+                      )}
+                    </LocalizationProvider>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "flex-end",
+            gap: 2,
+            px: 2,
+            py: 1.4,
+            bgcolor: DASH.surface,
+            borderTop: `1px solid ${DASH.line}`,
+          }}
+        >
+          <Typography
             sx={{
-              backgroundColor: websiteSettings.mainColor,
-              borderRadius: "30px",
-              textTransform: "none",
-              ml: "10px",
-              // width: "180px",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
-              border: "1px solid rgba(0,0,0,0.1)",
-              px: 3,
-              height: "30px",
-              color: websiteSettings.textColor
-            }}>
-            {userType === "superadmin"
-              ? `Apply for ${selectedGrade}`
-              : `Request Approval`}
-          </Button>
-        )} */}
-        {(userType === "superadmin" || userType === "admin") && !isAnyStudentPaid && (
-          <Button
-            onClick={hasApprovedFees ? handleUpdate : handleSubmit}
-            sx={{
-              backgroundColor: websiteSettings.mainColor,
-              borderRadius: "30px",
-              textTransform: "none",
-              ml: "10px",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
-              border: "1px solid rgba(0,0,0,0.1)",
-              px: 3,
-              height: "30px",
-              color: websiteSettings.textColor,
+              fontSize: "11px",
+              fontWeight: 700,
+              letterSpacing: "0.05em",
+              textTransform: "uppercase",
+              color: DASH.muted,
             }}
           >
-            {hasApprovedFees
-              ? "Update Fees"
-              : userType === "superadmin"
-                ? `Apply for ${selectedGrade}`
-                : "Request Approval"}
-          </Button>
-        )}
-
-      </Box>
+            Total Fees Amount
+          </Typography>
+          <Typography sx={{ fontSize: "18px", fontWeight: 800, color: DASH.green }}>
+            ₹{total.toLocaleString("en-IN")}
+          </Typography>
+        </Box>
+      </Panel>
     </Box>
   )
 }

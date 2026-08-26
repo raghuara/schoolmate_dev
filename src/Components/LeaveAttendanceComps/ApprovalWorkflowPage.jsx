@@ -132,9 +132,9 @@ export default function ApprovalWorkflowPage({ isEmbedded = false }) {
         try {
             const res = await axios.get(leaveApprovalStatusCheck, {
                 params: {
-                    AcademicYear: academicYear,
-                    RollNumber:   rollNumber,
-                    Status:       'Requested',
+                    academicYear: academicYear,
+                    rollNumber:   rollNumber,
+                    status:       'Requested',
                 },
                 headers: { Authorization: `Bearer ${token}` },
             });

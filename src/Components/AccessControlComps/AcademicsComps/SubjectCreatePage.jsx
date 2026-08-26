@@ -72,7 +72,7 @@ export default function SubjectCreatePage() {
         setIsLoading(true);
         try {
             await axios.get(fetchAllSubjects, {
-                params: { RollNumber: rollNumber, UserType: userType },
+                params: { rollNumber: rollNumber, userType: userType },
                 headers: { Authorization: `Bearer ${token}` },
             });
         } catch (error) {

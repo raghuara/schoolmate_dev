@@ -5,6 +5,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useTheme } from "@mui/material/styles";
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlice";
+import { selectAcademicYear } from "../../../Redux/Slices/academicYearSlice";
 import { useDispatch, useSelector } from "react-redux";
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { useDropzone } from "react-dropzone";
@@ -61,6 +62,7 @@ export default function EdeitStudentInfoPage() {
     const theme = useTheme();
     const user = useSelector((state) => state.auth);
     const RollNumber = user.rollNumber
+    const academicYear = useSelector(selectAcademicYear);
     const userType = user.userType
     const userName = user.name
     const location = useLocation();
@@ -420,17 +422,18 @@ export default function EdeitStudentInfoPage() {
 
     const prepareSiblingData = () => {
         return siblings.map((sibling, index) => ({
-            ID: sibling.siblingId || 0,
-            RollNumber: selectedRollNumber,
-            SiblingNameInEnglish: sibling.siblingNameInEnglish || "",
-            SiblingNameInTamil: sibling.siblingNameInTamil || "",
-            SiblingGender: sibling.siblingGender || "",
-            SiblingRelationship: sibling.siblingRelationship || "",
-            SiblingClass: sibling.siblingClass || "",
-            SiblingSection: sibling.siblingSection || "",
-            SiblingSchoolName: sibling.siblingSchoolName || "",
-            SiblingAdmissionNo: sibling.siblingAdmissionNo || "",
-            SiblingStudyingInSameSchool: sibling.siblingStudyingInSameSchool || "no",
+            id: sibling.siblingId || 0,
+            rollNumber: selectedRollNumber,
+            createRollNumber: RollNumber,
+            siblingNameInEnglish: sibling.siblingNameInEnglish || "",
+            siblingNameInTamil: sibling.siblingNameInTamil || "",
+            siblingGender: sibling.siblingGender || "",
+            siblingRelationship: sibling.siblingRelationship || "",
+            siblingClass: sibling.siblingClass || "",
+            siblingSection: sibling.siblingSection || "",
+            siblingSchoolName: sibling.siblingSchoolName || "",
+            siblingAdmissionNo: sibling.siblingAdmissionNo || "",
+            siblingStudyingInSameSchool: sibling.siblingStudyingInSameSchool || "no",
         }));
     };
 
@@ -622,7 +625,8 @@ export default function EdeitStudentInfoPage() {
         try {
             const res = await axios.get(FindStudentManagementDetails, {
                 params: {
-                    RollNumber: selectedRollNumber || "",
+                    rollNumber: selectedRollNumber || "",
+                    createRollNumber: RollNumber,
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -870,6 +874,7 @@ export default function EdeitStudentInfoPage() {
         setIsLoading(true);
         try {
             const sendData = {
+                createRollNumber: RollNumber,
                 studentNameInEnglish: studentNameEnglish,
                 studentNameInTamil: studentNameTamil,
                 dateOfBirth: dateOfBirth,
@@ -883,8 +888,11 @@ export default function EdeitStudentInfoPage() {
                 originalCertificateReceived: originalCertificateReceived,
                 admissionClass: selectedGradeId,
                 section: selectedSection,
-                RTEStudent: rteStudent,
+                rteStudent: rteStudent,
                 oldOrNewAdmission: isNewStudent ? "new" : "old",
+                // Create scopes the record to an academic year, so the update has to
+                // name the same year rather than leaving the backend to guess.
+                academicYear: academicYear,
             };
 
             const res = await axios.put(updateStudentAcademicInformation, sendData, {
@@ -990,6 +998,7 @@ export default function EdeitStudentInfoPage() {
         try {
             const sendData = {
                 rollNumber: selectedRollNumber,
+                createRollNumber: RollNumber,
                 religion: religion,
                 community: community,
                 motherTongue: motherTongue,
@@ -1002,7 +1011,7 @@ export default function EdeitStudentInfoPage() {
                 pincode: pincode,
                 state: state,
                 country: "India",
-                BloodGroup: bloodGroup
+                bloodGroup: bloodGroup
             };
 
             const res = await axios.put(updateStudentInformation, sendData, {
@@ -1090,6 +1099,7 @@ export default function EdeitStudentInfoPage() {
         try {
             const sendData = {
                 rollNumber: selectedRollNumber,
+                createRollNumber: RollNumber,
                 fatherNameInEnglish: fatherNameEnglish,
                 fatherNameInTamil: fatherNameTamil,
                 fatherQualification: fatherQualification,
@@ -1189,6 +1199,7 @@ export default function EdeitStudentInfoPage() {
         try {
             const sendData = {
                 rollNumber: selectedRollNumber,
+                createRollNumber: RollNumber,
                 guardianNameInEnglish: guardianNameEnglish,
                 guardianNameInTamil: guardianNameTamil,
                 guardianRelationship: guardianRelationship,
@@ -1308,33 +1319,34 @@ export default function EdeitStudentInfoPage() {
         setIsLoading(true);
         try {
             const sendData = new FormData();
-            sendData.append("RollNumber", selectedRollNumber);
-            sendData.append("BirthCertificatefiletype", birthCertificateFileType || "");
-            sendData.append("BirthCertificatefile", birthCertificate);
-            sendData.append("PassportSizePhotofiletype", photoCertificateFileType || "");
-            sendData.append("PassportSizePhotofile", photoCertificate);
-            sendData.append("PreviousAcademicReportfiletype", academicCertificateFileType || "");
-            sendData.append("PreviousAcademicReportfile", academicCertificate);
-            sendData.append("TransferCertificatefiletype", transferCertificateFileType || "");
-            sendData.append("TransferCertificatefile", transferCertificate);
-            sendData.append("AddressProofStudentfiletype", addressCertificateFileType || "");
-            sendData.append("AddressProofStudentfile", addressCertificate);
-            sendData.append("AddressProofGuardianfiletype", addressGuardianCertificateFileType || "");
-            sendData.append("AddressProofGuardianfile", addressGuardianCertificate);
-            sendData.append("CasteCertificatefiletype", communityCertificateFileType || "");
-            sendData.append("CasteCertificatefile", communityCertificate);
-            sendData.append("IncomeCertificatefiletype", incomeCertificateFileType || "");
-            sendData.append("IncomeCertificatefile", incomeCertificate);
-            sendData.append("MedicalCertificatefiletype", medicalCertificateFileType || "");
-            sendData.append("MedicalCertificatefile", medicalCertificate);
-            sendData.append("SpecialNeedsDocumentfiletype", specialNeedsDocumentFileType || "");
-            sendData.append("SpecialNeedsDocumentfile", specialNeedsDocument);
-            sendData.append("ParentEmploymentProoffiletype", parentEmploymentProofFileType || "");
-            sendData.append("ParentEmploymentProoffile", parentEmploymentProof);
-            sendData.append("AffidavitDeclarationfiletype", affidavitDeclarationFileType || "");
-            sendData.append("AffidavitDeclarationfile", affidavitDeclaration);
-            sendData.append("Aadharfiletype", aadharCardFileType || "");
-            sendData.append("Aadharfile", aadharCard);
+            sendData.append("rollNumber", selectedRollNumber);
+            sendData.append("createRollNumber", RollNumber);
+            sendData.append("birthCertificatefiletype", birthCertificateFileType || "");
+            sendData.append("birthCertificatefile", birthCertificate);
+            sendData.append("passportSizePhotofiletype", photoCertificateFileType || "");
+            sendData.append("passportSizePhotofile", photoCertificate);
+            sendData.append("previousAcademicReportfiletype", academicCertificateFileType || "");
+            sendData.append("previousAcademicReportfile", academicCertificate);
+            sendData.append("transferCertificatefiletype", transferCertificateFileType || "");
+            sendData.append("transferCertificatefile", transferCertificate);
+            sendData.append("addressProofStudentfiletype", addressCertificateFileType || "");
+            sendData.append("addressProofStudentfile", addressCertificate);
+            sendData.append("addressProofGuardianfiletype", addressGuardianCertificateFileType || "");
+            sendData.append("addressProofGuardianfile", addressGuardianCertificate);
+            sendData.append("casteCertificatefiletype", communityCertificateFileType || "");
+            sendData.append("casteCertificatefile", communityCertificate);
+            sendData.append("incomeCertificatefiletype", incomeCertificateFileType || "");
+            sendData.append("incomeCertificatefile", incomeCertificate);
+            sendData.append("medicalCertificatefiletype", medicalCertificateFileType || "");
+            sendData.append("medicalCertificatefile", medicalCertificate);
+            sendData.append("specialNeedsDocumentfiletype", specialNeedsDocumentFileType || "");
+            sendData.append("specialNeedsDocumentfile", specialNeedsDocument);
+            sendData.append("parentEmploymentProoffiletype", parentEmploymentProofFileType || "");
+            sendData.append("parentEmploymentProoffile", parentEmploymentProof);
+            sendData.append("affidavitDeclarationfiletype", affidavitDeclarationFileType || "");
+            sendData.append("affidavitDeclarationfile", affidavitDeclaration);
+            sendData.append("aadharfiletype", aadharCardFileType || "");
+            sendData.append("aadharfile", aadharCard);
 
             const res = await axios.put(updateStudentDocumentInformation, sendData, {
                 headers: {
@@ -1392,6 +1404,7 @@ export default function EdeitStudentInfoPage() {
         try {
             const sendData = {
                 rollNumber: selectedRollNumber,
+                createRollNumber: RollNumber,
                 asthma: medicalConditions.asthma || "no",
                 diabetes: medicalConditions.diabetes || "no",
                 heartProblem: medicalConditions.heartProblem || "no",

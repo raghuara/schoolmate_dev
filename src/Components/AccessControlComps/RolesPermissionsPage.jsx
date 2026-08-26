@@ -1,7 +1,7 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import {
     Box, Grid, Typography, Button, TextField, InputAdornment, IconButton, Avatar, AvatarGroup, Chip,
-    Dialog, DialogTitle, DialogContent, DialogActions, Menu, MenuItem, Tooltip,
+    Dialog, DialogTitle, DialogContent, DialogActions, Menu, MenuItem, Tooltip, CircularProgress, Autocomplete,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import SearchIcon from "@mui/icons-material/Search";
@@ -13,20 +13,41 @@ import ManageAccountsOutlinedIcon from "@mui/icons-material/ManageAccountsOutlin
 import TuneOutlinedIcon from "@mui/icons-material/TuneOutlined";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 import SnackBar from "../SnackBar";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
+import { fetchUserTypes as refreshUserTypesStore } from "../../Redux/Slices/userTypesSlice";
+import { AddUserType, GetAllUserTypes, GetNonStudentUsers, UpdateUsersUserType } from "../../Api/Api";
+import ApprovalFlowsTab from "./ApprovalFlowsTab";
 
-// NOTE: replace these mocks with the real master-access-control APIs when ready.
+const TOKEN = "123";
+
 // `system: true` → always present (cannot be removed). `isStudent: true` → the student
 // category: every student belongs here, so no user count / no "view & move" access.
-const INITIAL_ROLES = [
-    { id: 1, name: "Super Admin", createdOn: "Default", userCount: 5, system: true, fullAccess: true },
-    { id: 2, name: "Student", createdOn: "Default", userCount: 0, system: true, isStudent: true },
-    { id: 3, name: "Admin", createdOn: "1 June, 2026", userCount: 10 },
-    { id: 4, name: "Office Staffs", createdOn: "1 June, 2026", userCount: 15 },
-    { id: 5, name: "Teachers", createdOn: "1 June, 2026", userCount: 50 },
-    { id: 6, name: "Parent", createdOn: "1 June, 2026", userCount: 1500 },
-];
+const fmtDate = (s) => {
+    if (!s) return "";
+    const d = new Date(s);
+    if (isNaN(d.getTime())) return s;
+    return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+};
+
+// Map a GetAllUserTypes item to the role shape the UI uses.
+const mapUserType = (item) => {
+    const name = item.userType || "";
+    const key = name.toLowerCase().replace(/\s/g, "");
+    const isSuperAdmin = item.userTypeID === 1 || key === "superadmin";
+    const isStudent = key === "student";
+    return {
+        id: item.userTypeID,
+        name,
+        createdOn: fmtDate(item.createdDate),
+        userCount: Number(item.userCount) || 0,
+        users: Array.isArray(item.users) ? item.users : [],
+        system: isSuperAdmin || isStudent,
+        fullAccess: isSuperAdmin,
+        isStudent,
+    };
+};
 
 // Refined, professional accent colours — assigned stably per role name (no loud yellows).
 const CARD_COLORS = [
@@ -43,64 +64,149 @@ const AVATAR_PALETTE = ["#0E7490", "#6D28D9", "#C2410C", "#047857", "#1D4ED8", "
 const colorFor = (s = "") => AVATAR_PALETTE[(s.charCodeAt(0) || 0) % AVATAR_PALETTE.length];
 const getInitials = (n = "") => n.split(" ").map((p) => p[0]).filter(Boolean).slice(0, 2).join("").toUpperCase();
 
-// Mock members for a role (for the "View All access" + move flow)
-const buildMembers = (role) =>
-    Array.from({ length: Math.min(role.userCount, 8) }, (_, i) => ({
-        id: `${role.id}-${i + 1}`,
-        name: `${role.name.split(" ")[0]} Member ${i + 1}`,
-        rollNumber: `${role.id}${String(i + 1).padStart(4, "0")}`,
-    }));
+// Real members of a role, mapped from the API `users` array.
+const roleMembers = (role) =>
+    (role?.users || []).map((u) => ({ id: u.rollNumber, name: u.name, rollNumber: u.rollNumber }));
 
 export default function RolesPermissionsPage() {
     const navigate = useNavigate();
+    const dispatch = useDispatch();
     const accent = "#4338CA"; // professional indigo for the access-control module
 
-    const [roles, setRoles] = useState(INITIAL_ROLES);
+    const [roles, setRoles] = useState([]);
+    const [loadingRoles, setLoadingRoles] = useState(false);
     const [search, setSearch] = useState("");
+    const [mainTab, setMainTab] = useState(0); // 0 = User Types, 1 = Approval Flows
 
     // Create user-type dialog
     const [createOpen, setCreateOpen] = useState(false);
     const [newName, setNewName] = useState("");
     const [nameError, setNameError] = useState("");
+    const [isCreating, setIsCreating] = useState(false);
 
     const isExpanded = useSelector((state) => state.sidebar.isExpanded);
     // Snackbar
     const [snack, setSnack] = useState({ open: false, ok: true, msg: "" });
     const showSnack = (msg, ok = true) => setSnack({ open: true, ok, msg });
 
+    const fetchUserTypes = async () => {
+        setLoadingRoles(true);
+        try {
+            const res = await axios.get(GetAllUserTypes, { headers: { Authorization: `Bearer ${TOKEN}` } });
+            const rank = (r) => (r.fullAccess ? 0 : r.isStudent ? 1 : 2);
+            const list = (res?.data?.data || []).map(mapUserType).sort((a, b) => rank(a) - rank(b));
+            setRoles(list);
+            return list;
+        } catch (err) {
+            showSnack(err?.response?.data?.message || "Failed to load user types.", false);
+            return null;
+        } finally {
+            setLoadingRoles(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchUserTypes();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     // Manage Users dialog
     const [usersOpen, setUsersOpen] = useState(false);
     const [usersRole, setUsersRole] = useState(null);
     const [usersList, setUsersList] = useState([]);
-    const [addName, setAddName] = useState("");
+    const [selectedToAdd, setSelectedToAdd] = useState([]);
+    const [assigning, setAssigning] = useState(false);
+    const [movingId, setMovingId] = useState(null);
     const [moveAnchor, setMoveAnchor] = useState(null);
     const [moveMember, setMoveMember] = useState(null);
 
-    const openUsers = (role) => { setUsersRole(role); setUsersList(buildMembers(role)); setAddName(""); setUsersOpen(true); };
+    // Assignable (non-student) users, loaded once and reused across dialog opens.
+    const [allUsers, setAllUsers] = useState([]);
+    const [usersLoaded, setUsersLoaded] = useState(false);
+    const [loadingUsers, setLoadingUsers] = useState(false);
 
-    // Add a user to the open role
-    const handleAddUser = () => {
-        const name = addName.trim();
-        if (!name) return;
-        const member = { id: `${usersRole.id}-new-${Date.now()}`, name, rollNumber: "Pending" };
-        setUsersList((prev) => [member, ...prev]);
-        setRoles((prev) => prev.map((r) => (r.id === usersRole.id ? { ...r, userCount: r.userCount + 1 } : r)));
-        setAddName("");
-        showSnack(`Added ${name} to ${usersRole.name}.`);
+    const fetchAssignableUsers = async () => {
+        if (usersLoaded || loadingUsers) return;
+        setLoadingUsers(true);
+        try {
+            const res = await axios.get(GetNonStudentUsers, { headers: { Authorization: `Bearer ${TOKEN}` } });
+            setAllUsers(res?.data?.data || []);
+            setUsersLoaded(true);
+        } catch (err) {
+            showSnack(err?.response?.data?.message || "Failed to load users.", false);
+        } finally {
+            setLoadingUsers(false);
+        }
+    };
+
+    const openUsers = (role) => {
+        setUsersRole(role);
+        setUsersList(roleMembers(role));
+        setSelectedToAdd([]);
+        setUsersOpen(true);
+        fetchAssignableUsers();
+    };
+
+    // Re-pull user types and re-seed the open dialog with fresh members.
+    const refreshOpenRole = async () => {
+        const list = await fetchUserTypes();
+        const fresh = (list || []).find((r) => r.id === usersRole?.id);
+        if (fresh) { setUsersRole(fresh); setUsersList(roleMembers(fresh)); }
+        dispatch(refreshUserTypesStore());
+    };
+
+    // Users not already in the open role.
+    const assignOptions = useMemo(() => {
+        const ids = new Set(usersList.map((m) => m.rollNumber));
+        return allUsers.filter((u) => !ids.has(u.rollNumber));
+    }, [allUsers, usersList]);
+
+    // Assign the selected users to the open role.
+    const handleAssign = async () => {
+        if (!selectedToAdd.length || !usersRole) return;
+        setAssigning(true);
+        try {
+            const rollNumbers = selectedToAdd.map((u) => u.rollNumber);
+            const res = await axios.put(
+                UpdateUsersUserType,
+                { userTypeID: usersRole.id, rollNumbers },
+                { headers: { Authorization: `Bearer ${TOKEN}` } },
+            );
+            const ok = !res?.data || res.data.error === false || res.status === 200;
+            if (!ok) { showSnack(res?.data?.message || "Could not assign users.", false); return; }
+            showSnack(res?.data?.message || `Assigned ${rollNumbers.length} user${rollNumbers.length > 1 ? "s" : ""} to ${usersRole.name}.`);
+            setSelectedToAdd([]);
+            await refreshOpenRole();
+        } catch (err) {
+            showSnack(err?.response?.data?.message || "Failed to assign users. Please try again.", false);
+        } finally {
+            setAssigning(false);
+        }
     };
 
     // Move a user to another role
     const openMove = (e, member) => { setMoveAnchor(e.currentTarget); setMoveMember(member); };
     const closeMove = () => { setMoveAnchor(null); setMoveMember(null); };
-    const handleMove = (target) => {
-        setUsersList((prev) => prev.filter((m) => m.id !== moveMember.id));
-        setRoles((prev) => prev.map((r) => {
-            if (r.id === usersRole.id) return { ...r, userCount: Math.max(0, r.userCount - 1) };
-            if (r.id === target.id) return { ...r, userCount: r.userCount + 1 };
-            return r;
-        }));
-        showSnack(`Moved ${moveMember.name} to ${target.name}.`);
+    const handleMove = async (target) => {
+        const member = moveMember;
         closeMove();
+        if (!member || !usersRole) return;
+        setMovingId(member.id);
+        try {
+            const res = await axios.put(
+                UpdateUsersUserType,
+                { userTypeID: target.id, rollNumbers: [member.rollNumber] },
+                { headers: { Authorization: `Bearer ${TOKEN}` } },
+            );
+            const ok = !res?.data || res.data.error === false || res.status === 200;
+            if (!ok) { showSnack(res?.data?.message || "Could not move the user.", false); return; }
+            showSnack(res?.data?.message || `Moved ${member.name} to ${target.name}.`);
+            await refreshOpenRole();
+        } catch (err) {
+            showSnack(err?.response?.data?.message || "Failed to move the user. Please try again.", false);
+        } finally {
+            setMovingId(null);
+        }
     };
 
     // Roles a member can be moved to (exclude current role and the auto student category)
@@ -120,17 +226,34 @@ export default function RolesPermissionsPage() {
         if (nameError) setNameError("");
     };
 
-    const handleCreate = () => {
+    const handleCreate = async () => {
         const name = newName.trim();
         if (!name) { setNameError("Please enter a user type name."); return; }
         if (!/^[A-Za-z ]+$/.test(name)) { setNameError("Only alphabets are allowed (no numbers or special characters)."); return; }
         if (roles.some((r) => r.name.toLowerCase() === name.toLowerCase())) { setNameError("This user type already exists."); return; }
 
-        const id = Math.max(0, ...roles.map((r) => r.id)) + 1;
-        setRoles((prev) => [...prev, { id, name, createdOn: "Today", userCount: 0 }]);
-        setCreateOpen(false);
-        setNewName("");
-        showSnack(`User type "${name}" created.`);
+        setIsCreating(true);
+        try {
+            const res = await axios.post(
+                AddUserType,
+                { userType: name },
+                { headers: { Authorization: `Bearer ${TOKEN}` } }
+            );
+            const ok = !res?.data || res.data.error === false || res.status === 200 || res.status === 201;
+            if (!ok) {
+                showSnack(res?.data?.message || "Could not create the user type.", false);
+                return;
+            }
+            setCreateOpen(false);
+            setNewName("");
+            showSnack(res?.data?.message || `User type "${name}" created.`);
+            fetchUserTypes();
+            dispatch(refreshUserTypesStore());
+        } catch (err) {
+            showSnack(err?.response?.data?.message || "Failed to create the user type. Please try again.", false);
+        } finally {
+            setIsCreating(false);
+        }
     };
  
     return (
@@ -167,6 +290,7 @@ export default function RolesPermissionsPage() {
                     </Box>
                 </Box>
 
+                {mainTab === 0 && (
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
                     <TextField
                         size="small"
@@ -186,11 +310,35 @@ export default function RolesPermissionsPage() {
                         Create User Type
                     </Button>
                 </Box>
+                )}
             </Box>
 
-            {/* Role cards */}
+            {/* Content */}
             <Box sx={{ px: 2,pb:2, pt:"73px" }}>
-                {filteredRoles.length === 0 ? (
+                <Box sx={{ display: "flex", gap: 0.5, mb: 2, borderBottom: "1px solid #E5E7EB" }}>
+                    {[{ k: 0, label: "User Types" }, { k: 1, label: "Approval Flows" }].map((t) => (
+                        <Box
+                            key={t.k}
+                            onClick={() => setMainTab(t.k)}
+                            sx={{
+                                px: 2, py: 1, cursor: "pointer", fontSize: 13.5, fontWeight: 700,
+                                color: mainTab === t.k ? accent : "#6B7280",
+                                borderBottom: mainTab === t.k ? `2px solid ${accent}` : "2px solid transparent",
+                                mb: "-1px", transition: "color 0.2s",
+                            }}
+                        >
+                            {t.label}
+                        </Box>
+                    ))}
+                </Box>
+
+                {mainTab === 1 ? (
+                    <ApprovalFlowsTab showSnack={showSnack} />
+                ) : loadingRoles ? (
+                    <Box sx={{ p: 6, display: "flex", justifyContent: "center" }}>
+                        <CircularProgress size={30} sx={{ color: accent }} />
+                    </Box>
+                ) : filteredRoles.length === 0 ? (
                     <Box sx={{ p: 6, textAlign: "center", borderRadius: "12px", border: "1px dashed #E5E7EB", bgcolor: "#FAFAFA" }}>
                         <Typography sx={{ fontSize: 13, fontWeight: 600, color: "#9CA3AF" }}>No user types found</Typography>
                     </Box>
@@ -231,10 +379,10 @@ export default function RolesPermissionsPage() {
                                         <Typography sx={{ fontSize: 11.5, color: "#6B7280", lineHeight: 1.4 }}>
                                             Every student is automatically included in this category.
                                         </Typography>
-                                    ) : buildMembers(role).length > 0 ? (
+                                    ) : roleMembers(role).length > 0 ? (
                                         <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
                                             <AvatarGroup max={5} sx={{ "& .MuiAvatar-root": { width: 26, height: 26, fontSize: 10, fontWeight: 700, border: "2px solid #fff" } }}>
-                                                {buildMembers(role).map((m) => (
+                                                {roleMembers(role).map((m) => (
                                                     <Avatar key={m.id} sx={{ bgcolor: `${colorFor(m.name)}22`, color: colorFor(m.name) }}>{getInitials(m.name)}</Avatar>
                                                 ))}
                                             </AvatarGroup>
@@ -303,8 +451,17 @@ export default function RolesPermissionsPage() {
                     />
                 </DialogContent>
                 <DialogActions sx={{ px: 2, pb: 2, gap: 1 }}>
-                    <Button onClick={() => setCreateOpen(false)} sx={{ textTransform: "none", fontWeight: 700, color: "#374151", border: "1px solid #E5E7EB", borderRadius: "8px", px: 2, height: 36 }}>Cancel</Button>
-                    <Button onClick={handleCreate} variant="contained" disableElevation sx={{ textTransform: "none", fontWeight: 700, bgcolor: accent, color: "#fff", borderRadius: "8px", px: 2.4, height: 36, "&:hover": { bgcolor: accent, filter: "brightness(0.92)" } }}>Create</Button>
+                    <Button onClick={() => setCreateOpen(false)} disabled={isCreating} sx={{ textTransform: "none", fontWeight: 700, color: "#374151", border: "1px solid #E5E7EB", borderRadius: "8px", px: 2, height: 36 }}>Cancel</Button>
+                    <Button
+                        onClick={handleCreate}
+                        variant="contained"
+                        disableElevation
+                        disabled={isCreating}
+                        startIcon={isCreating ? <CircularProgress size={15} sx={{ color: "#fff" }} /> : null}
+                        sx={{ textTransform: "none", fontWeight: 700, bgcolor: accent, color: "#fff", borderRadius: "8px", px: 2.4, height: 36, "&:hover": { bgcolor: accent, filter: "brightness(0.92)" }, "&.Mui-disabled": { bgcolor: "#E5E7EB", color: "#9CA3AF" } }}
+                    >
+                        {isCreating ? "Creating…" : "Create"}
+                    </Button>
                 </DialogActions>
             </Dialog>
 
@@ -324,22 +481,56 @@ export default function RolesPermissionsPage() {
                 </DialogTitle>
                 <DialogContent sx={{ px: 2, pb: 2 }}>
                     {/* Add user */}
-                    <Box sx={{ display: "flex", gap: 1, mb: 1.5 }}>
-                        <TextField
-                            fullWidth size="small"
-                            value={addName}
-                            onChange={(e) => setAddName(e.target.value)}
-                            onKeyDown={(e) => { if (e.key === "Enter") handleAddUser(); }}
-                            placeholder="Add user by name"
-                            sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px", height: 38, fontSize: 13 } }}
+                    <Box sx={{ display: "flex", gap: 1, mb: 1.5, alignItems: "flex-start" }}>
+                        <Autocomplete
+                            multiple
+                            size="small"
+                            fullWidth
+                            options={assignOptions}
+                            loading={loadingUsers}
+                            value={selectedToAdd}
+                            onChange={(e, val) => setSelectedToAdd(val)}
+                            getOptionLabel={(o) => o.name || o.rollNumber}
+                            isOptionEqualToValue={(o, v) => o.rollNumber === v.rollNumber}
+                            disableCloseOnSelect
+                            limitTags={2}
+                            noOptionsText={loadingUsers ? "Loading users…" : "No users to add"}
+                            renderOption={(props, o) => (
+                                <Box component="li" {...props} key={o.rollNumber} sx={{ display: "flex", gap: 1 }}>
+                                    <Avatar sx={{ width: 26, height: 26, fontSize: 10, fontWeight: 700, bgcolor: `${colorFor(o.name)}22`, color: colorFor(o.name) }}>{getInitials(o.name)}</Avatar>
+                                    <Box sx={{ minWidth: 0 }}>
+                                        <Typography sx={{ fontSize: 12.5, fontWeight: 600 }} noWrap>{o.name}</Typography>
+                                        <Typography sx={{ fontSize: 10.5, color: "#9CA3AF" }}>Roll No: {o.rollNumber}</Typography>
+                                    </Box>
+                                </Box>
+                            )}
+                            renderInput={(params) => (
+                                <TextField
+                                    {...params}
+                                    placeholder={selectedToAdd.length ? "" : "Search users to add"}
+                                    slotProps={{
+                                        input: {
+                                            ...params.InputProps,
+                                            endAdornment: (
+                                                <>
+                                                    {loadingUsers ? <CircularProgress size={16} sx={{ color: accent }} /> : null}
+                                                    {params.InputProps.endAdornment}
+                                                </>
+                                            ),
+                                        },
+                                    }}
+                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px", fontSize: 13 } }}
+                                />
+                            )}
+                            sx={{ flex: 1 }}
                         />
                         <Button
-                            onClick={handleAddUser}
-                            startIcon={<AddIcon sx={{ fontSize: 18 }} />}
-                            disabled={!addName.trim()}
-                            sx={{ textTransform: "none", fontWeight: 700, fontSize: 13, bgcolor: accent, color: "#fff", borderRadius: "10px", height: 38, px: 2, flexShrink: 0, boxShadow: "none", "&:hover": { bgcolor: accent, filter: "brightness(0.92)" }, "&.Mui-disabled": { bgcolor: "#E5E7EB", color: "#9CA3AF" } }}
+                            onClick={handleAssign}
+                            startIcon={assigning ? <CircularProgress size={15} sx={{ color: "#fff" }} /> : <AddIcon sx={{ fontSize: 18 }} />}
+                            disabled={!selectedToAdd.length || assigning}
+                            sx={{ textTransform: "none", fontWeight: 700, fontSize: 13, bgcolor: accent, color: "#fff", borderRadius: "10px", height: 40, px: 2, flexShrink: 0, boxShadow: "none", "&:hover": { bgcolor: accent, filter: "brightness(0.92)" }, "&.Mui-disabled": { bgcolor: "#E5E7EB", color: "#9CA3AF" } }}
                         >
-                            Add
+                            {assigning ? "Assigning…" : "Assign"}
                         </Button>
                     </Box>
 
@@ -353,13 +544,16 @@ export default function RolesPermissionsPage() {
                                         <Typography sx={{ fontSize: 11, color: "#9CA3AF" }}>Roll No: {m.rollNumber}</Typography>
                                     </Box>
                                     <Tooltip title="Move to another role" arrow>
-                                        <Button
-                                            onClick={(e) => openMove(e, m)}
-                                            startIcon={<SwapHorizIcon sx={{ fontSize: 16 }} />}
-                                            sx={{ textTransform: "none", fontWeight: 700, fontSize: 11.5, color: accent, border: `1px solid ${accent}40`, borderRadius: "8px", height: 30, px: 1.2, flexShrink: 0, "&:hover": { bgcolor: `${accent}0A`, borderColor: accent } }}
-                                        >
-                                            Move
-                                        </Button>
+                                        <span>
+                                            <Button
+                                                onClick={(e) => openMove(e, m)}
+                                                disabled={movingId === m.id}
+                                                startIcon={movingId === m.id ? <CircularProgress size={13} sx={{ color: accent }} /> : <SwapHorizIcon sx={{ fontSize: 16 }} />}
+                                                sx={{ textTransform: "none", fontWeight: 700, fontSize: 11.5, color: accent, border: `1px solid ${accent}40`, borderRadius: "8px", height: 30, px: 1.2, flexShrink: 0, "&:hover": { bgcolor: `${accent}0A`, borderColor: accent }, "&.Mui-disabled": { color: "#9CA3AF", borderColor: "#E5E7EB" } }}
+                                            >
+                                                {movingId === m.id ? "Moving…" : "Move"}
+                                            </Button>
+                                        </span>
                                     </Tooltip>
                                 </Box>
                             ))}

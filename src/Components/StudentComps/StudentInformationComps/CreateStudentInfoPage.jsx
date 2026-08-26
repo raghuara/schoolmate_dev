@@ -411,6 +411,7 @@ export default function CreateStudentInfoPage() {
     const prepareSiblingData = () => {
         return siblings.map(sibling => ({
             rollNumber: fetchRollNumber,
+            createRollNumber: RollNumber,
             siblingNameInEnglish: sibling.siblingNameInEnglish || "",
             siblingNameInTamil: sibling.siblingNameInTamil || "",
             siblingGender: sibling.siblingGender || "",
@@ -648,6 +649,7 @@ export default function CreateStudentInfoPage() {
         setIsLoading(true);
         try {
             const sendData = {
+                createRollNumber: RollNumber,
                 studentNameInEnglish: studentNameEnglish,
                 studentNameInTamil: studentNameTamil,
                 dateOfBirth: dateOfBirth,
@@ -661,12 +663,12 @@ export default function CreateStudentInfoPage() {
                 originalCertificateReceived: originalCertificateReceived,
                 admissionClass: selectedGradeId,
                 section: selectedSection,
-                RTEStudent: rteStudent,
+                rteStudent: rteStudent,
                 oldOrNewAdmission: isNewStudent ? "new" : "old",
-                AcademicYear: academicYear,
-                DateOfAdmission: dateOfAdmission || "",
-                JoiningClass: joiningClass || "",
-                JoiningSection: joiningSection || "",
+                academicYear: academicYear,
+                dateOfAdmission: dateOfAdmission || "",
+                joiningClass: joiningClass || "",
+                joiningSection: joiningSection || "",
             };
 
             const res = await axios.post(postStudentAcademicInformation, sendData, {
@@ -781,6 +783,7 @@ export default function CreateStudentInfoPage() {
         try {
             const sendData = {
                 rollNumber: fetchRollNumber,
+                createRollNumber: RollNumber,
                 religion: religion,
                 community: community,
                 motherTongue: motherTongue,
@@ -793,7 +796,7 @@ export default function CreateStudentInfoPage() {
                 pincode: pincode,
                 state: state,
                 country: "India",
-                BloodGroup: bloodGroup
+                bloodGroup: bloodGroup
             };
 
             const res = await axios.post(postStudentInformation, sendData, {
@@ -888,6 +891,7 @@ export default function CreateStudentInfoPage() {
         try {
             const sendData = {
                 rollNumber: fetchRollNumber,
+                createRollNumber: RollNumber,
                 fatherNameInEnglish: fatherNameEnglish,
                 fatherNameInTamil: fatherNameTamil,
                 fatherQualification: fatherQualification,
@@ -994,6 +998,7 @@ export default function CreateStudentInfoPage() {
         try {
             const sendData = {
                 rollNumber: fetchRollNumber,
+                createRollNumber: RollNumber,
                 guardianNameInEnglish: guardianNameEnglish,
                 guardianNameInTamil: guardianNameTamil,
                 guardianRelationship: guardianRelationship,
@@ -1126,33 +1131,34 @@ export default function CreateStudentInfoPage() {
         setIsLoading(true);
         try {
             const sendData = new FormData();
-            sendData.append("RollNumber", fetchRollNumber);
-            sendData.append("BirthCertificatefiletype", birthCertificateFileType || "");
-            sendData.append("BirthCertificatefile", birthCertificate);
-            sendData.append("PassportSizePhotofiletype", photoCertificateFileType || "");
-            sendData.append("PassportSizePhotofile", photoCertificate);
-            sendData.append("PreviousAcademicReportfiletype", academicCertificateFileType || "");
-            sendData.append("PreviousAcademicReportfile", academicCertificate);
-            sendData.append("TransferCertificatefiletype", transferCertificateFileType || "");
-            sendData.append("TransferCertificatefile", transferCertificate);
-            sendData.append("AddressProofStudentfiletype", addressCertificateFileType || "");
-            sendData.append("AddressProofStudentfile", addressCertificate);
-            sendData.append("AddressProofGuardianfiletype", addressGuardianCertificateFileType || "");
-            sendData.append("AddressProofGuardianfile", addressGuardianCertificate);
-            sendData.append("CasteCertificatefiletype", communityCertificateFileType || "");
-            sendData.append("CasteCertificatefile", communityCertificate);
-            sendData.append("IncomeCertificatefiletype", incomeCertificateFileType || "");
-            sendData.append("IncomeCertificatefile", incomeCertificate);
-            sendData.append("MedicalCertificatefiletype", medicalCertificateFileType || "");
-            sendData.append("MedicalCertificatefile", medicalCertificate);
-            sendData.append("SpecialNeedsDocumentfiletype", specialNeedsDocumentFileType || "");
-            sendData.append("SpecialNeedsDocumentfile", specialNeedsDocument);
-            sendData.append("ParentEmploymentProoffiletype", parentEmploymentProofFileType || "");
-            sendData.append("ParentEmploymentProoffile", parentEmploymentProof);
-            sendData.append("AffidavitDeclarationfiletype", affidavitDeclarationFileType || "");
-            sendData.append("AffidavitDeclarationfile", affidavitDeclaration);
-            sendData.append("Aadharfiletype", aadharCardFileType || "");
-            sendData.append("Aadharfile", aadharCard);
+            sendData.append("rollNumber", fetchRollNumber);
+            sendData.append("createRollNumber", RollNumber);
+            sendData.append("birthCertificatefiletype", birthCertificateFileType || "");
+            sendData.append("birthCertificatefile", birthCertificate);
+            sendData.append("passportSizePhotofiletype", photoCertificateFileType || "");
+            sendData.append("passportSizePhotofile", photoCertificate);
+            sendData.append("previousAcademicReportfiletype", academicCertificateFileType || "");
+            sendData.append("previousAcademicReportfile", academicCertificate);
+            sendData.append("transferCertificatefiletype", transferCertificateFileType || "");
+            sendData.append("transferCertificatefile", transferCertificate);
+            sendData.append("addressProofStudentfiletype", addressCertificateFileType || "");
+            sendData.append("addressProofStudentfile", addressCertificate);
+            sendData.append("addressProofGuardianfiletype", addressGuardianCertificateFileType || "");
+            sendData.append("addressProofGuardianfile", addressGuardianCertificate);
+            sendData.append("casteCertificatefiletype", communityCertificateFileType || "");
+            sendData.append("casteCertificatefile", communityCertificate);
+            sendData.append("incomeCertificatefiletype", incomeCertificateFileType || "");
+            sendData.append("incomeCertificatefile", incomeCertificate);
+            sendData.append("medicalCertificatefiletype", medicalCertificateFileType || "");
+            sendData.append("medicalCertificatefile", medicalCertificate);
+            sendData.append("specialNeedsDocumentfiletype", specialNeedsDocumentFileType || "");
+            sendData.append("specialNeedsDocumentfile", specialNeedsDocument);
+            sendData.append("parentEmploymentProoffiletype", parentEmploymentProofFileType || "");
+            sendData.append("parentEmploymentProoffile", parentEmploymentProof);
+            sendData.append("affidavitDeclarationfiletype", affidavitDeclarationFileType || "");
+            sendData.append("affidavitDeclarationfile", affidavitDeclaration);
+            sendData.append("aadharfiletype", aadharCardFileType || "");
+            sendData.append("aadharfile", aadharCard);
 
             const res = await axios.post(postStudentDocumentInformation, sendData, {
                 headers: {
@@ -1215,6 +1221,7 @@ export default function CreateStudentInfoPage() {
         try {
             const sendData = {
                 rollNumber: fetchRollNumber,
+                createRollNumber: RollNumber,
                 asthma: medicalConditions.asthma || "no",
                 diabetes: medicalConditions.diabetes || "no",
                 heartProblem: medicalConditions.heartProblem || "no",
