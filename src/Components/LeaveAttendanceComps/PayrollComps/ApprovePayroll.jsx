@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import axios from 'axios';
+import axios from '../leaveAxios';
 import {
     Box, Typography, Button, Grid, IconButton, Divider,
     Card, CardContent, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,

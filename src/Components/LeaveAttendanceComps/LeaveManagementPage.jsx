@@ -23,7 +23,7 @@ import ListAltOutlinedIcon from '@mui/icons-material/ListAltOutlined';
 import EventNoteOutlinedIcon from '@mui/icons-material/EventNoteOutlined';
 import HistoryToggleOffIcon from '@mui/icons-material/HistoryToggleOff';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import axios from './leaveAxios';
 import { getLeaveApprovalDashboard, GetleaveTypes } from '../../Api/Api';
 import SnackBar from '../SnackBar';
 import { useSelector } from 'react-redux';

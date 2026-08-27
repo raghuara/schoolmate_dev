@@ -12,7 +12,7 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import HistoryToggleOffIcon from '@mui/icons-material/HistoryToggleOff';
 import InboxIcon from '@mui/icons-material/Inbox';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
-import axios from 'axios';
+import axios from './leaveAxios';
 import { useSelector } from 'react-redux';
 import { getLeaveApprovalDashboard } from '../../Api/Api';
 import { isSuperAdminId } from './roleUtils';

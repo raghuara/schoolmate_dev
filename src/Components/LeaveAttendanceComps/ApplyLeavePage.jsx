@@ -14,7 +14,7 @@ import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import SendIcon from '@mui/icons-material/Send';
 import CloseIcon from '@mui/icons-material/Close';
 import dayjs from 'dayjs';
-import axios from 'axios';
+import axios from './leaveAxios';
 import { useSelector } from 'react-redux';
 import { postLeaveRequest, GetEmployeeLeaveBalance, GetWorkingcalendar, GetleaveTypes } from '../../Api/Api';
 import SnackBar from '../SnackBar';

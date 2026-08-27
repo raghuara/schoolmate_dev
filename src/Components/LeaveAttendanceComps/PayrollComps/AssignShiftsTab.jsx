@@ -4,7 +4,7 @@ import {
     Menu, MenuItem, Dialog, DialogContent, ToggleButtonGroup, ToggleButton,
     Tooltip, Chip, Divider, Checkbox, CircularProgress, ListItemIcon,
 } from '@mui/material';
-import axios from 'axios';
+import axios from '../leaveAxios';
 import SearchIcon from '@mui/icons-material/Search';
 import SwapHorizRoundedIcon from '@mui/icons-material/SwapHorizRounded';
 import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded';

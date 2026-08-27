@@ -5,7 +5,7 @@ import {
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Avatar,
     Dialog, DialogContent, DialogActions, CircularProgress, Tooltip, Paper,
 } from '@mui/material';
-import axios from 'axios';
+import axios from '../leaveAxios';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SaveOutlinedIcon from '@mui/icons-material/SaveOutlined';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';

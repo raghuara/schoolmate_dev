@@ -26,7 +26,7 @@ import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import InsertChartOutlinedIcon from '@mui/icons-material/InsertChartOutlined';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
-import axios from 'axios';
+import axios from './leaveAxios';
 import { reportsLeaveManagement, reportsLeaveManagementFullReport } from '../../Api/Api';
 import SnackBar from '../SnackBar';
 

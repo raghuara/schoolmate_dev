@@ -27,7 +27,7 @@ import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-import axios from 'axios';
+import axios from '../leaveAxios';
 import SnackBar from '../../SnackBar';
 import AssignShiftsTab from './AssignShiftsTab';
 import LeaveTypesTab from './leaveMaster/LeaveTypesTab';
