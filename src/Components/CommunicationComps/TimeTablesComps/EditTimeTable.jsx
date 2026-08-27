@@ -264,7 +264,7 @@ export default function EditTimeTablesPage() {
                                     md: 6,
                                     lg: 6
                                 }}>
-                                <Typography sx={fieldLabelSx}>Class <span style={requiredSx}>*</span></Typography>
+                                <Typography sx={fieldLabelSx}>Class <span style={{ color: "#8A93A0", fontWeight: 400, fontSize: "12px" }}>(locked)</span></Typography>
                                 <Autocomplete
                                     disablePortal
                                     disabled
@@ -318,7 +318,7 @@ export default function EditTimeTablesPage() {
                                     md: 6,
                                     lg: 6
                                 }}>
-                                <Typography sx={fieldLabelSx}>Section <span style={requiredSx}>*</span></Typography>
+                                <Typography sx={fieldLabelSx}>Section <span style={{ color: "#8A93A0", fontWeight: 400, fontSize: "12px" }}>(locked)</span></Typography>
                                 <TextField
                                     sx={{ backgroundColor: "#fff" }}
                                     id="outlined-size-small"

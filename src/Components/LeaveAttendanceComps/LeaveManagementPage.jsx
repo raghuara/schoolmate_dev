@@ -30,6 +30,8 @@ import { useSelector } from 'react-redux';
 import ApplyLeavePage from './ApplyLeavePage';
 import ApprovalWorkflowPage from './ApprovalWorkflowPage';
 import MyLeaveStatusPage from './MyLeaveStatusPage';
+import { selectUserTypeID, selectSubMenuPermissions } from '../../Redux/Slices/AuthSlice';
+import { isSuperAdminId } from './roleUtils';
 
 const token = "123";
 
@@ -112,9 +114,21 @@ export default function LeaveManagementPage({
 }) {
     const navigate = useNavigate();
     const user = useSelector((state) => state.auth);
-    const userType = user.userType;
-    const isAdmin = userType === 'superadmin' || userType === 'admin';
-    const isSuperAdmin = userType === 'superadmin';
+
+    // ── Access comes from the login response, not from userType ───────────────
+    const leaveDetailPerms = useSelector(selectSubMenuPermissions('leaveandpayroll', 'leaveandattendanceleavemanagement'));
+    const approvalPerms = useSelector(selectSubMenuPermissions('leaveandpayroll', 'leavemanagementapplyleaveapproval'));
+
+    // Seeing every staff member's leave record, and the KPI roll-up built from it.
+    const canViewLeaveDetails = leaveDetailPerms?.allowleavedetails === 'Y';
+    // Acting on other people's requests.
+    const canApproveLeaves = approvalPerms?.staffleaverequests === 'Y';
+
+    // Role rule, not an access grant: Super Admin leave is auto-approved, so they
+    // never raise a request and have no "My Requests" view. There is no permission
+    // key for this today, so it keys off userTypeID from the login response.
+    const userTypeID = useSelector(selectUserTypeID);
+    const isSuperAdmin = isSuperAdminId(userTypeID);
 
     // ─── Sub-view (Applications / Apply Leave / Leave Approval) ──────────────
     const [subView, setSubViewState] = useState(initialSubView);
@@ -129,7 +143,7 @@ export default function LeaveManagementPage({
     };
     // Non-admins should never land on approval, even if parent requests it
     const effectiveSubView =
-        (!isAdmin && subView === 'approval') || (isSuperAdmin && subView === 'myStatus')
+        (!canApproveLeaves && subView === 'approval') || (isSuperAdmin && subView === 'myStatus')
             ? 'applications'
             : subView;
 
@@ -421,7 +435,7 @@ export default function LeaveManagementPage({
                         ...(!isSuperAdmin ? [
                             { key: 'myStatus', label: 'My Requests', icon: HistoryToggleOffIcon, color: '#7C3AED' },
                         ] : []),
-                        ...(isAdmin ? [
+                        ...(canApproveLeaves ? [
                             { key: 'approval', label: 'Leave Approval', icon: FactCheckOutlinedIcon, color: '#2563EB' },
                         ] : []),
                     ];
@@ -477,7 +491,7 @@ export default function LeaveManagementPage({
                 )}
 
                 {/* ─── Leave Approval sub-view (admin only) ─── */}
-                {effectiveSubView === 'approval' && isAdmin && (
+                {effectiveSubView === 'approval' && canApproveLeaves && (
                     <ApprovalWorkflowPage isEmbedded={true} />
                 )}
 
@@ -487,7 +501,7 @@ export default function LeaveManagementPage({
                     {/* ─── Main Column ─── */}
                     <Grid size={{ xs: 12, lg: 9 }}>
                         {/* KPI Cards (hidden for teacher) */}
-                        {userType !== 'teacher' && (
+                        {canViewLeaveDetails && (
                             <Grid container spacing={2} sx={{ mb: 2 }}>
                                 {kpiCards.map((card) => {
                                     const Icon = card.icon;
@@ -1006,7 +1020,7 @@ export default function LeaveManagementPage({
                                     </Button>
                                 </Box>
 
-                                {(userType === 'superadmin' || userType === 'admin') && (
+                                {canApproveLeaves && (
                                     <Box sx={{
                                         p: 1.2, borderRadius: '10px',
                                         bgcolor: '#EFF6FF', border: '1px solid #BFDBFE',

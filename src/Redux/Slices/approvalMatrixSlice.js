@@ -13,7 +13,10 @@ export const APPROVAL_MODULES = [
     { key: 'circular', label: 'Circular', group: 'Communication' },
     { key: 'homework', label: 'Homework', group: 'Communication' },
     { key: 'createfeesstructure', label: 'Create Fee Structure', group: 'Fee & Finance' },
-    { key: 'leaveattendance', label: 'Leave & Attendance', group: 'Leave & Attendance' },
+    // Leave approvals are single-approver, not multi-level: one user type either
+    // approves that kind of leave or nobody does. singleApprover drives the UI.
+    { key: 'studentleave', label: 'Student Leave', group: 'Leave & Attendance', singleApprover: true },
+    { key: 'staffleave', label: 'Staff Leave', group: 'Leave & Attendance', singleApprover: true },
 ];
 
 // Named keys for call sites. Always use these instead of typing the string -
@@ -25,7 +28,8 @@ export const APPROVAL_SUBMENUS = {
     CIRCULAR: 'circular',
     HOMEWORK: 'homework',
     FEE_STRUCTURE: 'createfeesstructure',
-    LEAVE_ATTENDANCE: 'leaveattendance',
+    STUDENT_LEAVE: 'studentleave',
+    STAFF_LEAVE: 'staffleave',
 };
 
 export const fetchApprovalMatrix = createAsyncThunk(

@@ -25,6 +25,7 @@ import FactCheckIcon from '@mui/icons-material/FactCheck';
 import SavingsIcon from '@mui/icons-material/Savings';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
+import usePayrollPermissions from './usePayrollPermissions';
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip,
     ResponsiveContainer, PieChart, Pie, Cell,
@@ -89,7 +90,9 @@ const monthOptions = () => {
 export default function PayrollOverview({ isEmbedded = false, onBack }) {
     const navigate = useNavigate();
     const user = useSelector((state) => state.auth);
-    const userType = user.userType;
+
+    // Access is decided by the payrollmanagement sub menu, not by userType.
+    const { canView } = usePayrollPermissions();
 
     const [selectedMonth, setSelectedMonth] = useState(monthOptions()[0]);
 
@@ -327,11 +330,7 @@ export default function PayrollOverview({ isEmbedded = false, onBack }) {
                 </Tooltip>
             </Box>
             <Grid container spacing={2}>
-                {payrollModules.filter(m =>
-                    userType === 'Super Admin' || userType === 'admin'
-                        ? true
-                        : m.text === 'Bank Details' || m.text === 'Audit-Ready Salary Register'
-                ).map((m, idx) => {
+                {payrollModules.map((m, idx) => {
                     const Icon = m.icon;
                     return (
                         <Grid size={{ xs: 12, sm: 6, md: 4 }} key={idx}>
@@ -386,7 +385,7 @@ export default function PayrollOverview({ isEmbedded = false, onBack }) {
                 '&::-webkit-scrollbar-thumb': { bgcolor: '#D1D5DB', borderRadius: 10 },
             }}>
                 {renderCycleProgress()}
-                {(userType === 'Super Admin' || userType === 'admin' || userType === 'staff') && renderModules()}
+                {canView && renderModules()}
             </Box>
         </Box>
     );

@@ -33,6 +33,7 @@ import * as XLSX from 'xlsx';
 import axios from 'axios';
 import SnackBar from '../../SnackBar';
 import { salaryRegisterDashboard } from '../../../Api/Api';
+import usePayrollPermissions from './usePayrollPermissions';
 
 // ─── Payroll Cycle Stages (mirrors PayrollOverview) ─────────────────────────
 const PAYROLL_STAGES = [
@@ -71,8 +72,11 @@ export default function SalaryRegister() {
     const isExpanded = useSelector((state) => state.sidebar.isExpanded);
     const websiteSettings = useSelector(selectWebsiteSettings);
     const user = useSelector((state) => state.auth);
-    const userType = user?.userType;
-    const canApprove = userType === 'superadmin' || userType === 'admin';
+    // Approving a register and marking it credited both change an existing
+    // record, so they follow the payrollmanagement "edit" permission. This was
+    // previously a userType string match that never matched "Super Admin".
+    const { canEdit } = usePayrollPermissions();
+    const canApprove = canEdit;
 
     // Cycle stage — persisted per month in localStorage.
     // 1 = Salary Calculation (data loaded), 2 = Manager Approval done, 3 = Salary Credited.
@@ -1190,6 +1194,7 @@ export default function SalaryRegister() {
                             ? <CircularProgress size={14} sx={{ color: '#fff' }} />
                             : <HowToRegIcon sx={{ fontSize: 16 }} />}
                         onClick={handleApproveRegister}
+                        disabled={!canEdit}
                         disabled={actionLoading}
                         sx={{
                             textTransform: 'none', fontSize: '13px', fontWeight: 700,
@@ -1267,6 +1272,7 @@ export default function SalaryRegister() {
                             ? <CircularProgress size={14} sx={{ color: '#fff' }} />
                             : <CheckCircleIcon sx={{ fontSize: 16 }} />}
                         onClick={handleMarkCredited}
+                        disabled={!canEdit}
                         disabled={actionLoading}
                         sx={{
                             textTransform: 'none', fontSize: '13px', fontWeight: 700,

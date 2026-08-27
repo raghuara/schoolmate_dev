@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
     Box,
     Typography,
@@ -60,6 +60,7 @@ import FilterAltOutlinedIcon from "@mui/icons-material/FilterAltOutlined";
 import ManageHistoryOutlinedIcon from "@mui/icons-material/ManageHistoryOutlined";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
+import { selectSubMenuPermissions } from "../../Redux/Slices/AuthSlice";
 
 import SnackBar from "../SnackBar";
 import { fetchLeaveTypes } from "./leavePolicyApi";
@@ -103,13 +104,17 @@ const STATUS_STYLE = {
 
 const ACADEMIC_YEARS = ["2026-2027", "2025-2026", "2024-2025"];
 
+// "needs" names the permission key from the leaveandattendanceattendanceaccess
+// sub menu. Today's Attendance rides along with Add Attendance - whoever marks
+// attendance has to be able to see what was marked. Leave Management has no
+// "needs" because everyone can reach it; its inner views are gated separately.
 const TABS = [
-    { key: "dashboard", label: "Dashboard", icon: SpaceDashboardOutlinedIcon },
-    { key: "add", label: "Add Attendance", icon: PersonAddAltIcon },
-    { key: "today", label: "Today's Attendance", icon: CalendarMonthOutlinedIcon },
-    { key: "overview", label: "Overview", icon: VisibilityOutlinedIcon },
+    { key: "dashboard", label: "Dashboard", icon: SpaceDashboardOutlinedIcon, needs: "allowdashboardview" },
+    { key: "add", label: "Add Attendance", icon: PersonAddAltIcon, needs: "allowaddattendance" },
+    { key: "today", label: "Today's Attendance", icon: CalendarMonthOutlinedIcon, needs: "allowaddattendance" },
+    { key: "overview", label: "Overview", icon: VisibilityOutlinedIcon, needs: "allowoverview" },
     { key: "leave", label: "Leave Management", icon: ListAltOutlinedIcon },
-    { key: "reports", label: "Reports", icon: BarChartOutlinedIcon },
+    { key: "reports", label: "Reports", icon: BarChartOutlinedIcon, needs: "allowreports" },
 ];
 
 
@@ -219,8 +224,10 @@ const toDateValue = (date) =>
 /* Signed-in user — My Requests is filtered to them */
 /* The signed-in user now comes from state.auth, not a constant */
 
+// "All Requests" lists every staff member's application, so it needs
+// allowleavedetails. Apply Leave and My Requests are personal - always available.
 const LEAVE_VIEWS = [
-    { key: "applications", label: "Applications", icon: ListAltOutlinedIcon },
+    { key: "applications", label: "All Requests", icon: ListAltOutlinedIcon, needs: "allowleavedetails" },
     { key: "apply", label: "Apply Leave", icon: EventAvailableOutlinedIcon },
     { key: "my", label: "My Requests", icon: HistoryToggleOffIcon },
 ];
@@ -467,6 +474,7 @@ export default function LeaveAttendancePage() {
     const [loadingOverview, setLoadingOverview] = useState(false);
     // ─── Leave Management tab ───
     const [leaveView, setLeaveView] = useState("applications");
+
     const [leaveFilter, setLeaveFilter] = useState("All Leaves");
     const [leaveSearch, setLeaveSearch] = useState("");
     const [leaveType, setLeaveType] = useState("All Types");
@@ -525,6 +533,35 @@ export default function LeaveAttendancePage() {
     // ─── Leave ↔ api/leave ───
     // academicYear comes from the header select, so the calls follow whatever is chosen there
     const authUser = useSelector((state) => state.auth);
+
+    // ── RBAC ──────────────────────────────────────────────────────────────────
+    const attendancePerms = useSelector(selectSubMenuPermissions("leaveandpayroll", "leaveandattendanceattendanceaccess"));
+    const leaveMgmtPerms = useSelector(selectSubMenuPermissions("leaveandpayroll", "leaveandattendanceleavemanagement"));
+
+    const canAddAttendance = attendancePerms?.allowaddattendance === "Y";
+
+    const visibleTabs = useMemo(
+        () => TABS.filter((t) => !t.needs || attendancePerms?.[t.needs] === "Y"),
+        [attendancePerms]
+    );
+    const visibleLeaveViews = useMemo(
+        () => LEAVE_VIEWS.filter((v) => !v.needs || leaveMgmtPerms?.[v.needs] === "Y"),
+        [leaveMgmtPerms]
+    );
+
+    // Permissions come from the login response, so the default may only become
+    // invalid once they resolve - fall back instead of rendering a blank pane.
+    useEffect(() => {
+        if (visibleTabs.length && !visibleTabs.some((t) => t.key === tab)) {
+            setTab(visibleTabs[0].key);
+        }
+    }, [visibleTabs, tab]);
+
+    useEffect(() => {
+        if (visibleLeaveViews.length && !visibleLeaveViews.some((v) => v.key === leaveView)) {
+            setLeaveView(visibleLeaveViews[0].key);
+        }
+    }, [visibleLeaveViews, leaveView]);
 
     /* The signed-in person's own status for today, behind the dashboard strip. */
     const [myStatus, setMyStatus] = useState(null);
@@ -1026,12 +1063,13 @@ export default function LeaveAttendancePage() {
               )
     );
 
+    // Shortcuts must never point at a tab this user cannot open.
     const quickNav = [
         { title: "Today's Attendance", desc: "Logins of all staff today", tone: BLUE, icon: CalendarMonthOutlinedIcon, target: "today" },
         { title: "Overview", desc: "Monthly attendance trends", tone: PURPLE, icon: VisibilityOutlinedIcon, target: "overview" },
         { title: "Leave Management", desc: "Requests waiting for approval", tone: GREEN, icon: ListAltOutlinedIcon, target: "leave" },
         { title: "Reports", desc: "Download attendance reports", tone: AMBER, icon: BarChartOutlinedIcon, target: "reports" },
-    ];
+    ].filter((c) => visibleTabs.some((t) => t.key === c.target));
 
     /* ─────────────── Attendance table (shared) ─────────────── */
     const renderAttendanceTable = () => (
@@ -3406,7 +3444,7 @@ export default function LeaveAttendancePage() {
                         flexWrap: "wrap",
                     }}
                 >
-                    {LEAVE_VIEWS.map((view) => {
+                    {visibleLeaveViews.map((view) => {
                         const ViewIcon = view.icon;
                         const active = leaveView === view.key;
                         return (
@@ -4562,7 +4600,7 @@ export default function LeaveAttendancePage() {
                 >
                     Biometric Mapping
                 </Button>
-                <Button
+                {canAddAttendance && <Button
                     variant="contained"
                     startIcon={<AddIcon />}
                     onClick={() => setTab("add")}
@@ -4579,7 +4617,7 @@ export default function LeaveAttendancePage() {
                     }}
                 >
                     Mark Attendance
-                </Button>
+                </Button>}
                 <TextField
                     select
                     size="small"
@@ -4607,7 +4645,7 @@ export default function LeaveAttendancePage() {
                     flexShrink: 0,
                 }}
             >
-                {TABS.map((item) => {
+                {visibleTabs.map((item) => {
                     const TabIcon = item.icon;
                     const active = tab === item.key;
                     return (

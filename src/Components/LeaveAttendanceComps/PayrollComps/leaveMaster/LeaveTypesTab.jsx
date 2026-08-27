@@ -84,7 +84,10 @@ const getPeriodLabel = (period) => {
     return 'year';
 };
 
-export default function LeaveTypesTab({ academicYear, authUser, showSnack }) {
+export default function LeaveTypesTab({ academicYear, authUser, showSnack, canCreate = false, canEdit = false }) {
+    // The login response grants view/create/edit for this sub menu. There is no
+    // separate "delete" key, so removing a leave type is treated as an edit.
+    const canDelete = canEdit;
     const [policies, setPolicies] = useState([]);
     const [isLoadingPolicies, setIsLoadingPolicies] = useState(false);
     const [isSavingPolicy, setIsSavingPolicy] = useState(false);
@@ -352,18 +355,20 @@ export default function LeaveTypesTab({ academicYear, authUser, showSnack }) {
                             </Box>
                         ))}
                     </Box>
-                    <Button
-                        variant="contained"
-                        startIcon={<AddIcon />}
-                        onClick={handleAddPolicy}
-                        sx={{
-                            textTransform: 'none', bgcolor: PRIMARY, borderRadius: '30px',
-                            fontSize: '12px', fontWeight: 600, px: 2, height: 32,
-                            '&:hover': { bgcolor: PRIMARY_DARK },
-                        }}
-                    >
-                        Add Leave Type
-                    </Button>
+                    {canCreate && (
+                        <Button
+                            variant="contained"
+                            startIcon={<AddIcon />}
+                            onClick={handleAddPolicy}
+                            sx={{
+                                textTransform: 'none', bgcolor: PRIMARY, borderRadius: '30px',
+                                fontSize: '12px', fontWeight: 600, px: 2, height: 32,
+                                '&:hover': { bgcolor: PRIMARY_DARK },
+                            }}
+                        >
+                            Add Leave Type
+                        </Button>
+                    )}
                 </Box>
 
                 <Box sx={{
@@ -392,15 +397,17 @@ export default function LeaveTypesTab({ academicYear, authUser, showSnack }) {
                         <Typography sx={{ fontSize: '13px', color: '#888', mb: 1 }}>
                             No leave types created yet
                         </Typography>
-                        <Button size="small" variant="outlined" startIcon={<AddIcon />}
-                            onClick={handleAddPolicy}
-                            sx={{
-                                textTransform: 'none', fontSize: '12px', fontWeight: 600, borderRadius: '30px',
-                                borderColor: PRIMARY, color: PRIMARY,
-                                '&:hover': { borderColor: PRIMARY_DARK, bgcolor: PRIMARY_LIGHT },
-                            }}>
-                            Create your first leave type
-                        </Button>
+                        {canCreate && (
+                            <Button size="small" variant="outlined" startIcon={<AddIcon />}
+                                onClick={handleAddPolicy}
+                                sx={{
+                                    textTransform: 'none', fontSize: '12px', fontWeight: 600, borderRadius: '30px',
+                                    borderColor: PRIMARY, color: PRIMARY,
+                                    '&:hover': { borderColor: PRIMARY_DARK, bgcolor: PRIMARY_LIGHT },
+                                }}>
+                                Create your first leave type
+                            </Button>
+                        )}
                     </Box>
                 ) : (
                     <Box sx={{
@@ -456,16 +463,20 @@ export default function LeaveTypesTab({ academicYear, authUser, showSnack }) {
                                             </Box>
                                         </Box>
                                         <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
-                                            <Tooltip title="Edit" arrow>
-                                                <IconButton size="small" onClick={() => handleEditPolicy(policy)} sx={{ width: 26, height: 26 }}>
-                                                    <EditIcon sx={{ fontSize: 14, color: '#1976D2' }} />
-                                                </IconButton>
-                                            </Tooltip>
-                                            <Tooltip title="Delete" arrow>
-                                                <IconButton size="small" onClick={() => handleDeletePolicyClick(policy)} sx={{ width: 26, height: 26 }}>
-                                                    <DeleteIcon sx={{ fontSize: 14, color: '#f44336' }} />
-                                                </IconButton>
-                                            </Tooltip>
+                                            {canEdit && (
+                                                <Tooltip title="Edit" arrow>
+                                                    <IconButton size="small" onClick={() => handleEditPolicy(policy)} sx={{ width: 26, height: 26 }}>
+                                                        <EditIcon sx={{ fontSize: 14, color: '#1976D2' }} />
+                                                    </IconButton>
+                                                </Tooltip>
+                                            )}
+                                            {canDelete && (
+                                                <Tooltip title="Delete" arrow>
+                                                    <IconButton size="small" onClick={() => handleDeletePolicyClick(policy)} sx={{ width: 26, height: 26 }}>
+                                                        <DeleteIcon sx={{ fontSize: 14, color: '#f44336' }} />
+                                                    </IconButton>
+                                                </Tooltip>
+                                            )}
                                         </Box>
                                     </Box>
 
@@ -1007,7 +1018,7 @@ export default function LeaveTypesTab({ academicYear, authUser, showSnack }) {
                     </Button>
                     <Button
                         onClick={handleSavePolicy}
-                        disabled={isSavingPolicy}
+                        disabled={isSavingPolicy || !(editingPolicy ? canEdit : canCreate)}
                         sx={{
                             bgcolor: PRIMARY, borderRadius: '30px', textTransform: 'none',
                             px: 3, height: '30px', color: '#fff', fontSize: 13, fontWeight: 600,

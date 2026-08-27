@@ -38,6 +38,7 @@ import {
     parseTimeToMinutes, formatTime12, formatHrs,
 } from './leaveMaster/LeaveMasterShared';
 import { selectWebsiteSettings } from '../../../Redux/Slices/websiteSettingsSlice';
+import { selectSubMenuPermissions } from '../../../Redux/Slices/AuthSlice';
 import { selectAcademicYear } from '../../../Redux/Slices/academicYearSlice';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
@@ -45,6 +46,10 @@ import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import LockIcon from '@mui/icons-material/Lock';
 import dayjs from 'dayjs';
 import { postleavepolicy, GetLeavePolicy, postworkingcalendar, GetWorkingcalendar } from '../../../Api/Api';
+
+// Tab identities are fixed values, not positions - hiding a tab must never
+// re-index the others.
+const TAB = { POLICY: 0, LEAVE_TYPES: 1, CALENDAR: 2, SHIFTS: 3 };
 
 const PAYOUT_FREQUENCIES = ['Monthly', 'Quarterly', 'Half-Yearly', 'Yearly'];
 
@@ -242,7 +247,47 @@ export default function LeaveMasterScreen() {
 
     const academicYear = useSelector(selectAcademicYear) || getCurrentAcademicYear();
 
-    const [activeTab, setActiveTab] = useState(location.state?.activeTab ?? 0);
+    // ── RBAC ──────────────────────────────────────────────────────────────────
+    // Each tab is a separate sub menu in the login response. "view" decides whether
+    // the tab is reachable at all; "create" gates first-time saves and "edit" gates
+    // updates to something already saved.
+    const policyPerms = useSelector(selectSubMenuPermissions('leaveandpayroll', 'leavepolicymasterpolicysetup'));
+    const leaveTypePerms = useSelector(selectSubMenuPermissions('leaveandpayroll', 'leavepolicymasterleavetypes'));
+    const calendarPerms = useSelector(selectSubMenuPermissions('leaveandpayroll', 'leavepolicymasterworkingcalendar'));
+
+    const canViewPolicy = policyPerms?.view === 'Y';
+    const canCreatePolicy = policyPerms?.create === 'Y';
+    const canEditPolicy = policyPerms?.edit === 'Y';
+
+    const canViewLeaveTypes = leaveTypePerms?.view === 'Y';
+    const canCreateLeaveTypes = leaveTypePerms?.create === 'Y';
+    const canEditLeaveTypes = leaveTypePerms?.edit === 'Y';
+
+    const canViewCalendar = calendarPerms?.view === 'Y';
+    const canCreateCalendar = calendarPerms?.create === 'Y';
+    const canEditCalendar = calendarPerms?.edit === 'Y';
+
+    const visibleTabs = useMemo(() => ([
+        canViewPolicy && TAB.POLICY,
+        canViewLeaveTypes && TAB.LEAVE_TYPES,
+        canViewCalendar && TAB.CALENDAR,
+        TAB.SHIFTS,
+    ].filter((v) => v !== false)), [canViewPolicy, canViewLeaveTypes, canViewCalendar]);
+
+    const requestedTab = location.state?.activeTab;
+    const [activeTab, setActiveTab] = useState(
+        visibleTabs.includes(requestedTab) ? requestedTab : (visibleTabs[0] ?? TAB.SHIFTS)
+    );
+
+    // Permissions arrive with the login response, so the first allowed tab may only
+    // be known after the initial render - fall back rather than showing a blank pane.
+    useEffect(() => {
+        if (!visibleTabs.includes(activeTab)) {
+            setActiveTab(visibleTabs[0] ?? TAB.SHIFTS);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [visibleTabs]);
+
 
     const [open, setOpen] = useState(false);
     const [status, setStatus] = useState(false);
@@ -1050,9 +1095,10 @@ export default function LeaveMasterScreen() {
                                     '& .MuiTabScrollButton-root': { width: 28 },
                                 }}
                             >
-                                <Tab label="Policy Setup" />
-                                <Tab label="Leave Types" />
-                                <Tab
+                                {canViewPolicy && <Tab value={TAB.POLICY} label="Policy Setup" />}
+                                {canViewLeaveTypes && <Tab value={TAB.LEAVE_TYPES} label="Leave Types" />}
+                                {canViewCalendar && <Tab
+                                    value={TAB.CALENDAR}
                                     label={
                                         <Box sx={{ position: 'relative', display: 'inline-flex', alignItems: 'center', pr: isNextMonthMissing ? 1.2 : 0 }}>
                                             Working Calendar
@@ -1081,8 +1127,8 @@ export default function LeaveMasterScreen() {
                                             )}
                                         </Box>
                                     }
-                                />
-                                <Tab label="Assign Shifts" />
+                                />}
+                                <Tab value={TAB.SHIFTS} label="Assign Shifts" />
                             </Tabs>
                         </Grid>
 
@@ -1091,7 +1137,7 @@ export default function LeaveMasterScreen() {
 
                 <Box sx={{ px: 2, pt: '75px', pb: 4 }}>
 
-                    {activeTab === 0 && (<>
+                    {activeTab === TAB.POLICY && canViewPolicy && (<>
                         <Section icon={RestartAltIcon} title="Auto-Renew" color="#7C3AED"
                             subtitle="Roll this policy over into the next academic year automatically.">
                             <ToggleRow
@@ -1853,6 +1899,8 @@ export default function LeaveMasterScreen() {
                             const inEditWindow = todayMonth === Number(startMonth) && todayDay <= 20;
                             const updateLocked = hasExistingPolicy && !inEditWindow;
                             const isUpdate = hasExistingPolicy;
+                            // First save needs "create"; changing a saved policy needs "edit".
+                            const canSubmitPolicy = isUpdate ? canEditPolicy : canCreatePolicy;
                             const buttonLabel = isUpdate ? 'Update Policy' : 'Save Policy';
                             const buttonLoadingLabel = isUpdate ? 'Updating…' : 'Saving…';
                             const startMonthName = MONTH_NAMES[startMonth - 1];
@@ -1938,7 +1986,7 @@ export default function LeaveMasterScreen() {
                                             <Box sx={{ display: 'inline-flex' }}>
                                                 <Button
                                                     onClick={handleSave}
-                                                    disabled={isSavingMaster || isLoadingMaster || updateLocked}
+                                                    disabled={isSavingMaster || isLoadingMaster || updateLocked || !canSubmitPolicy}
                                                     startIcon={
                                                         isSavingMaster
                                                             ? <CircularProgress size={14} sx={{ color: '#fff' }} />
@@ -1979,15 +2027,17 @@ export default function LeaveMasterScreen() {
                         })()}
                     </>)}
 
-                    {activeTab === 1 && (
+                    {activeTab === TAB.LEAVE_TYPES && canViewLeaveTypes && (
                         <LeaveTypesTab
                             academicYear={academicYear}
                             authUser={authUser}
                             showSnack={showSnack}
+                            canCreate={canCreateLeaveTypes}
+                            canEdit={canEditLeaveTypes}
                         />
                     )}
 
-                    {activeTab === 2 && (<>
+                    {activeTab === TAB.CALENDAR && canViewCalendar && (<>
                         <Section icon={CalendarMonthIcon} title="Working Calendar" color="#0D9488"
                             subtitle="Define default working days and customize each month — click a date to cycle: Working → Holiday → Mandatory">
 
@@ -2135,7 +2185,7 @@ export default function LeaveMasterScreen() {
                                                             ? <EditIcon sx={{ fontSize: 16 }} />
                                                             : <SaveIcon sx={{ fontSize: 16 }} />
                                                 }
-                                                disabled={isReadOnlyMonth || isSavingMonth || !canSaveMonth}
+                                                disabled={isReadOnlyMonth || isSavingMonth || !canSaveMonth || !(isMonthUpdate ? canEditCalendar : canCreateCalendar)}
                                                 onClick={handleSaveMonth}
                                                 sx={{
                                                     textTransform: 'none',
@@ -2292,7 +2342,7 @@ export default function LeaveMasterScreen() {
                         </Section>
                     </>)}
 
-                    {activeTab === 3 && (
+                    {activeTab === TAB.SHIFTS && (
                         <AssignShiftsTab
                             shifts={config.shifts || []}
                             websiteSettings={websiteSettings}
