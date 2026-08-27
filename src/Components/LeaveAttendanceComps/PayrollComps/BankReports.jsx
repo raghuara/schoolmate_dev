@@ -27,6 +27,7 @@ import * as XLSX from 'xlsx';
 import axios from 'axios';
 import SnackBar from '../../SnackBar';
 import { employeeBankDetailsDashboard, updateEmployeeBankDetailsByRollnumber } from '../../../Api/Api';
+import usePayrollPermissions from './usePayrollPermissions';
 
 // ─── Theme (matches Salary Structures / LeaveAttendancePage) ───────────────
 const PRIMARY = '#059669';
@@ -53,6 +54,7 @@ export default function BankReports() {
 
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const { canCreate, canEdit } = usePayrollPermissions();
     const [searchTerm, setSearchTerm] = useState('');
     const [openDialog, setOpenDialog] = useState(false);
     const [selectedEmployee, setSelectedEmployee] = useState(null);
@@ -666,22 +668,24 @@ export default function BankReports() {
                                                     />
                                                 </TableCell>
                                                 <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.2 }}>
-                                                    <Tooltip arrow title={verified ? 'Edit bank details' : 'Add bank details'}>
-                                                        <IconButton
-                                                            size="small"
-                                                            onClick={() => handleOpenBankDialog(emp)}
-                                                            sx={{
-                                                                bgcolor: verified ? '#EFF6FF' : '#ECFDF5',
-                                                                borderRadius: '8px',
-                                                                border: `1px solid ${verified ? '#BFDBFE' : '#A7F3D0'}`,
-                                                                '&:hover': { bgcolor: verified ? '#DBEAFE' : '#D1FAE5' },
-                                                            }}
-                                                        >
-                                                            {verified
-                                                                ? <EditIcon sx={{ fontSize: 14, color: '#2563EB' }} />
-                                                                : <AddCircleOutlineIcon sx={{ fontSize: 14, color: PRIMARY }} />}
-                                                        </IconButton>
-                                                    </Tooltip>
+                                                    {(canCreate || canEdit) && (
+                                                        <Tooltip arrow title={verified ? 'Edit bank details' : 'Add bank details'}>
+                                                            <IconButton
+                                                                size="small"
+                                                                onClick={() => handleOpenBankDialog(emp)}
+                                                                sx={{
+                                                                    bgcolor: verified ? '#EFF6FF' : '#ECFDF5',
+                                                                    borderRadius: '8px',
+                                                                    border: `1px solid ${verified ? '#BFDBFE' : '#A7F3D0'}`,
+                                                                    '&:hover': { bgcolor: verified ? '#DBEAFE' : '#D1FAE5' },
+                                                                }}
+                                                            >
+                                                                {verified
+                                                                    ? <EditIcon sx={{ fontSize: 14, color: '#2563EB' }} />
+                                                                    : <AddCircleOutlineIcon sx={{ fontSize: 14, color: PRIMARY }} />}
+                                                            </IconButton>
+                                                        </Tooltip>
+                                                    )}
                                                 </TableCell>
                                             </TableRow>
                                         );
@@ -922,6 +926,7 @@ export default function BankReports() {
                     <Button
                         variant="contained"
                         onClick={handleSaveBankDetails}
+                        disabled={!(isAddMode ? canCreate : canEdit)}
                         disabled={isSaving}
                         startIcon={isSaving
                             ? <CircularProgress size={14} sx={{ color: '#fff' }} />

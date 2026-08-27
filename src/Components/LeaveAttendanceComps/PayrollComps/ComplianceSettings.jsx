@@ -30,6 +30,7 @@ import {
     updateEmployeeComplianceByRollnumber,
 } from '../../../Api/Api';
 import * as XLSX from 'xlsx';
+import usePayrollPermissions from './usePayrollPermissions';
 
 // ─── Theme (matches Salary Structures / Bank Reports) ──────────────────────
 const PRIMARY = '#059669';
@@ -114,6 +115,7 @@ export default function ComplianceSettings() {
     const [isPTSaving, setIsPTSaving] = useState(false);
     const [isTDSSaving, setIsTDSSaving] = useState(false);
     const [isSavingCompliance, setIsSavingCompliance] = useState(false);
+    const { canCreate, canEdit } = usePayrollPermissions();
     const [searchQuery, setSearchQuery] = useState('');
     const [editDialogOpen, setEditDialogOpen] = useState(false);
     const [selectedEmployee, setSelectedEmployee] = useState(null);
@@ -1199,19 +1201,21 @@ export default function ComplianceSettings() {
                                                 />
                                             </TableCell>
                                             <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.2, textAlign: 'center' }}>
-                                                <Tooltip arrow title="Edit compliance">
-                                                    <IconButton
-                                                        size="small"
-                                                        onClick={() => handleEditEmployee(emp)}
-                                                        sx={{
-                                                            bgcolor: '#EFF6FF', borderRadius: '8px',
-                                                            border: '1px solid #BFDBFE',
-                                                            '&:hover': { bgcolor: '#DBEAFE' },
-                                                        }}
-                                                    >
-                                                        <EditIcon sx={{ fontSize: 14, color: '#2563EB' }} />
-                                                    </IconButton>
-                                                </Tooltip>
+                                                {canEdit && (
+                                                    <Tooltip arrow title="Edit compliance">
+                                                        <IconButton
+                                                            size="small"
+                                                            onClick={() => handleEditEmployee(emp)}
+                                                            sx={{
+                                                                bgcolor: '#EFF6FF', borderRadius: '8px',
+                                                                border: '1px solid #BFDBFE',
+                                                                '&:hover': { bgcolor: '#DBEAFE' },
+                                                            }}
+                                                        >
+                                                            <EditIcon sx={{ fontSize: 14, color: '#2563EB' }} />
+                                                        </IconButton>
+                                                    </Tooltip>
+                                                )}
                                             </TableCell>
                                         </TableRow>
                                     );
@@ -1366,6 +1370,7 @@ export default function ComplianceSettings() {
                                     ? <CircularProgress size={14} sx={{ color: '#fff' }} />
                                     : <SaveOutlinedIcon sx={{ fontSize: 18 }} />}
                                 onClick={handleSave}
+                                disabled={!(canCreate || canEdit)}
                                 disabled={anyConfigSaving}
                                 sx={{
                                     textTransform: 'none',
@@ -1802,6 +1807,7 @@ export default function ComplianceSettings() {
                     <Button
                         variant="contained"
                         onClick={handleSaveEmployeeCompliance}
+                        disabled={!canEdit}
                         disabled={isSavingCompliance}
                         startIcon={isSavingCompliance
                             ? <CircularProgress size={14} sx={{ color: '#fff' }} />

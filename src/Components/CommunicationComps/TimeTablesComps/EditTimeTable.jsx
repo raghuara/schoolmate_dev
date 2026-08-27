@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { Box, Grid, TextField, Typography, Button, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, Autocomplete, Paper, } from "@mui/material";
+import React, { useEffect, useMemo, useState } from "react";
+import { Box, Grid, TextField, Typography, Button, Divider, IconButton, Dialog, DialogActions, Autocomplete, Paper, } from "@mui/material";
 import axios from "axios";
 import { useDropzone } from "react-dropzone";
 import dayjs from "dayjs";
@@ -14,6 +14,10 @@ import UploadFileIcon from '@mui/icons-material/UploadFile';
 import CancelIcon from "@mui/icons-material/Cancel";
 import { selectGrades } from "../../../Redux/Slices/DropdownController";
 import Loader from "../../Loader";
+import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
+import CloseOutlinedIcon from "@mui/icons-material/CloseOutlined";
+import PublishOutlinedIcon from "@mui/icons-material/PublishOutlined";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 
 export default function EditTimeTablesPage() {
     const navigate = useNavigate();
@@ -51,15 +55,49 @@ export default function EditTimeTablesPage() {
     const handleSectionChange = (event, newValue) => {
         setSelectedSection(newValue?.sectionName || null);
     };
-    const [previewData, setPreviewData] = useState({
-        uploadedFiles: [],
-    });
+    const fieldLabelSx = { fontSize: "13px", fontWeight: 600, color: "#374151", mb: 0.7 };
+    const requiredSx = { color: "#E30053" };
 
-    const handlePreview = () => {
-        setPreviewData({
-            uploadedFiles,
-        });
+    const ghostButtonSx = {
+        textTransform: "none",
+        borderRadius: "10px",
+        fontSize: "12.5px",
+        fontWeight: 600,
+        px: 1.8,
+        py: 0.6,
+        color: "#374151",
+        borderColor: "#D6DAE1",
+        backgroundColor: "#fff",
+        "&:hover": { borderColor: "#9AA3AF", backgroundColor: "#F7F8FA" },
     };
+
+    const primaryButtonSx = {
+        textTransform: "none",
+        borderRadius: "10px",
+        fontSize: "12.5px",
+        fontWeight: 700,
+        px: 2.4,
+        py: 0.7,
+        boxShadow: "none",
+        whiteSpace: "nowrap",
+        backgroundColor: websiteSettings.mainColor,
+        color: websiteSettings.textColor,
+        "&:hover": { backgroundColor: websiteSettings.mainColor, opacity: 0.9, boxShadow: "none" },
+        "&.Mui-disabled": { backgroundColor: "#E5E7EB", color: "#9AA3AF" },
+    };
+
+    // One blob URL per selected file instead of a fresh one on every render.
+    const filePreviewUrl = useMemo(() => {
+        const file = uploadedFiles[0];
+        if (!file) return "";
+        return file instanceof File ? URL.createObjectURL(file) : (file.url || file);
+    }, [uploadedFiles]);
+
+    useEffect(() => {
+        if (!filePreviewUrl.startsWith("blob:")) return undefined;
+        return () => URL.revokeObjectURL(filePreviewUrl);
+    }, [filePreviewUrl]);
+
 
     const handleCloseDialog = (confirmed) => {
         setOpenAlert(false);
@@ -217,7 +255,7 @@ export default function EditTimeTablesPage() {
                         md: 6,
                         lg: 6
                     }}>
-                    <Box sx={{ border: "1px solid #E0E0E0", backgroundColor: "#fbfbfb", py: 2, borderRadius: "7px", mt: 4.5, height: "75.6vh", overflowY: "auto", position: "relative" }}>
+                    <Box sx={{ border: "1px solid #E6E8EC", backgroundColor: "#fff", py: 2, borderRadius: "12px", mt: 4.5, maxHeight: "75.6vh", overflow: "hidden auto" }}>
                         <Grid container spacing={2} sx={{ px: 2 }}>
                             <Grid
                                 size={{
@@ -226,7 +264,7 @@ export default function EditTimeTablesPage() {
                                     md: 6,
                                     lg: 6
                                 }}>
-                                <Typography sx={{ mb: 0.5 }}>Select Class </Typography>
+                                <Typography sx={fieldLabelSx}>Class <span style={{ color: "#8A93A0", fontWeight: 400, fontSize: "12px" }}>(locked)</span></Typography>
                                 <Autocomplete
                                     disablePortal
                                     disabled
@@ -280,7 +318,7 @@ export default function EditTimeTablesPage() {
                                     md: 6,
                                     lg: 6
                                 }}>
-                                <Typography sx={{ mb: 0.5, ml: 1 }}>Select Section</Typography>
+                                <Typography sx={fieldLabelSx}>Section <span style={{ color: "#8A93A0", fontWeight: 400, fontSize: "12px" }}>(locked)</span></Typography>
                                 <TextField
                                     sx={{ backgroundColor: "#fff" }}
                                     id="outlined-size-small"
@@ -296,15 +334,15 @@ export default function EditTimeTablesPage() {
                                 size={{
                                     lg: 12
                                 }}>
-                                <Typography sx={{ mb: 0.5, mt: 3, }}>Select Recipient</Typography>
+                                <Typography sx={{ ...fieldLabelSx, mt: 3 }}>Timetable image <span style={requiredSx}>*</span></Typography>
                                 <Box sx={{ mt: 1, textAlign: "center" }}>
                                     <Box
                                         {...getRootProps()}
                                         sx={{
-                                            border: "2px dashed #1976d2",
-                                            borderRadius: "8px",
-                                            p: 1,
-                                            backgroundColor: isDragActive ? "#e3f2fd" : "#e3f2fd",
+                                            border: isDragActive ? "2px dashed #1976d2" : "2px dashed #C7D6EA",
+                                            borderRadius: "10px",
+                                            p: 2,
+                                            backgroundColor: isDragActive ? "#E3F2FD" : "#F6F9FD",
                                             textAlign: "center",
                                             cursor: "pointer",
                                         }}
@@ -341,7 +379,7 @@ export default function EditTimeTablesPage() {
                                                 }}
                                             >
                                                 <img
-                                                    src={uploadedFiles[0] instanceof File ? URL.createObjectURL(uploadedFiles[0]) : uploadedFiles[0].url || uploadedFiles[0]}
+                                                    src={filePreviewUrl}
                                                     alt="Selected"
                                                     style={{
                                                         width: "100%",
@@ -368,135 +406,59 @@ export default function EditTimeTablesPage() {
                                 </Box>
                             </Grid>
                         </Grid>
-                        <Dialog open={openAlert} onClose={() => setOpenAlert(false)}>
-                            <Box sx={{ display: "flex", justifyContent: "center", p: 2, backgroundColor: '#fff', }}>
-
-                                <Box sx={{
-                                    textAlign: 'center',
-                                    backgroundColor: '#fff',
-                                    p: 3,
-                                    width: "70%",
-                                }}>
-
-                                    <Typography sx={{ fontSize: "20px" }}> Do you really want to cancel? Your changes might not be saved.</Typography>
-                                    <DialogActions sx={{
-                                        justifyContent: 'center',
-                                        backgroundColor: '#fff',
-                                        pt: 2
-                                    }}>
-                                        <Button
-                                            onClick={() => handleCloseDialog(false)}
-                                            sx={{
-                                                textTransform: 'none',
-                                                width: "80px",
-                                                borderRadius: '30px',
-                                                fontSize: '16px',
-                                                py: 0.2,
-                                                border: '1px solid black',
-                                                color: 'black',
-                                            }}
-                                        >
-                                            No
-                                        </Button>
-                                        <Button
-                                            onClick={() => handleCloseDialog(true)}
-                                            sx={{
-                                                textTransform: 'none',
-                                                backgroundColor: websiteSettings.mainColor,
-                                                width: "90px",
-                                                borderRadius: '30px',
-                                                fontSize: '16px',
-                                                py: 0.2,
-                                                color: websiteSettings.textColor,
-                                            }}
-                                        >
-                                            Yes
-                                        </Button>
-                                    </DialogActions>
-                                </Box>
-
+                        <Dialog
+                            open={openAlert}
+                            onClose={() => setOpenAlert(false)}
+                            slotProps={{ paper: { sx: { borderRadius: "14px", maxWidth: "420px" } } }}
+                        >
+                            <Box sx={{ p: 3, backgroundColor: '#fff', textAlign: 'center' }}>
+                                <Typography sx={{ fontSize: "17px", fontWeight: 600, color: "#111827" }}>
+                                    Discard your changes?
+                                </Typography>
+                                <Typography sx={{ fontSize: "13px", color: "#6B7280", mt: 0.8 }}>
+                                    The edits you made to this timetable have not been saved yet and will be lost.
+                                </Typography>
+                                <DialogActions sx={{ justifyContent: 'center', backgroundColor: '#fff', pt: 2.5, gap: 1 }}>
+                                    <Button
+                                        variant="outlined"
+                                        onClick={() => handleCloseDialog(false)}
+                                        sx={{ ...ghostButtonSx, px: 2.4 }}
+                                    >
+                                        Keep editing
+                                    </Button>
+                                    <Button onClick={() => handleCloseDialog(true)} sx={primaryButtonSx}>
+                                        Discard
+                                    </Button>
+                                </DialogActions>
                             </Box>
                         </Dialog>
 
-                        <Box sx={{ mt: 3, }}>
-                            <Grid container spacing={2} sx={{ position: "absolute", bottom: "10px", px: 2 }}>
-                                <Grid
-                                    size={{
-                                        xs: 6,
-                                        sm: 6,
-                                        md: 6,
-                                        lg: 5
-                                    }}>
-
-                                </Grid>
-
-                                <Grid
-                                    size={{
-                                        xs: 6,
-                                        sm: 6,
-                                        md: 6,
-                                        lg: 2.3
-                                    }}>
-                                    <Button
-                                        sx={{
-                                            textTransform: 'none',
-                                            width: "100%",
-                                            borderRadius: '30px',
-                                            fontSize: '12px',
-                                            py: 0.2,
-                                            color: 'black',
-                                            fontWeight: "600",
-                                        }}
-                                        onClick={handlePreview}>
-                                        Preview
-                                    </Button>
-                                </Grid>
-                                <Grid
-                                    size={{
-                                        xs: 6,
-                                        sm: 6,
-                                        md: 6,
-                                        lg: 2.3
-                                    }}>
-                                    <Button
-                                        sx={{
-                                            textTransform: 'none',
-                                            width: "80px",
-                                            borderRadius: '30px',
-                                            fontSize: '12px',
-                                            py: 0.2,
-                                            border: '1px solid black',
-                                            color: 'black',
-                                            fontWeight: "600",
-                                        }}
-                                        onClick={handleCancelClick}>
-                                        Cancel
-                                    </Button>
-                                </Grid>
-                                <Grid
-                                    size={{
-                                        xs: 6,
-                                        sm: 6,
-                                        md: 6,
-                                        lg: 2.4
-                                    }}>
-                                    <Button
-                                        sx={{
-                                            textTransform: 'none',
-                                            backgroundColor: websiteSettings.mainColor,
-                                            width: "100%",
-                                            borderRadius: '30px',
-                                            fontSize: '12px',
-                                            py: 0.2,
-                                            color: websiteSettings.textColor,
-                                            fontWeight: "600",
-                                        }}
-                                        onClick={handleUpdate}>
-                                        Update
-                                    </Button>
-                                </Grid>
-
-                            </Grid>
+                        <Divider sx={{ mt: 3, mx: 2 }} />
+                        <Box sx={{
+                            mt: 2,
+                            px: 2,
+                            display: "flex",
+                            flexWrap: "wrap",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: 1,
+                        }}>
+                            <Button
+                                variant="outlined"
+                                startIcon={<CloseOutlinedIcon sx={{ fontSize: 16 }} />}
+                                sx={ghostButtonSx}
+                                onClick={handleCancelClick}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                startIcon={<PublishOutlinedIcon sx={{ fontSize: 17 }} />}
+                                sx={primaryButtonSx}
+                                disabled={uploadedFiles.length === 0}
+                                onClick={handleUpdate}
+                            >
+                                Update
+                            </Button>
                         </Box>
 
                     </Box>
@@ -510,32 +472,85 @@ export default function EditTimeTablesPage() {
                         md: 6,
                         lg: 6
                     }}>
-                    <Box sx={{ border: "1px solid #E0E0E0", backgroundColor: "#fbfbfb", p: 2, borderRadius: "6px", height: "75.6vh", overflowY: "auto" }}>
-                        <Typography sx={{ fontSize: "14px", color: "rgba(0,0,0,0.7)" }}>Live Preview</Typography>
-                        <hr style={{ border: "0.5px solid #CFCFCF" }} />
-                        <Box>
-                            <Grid container spacing={2}>
-                                {previewData.uploadedFiles.map((file, index) => (
-                                    <Grid
-                                        key={index}
-                                        sx={{ display: "flex", py: 1 }}
-                                        size={{
-                                            xs: 12,
-                                            sm: 12,
-                                            md: 5,
-                                            lg: 12
-                                        }}>
-                                        <img
-                                            src={URL.createObjectURL(file)}
-                                            width={'273px'}
-                                            height={'210px'}
-                                            alt={`Uploaded file ${index + 1}`}
-                                        />
-                                    </Grid>
-                                ))}
-                            </Grid>
-
+                    <Box sx={{ border: "1px solid #E6E8EC", backgroundColor: "#fff", p: 2, borderRadius: "12px", height: "75.6vh", overflow: "hidden auto" }}>
+                        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                <VisibilityOutlinedIcon sx={{ fontSize: 18, color: "#6B7280" }} />
+                                <Typography sx={{ fontSize: "14px", fontWeight: 600, color: "#374151" }}>Live Preview</Typography>
+                            </Box>
+                            <Typography sx={{ fontSize: "11px", color: "#8A93A0" }}>Updates as you choose</Typography>
                         </Box>
+                        <Divider sx={{ my: 1.5 }} />
+                        {!filePreviewUrl ? (
+                            <Box sx={{
+                                height: "60vh",
+                                display: "flex",
+                                flexDirection: "column",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                gap: 1,
+                                textAlign: "center",
+                                color: "#9AA3AF",
+                            }}>
+                                <VisibilityOutlinedIcon sx={{ fontSize: 34, color: "#C9CFD8" }} />
+                                <Typography sx={{ fontSize: "13px", fontWeight: 600, color: "#6B7280" }}>
+                                    Nothing to preview yet
+                                </Typography>
+                                <Typography sx={{ fontSize: "12px", maxWidth: "260px" }}>
+                                    Upload a replacement timetable and it will show up here straight away.
+                                </Typography>
+                            </Box>
+                        ) : (
+                            <Box>
+                                {/* The card as it appears on the Time Tables listing */}
+                                <Box sx={{
+                                    border: "1px solid #E6E8EC",
+                                    boxShadow: "0px 1px 3px rgba(16,24,40,0.06)",
+                                    borderRadius: "5px",
+                                    backgroundColor: "#fff",
+                                    overflow: "hidden",
+                                    maxWidth: 420,
+                                }}>
+                                    <Box sx={{ p: 2, pb: 1.2 }}>
+                                        <Typography sx={{ fontWeight: "600", fontSize: "16px" }}>
+                                            {selectedGrade
+                                                ? `${selectedGrade.sign}${selectedSection ? ` - ${selectedSection}` : ""}`
+                                                : "Class not selected"}
+                                        </Typography>
+                                        <Typography sx={{ fontSize: "12px", color: "#777" }}>
+                                            Updated on {todayDateTime}
+                                        </Typography>
+                                    </Box>
+                                    <Box sx={{
+                                        mx: 2, mb: 2,
+                                        borderRadius: "5px",
+                                        overflow: "hidden",
+                                        border: "1px solid #EDEFF3",
+                                        backgroundColor: "#F7F8FA",
+                                    }}>
+                                        <img
+                                            src={filePreviewUrl}
+                                            alt="Timetable preview"
+                                            style={{ width: "100%", height: "190px", objectFit: "cover", display: "block" }}
+                                        />
+                                    </Box>
+                                </Box>
+
+                                <Box sx={{
+                                    display: "flex", alignItems: "flex-start", gap: 0.9,
+                                    mt: 2, px: 1.2, py: 1,
+                                    borderRadius: "8px",
+                                    backgroundColor: "#FAFBFC",
+                                    border: "1px dashed #E6E8EC",
+                                    maxWidth: 420,
+                                }}>
+                                    <InfoOutlinedIcon sx={{ fontSize: 15, color: "#9AA3AF", mt: "1px" }} />
+                                    <Typography sx={{ fontSize: "11.5px", color: "#6B7280", lineHeight: 1.5 }}>
+                                        This replaces the timetable currently published for this class.
+                                    </Typography>
+                                </Box>
+                            </Box>
+                        )}
                     </Box>
                 </Grid>
 

@@ -32,6 +32,7 @@ import {
 } from '../../../Api/Api';
 import { useSelector } from 'react-redux';
 import { selectWebsiteSettings } from '../../../Redux/Slices/websiteSettingsSlice';
+import usePayrollPermissions from './usePayrollPermissions';
 
 // ─── Theme (matches LeaveAttendancePage) ───────────────────────────────────
 const PRIMARY = '#059669';
@@ -71,6 +72,7 @@ export default function SalaryStructures() {
     const [employeesData, setEmployeesData] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const { canCreate, canEdit, canDelete } = usePayrollPermissions();
     const [selectedEmp, setSelectedEmp] = useState(null);
     const [filterText, setFilterText] = useState('');
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -478,30 +480,32 @@ export default function SalaryStructures() {
                         >
                             Export
                         </Button>
-                        <Button
-                            variant="contained"
-                            disableElevation
-                            startIcon={<AddCircleOutlineIcon sx={{ fontSize: 18 }} />}
-                            onClick={() => handleOpenDialog()}
-                            sx={{
-                                textTransform: 'none',
-                                bgcolor: '#0F172A',
-                                color: '#fff',
-                                borderRadius: '30px',
-                                fontSize: '12.5px',
-                                fontWeight: 700,
-                                px: 2.4, height: 34,
-                                boxShadow: 'none',
-                                border: '1.5px solid #0F172A',
-                                '&:hover': {
-                                    bgcolor: '#1E293B',
-                                    borderColor: '#1E293B',
+                        {canCreate && (
+                            <Button
+                                variant="contained"
+                                disableElevation
+                                startIcon={<AddCircleOutlineIcon sx={{ fontSize: 18 }} />}
+                                onClick={() => handleOpenDialog()}
+                                sx={{
+                                    textTransform: 'none',
+                                    bgcolor: '#0F172A',
+                                    color: '#fff',
+                                    borderRadius: '30px',
+                                    fontSize: '12.5px',
+                                    fontWeight: 700,
+                                    px: 2.4, height: 34,
                                     boxShadow: 'none',
-                                },
-                            }}
-                        >
-                            Create Structure
-                        </Button>
+                                    border: '1.5px solid #0F172A',
+                                    '&:hover': {
+                                        bgcolor: '#1E293B',
+                                        borderColor: '#1E293B',
+                                        boxShadow: 'none',
+                                    },
+                                }}
+                            >
+                                Create Structure
+                            </Button>
+                        )}
                     </Box>
                 </Box>
 
@@ -796,32 +800,36 @@ export default function SalaryStructures() {
                                                 </TableCell>
                                                 <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.2 }}>
                                                     <Box sx={{ display: 'flex', gap: 0.5 }}>
-                                                        <Tooltip arrow title="Edit structure">
-                                                            <IconButton
-                                                                size="small"
-                                                                onClick={() => handleOpenDialog(structure)}
-                                                                sx={{
-                                                                    bgcolor: '#EFF6FF', borderRadius: '8px',
-                                                                    border: '1px solid #BFDBFE',
-                                                                    '&:hover': { bgcolor: '#DBEAFE' },
-                                                                }}
-                                                            >
-                                                                <EditIcon sx={{ fontSize: 14, color: '#2563EB' }} />
-                                                            </IconButton>
-                                                        </Tooltip>
-                                                        <Tooltip arrow title="Delete structure">
-                                                            <IconButton
-                                                                size="small"
-                                                                onClick={() => { setStructureToDelete(structure); setDeleteConfirmOpen(true); }}
-                                                                sx={{
-                                                                    bgcolor: '#FEF2F2', borderRadius: '8px',
-                                                                    border: '1px solid #FECACA',
-                                                                    '&:hover': { bgcolor: '#FEE2E2' },
-                                                                }}
-                                                            >
-                                                                <DeleteIcon sx={{ fontSize: 14, color: '#DC2626' }} />
-                                                            </IconButton>
-                                                        </Tooltip>
+                                                        {canEdit && (
+                                                            <Tooltip arrow title="Edit structure">
+                                                                <IconButton
+                                                                    size="small"
+                                                                    onClick={() => handleOpenDialog(structure)}
+                                                                    sx={{
+                                                                        bgcolor: '#EFF6FF', borderRadius: '8px',
+                                                                        border: '1px solid #BFDBFE',
+                                                                        '&:hover': { bgcolor: '#DBEAFE' },
+                                                                    }}
+                                                                >
+                                                                    <EditIcon sx={{ fontSize: 14, color: '#2563EB' }} />
+                                                                </IconButton>
+                                                            </Tooltip>
+                                                        )}
+                                                        {canDelete && (
+                                                            <Tooltip arrow title="Delete structure">
+                                                                <IconButton
+                                                                    size="small"
+                                                                    onClick={() => { setStructureToDelete(structure); setDeleteConfirmOpen(true); }}
+                                                                    sx={{
+                                                                        bgcolor: '#FEF2F2', borderRadius: '8px',
+                                                                        border: '1px solid #FECACA',
+                                                                        '&:hover': { bgcolor: '#FEE2E2' },
+                                                                    }}
+                                                                >
+                                                                    <DeleteIcon sx={{ fontSize: 14, color: '#DC2626' }} />
+                                                                </IconButton>
+                                                            </Tooltip>
+                                                        )}
                                                     </Box>
                                                 </TableCell>
                                             </TableRow>
@@ -1119,6 +1127,7 @@ export default function SalaryStructures() {
                         variant="contained"
                         startIcon={isSaving ? <CircularProgress size={14} sx={{ color: '#fff' }} /> : <SaveOutlinedIcon sx={{ fontSize: 18 }} />}
                         onClick={handleSave}
+                        disabled={editMode ? !canEdit : !canCreate}
                         disabled={isSaving}
                         sx={{
                             textTransform: 'none', fontSize: '13px', fontWeight: 700,

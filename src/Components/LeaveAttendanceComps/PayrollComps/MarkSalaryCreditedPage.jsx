@@ -12,6 +12,7 @@ import UndoIcon from '@mui/icons-material/Undo';
 import DoneAllIcon from '@mui/icons-material/DoneAll';
 import { useNavigate } from 'react-router-dom';
 import SnackBar from '../../SnackBar';
+import usePayrollPermissions from './usePayrollPermissions';
 
 const ACCENT = '#059669';
 
@@ -66,6 +67,7 @@ export default function MarkSalaryCreditedPage({ isEmbedded = false, onBack }) {
 
     // Default to the previous month — salaries are usually credited in the following month.
     const [month, setMonth] = useState(months[1]?.value || months[0].value);
+    const { canEdit } = usePayrollPermissions();
     const [creditDate, setCreditDate] = useState(() => new Date().toISOString().slice(0, 10));
     // credited map: key `${month}__${empId}` -> credit date (ISO). Presence = credited.
     const [credited, setCredited] = useState({});
@@ -255,13 +257,13 @@ export default function MarkSalaryCreditedPage({ isEmbedded = false, onBack }) {
                                 <Box sx={{ flex: 1.3, display: 'flex', justifyContent: 'flex-end' }}>
                                     {done ? (
                                         <Tooltip title="Revert to pending" arrow>
-                                            <Button onClick={() => undoOne(emp)} startIcon={<UndoIcon sx={{ fontSize: 15 }} />}
+                                            <Button disabled={!canEdit} onClick={() => undoOne(emp)} startIcon={<UndoIcon sx={{ fontSize: 15 }} />}
                                                 sx={{ textTransform: 'none', fontWeight: 700, fontSize: 11.5, color: '#6B7280', border: '1px solid #E5E7EB', borderRadius: '8px', height: 30, px: 1.2, '&:hover': { bgcolor: '#F9FAFB', borderColor: '#9CA3AF' } }}>
                                                 Undo
                                             </Button>
                                         </Tooltip>
                                     ) : (
-                                        <Button onClick={() => markOne(emp)} startIcon={<CheckCircleIcon sx={{ fontSize: 16 }} />}
+                                        <Button disabled={!canEdit} onClick={() => markOne(emp)} startIcon={<CheckCircleIcon sx={{ fontSize: 16 }} />}
                                             sx={{ textTransform: 'none', fontWeight: 700, fontSize: 11.5, bgcolor: ACCENT, color: '#fff', borderRadius: '8px', height: 30, px: 1.4, boxShadow: 'none', '&:hover': { bgcolor: ACCENT, filter: 'brightness(0.92)' } }}>
                                             Mark Credited
                                         </Button>

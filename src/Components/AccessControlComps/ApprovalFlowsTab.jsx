@@ -23,6 +23,10 @@ const token = "123";
 // The module list and its subMenu keys live in the slice, so this screen and
 // the create screens can never disagree about what a flow is called.
 const APPROVAL_PAGES = APPROVAL_MODULES;
+// Leave flows have exactly one approver, so they get their own compact section
+// instead of the multi-level accordion.
+const SINGLE_APPROVER_PAGES = APPROVAL_MODULES.filter((p) => p.singleApprover);
+const MULTI_LEVEL_PAGES = APPROVAL_MODULES.filter((p) => !p.singleApprover);
 
 const emptyFlow = () => ({ enabled: false, levels: [], allowSameLevel: false });
 
@@ -182,8 +186,22 @@ export default function ApprovalFlowsTab({ showSnack }) {
     };
 
     // ── Save ──────────────────────────────────────────────────────────────────
+    const isSingleApprover = (key) => SINGLE_APPROVER_PAGES.some((sp) => sp.key === key);
+
     const toPayload = (key, c) => {
         const levels = c.enabled ? filledLevels(c) : [];
+        // Leave flows carry one approver, so levels 2 and 3 are always cleared -
+        // a stale level left over from the old multi-level shape would otherwise
+        // keep asking for a second approval nobody configured.
+        if (isSingleApprover(key)) {
+            return {
+                subMenu: key,
+                level1: levels[0] !== undefined ? String(levels[0]) : "",
+                level2: "",
+                level3: "",
+                approvalWithinSameLevel: "N",
+            };
+        }
         return {
             subMenu: key,
             level1: levels[0] !== undefined ? String(levels[0]) : "",
@@ -205,11 +223,14 @@ export default function ApprovalFlowsTab({ showSnack }) {
         // A half-filled level would silently drop a step out of the chain.
         const incomplete = changedKeys.find((key) => {
             const c = cfg(key);
+            if (isSingleApprover(key)) return c.enabled && !filledLevels(c).length;
             return c.enabled && (c.levels || []).some((lvl) => !lvl);
         });
         if (incomplete) {
             const page = APPROVAL_PAGES.find((p) => p.key === incomplete);
-            showSnack?.(`Pick a user type for every level in ${page?.label || incomplete}.`, false);
+            showSnack?.(isSingleApprover(incomplete)
+                ? `Pick who approves ${page?.label || incomplete}.`
+                : `Pick a user type for every level in ${page?.label || incomplete}.`, false);
             setExpanded(incomplete);
             return;
         }
@@ -291,8 +312,132 @@ export default function ApprovalFlowsTab({ showSnack }) {
                 </Box>
             )}
 
+            {/* --- Leave approvals: one approver each, no levels --- */}
+            <Box sx={{ mb: 2 }}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+                    <Typography sx={{ fontSize: 11, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: 0.4 }}>
+                        Leave Approvals
+                    </Typography>
+                    <Tooltip
+                        arrow
+                        title="Leave has a single approver. Turn it on and pick the user type that clears those requests - there is no second level."
+                    >
+                        <InfoOutlinedIcon sx={{ fontSize: 14, color: "#9CA3AF", cursor: "help" }} />
+                    </Tooltip>
+                    <Box sx={{ flex: 1, height: "1px", bgcolor: "#E5E7EB" }} />
+                </Box>
+
+                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 1.5 }}>
+                    {SINGLE_APPROVER_PAGES.map((lp) => {
+                        const c = cfg(lp.key);
+                        const approver = (c.levels || [])[0] || "";
+                        const dirty = changedKeys.includes(lp.key);
+                        const isStudent = lp.key === "studentleave";
+                        const tone = isStudent ? "#0891B2" : "#7C3AED";
+                        const toneBg = isStudent ? "#ECFEFF" : "#F5F3FF";
+
+                        return (
+                            <Box
+                                key={lp.key}
+                                sx={{
+                                    border: `1px solid ${dirty ? "#FCD34D" : "#E5E7EB"}`,
+                                    borderRadius: "10px",
+                                    overflow: "hidden",
+                                    bgcolor: "#fff",
+                                }}
+                            >
+                                <Box sx={{
+                                    display: "flex", alignItems: "center", gap: 1,
+                                    px: 1.8, py: 1.2,
+                                    bgcolor: toneBg,
+                                    borderBottom: "1px solid #EDEFF3",
+                                }}>
+                                    <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: tone, flexShrink: 0 }} />
+                                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                                        <Typography sx={{ fontSize: 13.5, fontWeight: 800, color: "#111827" }}>
+                                            {lp.label} Management
+                                        </Typography>
+                                        <Typography sx={{ fontSize: 11, color: "#6B7280" }}>
+                                            {isStudent
+                                                ? "Leave raised by students"
+                                                : "Leave raised by staff - all user types except students"}
+                                        </Typography>
+                                    </Box>
+                                    {dirty && (
+                                        <Chip size="small" label="Unsaved" sx={{ height: 19, fontSize: 9.5, fontWeight: 700, bgcolor: "#FEF3C7", color: "#92400E" }} />
+                                    )}
+                                </Box>
+
+                                <Box sx={{ p: 1.8 }}>
+                                    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
+                                        <Box sx={{ minWidth: 0 }}>
+                                            <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: "#111827" }}>
+                                                Needs approval
+                                            </Typography>
+                                            <Typography sx={{ fontSize: 11, color: "#6B7280", mt: 0.1 }}>
+                                                {c.enabled
+                                                    ? "Requests wait for the approver below"
+                                                    : "Off - requests are auto-approved"}
+                                            </Typography>
+                                        </Box>
+                                        <Switch
+                                            checked={!!c.enabled}
+                                            onChange={() => toggleEnabled(lp.key)}
+                                            sx={{
+                                                "& .MuiSwitch-switchBase.Mui-checked": { color: tone },
+                                                "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": { backgroundColor: tone },
+                                            }}
+                                        />
+                                    </Box>
+
+                                    {c.enabled && (
+                                        <Box sx={{ mt: 1.6 }}>
+                                            <Typography sx={{ fontSize: 11, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: 0.4, mb: 0.8 }}>
+                                                Approver
+                                            </Typography>
+                                            <FormControl size="small" fullWidth>
+                                                <Select
+                                                    displayEmpty
+                                                    value={approver}
+                                                    onChange={(e) => setLevel(lp.key, 0, e.target.value)}
+                                                    sx={{ fontSize: 12.5, borderRadius: "8px", bgcolor: "#fff" }}
+                                                >
+                                                    <MenuItem value="" sx={{ fontSize: 12.5, color: "#9CA3AF" }}>
+                                                        Select a user type...
+                                                    </MenuItem>
+                                                    {roleOptions.map((u) => (
+                                                        <MenuItem key={u.userTypeID} value={String(u.userTypeID)} sx={{ fontSize: 12.5 }}>
+                                                            {u.userType}
+                                                        </MenuItem>
+                                                    ))}
+                                                </Select>
+                                            </FormControl>
+
+                                            <Box sx={{
+                                                display: "flex", alignItems: "flex-start", gap: 0.8,
+                                                mt: 1.4, px: 1.2, py: 1,
+                                                borderRadius: "8px",
+                                                bgcolor: "#F8FAFC",
+                                                border: "1px dashed #E5E7EB",
+                                            }}>
+                                                <InfoOutlinedIcon sx={{ fontSize: 14, color: "#9CA3AF", mt: "1px" }} />
+                                                <Typography sx={{ fontSize: 11, color: "#6B7280", lineHeight: 1.5 }}>
+                                                    {approver
+                                                        ? `${roleName(approver)} approves every ${isStudent ? "student" : "staff"} leave request.`
+                                                        : "Pick the user type that clears these requests."}
+                                                </Typography>
+                                            </Box>
+                                        </Box>
+                                    )}
+                                </Box>
+                            </Box>
+                        );
+                    })}
+                </Box>
+            </Box>
+
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                {APPROVAL_PAGES.map((p) => {
+                {MULTI_LEVEL_PAGES.map((p) => {
                     const c = cfg(p.key);
                     const filledCount = filledLevels(c).length;
                     const lines = explanationLines(c);

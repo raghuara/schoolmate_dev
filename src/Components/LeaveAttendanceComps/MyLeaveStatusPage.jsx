@@ -15,6 +15,7 @@ import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 import axios from 'axios';
 import { useSelector } from 'react-redux';
 import { getLeaveApprovalDashboard } from '../../Api/Api';
+import { isSuperAdminId } from './roleUtils';
 
 const token = '123';
 const PRIMARY = '#059669';
@@ -77,8 +78,10 @@ const sortKey = (raw) => {
 export default function MyLeaveStatusPage() {
     const user = useSelector((state) => state.auth);
     const rollNumber = user?.rollNumber;
-    const userType = user?.userType;
-    const isSuperAdmin = userType === 'superadmin';
+    // Role rule, not an access grant: Super Admin leave is auto-approved, so
+    // there is no personal request list to fetch. Keyed off userTypeID from the
+    // login response rather than the userType string.
+    const isSuperAdmin = isSuperAdminId(user?.userTypeID);
 
     const [leaves, setLeaves] = useState([]);
     const [serverCounts, setServerCounts] = useState(null); // { Pending, Approved, Rejected } from API

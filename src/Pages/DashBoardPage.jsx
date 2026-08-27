@@ -107,14 +107,11 @@ export default function DashBoardPage() {
     const dashPerms = findSubMenuPermissions(permissions, "dashboard", "overview");
     const isFullDashboard = !dashPerms || dashPerms.view === "Y";
 
-    /*
-       Which dashboard a role lands on will come from Access Control:
-       dashboard > overview > allowmasterdashboard / allowcommondashboard.
-       Until those keys exist the toggle below stands in for them so both
-       screens can be reviewed. When the keys arrive, drop `&& masterPreview`
-       and the decision stays a single line.
-    */
-    const canSeeMaster = !dashPerms || dashPerms.allowmasterdashboard === "Y" || dashPerms.view === "Y";
+    // Which dashboard a role lands on comes from Access Control:
+    // dashboard > overview > allowmasterdashboard / allowcommondashboard.
+    // Older records with neither key fall back to `view`.
+    const dashChoiceSaved = dashPerms && (dashPerms.allowmasterdashboard != null || dashPerms.allowcommondashboard != null);
+    const canSeeMaster = dashChoiceSaved ? dashPerms.allowmasterdashboard === "Y" : (!dashPerms || dashPerms.view === "Y");
     const [masterPreview, setMasterPreview] = useState(true);
     const showMasterDashboard = canSeeMaster && masterPreview;
 
