@@ -8,6 +8,8 @@ import AddIcon from "@mui/icons-material/Add";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import RadioButtonUncheckedIcon from "@mui/icons-material/RadioButtonUnchecked";
 import VerifiedOutlinedIcon from "@mui/icons-material/VerifiedOutlined";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import axios from "axios";
@@ -15,6 +17,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { selectApproverUserTypes } from "../../Redux/Slices/userTypesSlice";
 import { APPROVAL_MODULES, fetchApprovalMatrix, selectApprovalMatrix } from "../../Redux/Slices/approvalMatrixSlice";
 import { UpdateApprovalMatrix } from "../../Api/Api";
+import { DASH, RADIUS } from "../DashBoardComps/dashboardTheme";
 
 const ACCENT = "#4338CA";
 const MAX_LEVELS = 3;
@@ -26,13 +29,14 @@ const APPROVAL_PAGES = APPROVAL_MODULES;
 // Leave flows have exactly one approver, so they get their own compact section
 // instead of the multi-level accordion.
 const SINGLE_APPROVER_PAGES = APPROVAL_MODULES.filter((p) => p.singleApprover);
+const SINGLE_APPROVER_KEYS = new Set(SINGLE_APPROVER_PAGES.map((p) => p.key));
 const MULTI_LEVEL_PAGES = APPROVAL_MODULES.filter((p) => !p.singleApprover);
 
-const emptyFlow = () => ({ enabled: false, levels: [], allowSameLevel: false });
+const emptyFlow = (key) => ({ enabled: SINGLE_APPROVER_KEYS.has(key), levels: [], allowSameLevel: false });
 
 const blankFlows = () => {
     const init = {};
-    APPROVAL_PAGES.forEach((p) => { init[p.key] = emptyFlow(); });
+    APPROVAL_PAGES.forEach((p) => { init[p.key] = emptyFlow(p.key); });
     return init;
 };
 
@@ -61,13 +65,22 @@ export default function ApprovalFlowsTab({ showSnack }) {
         const next = blankFlows();
         (matrix || []).forEach((row) => {
             if (!row?.subMenu) return;
+            // level1 carries every approver for single-level (leave) flows, so it
+            // may arrive as an array or a comma separated list as well as an object.
+            const readLevel = (lvl) => {
+                if (lvl === null || lvl === undefined || lvl === "") return [];
+                if (Array.isArray(lvl)) return lvl.map((x) => x?.userTypeID ?? x);
+                if (typeof lvl === "object") return [lvl.userTypeID];
+                return String(lvl).split(",").map((x) => x.trim()).filter(Boolean);
+            };
             const levels = [row.level1, row.level2, row.level3]
-                .map((lvl) => lvl?.userTypeID)
-                .filter((id) => id !== null && id !== undefined);
+                .flatMap(readLevel)
+                .filter((id) => id !== null && id !== undefined && id !== "");
             next[row.subMenu] = {
                 id: row.id,
                 levels,
-                enabled: levels.length > 0,
+                // Leave always requires approval - it has no off switch.
+                enabled: SINGLE_APPROVER_KEYS.has(row.subMenu) ? true : levels.length > 0,
                 allowSameLevel: row.approvalWithinSameLevel === "Y",
             };
         });
@@ -89,13 +102,18 @@ export default function ApprovalFlowsTab({ showSnack }) {
 
     useEffect(() => { loadMatrix(); }, [loadMatrix]);
 
-    const cfg = (key) => flows[key] || emptyFlow();
+    const cfg = (key) => flows[key] || emptyFlow(key);
 
     const setLevel = (key, idx, value) => setFlows((prev) => {
         const levels = [...(prev[key]?.levels || [])];
         levels[idx] = value;
         return { ...prev, [key]: { ...prev[key], levels } };
     });
+
+    // Leave flows take a set of co-equal approvers, not an ordered chain.
+    const setApprovers = (key, values) => setFlows((prev) => ({
+        ...prev, [key]: { ...prev[key], levels: values },
+    }));
 
     const addLevel = (key) => setFlows((prev) => {
         const levels = [...(prev[key]?.levels || [])];
@@ -185,6 +203,11 @@ export default function ApprovalFlowsTab({ showSnack }) {
         return out;
     };
 
+    // Throw away local edits and go back to what the server last gave us.
+    const handleDiscard = () => {
+        setFlows(JSON.parse(JSON.stringify(saved)));
+    };
+
     // ── Save ──────────────────────────────────────────────────────────────────
     const isSingleApprover = (key) => SINGLE_APPROVER_PAGES.some((sp) => sp.key === key);
 
@@ -194,9 +217,11 @@ export default function ApprovalFlowsTab({ showSnack }) {
         // a stale level left over from the old multi-level shape would otherwise
         // keep asking for a second approval nobody configured.
         if (isSingleApprover(key)) {
+            // Co-equal approvers: all of them ride in level1 as a comma separated
+            // list, and 2/3 are always cleared so no stale level can block a request.
             return {
                 subMenu: key,
-                level1: levels[0] !== undefined ? String(levels[0]) : "",
+                level1: levels.map(String).join(","),
                 level2: "",
                 level3: "",
                 approvalWithinSameLevel: "N",
@@ -213,7 +238,7 @@ export default function ApprovalFlowsTab({ showSnack }) {
 
     const changedKeys = APPROVAL_PAGES
         .map((p) => p.key)
-        .filter((key) => JSON.stringify(toPayload(key, cfg(key))) !== JSON.stringify(toPayload(key, saved[key] || emptyFlow())));
+        .filter((key) => JSON.stringify(toPayload(key, cfg(key))) !== JSON.stringify(toPayload(key, saved[key] || emptyFlow(key))));
 
     const handleSave = async () => {
         if (changedKeys.length === 0) {
@@ -275,7 +300,7 @@ export default function ApprovalFlowsTab({ showSnack }) {
                     <Box>
                         <Typography sx={{ fontSize: 15, fontWeight: 800, color: "#111827" }}>Approval Flows</Typography>
                         <Typography sx={{ fontSize: 11.5, color: "#6B7280" }}>
-                            Set who approves each item — Level 1 is the final approver and posts without a request.
+                            Set who approves each item. Level 1 is the final approver and posts without a request; leave uses a single set of approvers instead.
                         </Typography>
                     </Box>
                 </Box>
@@ -296,7 +321,7 @@ export default function ApprovalFlowsTab({ showSnack }) {
                     </Tooltip>
                     <Button
                         onClick={handleSave}
-                        disabled={isSaving || isLoading}
+                        disabled={isSaving || isLoading || changedKeys.length === 0}
                         startIcon={isSaving ? <CircularProgress size={14} sx={{ color: "#fff" }} /> : null}
                         sx={{ textTransform: "none", fontWeight: 700, fontSize: 13, bgcolor: ACCENT, color: "#fff", borderRadius: "10px", height: 38, px: 2.4, "&:hover": { bgcolor: ACCENT, filter: "brightness(0.92)" }, "&.Mui-disabled": { bgcolor: "#E5E7EB", color: "#9CA3AF" } }}
                     >
@@ -311,130 +336,6 @@ export default function ApprovalFlowsTab({ showSnack }) {
                     <Typography sx={{ fontSize: 12, fontWeight: 600, color: "#3730A3" }}>Loading approval flows…</Typography>
                 </Box>
             )}
-
-            {/* --- Leave approvals: one approver each, no levels --- */}
-            <Box sx={{ mb: 2 }}>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-                    <Typography sx={{ fontSize: 11, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: 0.4 }}>
-                        Leave Approvals
-                    </Typography>
-                    <Tooltip
-                        arrow
-                        title="Leave has a single approver. Turn it on and pick the user type that clears those requests - there is no second level."
-                    >
-                        <InfoOutlinedIcon sx={{ fontSize: 14, color: "#9CA3AF", cursor: "help" }} />
-                    </Tooltip>
-                    <Box sx={{ flex: 1, height: "1px", bgcolor: "#E5E7EB" }} />
-                </Box>
-
-                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 1.5 }}>
-                    {SINGLE_APPROVER_PAGES.map((lp) => {
-                        const c = cfg(lp.key);
-                        const approver = (c.levels || [])[0] || "";
-                        const dirty = changedKeys.includes(lp.key);
-                        const isStudent = lp.key === "studentleave";
-                        const tone = isStudent ? "#0891B2" : "#7C3AED";
-                        const toneBg = isStudent ? "#ECFEFF" : "#F5F3FF";
-
-                        return (
-                            <Box
-                                key={lp.key}
-                                sx={{
-                                    border: `1px solid ${dirty ? "#FCD34D" : "#E5E7EB"}`,
-                                    borderRadius: "10px",
-                                    overflow: "hidden",
-                                    bgcolor: "#fff",
-                                }}
-                            >
-                                <Box sx={{
-                                    display: "flex", alignItems: "center", gap: 1,
-                                    px: 1.8, py: 1.2,
-                                    bgcolor: toneBg,
-                                    borderBottom: "1px solid #EDEFF3",
-                                }}>
-                                    <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: tone, flexShrink: 0 }} />
-                                    <Box sx={{ minWidth: 0, flex: 1 }}>
-                                        <Typography sx={{ fontSize: 13.5, fontWeight: 800, color: "#111827" }}>
-                                            {lp.label} Management
-                                        </Typography>
-                                        <Typography sx={{ fontSize: 11, color: "#6B7280" }}>
-                                            {isStudent
-                                                ? "Leave raised by students"
-                                                : "Leave raised by staff - all user types except students"}
-                                        </Typography>
-                                    </Box>
-                                    {dirty && (
-                                        <Chip size="small" label="Unsaved" sx={{ height: 19, fontSize: 9.5, fontWeight: 700, bgcolor: "#FEF3C7", color: "#92400E" }} />
-                                    )}
-                                </Box>
-
-                                <Box sx={{ p: 1.8 }}>
-                                    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
-                                        <Box sx={{ minWidth: 0 }}>
-                                            <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: "#111827" }}>
-                                                Needs approval
-                                            </Typography>
-                                            <Typography sx={{ fontSize: 11, color: "#6B7280", mt: 0.1 }}>
-                                                {c.enabled
-                                                    ? "Requests wait for the approver below"
-                                                    : "Off - requests are auto-approved"}
-                                            </Typography>
-                                        </Box>
-                                        <Switch
-                                            checked={!!c.enabled}
-                                            onChange={() => toggleEnabled(lp.key)}
-                                            sx={{
-                                                "& .MuiSwitch-switchBase.Mui-checked": { color: tone },
-                                                "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": { backgroundColor: tone },
-                                            }}
-                                        />
-                                    </Box>
-
-                                    {c.enabled && (
-                                        <Box sx={{ mt: 1.6 }}>
-                                            <Typography sx={{ fontSize: 11, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: 0.4, mb: 0.8 }}>
-                                                Approver
-                                            </Typography>
-                                            <FormControl size="small" fullWidth>
-                                                <Select
-                                                    displayEmpty
-                                                    value={approver}
-                                                    onChange={(e) => setLevel(lp.key, 0, e.target.value)}
-                                                    sx={{ fontSize: 12.5, borderRadius: "8px", bgcolor: "#fff" }}
-                                                >
-                                                    <MenuItem value="" sx={{ fontSize: 12.5, color: "#9CA3AF" }}>
-                                                        Select a user type...
-                                                    </MenuItem>
-                                                    {roleOptions.map((u) => (
-                                                        <MenuItem key={u.userTypeID} value={String(u.userTypeID)} sx={{ fontSize: 12.5 }}>
-                                                            {u.userType}
-                                                        </MenuItem>
-                                                    ))}
-                                                </Select>
-                                            </FormControl>
-
-                                            <Box sx={{
-                                                display: "flex", alignItems: "flex-start", gap: 0.8,
-                                                mt: 1.4, px: 1.2, py: 1,
-                                                borderRadius: "8px",
-                                                bgcolor: "#F8FAFC",
-                                                border: "1px dashed #E5E7EB",
-                                            }}>
-                                                <InfoOutlinedIcon sx={{ fontSize: 14, color: "#9CA3AF", mt: "1px" }} />
-                                                <Typography sx={{ fontSize: 11, color: "#6B7280", lineHeight: 1.5 }}>
-                                                    {approver
-                                                        ? `${roleName(approver)} approves every ${isStudent ? "student" : "staff"} leave request.`
-                                                        : "Pick the user type that clears these requests."}
-                                                </Typography>
-                                            </Box>
-                                        </Box>
-                                    )}
-                                </Box>
-                            </Box>
-                        );
-                    })}
-                </Box>
-            </Box>
 
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
                 {MULTI_LEVEL_PAGES.map((p) => {
@@ -596,7 +497,233 @@ export default function ApprovalFlowsTab({ showSnack }) {
                         </Accordion>
                     );
                 })}
+
+                {/* --- Leave Management: approval is always required; pick who can clear it --- */}
+                {SINGLE_APPROVER_PAGES.length > 0 && (() => {
+                    const dirty = SINGLE_APPROVER_PAGES.some((lp) => changedKeys.includes(lp.key));
+                    const setCount = SINGLE_APPROVER_PAGES.filter((lp) => filledLevels(cfg(lp.key)).length).length;
+
+                    return (
+                        <Accordion
+                            expanded={expanded === "leavemanagement"}
+                            onChange={() => setExpanded(expanded === "leavemanagement" ? "" : "leavemanagement")}
+                            disableGutters
+                            elevation={0}
+                            sx={{ border: `1px solid ${dirty ? "#FCD34D" : DASH.line}`, borderRadius: "10px !important", "&:before": { display: "none" }, overflow: "hidden" }}
+                        >
+                            <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ bgcolor: DASH.surface, minHeight: 52, "& .MuiAccordionSummary-content": { alignItems: "center", gap: 1.2 } }}>
+                                <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: ACCENT }} />
+                                <Typography sx={{ fontSize: 14, fontWeight: 700, color: DASH.ink }}>Leave Management</Typography>
+                                <Typography sx={{ fontSize: 11, color: DASH.faint }}>· Leave & Attendance</Typography>
+                                {dirty && (
+                                    <Chip size="small" label="Unsaved" sx={{ height: 19, fontSize: 9.5, fontWeight: 700, bgcolor: "#FEF3C7", color: "#92400E" }} />
+                                )}
+                                <Chip
+                                    size="small"
+                                    label={`Always on · ${setCount} of ${SINGLE_APPROVER_PAGES.length} set`}
+                                    sx={{ ml: "auto", mr: 1, height: 20, fontSize: 10, fontWeight: 700, bgcolor: setCount === SINGLE_APPROVER_PAGES.length ? DASH.greenLight : DASH.amberLight, color: setCount === SINGLE_APPROVER_PAGES.length ? DASH.green : DASH.amber }}
+                                />
+                            </AccordionSummary>
+
+                            <AccordionDetails sx={{ p: 2, bgcolor: DASH.canvas }}>
+                                <Box sx={{ display: "flex", alignItems: "flex-start", gap: 0.9, mb: 2, px: 1.2, py: 1, borderRadius: RADIUS, bgcolor: "#fff", border: `1px dashed ${DASH.line}` }}>
+                                    <InfoOutlinedIcon sx={{ fontSize: 14, color: DASH.faint, mt: "1px" }} />
+                                    <Typography sx={{ fontSize: 11.5, color: DASH.muted, lineHeight: 1.5 }}>
+                                        Student and staff leave always needs approval — there is no way to turn it off.
+                                        Tick every user type allowed to clear a request; any one of them can approve it.
+                                        Students are never offered as approvers.
+                                    </Typography>
+                                </Box>
+
+                                <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                                    {SINGLE_APPROVER_PAGES.map((lp) => {
+                                        const c = cfg(lp.key);
+                                        const picked = (c.levels || []).map(String).filter(Boolean);
+                                        const isStudent = lp.key === "studentleave";
+                                        const accent = isStudent ? DASH.cyan : DASH.violet;
+                                        const accentLight = isStudent ? DASH.cyanLight : DASH.violetLight;
+
+                                        const toggleApprover = (id) => {
+                                            const key = String(id);
+                                            setApprovers(lp.key, picked.includes(key)
+                                                ? picked.filter((x) => x !== key)
+                                                : [...picked, key]);
+                                        };
+
+                                        return (
+                                            <Box
+                                                key={lp.key}
+                                                sx={{
+                                                    bgcolor: "#fff",
+                                                    border: `1px solid ${DASH.line}`,
+                                                    borderRadius: RADIUS,
+                                                    overflow: "hidden",
+                                                }}
+                                            >
+                                                <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, px: 2, py: 1.4, borderBottom: `1px solid ${DASH.lineSoft}` }}>
+                                                    <Box sx={{ width: 3, height: 20, borderRadius: RADIUS, bgcolor: accent, flexShrink: 0 }} />
+                                                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                                                        <Typography sx={{ fontSize: 14, fontWeight: 700, color: DASH.ink, lineHeight: 1.35 }}>
+                                                            {lp.label}
+                                                        </Typography>
+                                                        <Typography sx={{ fontSize: 11.5, color: DASH.muted, mt: 0.1 }}>
+                                                            {isStudent ? "Raised by students" : "Raised by staff"}
+                                                        </Typography>
+                                                    </Box>
+                                                    <Chip
+                                                        size="small"
+                                                        label={picked.length === 0 ? "No approver yet" : `${picked.length} approver${picked.length > 1 ? "s" : ""}`}
+                                                        sx={{
+                                                            height: 20, fontSize: 10, fontWeight: 700, borderRadius: RADIUS,
+                                                            bgcolor: picked.length ? accentLight : DASH.amberLight,
+                                                            color: picked.length ? accent : DASH.amber,
+                                                        }}
+                                                    />
+                                                </Box>
+
+                                                <Box sx={{ p: 2 }}>
+                                                    <Typography sx={{ fontSize: 11, fontWeight: 700, color: DASH.muted, textTransform: "uppercase", letterSpacing: 0.4, mb: 1.2 }}>
+                                                        Who can approve
+                                                    </Typography>
+
+                                                    <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", lg: "repeat(3, 1fr)" }, gap: 1.2 }}>
+                                                        {roleOptions.map((u) => {
+                                                            const id = String(u.userTypeID);
+                                                            const on = picked.includes(id);
+                                                            const initials = String(u.userType || "?")
+                                                                .split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
+
+                                                            return (
+                                                                <Box
+                                                                    key={id}
+                                                                    role="checkbox"
+                                                                    aria-checked={on}
+                                                                    tabIndex={0}
+                                                                    onClick={() => toggleApprover(id)}
+                                                                    onKeyDown={(e) => {
+                                                                        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleApprover(id); }
+                                                                    }}
+                                                                    sx={{
+                                                                        display: "flex", alignItems: "center", gap: 1.2,
+                                                                        px: 1.4, py: 1.2,
+                                                                        borderRadius: RADIUS,
+                                                                        cursor: "pointer",
+                                                                        userSelect: "none",
+                                                                        bgcolor: on ? accentLight : "#fff",
+                                                                        border: `1px solid ${on ? accent : DASH.line}`,
+                                                                        transition: "background-color 0.15s, border-color 0.15s, box-shadow 0.15s",
+                                                                        "&:hover": { borderColor: on ? accent : "#9AA3AF", bgcolor: on ? accentLight : DASH.surface },
+                                                                        "&:focus-visible": { outline: `2px solid ${accent}`, outlineOffset: 2 },
+                                                                    }}
+                                                                >
+                                                                    <Box sx={{
+                                                                        width: 30, height: 30, borderRadius: RADIUS, flexShrink: 0,
+                                                                        display: "flex", alignItems: "center", justifyContent: "center",
+                                                                        bgcolor: on ? accent : DASH.lineSoft,
+                                                                        color: on ? "#fff" : DASH.muted,
+                                                                        fontSize: 11, fontWeight: 800,
+                                                                    }}>
+                                                                        {initials}
+                                                                    </Box>
+
+                                                                    <Typography sx={{
+                                                                        flex: 1, minWidth: 0,
+                                                                        fontSize: 12.5, fontWeight: on ? 700 : 600,
+                                                                        color: on ? DASH.ink : DASH.text,
+                                                                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                                                                    }}>
+                                                                        {u.userType}
+                                                                    </Typography>
+
+                                                                    {on
+                                                                        ? <CheckCircleIcon sx={{ fontSize: 18, color: accent, flexShrink: 0 }} />
+                                                                        : <RadioButtonUncheckedIcon sx={{ fontSize: 18, color: DASH.line, flexShrink: 0 }} />}
+                                                                </Box>
+                                                            );
+                                                        })}
+                                                    </Box>
+
+                                                    <Typography sx={{ fontSize: 11, color: picked.length ? DASH.muted : DASH.amber, mt: 1.4, lineHeight: 1.5, fontWeight: picked.length ? 400 : 600 }}>
+                                                        {picked.length === 0
+                                                            ? `Pick at least one user type — ${isStudent ? "student" : "staff"} leave cannot be approved until you do.`
+                                                            : picked.length === 1
+                                                                ? `${roleName(picked[0])} approves every ${isStudent ? "student" : "staff"} leave request.`
+                                                                : `Any one of these ${picked.length} user types can approve a ${isStudent ? "student" : "staff"} leave request.`}
+                                                    </Typography>
+                                                </Box>
+                                            </Box>
+                                        );
+                                    })}
+                                </Box>
+                            </AccordionDetails>
+                        </Accordion>
+                    );
+                })()}
             </Box>
+
+            {/* --- Sticky save bar: only shows once something actually changed, so the
+                 action is reachable no matter how far down the page you scrolled. --- */}
+            {changedKeys.length > 0 && (
+                <Box
+                    sx={{
+                        position: "sticky",
+                        bottom: 16,
+                        zIndex: 5,
+                        mt: 2,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1.5,
+                        flexWrap: "wrap",
+                        px: 2,
+                        py: 1.4,
+                        borderRadius: RADIUS,
+                        bgcolor: "#fff",
+                        border: `1px solid ${DASH.amber}`,
+                        boxShadow: "0 8px 24px rgba(16,24,40,0.16)",
+                    }}
+                >
+                    <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: DASH.amber, flexShrink: 0 }} />
+                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                        <Typography sx={{ fontSize: 13, fontWeight: 700, color: DASH.ink }}>
+                            {changedKeys.length} unsaved change{changedKeys.length > 1 ? "s" : ""}
+                        </Typography>
+                        <Typography sx={{ fontSize: 11.5, color: DASH.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {changedKeys
+                                .map((k) => (APPROVAL_PAGES.find((ap) => ap.key === k)?.label || k))
+                                .join(", ")}
+                        </Typography>
+                    </Box>
+
+                    <Button
+                        onClick={handleDiscard}
+                        disabled={isSaving}
+                        variant="outlined"
+                        sx={{
+                            textTransform: "none", fontWeight: 600, fontSize: 12.5,
+                            borderRadius: RADIUS, height: 34, px: 2,
+                            color: DASH.text, borderColor: "#D6DAE1", bgcolor: "#fff",
+                            "&:hover": { borderColor: "#9AA3AF", bgcolor: DASH.surface },
+                        }}
+                    >
+                        Discard
+                    </Button>
+                    <Button
+                        onClick={handleSave}
+                        disabled={isSaving || isLoading}
+                        startIcon={isSaving ? <CircularProgress size={14} sx={{ color: "#fff" }} /> : null}
+                        sx={{
+                            textTransform: "none", fontWeight: 700, fontSize: 12.5,
+                            borderRadius: RADIUS, height: 34, px: 2.4,
+                            bgcolor: ACCENT, color: "#fff", boxShadow: "none",
+                            "&:hover": { bgcolor: ACCENT, filter: "brightness(0.92)", boxShadow: "none" },
+                            "&.Mui-disabled": { bgcolor: "#E5E7EB", color: "#9CA3AF" },
+                        }}
+                    >
+                        {isSaving ? "Saving…" : "Save Approval Flows"}
+                    </Button>
+                </Box>
+            )}
+
         </Box>
     );
 }

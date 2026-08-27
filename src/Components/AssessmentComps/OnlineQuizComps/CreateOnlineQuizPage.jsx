@@ -514,7 +514,9 @@ export default function CreateOnlineQuizPage() {
         const fetchLimits = async () => {
             try {
                 const res = await axios.get(QuizLimits, { headers: { Authorization: `Bearer ${token}` } });
-                const data = res?.data?.data;
+                // /qtest/limits may answer with the caps at the root or inside a
+                // data envelope; either way the built-in defaults are the floor.
+                const data = res?.data?.data || res?.data;
                 if (data) {
                     setLimits({ ...DEFAULT_LIMITS, ...data });
                     if (Array.isArray(data.allowedDifficulties) && data.allowedDifficulties.length) {

@@ -1,12 +1,17 @@
-import { Box, Grid, Typography, Button } from "@mui/material";
+import React, { useState } from "react";
+import { Box, Chip, Divider, Grid, IconButton, InputAdornment, TextField, Typography, Button } from "@mui/material";
 import { Link } from "react-router-dom";
 import { useSelector } from "react-redux";
 import AddIcon from '@mui/icons-material/Add';
 import { selectGrades } from "../../Redux/Slices/DropdownController";
 import { findSubMenuPermissions } from "../../Redux/Slices/AuthSlice";
-import NewspaperIcon from '@mui/icons-material/Newspaper';
 import { useLocation, useNavigate } from "react-router-dom";
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import SearchIcon from '@mui/icons-material/Search';
+import HighlightOffIcon from '@mui/icons-material/HighlightOff';
+import MenuBookOutlinedIcon from '@mui/icons-material/MenuBookOutlined';
+import FolderOpenOutlinedIcon from '@mui/icons-material/FolderOpenOutlined';
+import { DASH, RADIUS } from "../DashBoardComps/dashboardTheme";
 
 
 const categoryColorMap = {
@@ -42,7 +47,16 @@ export default function StudyMaterialPage() {
     const userName = user.name
     const canCreate = (findSubMenuPermissions(user.permissions, "communication", "studymaterial") || {}).create === "Y";
 
-    const groupedGrades = grades.reduce((acc, item) => {
+    const [searchQuery, setSearchQuery] = useState("");
+
+    // Search narrows on the class label before grouping, so an empty category
+    // never renders a heading with nothing under it.
+    const visibleGrades = (grades || []).filter((g) =>
+        String(g?.sign || "").toLowerCase().includes(searchQuery.trim().toLowerCase())
+    );
+    const totalGrades = visibleGrades.length;
+
+    const groupedGrades = visibleGrades.reduce((acc, item) => {
         const category = item.category || "Others";
         if (!acc[category]) acc[category] = [];
         acc[category].push(item);
@@ -59,211 +73,275 @@ export default function StudyMaterialPage() {
     }
     return (
         <Box sx={{ width: "100%" }}>
+            {/* ═══ TOOLBAR — same shape as the other Communication listings ═══ */}
             <Box
                 sx={{
                     backgroundColor: "#f2f2f2",
-                    py: 1.5,
+                    py: 1,
                     px: 2,
                     borderRadius: "10px 10px 10px 0px",
                     borderBottom: "1px solid #ddd",
                     display: "flex",
-                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: 1.5,
+                    flexWrap: "wrap",
                 }}
             >
-                <Typography
-                    sx={{
-                        fontWeight: "600",
-                        fontSize: "20px",
-                    }}
-                >
-                    Study Materials
-                </Typography>
-                {canCreate &&
-                    <Button
-                        onClick={handleCreateNews}
-                        variant="outlined"
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}>
+                    <Typography sx={{ fontWeight: "600", fontSize: "20px", color: DASH.ink, whiteSpace: "nowrap" }}>
+                        Study Materials
+                    </Typography>
+                    <Chip
+                        size="small"
+                        label={totalGrades}
                         sx={{
-                            borderColor: "#A9A9A9",
-                            backgroundColor: "#000",
-                            py: 0.3,
-                            width: "110px",
-                            height: "30px",
-                            color: "#fff",
-                            textTransform: "none",
-                            border: "none",
-
+                            height: "20px",
+                            fontSize: "11px",
+                            fontWeight: 700,
+                            borderRadius: "6px",
+                            backgroundColor: "#fff",
+                            border: "1px solid #DDE1E6",
+                            color: "#4B5563",
                         }}
-                    >
-                        <AddIcon sx={{ fontSize: "20px" }} />
-                        &nbsp;Materials
-                    </Button>
-                }
-            </Box>
-            <Box sx={{ p: 2 }}>
-                <Box
-                    sx={{
-                        backgroundColor: "#fff",
-                        px: 2,
-                        py: 2,
-                        borderRadius: "15px",
+                    />
+                </Box>
 
-                    }}
-                >
-                    <Box sx={{
-                        height: "75vh",
-                        overflowY: "auto",
-                        scrollbarWidth: "none",
-                        '&::-webkit-scrollbar': {
-                            display: 'none',
-                        },
-                    }}>
-                        {Object.entries(groupedGrades).map(([category, items]) => {
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1, ml: "auto", flexWrap: "wrap" }}>
+                    <TextField
+                        variant="outlined"
+                        placeholder="Search by class"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        slotProps={{
+                            input: {
+                                startAdornment: (
+                                    <InputAdornment position="start">
+                                        <SearchIcon sx={{ fontSize: 17, color: "#8A93A0" }} />
+                                    </InputAdornment>
+                                ),
+                                endAdornment: searchQuery ? (
+                                    <InputAdornment position="end">
+                                        <IconButton size="small" onClick={() => setSearchQuery("")} sx={{ p: 0.2 }}>
+                                            <HighlightOffIcon sx={{ fontSize: 15, color: "#8A93A0" }} />
+                                        </IconButton>
+                                    </InputAdornment>
+                                ) : null,
+                                sx: {
+                                    padding: "0 10px",
+                                    borderRadius: "50px",
+                                    height: "28px",
+                                    fontSize: "12px",
+                                },
+                            },
+                        }}
+                        sx={{
+                            width: { xs: "100%", sm: 240 },
+                            "& .MuiOutlinedInput-root": {
+                                minHeight: "28px",
+                                paddingRight: "3px",
+                                backgroundColor: "#fff",
+                            },
+                            "& .MuiOutlinedInput-root .MuiOutlinedInput-notchedOutline": { borderColor: "#DDE1E6" },
+                            "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: DASH.primary },
+                        }}
+                    />
+
+                    {canCreate && (
+                        <Button
+                            onClick={handleCreateNews}
+                            variant="contained"
+                            startIcon={<AddIcon sx={{ fontSize: 16 }} />}
+                            sx={{
+                                textTransform: "none",
+                                bgcolor: "#000",
+                                color: "#fff",
+                                fontWeight: 700,
+                                fontSize: 12.5,
+                                borderRadius: "50px",
+                                px: 2,
+                                py: 0.6,
+                                whiteSpace: "nowrap",
+                                boxShadow: "0 2px 6px rgba(0,0,0,0.18)",
+                                "&:hover": { bgcolor: "#1a1a1a", boxShadow: "0 4px 12px rgba(0,0,0,0.22)" },
+                            }}
+                        >
+                            Materials
+                        </Button>
+                    )}
+                </Box>
+            </Box>
+
+            <Box sx={{ p: 2, bgcolor: DASH.canvas, minHeight: "100%", boxSizing: "border-box" }}>
+                <Box sx={{
+                    height: "75vh",
+                    overflowY: "auto",
+                    scrollbarWidth: "none",
+                    "&::-webkit-scrollbar": { display: "none" },
+                }}>
+                    {Object.keys(groupedGrades).length === 0 ? (
+                        <Box sx={{
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            height: "60vh",
+                            textAlign: "center",
+                        }}>
+                            <FolderOpenOutlinedIcon sx={{ fontSize: 40, color: "#C9CFD8" }} />
+                            <Typography sx={{ fontSize: "15px", fontWeight: 600, color: DASH.text, mt: 1.5 }}>
+                                {searchQuery ? "No classes match your search" : "No classes yet"}
+                            </Typography>
+                            <Typography sx={{ fontSize: "13px", color: DASH.faint, mt: 0.5, maxWidth: 340 }}>
+                                {searchQuery
+                                    ? "Try a different class name, or clear the search to see everything."
+                                    : "Once classes are set up they will appear here."}
+                            </Typography>
+                        </Box>
+                    ) : (
+                        Object.entries(groupedGrades).map(([category, items]) => {
                             const { primary } = getCategoryColors(category);
 
                             return (
-                                <Box key={category} sx={{ mb: 1 }}>
-                                    {/* Category Heading */}
-                                    <Box
-                                        sx={{
-                                            display: "flex",
-                                            alignItems: "center",
-                                            mb: 2
-                                        }}
-                                    >
-                                        <Box
-                                            sx={{
-                                                width: "10px",
-                                                height: "10px",
-                                                backgroundColor: primary,
-                                                borderRadius: "50%",
-                                                mr: 1
-                                            }}
-                                        />
-                                        <Typography
-                                            sx={{
-                                                fontWeight: "700",
-                                                fontSize: "16px",
-                                                color: "#000",
-                                            }}
-                                        >
+                                <Box key={category} sx={{ mb: 3 }}>
+                                    {/* Category band — the dashboard's SectionTitle language */}
+                                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.4, mb: 1.6 }}>
+                                        <Box sx={{ width: 3, height: 18, borderRadius: RADIUS, bgcolor: primary, flexShrink: 0 }} />
+                                        <Typography sx={{
+                                            fontSize: "11.5px",
+                                            fontWeight: 700,
+                                            letterSpacing: "0.08em",
+                                            textTransform: "uppercase",
+                                            color: DASH.muted,
+                                            whiteSpace: "nowrap",
+                                        }}>
                                             {category} Materials
                                         </Typography>
+                                        <Chip
+                                            size="small"
+                                            label={items.length}
+                                            sx={{
+                                                height: 18,
+                                                fontSize: "10px",
+                                                fontWeight: 700,
+                                                borderRadius: RADIUS,
+                                                bgcolor: `${primary}1A`,
+                                                color: primary,
+                                            }}
+                                        />
+                                        <Divider sx={{ flex: 1 }} />
                                     </Box>
-                                    {/* Items in Category */}
-                                    <Grid container spacing={3}>
-                                        {items.map((item, index) => {
-                                            const { light, dark } = getCategoryColors(item.category);
 
-                                            return (
-                                                <Grid
-                                                    key={index}
-                                                    sx={{ display: "flex", justifyContent: "center" }}
-                                                    size={{
-                                                        xs: 12,
-                                                        sm: 6,
-                                                        md: 4,
-                                                        lg: 4
-                                                    }}>
-                                                    <Box
-                                                        onClick={() => handleClick(item.sign, item.id)}
-                                                        sx={{ cursor: "pointer", textDecoration: "none", width: "100%" }}
-                                                    >
-                                                        <Box
-                                                            sx={{
-                                                                backgroundColor: light,
-                                                                width: "100%",
-                                                                height: "80px",
-                                                                py: 2,
-                                                                mb: 2,
-                                                                position: "relative",
-                                                                borderRadius: "7px",
-                                                                cursor: "pointer",
-                                                                "&:hover": {
-                                                                    ".arrowIcon": {
-                                                                        opacity: 1,
-                                                                    },
-                                                                },
-                                                            }}
-                                                        >
-                                                            <Box
+                                    <Grid container spacing={2}>
+                                        {items.map((item, index) => (
+                                            <Grid
+                                                key={item.id ?? index}
+                                                size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+                                                <Box
+                                                    role="button"
+                                                    tabIndex={0}
+                                                    onClick={() => handleClick(item.sign, item.id)}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === "Enter" || e.key === " ") {
+                                                            e.preventDefault();
+                                                            handleClick(item.sign, item.id);
+                                                        }
+                                                    }}
+                                                    sx={{
+                                                        position: "relative",
+                                                        height: "100%",
+                                                        display: "flex",
+                                                        flexDirection: "column",
+                                                        cursor: "pointer",
+                                                        userSelect: "none",
+                                                        overflow: "hidden",
+                                                        bgcolor: "#fff",
+                                                        border: `1px solid ${DASH.line}`,
+                                                        borderRadius: "12px",
+                                                        boxShadow: "0px 1px 3px rgba(16,24,40,0.06)",
+                                                        transition: "box-shadow 0.2s, border-color 0.2s, transform 0.2s",
+                                                        "&:hover": {
+                                                            boxShadow: "0px 6px 18px rgba(16,24,40,0.10)",
+                                                            borderColor: `${primary}66`,
+                                                            transform: "translateY(-2px)",
+                                                            ".smArrow": { opacity: 1, transform: "translateX(3px)" },
+                                                            ".smFooter": { bgcolor: `${primary}0F` },
+                                                        },
+                                                        "&:focus-visible": { outline: `2px solid ${primary}`, outlineOffset: 2 },
+                                                    }}
+                                                >
+                                                    {/* accent rail */}
+                                                    <Box sx={{ height: 3, bgcolor: primary, flexShrink: 0 }} />
+                                            
+                                                    <Box sx={{ p: 1.8, display: "flex", alignItems: "flex-start", gap: 1.4, flex: 1 }}>
+                                                        <Box sx={{
+                                                            width: 42,
+                                                            height: 42,
+                                                            flexShrink: 0,
+                                                            borderRadius: "12px",
+                                                            bgcolor: `${primary}14`,
+                                                            border: `1px solid ${primary}33`,
+                                                            display: "flex",
+                                                            alignItems: "center",
+                                                            justifyContent: "center",
+                                                        }}>
+                                                            <MenuBookOutlinedIcon sx={{ color: primary, fontSize: 21 }} />
+                                                        </Box>
+                                            
+                                                        <Box sx={{ minWidth: 0, flex: 1 }}>
+                                                            <Typography sx={{ fontWeight: 700, fontSize: "15.5px", color: DASH.ink, lineHeight: 1.3 }} noWrap>
+                                                                {item.sign}
+                                                            </Typography>
+                                                            <Chip
+                                                                size="small"
+                                                                label={item.category || "Others"}
                                                                 sx={{
-                                                                    width: "7px",
-                                                                    backgroundColor: primary,
-                                                                    height: "100%",
-                                                                    position: "absolute",
-                                                                    left: 0,
-                                                                    top: 0,
-                                                                    borderTopLeftRadius: "5px",
-                                                                    borderBottomLeftRadius: "5px",
+                                                                    mt: 0.6,
+                                                                    height: 19,
+                                                                    fontSize: "10px",
+                                                                    fontWeight: 700,
+                                                                    borderRadius: "6px",
+                                                                    bgcolor: `${primary}14`,
+                                                                    color: primary,
                                                                 }}
                                                             />
-                                                            <Grid
-                                                                container
-                                                                spacing={1}
-                                                                sx={{ height: "100%", px: 2 }}
-                                                            >
-                                                                <Grid
-                                                                    sx={{
-                                                                        display: "flex",
-                                                                        justifyContent: "center",
-                                                                        alignItems: "center",
-                                                                    }}
-                                                                    size={3}>
-                                                                    <Box
-                                                                        sx={{
-                                                                            backgroundColor: dark,
-                                                                            borderRadius: "50%",
-                                                                            width: "40px",
-                                                                            height: "40px",
-                                                                            display: "flex",
-                                                                            justifyContent: "center",
-                                                                            alignItems: "center",
-                                                                        }}
-                                                                    >
-                                                                        <NewspaperIcon sx={{ color: primary }} width={25} height={25} />
-                                                                    </Box>
-                                                                </Grid>
-                                                                <Grid
-                                                                    sx={{ display: "flex", justifyContent: "center", alignItems: "center" }}
-                                                                    size={5}>
-                                                                    <Typography
-                                                                        sx={{
-                                                                            fontWeight: "600",
-                                                                            color: "#000",
-                                                                        }}
-                                                                    >
-                                                                        {item.sign}
-                                                                    </Typography>
-                                                                </Grid>
-                                                                <Grid
-                                                                    sx={{
-                                                                        display: "flex",
-                                                                        alignItems: "center",
-                                                                        justifyContent: "end"
-                                                                    }}
-                                                                    size={3}>
-                                                                    <ArrowForwardIcon
-                                                                        className="arrowIcon"
-                                                                        sx={{
-                                                                            opacity: 0,
-                                                                            fontSize: "28px",
-                                                                            fontWeight: "700",
-                                                                            transition: "opacity 0.3s ease",
-                                                                            color: primary,
-                                                                        }}
-                                                                    />
-                                                                </Grid>
-                                                            </Grid>
                                                         </Box>
                                                     </Box>
-                                                </Grid>
-                                            );
-                                        })}
+                                            
+                                                    <Box
+                                                        className="smFooter"
+                                                        sx={{
+                                                            display: "flex",
+                                                            alignItems: "center",
+                                                            justifyContent: "space-between",
+                                                            gap: 1,
+                                                            px: 1.8,
+                                                            py: 1,
+                                                            borderTop: `1px solid ${DASH.lineSoft}`,
+                                                            bgcolor: DASH.surface,
+                                                            transition: "background-color 0.2s",
+                                                        }}
+                                                    >
+                                                        <Typography sx={{ fontSize: "11.5px", fontWeight: 700, color: primary }}>
+                                                            View materials
+                                                        </Typography>
+                                                        <ArrowForwardIcon
+                                                            className="smArrow"
+                                                            sx={{
+                                                                opacity: 0.45,
+                                                                fontSize: "16px",
+                                                                color: primary,
+                                                                transition: "opacity 0.25s ease, transform 0.25s ease",
+                                                            }}
+                                                        />
+                                                    </Box>
+                                                </Box>
+                                            </Grid>
+                                        ))}
                                     </Grid>
                                 </Box>
                             );
-                        })}
-                    </Box>
+                        })
+                    )}
                 </Box>
             </Box>
         </Box>

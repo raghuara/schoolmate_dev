@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Box, Grid, TextField, Typography, Button, Divider, IconButton, Dialog, DialogActions, Autocomplete, Paper, ThemeProvider, createTheme, } from "@mui/material";
+import { Tooltip, Chip, Box, Grid, TextField, Typography, Button, Divider, IconButton, Dialog, DialogActions, Autocomplete, Paper, ThemeProvider, createTheme, } from "@mui/material";
 import axios from "axios";
 import { useDropzone } from "react-dropzone";
 import dayjs from "dayjs";
@@ -21,6 +21,11 @@ import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import CloseOutlinedIcon from "@mui/icons-material/CloseOutlined";
 import PublishOutlinedIcon from "@mui/icons-material/PublishOutlined";
 import ScheduleSendOutlinedIcon from "@mui/icons-material/ScheduleSendOutlined";
+import { selectUserTypeID } from "../../../Redux/Slices/AuthSlice";
+import { APPROVAL_SUBMENUS, approvalRoleFor, selectApprovalMatrix } from "../../../Redux/Slices/approvalMatrixSlice";
+import VerifiedOutlinedIcon from "@mui/icons-material/VerifiedOutlined";
+import AccountTreeOutlinedIcon from "@mui/icons-material/AccountTreeOutlined";
+import SendOutlinedIcon from "@mui/icons-material/SendOutlined";
 
 export default function EditHomeWorkPage() {
     const navigate = useNavigate();
@@ -289,6 +294,26 @@ export default function EditHomeWorkPage() {
         }
     };
 
+    /*
+       Same flow as Edit News / Edit Circular: the matrix decides whether this
+       update goes live or is sent for approval, and the note names the approvers
+       it has to travel through.
+    */
+    const userTypeID = useSelector(selectUserTypeID);
+    const approvalMatrix = useSelector(selectApprovalMatrix);
+    const approval = approvalRoleFor(approvalMatrix, APPROVAL_SUBMENUS.HOMEWORK, userTypeID);
+    const canPublishHomework = approval.canPublishDirect;
+
+    const levelUserType = (lvl) => approval.flow?.["level" + lvl]?.userType || ("Level " + lvl);
+    const approverNames = approval.chain.map(levelUserType);
+    const approvalNote = canPublishHomework
+        ? (approval.required
+            ? "You are the top level approver for Homework, so your changes go live straight away."
+            : "No approval flow is set for Homework yet, so your changes go live straight away.")
+        : (approverNames.length
+            ? "This update will be sent to " + approverNames.join(", then ") + " for approval before it goes live."
+            : "This update will be sent for approval before it goes live.");
+
     const handleUpdate = async (status) => {
 
         if (uploadedFiles.length === 0) {
@@ -321,7 +346,9 @@ export default function EditHomeWorkPage() {
                 },
             });
 
-            setMessage("Home work updated successfully");
+            setMessage(canPublishHomework
+                ? (status === "schedule" ? "Homework scheduled successfully" : "Homework updated successfully")
+                : "Update requested successfully");
             setOpen(true);
             setColor(true);
             setStatus(true);
@@ -360,6 +387,28 @@ export default function EditHomeWorkPage() {
                     <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
                 </IconButton>
                 <Typography sx={{ fontWeight: "600", fontSize: "20px" }}>Edit Homework</Typography>
+
+                <Tooltip title={approvalNote} placement="bottom-end">
+                    <Chip
+                        size="small"
+                        icon={canPublishHomework
+                            ? <VerifiedOutlinedIcon sx={{ fontSize: 16 }} />
+                            : <AccountTreeOutlinedIcon sx={{ fontSize: 16 }} />}
+                        label={canPublishHomework ? "Updates instantly" : "Needs approval"}
+                        sx={{
+                            ml: "auto",
+                            mr: 4,
+                            display: { xs: "none", sm: "inline-flex" },
+                            fontSize: "12px",
+                            fontWeight: 600,
+                            borderRadius: "8px",
+                            border: canPublishHomework ? "1px solid #CBE3B4" : "1px solid #FFD9A0",
+                            backgroundColor: canPublishHomework ? "#F1F8E9" : "#FFF7E6",
+                            color: canPublishHomework ? "#4E7A2E" : "#B36A00",
+                            "& .MuiChip-icon": { color: "inherit" },
+                        }}
+                    />
+                </Tooltip>
             </Box>
             <Grid container >
                 <Grid
@@ -626,15 +675,21 @@ export default function EditHomeWorkPage() {
                             >
                                 Cancel
                             </Button>
-                            <Button
-                                startIcon={DTValue
-                                    ? <ScheduleSendOutlinedIcon sx={{ fontSize: 16 }} />
-                                    : <PublishOutlinedIcon sx={{ fontSize: 17 }} />}
-                                sx={primaryButtonSx}
-                                onClick={() => handleUpdate(DTValue ? 'schedule' : 'post')}
-                            >
-                                {DTValue ? 'Schedule' : 'Update'}
-                            </Button>
+                            <Tooltip title={approvalNote} placement="top">
+                                <Button
+                                    startIcon={!canPublishHomework
+                                        ? <SendOutlinedIcon sx={{ fontSize: 16 }} />
+                                        : DTValue
+                                            ? <ScheduleSendOutlinedIcon sx={{ fontSize: 16 }} />
+                                            : <PublishOutlinedIcon sx={{ fontSize: 17 }} />}
+                                    sx={primaryButtonSx}
+                                    onClick={() => handleUpdate(DTValue ? 'schedule' : 'post')}
+                                >
+                                    {!canPublishHomework
+                                        ? 'Send Update for Approval'
+                                        : DTValue ? 'Schedule' : 'Update'}
+                                </Button>
+                            </Tooltip>
                         </Box>
 
                     </Box>

@@ -13,6 +13,7 @@ import Loader from "../../Loader";
 import EditIcon from "@mui/icons-material/Edit";
 import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlice";
 import { findSubMenuPermissions } from "../../../Redux/Slices/AuthSlice";
+import { DASH, RADIUS } from "../../DashBoardComps/dashboardTheme";
 
 export default function FolderStudyMaterialPage() {
     const user = useSelector((state) => state.auth);
@@ -142,7 +143,7 @@ export default function FolderStudyMaterialPage() {
             <Box
                 sx={{
                     backgroundColor: "#f2f2f2",
-                    py: 1.5,
+                    py: 1,
                     px: 2,
                     borderRadius: "10px 10px 10px 0px",
                     display: "flex",
@@ -315,14 +316,19 @@ export default function FolderStudyMaterialPage() {
                     />
                     <Box sx={{ display: "flex", justifyContent: "end", pt: 2, }}>
                         <Button
+                            variant="outlined"
                             sx={{
-                                border: "1px solid black",
-                                color: "black",
-                                borderRadius: "30px",
-                                width: "70px",
-                                fontSize: '11px',
-                                py: 0.2,
-                                mr: 2
+                                textTransform: "none",
+                                borderRadius: RADIUS,
+                                px: 2,
+                                height: 34,
+                                fontSize: "12.5px",
+                                fontWeight: 600,
+                                color: DASH.text,
+                                borderColor: "#D6DAE1",
+                                backgroundColor: "#fff",
+                                mr: 1.5,
+                                "&:hover": { borderColor: "#9AA3AF", backgroundColor: DASH.surface },
                             }}
                             onClick={handleCreateFolderClose}>
                             Cancel
@@ -331,14 +337,17 @@ export default function FolderStudyMaterialPage() {
                         <Button
                             disabled={!folderName.trim()}
                             sx={{
-                                textTransform: 'none',
+                                textTransform: "none",
                                 backgroundColor: websiteSettings.mainColor,
-                                width: "80px",
-                                borderRadius: '30px',
-                                fontSize: '12px',
-                                py: 0.2,
+                                borderRadius: RADIUS,
+                                px: 2.4,
+                                height: 34,
+                                fontSize: "12.5px",
+                                fontWeight: 700,
                                 color: websiteSettings.textColor,
-                                fontWeight: "600",
+                                boxShadow: "none",
+                                "&:hover": { backgroundColor: websiteSettings.mainColor, opacity: 0.9, boxShadow: "none" },
+                                "&.Mui-disabled": { backgroundColor: "#E5E7EB", color: DASH.faint },
                             }}
                             onClick={handleSubmitCreateFolder}>
                             Rename

@@ -35,40 +35,17 @@ import {
     DASH, RADIUS, KPI_TONES, Panel, SolidStatCard, MeterRow, ChartTooltip, EmptyNote,
 } from "../../DashBoardComps/dashboardTheme";
 import { selectGrades } from "../../../Redux/Slices/DropdownController";
-import { GetQuizSingleAnalytics, GetStudentQuizWarningCount } from "../../../Api/Api";
+import { GetQuizSingleAnalytics } from "../../../Api/Api";
 import { val, unwrap, readGradeSections, fmtDate } from "./quizApi";
 
 const PASS_MARK = 50;
+
+const EMPTY_ROLLUP = { available: [], rows: [] };
 
 // How many app exits the quiz allowed before it auto-submits. Falls back to 3,
 // which is what the create screen defaults to.
 const DEFAULT_WARNING_ALLOWANCE = 3;
 
-// The warning endpoint answers for one student at a time, so a class means one
-// call each. Sent in small batches to keep the browser from opening 40 sockets.
-const WARNING_BATCH_SIZE = 6;
-
-const readWarningCount = (payload) => {
-    const root = unwrap(payload);
-    const direct = val(root, ["warningCount", "warnings", "exitCount", "count"], null);
-    if (direct !== null) return Number(direct) || 0;
-    const rows = Array.isArray(root) ? root : null;
-    if (rows) return rows.length;
-    return 0;
-};
-
-// Sample spread used only when the backend has no attempt activity yet, so the
-// screen can still be reviewed. Deterministic per roll number - no randomness,
-// so the same student always shows the same sample figure.
-const demoWarningFor = (rollNumber, allowance) => {
-    const text = String(rollNumber || "");
-    let sum = 0;
-    for (let i = 0; i < text.length; i += 1) sum += text.charCodeAt(i);
-    const bucket = sum % 10;
-    if (bucket < 6) return 0;                       // most students stay in the app
-    if (bucket < 9) return (sum % allowance) || 1;  // a few get warned
-    return allowance + 1;                           // one or two auto-submit
-};
 
 const formatTime = (seconds) =>
     seconds ? `${Math.floor(seconds / 60)}m ${String(Math.round(seconds % 60)).padStart(2, "0")}s` : "-";
@@ -84,73 +61,141 @@ const secondsFrom = (value) => {
     return Number(parts[1] || 0) * 60 + Number(parts[2] || 0);
 };
 
-// First array whose key name mentions one of the given words.
-const arrayByKey = (root, matches) => {
-    if (!root || typeof root !== "object") return null;
-    for (const [key, value] of Object.entries(root)) {
-        const flat = key.toLowerCase().replace(/[^a-z]/g, "");
-        if (Array.isArray(value) && matches.some((m) => flat.includes(m))) return value;
-    }
-    return null;
-};
+/*
+   Readers for getQuzeSingleAnalytics. Keyed to the confirmed response:
 
-const isYes = (value) => /^(y|yes|true|1|attempted|present|completed|submitted)$/i.test(String(value ?? ""));
+   data.students.items[]              - the roster
+   data.overview.questionWiseAccuracy - per-question accuracy
+   data.overview.accuracyByQuestionType
+   data.gradeAndSection.sections[]    - per-section rollup
+   data.attempted / averageMarks / passRate / highestScore / lowestScore
 
-// One student row, in the shape the tables and summaries below already read.
+   The payload carries no per-student app-exit count, so `exits` stays null and
+   the Integrity tab says the figure was not reported instead of inventing one.
+*/
+
+// data.students is { count, items: [...] }.
 const readStudents = (root, totalQuestions, gradeText) => {
-    const rows = arrayByKey(root, ["student", "result", "attendee", "mark"]) || [];
+    const rows = Array.isArray(root?.students?.items)
+        ? root.students.items
+        : (Array.isArray(root?.students) ? root.students : []);
+
     return rows
         .filter((row) => row && typeof row === "object")
         .map((row, index) => {
-            const total = Number(val(row, ["totalMarks", "totalQuestions", "outOf", "maxMark"], totalQuestions)) || totalQuestions;
-            const marks = Number(val(row, ["marksScored", "marks", "score", "correctAnswers", "correct"], 0)) || 0;
-            const correct = Number(val(row, ["correctAnswers", "correct", "rightAnswers"], marks)) || 0;
-            const skipped = Number(val(row, ["skipped", "notAnswered", "unanswered"], 0)) || 0;
-            const attemptFlag = val(row, ["attended", "attempted", "isAttempted", "attemptStatus"], null);
-            const percentage = val(row, ["percentage", "scorePercentage", "percent"], null);
+            const total = Number(row.totalMarks ?? totalQuestions) || totalQuestions;
+            const marks = Number(row.marksObtained ?? 0) || 0;
+            const correct = Number(row.correct ?? 0) || 0;
+            const skipped = Number(row.skipped ?? 0) || 0;
 
             return {
-                id: val(row, ["rollNumber", "studentRollNumber", "id"], `row-${index}`),
-                rollNumber: String(val(row, ["rollNumber", "studentRollNumber", "rollNo"], "-")),
-                name: val(row, ["studentName", "name", "fullName"], "-"),
-                grade: val(row, ["grade", "gradeName"], gradeText),
-                section: String(val(row, ["section", "sectionName"], "-")),
-                attempted: attemptFlag === null ? marks > 0 : isYes(attemptFlag),
+                id: row.rollNumber || `row-${index}`,
+                rollNumber: String(row.rollNumber ?? "-"),
+                name: row.studentName || "-",
+                grade: row.grade || gradeText,
+                section: String(row.section ?? "-"),
+                className: row.className || "",
+                rank: row.rank ?? null,
+                // A real boolean on every row - no inference from the marks.
+                attempted: row.attempted === true,
+                result: row.result || "",
                 marks,
                 total,
                 correct,
-                wrong: Number(val(row, ["wrongAnswers", "wrong", "incorrect"], Math.max(0, total - correct - skipped))) || 0,
+                wrong: Number(row.wrong ?? 0) || 0,
                 skipped,
-                score: percentage !== null
-                    ? Math.round(Number(percentage))
-                    : (total ? Math.round((marks / total) * 100) : 0),
-                seconds: secondsFrom(val(row, ["timeTakenSeconds", "timeTaken", "durationSeconds", "seconds", "timeSpent"], 0)),
+                score: Math.round(Number(row.scorePercentage ?? 0) || 0),
+                // null until a student actually sits the quiz.
+                seconds: secondsFrom(row.time),
+                exits: null,
             };
         });
 };
 
-// Per-question accuracy and average time, when the API sends them.
+// data.overview.questionWiseAccuracy - averageTimePerQuestion is only populated
+// when averageTimeAvailable is true, so seconds are matched in by question id.
 const readQuestionStats = (root) => {
-    const rows = arrayByKey(root, ["question"]) || [];
+    const overview = root?.overview || {};
+    const rows = Array.isArray(overview.questionWiseAccuracy) ? overview.questionWiseAccuracy : [];
+    const timeById = {};
+    (Array.isArray(overview.averageTimePerQuestion) ? overview.averageTimePerQuestion : [])
+        .forEach((row) => {
+            if (!row || typeof row !== "object") return;
+            timeById[row.questionId] = secondsFrom(
+                row.averageTimeSeconds ?? row.averageTime ?? row.seconds
+            );
+        });
+
     return rows
         .filter((row) => row && typeof row === "object")
         .map((row, index) => ({
-            q: `Q${val(row, ["questionNumber", "questionNo", "number", "index"], index + 1)}`,
-            accuracy: Math.round(Number(val(row, ["accuracy", "correctPercentage", "percentage", "correctPercent"], 0)) || 0),
-            seconds: secondsFrom(val(row, ["averageTimeSeconds", "averageTime", "avgTime", "timeTaken"], 0)),
+            id: row.questionId ?? index,
+            q: `Q${row.questionNo ?? index + 1}`,
+            question: row.question || "",
+            type: row.questionType || "",
+            correctStudents: Number(row.correctStudents ?? 0) || 0,
+            attemptedStudents: Number(row.attemptedStudents ?? 0) || 0,
+            accuracy: Math.round(Number(row.accuracyPercentage ?? 0) || 0),
+            seconds: timeById[row.questionId] || 0,
         }));
 };
 
-const TYPE_DEFS = [
-    { key: "mcq", name: "Choose the Best Option", color: DASH.violet, keys: ["chooseTheBestAnswerAccuracy", "mcqAccuracy", "chooseTheBestAnswer"] },
-    { key: "truefalse", name: "True / False", color: DASH.cyan, keys: ["trueOrFalseAccuracy", "trueFalseAccuracy", "trueOrFalse"] },
-    { key: "fillblank", name: "Fill in the Blanks", color: DASH.pink, keys: ["fillingTheBlanksAccuracy", "fillBlankAccuracy", "fillingTheBlanks"] },
-];
+// The API names the three types in full; these map them back to the page's tones.
+const TYPE_TONES = {
+    "choose the best answer": { key: "mcq", name: "Choose the Best Answer", color: DASH.violet },
+    "true / false": { key: "truefalse", name: "True / False", color: DASH.cyan },
+    "fill in the blanks": { key: "fillblank", name: "Fill in the Blanks", color: DASH.pink },
+};
 
-const readTypeAccuracy = (root) =>
-    TYPE_DEFS
-        .map((def) => ({ ...def, value: Math.round(Number(val(root, def.keys, 0)) || 0) }))
-        .filter((row) => row.value > 0);
+const readTypeAccuracy = (root) => {
+    const rows = Array.isArray(root?.overview?.accuracyByQuestionType)
+        ? root.overview.accuracyByQuestionType
+        : [];
+
+    return rows
+        .filter((row) => row && typeof row === "object")
+        .map((row, index) => {
+            const tone = TYPE_TONES[String(row.questionType || "").trim().toLowerCase()] || {};
+            return {
+                key: tone.key || `type-${index}`,
+                name: tone.name || row.questionType || "-",
+                color: tone.color || DASH.faint,
+                value: Math.round(Number(row.accuracyPercentage ?? 0) || 0),
+                totalQuestions: Number(row.totalQuestions ?? 0) || 0,
+                correctAnswers: Number(row.correctAnswers ?? 0) || 0,
+            };
+        })
+        // A type with no questions in this quiz is not worth a slice.
+        .filter((row) => row.totalQuestions > 0);
+};
+
+// data.gradeAndSection - the section list the filter offers, plus its rollup.
+const readSectionRollup = (root) => {
+    const block = root?.gradeAndSection || {};
+    const rows = Array.isArray(block.sections) ? block.sections : [];
+    return {
+        available: Array.isArray(block.availableSections) ? block.availableSections : [],
+        rows: rows
+            .filter((row) => row && typeof row === "object")
+            .map((row) => ({
+                gradeId: row.gradeId,
+                grade: row.grade || "",
+                section: String(row.section ?? "-"),
+                totalStudents: Number(row.totalStudents ?? 0) || 0,
+                attemptedStudents: Number(row.attemptedStudents ?? 0) || 0,
+                notAttemptedStudents: Number(row.notAttemptedStudents ?? 0) || 0,
+                averageMarks: Number(row.averageMarks ?? 0) || 0,
+                totalMarks: Number(row.totalMarks ?? 0) || 0,
+                averagePercentage: Number(row.averagePercentage ?? 0) || 0,
+                passRate: Number(row.passRate ?? 0) || 0,
+                highestScore: Number(row.highestScore ?? 0) || 0,
+                lowestScore: Number(row.lowestScore ?? 0) || 0,
+            })),
+    };
+};
+
+// The backend's own pass mark, so the page's pass rate matches its rule.
+const readPassMark = (root) => Number(root?.passRate?.passMarkPercentage) || PASS_MARK;
 
 
 
@@ -234,12 +279,10 @@ export default function QuizAnalysisPage() {
     const [resultFilter, setResultFilter] = useState("all");
 
     const [roster, setRoster] = useState([]);
-    const [warnings, setWarnings] = useState({});
-    const [warningsLoading, setWarningsLoading] = useState(false);
-    const [warningsTried, setWarningsTried] = useState(false);
-    const [warningsAreDemo, setWarningsAreDemo] = useState(false);
     const [questionStats, setQuestionStats] = useState([]);
     const [typeAccuracy, setTypeAccuracy] = useState([]);
+    const [sectionRollup, setSectionRollup] = useState(EMPTY_ROLLUP);
+    const [passMark, setPassMark] = useState(PASS_MARK);
     const [isLoading, setIsLoading] = useState(false);
     const [open, setOpen] = useState(false);
     const [status, setStatus] = useState(false);
@@ -262,7 +305,9 @@ export default function QuizAnalysisPage() {
         [assignment, gradeFilter]
     );
     const gradeText = activeGrade.grade || "";
-    const sections = activeGrade.sections || [];
+    const sections = sectionRollup.available.length
+        ? sectionRollup.available
+        : (activeGrade.sections || []);
 
     // getQuzeSingleAnalytics is scoped to one grade, so the grade select refetches.
     const loadAnalytics = useCallback(async () => {
@@ -280,18 +325,20 @@ export default function QuizAnalysisPage() {
             if (res?.data?.error) {
                 notify(res.data.message || "Could not load the quiz analysis");
                 setRoster([]); setQuestionStats([]); setTypeAccuracy([]);
+                setSectionRollup(EMPTY_ROLLUP); setPassMark(PASS_MARK);
                 return;
             }
             const root = unwrap(res?.data);
-            const students = readStudents(root, totalQuestions, gradeText);
-            if (!students.length) console.warn("getQuzeSingleAnalytics: no student rows parsed", res?.data);
-            setRoster(students);
+            setRoster(readStudents(root, totalQuestions, gradeText));
             setQuestionStats(readQuestionStats(root));
             setTypeAccuracy(readTypeAccuracy(root));
+            setSectionRollup(readSectionRollup(root));
+            setPassMark(readPassMark(root));
         } catch (error) {
             console.error(error);
             notify(error?.response?.data?.message || "Could not load the quiz analysis");
             setRoster([]); setQuestionStats([]); setTypeAccuracy([]);
+            setSectionRollup(EMPTY_ROLLUP); setPassMark(PASS_MARK);
         } finally {
             setIsLoading(false);
         }
@@ -300,13 +347,6 @@ export default function QuizAnalysisPage() {
 
     useEffect(() => { loadAnalytics(); }, [loadAnalytics]);
 
-    // A different grade means a different roster, so the counts have to be refetched.
-    useEffect(() => {
-        setWarnings({});
-        setWarningsTried(false);
-        setWarningsAreDemo(false);
-    }, [quiz.id, gradeFilter]);
-
     const warningAllowance = Number(quiz.warningCount) > 0
         ? Number(quiz.warningCount)
         : DEFAULT_WARNING_ALLOWANCE;
@@ -314,59 +354,13 @@ export default function QuizAnalysisPage() {
     // Only students who actually sat the quiz can have exits against them.
     const attemptedRoster = useMemo(() => roster.filter((r) => r.attempted), [roster]);
 
-    const loadWarnings = useCallback(async () => {
-        if (!quiz.id || !attemptedRoster.length) return;
-        setWarningsLoading(true);
-        const next = {};
-        let answered = 0;
-        try {
-            for (let i = 0; i < attemptedRoster.length; i += WARNING_BATCH_SIZE) {
-                const batch = attemptedRoster.slice(i, i + WARNING_BATCH_SIZE);
-                // eslint-disable-next-line no-await-in-loop
-                const results = await Promise.all(batch.map(async (student) => {
-                    try {
-                        const res = await axios.get(
-                            `${GetStudentQuizWarningCount}?quzeId=${quiz.id}&rollNumber=${encodeURIComponent(student.rollNumber)}`,
-                            { headers: { Authorization: `Bearer ${token}` } }
-                        );
-                        if (res?.data?.error) return null;
-                        return { rollNumber: student.rollNumber, count: readWarningCount(res?.data) };
-                    } catch (error) {
-                        return null;
-                    }
-                }));
-                results.forEach((row) => {
-                    if (!row) return;
-                    answered += 1;
-                    next[row.rollNumber] = row.count;
-                });
-            }
-
-            if (answered === 0) {
-                // Nothing came back for anyone - fall back to sample figures so the
-                // screen is still reviewable, and say so in the header.
-                const demo = {};
-                attemptedRoster.forEach((student) => {
-                    demo[student.rollNumber] = demoWarningFor(student.rollNumber, warningAllowance);
-                });
-                setWarnings(demo);
-                setWarningsAreDemo(true);
-            } else {
-                setWarnings(next);
-                setWarningsAreDemo(false);
-            }
-        } finally {
-            setWarningsLoading(false);
-            setWarningsTried(true);
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [quiz.id, attemptedRoster, warningAllowance]);
-
-    // Fetched only when the Integrity tab is opened - it is one request per student.
-    useEffect(() => {
-        if (tab !== 3 || warningsTried || warningsLoading) return;
-        loadWarnings();
-    }, [tab, warningsTried, warningsLoading, loadWarnings]);
+    // Exit counts ride along with the analytics roster. The per-student endpoint
+    // that used to fill this in belongs to the mobile app, so when the analytics
+    // payload carries no count the column stays blank rather than guessing.
+    const exitsReported = useMemo(
+        () => attemptedRoster.some((s) => s.exits !== null),
+        [attemptedRoster]
+    );
 
     // The API already returns one grade, so only the section needs filtering here.
     const scoped = useMemo(
@@ -379,7 +373,7 @@ export default function QuizAnalysisPage() {
         const rows = scoped
             .filter((s) => s.attempted)
             .map((s) => {
-                const exits = Number(warnings[s.rollNumber] || 0);
+                const exits = Number(s.exits || 0);
                 const autoSubmitted = exits > warningAllowance;
                 return {
                     ...s,
@@ -389,7 +383,7 @@ export default function QuizAnalysisPage() {
                 };
             });
         return rows.sort((a, b) => b.exits - a.exits || a.name.localeCompare(b.name));
-    }, [scoped, warnings, warningAllowance]);
+    }, [scoped, warningAllowance]);
 
     const integrityFiltered = useMemo(() => {
         const q = search.trim().toLowerCase();
@@ -430,7 +424,7 @@ export default function QuizAnalysisPage() {
             highest: scores.length ? Math.max(...scores) : 0,
             lowest: scores.length ? Math.min(...scores) : 0,
             passRate: attempted.length
-                ? Math.round((attempted.filter((s) => s.score >= PASS_MARK).length / attempted.length) * 100)
+                ? Math.round((attempted.filter((s) => s.score >= passMark).length / attempted.length) * 100)
                 : 0,
             averageTime: formatTime(Math.round(avg(attempted, (s) => s.seconds))),
             topper: top,
@@ -464,7 +458,7 @@ export default function QuizAnalysisPage() {
                     ? Math.round((attempted.reduce((a, b) => a + b.marks, 0) / attempted.length) * 10) / 10
                     : 0,
                 passRate: attempted.length
-                    ? Math.round((attempted.filter((s) => s.score >= PASS_MARK).length / attempted.length) * 100)
+                    ? Math.round((attempted.filter((s) => s.score >= passMark).length / attempted.length) * 100)
                     : 0,
                 highest: scores.length ? Math.max(...scores) : 0,
                 lowest: scores.length ? Math.min(...scores) : 0,
@@ -475,8 +469,8 @@ export default function QuizAnalysisPage() {
     const students = useMemo(
         () =>
             ranked.filter((s) => {
-                if (resultFilter === "passed" && (!s.attempted || s.score < PASS_MARK)) return false;
-                if (resultFilter === "failed" && (!s.attempted || s.score >= PASS_MARK)) return false;
+                if (resultFilter === "passed" && (!s.attempted || s.score < passMark)) return false;
+                if (resultFilter === "failed" && (!s.attempted || s.score >= passMark)) return false;
                 if (resultFilter === "absent" && s.attempted) return false;
                 if (search.trim()) {
                     const q = search.trim().toLowerCase();
@@ -636,7 +630,7 @@ export default function QuizAnalysisPage() {
                 <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2.4 }}>
                     <SolidStatCard icon={TaskAltIcon} label="Pass Rate"
                         value={`${summary.passRate}%`}
-                        note={`Pass mark ${PASS_MARK}%`}
+                        note={`Pass mark ${passMark}%`}
                         tone={KPI_TONES.violet} />
                 </Grid>
             </Grid>
@@ -930,7 +924,7 @@ export default function QuizAnalysisPage() {
                                 )}
                                 {students.map((s) => {
                                     const absent = !s.attempted;
-                                    const passed = !absent && s.score >= PASS_MARK;
+                                    const passed = !absent && s.score >= passMark;
                                     return (
                                         <TableRow key={s.id} hover sx={{ "&:hover": { bgcolor: DASH.primaryLight } }}>
                                             <TableCell sx={{ fontSize: "12.5px", fontWeight: 700, color: DASH.faint, borderBottom: `1px solid ${DASH.lineSoft}` }}>
@@ -1012,9 +1006,9 @@ export default function QuizAnalysisPage() {
                         <Typography sx={{ fontSize: "14px", fontWeight: 700, color: DASH.ink }}>
                             Exam Integrity
                         </Typography>
-                        {warningsAreDemo && (
+                        {!exitsReported && !!attemptedRoster.length && (
                             <Chip
-                                label="Sample data"
+                                label="Not reported"
                                 size="small"
                                 sx={{
                                     height: 21, fontSize: "10.5px", fontWeight: 700,
@@ -1023,12 +1017,12 @@ export default function QuizAnalysisPage() {
                             />
                         )}
                         <Box sx={{ flex: 1 }} />
-                        <Tooltip title="Re-check every student">
+                        <Tooltip title="Reload this quiz's analytics">
                             <span>
                                 <Button
                                     size="small"
-                                    onClick={() => { setWarningsTried(false); }}
-                                    disabled={warningsLoading || !attemptedRoster.length}
+                                    onClick={loadAnalytics}
+                                    disabled={isLoading}
                                     startIcon={<RefreshIcon sx={{ fontSize: 16 }} />}
                                     sx={{
                                         textTransform: "none", fontSize: "12px", fontWeight: 600,
@@ -1044,19 +1038,10 @@ export default function QuizAnalysisPage() {
                     </Box>
 
                     <Typography sx={{ fontSize: "12px", color: DASH.muted, mb: 1.6, lineHeight: 1.6 }}>
-                        {warningsAreDemo
-                            ? "Showing sample numbers until the backend has attempt activity for this quiz."
+                        {!exitsReported && !!attemptedRoster.length
+                            ? "The analytics response for this quiz does not include app-exit counts, so every student reads as zero."
                             : `Counts how many times each student left the app mid-quiz. This quiz allowed ${warningAllowance} ${warningAllowance === 1 ? "exit" : "exits"} before auto-submitting.`}
                     </Typography>
-
-                    {warningsLoading && (
-                        <Box sx={{ mb: 1.6 }}>
-                            <LinearProgress sx={{ height: 4, borderRadius: 4 }} />
-                            <Typography sx={{ fontSize: "11.5px", color: DASH.faint, mt: 0.6 }}>
-                                Checking {attemptedRoster.length} students...
-                            </Typography>
-                        </Box>
-                    )}
 
                     <Grid container spacing={1.4} sx={{ alignItems: "stretch", mb: 1.8 }}>
                         <Grid size={{ xs: 6, sm: 6, md: 3, lg: 3 }}>
@@ -1121,11 +1106,7 @@ export default function QuizAnalysisPage() {
                         }
                     >
                         {!integrityRows.length ? (
-                            <EmptyNote text={
-                                warningsTried
-                                    ? "Nobody has sat this quiz yet, so there is nothing to check."
-                                    : "Open this tab to check every student who sat the quiz."
-                            } />
+                            <EmptyNote text="Nobody has sat this quiz yet, so there is nothing to check." />
                         ) : (
                             <TableContainer sx={{ maxHeight: "48vh" }}>
                                 <Table stickyHeader size="small">

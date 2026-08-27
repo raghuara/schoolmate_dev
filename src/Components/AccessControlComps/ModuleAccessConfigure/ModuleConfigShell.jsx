@@ -13,6 +13,7 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import VerifiedOutlinedIcon from "@mui/icons-material/VerifiedOutlined";
 import SaveOutlinedIcon from "@mui/icons-material/SaveOutlined";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
+import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import { useNavigate, useLocation } from "react-router-dom";
 import SnackBar from "../../SnackBar";
 import { useSelector } from "react-redux";
@@ -101,10 +102,44 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
 
     const setPage = (page, patch) => setConfig((prev) => ({ ...prev, [page]: { ...prev[page], ...patch } }));
 
+    // Operations that sit above this one: Edit is above Create and View,
+    // Create is above View. Delete only needs View, so it is not above Create.
+    const opsAbove = (page, key) =>
+        pageOpsKeys(page).filter((k) => k !== key && (IMPLIES[k] || []).includes(key));
+
+    // Which higher operations are currently forcing this box to stay ticked.
+    const includedBy = (page, cfg, key) => opsAbove(page, key).filter((k) => cfg[k]);
+
+    // A page that only exists inside this one cannot stay granted once the
+    // operation it hangs off is switched off.
+    const clearDependentPages = (page, key) => {
+        dependentPagesOf(page, key).forEach((child) => {
+            const childKeys = [...pageOpsKeys(child), ...flatExtraOps(child).map((e) => e.key)];
+            setPage(child, Object.fromEntries(childKeys.map((k) => [k, false])));
+        });
+    };
+
     const toggleOp = (page, key) => {
         const cur = config[page];
-        const next = { [key]: !cur[key] };
         const keys = pageOpsKeys(page);
+        const higherOn = includedBy(page, cur, key);
+
+        // Ticking a box that is only on because a higher operation forced it
+        // means "reduce access to this level" - the higher ones come off and
+        // this one stays. Without this the box would have to be cleared from
+        // the top down one at a time to get back to View.
+        if (cur[key] && higherOn.length) {
+            const next = {};
+            higherOn.forEach((k) => {
+                next[k] = false;
+                dependentsOf(page, k).forEach((e) => { next[e.key] = false; });
+            });
+            setPage(page, next);
+            higherOn.forEach((k) => clearDependentPages(page, k));
+            return;
+        }
+
+        const next = { [key]: !cur[key] };
         if (!cur[key] && IMPLIES[key]) {
             IMPLIES[key].forEach((k) => { if (keys.includes(k)) next[k] = true; });
         }
@@ -120,14 +155,7 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
         if (cur[key]) dependentsOf(page, key).forEach((e) => { next[e.key] = false; });
         setPage(page, next);
 
-        // A page that only exists inside this one cannot stay granted once this
-        // one is switched off.
-        if (cur[key]) {
-            dependentPagesOf(page, key).forEach((child) => {
-                const childKeys = [...pageOpsKeys(child), ...flatExtraOps(child).map((e) => e.key)];
-                setPage(child, Object.fromEntries(childKeys.map((k) => [k, false])));
-            });
-        }
+        if (cur[key]) clearDependentPages(page, key);
     };
 
     const toggleGate = (page, gateKey, itemKeys) => {
@@ -311,16 +339,23 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
                 {pageOps(page).map((o) => {
                     const depMet = pageDependencyMet(page);
                     const active = depMet && cfg[o.key];
-                    const lockable = isLockable(o.key, keys);
-                    const locked = (lockable && isLocked(cfg, o.key, keys)) || !depMet;
-                    return (
+                    // Only a missing prerequisite page can disable a box now. An
+                    // operation held on by a higher one stays clickable, and
+                    // clicking it reduces access to that level.
+                    const forcedBy = depMet ? includedBy(page, cfg, o.key) : [];
+                    const labelOf = (k) => OPS.find((x) => x.key === k)?.label || k;
+                    const hint = forcedBy.length
+                        ? `Included by ${forcedBy.map(labelOf).join(" and ")}. Click to reduce access to ${o.label}.`
+                        : "";
+
+                    const box = (
                         <FormControlLabel
                             key={o.key}
                             control={
                                 <Checkbox
                                     size="small"
                                     checked={active}
-                                    disabled={locked}
+                                    disabled={!depMet}
                                     onChange={() => toggleOp(page, o.key)}
                                     sx={{ p: 0.5, color: "#C7CDD6", "&.Mui-checked": { color }, "&.Mui-disabled.Mui-checked": { color: `${color}99` } }}
                                 />
@@ -328,12 +363,18 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
                             label={
                                 <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.4 }}>
                                     <Typography sx={{ fontSize: 13, fontWeight: 600, color: active ? "#111827" : "#6B7280" }}>{o.label}</Typography>
-                                    {lockable && <LockOutlinedIcon sx={{ fontSize: 13, color: "#9CA3AF", visibility: locked ? "visible" : "hidden" }} />}
+                                    {!depMet && isLockable(o.key, keys) && (
+                                        <LockOutlinedIcon sx={{ fontSize: 13, color: "#9CA3AF" }} />
+                                    )}
                                 </Box>
                             }
                             sx={{ m: 0, mr: 1 }}
                         />
                     );
+
+                    return hint
+                        ? <Tooltip key={o.key} title={hint} arrow placement="top">{box}</Tooltip>
+                        : box;
                 })}
             </FormGroup>
         );
@@ -431,7 +472,7 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
         const show = pageOps(page).some((o) => isLockable(o.key, keys) && isLocked(cfg, o.key, keys));
         return (
             <Typography sx={{ fontSize: 10.5, color: "#9CA3AF", mt: 1.2, display: "flex", alignItems: "center", gap: 0.4, visibility: show ? "visible" : "hidden" }}>
-                <LockOutlinedIcon sx={{ fontSize: 12 }} /> Lower operations are required and stay on while a higher operation is enabled.
+                <ArrowDownwardIcon sx={{ fontSize: 12 }} /> Each operation includes the ones below it. Tick a lower box to reduce access to that level.
             </Typography>
         );
     };

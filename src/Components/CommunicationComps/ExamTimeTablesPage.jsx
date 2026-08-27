@@ -386,7 +386,7 @@ export default function TimeTablePage() {
                     <Grid
                         sx={{ display: "flex", alignItems: "center", gap: 1 }}
                         size={{ xs: 6, sm: 6, md: 3, lg: 2.4 }}>
-                        <Typography sx={{ fontWeight: "600", fontSize: "20px" }}>Exam Time Tables</Typography>
+                        <Typography sx={{ fontWeight: "600", fontSize: "20px", whiteSpace: "nowrap" }}>Exam Time Tables</Typography>
                         {hasLoaded && (
                             <Chip
                                 size="small"
@@ -406,7 +406,7 @@ export default function TimeTablePage() {
 
                     <Grid
                         sx={{ display: "flex", justifyContent: "center", alignItems: "center" }}
-                        size={{ xs: 6, sm: 6, md: 3, lg: 1.8 }}>
+                        size={{ xs: 6, sm: 6, md: 3, lg: 1.6 }}>
                         {canCreate &&
                             <>
                                 <Typography sx={{ fontWeight: "600", fontSize: "12px" }}>My Projects</Typography>
@@ -442,7 +442,7 @@ export default function TimeTablePage() {
 
                     <Grid
                         sx={{ display: "flex", justifyContent: "center", alignItems: "center" }}
-                        size={{ xs: 6, sm: 6, md: 3, lg: 2.6 }}>
+                        size={{ xs: 6, sm: 6, md: 3, lg: 2.2 }}>
                         <TextField
                             fullWidth
                             variant="outlined"
@@ -483,8 +483,8 @@ export default function TimeTablePage() {
                     </Grid>
 
                     <Grid
-                        sx={{ display: "flex", justifyContent: "end", alignItems: "center", gap: 1, px: 1, flexWrap: "wrap" }}
-                        size={{ xs: 12, sm: 12, md: 3, lg: 5.2 }}>
+                        sx={{ display: "flex", justifyContent: { xs: "flex-start", lg: "flex-end" }, alignItems: "center", gap: 1, px: 1, flexWrap: "wrap", rowGap: 1 }}
+                        size={{ xs: 12, sm: 12, md: 3, lg: 5.8 }}>
                         {canView && (
                             <Autocomplete
                                 disablePortal
@@ -519,7 +519,7 @@ export default function TimeTablePage() {
                                 getOptionLabel={(option) => option}
                                 onChange={(event, newValue) => setSelectedExam(newValue)}
                                 value={selectedExam}
-                                sx={{ width: 140 }}
+                                sx={{ width: 160 }}
                                 PaperComponent={(props) => (
                                     <Paper
                                         {...props}

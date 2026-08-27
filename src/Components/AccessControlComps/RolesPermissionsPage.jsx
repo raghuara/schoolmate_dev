@@ -19,6 +19,7 @@ import { useSelector, useDispatch } from "react-redux";
 import { fetchUserTypes as refreshUserTypesStore } from "../../Redux/Slices/userTypesSlice";
 import { AddUserType, GetAllUserTypes, GetNonStudentUsers, UpdateUsersUserType } from "../../Api/Api";
 import ApprovalFlowsTab from "./ApprovalFlowsTab";
+import { DASH, RADIUS } from "../DashBoardComps/dashboardTheme";
 
 const TOKEN = "123";
 
@@ -266,11 +267,11 @@ export default function RolesPermissionsPage() {
                 top: "60px",
                 left: isExpanded ? "260px" : "80px",
                 right: 0,
-                backgroundColor: "#f2f2f2",
+                backgroundColor: "#fff",
                 px: 2,
                 py:1,                
-                borderBottom: "1px solid #ddd",
-                borderTop: "1px solid #ddd",
+                borderBottom: `1px solid ${DASH.line}`,
+                borderTop: `1px solid ${DASH.line}`,
                 zIndex: 1200,
                 transition: "left 0.3s ease-in-out",
                 overflow: 'hidden',
@@ -281,12 +282,13 @@ export default function RolesPermissionsPage() {
                     <IconButton onClick={() => navigate(-1)} sx={{ width: 30, height: 30 }}>
                         <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
                     </IconButton>
-                    <Box sx={{ width: 38, height: 38, borderRadius: "10px", bgcolor: `${accent}1A`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <AdminPanelSettingsOutlinedIcon sx={{ fontSize: 22, color: accent }} />
+                    <Box sx={{ width: 3, height: 30, borderRadius: RADIUS, bgcolor: accent, flexShrink: 0 }} />
+                    <Box sx={{ width: 34, height: 34, borderRadius: RADIUS, bgcolor: `${accent}14`, border: `1px solid ${accent}33`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                        <AdminPanelSettingsOutlinedIcon sx={{ fontSize: 19, color: accent }} />
                     </Box>
-                    <Box>
-                        <Typography sx={{ fontWeight: 700, fontSize: "19px", lineHeight: 1.1 }}>Roles &amp; Permissions</Typography>
-                        <Typography sx={{ fontSize: 11.5, color: "#6B7280" }}>Create user types and control who can access which screen</Typography>
+                    <Box sx={{ minWidth: 0 }}>
+                        <Typography sx={{ fontWeight: 700, fontSize: "20px", color: DASH.ink, lineHeight: 1.2 }}>Roles &amp; Permissions</Typography>
+                        <Typography sx={{ fontSize: "12px", color: DASH.muted, mt: 0.2 }}>Create user types and control who can access which screen</Typography>
                     </Box>
                 </Box>
 
@@ -300,12 +302,20 @@ export default function RolesPermissionsPage() {
                         InputProps={{
                             startAdornment: (<InputAdornment position="start"><SearchIcon sx={{ fontSize: 18, color: "#9CA3AF" }} /></InputAdornment>),
                         }}
-                        sx={{ width: { xs: "100%", sm: 280 }, "& .MuiOutlinedInput-root": { height: 38, fontSize: 13, borderRadius: "10px", bgcolor: "#fff" } }}
+                        sx={{
+                            width: { xs: "100%", sm: 280 },
+                            "& .MuiOutlinedInput-root": {
+                                height: 34, fontSize: 12.5, borderRadius: RADIUS, bgcolor: "#fff",
+                                "& fieldset": { borderColor: DASH.line },
+                                "&:hover fieldset": { borderColor: "#9AA3AF" },
+                                "&.Mui-focused fieldset": { borderColor: accent },
+                            },
+                        }}
                     />
                     <Button
                         onClick={() => { setCreateOpen(true); setNewName(""); setNameError(""); }}
                         startIcon={<AddIcon sx={{ fontSize: 18 }} />}
-                        sx={{ textTransform: "none", fontWeight: 700, fontSize: 13, bgcolor: accent, color: "#fff", borderRadius: "10px", height: 38, px: 2, "&:hover": { bgcolor: accent, filter: "brightness(0.92)" } }}
+                        sx={{ textTransform: "none", fontWeight: 700, fontSize: 12.5, bgcolor: accent, color: "#fff", borderRadius: RADIUS, height: 34, px: 2, boxShadow: "none", "&:hover": { bgcolor: accent, filter: "brightness(0.92)", boxShadow: "none" } }}
                     >
                         Create User Type
                     </Button>
@@ -314,15 +324,15 @@ export default function RolesPermissionsPage() {
             </Box>
 
             {/* Content */}
-            <Box sx={{ px: 2,pb:2, pt:"73px" }}>
-                <Box sx={{ display: "flex", gap: 0.5, mb: 2, borderBottom: "1px solid #E5E7EB" }}>
+            <Box sx={{ px: 2, pb: 2, pt: "73px", bgcolor: DASH.canvas, minHeight: "100vh", boxSizing: "border-box" }}>
+                <Box sx={{ display: "flex", gap: 0.5, mb: 2, borderBottom: `1px solid ${DASH.line}` }}>
                     {[{ k: 0, label: "User Types" }, { k: 1, label: "Approval Flows" }].map((t) => (
                         <Box
                             key={t.k}
                             onClick={() => setMainTab(t.k)}
                             sx={{
                                 px: 2, py: 1, cursor: "pointer", fontSize: 13.5, fontWeight: 700,
-                                color: mainTab === t.k ? accent : "#6B7280",
+                                color: mainTab === t.k ? accent : DASH.muted,
                                 borderBottom: mainTab === t.k ? `2px solid ${accent}` : "2px solid transparent",
                                 mb: "-1px", transition: "color 0.2s",
                             }}

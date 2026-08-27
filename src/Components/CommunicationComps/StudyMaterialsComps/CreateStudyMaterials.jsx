@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from "react";
-import { Box, Grid, TextField, Typography, Button, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, Autocomplete, Paper, createTheme, ThemeProvider, Stack, Tabs, Tab, Tooltip, FormControl, Select, OutlinedInput, MenuItem, Checkbox, } from "@mui/material";
+import React, { useEffect, useRef, useState, useMemo } from "react";
+import { Divider, Box, Grid, TextField, Typography, Button, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, Autocomplete, Paper, createTheme, ThemeProvider, Stack, Tabs, Tab, Tooltip, FormControl, Select, OutlinedInput, MenuItem, Checkbox, } from "@mui/material";
 import axios from "axios";
 import { useDropzone } from "react-dropzone";
 import dayjs from "dayjs";
@@ -20,6 +20,8 @@ import CloseIcon from "@mui/icons-material/Close";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import Loader from "../../Loader";
+import { DASH } from "../../DashBoardComps/dashboardTheme";
+import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 
 export default function CreateStudyMaterialsPage() {
     const navigate = useNavigate();
@@ -129,23 +131,23 @@ export default function CreateStudyMaterialsPage() {
         }
     };
 
-    const [previewData, setPreviewData] = useState({
-        uploadedFiles: [],
-        heading,
-    });
+    // One blob URL per selected file instead of a fresh one on every render.
+    const filePreviewUrl = useMemo(() => {
+        const file = uploadedFiles[0];
+        if (!file) return "";
+        return file instanceof File ? URL.createObjectURL(file) : (file.url || file);
+    }, [uploadedFiles]);
+
+    useEffect(() => {
+        if (!filePreviewUrl.startsWith("blob:")) return undefined;
+        return () => URL.revokeObjectURL(filePreviewUrl);
+    }, [filePreviewUrl]);
     const handleHeadingChange = (e) => {
         const newValue = e.target.value;
         if (newValue.length <= 100) {
             setHeading(newValue);
         }
     };
-    const handlePreview = () => {
-        setPreviewData({
-            uploadedFiles,
-            heading
-        });
-    };
-
     const onDrop = (acceptedFiles) => {
         if (acceptedFiles.length > 0) {
             const validFormats = ['image/jpeg', 'image/webp', 'image/png', 'application/pdf'];
@@ -306,10 +308,6 @@ export default function CreateStudyMaterialsPage() {
             setHeading("")
             setUploadedFiles([])
 
-            setPreviewData({
-                uploadedFiles: [],
-                heading: '',
-            });
         } catch (error) {
             setMessage("Error while inserting data");
             setOpen(true);
@@ -354,7 +352,7 @@ export default function CreateStudyMaterialsPage() {
                         md: 6,
                         lg: 6
                     }}>
-                    <Box sx={{ border: "1px solid #E0E0E0", backgroundColor: "#fbfbfb", py: 2, borderRadius: "7px", mt: 4.5, height: "75.6vh", overflowY: "auto", position: "relative" }}>
+                    <Box sx={{ border: `1px solid ${DASH.line}`, backgroundColor: "#fff", py: 2, borderRadius: "12px", mt: 4.5, maxHeight: "75.6vh", overflow: "hidden auto" }}>
                         <Grid container spacing={2} sx={{ px: 2 }}>
                             <Grid
                                 size={{
@@ -907,10 +905,10 @@ export default function CreateStudyMaterialsPage() {
                                     <Box
                                         {...getRootProps()}
                                         sx={{
-                                            border: "2px dashed #1976d2",
+                                            border: isDragActive ? "2px dashed #1976d2" : "2px dashed #C7D6EA",
                                             borderRadius: "8px",
                                             p: 1,
-                                            backgroundColor: isDragActive ? "#e3f2fd" : "#e3f2fd",
+                                            backgroundColor: isDragActive ? "#E3F2FD" : "#F6F9FD",
                                             textAlign: "center",
                                             cursor: "pointer",
                                         }}
@@ -948,7 +946,7 @@ export default function CreateStudyMaterialsPage() {
                                                     }}
                                                 >
                                                     <img
-                                                        src={uploadedFiles[0] instanceof File ? URL.createObjectURL(uploadedFiles[0]) : uploadedFiles[0].url || uploadedFiles[0]}
+                                                        src={filePreviewUrl}
                                                         alt="Selected"
                                                         style={{
                                                             width: "100%",
@@ -1001,27 +999,6 @@ export default function CreateStudyMaterialsPage() {
 
                                 </Grid>
                                 <Grid
-                                    size={{
-                                        xs: 6,
-                                        sm: 6,
-                                        md: 6,
-                                        lg: 2.3
-                                    }}>
-                                    <Button
-                                        sx={{
-                                            textTransform: 'none',
-                                            width: "100%",
-                                            borderRadius: '30px',
-                                            fontSize: '12px',
-                                            py: 0.2,
-                                            color: 'black',
-                                            fontWeight: "600",
-                                        }}
-                                        onClick={handlePreview}>
-                                        Preview
-                                    </Button>
-                                </Grid>
-                                <Grid
                                     sx={{ display: "flex", justifyContent: "end" }}
                                     size={{
                                         xs: 6,
@@ -1059,46 +1036,59 @@ export default function CreateStudyMaterialsPage() {
                         md: 6,
                         lg: 6
                     }}>
-                    <Box sx={{ border: "1px solid #E0E0E0", backgroundColor: "#fbfbfb", p: 2, borderRadius: "6px", height: "75.6vh", overflowY: "auto" }}>
-                        <Typography sx={{ fontSize: "14px", color: "rgba(0,0,0,0.7)" }}>Live Preview</Typography>
-                        <hr style={{ border: "0.5px solid #CFCFCF" }} />
-                        <Box>
-                            {previewData.heading && (
-                                <Typography sx={{ fontWeight: "600", fontSize: "16px" }}>
-                                    {previewData.heading}
-                                </Typography>
-                            )}
-                            <Grid container spacing={2} mt={2}>
-                                {previewData.uploadedFiles.map((file, index) => (
-                                    <Grid
-                                        key={index}
-                                        sx={{ display: "flex", py: 1 }}
-                                        size={{
-                                            xs: 12,
-                                            sm: 12,
-                                            md: 5,
-                                            lg: 12
-                                        }}>
-                                        {fileType === "image" ? (
-                                            <img
-                                                src={URL.createObjectURL(file)}
-                                                width={'273px'}
-                                                height={'210px'}
-                                                alt={`Uploaded file ${index + 1}`}
-                                            />
-                                        ) : fileType === "pdf" ? (
-                                            <iframe
-                                                src={URL.createObjectURL(file)}
-                                                width="400px"
-                                                height="400px"
-                                                title={`Uploaded PDF ${index + 1}`}
-                                            ></iframe>
-
-                                        ) : null}
-                                    </Grid>
-                                ))}
-                            </Grid>
+                    <Box sx={{ border: `1px solid ${DASH.line}`, backgroundColor: "#fff", p: 2, borderRadius: "12px", height: "75.6vh", overflow: "hidden auto" }}>
+                        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                <VisibilityOutlinedIcon sx={{ fontSize: 18, color: DASH.muted }} />
+                                <Typography sx={{ fontSize: "14px", fontWeight: 600, color: DASH.text }}>Live Preview</Typography>
+                            </Box>
+                            <Typography sx={{ fontSize: "11px", color: DASH.faint }}>Updates as you type</Typography>
                         </Box>
+                        <Divider sx={{ my: 1.5 }} />
+                        {!heading && !filePreviewUrl ? (
+                            <Box sx={{
+                                height: "60vh",
+                                display: "flex",
+                                flexDirection: "column",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                gap: 1,
+                                textAlign: "center",
+                            }}>
+                                <VisibilityOutlinedIcon sx={{ fontSize: 34, color: "#C9CFD8" }} />
+                                <Typography sx={{ fontSize: "13px", fontWeight: 600, color: DASH.muted }}>
+                                    Nothing to preview yet
+                                </Typography>
+                                <Typography sx={{ fontSize: "12px", color: DASH.faint, maxWidth: 260 }}>
+                                    Start typing the title or pick a file and it will show up here straight away.
+                                </Typography>
+                            </Box>
+                        ) : (
+                            <Box>
+                                {heading && (
+                                    <Typography sx={{ fontWeight: 700, fontSize: "16px", color: DASH.ink, wordBreak: "break-word" }}>
+                                        {heading}
+                                    </Typography>
+                                )}
+                                {filePreviewUrl && (
+                                    <Box sx={{ pt: 1.5 }}>
+                                        <img
+                                            src={filePreviewUrl}
+                                            alt="Study material"
+                                            style={{
+                                                width: "273px",
+                                                height: "210px",
+                                                objectFit: "cover",
+                                                maxWidth: "100%",
+                                                borderRadius: "10px",
+                                                border: `1px solid ${DASH.line}`,
+                                                display: "block",
+                                            }}
+                                        />
+                                    </Box>
+                                )}
+                            </Box>
+                        )}
                     </Box>
                 </Grid>
             </Grid >

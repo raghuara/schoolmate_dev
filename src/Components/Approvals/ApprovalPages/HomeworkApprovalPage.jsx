@@ -17,7 +17,7 @@ import NoData from '../../../Images/Login/No Data.png'
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import { selectGrades } from "../../../Redux/Slices/DropdownController";
 import pdfDemo from '../../../Images/PDF.png';
-import { DASH, RADIUS, PageHeader } from "../../DashBoardComps/dashboardTheme";
+import { BRAND, DASH, RADIUS, PageHeader } from "../../DashBoardComps/dashboardTheme";
 
 export default function HomeworkApprovalPage() {
     const [formattedDate, setFormattedDate] = useState('');
@@ -323,18 +323,12 @@ export default function HomeworkApprovalPage() {
             <Box ref={boxRef} sx={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
                 <Box sx={{ p: 2 }}>
                     {scheduleData.length > 0 &&
-                        <Box sx={{ bgcolor: `${DASH.violet}14`, border: `1px solid ${DASH.violet}3D`, width: "200px", borderRadius: "50px", mb: 1, display: "flex", justifyContent: "center", alignItems: "center", }}>
-                            <Typography
-                                sx={{
-                                    fontSize: "13px",
-                                    fontWeight: 700,
-                                    color: DASH.violet,
-                                    py: 0.5,
-
-                                }}
-                            >
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1.5 }}>
+                            <Box sx={{ width: 3, height: 18, borderRadius: RADIUS, bgcolor: DASH.violet, flexShrink: 0 }} />
+                            <Typography sx={{ fontSize: "11.5px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: DASH.muted, whiteSpace: "nowrap" }}>
                                 Scheduled Homework
                             </Typography>
+                            <Divider sx={{ flex: 1 }} />
                         </Box>
                     }
                     {scheduleData.length > 0 && (
@@ -352,8 +346,8 @@ export default function HomeworkApprovalPage() {
                                                 sm: 12
                                             }}>
                                             <Box sx={{ display: "flex", justifyContent: "end" }}>
-                                                <Box sx={{ backgroundColor: DASH.amberLight, color: "#92400E", fontSize: "11.5px", fontWeight: 600, border: "1px solid #FDE68A", borderBottom: "none", py: 0.5, width: "200px", textAlign: "center", borderRadius: "5px 5px 0px 0px", mr: 2, mt: 2 }}>
-                                                    Requested For : <b>{statusItem.requestFor}</b>
+                                                <Box sx={{ backgroundColor: DASH.amberLight, color: "#92400E", fontSize: "11px", fontWeight: 600, border: "1px solid #FDE68A", borderBottom: "none", px: 1.4, py: 0.4, textAlign: "center", borderRadius: "8px 8px 0 0", mt: 2 }}>
+                                                    Requested for <b>{statusItem.requestFor}</b>
                                                 </Box>
                                             </Box>
                                             <Box
@@ -381,7 +375,7 @@ export default function HomeworkApprovalPage() {
 
                                                     </Grid>
                                                 </Grid>
-                                                <hr style={{ border: "0.5px solid #CFCFCF" }} />
+                                                <Divider sx={{ my: 1.2, borderColor: DASH.lineSoft }} />
                                                 <Grid container spacing={2}>
                                                     {statusItem.fileType === "image" &&
                                                         <Grid
@@ -397,7 +391,11 @@ export default function HomeworkApprovalPage() {
                                                                 sx={{
                                                                     position: "relative",
                                                                     width: "100%",
-                                                                    height: "271px",
+                                                                    height: "230px",
+                                                                    borderRadius: RADIUS,
+                                                                    overflow: "hidden",
+                                                                    border: `1px solid ${DASH.lineSoft}`,
+                                                                    backgroundColor: DASH.surface,
                                                                     "&:hover .overlay": {
                                                                         opacity: 1,
                                                                     },
@@ -407,9 +405,10 @@ export default function HomeworkApprovalPage() {
                                                                     src={statusItem.filePath}
                                                                     width={"100%"}
                                                                     height={"100%"}
-                                                                    alt="news"
+                                                                    alt="Homework attachment"
                                                                     style={{
                                                                         display: "block",
+                                                                        objectFit: "cover",
                                                                     }}
                                                                 />
                                                                 <Box
@@ -473,9 +472,10 @@ export default function HomeworkApprovalPage() {
                                                                     src={pdfDemo}
                                                                     width={"100%"}
                                                                     height={"100%"}
-                                                                    alt="circulars"
+                                                                    alt="PDF attachment"
                                                                     style={{
                                                                         display: "block",
+                                                                        objectFit: "contain",
                                                                     }}
                                                                 />
                                                                 <Box
@@ -541,30 +541,37 @@ export default function HomeworkApprovalPage() {
                                                     {statusItem.requestFor !== "delete" &&
                                                         <>
                                                             <Button
+                                                                variant="outlined"
                                                                 sx={{
                                                                     textTransform: 'none',
-                                                                    padding: '2px 0',
-                                                                    fontSize: '10px',
-                                                                    color: '#FF0000',
-                                                                    fontWeight: "600",
+                                                                    borderRadius: RADIUS,
+                                                                    px: 2,
+                                                                    height: 32,
+                                                                    fontSize: '12.5px',
+                                                                    fontWeight: 700,
+                                                                    color: DASH.red,
+                                                                    borderColor: `${DASH.red}55`,
                                                                     backgroundColor: "#fff",
-                                                                    textDecoration: "underline !important"
+                                                                    "&:hover": { borderColor: DASH.red, backgroundColor: DASH.redLight },
                                                                 }}
                                                                 onClick={() => handleEdit(statusItem.id)}
                                                             >
                                                                 Decline
                                                             </Button>
                                                             <Button
-                                                                variant="outlined"
+                                                                variant="contained"
+                                                                disableElevation
                                                                 sx={{
                                                                     textTransform: 'none',
-                                                                    borderRadius: "50px",
-                                                                    padding: '2px 0',
-                                                                    fontSize: '10px',
-                                                                    border: "1px solid #00963C",
-                                                                    color: '#00963C',
-                                                                    fontWeight: "600",
-                                                                    backgroundColor: "#fff",
+                                                                    borderRadius: RADIUS,
+                                                                    px: 2.4,
+                                                                    height: 32,
+                                                                    fontSize: '12.5px',
+                                                                    fontWeight: 700,
+                                                                    color: "#fff",
+                                                                    backgroundColor: "#00963C",
+                                                                    boxShadow: "none",
+                                                                    "&:hover": { backgroundColor: "#047857", boxShadow: "none" },
                                                                 }}
                                                                 onClick={() => handleSubmit(statusItem.id)}
                                                             >
@@ -685,18 +692,12 @@ export default function HomeworkApprovalPage() {
                         </Grid >
                     )}
                     {statusData.length > 0 &&
-                        <Box sx={{ backgroundColor: "#ED9146", width: "200px", borderRadius: "0px 8px 8px 0px ", display: "flex", justifyContent: "center", alignItems: "center" }}>
-                            <Typography
-                                sx={{
-                                    fontSize: "13px",
-                                    fontWeight: 700,
-                                    color: DASH.violet,
-                                    py: 0.5,
-
-                                }}
-                            >
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1.5, mt: 0.5 }}>
+                            <Box sx={{ width: 3, height: 18, borderRadius: RADIUS, bgcolor: BRAND.orange.main, flexShrink: 0 }} />
+                            <Typography sx={{ fontSize: "11.5px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: DASH.muted, whiteSpace: "nowrap" }}>
                                 Homework
                             </Typography>
+                            <Divider sx={{ flex: 1 }} />
                         </Box>
                     }
                     {statusData.length > 0 ? (
@@ -713,8 +714,8 @@ export default function HomeworkApprovalPage() {
                                                 xs: 12
                                             }}>
                                             <Box sx={{ display: "flex", justifyContent: "end" }}>
-                                                <Box sx={{ backgroundColor: DASH.amberLight, color: "#92400E", fontSize: "11.5px", fontWeight: 600, border: "1px solid #FDE68A", borderBottom: "none", py: 0.5, width: "200px", textAlign: "center", borderRadius: "5px 5px 0px 0px", mr: 2 }}>
-                                                    Requested For : <b>{statusItem.requestFor}</b>
+                                                <Box sx={{ backgroundColor: DASH.amberLight, color: "#92400E", fontSize: "11px", fontWeight: 600, border: "1px solid #FDE68A", borderBottom: "none", px: 1.4, py: 0.4, textAlign: "center", borderRadius: "8px 8px 0 0" }}>
+                                                    Requested for <b>{statusItem.requestFor}</b>
                                                 </Box>
                                             </Box>
                                             <Box
@@ -743,7 +744,7 @@ export default function HomeworkApprovalPage() {
                                                         </Grid>
                                                     </Grid>
                                                 </Grid>
-                                                <hr style={{ border: "0.5px solid #CFCFCF" }} />
+                                                <Divider sx={{ my: 1.2, borderColor: DASH.lineSoft }} />
                                                 <Grid container spacing={2}>
                                                     {statusItem.fileType === "image" &&
                                                         <Grid
@@ -758,8 +759,12 @@ export default function HomeworkApprovalPage() {
                                                             <Box
                                                                 sx={{
                                                                     position: "relative",
-                                                                    width: "200%",
-                                                                    height: "271px",
+                                                                    width: "100%",
+                                                                    height: "230px",
+                                                                    borderRadius: RADIUS,
+                                                                    overflow: "hidden",
+                                                                    border: `1px solid ${DASH.lineSoft}`,
+                                                                    backgroundColor: DASH.surface,
                                                                     "&:hover .overlay": {
                                                                         opacity: 1,
                                                                     },
@@ -769,9 +774,10 @@ export default function HomeworkApprovalPage() {
                                                                     src={statusItem.filePath}
                                                                     width={"100%"}
                                                                     height={"100%"}
-                                                                    alt="news"
+                                                                    alt="Homework attachment"
                                                                     style={{
                                                                         display: "block",
+                                                                        objectFit: "cover",
                                                                     }}
                                                                 />
                                                                 <Box
@@ -835,9 +841,10 @@ export default function HomeworkApprovalPage() {
                                                                     src={pdfDemo}
                                                                     width={"100%"}
                                                                     height={"100%"}
-                                                                    alt="circulars"
+                                                                    alt="PDF attachment"
                                                                     style={{
                                                                         display: "block",
+                                                                        objectFit: "contain",
                                                                     }}
                                                                 />
                                                                 <Box
@@ -904,30 +911,37 @@ export default function HomeworkApprovalPage() {
                                                         <>
 
                                                             <Button
+                                                                variant="outlined"
                                                                 sx={{
                                                                     textTransform: 'none',
-                                                                    padding: '2px 0',
-                                                                    fontSize: '10px',
-                                                                    color: '#FF0000',
-                                                                    fontWeight: "600",
+                                                                    borderRadius: RADIUS,
+                                                                    px: 2,
+                                                                    height: 32,
+                                                                    fontSize: '12.5px',
+                                                                    fontWeight: 700,
+                                                                    color: DASH.red,
+                                                                    borderColor: `${DASH.red}55`,
                                                                     backgroundColor: "#fff",
-                                                                    textDecoration: "underline !important"
+                                                                    "&:hover": { borderColor: DASH.red, backgroundColor: DASH.redLight },
                                                                 }}
                                                                 onClick={() => handleEdit(statusItem.id)}
                                                             >
                                                                 Decline
                                                             </Button>
                                                             <Button
-                                                                variant="outlined"
+                                                                variant="contained"
+                                                                disableElevation
                                                                 sx={{
                                                                     textTransform: 'none',
-                                                                    borderRadius: "50px",
-                                                                    padding: '2px 0',
-                                                                    fontSize: '10px',
-                                                                    border: "1px solid #00963C",
-                                                                    color: '#00963C',
-                                                                    fontWeight: "600",
-                                                                    backgroundColor: "#fff",
+                                                                    borderRadius: RADIUS,
+                                                                    px: 2.4,
+                                                                    height: 32,
+                                                                    fontSize: '12.5px',
+                                                                    fontWeight: 700,
+                                                                    color: "#fff",
+                                                                    backgroundColor: "#00963C",
+                                                                    boxShadow: "none",
+                                                                    "&:hover": { backgroundColor: "#047857", boxShadow: "none" },
                                                                 }}
                                                                 onClick={() => handleSubmit(statusItem.id)}
                                                             >

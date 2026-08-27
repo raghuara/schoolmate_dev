@@ -1,7 +1,7 @@
 import { Autocomplete, Box, Button, Chip, DialogActions, Dialog, Divider, Fab, IconButton, InputAdornment, Paper, Switch, TextField, Typography, ThemeProvider, createTheme, Grid, ToggleButtonGroup, ToggleButton, Tooltip } from "@mui/material";
 import axios from "axios";
 import React, { useEffect, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
@@ -14,7 +14,11 @@ import Loader from "../Loader";
 import { PostedCardsSkeleton } from "../InnerLoader";
 import SnackBar from "../SnackBar";
 import { selectGrades } from "../../Redux/Slices/DropdownController";
-import { findSubMenuPermissions } from "../../Redux/Slices/AuthSlice";
+import { findSubMenuPermissions, selectUserTypeID } from "../../Redux/Slices/AuthSlice";
+import {
+    APPROVAL_SUBMENUS, approvalRoleFor, isApproverFor, mustRequestApproval,
+    selectApprovalMatrix, selectApprovalMatrixReady,
+} from "../../Redux/Slices/approvalMatrixSlice";
 import dayjs from "dayjs";
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
@@ -23,6 +27,9 @@ import GridViewIcon from '@mui/icons-material/GridView';
 import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted';
 import UploadOutlinedIcon from '@mui/icons-material/UploadOutlined';
 import HighlightOffIcon from '@mui/icons-material/HighlightOff';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import FactCheckOutlinedIcon from '@mui/icons-material/FactCheckOutlined';
+import PendingActionsOutlinedIcon from '@mui/icons-material/PendingActionsOutlined';
 import SearchIcon from '@mui/icons-material/Search';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import EventAvailableOutlinedIcon from '@mui/icons-material/EventAvailableOutlined';
@@ -46,6 +53,30 @@ export default function HomeWorkPage() {
     const canDelete = homeworkPerms.delete === "Y";
     const rollNumber = user.rollNumber
     const userType = user.userType
+
+    /*
+       Who can act on homework directly and who has to raise a request is decided
+       by the approval matrix, exactly as it is for News, Messages and Circulars.
+       Anyone the matrix does not place at a level sends a request instead.
+    */
+    const userTypeID = useSelector(selectUserTypeID);
+    const approvalMatrix = useSelector(selectApprovalMatrix);
+    const canActDirect = approvalRoleFor(approvalMatrix, APPROVAL_SUBMENUS.HOMEWORK, userTypeID).canPublishDirect;
+
+    /*
+       "Review Approvals" is for the people who act on the queue - anyone the
+       matrix places at a level for Homework. "Approval Status" is the other side
+       of the same flow: users who can create homework but have to raise a
+       request, and therefore have something waiting to be tracked. Neither is an
+       access gate, so both wait for the matrix rather than guessing while it loads.
+    */
+    const matrixReady = useSelector(selectApprovalMatrixReady);
+    const canReviewApprovals = matrixReady
+        && isApproverFor(approvalMatrix, APPROVAL_SUBMENUS.HOMEWORK, userTypeID);
+    const canTrackApprovals = matrixReady && canCreate
+        && mustRequestApproval(approvalMatrix, APPROVAL_SUBMENUS.HOMEWORK, userTypeID);
+    const showApprovalLinks = canReviewApprovals || canTrackApprovals;
+
     const userName = user.name
     const [isLoading, setIsLoading] = useState(false);
     // Hold the list's shape until the first fetch has genuinely finished, so an
@@ -279,7 +310,9 @@ export default function HomeWorkPage() {
         try {
             const res = await axios.delete(DeleteHomeWork, {
                 params: {
-                    id: id
+                    id: id,
+                    rollNumber: rollNumber,
+                    userType: userType,
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -289,7 +322,7 @@ export default function HomeWorkPage() {
             setOpen(true);
             setColor(true);
             setStatus(true);
-            setMessage("Homework Deleted Successfully");
+            setMessage(canActDirect ? "Homework Deleted Successfully" : "Requested Successfully");
             console.log('Homework deleted successfully:', res.data);
         } catch (error) {
             setOpen(true);
@@ -754,6 +787,45 @@ export default function HomeWorkPage() {
             </Box>
 
             <Box ref={boxRef} sx={{ maxHeight: "83vh", overflowY: "auto" }}>
+                {showApprovalLinks && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 1, px: 2, pt: 1.2, flexWrap: 'wrap' }}>
+                        {canReviewApprovals && (
+                            <Link to="/dashboardmenu/approvals/homework" style={{ textDecoration: 'none' }}>
+                                <Button
+                                    endIcon={<ArrowForwardIcon sx={{ fontSize: 15 }} />}
+                                    startIcon={<FactCheckOutlinedIcon sx={{ fontSize: 16 }} />}
+                                    sx={{
+                                        textTransform: 'none', fontSize: '12.5px', fontWeight: 700,
+                                        height: 34, px: 1.4, borderRadius: '5px',
+                                        color: '#0E7490', bgcolor: '#ECFAFD',
+                                        border: '1px solid #B6E0EC',
+                                        '&:hover': { bgcolor: '#DCF2F8' },
+                                    }}
+                                >
+                                    Review Approvals
+                                </Button>
+                            </Link>
+                        )}
+
+                        {canTrackApprovals && (
+                            <Link to="/dashboardmenu/status" style={{ textDecoration: 'none' }}>
+                                <Button
+                                    endIcon={<ArrowForwardIcon sx={{ fontSize: 15 }} />}
+                                    startIcon={<PendingActionsOutlinedIcon sx={{ fontSize: 16 }} />}
+                                    sx={{
+                                        textTransform: 'none', fontSize: '12.5px', fontWeight: 700,
+                                        height: 34, px: 1.4, borderRadius: '5px',
+                                        color: '#8338EC', bgcolor: '#FBF9FE',
+                                        border: '1px solid #DCC7F3',
+                                        '&:hover': { bgcolor: '#F3ECFD' },
+                                    }}
+                                >
+                                    Approval Status
+                                </Button>
+                            </Link>
+                        )}
+                    </Box>
+                )}
                 {!hasLoaded ? (
                     <Box sx={{ p: 2 }}>
                         <PostedCardsSkeleton
@@ -1084,10 +1156,12 @@ export default function HomeWorkPage() {
             >
                 <Box sx={{ p: 3, backgroundColor: '#fff', textAlign: 'center' }}>
                     <Typography sx={{ fontSize: "17px", fontWeight: 600, color: "#111827" }}>
-                        Delete this homework?
+                        {canActDirect ? "Delete this homework?" : "Send a delete request?"}
                     </Typography>
                     <Typography sx={{ fontSize: "13px", color: "#6B7280", mt: 0.8 }}>
-                        This will remove it for everyone. It cannot be undone.
+                        {canActDirect
+                            ? "This will remove it for everyone. It cannot be undone."
+                            : "An approver has to accept this before the homework is removed."}
                     </Typography>
                     <DialogActions sx={{ justifyContent: 'center', backgroundColor: '#fff', pt: 2.5, gap: 1 }}>
                         <Button variant="outlined" onClick={() => handleCloseDialog(false)} sx={dialogGhostSx}>

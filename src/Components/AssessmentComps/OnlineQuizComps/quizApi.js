@@ -159,7 +159,7 @@ export const normalizeQuiz = (row, grades) => {
 
     return {
         id: val(row, ["quzeId", "quizId", "quzeID", "id"], null),
-        name: val(row, ["title", "quizName", "quzeName", "name", "headLine"], "") || `${subject || "Quiz"}`,
+        name: val(row, ["quzeHeading", "title", "quizName", "quzeName", "name", "headLine"], "") || `${subject || "Quiz"}`,
         subject: subject || "General",
         gradeId: val(row, ["gradeId", "gradeID"], first.gradeId ?? null),
         grade: first.grade || gradeLabel(grades, val(row, ["gradeId", "gradeID"], null)),

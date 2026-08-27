@@ -36,7 +36,7 @@ import {
 import { selectAcademicYear } from "../../../Redux/Slices/academicYearSlice";
 import { selectGrades } from "../../../Redux/Slices/DropdownController";
 import { GetQuizDashboard, GetAllQuizzesForAdmin } from "../../../Api/Api";
-import { normalizeQuizList, fmtDate, parseApiDate, QUIZ_STATUSES } from "./quizApi";
+import { normalizeQuizList, unwrap, fmtDate, parseApiDate, QUIZ_STATUSES } from "./quizApi";
 
 const EMPTY_DASHBOARD = {
     totalQuizzes: 0,
@@ -51,47 +51,6 @@ const EMPTY_DASHBOARD = {
     participationThisWeek: [],
 };
 
-/* ---------------------------------------------------------------
-   TEMPORARY DEMO DATA - delete this block and the USE_DEMO_DATA
-   flag once the backend returns real numbers. Nothing else in the
-   file depends on it; real data always wins over these values.
----------------------------------------------------------------- */
-const USE_DEMO_DATA = true;
-
-const DEMO_DASHBOARD = {
-    totalQuizzes: 42,
-    publishedQuizzes: 26,
-    scheduledQuizzes: 8,
-    pendingQuizzes: 6,
-    averageScore: 74.5,
-    overallCompletion: 98,
-    gradeWisePerformance: {
-        PREKG: 0, LKG: 0, UKG: 0,
-        I: 62, II: 71, III: 66, IV: 78, V: 74,
-        VI: 82, VII: 69, VIII: 88, IX: 73, X: 80,
-    },
-    averageScoreByGrade: {
-        PREKG: 0, LKG: 0, UKG: 0,
-        I: 58, II: 67, III: 63, IV: 76, V: 71,
-        VI: 84, VII: 66, VIII: 90, IX: 70, X: 82,
-    },
-    upcomingQuizzes: [
-        { quzeId: 21, subject: "Physics", grade: "X", scheduledDateAndTime: "16-08-2026 10:00", status: "Scheduled" },
-        { quzeId: 22, subject: "Mathematics", grade: "VIII", scheduledDateAndTime: "18-08-2026 09:30", status: "Scheduled" },
-        { quzeId: 23, subject: "Social", grade: "VI", scheduledDateAndTime: "20-08-2026 11:00", status: "Scheduled" },
-    ],
-    participationThisWeek: [
-        { date: "07-08-2026", day: "Fri", assigned: 210, attempted: 186 },
-        { date: "08-08-2026", day: "Sat", assigned: 120, attempted: 94 },
-        { date: "09-08-2026", day: "Sun", assigned: 0, attempted: 0 },
-        { date: "10-08-2026", day: "Mon", assigned: 176, attempted: 148 },
-        { date: "11-08-2026", day: "Tue", assigned: 352, attempted: 289 },
-        { date: "12-08-2026", day: "Wed", assigned: 264, attempted: 231 },
-        { date: "13-08-2026", day: "Thu", assigned: 198, attempted: 172 },
-    ],
-};
-
-/* --------------------- end of demo data ---------------------- */
 
 const num = (value) => {
     const parsed = Number(value);
@@ -107,6 +66,28 @@ const pick = (row, keys, fallback = "") => {
         if (found !== undefined && found !== null && found !== "") return found;
     }
     return fallback;
+};
+
+/*
+   getQuzeDashboard answers { error, message, data: { ... } } with these exact
+   keys. gradeWisePerformance / averageScoreByGrade are grade-sign maps
+   ({ PREKG: 0.00, ... }); participationThisWeek is one row per day.
+*/
+const readDashboard = (payload) => {
+    const data = unwrap(payload);
+
+    return {
+        totalQuizzes: num(data.totalQuizzes),
+        publishedQuizzes: num(data.publishedQuizzes),
+        scheduledQuizzes: num(data.scheduledQuizzes),
+        pendingQuizzes: num(data.pendingQuizzes),
+        averageScore: num(data.averageScore),
+        overallCompletion: num(data.overallCompletion),
+        gradeWisePerformance: data.gradeWisePerformance || {},
+        averageScoreByGrade: data.averageScoreByGrade || {},
+        upcomingQuizzes: Array.isArray(data.upcomingQuizzes) ? data.upcomingQuizzes : [],
+        participationThisWeek: Array.isArray(data.participationThisWeek) ? data.participationThisWeek : [],
+    };
 };
 
 
@@ -298,10 +279,12 @@ export default function OnlineQuizDashboard() {
     const gradeOptionList = useSelector(selectGrades) || [];
     const [recentQuizzes, setRecentQuizzes] = useState([]);
 
-    const [dashboard, setDashboard] = useState(
-        USE_DEMO_DATA ? { ...EMPTY_DASHBOARD, ...DEMO_DASHBOARD } : EMPTY_DASHBOARD
-    );
-    const usingDemo = USE_DEMO_DATA;
+    const [dashboard, setDashboard] = useState(EMPTY_DASHBOARD);
+    const [dashboardLoaded, setDashboardLoaded] = useState(false);
+
+    // The summary endpoint has nothing for this academic year yet - say so
+    // rather than showing a wall of zeros as if they were measurements.
+    const noActivityYet = dashboardLoaded && !dashboard.totalQuizzes && !recentQuizzes.length;
 
     useEffect(() => {
         if (!rollNumber || !academicYear) return undefined;
@@ -323,12 +306,8 @@ export default function OnlineQuizDashboard() {
                     notify(res.data.message || "Could not load the quiz dashboard");
                     return;
                 }
-                // Demo mode keeps the sample numbers on screen. The request still
-                // runs so the wiring stays exercised - flip USE_DEMO_DATA to false
-                // and the real payload below takes over.
-                if (USE_DEMO_DATA) return;
-
-                setDashboard({ ...EMPTY_DASHBOARD, ...(res?.data?.data || res?.data || {}) });
+                setDashboard(readDashboard(res?.data));
+                setDashboardLoaded(true);
             } catch (error) {
                 if (!alive) return;
                 console.error(error);
@@ -410,7 +389,7 @@ export default function OnlineQuizDashboard() {
         () =>
             (dashboard.upcomingQuizzes || []).map((row, i) => ({
                 id: pick(row, ["quzeId", "quizId", "id"], i),
-                name: pick(row, ["subject", "name", "quizName", "title"], "Quiz"),
+                name: pick(row, ["quzeHeading", "subject", "name", "quizName", "title"], "Quiz"),
                 grade: pick(row, ["grade", "gradeName", "gradeSection"], ""),
                 when: pick(row, ["scheduledDateAndTime", "postedDateAndTime", "date"], ""),
                 starts: pick(row, ["startsIn", "status"], "Scheduled"),
@@ -488,9 +467,9 @@ export default function OnlineQuizDashboard() {
                             <Typography sx={{ fontSize: "21px", fontWeight: 700, color: DASH.ink }}>
                                 AI Quiz Generator
                             </Typography>
-                            {usingDemo && (
+                            {noActivityYet && (
                                 <Chip
-                                    label="Sample data"
+                                    label="No activity yet"
                                     size="small"
                                     sx={{
                                         height: 21, fontSize: "10.5px", fontWeight: 700,
@@ -500,8 +479,8 @@ export default function OnlineQuizDashboard() {
                             )}
                         </Box>
                         <Typography sx={{ fontSize: "12.5px", color: DASH.muted, mt: 0.2 }}>
-                            {usingDemo
-                                ? "Showing sample numbers until the backend has quiz activity for this academic year."
+                            {noActivityYet
+                                ? `No quizzes have been created for ${academicYear || "this academic year"} yet.`
                                 : "Manage AI-generated quizzes, monitor participation, and track performance."}
                         </Typography>
                     </Box>

@@ -1,4 +1,4 @@
-import { Autocomplete, Box, Button, DialogActions, Dialog, Fab,  IconButton, Paper, Switch, TextField, Typography, ThemeProvider, createTheme, ToggleButtonGroup, ToggleButton, styled, Grid, Tooltip } from "@mui/material";
+import { Autocomplete, Box, Button, DialogActions, Dialog, Fab,  IconButton, Paper, Switch, TextField, Typography, ThemeProvider, createTheme, ToggleButtonGroup, ToggleButton, Grid, Tooltip } from "@mui/material";
 import axios from "axios";
 import { PostedCardsSkeleton } from "../../InnerLoader";
 import React, { useEffect, useRef, useState } from "react";
@@ -27,6 +27,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import folderImage from '../../../Images/PagesImage/folder.png';
 import HighlightOffIcon from '@mui/icons-material/HighlightOff';
 import { findSubMenuPermissions } from "../../../Redux/Slices/AuthSlice";
+import { DASH, RADIUS } from "../../DashBoardComps/dashboardTheme";
 
 export default function MainStudyMaterialsPage() {
     const location = useLocation();
@@ -136,11 +137,6 @@ export default function MainStudyMaterialsPage() {
         return acc;
     }, {});
 
-
-    const Item = styled(Paper)(({ theme }) => ({
-        padding: theme.spacing(2),
-        color: theme.palette.text.secondary,
-    }));
 
     const darkTheme = createTheme({
         palette: {
@@ -329,7 +325,7 @@ export default function MainStudyMaterialsPage() {
         <Box sx={{ width: "100%", }}>
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
             {isLoading && <Loader />}
-            <Box sx={{ backgroundColor: "#f2f2f2", px: 1, borderRadius: "10px 10px 10px 0px", borderBottom: "1px solid #ddd", }}>
+            <Box sx={{ backgroundColor: "#f2f2f2", px: 2, py: 1, borderRadius: "10px 10px 10px 0px", borderBottom: "1px solid #ddd", }}>
                 <Grid container>
                     <Grid
                         sx={{ display: "flex", alignItems: "center" }}
@@ -724,7 +720,7 @@ export default function MainStudyMaterialsPage() {
                             textAlign: 'center',
                             backgroundColor: '#fff',
                             p: 3,
-                            width: "70%",
+                            maxWidth: "420px",
                         }}>
 
                             <Typography sx={{ fontSize: "20px" }}> Do you really want to delete
@@ -739,7 +735,7 @@ export default function MainStudyMaterialsPage() {
                                     sx={{
                                         textTransform: 'none',
                                         width: "80px",
-                                        borderRadius: '30px',
+                                        borderRadius: '10px',
                                         fontSize: '16px',
                                         py: 0.2,
                                         border: '1px solid black',
@@ -754,7 +750,7 @@ export default function MainStudyMaterialsPage() {
                                         textTransform: 'none',
                                         backgroundColor: websiteSettings.mainColor,
                                         width: "90px",
-                                        borderRadius: '30px',
+                                        borderRadius: '10px',
                                         fontSize: '16px',
                                         py: 0.2,
                                         color: websiteSettings.textColor,
@@ -775,7 +771,7 @@ export default function MainStudyMaterialsPage() {
                             textAlign: 'center',
                             backgroundColor: '#fff',
                             p: 3,
-                            width: "70%",
+                            maxWidth: "420px",
                         }}>
 
                             <Typography sx={{ fontSize: "20px" }}>Do you really want to make
@@ -790,7 +786,7 @@ export default function MainStudyMaterialsPage() {
                                     sx={{
                                         textTransform: 'none',
                                         width: "80px",
-                                        borderRadius: '30px',
+                                        borderRadius: '10px',
                                         fontSize: '16px',
                                         py: 0.2,
                                         border: '1px solid black',
@@ -805,7 +801,7 @@ export default function MainStudyMaterialsPage() {
                                         textTransform: 'none',
                                         backgroundColor: websiteSettings.mainColor,
                                         width: "80px",
-                                        borderRadius: '30px',
+                                        borderRadius: '10px',
                                         fontSize: '16px',
                                         py: 0.2,
                                         color: websiteSettings.textColor,
@@ -1006,7 +1002,7 @@ export default function MainStudyMaterialsPage() {
                                                                     sx={{
                                                                         textTransform: 'none',
                                                                         padding: '2px 15px',
-                                                                        borderRadius: '30px',
+                                                                        borderRadius: '10px',
                                                                         fontSize: '12px',
                                                                         border: '2px solid white',
                                                                         color: 'white',
@@ -1024,7 +1020,7 @@ export default function MainStudyMaterialsPage() {
                                                                     sx={{
                                                                         textTransform: 'none',
                                                                         padding: '2px 15px',
-                                                                        borderRadius: '30px',
+                                                                        borderRadius: '10px',
                                                                         fontSize: '12px',
                                                                         border: '2px solid white',
                                                                         color: 'white',
@@ -1049,7 +1045,7 @@ export default function MainStudyMaterialsPage() {
                                                                 width: '100px',
                                                                 height: '25px',
                                                                 mr: 1,
-                                                                borderRadius: '30px',
+                                                                borderRadius: '10px',
                                                                 fontSize: '10px',
                                                                 border: '1px solid black',
                                                                 color: 'black',
@@ -1100,8 +1096,21 @@ export default function MainStudyMaterialsPage() {
 
                                         {/* Render the grids for that date */}
                                         {items.map((table, index) => (
-                                            <Grid size={12} sx={{ mb: 0, mt: 0 }}>
-                                                <Item key={index} >
+                                            <Grid key={table.id ?? index} size={12} sx={{ mb: 0, mt: 0 }}>
+                                                <Box
+                                                    sx={{
+                                                        p: 2,
+                                                        bgcolor: "#fff",
+                                                        border: `1px solid ${DASH.line}`,
+                                                        borderRadius: RADIUS,
+                                                        boxShadow: "0px 1px 3px rgba(16,24,40,0.06)",
+                                                        transition: "box-shadow 0.2s, border-color 0.2s",
+                                                        "&:hover": {
+                                                            boxShadow: "0px 4px 14px rgba(16,24,40,0.10)",
+                                                            borderColor: "#D6DAE1",
+                                                        },
+                                                    }}
+                                                >
                                                     <Grid container sx={{ py: 1 }}>
                                                         <Grid sx={{ display: "flex", alignItems: "center" }} size={{ xs: 12, lg: 6 }}>
                                                             <Typography sx={{ fontSize: '14px', color: '#000', fontWeight: '600' }}>
@@ -1144,7 +1153,7 @@ export default function MainStudyMaterialsPage() {
                                                                             sx={{
                                                                                 textTransform: 'none',
                                                                                 padding: '2px 15px',
-                                                                                borderRadius: '30px',
+                                                                                borderRadius: '10px',
                                                                                 fontSize: '12px',
                                                                                 color: '#E60154',
                                                                                 fontWeight: '600',
@@ -1162,7 +1171,7 @@ export default function MainStudyMaterialsPage() {
                                                                             sx={{
                                                                                 textTransform: 'none',
                                                                                 padding: '2px 15px',
-                                                                                borderRadius: '30px',
+                                                                                borderRadius: '10px',
                                                                                 fontSize: '12px',
                                                                                 color: '#E60154',
                                                                                 fontWeight: '600',
@@ -1179,7 +1188,7 @@ export default function MainStudyMaterialsPage() {
                                                         </Grid>
                                                     </Grid>
 
-                                                </Item>
+                                                </Box>
                                             </Grid>
                                         ))}
                                         <Box sx={{ borderTop: "1px solid #C5C5C5", height: "1.5px", width: "100%", my: 2 }}></Box>
