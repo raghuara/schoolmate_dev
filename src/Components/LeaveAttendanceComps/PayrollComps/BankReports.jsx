@@ -24,7 +24,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { selectWebsiteSettings } from '../../../Redux/Slices/websiteSettingsSlice';
 import * as XLSX from 'xlsx';
-import axios from 'axios';
+import axios from '../leaveAxios';
 import SnackBar from '../../SnackBar';
 import { employeeBankDetailsDashboard, updateEmployeeBankDetailsByRollnumber } from '../../../Api/Api';
 import usePayrollPermissions from './usePayrollPermissions';

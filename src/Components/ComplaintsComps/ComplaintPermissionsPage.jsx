@@ -31,7 +31,7 @@ const panelSx = {
     flexDirection: "column",
 };
 
-export default function ComplaintPermissionsPage() {
+export default function ComplaintPermissionsPage({ embedded = false }) {
     const navigate = useNavigate();
     const websiteSettings = useSelector(selectWebsiteSettings);
     const accent = websiteSettings.mainColor;
@@ -103,27 +103,29 @@ export default function ComplaintPermissionsPage() {
     };
 
     return (
-        <Box sx={{ p: "28px", display: "flex", flexDirection: "column", gap: 3 }}>
+        <Box sx={{ p: embedded ? 0 : "28px", display: "flex", flexDirection: "column", gap: 3 }}>
             {/* Breadcrumb + title + blurb */}
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                <ComplaintsBreadcrumb
-                    currentColor={accent}
-                    trail={[
-                        { label: "Administration" },
-                        {
-                            label: "Complaint Configuration",
-                            onClick: () => navigate("/dashboardmenu/complaints/configuration"),
-                        },
-                        { label: "Role & Permissions" },
-                    ]}
-                />
-                <Typography sx={{ fontSize: "22px", fontWeight: 700, color: C.text }}>
-                    Complaint Permissions
-                </Typography>
-                <Typography sx={{ fontSize: "13px", fontWeight: 400, color: C.textMuted }}>
-                    Configure which roles can perform complaint management actions.
-                </Typography>
-            </Box>
+            {!embedded && (
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                    <ComplaintsBreadcrumb
+                        currentColor={accent}
+                        trail={[
+                            { label: "Administration" },
+                            {
+                                label: "Complaint Configuration",
+                                onClick: () => navigate("/dashboardmenu/complaints/configuration"),
+                            },
+                            { label: "Role & Permissions" },
+                        ]}
+                    />
+                    <Typography sx={{ fontSize: "22px", fontWeight: 700, color: C.text }}>
+                        Complaint Permissions
+                    </Typography>
+                    <Typography sx={{ fontSize: "13px", fontWeight: 400, color: C.textMuted }}>
+                        Configure which roles can perform complaint management actions.
+                    </Typography>
+                </Box>
+            )}
 
             {/* The two left panels are fixed width in the comp; they wrap onto their
                 own line rather than squashing once the viewport gets narrow. */}

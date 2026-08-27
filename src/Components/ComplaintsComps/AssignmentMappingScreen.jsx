@@ -67,6 +67,9 @@ const Tag = ({ label, styles, width }) => (
 );
 
 export default function AssignmentMappingScreen({
+    // Rendered inside the Configuration Hub: the hub owns the page chrome,
+    // so the screen drops its own padding, breadcrumb and title.
+    embedded = false,
     trail,
     title,
     subtitle,
@@ -99,7 +102,7 @@ export default function AssignmentMappingScreen({
     };
 
     return (
-        <Box sx={{ p: "28px", display: "flex", flexDirection: "column", gap: 3 }}>
+        <Box sx={{ p: embedded ? 0 : "28px", display: "flex", flexDirection: "column", gap: 3 }}>
             {/* Breadcrumb + title + primary action */}
             <Box
                 sx={{
@@ -110,16 +113,18 @@ export default function AssignmentMappingScreen({
                     gap: 2,
                 }}
             >
-                <Box sx={{ display: "flex", flexDirection: "column", gap: "10px", minWidth: 0 }}>
-                    <ComplaintsBreadcrumb trail={trail} />
+                {!embedded && (
+                    <Box sx={{ display: "flex", flexDirection: "column", gap: "10px", minWidth: 0 }}>
+                        <ComplaintsBreadcrumb trail={trail} />
 
-                    <Typography sx={{ fontSize: "22px", fontWeight: 700, color: C.text }}>
-                        {title}
-                    </Typography>
-                    <Typography sx={{ fontSize: "13px", fontWeight: 400, color: C.textMuted }}>
-                        {subtitle}
-                    </Typography>
-                </Box>
+                        <Typography sx={{ fontSize: "22px", fontWeight: 700, color: C.text }}>
+                            {title}
+                        </Typography>
+                        <Typography sx={{ fontSize: "13px", fontWeight: 400, color: C.textMuted }}>
+                            {subtitle}
+                        </Typography>
+                    </Box>
+                )}
 
                 {canEditConfig && (
                     <Button

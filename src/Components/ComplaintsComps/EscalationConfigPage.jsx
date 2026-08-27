@@ -43,7 +43,7 @@ const trackSwitchSx = (accent) => ({
     "& .MuiSwitch-track": { borderRadius: "10px", bgcolor: C.textFaint, opacity: 1 },
 });
 
-export default function EscalationConfigPage() {
+export default function EscalationConfigPage({ embedded = false }) {
     const navigate = useNavigate();
     const websiteSettings = useSelector(selectWebsiteSettings);
     const accent = websiteSettings.mainColor;
@@ -65,41 +65,43 @@ export default function EscalationConfigPage() {
     };
 
     return (
-        <Box sx={{ p: "28px", display: "flex", flexDirection: "column", gap: 3 }}>
+        <Box sx={{ p: embedded ? 0 : "28px", display: "flex", flexDirection: "column", gap: 3 }}>
             {/* Breadcrumb + title */}
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                <Breadcrumbs
-                    separator=">"
-                    sx={{ "& .MuiBreadcrumbs-separator": { color: C.textFaint, fontSize: "11px", mx: "4px" } }}
-                >
-                    <Link
-                        component="button"
-                        underline="hover"
-                        onClick={() => navigate(-2)}
-                        sx={{ fontSize: "11px", fontWeight: 500, color: C.textFaint }}
+            {!embedded && (
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                    <Breadcrumbs
+                        separator=">"
+                        sx={{ "& .MuiBreadcrumbs-separator": { color: C.textFaint, fontSize: "11px", mx: "4px" } }}
                     >
-                        Administration
-                    </Link>
-                    <Link
-                        component="button"
-                        underline="hover"
-                        onClick={() => navigate(-1)}
-                        sx={{ fontSize: "11px", fontWeight: 500, color: C.textFaint }}
-                    >
-                        Complaint Configuration
-                    </Link>
-                    <Typography sx={{ fontSize: "11px", fontWeight: 600, color: accent }}>
+                        <Link
+                            component="button"
+                            underline="hover"
+                            onClick={() => navigate(-2)}
+                            sx={{ fontSize: "11px", fontWeight: 500, color: C.textFaint }}
+                        >
+                            Administration
+                        </Link>
+                        <Link
+                            component="button"
+                            underline="hover"
+                            onClick={() => navigate(-1)}
+                            sx={{ fontSize: "11px", fontWeight: 500, color: C.textFaint }}
+                        >
+                            Complaint Configuration
+                        </Link>
+                        <Typography sx={{ fontSize: "11px", fontWeight: 600, color: accent }}>
+                            Escalation Configuration
+                        </Typography>
+                    </Breadcrumbs>
+
+                    <Typography sx={{ fontSize: "22px", fontWeight: 700, color: C.text }}>
                         Escalation Configuration
                     </Typography>
-                </Breadcrumbs>
-
-                <Typography sx={{ fontSize: "22px", fontWeight: 700, color: C.text }}>
-                    Escalation Configuration
-                </Typography>
-                <Typography sx={{ fontSize: "13px", fontWeight: 400, color: C.textMuted }}>
-                    Configure when actions should be escalated and who receives them.
-                </Typography>
-            </Box>
+                    <Typography sx={{ fontSize: "13px", fontWeight: 400, color: C.textMuted }}>
+                        Configure when actions should be escalated and who receives them.
+                    </Typography>
+                </Box>
+            )}
 
             {/* Escalation hierarchy */}
             <Box sx={{ ...sectionCardSx, gap: 2.5 }}>

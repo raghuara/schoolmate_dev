@@ -11,7 +11,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import CloseIcon from '@mui/icons-material/Close';
 import PolicyIcon from '@mui/icons-material/Policy';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import axios from 'axios';
+import axios from '../../leaveAxios';
 import { GetleaveTypes, postleavetypes, UpdateleaveTypeByID, DeleteleaveTypeByID } from '../../../../Api/Api';
 import {
     PRIMARY, PRIMARY_LIGHT, PRIMARY_DARK, TOKEN,

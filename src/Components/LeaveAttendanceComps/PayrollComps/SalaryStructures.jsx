@@ -6,7 +6,7 @@ import {
     DialogContent, DialogActions, Avatar, Autocomplete, Paper, Tooltip,
     CircularProgress, Stack, LinearProgress,
 } from '@mui/material';
-import axios from 'axios';
+import axios from '../leaveAxios';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import EditIcon from '@mui/icons-material/Edit';

@@ -11,20 +11,34 @@ import { C, outlineBtnSx } from "./complaintsTokens";
 import ComplaintsDashboard from "./ComplaintsDashboard";
 import InternalComplaintsDashboard from "./InternalComplaintsDashboard";
 import ComplaintsTabs from "./ComplaintsTabs";
+import AddNewDialog from "./AddNewDialog";
 
 // The Figma frame includes the global top bar (Welcome back / search / avatar).
 // DashBoardLayout already renders that via DashBoardHeader, so this page starts
 // at the "Management Dashboard" title block.
 
+// The dashboard names the second stream after the people who raise it. The
+// configuration screens still say "Internal Complaints", so this stays local
+// rather than changing COMPLAINT_TABS.
+const DASHBOARD_TABS = ["Parent Complaints", "Staff Concerns"];
+
 
 export default function ComplaintsPage() {
     const [tab, setTab] = useState(0);
+    const [addOpen, setAddOpen] = useState(false);
     const websiteSettings = useSelector(selectWebsiteSettings);
     const navigate = useNavigate();
 
     // The Figma accent #FCBE3A is the school's mainColor — read it from the store
     // so the screen stays correct when a school is white-labelled.
     const accent = websiteSettings.mainColor;
+
+    // Each option opens its own intake screen.
+    const handleAddNew = (option) => {
+        setAddOpen(false);
+        if (option === "parentComplaint") navigate("/dashboardmenu/complaints/register");
+        if (option === "staffConcern") navigate("/dashboardmenu/complaints/add-issue");
+    };
 
     return (
         <Box sx={{ px: "28px", py: 2.5, display: "flex", flexDirection: "column", gap: 2.5 }}>
@@ -62,20 +76,10 @@ export default function ComplaintsPage() {
                     >
                         Manage Complaints
                     </Button>
+                    {/* One entry point for both intake streams — the picker asks
+                        which one before opening its form. */}
                     <Button
-                        startIcon={<AddOutlinedIcon sx={{ fontSize: "16px" }} />}
-                        sx={{
-                            ...outlineBtnSx,
-                            bgcolor: "transparent",
-                            color: C.onAccent,
-                            fontWeight: 700,
-                            border: `1px solid ${accent}`,
-                            "&:hover": { bgcolor: `${accent}1A`, border: `1px solid ${accent}` },
-                        }}
-                    >
-                        Add Issue
-                    </Button>
-                    <Button
+                        onClick={() => setAddOpen(true)}
                         startIcon={<AddOutlinedIcon sx={{ fontSize: "16px" }} />}
                         sx={{
                             ...outlineBtnSx,
@@ -86,14 +90,16 @@ export default function ComplaintsPage() {
                             "&:hover": { bgcolor: websiteSettings.darkColor, border: "none" },
                         }}
                     >
-                        Register Complaint
+                        Add New
                     </Button>
                 </Box>
             </Box>
 
-            <ComplaintsTabs value={tab} onChange={setTab} />
+            <ComplaintsTabs value={tab} onChange={setTab} tabs={DASHBOARD_TABS} />
 
             {tab === 0 ? <ComplaintsDashboard /> : <InternalComplaintsDashboard />}
+
+            <AddNewDialog open={addOpen} onClose={() => setAddOpen(false)} onSelect={handleAddNew} />
         </Box>
     );
 }

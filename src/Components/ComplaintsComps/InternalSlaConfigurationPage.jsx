@@ -17,11 +17,12 @@ const CONFIG_PATH = "/dashboardmenu/complaints/configuration";
 // stays readable as a label rather than reading like a button.
 const CURRENT_CRUMB = "#997821";
 
-export default function InternalSlaConfigurationPage() {
+export default function InternalSlaConfigurationPage({ embedded = false }) {
     const navigate = useNavigate();
 
     return (
         <SlaConfigurationScreen
+            embedded={embedded}
             trail={[
                 { label: "Administration", onClick: () => navigate(CONFIG_PATH) },
                 { label: "School Operations", onClick: () => navigate(CONFIG_PATH) },

@@ -30,7 +30,9 @@ export default function ComplaintsTabs({ value, onChange, tabs = COMPLAINT_TABS 
                 display: "flex",
                 alignItems: "center",
                 gap: 1,
-                overflowX: "auto",
+                // Wraps rather than scrolls — a two- or three-tab rail never needs a
+                // scrollbar, and `overflow: auto` painted one over the last pill.
+                flexWrap: "wrap",
             }}
         >
             {tabs.map((label, i) => {

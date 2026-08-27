@@ -19,7 +19,7 @@ import LinkOffIcon from '@mui/icons-material/LinkOff';
 import HistoryIcon from '@mui/icons-material/History';
 import EditNoteIcon from '@mui/icons-material/EditNote';
 import GroupsIcon from '@mui/icons-material/Groups';
-import axios from 'axios';
+import axios from './leaveAxios';
 import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import SnackBar from '../SnackBar';

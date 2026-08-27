@@ -16,7 +16,7 @@ import AllInclusiveIcon from '@mui/icons-material/AllInclusive';
 import PaidIcon from '@mui/icons-material/Paid';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-import axios from 'axios';
+import axios from '../leaveAxios';
 import SnackBar from '../../SnackBar';
 import { leavePolicyDashboard, postLeaveType, updateLeaveTypeById } from '../../../Api/Api';
 

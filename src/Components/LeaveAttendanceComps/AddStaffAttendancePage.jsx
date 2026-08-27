@@ -29,7 +29,7 @@ import FingerprintIcon from '@mui/icons-material/Fingerprint';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import LoginIcon from '@mui/icons-material/Login';
 import EventBusyIcon from '@mui/icons-material/EventBusy';
-import axios from 'axios';
+import axios from './leaveAxios';
 import { useSelector } from 'react-redux';
 import { GetAttendanceTeacherBefore, PostTeachersManualAttendance, GetTeachersAttendance } from '../../Api/Api';
 import SnackBar from '../SnackBar';

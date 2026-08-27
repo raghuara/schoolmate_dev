@@ -14,7 +14,7 @@ import {
 
 const CONFIG_PATH = "/dashboardmenu/complaints/configuration";
 
-export default function InternalAssignmentMappingPage() {
+export default function InternalAssignmentMappingPage({ embedded = false }) {
     const navigate = useNavigate();
 
     const categories = useMemo(
@@ -24,6 +24,7 @@ export default function InternalAssignmentMappingPage() {
 
     return (
         <AssignmentMappingScreen
+            embedded={embedded}
             trail={[
                 { label: "School Operations", onClick: () => navigate(CONFIG_PATH) },
                 { label: "Configuration", onClick: () => navigate(CONFIG_PATH) },

@@ -62,6 +62,9 @@ function FilterSelect({ value, onChange, placeholder, options, disabled }) {
 // in their copy, rows and totals, so those arrive as props defaulting to the
 // Parent values — the Parent route renders it with no props.
 export default function AuditLogPage({
+    // Rendered inside the Configuration Hub: the hub owns the page chrome,
+    // so the screen drops its own padding, breadcrumb and title.
+    embedded = false,
     crumbLabel = "Complaint Configuration",
     subtitle = "Track complaint system activity and configuration changes.",
     auditRows = AUDIT_ROWS,
@@ -134,26 +137,28 @@ export default function AuditLogPage({
     };
 
     return (
-        <Box sx={{ p: "28px", display: "flex", flexDirection: "column", gap: 3 }}>
+        <Box sx={{ p: embedded ? 0 : "28px", display: "flex", flexDirection: "column", gap: 3 }}>
             {/* Breadcrumb + title + blurb */}
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                <ComplaintsBreadcrumb
-                    trail={[
-                        { label: "Administration" },
-                        {
-                            label: crumbLabel,
-                            onClick: () => navigate("/dashboardmenu/complaints/configuration"),
-                        },
-                        { label: "Audit Log" },
-                    ]}
-                />
-                <Typography sx={{ fontSize: "22px", fontWeight: 700, color: C.text }}>
-                    Audit Log
-                </Typography>
-                <Typography sx={{ fontSize: "13px", fontWeight: 400, color: C.textMuted }}>
-                    {subtitle}
-                </Typography>
-            </Box>
+            {!embedded && (
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                    <ComplaintsBreadcrumb
+                        trail={[
+                            { label: "Administration" },
+                            {
+                                label: crumbLabel,
+                                onClick: () => navigate("/dashboardmenu/complaints/configuration"),
+                            },
+                            { label: "Audit Log" },
+                        ]}
+                    />
+                    <Typography sx={{ fontSize: "22px", fontWeight: 700, color: C.text }}>
+                        Audit Log
+                    </Typography>
+                    <Typography sx={{ fontSize: "13px", fontWeight: 400, color: C.textMuted }}>
+                        {subtitle}
+                    </Typography>
+                </Box>
+            )}
 
             {/* Filter bar */}
             <Box

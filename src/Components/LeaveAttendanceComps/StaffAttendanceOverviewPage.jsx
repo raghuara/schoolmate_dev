@@ -33,7 +33,7 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import EventBusyIcon from '@mui/icons-material/EventBusy';
 import DateRangeIcon from '@mui/icons-material/DateRange';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import axios from './leaveAxios';
 import { getStaffAttendanceOverview } from '../../Api/Api';
 import SnackBar from '../SnackBar';
 
