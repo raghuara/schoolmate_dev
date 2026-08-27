@@ -10,7 +10,7 @@ import { ASSIGNMENT_MAPPINGS, MODE_STYLES, COLUMNS } from "./assignmentMappingDa
 
 const CONFIG_PATH = "/dashboardmenu/complaints/configuration";
 
-export default function AssignmentMappingPage() {
+export default function AssignmentMappingPage({ embedded = false }) {
     const navigate = useNavigate();
 
     const categories = useMemo(
@@ -20,6 +20,7 @@ export default function AssignmentMappingPage() {
 
     return (
         <AssignmentMappingScreen
+            embedded={embedded}
             trail={[
                 { label: "Administration", onClick: () => navigate(CONFIG_PATH) },
                 { label: "Complaint Configuration", onClick: () => navigate(CONFIG_PATH) },

@@ -35,6 +35,9 @@ const widgetSwitchSx = (accent) => ({
 // copy and their widget list, so the props below carry the differences and
 // default to the Parent values — the Parent route renders it with no props.
 export default function DashboardConfigPage({
+    // Rendered inside the Configuration Hub: the hub owns the page chrome,
+    // so the screen drops its own padding, breadcrumb and title.
+    embedded = false,
     crumbLabel = "Dashboard Configuration",
     title = "Dashboard Configuration",
     subtitle = "Configure which complaint metrics and widgets are visible to Management.",
@@ -71,41 +74,43 @@ export default function DashboardConfigPage({
     };
 
     return (
-        <Box sx={{ p: "28px", display: "flex", flexDirection: "column", gap: 3 }}>
+        <Box sx={{ p: embedded ? 0 : "28px", display: "flex", flexDirection: "column", gap: 3 }}>
             {/* Breadcrumb + title */}
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                <Breadcrumbs
-                    separator=">"
-                    sx={{ "& .MuiBreadcrumbs-separator": { color: C.textFaint, fontSize: "11px", mx: "4px" } }}
-                >
-                    <Link
-                        component="button"
-                        underline="hover"
-                        onClick={() => navigate(-2)}
-                        sx={{ fontSize: "11px", fontWeight: 500, color: C.textFaint }}
+            {!embedded && (
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                    <Breadcrumbs
+                        separator=">"
+                        sx={{ "& .MuiBreadcrumbs-separator": { color: C.textFaint, fontSize: "11px", mx: "4px" } }}
                     >
-                        Administration
-                    </Link>
-                    <Link
-                        component="button"
-                        underline="hover"
-                        onClick={() => navigate(-1)}
-                        sx={{ fontSize: "11px", fontWeight: 500, color: C.textFaint }}
-                    >
-                        Complaint Configuration
-                    </Link>
-                    <Typography sx={{ fontSize: "11px", fontWeight: 600, color: "#212121" }}>
-                        {crumbLabel}
-                    </Typography>
-                </Breadcrumbs>
+                        <Link
+                            component="button"
+                            underline="hover"
+                            onClick={() => navigate(-2)}
+                            sx={{ fontSize: "11px", fontWeight: 500, color: C.textFaint }}
+                        >
+                            Administration
+                        </Link>
+                        <Link
+                            component="button"
+                            underline="hover"
+                            onClick={() => navigate(-1)}
+                            sx={{ fontSize: "11px", fontWeight: 500, color: C.textFaint }}
+                        >
+                            Complaint Configuration
+                        </Link>
+                        <Typography sx={{ fontSize: "11px", fontWeight: 600, color: "#212121" }}>
+                            {crumbLabel}
+                        </Typography>
+                    </Breadcrumbs>
 
-                <Typography sx={{ fontSize: "22px", fontWeight: 700, color: C.text }}>
-                    {title}
-                </Typography>
-                <Typography sx={{ fontSize: "13px", fontWeight: 400, color: C.textMuted }}>
-                    {subtitle}
-                </Typography>
-            </Box>
+                    <Typography sx={{ fontSize: "22px", fontWeight: 700, color: C.text }}>
+                        {title}
+                    </Typography>
+                    <Typography sx={{ fontSize: "13px", fontWeight: 400, color: C.textMuted }}>
+                        {subtitle}
+                    </Typography>
+                </Box>
+            )}
 
             {/* Widget list */}
             <Box

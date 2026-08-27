@@ -47,7 +47,7 @@ const filterControlSx = {
     "& .MuiSelect-icon": { color: C.textMuted, fontSize: "16px" },
 };
 
-export default function InternalCategoriesPage() {
+export default function InternalCategoriesPage({ embedded = false }) {
     const navigate = useNavigate();
     const websiteSettings = useSelector(selectWebsiteSettings);
     const accent = websiteSettings.mainColor;
@@ -106,7 +106,7 @@ export default function InternalCategoriesPage() {
     };
 
     return (
-        <Box sx={{ p: "28px", display: "flex", flexDirection: "column", gap: 3 }}>
+        <Box sx={{ p: embedded ? 0 : "28px", display: "flex", flexDirection: "column", gap: 3 }}>
             {/* Breadcrumb + title, with the primary action on the right */}
             <Box
                 sx={{
@@ -117,27 +117,29 @@ export default function InternalCategoriesPage() {
                     gap: 2,
                 }}
             >
-                <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                    <ComplaintsBreadcrumb
-                        trail={[
-                            { label: "Administration" },
-                            {
-                                label: "Complaint Configuration",
-                                onClick: () => navigate("/dashboardmenu/complaints/configuration"),
-                            },
-                            { label: "Categories" },
-                        ]}
-                    />
-                    <Typography sx={{ fontSize: "22px", fontWeight: 700, color: C.text }}>
-                        Internal Complaints Categories
-                    </Typography>
-                    <Typography
-                        sx={{ maxWidth: 680, fontSize: "13px", fontWeight: 400, color: C.textMuted }}
-                    >
-                        Manage categories and subcategories used for internal actions, observations and
-                        improvement activities.
-                    </Typography>
-                </Box>
+                {!embedded && (
+                    <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                        <ComplaintsBreadcrumb
+                            trail={[
+                                { label: "Administration" },
+                                {
+                                    label: "Complaint Configuration",
+                                    onClick: () => navigate("/dashboardmenu/complaints/configuration"),
+                                },
+                                { label: "Categories" },
+                            ]}
+                        />
+                        <Typography sx={{ fontSize: "22px", fontWeight: 700, color: C.text }}>
+                            Internal Complaints Categories
+                        </Typography>
+                        <Typography
+                            sx={{ maxWidth: 680, fontSize: "13px", fontWeight: 400, color: C.textMuted }}
+                        >
+                            Manage categories and subcategories used for internal actions, observations and
+                            improvement activities.
+                        </Typography>
+                    </Box>
+                )}
 
                 <Button
                     onClick={() => setAddOpen(true)}

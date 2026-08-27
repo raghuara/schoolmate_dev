@@ -11,6 +11,13 @@ export const PRIORITY_STYLE = {
     CRITICAL: { bg: "rgba(239, 68, 68, 0.10)", color: "#EF4444" },
 };
 
+// Toolbar dropdowns. The first entry is the resting label the comp draws.
+export const STATUS_FILTER = ["All Status", "ACTIVE", "INACTIVE"];
+export const PRIORITY_FILTER = ["Priority", "CRITICAL", "HIGH", "NORMAL", "LOW"];
+
+// The comp's footer reads "Showing 1-8 of 12 categories".
+export const CATEGORY_PAGE_SIZE = 8;
+
 export const STATUS_STYLE = {
     ACTIVE: { bg: "rgba(34, 197, 94, 0.10)", color: "#22C55E" },
     INACTIVE: { bg: "rgba(239, 68, 68, 0.10)", color: "#EF4444" },

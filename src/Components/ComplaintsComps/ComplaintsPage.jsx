@@ -33,12 +33,11 @@ export default function ComplaintsPage() {
     // so the screen stays correct when a school is white-labelled.
     const accent = websiteSettings.mainColor;
 
-    // The two intake forms are separate screens that are not built yet; the picker
-    // only has to report which stream was chosen. Swap the log for the navigate
-    // call once those routes exist.
+    // Each option opens its own intake screen.
     const handleAddNew = (option) => {
         setAddOpen(false);
-        console.log("Add New:", option);
+        if (option === "parentComplaint") navigate("/dashboardmenu/complaints/register");
+        if (option === "staffConcern") navigate("/dashboardmenu/complaints/add-issue");
     };
 
     return (

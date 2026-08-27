@@ -100,6 +100,9 @@ function RuleSwitch({ checked, onChange, label, accent, disabled }) {
 }
 
 export default function SlaConfigurationScreen({
+    // Rendered inside the Configuration Hub: the hub owns the page chrome,
+    // so the screen drops its own padding, breadcrumb and title.
+    embedded = false,
     trail,
     currentCrumbColor,
     title,
@@ -137,17 +140,19 @@ export default function SlaConfigurationScreen({
     };
 
     return (
-        <Box sx={{ p: "28px", display: "flex", flexDirection: "column", gap: 3 }}>
+        <Box sx={{ p: embedded ? 0 : "28px", display: "flex", flexDirection: "column", gap: 3 }}>
             {/* Breadcrumb + title + blurb */}
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                <ComplaintsBreadcrumb trail={trail} currentColor={currentCrumbColor} />
-                <Typography sx={{ fontSize: "22px", fontWeight: 700, color: C.text }}>
-                    {title}
-                </Typography>
-                <Typography sx={{ fontSize: "13px", fontWeight: 400, color: C.textMuted }}>
-                    {subtitle}
-                </Typography>
-            </Box>
+            {!embedded && (
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                    <ComplaintsBreadcrumb trail={trail} currentColor={currentCrumbColor} />
+                    <Typography sx={{ fontSize: "22px", fontWeight: 700, color: C.text }}>
+                        {title}
+                    </Typography>
+                    <Typography sx={{ fontSize: "13px", fontWeight: 400, color: C.textMuted }}>
+                        {subtitle}
+                    </Typography>
+                </Box>
+            )}
 
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
                 {/* One card per priority band */}

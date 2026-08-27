@@ -25,6 +25,9 @@ const COL = TEMPLATE_COLS;
 // rows, so the props below carry the differences and default to the Parent values
 // — the Parent route renders it with no props. Same shape as AuditLogPage.
 export default function NotificationTemplatesPage({
+    // Rendered inside the Configuration Hub: the hub owns the page chrome,
+    // so the screen drops its own padding, breadcrumb and title.
+    embedded = false,
     crumbLabel = "Complaint Configuration",
     subtitle = "Manage complaint-related notification messages.",
     templateRows = TEMPLATE_ROWS,
@@ -46,26 +49,28 @@ export default function NotificationTemplatesPage({
     };
 
     return (
-        <Box sx={{ p: "28px", display: "flex", flexDirection: "column", gap: 3 }}>
+        <Box sx={{ p: embedded ? 0 : "28px", display: "flex", flexDirection: "column", gap: 3 }}>
             {/* Breadcrumb + title + blurb */}
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                <ComplaintsBreadcrumb
-                    trail={[
-                        { label: "Administration" },
-                        {
-                            label: crumbLabel,
-                            onClick: () => navigate("/dashboardmenu/complaints/configuration"),
-                        },
-                        { label: "Notification Templates" },
-                    ]}
-                />
-                <Typography sx={{ fontSize: "22px", fontWeight: 700, color: C.text }}>
-                    Notification Templates
-                </Typography>
-                <Typography sx={{ fontSize: "13px", fontWeight: 400, color: C.textMuted }}>
-                    {subtitle}
-                </Typography>
-            </Box>
+            {!embedded && (
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                    <ComplaintsBreadcrumb
+                        trail={[
+                            { label: "Administration" },
+                            {
+                                label: crumbLabel,
+                                onClick: () => navigate("/dashboardmenu/complaints/configuration"),
+                            },
+                            { label: "Notification Templates" },
+                        ]}
+                    />
+                    <Typography sx={{ fontSize: "22px", fontWeight: 700, color: C.text }}>
+                        Notification Templates
+                    </Typography>
+                    <Typography sx={{ fontSize: "13px", fontWeight: 400, color: C.textMuted }}>
+                        {subtitle}
+                    </Typography>
+                </Box>
+            )}
 
             {/* Table card */}
             <Box

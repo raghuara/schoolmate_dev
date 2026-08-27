@@ -1,115 +1,283 @@
 import React, { useState } from "react";
-import { Box, Grid, IconButton, Typography } from "@mui/material";
+import { Box, Typography } from "@mui/material";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import ChevronRightOutlinedIcon from "@mui/icons-material/ChevronRightOutlined";
 
 import { selectWebsiteSettings } from "../../Redux/Slices/websiteSettingsSlice";
-import { C, TINT, configCardSx } from "./complaintsTokens";
-import ComplaintsTabs from "./ComplaintsTabs";
-import { CONFIG_ITEMS } from "./complaintsConfigData";
-import { INTERNAL_CONFIG_CARDS } from "./internalConfigData";
+import { C } from "./complaintsTokens";
 
-// The Figma frame includes the global top bar (Welcome back / search / avatar).
-// DashBoardLayout already renders that via DashBoardHeader, so this page starts
-// at the "Configurations" title block.
+import ComplaintCategoriesPage from "./ComplaintCategoriesPage";
+import InternalCategoriesPage from "./InternalCategoriesPage";
+import AssignmentMappingPage from "./AssignmentMappingPage";
+import InternalAssignmentMappingPage from "./InternalAssignmentMappingPage";
+import ComplaintPermissionsPage from "./ComplaintPermissionsPage";
+import InternalPermissionsPage from "./InternalPermissionsPage";
+import SlaConfigurationPage from "./SlaConfigurationPage";
+import InternalSlaConfigurationPage from "./InternalSlaConfigurationPage";
+import EscalationConfigPage from "./EscalationConfigPage";
+import NotificationTemplatesPage from "./NotificationTemplatesPage";
+import DashboardConfigPage from "./DashboardConfigPage";
+import AuditLogPage from "./AuditLogPage";
+
+import { INTERNAL_TEMPLATE_ROWS, INTERNAL_TEMPLATE_COPY } from "./internalNotificationTemplatesData";
+import { INTERNAL_DASHBOARD_WIDGETS, INTERNAL_DASHBOARD_COPY } from "./internalDashboardConfigData";
+import { INTERNAL_AUDIT_ROWS, INTERNAL_AUDIT_PAGINATION, INTERNAL_AUDIT_COPY } from "./internalAuditLogData";
+import { getInternalAuditEntry } from "./auditLogDetailData";
+
+// Configuration Hub. Replaces the old tile grid: every configuration screen is
+// reachable from one page through the tab rail, with the stream pill choosing
+// between the parent-complaint and staff-concern variant of that screen.
 //
-// The two tabs carry different tile sets: the Parent list lives in
-// complaintsConfigData.js, the Internal list in internalConfigData.js.
+// The screens themselves are the same components the standalone routes render —
+// each takes `embedded`, which drops its page padding, breadcrumb and title so
+// the hub can own the chrome. Those routes still work for deep links.
+//
+// The Figma frame includes the global top bar (Welcome back / search / avatar);
+// DashBoardLayout already renders that, so this page starts at the breadcrumb.
 
-const TILE_SIZE = { xs: 12, sm: 12, md: 6, lg: 6 };
+const PARENT = "Parent Complaints";
+const STAFF = "Staff Concerns";
+const STREAMS = [PARENT, STAFF];
 
-/* One configuration tile: accent icon chip + optional blue tag, then title + copy. */
-function ConfigTile({ title, description, icon: Icon, badge, accent, onOpen }) {
-    return (
-        <Box sx={configCardSx} onClick={onOpen}>
-            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 1 }}>
-                <Box
-                    sx={{
-                        p: 1,
-                        bgcolor: TINT.accent,
-                        borderRadius: "8px",
-                        boxSizing: "border-box",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                    }}
-                >
-                    <Icon sx={{ fontSize: "16px", color: accent }} />
-                </Box>
-
-                {badge && (
-                    <Box
-                        sx={{
-                            px: "8px",
-                            py: "2px",
-                            bgcolor: TINT.blue,
-                            borderRadius: "4px",
-                            boxSizing: "border-box",
-                            flexShrink: 0,
-                        }}
-                    >
-                        <Typography sx={{ fontSize: "10px", fontWeight: 700, color: C.blue, whiteSpace: "nowrap" }}>
-                            {badge}
-                        </Typography>
-                    </Box>
-                )}
-            </Box>
-
-            <Box sx={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                <Typography sx={{ fontSize: "15px", fontWeight: 700, color: C.text }}>
-                    {title}
-                </Typography>
-                <Typography sx={{ fontSize: "13px", fontWeight: 400, color: C.textMuted }}>
-                    {description}
-                </Typography>
-            </Box>
-        </Box>
-    );
-}
+// Staff Concerns has no escalation screen yet — the tab renders a placeholder
+// rather than the parent one, which configures a different workflow.
+const SECTIONS = [
+    {
+        key: "categories",
+        label: "Categories",
+        parent: () => <ComplaintCategoriesPage embedded />,
+        staff: () => <InternalCategoriesPage embedded />,
+    },
+    {
+        key: "assignment",
+        label: "Staff Assignment",
+        parent: () => <AssignmentMappingPage embedded />,
+        staff: () => <InternalAssignmentMappingPage embedded />,
+    },
+    {
+        key: "permissions",
+        label: "Permissions",
+        parent: () => <ComplaintPermissionsPage embedded />,
+        staff: () => <InternalPermissionsPage embedded />,
+    },
+    {
+        key: "sla",
+        label: "SLA",
+        parent: () => <SlaConfigurationPage embedded />,
+        staff: () => <InternalSlaConfigurationPage embedded />,
+    },
+    {
+        key: "escalation",
+        label: "Escalation",
+        parent: () => <EscalationConfigPage embedded />,
+        staff: null,
+    },
+    {
+        key: "notifications",
+        label: "Notifications",
+        parent: () => <NotificationTemplatesPage embedded />,
+        staff: () => (
+            <NotificationTemplatesPage
+                embedded
+                crumbLabel={INTERNAL_TEMPLATE_COPY.crumbLabel}
+                subtitle={INTERNAL_TEMPLATE_COPY.subtitle}
+                templateRows={INTERNAL_TEMPLATE_ROWS}
+            />
+        ),
+    },
+    {
+        key: "dashboard",
+        label: "Dashboard",
+        parent: () => <DashboardConfigPage embedded />,
+        staff: () => (
+            <DashboardConfigPage
+                embedded
+                crumbLabel={INTERNAL_DASHBOARD_COPY.crumbLabel}
+                title={INTERNAL_DASHBOARD_COPY.title}
+                subtitle={INTERNAL_DASHBOARD_COPY.subtitle}
+                widgetList={INTERNAL_DASHBOARD_WIDGETS}
+            />
+        ),
+    },
+    {
+        key: "auditLog",
+        label: "Audit log",
+        parent: () => <AuditLogPage embedded />,
+        staff: () => (
+            <AuditLogPage
+                embedded
+                crumbLabel={INTERNAL_AUDIT_COPY.crumbLabel}
+                subtitle={INTERNAL_AUDIT_COPY.subtitle}
+                auditRows={INTERNAL_AUDIT_ROWS}
+                pagination={INTERNAL_AUDIT_PAGINATION}
+                detailPathFor={(row) =>
+                    getInternalAuditEntry(row.id)
+                        ? `/dashboardmenu/complaints/configuration/internal-audit-log/${row.id}`
+                        : null
+                }
+                showCardShadow={false}
+            />
+        ),
+    },
+];
 
 export default function ComplaintsConfigurationPage() {
-    const [tab, setTab] = useState(0);
     const navigate = useNavigate();
     const websiteSettings = useSelector(selectWebsiteSettings);
     const accent = websiteSettings.mainColor;
 
-    const tiles = tab === 0 ? CONFIG_ITEMS : INTERNAL_CONFIG_CARDS;
+    const [section, setSection] = useState(SECTIONS[0].key);
+    const [stream, setStream] = useState(PARENT);
 
-    // The tile sub-screens are not designed yet, so every item's target is still
-    // null and this is a no-op. The two data files name the field differently.
-    const openTile = (item) => {
-        const target = item.path || item.route;
-        if (target) navigate(target);
-    };
+    const active = SECTIONS.find((s) => s.key === section) || SECTIONS[0];
+    const render = stream === PARENT ? active.parent : active.staff;
 
     return (
         <Box sx={{ p: "28px", display: "flex", flexDirection: "column", gap: 3 }}>
-            {/* The mockup has no back affordance, but this screen is only reachable
-                from the dashboard, so leaving it without one strands the user. */}
-            <Box sx={{ display: "flex", alignItems: "flex-start", gap: 0.5 }}>
-                <IconButton onClick={() => navigate(-1)} sx={{ mt: "-4px", ml: "-8px" }}>
-                    <ArrowBackIcon sx={{ fontSize: "20px", color: C.text }} />
-                </IconButton>
-                <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                    <Typography sx={{ fontSize: "22px", fontWeight: 700, color: C.text }}>
-                        Configurations
+            {/* Breadcrumb + title + blurb */}
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                    <Typography
+                        onClick={() => navigate("/dashboardmenu/complaints")}
+                        sx={{
+                            fontSize: "11px",
+                            fontWeight: 500,
+                            color: C.textFaint,
+                            cursor: "pointer",
+                            "&:hover": { textDecoration: "underline" },
+                        }}
+                    >
+                        Dashboard
                     </Typography>
-                    <Typography sx={{ fontSize: "13px", fontWeight: 400, color: C.textMuted }}>
-                        Configure the rules, access, workflow and system behaviour .
+                    <ChevronRightOutlinedIcon sx={{ fontSize: "11px", color: C.textFaint }} />
+                    <Typography sx={{ fontSize: "11px", fontWeight: 600, color: "#212121" }}>
+                        Configuration
                     </Typography>
                 </Box>
+
+                <Typography sx={{ fontSize: "22px", fontWeight: 700, color: C.text }}>
+                    Configuration Hub
+                </Typography>
+                <Typography sx={{ fontSize: "13px", fontWeight: 400, color: C.textMuted }}>
+                    Configure categories, assignments, permissions, SLA, escalation, notifications and
+                    dashboard settings.
+                </Typography>
             </Box>
 
-            <ComplaintsTabs value={tab} onChange={setTab} />
+            {/* Section rail — underline tabs, scrollable rather than wrapping so the
+                row keeps its single-line rhythm on narrow screens. */}
+            <Box
+                sx={{
+                    alignSelf: "stretch",
+                    px: 0.5,
+                    borderBottom: `1px solid ${C.border}`,
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: 2,
+                    overflowX: "auto",
+                }}
+            >
+                {SECTIONS.map((s) => {
+                    const isActive = s.key === section;
+                    return (
+                        <Box
+                            key={s.key}
+                            onClick={() => setSection(s.key)}
+                            sx={{
+                                px: 2,
+                                py: 1.5,
+                                boxSizing: "border-box",
+                                borderBottom: `2px solid ${isActive ? accent : "transparent"}`,
+                                cursor: "pointer",
+                                whiteSpace: "nowrap",
+                                display: "flex",
+                                alignItems: "center",
+                            }}
+                        >
+                            <Typography
+                                sx={{
+                                    fontSize: "14px",
+                                    fontWeight: isActive ? 700 : 500,
+                                    color: isActive ? C.text : C.textMuted,
+                                }}
+                            >
+                                {s.label}
+                            </Typography>
+                        </Box>
+                    );
+                })}
+            </Box>
 
-            <Grid container spacing={2}>
-                {tiles.map((item) => (
-                    <Grid key={item.key || item.title} size={TILE_SIZE} sx={{ display: "flex" }}>
-                        <ConfigTile {...item} accent={accent} onOpen={() => openTile(item)} />
-                    </Grid>
-                ))}
-            </Grid>
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
+                {/* Stream pills — which variant of the selected section to configure. */}
+                <Box
+                    sx={{
+                        alignSelf: "flex-start",
+                        maxWidth: "100%",
+                        minHeight: 40,
+                        p: 0.5,
+                        boxSizing: "border-box",
+                        bgcolor: C.surface,
+                        borderRadius: "10px",
+                        border: `1px solid ${C.border}`,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 0.5,
+                        flexWrap: "wrap",
+                    }}
+                >
+                    {STREAMS.map((label) => {
+                        const isActive = stream === label;
+                        return (
+                            <Box
+                                key={label}
+                                onClick={() => setStream(label)}
+                                sx={{
+                                    px: 2,
+                                    py: "6px",
+                                    boxSizing: "border-box",
+                                    borderRadius: "8px",
+                                    cursor: "pointer",
+                                    whiteSpace: "nowrap",
+                                    bgcolor: isActive ? accent : "transparent",
+                                    transition: "background-color 0.2s",
+                                    "&:hover": { bgcolor: isActive ? accent : "#F8FAFC" },
+                                }}
+                            >
+                                <Typography
+                                    sx={{
+                                        fontSize: "13px",
+                                        fontWeight: isActive ? 700 : 500,
+                                        color: isActive ? C.tabActiveText : C.textMuted,
+                                    }}
+                                >
+                                    {label}
+                                </Typography>
+                            </Box>
+                        );
+                    })}
+                </Box>
+
+                {/* Selected section */}
+                {render ? (
+                    render()
+                ) : (
+                    <Box
+                        sx={{
+                            py: 10,
+                            alignSelf: "stretch",
+                            display: "flex",
+                            justifyContent: "center",
+                            alignItems: "center",
+                        }}
+                    >
+                        <Typography sx={{ fontSize: "14px", fontWeight: 400, color: C.textFaint }}>
+                            {active.label} configuration for {stream} is coming soon.
+                        </Typography>
+                    </Box>
+                )}
+            </Box>
         </Box>
     );
 }

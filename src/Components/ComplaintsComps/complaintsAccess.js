@@ -32,6 +32,13 @@ export const COMPLAINTS_SCREENS = {
     // an admin may have the workspace without a personal queue. Grant this
     // subMenu to the staff role(s) — do NOT gate the screen on a userType string.
     myWork: { subMenu: "mywork" },
+    // Front-desk intake: registering a complaint on a parent's behalf. Separate
+    // from `manage` — an office user may take complaints in without being able to
+    // work the admin queue.
+    registerComplaint: { subMenu: "registercomplaint" },
+    // Staff-side intake: reporting a school operations issue. Its own key for the
+    // same reason — the two streams are separately permissioned throughout.
+    addIssue: { subMenu: "addissue" },
     configurations: { subMenu: "configurations" },
 
     // ── Parent Complaints configuration ──────────────────────────────────────

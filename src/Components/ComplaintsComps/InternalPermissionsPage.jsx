@@ -32,7 +32,7 @@ const panelSx = {
     flexDirection: "column",
 };
 
-export default function InternalPermissionsPage() {
+export default function InternalPermissionsPage({ embedded = false }) {
     const navigate = useNavigate();
     const websiteSettings = useSelector(selectWebsiteSettings);
     const accent = websiteSettings.mainColor;
@@ -97,27 +97,29 @@ export default function InternalPermissionsPage() {
     const savePermissionsForAll = () => {};
 
     return (
-        <Box sx={{ p: "32px", display: "flex", flexDirection: "column", gap: 3.5 }}>
+        <Box sx={{ p: embedded ? 0 : "32px", display: "flex", flexDirection: "column", gap: 3.5 }}>
             {/* Breadcrumb + title + blurb */}
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                <ComplaintsBreadcrumb
-                    currentColor={AMBER.crumb}
-                    fontSize="12px"
-                    trail={[
-                        {
-                            label: "Settings",
-                            onClick: () => navigate("/dashboardmenu/complaints/configuration"),
-                        },
-                        { label: "Role & Permissions" },
-                    ]}
-                />
-                <Typography sx={{ fontSize: "26px", fontWeight: 700, color: C.text }}>
-                    Internal Complaints Permissions
-                </Typography>
-                <Typography sx={{ fontSize: "14px", fontWeight: 400, color: C.textMuted }}>
-                    Configure admin roles and define school operations permission actions.
-                </Typography>
-            </Box>
+            {!embedded && (
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                    <ComplaintsBreadcrumb
+                        currentColor={AMBER.crumb}
+                        fontSize="12px"
+                        trail={[
+                            {
+                                label: "Settings",
+                                onClick: () => navigate("/dashboardmenu/complaints/configuration"),
+                            },
+                            { label: "Role & Permissions" },
+                        ]}
+                    />
+                    <Typography sx={{ fontSize: "26px", fontWeight: 700, color: C.text }}>
+                        Internal Complaints Permissions
+                    </Typography>
+                    <Typography sx={{ fontSize: "14px", fontWeight: 400, color: C.textMuted }}>
+                        Configure admin roles and define school operations permission actions.
+                    </Typography>
+                </Box>
+            )}
 
             {/* The two left panels are fixed width in the comp; they wrap onto their
                 own line rather than squashing once the viewport gets narrow. */}

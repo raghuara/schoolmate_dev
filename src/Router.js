@@ -198,6 +198,9 @@ import ComplaintsConfigurationPage from "./Components/ComplaintsComps/Complaints
 import ComplaintsManagementPage from "./Components/ComplaintsComps/ComplaintsManagementPage";
 import ManageItemDetailPage from "./Components/ComplaintsComps/ManageItemDetailPage";
 import MyWorkPage from "./Components/ComplaintsComps/MyWorkPage";
+import RegisterComplaintPage from "./Components/ComplaintsComps/RegisterComplaintPage";
+import RegisterComplaintFormPage from "./Components/ComplaintsComps/RegisterComplaintFormPage";
+import AddIssuePage from "./Components/ComplaintsComps/AddIssuePage";
 /* Parent Complaints configuration screens */
 import ComplaintCategoriesPage from "./Components/ComplaintsComps/ComplaintCategoriesPage";
 import AssignmentMappingPage from "./Components/ComplaintsComps/AssignmentMappingPage";
@@ -409,6 +412,13 @@ export default function RouterPage() {
                     picks ComplaintDetailPage or ActionDetailPage from the reference id. */}
                 <Route path="complaints/manage" element={<ComplaintsAccessGate screen="manage"><ComplaintsManagementPage /></ComplaintsAccessGate>} />
                 <Route path="complaints/manage/:id" element={<ComplaintsAccessGate screen="manage"><ManageItemDetailPage /></ComplaintsAccessGate>} />
+
+                {/* Parent-complaint intake, opened from "Add New" on the dashboard. */}
+                <Route path="complaints/register" element={<ComplaintsAccessGate screen="registerComplaint"><RegisterComplaintPage /></ComplaintsAccessGate>} />
+                <Route path="complaints/register/:studentId" element={<ComplaintsAccessGate screen="registerComplaint"><RegisterComplaintFormPage /></ComplaintsAccessGate>} />
+
+                {/* Staff-concern intake, the other half of "Add New". */}
+                <Route path="complaints/add-issue" element={<ComplaintsAccessGate screen="addIssue"><AddIssuePage /></ComplaintsAccessGate>} />
 
                 {/* Staff-facing queue - not linked from the sidebar yet. */}
                 <Route path="complaints/my-work" element={<ComplaintsAccessGate screen="myWork"><MyWorkPage /></ComplaintsAccessGate>} />

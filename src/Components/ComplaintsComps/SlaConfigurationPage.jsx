@@ -102,7 +102,7 @@ function RuleSwitch({ checked, onChange, label, accent }) {
     );
 }
 
-export default function SlaConfigurationPage() {
+export default function SlaConfigurationPage({ embedded = false }) {
     const navigate = useNavigate();
     const websiteSettings = useSelector(selectWebsiteSettings);
     const accent = websiteSettings.mainColor;
@@ -123,27 +123,29 @@ export default function SlaConfigurationPage() {
     const saveChanges = () => {};
 
     return (
-        <Box sx={{ p: "28px", display: "flex", flexDirection: "column", gap: 3 }}>
+        <Box sx={{ p: embedded ? 0 : "28px", display: "flex", flexDirection: "column", gap: 3 }}>
             {/* Breadcrumb + title + blurb */}
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                <ComplaintsBreadcrumb
-                    currentColor={accent}
-                    trail={[
-                        { label: "Administration" },
-                        {
-                            label: "Complaint Configuration",
-                            onClick: () => navigate("/dashboardmenu/complaints/configuration"),
-                        },
-                        { label: "SLA Configuration" },
-                    ]}
-                />
-                <Typography sx={{ fontSize: "22px", fontWeight: 700, color: C.text }}>
-                    SLA Configuration
-                </Typography>
-                <Typography sx={{ fontSize: "13px", fontWeight: 400, color: C.textMuted }}>
-                    Configure complaint response and resolution deadlines by priority.
-                </Typography>
-            </Box>
+            {!embedded && (
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                    <ComplaintsBreadcrumb
+                        currentColor={accent}
+                        trail={[
+                            { label: "Administration" },
+                            {
+                                label: "Complaint Configuration",
+                                onClick: () => navigate("/dashboardmenu/complaints/configuration"),
+                            },
+                            { label: "SLA Configuration" },
+                        ]}
+                    />
+                    <Typography sx={{ fontSize: "22px", fontWeight: 700, color: C.text }}>
+                        SLA Configuration
+                    </Typography>
+                    <Typography sx={{ fontSize: "13px", fontWeight: 400, color: C.textMuted }}>
+                        Configure complaint response and resolution deadlines by priority.
+                    </Typography>
+                </Box>
+            )}
 
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
                 {/* One card per priority band */}
