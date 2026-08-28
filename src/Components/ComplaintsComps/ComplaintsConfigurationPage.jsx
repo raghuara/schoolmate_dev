@@ -1,8 +1,9 @@
 import React, { useState } from "react";
-import { Box, Typography } from "@mui/material";
+import { Box, IconButton, Typography } from "@mui/material";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import ChevronRightOutlinedIcon from "@mui/icons-material/ChevronRightOutlined";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 
 import { selectWebsiteSettings } from "../../Redux/Slices/websiteSettingsSlice";
 import { C } from "./complaintsTokens";
@@ -40,8 +41,6 @@ const PARENT = "Parent Complaints";
 const STAFF = "Staff Concerns";
 const STREAMS = [PARENT, STAFF];
 
-// Staff Concerns has no escalation screen yet — the tab renders a placeholder
-// rather than the parent one, which configures a different workflow.
 const SECTIONS = [
     {
         key: "categories",
@@ -68,10 +67,13 @@ const SECTIONS = [
         staff: () => <InternalSlaConfigurationPage embedded />,
     },
     {
+        // Only the Staff Concerns escalation comp exists so far; the Parent tab
+        // renders the same screen on the same seed data until its own arrives.
+        // See the note in escalationConfigData.js.
         key: "escalation",
         label: "Escalation",
         parent: () => <EscalationConfigPage embedded />,
-        staff: null,
+        staff: () => <EscalationConfigPage embedded />,
     },
     {
         key: "notifications",
@@ -135,34 +137,46 @@ export default function ComplaintsConfigurationPage() {
 
     return (
         <Box sx={{ p: "28px", display: "flex", flexDirection: "column", gap: 3 }}>
-            {/* Breadcrumb + title + blurb */}
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                <Box sx={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                    <Typography
-                        onClick={() => navigate("/dashboardmenu/complaints")}
-                        sx={{
-                            fontSize: "11px",
-                            fontWeight: 500,
-                            color: C.textFaint,
-                            cursor: "pointer",
-                            "&:hover": { textDecoration: "underline" },
-                        }}
-                    >
-                        Dashboard
+            {/* Breadcrumb + title + blurb. The comp has no back affordance, but this
+                screen is only reachable from the dashboard, so leaving it without one
+                strands the user on a page whose tabs never navigate away. */}
+            <Box sx={{ display: "flex", alignItems: "flex-start", gap: 0.5 }}>
+                <IconButton
+                    onClick={() => navigate("/dashboardmenu/complaints")}
+                    aria-label="Back"
+                    sx={{ mt: "-2px", ml: "-8px" }}
+                >
+                    <ArrowBackIcon sx={{ fontSize: "20px", color: C.text }} />
+                </IconButton>
+
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                        <Typography
+                            onClick={() => navigate("/dashboardmenu/complaints")}
+                            sx={{
+                                fontSize: "11px",
+                                fontWeight: 500,
+                                color: C.textFaint,
+                                cursor: "pointer",
+                                "&:hover": { textDecoration: "underline" },
+                            }}
+                        >
+                            Dashboard
+                        </Typography>
+                        <ChevronRightOutlinedIcon sx={{ fontSize: "11px", color: C.textFaint }} />
+                        <Typography sx={{ fontSize: "11px", fontWeight: 600, color: "#212121" }}>
+                            Configuration
+                        </Typography>
+                    </Box>
+
+                    <Typography sx={{ fontSize: "22px", fontWeight: 700, color: C.text }}>
+                        Configuration Hub
                     </Typography>
-                    <ChevronRightOutlinedIcon sx={{ fontSize: "11px", color: C.textFaint }} />
-                    <Typography sx={{ fontSize: "11px", fontWeight: 600, color: "#212121" }}>
-                        Configuration
+                    <Typography sx={{ fontSize: "13px", fontWeight: 400, color: C.textMuted }}>
+                        Configure categories, assignments, permissions, SLA, escalation, notifications and
+                        dashboard settings.
                     </Typography>
                 </Box>
-
-                <Typography sx={{ fontSize: "22px", fontWeight: 700, color: C.text }}>
-                    Configuration Hub
-                </Typography>
-                <Typography sx={{ fontSize: "13px", fontWeight: 400, color: C.textMuted }}>
-                    Configure categories, assignments, permissions, SLA, escalation, notifications and
-                    dashboard settings.
-                </Typography>
             </Box>
 
             {/* Section rail — underline tabs, scrollable rather than wrapping so the
@@ -259,9 +273,13 @@ export default function ComplaintsConfigurationPage() {
                     })}
                 </Box>
 
-                {/* Selected section */}
+                {/* Selected section. Keyed by section + stream so switching either
+                    remounts the screen — several of them seed local state from their
+                    props, which would otherwise keep the previous variant's values. */}
                 {render ? (
-                    render()
+                    <Box key={`${section}-${stream}`} sx={{ alignSelf: "stretch" }}>
+                        {render()}
+                    </Box>
                 ) : (
                     <Box
                         sx={{

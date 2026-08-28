@@ -198,6 +198,7 @@ import ComplaintsConfigurationPage from "./Components/ComplaintsComps/Complaints
 import ComplaintsManagementPage from "./Components/ComplaintsComps/ComplaintsManagementPage";
 import ManageItemDetailPage from "./Components/ComplaintsComps/ManageItemDetailPage";
 import MyWorkPage from "./Components/ComplaintsComps/MyWorkPage";
+import MyWorkDetailPage from "./Components/ComplaintsComps/MyWorkDetailPage";
 import RegisterComplaintPage from "./Components/ComplaintsComps/RegisterComplaintPage";
 import RegisterComplaintFormPage from "./Components/ComplaintsComps/RegisterComplaintFormPage";
 import AddIssuePage from "./Components/ComplaintsComps/AddIssuePage";
@@ -422,6 +423,7 @@ export default function RouterPage() {
 
                 {/* Staff-facing queue - not linked from the sidebar yet. */}
                 <Route path="complaints/my-work" element={<ComplaintsAccessGate screen="myWork"><MyWorkPage /></ComplaintsAccessGate>} />
+                <Route path="complaints/my-work/:itemId" element={<ComplaintsAccessGate screen="myWork"><MyWorkDetailPage /></ComplaintsAccessGate>} />
 
                 {/* Configuration hub - the tiles route to the screens below. */}
                 <Route path="complaints/configuration" element={<ComplaintsAccessGate screen="configurations"><ComplaintsConfigurationPage /></ComplaintsAccessGate>} />
