@@ -527,6 +527,10 @@ export const postManualAttendance = async ({ editorRollNumber, date, academicYea
  * written, and the sibling roster route returns camelCase where the doc shows Pascal.
  * `source` is derived server-side from the audit trail and is null on legacy rows.
  */
+/* The API says "no rows" with an error flag rather than an empty list, so the wording is
+   what separates an empty day from a real failure. */
+const NO_DATA_MESSAGE = /no data found/i;
+
 export const attendanceRowFromApi = (row, index) => {
     const pick = (...keys) => keys.map((k) => row[k]).find((v) => v !== undefined && v !== null && v !== "");
     const status = String(pick("status", "Status") || "").toLowerCase();
@@ -569,7 +573,15 @@ export const fetchTeachersAttendance = async ({ academicYear, fromDate, toDate }
         const res = await client.get(GetTeachersAttendance, {
             params: { academicYear, fromDate: toApiDate(fromDate), toDate: toApiDate(toDate) },
         });
-        if (res?.data?.error) return { ok: false, message: res.data.message || "Could not load attendance" };
+        /* A day nobody has marked answers { error: true, message: "No data found for the
+           given filters" }. That is an empty result, not a failure — treating it as one
+           put an error snackbar over what should read as an empty table. */
+        if (res?.data?.error) {
+            if (NO_DATA_MESSAGE.test(String(res.data.message || ""))) {
+                return { ok: true, rows: [], raw: null };
+            }
+            return { ok: false, message: res.data.message || "Could not load attendance" };
+        }
         const data = res?.data ?? {};
         const rows = data.data ?? data.details ?? data.Details ?? data.items ?? [];
         return {
