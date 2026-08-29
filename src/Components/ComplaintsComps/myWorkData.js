@@ -79,13 +79,13 @@ export const MY_WORK_ITEMS = {
     // placeholders so the tab is not empty — replace with the assigned-actions API.
     "Internal Complaints": [
         {
-            id: "MSMS-ACT-2026-0042",
-            ref: "MSMS-ACT-2026-0042",
-            priority: "NORMAL",
-            category: "Maintenance",
-            title: "Classroom maintenance follow-up",
-            student: "Building A, Floor 2",
-            grade: "Room 7B",
+            id: "MSMS-OBS-2026-00042",
+            ref: "MSMS-OBS-2026-00042",
+            priority: "HIGH PRIORITY",
+            category: "Safety & Compliance",
+            title: "Broken stair tread in Block-B staircase",
+            student: "West Wing Staircase 2",
+            grade: "Block-B",
             status: "Action Required",
             due: "Due: 18 Aug 2026",
             dueUrgent: true,

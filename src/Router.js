@@ -170,6 +170,7 @@ import SalaryRegister from "./Components/LeaveAttendanceComps/PayrollComps/Salar
 import MarkSalaryCreditedPage from "./Components/LeaveAttendanceComps/PayrollComps/MarkSalaryCreditedPage";
 import LeavePolicy from "./Components/LeaveAttendanceComps/PayrollComps/LeavePolicy";
 import LeaveMasterScreen from "./Components/LeaveAttendanceComps/PayrollComps/LeaveMasterScreen";
+import StaffCoveragePage from "./Components/LeaveAttendanceComps/StaffCoveragePage";
 import LeaveAttendancePage from "./Components/LeaveAttendanceComps/LeaveAttendancePage";
 import BiometricStaffMappingPage from "./Components/LeaveAttendanceComps/BiometricStaffMappingPage";
 import VehicleDetailsPage from "./Components/TransportComps/TransportAssetComps/VehicleDetailsComps/VehicleDetailsPage";
@@ -209,6 +210,7 @@ import ComplaintsConfigurationPage from "./Components/ComplaintsComps/Complaints
 import ComplaintsManagementPage from "./Components/ComplaintsComps/ComplaintsManagementPage";
 import ManageItemDetailPage from "./Components/ComplaintsComps/ManageItemDetailPage";
 import MyWorkPage from "./Components/ComplaintsComps/MyWorkPage";
+import MyWorkDetailPage from "./Components/ComplaintsComps/MyWorkDetailPage";
 import RegisterComplaintPage from "./Components/ComplaintsComps/RegisterComplaintPage";
 import RegisterComplaintFormPage from "./Components/ComplaintsComps/RegisterComplaintFormPage";
 import AddIssuePage from "./Components/ComplaintsComps/AddIssuePage";
@@ -401,6 +403,10 @@ export default function RouterPage() {
                 {/*Leave & payroll - Single Page with Tabs*/}
                 <Route path="Leave" element={<LeaveAttendanceMainPage />} />
                 <Route path="Leave/leave-attendance" element={<LeaveAttendancePage />} />
+
+                {/* Who counts as an employee — governs payroll, attendance, bank
+                    details and the salary register. */}
+                <Route path="Leave/coverage" element={<StaffCoveragePage />} />
                 <Route path="Leave/leave-attendance/biometric-mapping" element={<BiometricStaffMappingPage />} />
                 <Route path="Leave/payroll" element={<PayrollOverview />} />
                 <Route path="Leave/payroll/payroll-form" element={<AddEditPayroll />} />
@@ -433,6 +439,7 @@ export default function RouterPage() {
 
                 {/* Staff-facing queue - not linked from the sidebar yet. */}
                 <Route path="complaints/my-work" element={<ComplaintsAccessGate screen="myWork"><MyWorkPage /></ComplaintsAccessGate>} />
+                <Route path="complaints/my-work/:itemId" element={<ComplaintsAccessGate screen="myWork"><MyWorkDetailPage /></ComplaintsAccessGate>} />
 
                 {/* Configuration hub - the tiles route to the screens below. */}
                 <Route path="complaints/configuration" element={<ComplaintsAccessGate screen="configurations"><ComplaintsConfigurationPage /></ComplaintsAccessGate>} />

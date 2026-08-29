@@ -79,12 +79,19 @@ function FilterPill({ label, value, options, onChange }) {
     );
 }
 
-export default function MyWorkPage() {
+export default function MyWorkPage({ embedded = false }) {
     const navigate = useNavigate();
     const websiteSettings = useSelector(selectWebsiteSettings);
     const accent = websiteSettings.mainColor;
 
     const [tab, setTab] = useState(MY_WORK_TABS[0]);
+
+    // Where "New complaint" goes, per tab: the parent stream starts by finding the
+    // student, the internal stream is the operations issue form.
+    const intakePath =
+        tab === MY_WORK_TABS[1]
+            ? "/dashboardmenu/complaints/add-issue"
+            : "/dashboardmenu/complaints/register";
     const [priority, setPriority] = useState(ALL_PRIORITIES);
     const [status, setStatus] = useState(ALL_STATUSES);
     const [search, setSearch] = useState("");
@@ -114,14 +121,16 @@ export default function MyWorkPage() {
         setSearch("");
     };
 
-    // Rows open the same detail screens the admin workspace uses; the dispatcher
-    // there picks complaint vs action from the reference.
+    // Rows open the staff detail — what this user needs to act on the item, plus
+    // the status control. The admin workspace has its own, richer detail screen.
     const openItem = (row) =>
-        navigate(`/dashboardmenu/complaints/manage/${encodeURIComponent(row.id)}`);
+        navigate(`/dashboardmenu/complaints/my-work/${encodeURIComponent(row.id)}`);
 
     return (
-        <Box sx={{ p: "40px", display: "flex", flexDirection: "column", gap: 4 }}>
-            <Typography sx={{ fontSize: "28px", fontWeight: 700, color: C.text }}>My Work</Typography>
+        <Box sx={{ p: embedded ? 0 : "40px", display: "flex", flexDirection: "column", gap: 4 }}>
+            {!embedded && (
+                <Typography sx={{ fontSize: "28px", fontWeight: 700, color: C.text }}>My Work</Typography>
+            )}
 
             {/* Segmented tabs + primary action */}
             <Box
@@ -135,7 +144,12 @@ export default function MyWorkPage() {
             >
                 <Box
                     sx={{
-                        width: 340,
+                        // Sized to its labels rather than pinned to the comp's 340px.
+                        // The pills are flex: 1 with nowrap labels, so their min-content
+                        // width will not shrink; at 340 "Parent Complaints 3" and
+                        // "Internal Complaints 4" together overflowed and spilled past
+                        // the rail's rounded edge.
+                        width: "fit-content",
                         maxWidth: "100%",
                         p: "4px",
                         boxSizing: "border-box",
@@ -187,7 +201,12 @@ export default function MyWorkPage() {
                     })}
                 </Box>
 
+                {/* The selected tab already says which stream is being raised, so this
+                    opens that intake directly rather than going through the Add New
+                    picker: a parent complaint is filed against a student, an internal
+                    one is a school-operations issue. */}
                 <Button
+                    onClick={() => navigate(intakePath)}
                     startIcon={<AddOutlinedIcon sx={{ fontSize: "16px" }} />}
                     sx={{
                         px: 2.5,

@@ -1,7 +1,7 @@
 // Register Complaint — mock roster and form options mirroring the dev-Figma
 // comps 1:1. Replace STUDENT_RESULTS with the student-search API response.
 
-import { CATEGORY_ROWS } from "./complaintCategoriesData";
+import { categoryOptionsFor, PARENT_MODULE } from "./complaintCategorySeed";
 
 // Column widths from the comp. Student Name takes the remaining space.
 export const STUDENT_COLS = {
@@ -67,11 +67,10 @@ export const STUDENT_RESULTS = [
 // How the complaint reached the office. The comp offers these two.
 export const SOURCE_OPTIONS = ["Phone Call", "Walk-In"];
 
-// The same categories the Configurations screen maintains, so the intake form
-// can never offer one that has been disabled there.
-export const COMPLAINT_CATEGORIES = CATEGORY_ROWS.filter((c) => c.status === "ACTIVE").map(
-    (c) => c.name,
-);
+// { id, name } — the Select shows the name and posts `id` as the API's
+// CategoryId. Sourced from the seed so the form can never offer a category the
+// backend does not know.
+export const COMPLAINT_CATEGORIES = categoryOptionsFor(PARENT_MODULE);
 
 // Shown when the logged-in user carries no position/name — the dev store is
 // empty until login, and the field is read-only either way.

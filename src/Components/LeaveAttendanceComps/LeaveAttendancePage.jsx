@@ -157,7 +157,11 @@ const buildStaffDirectory = () => {
 
 export const STAFF_DIRECTORY = buildStaffDirectory();
 
-export const roleLabelOf = (category) => (category === "Teacher" ? "Teaching Staff" : "Non Teaching Staff");
+/* The roster route returns userType capitalised ("Teacher"); the request that fetches
+   it uses lowercase ("teacher"). Comparing case-sensitively against either one is how
+   every Teacher ended up chipped "Non Teaching Staff", so this folds the case. */
+export const roleLabelOf = (category) =>
+    String(category || "").trim().toLowerCase() === "teacher" ? "Teaching Staff" : "Non Teaching Staff";
 
 const ATTENDANCE_STATUSES = ["Present", "Late", "Absent", "On Leave"];
 
@@ -892,6 +896,37 @@ export default function LeaveAttendancePage() {
     useEffect(() => {
         if (tab === "add") loadRoster();
     }, [tab, loadRoster]);
+
+    /* Who already has attendance on the chosen date.
+       GetAttendanceTeacherBefore is a roster, not a status read — it returns `status` and
+       `dateTime` blank for everyone — so the roster alone cannot tell a marked person from
+       an unmarked one and offers to mark them again. Saving over them does not duplicate
+       (the API upserts on roll number + date) but it silently overwrites, so the day's
+       records are read separately and those rows are flagged. */
+    const [markedOnDate, setMarkedOnDate] = useState({});
+
+    const loadMarkedOnDate = useCallback(async () => {
+        if (!entryDate) return;
+        const result = await fetchTeachersAttendance({
+            academicYear,
+            fromDate: entryDate,
+            toDate: entryDate,
+        });
+        // A failure here must not block marking — the flag is an aid, not a gate
+        if (!result.ok) {
+            setMarkedOnDate({});
+            return;
+        }
+        const map = {};
+        (result.rows || []).forEach((row) => {
+            if (row.rollNumber) map[row.rollNumber] = row;
+        });
+        setMarkedOnDate(map);
+    }, [academicYear, entryDate]);
+
+    useEffect(() => {
+        if (tab === "add") loadMarkedOnDate();
+    }, [tab, loadMarkedOnDate]);
     const [sameTimeForAll, setSameTimeForAll] = useState(false);
     const [sharedTimes, setSharedTimes] = useState({ checkIn: "", checkOut: "" });
     const [bulkAnchor, setBulkAnchor] = useState(null);
@@ -2134,15 +2169,43 @@ export default function LeaveAttendancePage() {
                                 {!isBreakPanel &&
                                     entryStaff.map((row, index) => {
                                     const value = entryOf(row.id);
-                                    const roleLabel = row.category === "teacher" ? "Teaching Staff" : "Non Teaching Staff";
+                                    const roleLabel = roleLabelOf(row.category);
                                     const roleCfg = ROLE_STYLE[roleLabel];
                                     const timesDisabled = !value.status || value.status === "Absent" || value.status === "On Leave";
                                     const inValue = sameTimeForAll ? sharedTimes.checkIn : value.checkIn;
                                     const outValue = sameTimeForAll ? sharedTimes.checkOut : value.checkOut;
+                                    // Already has a record on this date — marking again overwrites it
+                                    const marked = markedOnDate[row.rollNumber];
+                                    const markedTimes = marked
+                                        ? [marked.checkIn, marked.checkOut].filter(Boolean).join(" - ")
+                                        : "";
                                     return (
-                                        <TableRow key={row.id} hover>
+                                        <TableRow
+                                            key={row.id}
+                                            hover
+                                            sx={{ bgcolor: marked ? "#FFFBEB" : undefined }}
+                                        >
                                             <TableCell sx={{ fontSize: "13px", color: "#9CA3AF" }}>{index + 1}</TableCell>
-                                            <TableCell>{staffCell(row)}</TableCell>
+                                            <TableCell>
+                                                <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+                                                    {staffCell(row)}
+                                                    {marked && (
+                                                        <Chip
+                                                            size="small"
+                                                            label={`Already marked${marked.status ? ` · ${marked.status}` : ""}${markedTimes ? ` · ${markedTimes}` : ""}`}
+                                                            sx={{
+                                                                alignSelf: "flex-start",
+                                                                height: 20,
+                                                                fontSize: "10.5px",
+                                                                fontWeight: 700,
+                                                                bgcolor: AMBER.bg,
+                                                                color: AMBER.main,
+                                                                border: `1px solid ${AMBER.border}`,
+                                                            }}
+                                                        />
+                                                    )}
+                                                </Box>
+                                            </TableCell>
                                             <TableCell>
                                                 <Chip
                                                     label={roleLabel}

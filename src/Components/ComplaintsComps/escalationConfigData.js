@@ -1,5 +1,11 @@
 // Mock data for the Escalation Configuration screen.
 // Values mirror the dev-Figma comp 1:1. Replace with the escalation config API.
+//
+// NOTE: the only escalation comp delivered so far is the Staff Concerns (School
+// Operations) one, and this seed is its ladder and triggers — hence the
+// operations wording. The Parent Complaints tab renders the same screen with
+// this data until its own comp arrives; pass `levels` / `triggerList` to
+// EscalationConfigPage at that point rather than editing these in place.
 
 // Escalation ladder, lowest level first.
 // NOTE: `role` must come from GetAllUserTypes (userTypesSlice) once wired — the

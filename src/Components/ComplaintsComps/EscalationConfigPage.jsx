@@ -43,7 +43,20 @@ const trackSwitchSx = (accent) => ({
     "& .MuiSwitch-track": { borderRadius: "10px", bgcolor: C.textFaint, opacity: 1 },
 });
 
-export default function EscalationConfigPage({ embedded = false }) {
+// Parent and Staff Concerns escalate through the same shape of screen — a role
+// ladder plus a set of automatic triggers — so the two variants differ only in
+// the data and copy passed in. Defaults are the School Operations set.
+export default function EscalationConfigPage({
+    // Rendered inside the Configuration Hub: the hub owns the page chrome,
+    // so the screen drops its own padding, breadcrumb and title.
+    embedded = false,
+    crumbLabel = "Complaint Configuration",
+    subtitle = "Configure when actions should be escalated and who receives them.",
+    levels = ESCALATION_LEVELS,
+    triggerList = ESCALATION_TRIGGERS,
+    // Each variant owns its own write path. Receives the { [key]: boolean } map.
+    onSave = null,
+}) {
     const navigate = useNavigate();
     const websiteSettings = useSelector(selectWebsiteSettings);
     const accent = websiteSettings.mainColor;
@@ -52,7 +65,7 @@ export default function EscalationConfigPage({ embedded = false }) {
     const { canViewConfig, canEditConfig } = useComplaintsPermissions();
 
     const [triggers, setTriggers] = useState(() =>
-        ESCALATION_TRIGGERS.reduce((acc, t) => ({ ...acc, [t.key]: t.enabled }), {}),
+        triggerList.reduce((acc, t) => ({ ...acc, [t.key]: t.enabled }), {}),
     );
 
     if (!canViewConfig) return <Navigate to="/dashboardmenu/dashboard" replace />;
@@ -60,7 +73,11 @@ export default function EscalationConfigPage({ embedded = false }) {
     const toggle = (key) => setTriggers((prev) => ({ ...prev, [key]: !prev[key] }));
 
     const handleSave = () => {
-        // TODO: POST `triggers` to the escalation config endpoint.
+        if (onSave) {
+            onSave(triggers);
+            return;
+        }
+        // No caller supplied a save yet — leave the existing placeholder behaviour.
         toast.success("Escalation rules saved");
     };
 
@@ -119,7 +136,7 @@ export default function EscalationConfigPage({ embedded = false }) {
                         gap: 2,
                     }}
                 >
-                    {ESCALATION_LEVELS.map((lvl, i) => (
+                    {levels.map((lvl, i) => (
                         <React.Fragment key={lvl.level}>
                             <Box
                                 sx={{
@@ -153,7 +170,7 @@ export default function EscalationConfigPage({ embedded = false }) {
                                 </Typography>
                             </Box>
 
-                            {i < ESCALATION_LEVELS.length - 1 && (
+                            {i < levels.length - 1 && (
                                 <ArrowForwardIcon
                                     sx={{
                                         fontSize: "16px",
@@ -176,7 +193,7 @@ export default function EscalationConfigPage({ embedded = false }) {
                 </Typography>
 
                 <Box sx={{ display: "flex", flexDirection: "column" }}>
-                    {ESCALATION_TRIGGERS.map((t) => {
+                    {triggerList.map((t) => {
                         const on = triggers[t.key];
                         return (
                             <Box

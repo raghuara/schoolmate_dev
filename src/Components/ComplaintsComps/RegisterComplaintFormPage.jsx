@@ -363,7 +363,11 @@ export default function RegisterComplaintFormPage() {
                             value={form.category}
                             onChange={(e) => set("category", e.target.value)}
                             displayEmpty
-                            renderValue={(v) => (v === "" ? "Select category" : v)}
+                            renderValue={(v) =>
+                                v === ""
+                                    ? "Select category"
+                                    : COMPLAINT_CATEGORIES.find((c) => c.id === v)?.name
+                            }
                             fullWidth
                             sx={{ ...controlSx, color: form.category === "" ? C.textMuted : HEADING }}
                         >
@@ -371,8 +375,8 @@ export default function RegisterComplaintFormPage() {
                                 Select category
                             </MenuItem>
                             {COMPLAINT_CATEGORIES.map((option) => (
-                                <MenuItem key={option} value={option} sx={{ fontSize: "14px" }}>
-                                    {option}
+                                <MenuItem key={option.id} value={option.id} sx={{ fontSize: "14px" }}>
+                                    {option.name}
                                 </MenuItem>
                             ))}
                         </Select>

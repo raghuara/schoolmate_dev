@@ -1,3 +1,5 @@
+import { seedRowsFor, PARENT_MODULE } from "./complaintCategorySeed";
+
 // Complaint Categories table — mock rows mirroring the dev-Figma comp 1:1.
 // Replace CATEGORY_ROWS with the categories API response; the shape below is what
 // the table expects.
@@ -34,54 +36,18 @@ export const CATEGORY_COLS = {
     minWidth: 900,
 };
 
-// { id, name, description, priority, owner, status }
-export const CATEGORY_ROWS = [
-    {
-        id: 1,
-        name: "Academics",
-        description: "Grade/exam related",
-        priority: "NORMAL",
-        owner: "Class Teacher",
-        status: "ACTIVE",
-    },
-    {
-        id: 2,
-        name: "Transport",
-        description: "Bus/route complaints",
-        priority: "HIGH",
-        owner: "Transport Head",
-        status: "ACTIVE",
-    },
-    {
-        id: 3,
-        name: "Homework",
-        description: "Homework-related",
-        priority: "LOW",
-        owner: "Subject Teacher",
-        status: "ACTIVE",
-    },
-    {
-        id: 4,
-        name: "Sports",
-        description: "Sports/PE complaints",
-        priority: "NORMAL",
-        owner: "Sports Coordinator",
-        status: "INACTIVE",
-    },
-    {
-        id: 5,
-        name: "Fee & Account",
-        description: "Fee disputes",
-        priority: "HIGH",
-        owner: "Accounts Team",
-        status: "ACTIVE",
-    },
-    {
-        id: 6,
-        name: "Teacher-Related",
-        description: "Teacher behaviour",
-        priority: "CRITICAL",
-        owner: "Vice Principal",
-        status: "ACTIVE",
-    },
-];
+// Default Owner is not part of the seed — Assignment Mapping owns it. These are
+// the owners already configured for the categories that existed before the seed
+// landed; the rest stay blank until the mapping API supplies them.
+const PARENT_OWNERS = {
+    ACADEMICS: "Class Teacher",
+    TRANSPORT: "Transport Head",
+    HOMEWORK: "Subject Teacher",
+    SPORTS: "Sports Coordinator",
+    FEE_ACCOUNT: "Accounts Team",
+    TEACHER_RELATED: "Vice Principal",
+};
+
+// The 12 seeded ParentComplaint categories, carrying the CategoryId the POST
+// APIs expect. See complaintCategorySeed.js for the caveats on those ids.
+export const CATEGORY_ROWS = seedRowsFor(PARENT_MODULE, PARENT_OWNERS);
