@@ -446,7 +446,7 @@ export default function StudentInfoPage() {
             const res = await axios.get(FindStudentManagementDetails, {
                 params: {
                     rollNumber: selectedRollNumber || "",
-                    createRollNumber: RollNumber,
+                    creatorRollNumber: RollNumber,
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,

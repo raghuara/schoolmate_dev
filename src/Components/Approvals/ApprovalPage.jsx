@@ -21,6 +21,9 @@ import EventBusyIcon from '@mui/icons-material/EventBusy';
 import PriceCheckIcon from '@mui/icons-material/PriceCheck';
 import CampaignOutlinedIcon from '@mui/icons-material/CampaignOutlined';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
+import FactCheckOutlinedIcon from '@mui/icons-material/FactCheckOutlined';
+import AutoStoriesOutlinedIcon from '@mui/icons-material/AutoStoriesOutlined';
+import { MOCK_PAPERS } from '../AssessmentComps/QuestionPaperComps/questionPaperApi';
 import { DASH, RADIUS, PageHeader, SectionTitle, ModuleCard, EmptyNote } from "../DashBoardComps/dashboardTheme";
 
 export default function ApprovalPage() {
@@ -31,6 +34,8 @@ export default function ApprovalPage() {
     const [homeworkIntimation, setHomeworkIntimation] = useState(false);
     const [leavePending, setLeavePending] = useState(0);
     const [paymentPending, setPaymentPending] = useState(0);
+    // Mock count until qpaper/getApprovalRequests is live.
+    const questionPaperPending = MOCK_PAPERS.filter((p) => p.status === "Pending").length;
     const user = useSelector((state) => state.auth);
     const rollNumber = user.rollNumber
     const userType = user.userType
@@ -59,7 +64,7 @@ export default function ApprovalPage() {
     const token = "123"
     const location = useLocation();
 
-    // Callers should send state.tabId ('communication' | 'fee' | 'leave').
+    // Callers should send state.tabId ('communication' | 'fee' | 'leave' | 'academics').
     // A raw tabIndex still works for older callers, but it is brittle: which tabs
     // exist depends on the licence version and this role's permissions, so index
     // 1 is not always the same tab. The id is resolved against the live list.
@@ -79,6 +84,22 @@ export default function ApprovalPage() {
 
     const leaveItems = [
         { color: "#3457D5", icon: EventBusyIcon, text: "Student Leave", desc: "Approve or reject student leave requests.", path: 'student-leave', badge: leavePending },
+    ];
+
+    /*
+       Academics approvals. There is no "questionpaper" key in the approval
+       matrix yet, so this card is ungated - the same approach the Online Quiz
+       and Books & Chapters screens take until the backend publishes one.
+    */
+    const academicsItems = [
+        {
+            color: "#7DC353",
+            icon: FactCheckOutlinedIcon,
+            text: "Question Paper",
+            desc: "Review generated papers before they are published to the exam.",
+            path: "question-paper",
+            badge: questionPaperPending,
+        },
     ];
 
     const items1 = [
@@ -104,8 +125,10 @@ export default function ApprovalPage() {
         },
     ];
 
+    // Same order as the sidebar: Communication, Academics, Fee & Finance, Leave.
     const tabs = [
         ...(version.LITE && canSeeTab('communication') && items.length ? [{ id: 'communication', label: 'Communication', icon: CampaignOutlinedIcon, dot: items.some((i) => i.intimation) }] : []),
+        ...(version.LITE && canSeeTab('academics') && academicsItems.length ? [{ id: 'academics', label: 'Academics', icon: AutoStoriesOutlinedIcon, count: questionPaperPending }] : []),
         ...(version.PRO && canSeeTab('fee') && (items1.length || paymentItems.length) ? [{ id: 'fee', label: 'Fee & Finance', icon: ReceiptLongIcon, count: paymentPending }] : []),
         ...(version.LITE && canSeeTab('leave') ? [{ id: 'leave', label: 'Leave Management', icon: EventBusyIcon, count: leavePending }] : []),
     ];
@@ -283,6 +306,13 @@ export default function ApprovalPage() {
                 <Box>
                     <SectionTitle icon={CampaignOutlinedIcon}>Communication Approvals</SectionTitle>
                     <CardGrid list={items} />
+                </Box>
+            )}
+
+            {activeTabId === 'academics' && (
+                <Box>
+                    <SectionTitle icon={AutoStoriesOutlinedIcon}>Academics Approvals</SectionTitle>
+                    <CardGrid list={academicsItems} />
                 </Box>
             )}
 

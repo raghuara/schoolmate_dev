@@ -179,6 +179,17 @@ import ViewVehicleDetails from "./Components/TransportComps/TransportAssetComps/
 import RouteManagement from "./Components/TransportComps/TransportAssetComps/RouteManagementComps/RouteManagement";
 import StudentMapping from "./Components/TransportComps/TransportAssetComps/StudentMappingComps/StudentMapping";
 import QuestionPaperGeneratorPage from "./Components/QuestionPaperGenerator/QuestionPaperGeneratorPage";
+import BooksLibraryPage from "./Components/AcademicsComps/BooksChaptersComps/BooksLibraryPage";
+import BookUploadPage from "./Components/AcademicsComps/BooksChaptersComps/BookUploadPage";
+import BookChaptersPage from "./Components/AcademicsComps/BooksChaptersComps/BookChaptersPage";
+import QuestionPaperDashboard from "./Components/AssessmentComps/QuestionPaperComps/QuestionPaperDashboard";
+import AllQuestionPapersPage from "./Components/AssessmentComps/QuestionPaperComps/AllQuestionPapersPage";
+import PatternListPage from "./Components/AssessmentComps/QuestionPaperComps/PatternListPage";
+import PatternBuilderPage from "./Components/AssessmentComps/QuestionPaperComps/PatternBuilderPage";
+import CreateQuestionPaperPage from "./Components/AssessmentComps/QuestionPaperComps/CreateQuestionPaperPage";
+import QuestionPaperPreviewPage from "./Components/AssessmentComps/QuestionPaperComps/QuestionPaperPreviewPage";
+import QuestionPaperApprovalPage from "./Components/AssessmentComps/QuestionPaperComps/QuestionPaperApprovalPage";
+import QuestionBankPage from "./Components/AssessmentComps/QuestionPaperComps/QuestionBankPage";
 import CreateOnlineQuizPage from "./Components/AssessmentComps/OnlineQuizComps/CreateOnlineQuizPage";
 import OnlineQuizDashboard from "./Components/AssessmentComps/OnlineQuizComps/OnlineQuizDashboard";
 import QuizAnalysisPage from "./Components/AssessmentComps/OnlineQuizComps/QuizAnalysisPage";
@@ -579,6 +590,9 @@ export default function RouterPage() {
                 <Route path="approvals/additional" element={<AdditionalFeeApprovalPage />} />
                 <Route path="approvals/payments" element={<PaymentApprovalsPage />} />
 
+                {/* Academics */}
+                <Route path="approvals/question-paper" element={<QuestionPaperApprovalPage />} />
+
                 {/* --------------------------------------------------------------------------------------------------- */}
 
                 {/* Access Control */}
@@ -617,6 +631,23 @@ export default function RouterPage() {
                 <Route path="assessment/online-quiz/analysis" element={<QuizAnalysisPage />} />
                 <Route path="assessment/online-quiz/all" element={<AllQuizzesPage />} />
                 <Route path="assessment/online-quiz/approvals" element={<QuizApprovalPage />} />
+
+                {/* Books & Chapters */}
+                <Route path="books" element={<BooksLibraryPage />} />
+                <Route path="books/upload" element={<BookUploadPage />} />
+                <Route path="books/:bookId" element={<BookChaptersPage />} />
+
+                {/* Question Paper Generation */}
+                <Route path="assessment/question-paper" element={<QuestionPaperDashboard />} />
+                <Route path="assessment/question-paper/all" element={<AllQuestionPapersPage />} />
+                <Route path="assessment/question-paper/create" element={<CreateQuestionPaperPage />} />
+                <Route path="assessment/question-paper/bank" element={<QuestionBankPage />} />
+                <Route path="assessment/question-paper/patterns" element={<PatternListPage />} />
+                <Route path="assessment/question-paper/patterns/create" element={<PatternBuilderPage />} />
+                <Route path="assessment/question-paper/patterns/:patternId" element={<PatternBuilderPage />} />
+                {/* Question paper approvals live in the Approvals module now - the old path is a shortcut. */}
+                <Route path="assessment/question-paper/approvals" element={<Navigate to="/dashboardmenu/approvals/question-paper" replace />} />
+                <Route path="assessment/question-paper/:paperId" element={<QuestionPaperPreviewPage />} />
 
                 {/* Question Paper Generator */}
                 <Route path="dashboard/question" element={<QuestionPaperGeneratorPage />} />

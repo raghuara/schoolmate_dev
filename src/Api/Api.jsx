@@ -614,6 +614,53 @@ const GetStudentQuizWarningCount = `${baseApiurl}qtest/getStudentQuzeResultRevie
 
 //----------------------------------- xxxxxxxx ----------------------------------
 
+//----------------------------------- New Dashboard ----------------------------------
+//----------------------------------- xxxxxxxx ----------------------------------
+
+// Master Overview - the three sections are independent, fire them together.
+const MasterDashboardHeadline = `${baseApiurl}masterDashboard/overview/headline`;
+const MasterDashboardAttendanceSection = `${baseApiurl}masterDashboard/overview/attendanceSection`;
+const MasterDashboardAcademicsSection = `${baseApiurl}masterDashboard/overview/academicsSection`;
+
+// Common Dashboard - the logged-in staff member's own day, no permission gate.
+const CommonDashboardHeadline = `${baseApiurl}commonDashboard/headline`;
+const CommonDashboardAttendanceLeave = `${baseApiurl}commonDashboard/attendanceLeave`;
+const CommonDashboardWork = `${baseApiurl}commonDashboard/work`;
+const CommonDashboardForMe = `${baseApiurl}commonDashboard/forMe`;
+
+//----------------------------------- xxxxxxxx ----------------------------------
+
+//----------------------------------- Books & Chapters ----------------------------------
+//----------------------------------- xxxxxxxx ----------------------------------
+
+const UploadBook = `${baseApiurl}book/upload`;
+const GetAllBooks = `${baseApiurl}book/getAll`;
+const GetBookById = `${baseApiurl}book/getById`;
+const UpdateBookChapters = `${baseApiurl}book/updateChapters`;
+const ConfirmBookChapters = `${baseApiurl}book/confirmChapters`;
+const DeleteBook = `${baseApiurl}book/delete`;
+
+//----------------------------------- xxxxxxxx ----------------------------------
+
+//----------------------------------- Question Paper Generation ----------------------------------
+//----------------------------------- xxxxxxxx ----------------------------------
+
+const GetQuestionPaperPatterns = `${baseApiurl}qpaper/getPatterns`;
+const PostQuestionPaperPattern = `${baseApiurl}qpaper/postPattern`;
+const UpdateQuestionPaperPattern = `${baseApiurl}qpaper/updatePattern`;
+const DeleteQuestionPaperPattern = `${baseApiurl}qpaper/deletePattern`;
+const GenerateQuestionPaperQuestions = `${baseApiurl}qpaper/generateQuestions`;
+const CheckQuestionPaperDuplicates = `${baseApiurl}qpaper/checkDuplicates`;
+const SaveQuestionPaper = `${baseApiurl}qpaper/save`;
+const GetAllQuestionPapers = `${baseApiurl}qpaper/getAll`;
+const GetQuestionPaperById = `${baseApiurl}qpaper/getById`;
+const GetQuestionPaperDashboard = `${baseApiurl}qpaper/getDashboard`;
+const GetQuestionPaperApprovalRequests = `${baseApiurl}qpaper/getApprovalRequests`;
+const UpdateQuestionPaperApproval = `${baseApiurl}qpaper/updateApproval`;
+const PublishQuestionPaper = `${baseApiurl}qpaper/publish`;
+
+//----------------------------------- xxxxxxxx ----------------------------------
+
 export {
     poststudyMaterial,
     deleteDashboardSlider,
@@ -1061,5 +1108,31 @@ export {
     GetQuizDashboard,
     GetAllQuizzesForAdmin,
     GetQuizSingleAnalytics,
-    GetStudentQuizWarningCount
+    GetStudentQuizWarningCount,
+    MasterDashboardHeadline,
+    MasterDashboardAttendanceSection,
+    MasterDashboardAcademicsSection,
+    CommonDashboardHeadline,
+    CommonDashboardAttendanceLeave,
+    CommonDashboardWork,
+    CommonDashboardForMe,
+    UploadBook,
+    GetAllBooks,
+    GetBookById,
+    UpdateBookChapters,
+    ConfirmBookChapters,
+    DeleteBook,
+    GetQuestionPaperPatterns,
+    PostQuestionPaperPattern,
+    UpdateQuestionPaperPattern,
+    DeleteQuestionPaperPattern,
+    GenerateQuestionPaperQuestions,
+    CheckQuestionPaperDuplicates,
+    SaveQuestionPaper,
+    GetAllQuestionPapers,
+    GetQuestionPaperById,
+    GetQuestionPaperDashboard,
+    GetQuestionPaperApprovalRequests,
+    UpdateQuestionPaperApproval,
+    PublishQuestionPaper
 }

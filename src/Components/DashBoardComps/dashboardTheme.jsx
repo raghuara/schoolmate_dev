@@ -757,7 +757,7 @@ export const EmptyNote = ({ text }) => (
 );
 
 export const PageHeader = ({ title, subtitle, onBack, right }) => (
-    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 2 }}>
+    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, rowGap: 1, flexWrap: "wrap", mb: 2 }}>
         {onBack && (
             <IconButton onClick={onBack} sx={{ width: 30, height: 30 }}>
                 <ArrowBackIcon sx={{ fontSize: 20, color: DASH.ink }} />
@@ -774,7 +774,7 @@ export const PageHeader = ({ title, subtitle, onBack, right }) => (
             )}
         </Box>
         {right && (
-            <Box sx={{ ml: "auto", display: "flex", alignItems: "center", gap: 1, flexShrink: 0 }}>
+            <Box sx={{ ml: "auto", display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 1, flexShrink: 0, flexWrap: "wrap" }}>
                 {right}
             </Box>
         )}

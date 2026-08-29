@@ -37,6 +37,10 @@ function SubMenuPage({active}) {
         ...(canViewComm("homework") ? [{ path: '/dashboardmenu/homework', label: 'Homework' }] : []),
         ...(canViewComm("examtimetable") ? [{ path: '/dashboardmenu/examtimetables', label: 'Exam Timetables' }] : []),
         ...(canViewComm("studymaterial") ? [{ path: '/dashboardmenu/studymaterials', label: 'Study Materials' }] : []),
+        // Books & Chapters and Question Paper - ungated until the backend adds
+        // permission keys for them, same approach as Online Quiz below.
+        { path: '/dashboardmenu/books', label: 'Books & Chapters' },
+        { path: '/dashboardmenu/assessment/question-paper', label: 'Question Paper' },
         ...(canViewComm("marks") ? [{ path: '/dashboardmenu/marks', label: 'Marks' }] : []),
         ...(canViewComm("attendance") ? [{ path: '/dashboardmenu/attendance', label: 'Attendance' }] : []),
         // Online Quiz - ungated until the backend adds a permission key for it.

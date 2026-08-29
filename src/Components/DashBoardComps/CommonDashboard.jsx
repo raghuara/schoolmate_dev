@@ -18,11 +18,34 @@ import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import {
     DASH, RADIUS, KPI_TONES, SOFT, Panel, SolidStatCard, MeterRow, EmptyNote,
 } from "./dashboardTheme";
+import { useSelector } from "react-redux";
+import RefreshIcon from "@mui/icons-material/Refresh";
 import {
-    MOCK_MY_SCHEDULE, MOCK_MY_ATTENDANCE, MOCK_MY_LEAVE_BALANCE, MOCK_MY_LEAVE_REQUESTS,
-    MOCK_MY_SUBMISSIONS, MOCK_MY_HOMEWORK, MOCK_MY_PAYSLIP, MOCK_MY_ACTIONS,
-    MOCK_MARKS_ENTRY, MOCK_NEWS, MOCK_EVENTS, MOCK_BIRTHDAYS,
+    MOCK_MY_SCHEDULE, MOCK_MY_ACTIONS, MOCK_MARKS_ENTRY,
 } from "./dashboardMockData";
+import { selectAcademicYear } from "../../Redux/Slices/academicYearSlice";
+import { useCommonDashboard } from "./dashboardApi";
+
+/* commonDashboard serves headline, attendanceLeave, work and forMe. Today's
+   Schedule, My Pending Actions and Marks Entry have no endpoint - the collection
+   notes there is no honest data source for them yet - so those three keep the
+   placeholder data and are marked "Sample" on screen. */
+const EMPTY_ATTENDANCE = { month: "", workingDays: 0, present: 0, absent: 0, late: 0, halfDay: 0, percent: 0 };
+const EMPTY_HOMEWORK = { assignedToday: 0, thisWeek: 0, dueTomorrow: 0, classesCovered: 0 };
+const EMPTY_PAYSLIP = { month: "", net: "", status: "", creditedOn: "" };
+
+const SampleChip = () => (
+    <Box
+        component="span"
+        sx={{
+            display: "inline-block", ml: 1, px: 0.7, borderRadius: "20px",
+            bgcolor: DASH.lineSoft, color: DASH.faint,
+            fontSize: "9px", fontWeight: 800, lineHeight: "15px", verticalAlign: "middle",
+        }}
+    >
+        Sample
+    </Box>
+);
 
 const SectionTitle = ({ children, icon: Icon }) => (
     <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, mb: 1.4, mt: 1 }}>
@@ -66,12 +89,41 @@ const severityIcon = (severity) =>
 
 export default function CommonDashboard({ header }) {
     const navigate = useNavigate();
+    const auth = useSelector((state) => state.auth);
+    const academicYear = useSelector(selectAcademicYear);
+
+    // Four self-service sections, fired together. Each keeps its own error.
+    const { data: common, errors: commonErrors, loading: commonLoading, reload: reloadCommon } = useCommonDashboard({
+        rollNumber: auth.rollNumber,
+        academicYear,
+    });
+
+    const headline = common?.headline || null;
+    const myAttendance = common?.attendanceLeave?.attendance || EMPTY_ATTENDANCE;
+    const leaveBalance = common?.attendanceLeave?.leaveBalance || [];
+    const leaveRequests = common?.attendanceLeave?.leaveRequests || [];
+    const myHomework = common?.work?.homework || EMPTY_HOMEWORK;
+    const submissions = common?.work?.submissions || [];
+    const news = common?.forMe?.news || [];
+    const events = common?.forMe?.events || [];
+    const birthdays = common?.forMe?.birthdays || [];
+    const payslip = common?.forMe?.payslip || EMPTY_PAYSLIP;
+
+    const failedSections = Object.keys(commonErrors || {}).filter((k) => commonErrors[k]);
 
     const toMark = MOCK_MY_SCHEDULE.filter((s) => !s.attendanceMarked);
-    const leaveTaken = MOCK_MY_LEAVE_BALANCE.reduce((sum, l) => sum + l.used, 0);
-    const leaveTotal = MOCK_MY_LEAVE_BALANCE.reduce((sum, l) => sum + l.total, 0);
-    const leaveLeft = leaveTotal - leaveTaken;
-    const pendingRequests = MOCK_MY_LEAVE_REQUESTS.filter((r) => r.status === "Pending").length;
+
+    // The headline endpoint carries these directly; the leave section is the
+    // fallback so the cards still read correctly if headline is the one that fails.
+    const leaveTaken = leaveBalance.reduce((sum, l) => sum + l.used, 0);
+    const leaveTotalFromList = leaveBalance.reduce((sum, l) => sum + l.total, 0);
+    const leaveTotal = headline?.leaveTotal || leaveTotalFromList;
+    const leaveLeft = headline?.leaveLeft || (leaveTotalFromList - leaveTaken);
+    const pendingRequests = headline?.pendingRequests
+        || leaveRequests.filter((r) => String(r.status).toLowerCase() === "pending").length;
+    const attendancePercent = headline?.attendancePercent || myAttendance.percent;
+    const presentDays = headline?.presentDays || myAttendance.present;
+    const workingDays = headline?.workingDays || myAttendance.workingDays;
 
     return (
         <Box
@@ -84,6 +136,27 @@ export default function CommonDashboard({ header }) {
             }}
         >
             {header}
+
+            {/* Live-data strip: refresh plus whichever sections failed to load */}
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap", mb: 1.5 }}>
+                <Button
+                    onClick={reloadCommon}
+                    disabled={commonLoading}
+                    startIcon={<RefreshIcon sx={{ fontSize: 15 }} />}
+                    sx={{
+                        textTransform: "none", fontSize: "12px", fontWeight: 600, color: DASH.text,
+                        bgcolor: "#fff", border: `1px solid ${DASH.line}`, borderRadius: RADIUS, px: 1.4, py: 0.3,
+                        "&:hover": { bgcolor: DASH.primaryLight, borderColor: DASH.primaryBorder },
+                    }}
+                >
+                    {commonLoading ? "Refreshing..." : "Refresh"}
+                </Button>
+                {failedSections.length > 0 && (
+                    <Typography sx={{ fontSize: "11.5px", color: DASH.red }}>
+                        Could not load: {failedSections.join(", ")}
+                    </Typography>
+                )}
+            </Box>
 
             <Grid container spacing={2} sx={{ alignItems: "stretch", mb: 2 }}>
                 <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
@@ -109,8 +182,8 @@ export default function CommonDashboard({ header }) {
                     <SolidStatCard
                         icon={EventAvailableOutlinedIcon}
                         label="My Attendance"
-                        value={`${MOCK_MY_ATTENDANCE.percent}%`}
-                        note={`${MOCK_MY_ATTENDANCE.present}/${MOCK_MY_ATTENDANCE.workingDays} days this month`}
+                        value={`${attendancePercent}%`}
+                        note={`${presentDays}/${workingDays} days this month`}
                         tone={KPI_TONES.cyan}
                     />
                 </Grid>
@@ -125,7 +198,7 @@ export default function CommonDashboard({ header }) {
                 </Grid>
             </Grid>
 
-            <SectionTitle icon={ScheduleOutlinedIcon}>My Day</SectionTitle>
+            <SectionTitle icon={ScheduleOutlinedIcon}>My Day <SampleChip /></SectionTitle>
             <Grid container spacing={2} sx={{ alignItems: "stretch", mb: 2 }}>
                 <Grid size={{ xs: 12, sm: 12, md: 7, lg: 7 }}>
                     <Panel
@@ -210,7 +283,7 @@ export default function CommonDashboard({ header }) {
                 </Grid>
 
                 <Grid size={{ xs: 12, sm: 12, md: 5, lg: 5 }}>
-                    <Panel title="My Pending Actions" subtitle="Assigned to you" accent={DASH.primary} sx={{ height: "100%" }}>
+                    <Panel title="My Pending Actions" subtitle="Assigned to you" accent={DASH.primary} right={<SampleChip />} sx={{ height: "100%" }}>
                         {MOCK_MY_ACTIONS.length === 0 && <EmptyNote text="Nothing pending. You are all caught up." />}
                         {MOCK_MY_ACTIONS.map((a) => {
                             const Icon = severityIcon(a.severity);
@@ -237,33 +310,33 @@ export default function CommonDashboard({ header }) {
             <SectionTitle icon={EventBusyOutlinedIcon}>My Attendance &amp; Leave</SectionTitle>
             <Grid container spacing={2} sx={{ alignItems: "stretch", mb: 2 }}>
                 <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
-                    <Panel title="My Attendance" subtitle={MOCK_MY_ATTENDANCE.month} accent={DASH.cyan} sx={{ height: "100%" }}>
+                    <Panel title="My Attendance" subtitle={myAttendance.month} accent={DASH.cyan} sx={{ height: "100%" }}>
                         <MeterRow
                             label="Present"
-                            value={MOCK_MY_ATTENDANCE.present}
-                            max={MOCK_MY_ATTENDANCE.workingDays}
-                            right={`${MOCK_MY_ATTENDANCE.present}/${MOCK_MY_ATTENDANCE.workingDays}`}
+                            value={myAttendance.present}
+                            max={myAttendance.workingDays}
+                            right={`${myAttendance.present}/${myAttendance.workingDays}`}
                             color={DASH.green}
                         />
                         <MeterRow
                             label="Late arrivals"
-                            value={MOCK_MY_ATTENDANCE.late}
-                            max={MOCK_MY_ATTENDANCE.workingDays}
-                            right={`${MOCK_MY_ATTENDANCE.late}`}
+                            value={myAttendance.late}
+                            max={myAttendance.workingDays}
+                            right={`${myAttendance.late}`}
                             color={DASH.amber}
                         />
                         <MeterRow
                             label="Half day"
-                            value={MOCK_MY_ATTENDANCE.halfDay}
-                            max={MOCK_MY_ATTENDANCE.workingDays}
-                            right={`${MOCK_MY_ATTENDANCE.halfDay}`}
+                            value={myAttendance.halfDay}
+                            max={myAttendance.workingDays}
+                            right={`${myAttendance.halfDay}`}
                             color={DASH.blue}
                         />
                         <MeterRow
                             label="Absent"
-                            value={MOCK_MY_ATTENDANCE.absent}
-                            max={MOCK_MY_ATTENDANCE.workingDays}
-                            right={`${MOCK_MY_ATTENDANCE.absent}`}
+                            value={myAttendance.absent}
+                            max={myAttendance.workingDays}
+                            right={`${myAttendance.absent}`}
                             color={DASH.red}
                         />
                     </Panel>
@@ -271,7 +344,8 @@ export default function CommonDashboard({ header }) {
 
                 <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
                     <Panel title="Leave Balance" subtitle="This academic year" accent={DASH.cyan} sx={{ height: "100%" }}>
-                        {MOCK_MY_LEAVE_BALANCE.map((l) => (
+                        {leaveBalance.length === 0 && (<EmptyNote text={commonErrors.attendanceLeave || (commonLoading ? "Loading..." : "No leave types configured.")} />)}
+                        {leaveBalance.map((l) => (
                             <MeterRow
                                 key={l.type}
                                 label={l.type}
@@ -299,8 +373,8 @@ export default function CommonDashboard({ header }) {
                         accent={DASH.cyan}
                         sx={{ height: "100%" }}
                     >
-                        {MOCK_MY_LEAVE_REQUESTS.length === 0 && <EmptyNote text="You have not applied for leave yet." />}
-                        {MOCK_MY_LEAVE_REQUESTS.map((r) => (
+                        {leaveRequests.length === 0 && <EmptyNote text="You have not applied for leave yet." />}
+                        {leaveRequests.map((r) => (
                             <Box
                                 key={r.id}
                                 sx={{
@@ -328,10 +402,10 @@ export default function CommonDashboard({ header }) {
                 <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
                     <Panel title="My Homework" accent={DASH.violet} sx={{ height: "100%" }}>
                         {[
-                            ["Assigned today", MOCK_MY_HOMEWORK.assignedToday],
-                            ["This week", MOCK_MY_HOMEWORK.thisWeek],
-                            ["Due tomorrow", MOCK_MY_HOMEWORK.dueTomorrow],
-                            ["Classes covered", MOCK_MY_HOMEWORK.classesCovered],
+                            ["Assigned today", myHomework.assignedToday],
+                            ["This week", myHomework.thisWeek],
+                            ["Due tomorrow", myHomework.dueTomorrow],
+                            ["Classes covered", myHomework.classesCovered],
                         ].map(([k, v]) => (
                             <Box
                                 key={k}
@@ -356,7 +430,7 @@ export default function CommonDashboard({ header }) {
                 </Grid>
 
                 <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
-                    <Panel title="Marks Entry" subtitle="My subjects" accent={DASH.violet} sx={{ height: "100%" }}>
+                    <Panel title="Marks Entry" subtitle="My subjects" accent={DASH.violet} right={<SampleChip />} sx={{ height: "100%" }}>
                         {MOCK_MARKS_ENTRY.length === 0 && <EmptyNote text="No marks entry pending." />}
                         {MOCK_MARKS_ENTRY.map((m) => (
                             <MeterRow
@@ -373,8 +447,8 @@ export default function CommonDashboard({ header }) {
 
                 <Grid size={{ xs: 12, sm: 12, md: 4, lg: 4 }}>
                     <Panel title="My Submissions" subtitle="Sent for approval" accent={DASH.violet} sx={{ height: "100%" }}>
-                        {MOCK_MY_SUBMISSIONS.length === 0 && <EmptyNote text="You have not submitted anything yet." />}
-                        {MOCK_MY_SUBMISSIONS.map((s) => (
+                        {submissions.length === 0 && <EmptyNote text="You have not submitted anything yet." />}
+                        {submissions.map((s) => (
                             <Box
                                 key={s.id}
                                 sx={{
@@ -400,7 +474,8 @@ export default function CommonDashboard({ header }) {
             <Grid container spacing={2} sx={{ alignItems: "stretch" }}>
                 <Grid size={{ xs: 12, sm: 6, md: 6, lg: 3 }}>
                     <Panel title="News &amp; Circulars" accent={DASH.blue} sx={{ height: "100%" }}>
-                        {MOCK_NEWS.slice(0, 4).map((n) => (
+                        {news.length === 0 && (<EmptyNote text={commonErrors.forMe || (commonLoading ? "Loading..." : "Nothing posted yet.")} />)}
+                        {news.slice(0, 4).map((n) => (
                             <Box
                                 key={n.id}
                                 sx={{
@@ -420,7 +495,8 @@ export default function CommonDashboard({ header }) {
 
                 <Grid size={{ xs: 12, sm: 6, md: 6, lg: 3 }}>
                     <Panel title="Upcoming Events" accent={DASH.blue} sx={{ height: "100%" }}>
-                        {MOCK_EVENTS.map((e) => (
+                        {events.length === 0 && (<EmptyNote text={commonErrors.forMe || (commonLoading ? "Loading..." : "No events coming up.")} />)}
+                        {events.map((e) => (
                             <Box
                                 key={e.id}
                                 sx={{
@@ -438,8 +514,8 @@ export default function CommonDashboard({ header }) {
 
                 <Grid size={{ xs: 12, sm: 6, md: 6, lg: 3 }}>
                     <Panel title="Today's Birthdays" accent={DASH.pink} sx={{ height: "100%" }}>
-                        {MOCK_BIRTHDAYS.length === 0 && <EmptyNote text="No birthdays today." />}
-                        {MOCK_BIRTHDAYS.map((b) => (
+                        {birthdays.length === 0 && <EmptyNote text="No birthdays today." />}
+                        {birthdays.map((b) => (
                             <Box key={b.id} sx={{ display: "flex", alignItems: "center", gap: 1.2, py: 0.9 }}>
                                 <Avatar sx={{ width: 30, height: 30, bgcolor: DASH.pinkLight, color: DASH.pink }}>
                                     <CakeOutlinedIcon sx={{ fontSize: 16 }} />
@@ -454,7 +530,7 @@ export default function CommonDashboard({ header }) {
                 </Grid>
 
                 <Grid size={{ xs: 12, sm: 6, md: 6, lg: 3 }}>
-                    <Panel title="My Last Payslip" subtitle={MOCK_MY_PAYSLIP.month} accent={DASH.green} sx={{ height: "100%" }}>
+                    <Panel title="My Last Payslip" subtitle={payslip.month} accent={DASH.green} sx={{ height: "100%" }}>
                         <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, mb: 1 }}>
                             <Box
                                 sx={{
@@ -466,18 +542,18 @@ export default function CommonDashboard({ header }) {
                             </Box>
                             <Box sx={{ minWidth: 0 }}>
                                 <Typography sx={{ fontSize: "18px", fontWeight: 800, color: DASH.ink, lineHeight: 1.2 }}>
-                                    ₹{MOCK_MY_PAYSLIP.net}
+                                    ₹{payslip.net}
                                 </Typography>
                                 <Typography sx={{ fontSize: "11px", color: DASH.faint }}>Net pay</Typography>
                             </Box>
                         </Box>
                         <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", py: 0.8, borderTop: `1px solid ${DASH.lineSoft}` }}>
                             <Typography sx={{ fontSize: "12px", color: DASH.muted }}>Status</Typography>
-                            <StatusChip status={MOCK_MY_PAYSLIP.status} />
+                            <StatusChip status={payslip.status} />
                         </Box>
                         <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", py: 0.8, borderTop: `1px solid ${DASH.lineSoft}` }}>
                             <Typography sx={{ fontSize: "12px", color: DASH.muted }}>Credited on</Typography>
-                            <Typography sx={{ fontSize: "12px", fontWeight: 700, color: DASH.ink }}>{MOCK_MY_PAYSLIP.creditedOn}</Typography>
+                            <Typography sx={{ fontSize: "12px", fontWeight: 700, color: DASH.ink }}>{payslip.creditedOn}</Typography>
                         </Box>
                     </Panel>
                 </Grid>

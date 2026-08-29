@@ -35,6 +35,13 @@ import AppScrollbar from '../AppScrollbar';
 import KeyboardDoubleArrowLeftIcon from "@mui/icons-material/KeyboardDoubleArrowLeft";
 import KeyboardDoubleArrowRightIcon from "@mui/icons-material/KeyboardDoubleArrowRight";
 
+/* A detail route belongs to the same sub menu as the list it opened from, so the
+   sub menu has to stay open on /dashboardmenu/books/12 as well as
+   /dashboardmenu/books. Matching on a segment boundary keeps that from spilling
+   onto an unrelated path that merely starts with the same letters. */
+const matchesActivePath = (paths, pathname) =>
+  paths.some((path) => pathname === path || pathname.startsWith(`${path}/`));
+
 function SideBarPage({ mobileOpen, setMobileOpen }) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -164,8 +171,8 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
   useEffect(() => {
     if (!isMobile) {
       if (
-        communicationActivePaths.includes(location.pathname) ||
-        academicsActivePaths.includes(location.pathname)
+        matchesActivePath(communicationActivePaths, location.pathname) ||
+        matchesActivePath(academicsActivePaths, location.pathname)
       ) {
         dispatch(setSidebar(false));
         dispatch(openSubmenu());
@@ -1350,7 +1357,8 @@ function SideBarPage({ mobileOpen, setMobileOpen }) {
               top: "108px",
               left: isExpanded ? "260px" : "80px",
               transform: "translateX(-50%)",
-              zIndex: 1400,
+              // above the drawer paper, below dialogs/menus - 1400 put it over every backdrop
+              zIndex: (theme) => theme.zIndex.drawer + 1,
 
               display: "flex",
               alignItems: "center",

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Box, Stepper, Step, StepLabel, Typography, IconButton, useMediaQuery, Grid, Button, FormLabel, RadioGroup, FormControlLabel, Radio, FormControl, Accordion, AccordionSummary, AccordionDetails, TextField, FormGroup, Checkbox, Autocomplete, Paper, Popper, InputAdornment, Dialog, TextareaAutosize, DialogContent, DialogActions, FormHelperText, Popover } from "@mui/material";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import { Box, Typography, IconButton, useMediaQuery, Grid, Button, FormLabel, RadioGroup, FormControlLabel, Radio, FormControl, Accordion, AccordionSummary, AccordionDetails, TextField, FormGroup, Checkbox, Autocomplete, Paper, Popper, InputAdornment, Dialog, TextareaAutosize, DialogContent, DialogActions, FormHelperText, Popover, Chip } from "@mui/material";
+import CalendarMonthOutlinedIcon from "@mui/icons-material/CalendarMonthOutlined";
+import { DASH, RADIUS, PageHeader } from "../../DashBoardComps/dashboardTheme";
 import { Link, useNavigate } from "react-router-dom";
 import { useTheme } from "@mui/material/styles";
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -23,19 +24,21 @@ import AddIcon from "@mui/icons-material/Add";
 import CloseIcon from "@mui/icons-material/Close";
 import RemoveIcon from '@mui/icons-material/Remove';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
+import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
+import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined';
 import DeleteIcon from "@mui/icons-material/Delete";
 import KeyboardIcon from "@mui/icons-material/Keyboard";
 import TamilKeyboard from "../../Tools/TamilKeyBoardLayout";
+import { apiErrorMessage, responseErrorMessage } from "../../../Api/apiError";
 
-const steps = [
-    "Student Academic Info",
-    "Student Info",
-    "Family Info",
-    "Guardian Info",
-    "Sibling Info",
-    "Upload Documents",
-    "Medical Info"
+
+const SECTIONS = [
+    { key: "staff", label: "Staff Info", requires: null },
+    { key: "employment", label: "Employment & Family Info", requires: "staff" },
 ];
+
+const sectionOf = (key) => SECTIONS.find((item) => item.key === key);
 
 export default function AddStaffDetails() {
     const inputRef = useRef(null);
@@ -51,7 +54,6 @@ export default function AddStaffDetails() {
     const grades = useSelector(selectGrades);
     const academicYear = useSelector(selectAcademicYear);
     const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-    const [activeStep, setActiveStep] = useState(0);
     const [count, setCount] = useState(0);
     const websiteSettings = useSelector(selectWebsiteSettings);
     const [changesHappended, setChangesHappended] = useState(false);
@@ -102,6 +104,7 @@ export default function AddStaffDetails() {
 
     const [isDisabledAcademic, setIsDisabledAcademic] = useState(false);
     const [isDisabledStaffInfo, setIsDisabledStaffInfo] = useState(false);
+    const [openSection, setOpenSection] = useState("staff");
 
     const [open, setOpen] = useState(false);
     const [status, setStatus] = useState(false);
@@ -169,11 +172,13 @@ export default function AddStaffDetails() {
                     const flattened = (res.data.data || []).flatMap((g) => g.users || []);
                     setStudentsList(flattened);
                 } catch (error) {
-                    console.error("Error fetching students:", error);
+                    setStudentsList([]);
+                    showError(apiErrorMessage(error, "Could not load the student list."));
                 }
             };
             fetchStudents();
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [studyingInSameSchool]);
 
     const handleStudyingChange = (event) => {
@@ -238,9 +243,128 @@ export default function AddStaffDetails() {
         );
     };
 
+    const themeColor = websiteSettings.mainColor || "#E60154";
+
+    const savedSections = {
+        staff: isDisabledStaffInfo,
+        employment: isDisabledAcademic,
+    };
+
+    const savedCount = SECTIONS.filter((item) => savedSections[item.key]).length;
+
+    const notify = (text, ok) => {
+        setMessage(text);
+        setColor(ok);
+        setStatus(ok);
+        setOpen(true);
+    };
+
+    const showError = (text) => notify(text, false);
+    const showSuccess = (text) => notify(text, true);
+
+    const blockingSection = (key) => {
+        const requires = sectionOf(key)?.requires;
+        if (!requires) return null;
+        return savedSections[requires] ? null : sectionOf(requires);
+    };
+
+    const nextSectionAfter = (savedKey) => {
+        const saved = { ...savedSections, [savedKey]: true };
+        const next = SECTIONS.find((item) => !saved[item.key] && (!item.requires || saved[item.requires]));
+        return next ? next.key : "";
+    };
+
+    const handleSectionToggle = (key) => (event, expanded) => {
+        const blocker = blockingSection(key);
+        if (blocker) {
+            showError(`Save ${blocker.label} before filling ${sectionOf(key).label}`);
+            return;
+        }
+        setOpenSection(expanded ? key : "");
+    };
+
+    const requireSectionUnlocked = (key) => {
+        const blocker = blockingSection(key);
+        if (!blocker) return true;
+        showError(`Save ${blocker.label} before saving ${sectionOf(key).label}`);
+        return false;
+    };
+
+    const renderSectionSummary = (key, index) => {
+        const section = sectionOf(key);
+        const blocker = blockingSection(key);
+        const locked = Boolean(blocker);
+        const saved = savedSections[key];
+        const badgeBg = saved ? "#E8F5E9" : locked ? "#EEF0F3" : `${themeColor}1A`;
+        const badgeColor = saved ? "#2E7D32" : locked ? "#9CA3AF" : themeColor;
+
+        return (
+            <AccordionSummary
+                expandIcon={<ExpandMoreIcon sx={{ color: locked ? "#C4C8CE" : "#6B7280" }} />}
+                aria-controls={`${key}-content`}
+                id={`${key}-header`}
+                sx={{
+                    backgroundColor: locked ? "#F9FAFB" : "#fff7f7",
+                    py: 0.5,
+                    position: "relative",
+                    cursor: locked ? "not-allowed" : "pointer",
+                    "& .MuiAccordionSummary-content": {
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1.2,
+                        flexWrap: "wrap",
+                        pr: 1,
+                    },
+                }}
+            >
+                <Box
+                    sx={{
+                        width: 24,
+                        height: 24,
+                        borderRadius: "50%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: "12px",
+                        fontWeight: 700,
+                        bgcolor: badgeBg,
+                        color: badgeColor,
+                        flexShrink: 0,
+                    }}
+                >
+                    {saved
+                        ? <CheckCircleIcon sx={{ fontSize: 17 }} />
+                        : locked
+                            ? <LockOutlinedIcon sx={{ fontSize: 14 }} />
+                            : index}
+                </Box>
+                <Typography
+                    component="span"
+                    sx={{ fontWeight: 600, fontSize: "14.5px", color: locked ? "#9CA3AF" : "#111827" }}
+                >
+                    {section.label}
+                </Typography>
+                {saved && (
+                    <Chip
+                        size="small"
+                        label="Saved"
+                        sx={{ height: 21, fontSize: "10.5px", fontWeight: 700, bgcolor: "#E8F5E9", color: "#2E7D32" }}
+                    />
+                )}
+                {locked && (
+                    <Chip
+                        size="small"
+                        label={`Save ${blocker.label} first`}
+                        sx={{ height: 21, fontSize: "10.5px", fontWeight: 600, bgcolor: "#EEF0F3", color: "#6B7280" }}
+                    />
+                )}
+            </AccordionSummary>
+        );
+    };
+
     const handleAcademicSubmit = async (status) => {
         if (!staffNameEnglish.trim()) {
-            setMessage("Student name in english is required");
+            setMessage("Staff name in English is required");
             setOpen(true);
             setColor(false);
             setStatus(false);
@@ -261,7 +385,7 @@ export default function AddStaffDetails() {
             return;
         }
         if (!staffRollNumber.trim()) {
-            setMessage("Roll no is required");
+            setMessage("Staff roll number is required");
             setOpen(true);
             setColor(false);
             setStatus(false);
@@ -311,6 +435,8 @@ export default function AddStaffDetails() {
         setIsLoading(true);
         try {
             const formData = new FormData();
+            formData.append("requestedByRollNumber", RollNumber);
+            formData.append("creatorRollNumber", RollNumber);
             formData.append("staffRollNumber", staffRollNumber);
             formData.append("staffNameInEnglish", staffNameEnglish);
             formData.append("staffNameInTamil", staffNameTamil);
@@ -335,17 +461,19 @@ export default function AddStaffDetails() {
                 },
             });
 
-            setOpen(true);
-            setColor(true);
-            setStatus(true);
-            setMessage("User created successfully.");
-            setFetchRollNumber(staffRollNumber)
-            setIsDisabledStaffInfo(true)
+            const failedMessage = responseErrorMessage(res, `Roll number ${staffRollNumber} could not be created.`);
+            if (failedMessage) {
+                showError(failedMessage);
+                setFetchRollNumber("");
+                return;
+            }
+
+            showSuccess(`Staff created successfully with roll number ${staffRollNumber}.`);
+            setFetchRollNumber(staffRollNumber);
+            setIsDisabledStaffInfo(true);
+            setOpenSection(nextSectionAfter("staff"));
         } catch (error) {
-            setOpen(true);
-            setColor(false);
-            setStatus(false);
-            setMessage("Error while inserting data");
+            showError(apiErrorMessage(error, "Could not create this staff member. Please try again."));
         } finally {
             setIsLoading(false);
         }
@@ -370,6 +498,7 @@ export default function AddStaffDetails() {
 
 
     const handleStaffSubmit = async (status) => {
+        if (!requireSectionUnlocked("employment")) return;
 
         if (!employmentStatus.trim()) {
             setMessage("Staff Employment Status is required");
@@ -439,14 +568,15 @@ export default function AddStaffDetails() {
                     : [];
 
             const sendData = {
-                staffRollNumber: staffRollNumber,
+                requestedByRollNumber: RollNumber,
+                creatorRollNumber: RollNumber,
+                staffRollNumber: staffRollNumber || fetchRollNumber,
                 staffEmploymentStatus: employmentStatus,
                 staffWorkingStatus: workingStatus,
                 staffExperience: staffExperience,
                 staffIncome: staffIncome,
                 sameSchool: studyingInSameSchool === "yes" ? "Y" : "N",
                 children: formattedChildren,
-
             };
 
             const res = await axios.post(postStaffStudentInformation, sendData, {
@@ -455,19 +585,20 @@ export default function AddStaffDetails() {
                 },
             });
 
-            setOpen(true);
-            setColor(true);
-            setStatus(true);
-            setMessage("Saved successfully.");
+            const failedMessage = responseErrorMessage(res);
+            if (failedMessage) {
+                showError(failedMessage);
+                return;
+            }
+
+            showSuccess("Staff profile completed successfully.");
+            setIsDisabledAcademic(true);
+            setOpenSection("");
             setTimeout(() => {
                 navigate(-1);
             }, 1000);
         } catch (error) {
-            setOpen(true);
-            setColor(false);
-            setStatus(false);
-            setMessage("Error while inserting data");
-            setFetchRollNumber("")
+            showError(apiErrorMessage(error, "Could not save the employment details. Please try again."));
         } finally {
             setIsLoading(false);
         }
@@ -497,43 +628,181 @@ export default function AddStaffDetails() {
         <Box sx={{ width: "100%" }}>
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
             {isLoading && <Loader />}
-            <Box sx={{ backgroundColor: "#f2f2f2", borderRadius: "10px 10px 10px 0px", px: 2 }}>
-                <Grid container sx={{ py: 1.5 }}>
-                    <Grid size={{ xs: 12, md: 6, lg: 9 }} sx={{ display: "flex", alignItems: "center" }}>
-
-                        <IconButton onClick={() => navigate(-1)} sx={{ width: "27px", height: "27px", marginTop: "3px", mr: 1 }}>
-                            <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
-                        </IconButton>
-                        <Typography sx={{ fontWeight: 600, fontSize: "20px" }}>Create Staff Details</Typography>
-                    </Grid>
-                    <Grid size={{ xs: 12, md: 6, lg: 3 }} sx={{ display: "flex", justifyContent: "end", alignItems: "center" }}>
-                        <Typography sx={{ color: "#7F7F7F", fontSize: "16px" }}>
-                            Academic Year: {academicYear || `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`}
-                        </Typography>
-                    </Grid>
-                </Grid>
+            <Box
+                sx={{
+                    px: { xs: 1.5, md: 3 },
+                    pt: { xs: 1.5, md: 2 },
+                    bgcolor: DASH.canvas,
+                    borderBottom: `1px solid ${DASH.line}`,
+                }}
+            >
+                <PageHeader
+                    title="Create Staff Details"
+                    subtitle="Add a new staff profile step by step"
+                    onBack={() => navigate(-1)}
+                    right={(
+                        <Box
+                            sx={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 0.8,
+                                height: 36,
+                                px: 1.5,
+                                borderRadius: RADIUS,
+                                bgcolor: "#fff",
+                                border: `1px solid ${DASH.line}`,
+                            }}
+                        >
+                            <CalendarMonthOutlinedIcon sx={{ fontSize: 16, color: DASH.faint }} />
+                            <Typography sx={{ fontSize: "11.5px", fontWeight: 600, color: DASH.muted }}>
+                                Academic Year
+                            </Typography>
+                            <Typography sx={{ fontSize: "12.5px", fontWeight: 700, color: DASH.ink }}>
+                                {academicYear || `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`}
+                            </Typography>
+                        </Box>
+                    )}
+                />
             </Box>
             <Box sx={{ maxHeight: "83vh", overflowY: "auto" }}>
-                {/* <Box sx={{ mt: 4 }}>
-                    <Stepper activeStep={activeStep} alternativeLabel>
-                        {steps.map((label, index) => (
-                            <Step key={index}>
-                                <StepLabel>{isMobile ? "" : label}</StepLabel>
-                            </Step>
-                        ))}
-                    </Stepper>
-                </Box> */}
+                <Box sx={{ px: 2, pt: 1.5 }}>
+                    <Box
+                        sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: { xs: 1, md: 2 },
+                            flexWrap: "wrap",
+                            px: 1.5,
+                            py: 0.75,
+                            bgcolor: "#fff",
+                            border: `1px solid ${DASH.line}`,
+                            borderRadius: RADIUS,
+                        }}
+                    >
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+                            {SECTIONS.map((item, index) => {
+                                const locked = Boolean(blockingSection(item.key));
+                                const saved = savedSections[item.key];
+                                const active = !saved && !locked;
+                                return (
+                                    <React.Fragment key={item.key}>
+                                        {index > 0 && (
+                                            <Box
+                                                sx={{
+                                                    width: { xs: 14, md: 28 },
+                                                    height: "2px",
+                                                    borderRadius: "2px",
+                                                    bgcolor: saved || active ? `${themeColor}66` : DASH.line,
+                                                }}
+                                            />
+                                        )}
+                                        <Box
+                                            onClick={() => handleSectionToggle(item.key)(null, true)}
+                                            sx={{
+                                                display: "inline-flex",
+                                                alignItems: "center",
+                                                gap: 0.75,
+                                                height: 28,
+                                                pl: 0.5,
+                                                pr: { xs: 0.75, sm: 1.25 },
+                                                borderRadius: "999px",
+                                                cursor: locked ? "not-allowed" : "pointer",
+                                                border: `1px solid ${saved ? "#CDE9D6" : active ? `${themeColor}59` : DASH.line}`,
+                                                bgcolor: saved ? DASH.greenLight : active ? `${themeColor}14` : DASH.lineSoft,
+                                                transition: "box-shadow 0.2s ease, background-color 0.2s ease",
+                                                "&:hover": { boxShadow: locked ? "none" : "0 1px 6px rgba(17,24,39,0.10)" },
+                                            }}
+                                        >
+                                            <Box
+                                                sx={{
+                                                    width: 20,
+                                                    height: 20,
+                                                    borderRadius: "50%",
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    justifyContent: "center",
+                                                    flexShrink: 0,
+                                                    bgcolor: saved ? DASH.green : active ? themeColor : "#fff",
+                                                    border: locked ? `1px solid ${DASH.line}` : "none",
+                                                    color: locked ? DASH.faint : "#fff",
+                                                }}
+                                            >
+                                                {saved
+                                                    ? <CheckRoundedIcon sx={{ fontSize: 13 }} />
+                                                    : locked
+                                                        ? <LockOutlinedIcon sx={{ fontSize: 11 }} />
+                                                        : <Typography sx={{ fontSize: "11px", fontWeight: 700, lineHeight: 1 }}>{index + 1}</Typography>}
+                                            </Box>
+                                            <Typography
+                                                sx={{
+                                                    fontSize: { xs: "11px", md: "12px" },
+                                                    fontWeight: saved || active ? 700 : 600,
+                                                    color: saved ? "#2E7D32" : active ? DASH.ink : DASH.faint,
+                                                    whiteSpace: "nowrap",
+                                                }}
+                                            >
+                                                {isMobile ? `Step ${index + 1}` : item.label}
+                                            </Typography>
+                                        </Box>
+                                    </React.Fragment>
+                                );
+                            })}
+                        </Box>
+
+                        <Box sx={{ flexGrow: 1 }} />
+
+                        {fetchRollNumber ? (
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 0.6 }}>
+                                <BadgeOutlinedIcon sx={{ fontSize: 15, color: DASH.green }} />
+                                <Typography sx={{ fontSize: "11.5px", color: DASH.muted, display: { xs: "none", md: "block" } }}>
+                                    Roll number&nbsp;
+                                    <Box component="span" sx={{ fontWeight: 700, color: DASH.ink }}>{fetchRollNumber}</Box>
+                                    &nbsp;- continue with employment details
+                                </Typography>
+                            </Box>
+                        ) : (
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 0.6 }}>
+                                <LockOutlinedIcon sx={{ fontSize: 14, color: DASH.faint }} />
+                                <Typography sx={{ fontSize: "11.5px", color: DASH.muted, display: { xs: "none", md: "block" } }}>
+                                    Save Staff Info to unlock employment &amp; family details
+                                </Typography>
+                            </Box>
+                        )}
+
+                        <Box
+                            sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 0.8,
+                                pl: { xs: 0, md: 1.5 },
+                                borderLeft: { xs: "none", md: `1px solid ${DASH.lineSoft}` },
+                            }}
+                        >
+                            <Box sx={{ width: 56, height: 4, borderRadius: "999px", bgcolor: DASH.lineSoft, overflow: "hidden" }}>
+                                <Box
+                                    sx={{
+                                        width: `${(savedCount / SECTIONS.length) * 100}%`,
+                                        height: "100%",
+                                        borderRadius: "999px",
+                                        bgcolor: themeColor,
+                                        transition: "width 0.3s ease",
+                                    }}
+                                />
+                            </Box>
+                            <Typography sx={{ fontSize: "11px", fontWeight: 700, color: DASH.muted, whiteSpace: "nowrap" }}>
+                                {savedCount}/{SECTIONS.length} saved
+                            </Typography>
+                        </Box>
+                    </Box>
+                </Box>
                 <Box sx={{ p: 2 }}>
                     <Box pt={1}>
-                        <Accordion sx={{ boxShadow: "none" }} defaultExpanded>
-                            <AccordionSummary
-                                expandIcon={<ExpandMoreIcon />}
-                                aria-controls="panel1-content"
-                                id="panel1-header"
-                                sx={{ backgroundColor: "#fff7f7", py: 0.5, position: "relative", }}
-                            >
-                                <Typography sx={{ fontWeight: "600" }} component="span">Staff Info</Typography>
-                            </AccordionSummary>
+                        <Accordion
+                            sx={{ boxShadow: "none" }}
+                            expanded={openSection === "staff"}
+                            onChange={handleSectionToggle("staff")}
+                        >
+                            {renderSectionSummary("staff", 1)}
                             <AccordionDetails>
                                 <Grid container columnSpacing={3} pb={1}>
                                     <Grid size={{ xs: 12, sm: 6, md: 3, lg: 2.4 }} sx={{ pt: 1 }} >
@@ -992,16 +1261,16 @@ export default function AddStaffDetails() {
                                     <Box sx={{ position: "absolute", bottom: "10px", right: "10px" }}>
                                         {!isDisabledStaffInfo &&
                                             <>
-                                                <Button onClick={handleAcademicClear} sx={{ textTransform: "none", color: "#000", py: 0.2, fontSize: "12px", px: 2.5, borderRadius: "20px" }}>
+                                                <Button onClick={handleAcademicClear} sx={{ textTransform: "none", color: "#6B7280", py: 0.4, fontSize: "12.5px", fontWeight: 600, px: 2.2, mr: 1, borderRadius: "20px", border: "1px solid #E5E7EB", "&:hover": { bgcolor: "#F3F4F6", borderColor: "#D1D5DB" } }}>
                                                     Clear
                                                 </Button>
-                                                <Button onClick={handleAcademicSubmit} sx={{ textTransform: "none", color: "#000", py: 0.2, px: 2.5, fontSize: "12px", borderRadius: "20px", backgroundColor: websiteSettings.mainColor }}>
+                                                <Button onClick={handleAcademicSubmit} disableElevation variant="contained" sx={{ textTransform: "none", color: "#fff", py: 0.4, px: 3, fontSize: "12.5px", fontWeight: 700, borderRadius: "20px", backgroundColor: themeColor, boxShadow: `0 6px 14px ${themeColor}33`, "&:hover": { backgroundColor: themeColor, filter: "brightness(0.92)", boxShadow: `0 8px 18px ${themeColor}45` } }}>
                                                     Save
                                                 </Button>
                                             </>
                                         }
                                         {isDisabledStaffInfo &&
-                                            <Box sx={{ fontSize: "13px", color: "green", fontWeight: "600", display: "flex", justifyContent: "center", alignItems: "center" }}><CheckCircleIcon style={{ fontSize: "20px" }} />&nbsp; Saved</Box>
+                                            <Box sx={{ fontSize: "12.5px", color: "#2E7D32", fontWeight: 700, display: "flex", alignItems: "center", gap: 0.5, bgcolor: "#E8F5E9", borderRadius: "20px", px: 1.6, py: 0.5 }}><CheckCircleIcon style={{ fontSize: "17px" }} /> Saved</Box>
                                         }
                                     </Box>
 
@@ -1010,15 +1279,12 @@ export default function AddStaffDetails() {
                         </Accordion>
 
                         <Box sx={{ mt: 2 }}>
-                            <Accordion sx={{ boxShadow: "none" }}>
-                                <AccordionSummary
-                                    expandIcon={<ExpandMoreIcon />}
-                                    aria-controls="panel1-content"
-                                    id="panel2-header"
-                                    sx={{ backgroundColor: "#fff7f7", py: 0.5, position: "relative" }}
-                                >
-                                    <Typography sx={{ fontWeight: "600" }} component="span">Staff Info</Typography>
-                                </AccordionSummary>
+                            <Accordion
+                                sx={{ boxShadow: "none" }}
+                                expanded={openSection === "employment"}
+                                onChange={handleSectionToggle("employment")}
+                            >
+                                {renderSectionSummary("employment", 2)}
                                 <AccordionDetails>
                                     <Grid container pb={2} columnSpacing={3}>
 
@@ -1307,16 +1573,16 @@ export default function AddStaffDetails() {
                                     <Box sx={{ position: "absolute", bottom: "10px", right: "10px", }}>
                                         {!isDisabledAcademic &&
                                             <>
-                                                <Button onClick={handleStaffClear} sx={{ textTransform: "none", color: "#000", py: 0.2, fontSize: "12px", px: 2.5, borderRadius: "20px" }}>
+                                                <Button onClick={handleStaffClear} sx={{ textTransform: "none", color: "#6B7280", py: 0.4, fontSize: "12.5px", fontWeight: 600, px: 2.2, mr: 1, borderRadius: "20px", border: "1px solid #E5E7EB", "&:hover": { bgcolor: "#F3F4F6", borderColor: "#D1D5DB" } }}>
                                                     Clear
                                                 </Button>
-                                                <Button onClick={handleStaffSubmit} sx={{ textTransform: "none", color: "#000", py: 0.2, px: 2.5, fontSize: "12px", borderRadius: "20px", backgroundColor: websiteSettings.mainColor }}>
+                                                <Button onClick={handleStaffSubmit} disableElevation variant="contained" sx={{ textTransform: "none", color: "#fff", py: 0.4, px: 3, fontSize: "12.5px", fontWeight: 700, borderRadius: "20px", backgroundColor: themeColor, boxShadow: `0 6px 14px ${themeColor}33`, "&:hover": { backgroundColor: themeColor, filter: "brightness(0.92)", boxShadow: `0 8px 18px ${themeColor}45` } }}>
                                                     Save
                                                 </Button>
                                             </>
                                         }
                                         {isDisabledAcademic &&
-                                            <Box sx={{ fontSize: "13px", color: "green", fontWeight: "600", display: "flex", justifyContent: "center", alignItems: "center" }}><CheckCircleIcon style={{ fontSize: "20px" }} />&nbsp; Saved</Box>
+                                            <Box sx={{ fontSize: "12.5px", color: "#2E7D32", fontWeight: 700, display: "flex", alignItems: "center", gap: 0.5, bgcolor: "#E8F5E9", borderRadius: "20px", px: 1.6, py: 0.5 }}><CheckCircleIcon style={{ fontSize: "17px" }} /> Saved</Box>
                                         }
                                     </Box>
                                 </AccordionDetails>

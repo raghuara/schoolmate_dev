@@ -1,7 +1,7 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import {
     Box, Grid, Typography, Button, Chip, Divider, Table, TableBody, TableCell,
-    TableContainer, TableHead, TableRow, Avatar, Switch, FormControlLabel, Tooltip,
+    TableContainer, TableHead, TableRow, Avatar, Tooltip,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
@@ -27,6 +27,7 @@ import DirectionsBusFilledOutlinedIcon from "@mui/icons-material/DirectionsBusFi
 import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
 import AutoStoriesOutlinedIcon from "@mui/icons-material/AutoStoriesOutlined";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
+import RefreshIcon from "@mui/icons-material/Refresh";
 
 import { findSubMenuPermissions, hasMainMenuAccess } from "../Redux/Slices/AuthSlice";
 import CommonDashboard from "../Components/DashBoardComps/CommonDashboard";
@@ -35,13 +36,56 @@ import {
     DASH, RADIUS, KPI_TONES, SOFT, Panel, SolidStatCard, AlertCard, MeterRow, ChartTooltip, EmptyNote,
 } from "../Components/DashBoardComps/dashboardTheme";
 import {
-    MOCK_ALERTS, MOCK_KPIS, MOCK_ATTENDANCE_TREND, MOCK_GRADE_ATTENDANCE,
-    MOCK_UNMARKED_CLASSES, MOCK_TOTAL_CLASSES, MOCK_STAFF_ON_LEAVE, MOCK_UPCOMING_EXAMS, MOCK_MARKS_ENTRY,
-    MOCK_ACADEMIC_SUMMARY, MOCK_FEE_TREND, MOCK_FEE_SPLIT, MOCK_GRADE_COLLECTION,
+    MOCK_FEE_TREND, MOCK_FEE_SPLIT, MOCK_GRADE_COLLECTION,
     MOCK_TRANSACTIONS, MOCK_PAYROLL, MOCK_LEAVE_REQUESTS, MOCK_TRANSPORT,
     MOCK_DOC_EXPIRY, MOCK_APPROVAL_QUEUE, MOCK_MY_WORK, MOCK_EVENTS, MOCK_BIRTHDAYS,
     MOCK_NEWS,
 } from "../Components/DashBoardComps/dashboardMockData";
+import { useMasterDashboard } from "../Components/DashBoardComps/dashboardApi";
+
+// masterDashboard/overview serves three sections only - headline, attendance and
+// academics. Finance, Staff, Transport, Operations and Communication have no
+// endpoint in the collection yet, so those bands still read the placeholder
+// data and are marked "Sample" on screen.
+// masterDashboard covers the headline, attendance and academics sections only.
+// The bands below have no endpoint in that collection yet, so their figures are
+// placeholders and each one says so rather than reading as live data.
+const SAMPLE_TAG = (
+    <Chip
+        label="Sample"
+        size="small"
+        sx={{ height: 20, fontSize: "10px", fontWeight: 700, bgcolor: DASH.amberLight, color: DASH.amber }}
+    />
+);
+
+const EMPTY_KPIS = {
+    students: 0, studentsTrend: "", studentsSpark: [],
+    staff: 0, staffSplit: "", staffSpark: [],
+    studentAttendance: 0, studentAttendanceTrend: "", studentAttendanceSpark: [],
+    staffAttendance: 0, staffAttendanceNote: "", staffAttendanceSpark: [],
+    feeCollected: "", feeOutstanding: "", feeSpark: [],
+    pendingApprovals: 0, approvalsNote: "", approvalsSpark: [],
+};
+
+const SEVERITY_ICON = {
+    critical: ErrorOutlineRoundedIcon,
+    warning: WarningAmberRoundedIcon,
+    info: InfoOutlinedIcon,
+};
+
+// A span, not a Chip - it sits inside the SectionTitle Typography.
+const SampleChip = () => (
+    <Box
+        component="span"
+        sx={{
+            display: "inline-block", ml: 1, px: 0.7, borderRadius: "20px",
+            bgcolor: DASH.lineSoft, color: DASH.faint,
+            fontSize: "9px", fontWeight: 800, lineHeight: "15px", verticalAlign: "middle",
+        }}
+    >
+        Sample
+    </Box>
+);
 
 // Permission keys. "communication", "transport" and "accesscontrol" are confirmed
 // against the login response; the rest are the expected names and may need
@@ -102,18 +146,14 @@ export default function DashBoardPage() {
     const canViewComm = (sub) =>
         (findSubMenuPermissions(permissions, "communication", sub) || {}).view === "Y";
 
-    // The "dashboard > overview" key does not exist yet. Until it does, treat a
-    // missing key as full access so nobody loses the dashboard.
-    const dashPerms = findSubMenuPermissions(permissions, "dashboard", "overview");
-    const isFullDashboard = !dashPerms || dashPerms.view === "Y";
-
-    // Which dashboard a role lands on comes from Access Control:
-    // dashboard > overview > allowmasterdashboard / allowcommondashboard.
-    // Older records with neither key fall back to `view`.
-    const dashChoiceSaved = dashPerms && (dashPerms.allowmasterdashboard != null || dashPerms.allowcommondashboard != null);
-    const canSeeMaster = dashChoiceSaved ? dashPerms.allowmasterdashboard === "Y" : (!dashPerms || dashPerms.view === "Y");
-    const [masterPreview, setMasterPreview] = useState(true);
-    const showMasterDashboard = canSeeMaster && masterPreview;
+    // Which dashboard this role lands on after login is set in Access Control
+    // (Roles & Permissions > Dashboard View) and arrives on the login response
+    // as newdashboard > newdashboard, where exactly one flag is "Y".
+    // Until the backend publishes that key the master view stays the default,
+    // so no role loses the dashboard it has today.
+    const dashPerms = findSubMenuPermissions(permissions, "newdashboard", "newdashboard");
+    const landsOnCommon = dashPerms?.defaultdashboardcommon === "Y";
+    const showMasterDashboard = !landsOnCommon;
 
     const showAcademics = canViewComm("homework") || canViewComm("marks") || canViewComm("examtimetable") || canViewComm("attendance");
     const showFinance = hasModule(MODULE_KEYS.fee);
@@ -121,17 +161,45 @@ export default function DashBoardPage() {
     const showTransport = hasModule(MODULE_KEYS.transport);
     const showOperations = hasModule(MODULE_KEYS.approvals);
 
+    // The three master sections load in parallel; each one keeps its own error so
+    // a single failing endpoint only blanks its own band.
+    const { data: master, errors: masterErrors, loading: masterLoading, reload: reloadMaster } = useMasterDashboard({
+        rollNumber: auth.rollNumber,
+        academicYear,
+        workingDays: 6,
+    });
+
+    const kpis = master?.headline?.kpis || EMPTY_KPIS;
+    const alerts = master?.headline?.alerts || [];
+    const attendanceTrend = master?.attendance?.trend || [];
+    const gradeAttendance = master?.attendance?.gradeWise || [];
+    const unmarkedClasses = master?.attendance?.unmarkedClasses || [];
+    const staffOnLeave = master?.attendance?.staffOnLeave || [];
+    const totalClasses = master?.attendance?.totalClasses || 0;
+    const markedClasses = master?.attendance?.markedClasses || 0;
+    const academicSummary = master?.academics?.summary || {
+        homeworkToday: 0, homeworkThisWeek: 0, materialsThisWeek: 0, quizzesActive: 0, quizAverage: 0,
+    };
+    const upcomingExams = master?.academics?.upcomingExams || [];
+
+    const SECTION_LABELS = { headline: "headline", attendance: "attendance", academics: "academics" };
+    const failedSections = Object.keys(masterErrors || {})
+        .filter((k) => masterErrors[k])
+        .map((k) => SECTION_LABELS[k] || k);
+    const marksEntry = master?.academics?.marksEntry || [];
+
     // Today's marking as two slices, shaped like MOCK_FEE_SPLIT so the card can
     // reuse the Fee Split treatment. Percent is carried per slice for the legend.
     const attendanceSplit = useMemo(() => {
-        const pending = MOCK_UNMARKED_CLASSES.length;
-        const done = MOCK_TOTAL_CLASSES - pending;
-        const pct = (n) => Math.round((n / MOCK_TOTAL_CLASSES) * 100);
+        if (!totalClasses) return [];
+        const done = markedClasses;
+        const pending = Math.max(0, totalClasses - done);
+        const pct = (n) => Math.round((n / totalClasses) * 100);
         return [
             { name: "Marked", value: done, percent: pct(done), color: DASH.green },
             { name: "Pending", value: pending, percent: pct(pending), color: DASH.red },
         ];
-    }, []);
+    }, [totalClasses, markedClasses]);
 
     const feeCollectedAvg = useMemo(() => {
         if (!MOCK_FEE_TREND.length) return 0;
@@ -177,43 +245,6 @@ export default function DashBoardPage() {
                 </Typography>
             </Box>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
-                <Tooltip arrow title="Preview only - the live app will pick the view from Access Control">
-                    <Box
-                        sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 0.8,
-                            pl: 1.4,
-                            pr: 1,
-                            height: 34,
-                            borderRadius: RADIUS,
-                            bgcolor: "#fff",
-                            border: `1px solid ${DASH.line}`,
-                        }}
-                    >
-                        <FormControlLabel
-                            sx={{ m: 0, gap: 0.6 }}
-                            control={(
-                                <Switch
-                                    size="small"
-                                    checked={masterPreview}
-                                    onChange={(e) => setMasterPreview(e.target.checked)}
-                                />
-                            )}
-                            label={(
-                                <Typography sx={{ fontSize: "12px", fontWeight: 700, color: DASH.text, whiteSpace: "nowrap" }}>
-                                    {masterPreview ? "Master dashboard" : "Common dashboard"}
-                                </Typography>
-                            )}
-                        />
-                        <Chip
-                            label="Preview"
-                            size="small"
-                            sx={{ height: 18, fontSize: "9.5px", fontWeight: 800, bgcolor: DASH.primaryLight, color: DASH.primary }}
-                        />
-                    </Box>
-                </Tooltip>
-
             {quickActions.length > 0 && (
                 <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
                     {quickActions.slice(0, 4).map((a) => (
@@ -243,7 +274,7 @@ export default function DashBoardPage() {
     );
 
     // ---------------------------------------------------------------- Tier 1
-    if (!showMasterDashboard || !isFullDashboard) {
+    if (!showMasterDashboard) {
         return <CommonDashboard header={header} />;
     }
 
@@ -252,29 +283,50 @@ export default function DashBoardPage() {
         <Box sx={{ px: { xs: 1.5, md: 3 }, pt: { xs: 1.5, md: 2 }, pb: 4, bgcolor: DASH.canvas }}>
             {header}
 
+            {/* Live-data strip: refresh plus whichever sections failed to load */}
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap", mb: 1.5 }}>
+                <Button
+                    onClick={reloadMaster}
+                    disabled={masterLoading}
+                    startIcon={<RefreshIcon sx={{ fontSize: 15 }} />}
+                    sx={{
+                        textTransform: "none", fontSize: "12px", fontWeight: 600, color: DASH.text,
+                        bgcolor: "#fff", border: `1px solid ${DASH.line}`, borderRadius: RADIUS, px: 1.4, py: 0.3,
+                        "&:hover": { bgcolor: DASH.primaryLight, borderColor: DASH.primaryBorder },
+                    }}
+                >
+                    {masterLoading ? "Refreshing..." : "Refresh"}
+                </Button>
+                {failedSections.length > 0 && (
+                    <Typography sx={{ fontSize: "11.5px", color: DASH.red }}>
+                        Could not load: {failedSections.join(", ")}
+                    </Typography>
+                )}
+            </Box>
+
             {/* Band 1 - KPI strip: 3 across on desktop, 2 on tablet, 1 on mobile */}
             <Grid container spacing={2} sx={{ alignItems: "stretch", mb: 2 }}>
                 <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
                     <SolidStatCard icon={GroupsOutlinedIcon} label="Students"
-                        value={MOCK_KPIS.students.toLocaleString("en-IN")}
-                        note={`+${MOCK_KPIS.studentsTrend}`} tone={KPI_TONES.orange}
+                        value={kpis.students.toLocaleString("en-IN")}
+                        note={kpis.studentsTrend} tone={KPI_TONES.orange}
                         onClick={() => navigate("/dashboardmenu/profile/student")} />
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
-                    <SolidStatCard icon={BadgeOutlinedIcon} label="Staff" value={MOCK_KPIS.staff}
-                        note={MOCK_KPIS.staffSplit} tone={KPI_TONES.violet}
+                    <SolidStatCard icon={BadgeOutlinedIcon} label="Staff" value={kpis.staff}
+                        note={kpis.staffSplit} tone={KPI_TONES.violet}
                         onClick={() => navigate("/dashboardmenu/profile/staff")} />
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
                     <SolidStatCard icon={HowToRegOutlinedIcon} label="Student Attendance"
-                        value={`${MOCK_KPIS.studentAttendance}%`}
-                        note={`+${MOCK_KPIS.studentAttendanceTrend}`} tone={KPI_TONES.pink}
+                        value={`${kpis.studentAttendance}%`}
+                        note={kpis.studentAttendanceTrend} tone={KPI_TONES.pink}
                         onClick={() => navigate("/dashboardmenu/attendance")} />
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
                     <SolidStatCard icon={EventAvailableOutlinedIcon} label="Staff Attendance"
-                        value={`${MOCK_KPIS.staffAttendance}%`}
-                        note={MOCK_KPIS.staffAttendanceNote} tone={KPI_TONES.cyan} />
+                        value={`${kpis.staffAttendance}%`}
+                        note={kpis.staffAttendanceNote} tone={KPI_TONES.cyan} />
                 </Grid>
             </Grid>
 
@@ -342,7 +394,7 @@ export default function DashBoardPage() {
                                     color: DASH.amber,
                                 }}
                             >
-                                5 items
+                                {alerts.length} item{alerts.length === 1 ? "" : "s"}
                             </Typography>
                         </Box>
                     </Box>
@@ -373,49 +425,28 @@ export default function DashBoardPage() {
                 <Box
                     sx={{
                         display: "grid",
-
-                        gridTemplateColumns:
-                            "repeat(5, minmax(0, 1fr))",
-
+                        gridTemplateColumns: {
+                            xs: "1fr",
+                            sm: "repeat(2, minmax(0, 1fr))",
+                            lg: `repeat(${Math.min(5, Math.max(1, alerts.length))}, minmax(0, 1fr))`,
+                        },
                         gap: 1.2,
-
                         p: 1.2,
                     }}
                 >
-                    <AlertCard
-                        icon={ErrorOutlineRoundedIcon}
-                        count={6}
-                        label="Classes without attendance today"
-                        severity="critical"
-                    />
-
-                    <AlertCard
-                        icon={WarningAmberRoundedIcon}
-                        count={4}
-                        label="Approvals waiting over 3 days"
-                        severity="warning"
-                    />
-
-                    <AlertCard
-                        icon={ErrorOutlineRoundedIcon}
-                        count={23}
-                        label="Fee defaulters past 60 days"
-                        severity="critical"
-                    />
-
-                    <AlertCard
-                        icon={WarningAmberRoundedIcon}
-                        count={3}
-                        label="Vehicle documents expiring in 30 days"
-                        severity="warning"
-                    />
-
-                    <AlertCard
-                        icon={InfoOutlinedIcon}
-                        count={11}
-                        label="Students without a transport route"
-                        severity="info"
-                    />
+                    {alerts.length === 0 && (
+                        <EmptyNote text={masterErrors.headline || "Nothing needs attention right now."} />
+                    )}
+                    {alerts.map((a) => (
+                        <AlertCard
+                            key={a.key}
+                            icon={SEVERITY_ICON[a.severity] || InfoOutlinedIcon}
+                            count={a.count}
+                            label={a.label}
+                            severity={a.severity}
+                            onClick={a.path ? () => navigate(a.path) : undefined}
+                        />
+                    ))}
                 </Box>
             </Box>
 
@@ -424,9 +455,12 @@ export default function DashBoardPage() {
             <Grid container spacing={2} sx={{ alignItems: "stretch", mb: 2 }}>
                 <Grid size={{ xs: 12, sm: 12, md: 12, lg: 6 }}>
                     <Panel title="Attendance Trend" subtitle="Last 6 working days" accent={DASH.green} sx={{ height: "100%" }}>
+                        {attendanceTrend.length === 0 ? (
+                            <EmptyNote text={masterErrors.attendance || (masterLoading ? "Loading..." : "No attendance recorded yet.")} />
+                        ) : (
                         <Box sx={{ height: 230 }}>
                             <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={MOCK_ATTENDANCE_TREND}>
+                                <AreaChart data={attendanceTrend}>
                                     <defs>
                                         <linearGradient id="dashStudentFill" x1="0" y1="0" x2="0" y2="1">
                                             <stop offset="0%" stopColor={DASH.green} stopOpacity={0.32} />
@@ -454,12 +488,16 @@ export default function DashBoardPage() {
                                 </AreaChart>
                             </ResponsiveContainer>
                         </Box>
+                        )}
                     </Panel>
                 </Grid>
 
                 <Grid size={{ xs: 12, sm: 6, md: 6, lg: 3 }}>
                     <Panel title="Grade-wise Today" accent={DASH.green} sx={{ height: "100%" }}>
-                        {MOCK_GRADE_ATTENDANCE.map((g) => (
+                        {gradeAttendance.length === 0 && (
+                            <EmptyNote text={masterErrors.attendance || (masterLoading ? "Loading..." : "No class marked yet today.")} />
+                        )}
+                        {gradeAttendance.map((g) => (
                             <MeterRow key={g.grade} label={g.grade} value={g.present}
                                 color={g.present >= 95 ? DASH.green : g.present >= 90 ? DASH.primary : DASH.red} />
                         ))}
@@ -470,9 +508,13 @@ export default function DashBoardPage() {
                     <Panel
                         title="Attendance Marked"
                         accent={DASH.green}
-                        subtitle={`${MOCK_TOTAL_CLASSES - MOCK_UNMARKED_CLASSES.length} of ${MOCK_TOTAL_CLASSES} classes done`}
+                        subtitle={totalClasses ? `${markedClasses} of ${totalClasses} classes done` : ""}
                         sx={{ height: "100%" }}
                     >
+                        {attendanceSplit.length === 0 ? (
+                            <EmptyNote text={masterErrors.attendance || (masterLoading ? "Loading..." : "No class list for today.")} />
+                        ) : (
+                        <>
                         <Box sx={{ height: 150 }}>
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
@@ -498,13 +540,15 @@ export default function DashBoardPage() {
                         </Box>
 
                         {/* Still actionable - the classes behind the red slice */}
-                        {MOCK_UNMARKED_CLASSES.length > 0 && (
+                        {unmarkedClasses.length > 0 && (
                             <Typography
                                 onClick={() => navigate("/dashboardmenu/attendance")}
                                 sx={{ fontSize: "11px", fontWeight: 700, color: DASH.primary, cursor: "pointer", pt: 0.9 }}
                             >
-                                View {MOCK_UNMARKED_CLASSES.length} pending
+                                View {unmarkedClasses.length} pending
                             </Typography>
+                        )}
+                        </>
                         )}
                     </Panel>
                 </Grid>
@@ -518,11 +562,11 @@ export default function DashBoardPage() {
                         <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
                             <Panel title="At a Glance" accent={DASH.violet} sx={{ height: "100%" }}>
                                 {[
-                                    ["Homework assigned today", MOCK_ACADEMIC_SUMMARY.homeworkToday],
-                                    ["Homework this week", MOCK_ACADEMIC_SUMMARY.homeworkThisWeek],
-                                    ["Materials this week", MOCK_ACADEMIC_SUMMARY.materialsThisWeek],
-                                    ["Quizzes active", MOCK_ACADEMIC_SUMMARY.quizzesActive],
-                                    ["Quiz average", `${MOCK_ACADEMIC_SUMMARY.quizAverage}%`],
+                                    ["Homework assigned today", academicSummary.homeworkToday],
+                                    ["Homework this week", academicSummary.homeworkThisWeek],
+                                    ["Materials this week", academicSummary.materialsThisWeek],
+                                    ["Quizzes active", academicSummary.quizzesActive],
+                                    ["Quiz average", `${academicSummary.quizAverage}%`],
                                 ].map(([k, v]) => (
                                     <Box key={k} sx={{ display: "flex", justifyContent: "space-between", gap: 1, py: 0.8, borderBottom: `1px solid ${DASH.lineSoft}`, "&:last-of-type": { borderBottom: "none" } }}>
                                         <Typography sx={{ fontSize: "12.5px", color: DASH.muted }}>{k}</Typography>
@@ -534,8 +578,8 @@ export default function DashBoardPage() {
 
                         <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
                             <Panel title="Upcoming Exams" subtitle="Next 7 days" accent={DASH.violet} sx={{ height: "100%" }}>
-                                {MOCK_UPCOMING_EXAMS.length === 0 && <EmptyNote text="No exams scheduled." />}
-                                {MOCK_UPCOMING_EXAMS.map((e) => (
+                                {upcomingExams.length === 0 && <EmptyNote text="No exams scheduled." />}
+                                {upcomingExams.map((e) => (
                                     <Box key={e.id} sx={{ display: "flex", alignItems: "center", gap: 1.2, py: 1, borderBottom: `1px solid ${DASH.lineSoft}`, "&:last-of-type": { borderBottom: "none" } }}>
                                         <AutoStoriesOutlinedIcon sx={{ fontSize: 17, color: DASH.violet, flexShrink: 0 }} />
                                         <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -550,7 +594,10 @@ export default function DashBoardPage() {
 
                         <Grid size={{ xs: 12, sm: 12, md: 4, lg: 5 }}>
                             <Panel title="Marks Entry Status" subtitle="Subjects entered vs total" accent={DASH.violet} sx={{ height: "100%" }}>
-                                {MOCK_MARKS_ENTRY.map((m) => (
+                                {marksEntry.length === 0 && (
+                                    <EmptyNote text={masterErrors.academics || (masterLoading ? "Loading..." : "No marks entry in progress.")} />
+                                )}
+                                {marksEntry.map((m) => (
                                     <MeterRow
                                         key={m.exam}
                                         label={m.exam}
@@ -569,10 +616,10 @@ export default function DashBoardPage() {
             {/* Band 4 - Fee & Finance */}
             {showFinance && (
                 <>
-                    <SectionTitle icon={PaymentsOutlinedIcon}>Fee &amp; Finance</SectionTitle>
+                    <SectionTitle icon={PaymentsOutlinedIcon}>Fee &amp; Finance <SampleChip /></SectionTitle>
                     <Grid container spacing={2} sx={{ alignItems: "stretch", mb: 2 }}>
                         <Grid size={{ xs: 12, sm: 12, md: 7, lg: 5 }}>
-                            <Panel title="Monthly Collection" subtitle="In lakhs - last 6 months" accent={DASH.amber} sx={{ height: "100%" }}>
+                            <Panel title="Monthly Collection" subtitle="In lakhs - last 6 months" accent={DASH.amber} right={SAMPLE_TAG} sx={{ height: "100%" }}>
                                 <Box sx={{ height: 230 }}>
                                     <ResponsiveContainer width="100%" height="100%">
                                         <BarChart data={MOCK_FEE_TREND} barGap={4}>
@@ -599,7 +646,7 @@ export default function DashBoardPage() {
                         </Grid>
 
                         <Grid size={{ xs: 12, sm: 6, md: 5, lg: 3 }}>
-                            <Panel title="Fee Split" accent={DASH.amber} sx={{ height: "100%" }}>
+                            <Panel title="Fee Split" accent={DASH.amber} right={SAMPLE_TAG} sx={{ height: "100%" }}>
                                 <Box sx={{ height: 150 }}>
                                     <ResponsiveContainer width="100%" height="100%">
                                         <PieChart>
@@ -625,7 +672,7 @@ export default function DashBoardPage() {
                         </Grid>
 
                         <Grid size={{ xs: 12, sm: 6, md: 12, lg: 4 }}>
-                            <Panel title="Grade-wise Collection" accent={DASH.amber} sx={{ height: "100%" }}>
+                            <Panel title="Grade-wise Collection" accent={DASH.amber} right={SAMPLE_TAG} sx={{ height: "100%" }}>
                                 {MOCK_GRADE_COLLECTION.map((g) => (
                                     <MeterRow key={g.grade} label={g.grade} value={g.collected}
                                         color={g.collected >= 85 ? DASH.green : g.collected >= 70 ? DASH.primary : DASH.red} />
@@ -637,6 +684,8 @@ export default function DashBoardPage() {
                             <Panel
                                 title="Recent Transactions"
                                 right={
+                                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                        {SAMPLE_TAG}
                                     <Button
                                         onClick={() => navigate("/dashboardmenu/fee")}
                                         endIcon={<ArrowForwardIcon sx={{ fontSize: 15 }} />}
@@ -644,6 +693,7 @@ export default function DashBoardPage() {
                                     >
                                         View All
                                     </Button>
+                                    </Box>
                                 }
                             >
                                 <TableContainer>
@@ -682,10 +732,10 @@ export default function DashBoardPage() {
             {/* Band 5 - Staff & Payroll */}
             {showPayroll && (
                 <>
-                    <SectionTitle icon={BadgeOutlinedIcon}>Staff &amp; Payroll</SectionTitle>
+                    <SectionTitle icon={BadgeOutlinedIcon}>Staff &amp; Payroll <SampleChip /></SectionTitle>
                     <Grid container spacing={2} sx={{ alignItems: "stretch", mb: 2 }}>
                         <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
-                            <Panel title="Payroll Status" subtitle={MOCK_PAYROLL.month} accent={DASH.cyan} sx={{ height: "100%" }}>
+                            <Panel title="Payroll Status" subtitle={MOCK_PAYROLL.month} accent={DASH.cyan} right={SAMPLE_TAG} sx={{ height: "100%" }}>
                                 <MeterRow label="Processed" value={MOCK_PAYROLL.processed} max={MOCK_PAYROLL.total} right={`${MOCK_PAYROLL.processed}/${MOCK_PAYROLL.total}`} color={DASH.green} />
                                 <MeterRow label="Pending" value={MOCK_PAYROLL.pending} max={MOCK_PAYROLL.total} right={`${MOCK_PAYROLL.pending}/${MOCK_PAYROLL.total}`} color={DASH.amber} />
                                 <MeterRow label="Credited" value={MOCK_PAYROLL.credited} max={MOCK_PAYROLL.total} right={`${MOCK_PAYROLL.credited}/${MOCK_PAYROLL.total}`} color={DASH.blue} />
@@ -700,7 +750,7 @@ export default function DashBoardPage() {
                         </Grid>
 
                         <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
-                            <Panel title="Pending Leave Requests" accent={DASH.cyan} sx={{ height: "100%" }}>
+                            <Panel title="Pending Leave Requests" accent={DASH.cyan} right={SAMPLE_TAG} sx={{ height: "100%" }}>
                                 {MOCK_LEAVE_REQUESTS.length === 0 && <EmptyNote text="No pending requests." />}
                                 {MOCK_LEAVE_REQUESTS.map((l) => (
                                     <Box key={l.id} sx={{ display: "flex", alignItems: "center", gap: 1.2, py: 0.9, borderBottom: `1px solid ${DASH.lineSoft}`, "&:last-of-type": { borderBottom: "none" } }}>
@@ -716,8 +766,8 @@ export default function DashBoardPage() {
 
                         <Grid size={{ xs: 12, sm: 12, md: 4, lg: 4 }}>
                             <Panel title="On Leave Today" accent={DASH.cyan} sx={{ height: "100%" }}>
-                                {MOCK_STAFF_ON_LEAVE.length === 0 && <EmptyNote text="Full attendance today." />}
-                                {MOCK_STAFF_ON_LEAVE.map((s) => (
+                                {staffOnLeave.length === 0 && <EmptyNote text="Full attendance today." />}
+                                {staffOnLeave.map((s) => (
                                     <Box key={s.id} sx={{ display: "flex", alignItems: "center", gap: 1.2, py: 0.9 }}>
                                         <Avatar sx={{ width: 30, height: 30, fontSize: "11px", fontWeight: 700, bgcolor: DASH.violetLight, color: DASH.violet }}>
                                             {s.name.split(" ").map((p) => p[0]).slice(0, 2).join("")}
@@ -738,10 +788,10 @@ export default function DashBoardPage() {
             {/* Band 6 - Transport */}
             {showTransport && (
                 <>
-                    <SectionTitle icon={DirectionsBusFilledOutlinedIcon}>Transport</SectionTitle>
+                    <SectionTitle icon={DirectionsBusFilledOutlinedIcon}>Transport <SampleChip /></SectionTitle>
                     <Grid container spacing={2} sx={{ alignItems: "stretch", mb: 2 }}>
                         <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
-                            <Panel title="Fleet Today" accent={DASH.blue} sx={{ height: "100%" }}>
+                            <Panel title="Fleet Today" accent={DASH.blue} right={SAMPLE_TAG} sx={{ height: "100%" }}>
                                 <MeterRow label="Vehicles" value={MOCK_TRANSPORT.vehiclesRunning} max={MOCK_TRANSPORT.vehiclesTotal}
                                     right={`${MOCK_TRANSPORT.vehiclesRunning}/${MOCK_TRANSPORT.vehiclesTotal}`} color={DASH.green} />
                                 <MeterRow label="Students" value={MOCK_TRANSPORT.studentsMapped} max={MOCK_TRANSPORT.studentsTotal}
@@ -756,7 +806,7 @@ export default function DashBoardPage() {
                         </Grid>
 
                         <Grid size={{ xs: 12, sm: 6, md: 8, lg: 8 }}>
-                            <Panel title="Documents Expiring" subtitle="Next 30 days" accent={DASH.red} sx={{ height: "100%" }}>
+                            <Panel title="Documents Expiring" subtitle="Next 30 days" accent={DASH.red} right={SAMPLE_TAG} sx={{ height: "100%" }}>
                                 {MOCK_DOC_EXPIRY.length === 0 && <EmptyNote text="No documents expiring soon." />}
                                 {MOCK_DOC_EXPIRY.map((d) => (
                                     <Box
@@ -787,11 +837,11 @@ export default function DashBoardPage() {
             )}
 
             {/* Band 7 + 8 - Operations and Communication */}
-            <SectionTitle icon={FactCheckOutlinedIcon}>Operations &amp; Communication</SectionTitle>
+            <SectionTitle icon={FactCheckOutlinedIcon}>Operations &amp; Communication <SampleChip /></SectionTitle>
             <Grid container spacing={2} sx={{ alignItems: "stretch" }}>
                 {showOperations && (
                     <Grid size={{ xs: 12, sm: 6, md: 6, lg: 3 }}>
-                        <Panel title="Approval Queue" accent={DASH.primary} sx={{ height: "100%" }}>
+                        <Panel title="Approval Queue" accent={DASH.primary} right={SAMPLE_TAG} sx={{ height: "100%" }}>
                             {MOCK_APPROVAL_QUEUE.map((a) => (
                                 <Box
                                     key={a.type}
@@ -812,7 +862,7 @@ export default function DashBoardPage() {
                 )}
 
                 <Grid size={{ xs: 12, sm: 6, md: 6, lg: 3 }}>
-                    <Panel title="My Work" accent={DASH.primary} sx={{ height: "100%" }}>
+                    <Panel title="My Work" accent={DASH.primary} right={SAMPLE_TAG} sx={{ height: "100%" }}>
                         {[
                             // Drafts row is off with the draft routes - it would navigate nowhere.
                             // ["Drafts", MOCK_MY_WORK.drafts, "/dashboardmenu/draft"],
@@ -836,7 +886,7 @@ export default function DashBoardPage() {
                 </Grid>
 
                 <Grid size={{ xs: 12, sm: 6, md: 6, lg: 3 }}>
-                    <Panel title="News & Circulars" accent={DASH.blue} sx={{ height: "100%" }}>
+                    <Panel title="News & Circulars" accent={DASH.blue} right={SAMPLE_TAG} sx={{ height: "100%" }}>
                         {MOCK_NEWS.map((n) => (
                             <Box key={n.id} sx={{ display: "flex", alignItems: "flex-start", gap: 1.1, py: 0.9, borderBottom: `1px solid ${DASH.lineSoft}`, "&:last-of-type": { borderBottom: "none" } }}>
                                 <CampaignOutlinedIcon sx={{ fontSize: 16, color: DASH.primary, flexShrink: 0, mt: 0.2 }} />
@@ -850,7 +900,7 @@ export default function DashBoardPage() {
                 </Grid>
 
                 <Grid size={{ xs: 12, sm: 6, md: 6, lg: 3 }}>
-                    <Panel title="Events & Birthdays" accent={DASH.pink} sx={{ height: "100%" }}>
+                    <Panel title="Events & Birthdays" accent={DASH.pink} right={SAMPLE_TAG} sx={{ height: "100%" }}>
                         {MOCK_EVENTS.slice(0, 2).map((e) => (
                             <Box key={e.id} sx={{ display: "flex", alignItems: "center", gap: 1.1, py: 0.8 }}>
                                 <CalendarMonthOutlinedIcon sx={{ fontSize: 16, color: DASH.blue, flexShrink: 0 }} />

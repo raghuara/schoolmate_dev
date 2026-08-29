@@ -42,8 +42,8 @@ const MODULE_TO_MAINMENU = {
 
 const ACCENT = "#4338CA";
 
-const DASHBOARD_MAINMENU = "dashboard";
-const DASHBOARD_SUBMENU = "overview";
+const DASHBOARD_MAINMENU = "newdashboard";
+const DASHBOARD_SUBMENU = "newdashboard";
 
 const DASHBOARD_VIEWS = [
     {
@@ -53,7 +53,7 @@ const DASHBOARD_VIEWS = [
         desc: "Day-to-day landing screen — announcements, timetable, attendance and quick actions.",
         color: DASH.blue,
         icon: SpaceDashboardOutlinedIcon,
-        permKey: "allowcommondashboard",
+        permKey: "defaultdashboardcommon",
     },
     {
         key: "master",
@@ -62,7 +62,7 @@ const DASHBOARD_VIEWS = [
         desc: "Management view — school-wide KPIs, fee collection, payroll and transport analytics.",
         color: DASH.primary,
         icon: InsightsOutlinedIcon,
-        permKey: "allowmasterdashboard",
+        permKey: "defaultdashboardmaster",
     },
 ];
 
@@ -173,7 +173,6 @@ export default function FeaturePermissionsPage() {
                         subMenus: [{
                             subMenu: DASHBOARD_SUBMENU,
                             permissions: {
-                                view: "Y",
                                 ...Object.fromEntries(DASHBOARD_VIEWS.map((v) => [v.permKey, v.key === dashboardView ? "Y" : "N"])),
                             },
                         }],

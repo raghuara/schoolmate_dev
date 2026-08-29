@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Box, Stepper, Step, StepLabel, Switch, Typography, IconButton, useMediaQuery, Grid, Button, FormLabel, RadioGroup, FormControlLabel, Radio, FormControl, Accordion, AccordionSummary, AccordionDetails, TextField, FormGroup, Checkbox, Autocomplete, Paper, Popper, InputAdornment, Dialog, TextareaAutosize, DialogContent, DialogActions, Popover, Tooltip, CircularProgress } from "@mui/material";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import { Box, Stepper, Step, StepLabel, Switch, Typography, IconButton, useMediaQuery, Grid, Button, FormLabel, RadioGroup, FormControlLabel, Radio, FormControl, Accordion, AccordionSummary, AccordionDetails, TextField, FormGroup, Checkbox, Autocomplete, Paper, Popper, InputAdornment, Dialog, TextareaAutosize, DialogContent, DialogActions, Popover, Tooltip, CircularProgress, Chip } from "@mui/material";
+import CalendarMonthOutlinedIcon from "@mui/icons-material/CalendarMonthOutlined";
+import { DASH, RADIUS, PageHeader } from "../../DashBoardComps/dashboardTheme";
 import { Link, useNavigate } from "react-router-dom";
 import { useTheme } from "@mui/material/styles";
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -23,10 +24,12 @@ import AddIcon from "@mui/icons-material/Add";
 import CloseIcon from "@mui/icons-material/Close";
 import RemoveIcon from '@mui/icons-material/Remove';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
+import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined';
 import KeyboardIcon from "@mui/icons-material/Keyboard";
-import PersonAddAlt1Icon from "@mui/icons-material/PersonAddAlt1";
 import TamilKeyboard from "../../Tools/TamilKeyBoardLayout";
 import ExistingStudentVerification from "./ExistingStudentVerification";
+import { apiErrorMessage, responseErrorMessage } from "../../../Api/apiError";
 
 // Compact Tamil-translate icon: small "A→அ" sized to match a regular icon button.
 const TamilTranslateIcon = () => (
@@ -57,6 +60,18 @@ const steps = [
     "Upload Documents",
     "Medical Info"
 ];
+
+const SECTIONS = [
+    { key: "academic", label: "Student Academic Info", requires: null },
+    { key: "student", label: "Student Info", requires: "academic" },
+    { key: "family", label: "Family Info", requires: "academic" },
+    { key: "guardian", label: "Guardian Info", requires: "academic" },
+    { key: "sibling", label: "Sibling Info", requires: "academic" },
+    { key: "documents", label: "Upload Documents", requires: "academic" },
+    { key: "health", label: "Student General Health Info", requires: "academic" },
+];
+
+const sectionOf = (key) => SECTIONS.find((item) => item.key === key);
 
 export default function CreateStudentInfoPage() {
     const inputRef = useRef(null);
@@ -245,6 +260,7 @@ export default function CreateStudentInfoPage() {
     const [isDisabledSiblingInfo, setIsDisabledSiblingInfo] = useState(false);
     const [isDisabledDocument, setIsDisabledDocument] = useState(false);
     const [isDisabledHealthInfo, setIsDisabledHealthInfo] = useState(false);
+    const [openSection, setOpenSection] = useState("academic");
 
     const [open, setOpen] = useState(false);
     const [status, setStatus] = useState(false);
@@ -412,6 +428,7 @@ export default function CreateStudentInfoPage() {
         return siblings.map(sibling => ({
             rollNumber: fetchRollNumber,
             createRollNumber: RollNumber,
+            creatorRollNumber: RollNumber,
             siblingNameInEnglish: sibling.siblingNameInEnglish || "",
             siblingNameInTamil: sibling.siblingNameInTamil || "",
             siblingGender: sibling.siblingGender || "",
@@ -599,6 +616,131 @@ export default function CreateStudentInfoPage() {
         setOpenTextarea(value)
     };
 
+    const themeColor = websiteSettings.mainColor || "#E60154";
+
+    const savedSections = {
+        academic: isDisabledAcademic,
+        student: isDisabledStudentInfo,
+        family: isDisabledFamilyInfo,
+        guardian: isDisabledGuardianInfo,
+        sibling: isDisabledSiblingInfo,
+        documents: isDisabledDocument,
+        health: isDisabledHealthInfo,
+    };
+
+    const notify = (text, ok) => {
+        setMessage(text);
+        setColor(ok);
+        setStatus(ok);
+        setOpen(true);
+    };
+
+    const showError = (text) => notify(text, false);
+    const showSuccess = (text) => notify(text, true);
+
+    const blockingSection = (key) => {
+        const requires = sectionOf(key)?.requires;
+        if (!requires) return null;
+        return savedSections[requires] ? null : sectionOf(requires);
+    };
+
+    const nextSectionAfter = (savedKey) => {
+        const saved = { ...savedSections, [savedKey]: true };
+        const next = SECTIONS.find((item) => !saved[item.key] && (!item.requires || saved[item.requires]));
+        return next ? next.key : "";
+    };
+
+    const handleSectionToggle = (key) => (event, expanded) => {
+        const blocker = blockingSection(key);
+        if (blocker) {
+            showError(`Save ${blocker.label} before filling ${sectionOf(key).label}`);
+            return;
+        }
+        setOpenSection(expanded ? key : "");
+    };
+
+    const requireAcademicSaved = (key) => {
+        const blocker = blockingSection(key);
+        if (!blocker) return true;
+        showError(`Save ${blocker.label} before saving ${sectionOf(key).label}`);
+        return false;
+    };
+
+    const renderSectionSummary = (key, index, extra = null) => {
+        const section = sectionOf(key);
+        const blocker = blockingSection(key);
+        const locked = Boolean(blocker);
+        const saved = savedSections[key];
+        const badgeBg = saved ? "#E8F5E9" : locked ? "#EEF0F3" : `${themeColor}1A`;
+        const badgeColor = saved ? "#2E7D32" : locked ? "#9CA3AF" : themeColor;
+
+        return (
+            <AccordionSummary
+                expandIcon={<ExpandMoreIcon sx={{ color: locked ? "#C4C8CE" : "#6B7280" }} />}
+                aria-controls={`${key}-content`}
+                id={`${key}-header`}
+                sx={{
+                    backgroundColor: locked ? "#F9FAFB" : "#fff7f7",
+                    py: 0.5,
+                    position: "relative",
+                    cursor: locked ? "not-allowed" : "pointer",
+                    "& .MuiAccordionSummary-content": {
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 1,
+                        pr: 1,
+                    },
+                }}
+            >
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, minWidth: 0, flexWrap: "wrap" }}>
+                    <Box
+                        sx={{
+                            width: 24,
+                            height: 24,
+                            borderRadius: "50%",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: "12px",
+                            fontWeight: 700,
+                            bgcolor: badgeBg,
+                            color: badgeColor,
+                            flexShrink: 0,
+                        }}
+                    >
+                        {saved
+                            ? <CheckCircleIcon sx={{ fontSize: 17 }} />
+                            : locked
+                                ? <LockOutlinedIcon sx={{ fontSize: 14 }} />
+                                : index}
+                    </Box>
+                    <Typography
+                        component="span"
+                        sx={{ fontWeight: 600, fontSize: "14.5px", color: locked ? "#9CA3AF" : "#111827" }}
+                    >
+                        {section.label}
+                    </Typography>
+                    {saved && (
+                        <Chip
+                            size="small"
+                            label="Saved"
+                            sx={{ height: 21, fontSize: "10.5px", fontWeight: 700, bgcolor: "#E8F5E9", color: "#2E7D32" }}
+                        />
+                    )}
+                    {locked && (
+                        <Chip
+                            size="small"
+                            label={`Save ${blocker.label} first`}
+                            sx={{ height: 21, fontSize: "10.5px", fontWeight: 600, bgcolor: "#EEF0F3", color: "#6B7280" }}
+                        />
+                    )}
+                </Box>
+                {extra}
+            </AccordionSummary>
+        );
+    };
+
     const handleAcademicSubmit = async (status) => {
         if (!studentNameEnglish.trim()) {
             setMessage("Student name in english is required");
@@ -650,6 +792,7 @@ export default function CreateStudentInfoPage() {
         try {
             const sendData = {
                 createRollNumber: RollNumber,
+                creatorRollNumber: RollNumber,
                 studentNameInEnglish: studentNameEnglish,
                 studentNameInTamil: studentNameTamil,
                 dateOfBirth: dateOfBirth,
@@ -677,23 +820,20 @@ export default function CreateStudentInfoPage() {
                 },
             });
 
-            setOpen(true);
-            setColor(true);
-            setStatus(true);
-            setMessage("User created successfully.");
-            setFetchRollNumber(studentPermanentNumber)
-            setIsDisabledAcademic(true)
-            setActiveStep("1")
+            const failedMessage = responseErrorMessage(res, `Roll number ${studentPermanentNumber} could not be created.`);
+            if (failedMessage) {
+                showError(failedMessage);
+                setFetchRollNumber("");
+                return;
+            }
+
+            showSuccess(`Student created successfully with roll number ${studentPermanentNumber}.`);
+            setFetchRollNumber(studentPermanentNumber);
+            setIsDisabledAcademic(true);
+            setActiveStep(1);
+            setOpenSection(nextSectionAfter("academic"));
         } catch (error) {
-            const serverMsg =
-                error.response?.data?.message ||
-                error.response?.data?.Message ||
-                error.message ||
-                "Error while inserting data";
-            setOpen(true);
-            setColor(false);
-            setStatus(false);
-            setMessage(serverMsg);
+            showError(apiErrorMessage(error, "Could not save this section. Please try again."));
             setFetchRollNumber("")
         } finally {
             setIsLoading(false);
@@ -721,6 +861,8 @@ export default function CreateStudentInfoPage() {
     }
 
     const handleStudentSubmit = async (status) => {
+        if (!requireAcademicSaved('student')) return;
+
        
         if (!religion || !religion.trim()) {
             setMessage("Religion is required");
@@ -784,6 +926,7 @@ export default function CreateStudentInfoPage() {
             const sendData = {
                 rollNumber: fetchRollNumber,
                 createRollNumber: RollNumber,
+                creatorRollNumber: RollNumber,
                 religion: religion,
                 community: community,
                 motherTongue: motherTongue,
@@ -805,22 +948,18 @@ export default function CreateStudentInfoPage() {
                 },
             });
 
-            setOpen(true);
-            setColor(true);
-            setStatus(true);
-            setMessage("Data Added successfully.");
-            setIsDisabledStudentInfo(true)
-            setActiveStep("2")
+            const failedMessage = responseErrorMessage(res);
+            if (failedMessage) {
+                showError(failedMessage);
+                return;
+            }
+
+            showSuccess("Student info saved successfully.");
+            setIsDisabledStudentInfo(true);
+            setActiveStep(2);
+            setOpenSection(nextSectionAfter("student"));
         } catch (error) {
-            const serverMsg =
-                error.response?.data?.message ||
-                error.response?.data?.Message ||
-                error.message ||
-                "Error while inserting data";
-            setOpen(true);
-            setColor(false);
-            setStatus(false);
-            setMessage(serverMsg);
+            showError(apiErrorMessage(error, "Could not save this section. Please try again."));
         } finally {
             setIsLoading(false);
         }
@@ -843,6 +982,8 @@ export default function CreateStudentInfoPage() {
     }
 
     const handleFamilyInfoSubmit = async (status) => {
+        if (!requireAcademicSaved('family')) return;
+
         if (!fatherNameEnglish || !fatherNameEnglish.trim()) {
             setMessage("Father name in english is required");
             setOpen(true);
@@ -892,6 +1033,7 @@ export default function CreateStudentInfoPage() {
             const sendData = {
                 rollNumber: fetchRollNumber,
                 createRollNumber: RollNumber,
+                creatorRollNumber: RollNumber,
                 fatherNameInEnglish: fatherNameEnglish,
                 fatherNameInTamil: fatherNameTamil,
                 fatherQualification: fatherQualification,
@@ -918,22 +1060,18 @@ export default function CreateStudentInfoPage() {
                 },
             });
 
-            setOpen(true);
-            setColor(true);
-            setStatus(true);
-            setMessage("Data Added successfully.");
-            setIsDisabledFamilyInfo(true)
-            setActiveStep("3")
+            const failedMessage = responseErrorMessage(res);
+            if (failedMessage) {
+                showError(failedMessage);
+                return;
+            }
+
+            showSuccess("Family info saved successfully.");
+            setIsDisabledFamilyInfo(true);
+            setActiveStep(3);
+            setOpenSection(nextSectionAfter("family"));
         } catch (error) {
-            const serverMsg =
-                error.response?.data?.message ||
-                error.response?.data?.Message ||
-                error.message ||
-                "Error while inserting data";
-            setOpen(true);
-            setColor(false);
-            setStatus(false);
-            setMessage(serverMsg);
+            showError(apiErrorMessage(error, "Could not save this section. Please try again."));
         } finally {
             setIsLoading(false);
         }
@@ -963,6 +1101,8 @@ export default function CreateStudentInfoPage() {
     }
 
     const handleGuardianInfoSubmit = async (status) => {
+        if (!requireAcademicSaved('guardian')) return;
+
         if (!guardianNameEnglish || !guardianNameEnglish.trim()) {
             setMessage("Guardian name in english is required");
             setOpen(true);
@@ -999,6 +1139,7 @@ export default function CreateStudentInfoPage() {
             const sendData = {
                 rollNumber: fetchRollNumber,
                 createRollNumber: RollNumber,
+                creatorRollNumber: RollNumber,
                 guardianNameInEnglish: guardianNameEnglish,
                 guardianNameInTamil: guardianNameTamil,
                 guardianRelationship: guardianRelationship,
@@ -1016,22 +1157,18 @@ export default function CreateStudentInfoPage() {
                 },
             });
 
-            setOpen(true);  
-            setColor(true);
-            setStatus(true);
-            setMessage("Data Added successfully.");
-            setIsDisabledGuardianInfo(true)
-            setActiveStep("4")
+            const failedMessage = responseErrorMessage(res);
+            if (failedMessage) {
+                showError(failedMessage);
+                return;
+            }
+
+            showSuccess("Guardian info saved successfully.");
+            setIsDisabledGuardianInfo(true);
+            setActiveStep(4);
+            setOpenSection(nextSectionAfter("guardian"));
         } catch (error) {
-            const serverMsg =
-                error.response?.data?.message ||
-                error.response?.data?.Message ||
-                error.message ||
-                "Error while inserting data";
-            setOpen(true);
-            setColor(false);
-            setStatus(false);
-            setMessage(serverMsg);
+            showError(apiErrorMessage(error, "Could not save this section. Please try again."));
         } finally {
             setIsLoading(false);
         }
@@ -1050,6 +1187,8 @@ export default function CreateStudentInfoPage() {
     }
 
     const handleSibilingInfoSubmit = async (status) => {
+        if (!requireAcademicSaved('sibling')) return;
+
         setIsLoading(true);
         const formattedData = prepareSiblingData();
 
@@ -1060,22 +1199,18 @@ export default function CreateStudentInfoPage() {
                 },
             });
 
-            setOpen(true);
-            setColor(true);
-            setStatus(true);
-            setMessage("Data Added successfully.");
-            setIsDisabledSiblingInfo(true)
-            setActiveStep("5")
+            const failedMessage = responseErrorMessage(res);
+            if (failedMessage) {
+                showError(failedMessage);
+                return;
+            }
+
+            showSuccess("Sibling info saved successfully.");
+            setIsDisabledSiblingInfo(true);
+            setActiveStep(5);
+            setOpenSection(nextSectionAfter("sibling"));
         } catch (error) {
-            const serverMsg =
-                error.response?.data?.message ||
-                error.response?.data?.Message ||
-                error.message ||
-                "Error while inserting data";
-            setOpen(true);
-            setColor(false);
-            setStatus(false);
-            setMessage(serverMsg);
+            showError(apiErrorMessage(error, "Could not save this section. Please try again."));
         } finally {
             setIsLoading(false);
         }
@@ -1099,6 +1234,8 @@ export default function CreateStudentInfoPage() {
     }
 
     const handleDocumentsSubmit = async (status) => {
+        if (!requireAcademicSaved('documents')) return;
+
 
         if (!photoCertificate) {
             setMessage("Passport Size Photo is required");
@@ -1133,6 +1270,7 @@ export default function CreateStudentInfoPage() {
             const sendData = new FormData();
             sendData.append("rollNumber", fetchRollNumber);
             sendData.append("createRollNumber", RollNumber);
+            sendData.append("creatorRollNumber", RollNumber);
             sendData.append("birthCertificatefiletype", birthCertificateFileType || "");
             sendData.append("birthCertificatefile", birthCertificate);
             sendData.append("passportSizePhotofiletype", photoCertificateFileType || "");
@@ -1166,22 +1304,18 @@ export default function CreateStudentInfoPage() {
                 },
             });
 
-            setOpen(true);
-            setColor(true);
-            setStatus(true);
-            setMessage("Data Added successfully.");
-            setIsDisabledDocument(true)
-            setActiveStep("6")
+            const failedMessage = responseErrorMessage(res);
+            if (failedMessage) {
+                showError(failedMessage);
+                return;
+            }
+
+            showSuccess("Documents uploaded successfully.");
+            setIsDisabledDocument(true);
+            setActiveStep(6);
+            setOpenSection(nextSectionAfter("documents"));
         } catch (error) {
-            const serverMsg =
-                error.response?.data?.message ||
-                error.response?.data?.Message ||
-                error.message ||
-                "Error while inserting data";
-            setOpen(true);
-            setColor(false);
-            setStatus(false);
-            setMessage(serverMsg);
+            showError(apiErrorMessage(error, "Could not save this section. Please try again."));
         } finally {
             setIsLoading(false);
         }
@@ -1217,11 +1351,14 @@ export default function CreateStudentInfoPage() {
     }
 
     const handleHealthInfoSubmit = async (status) => {
+        if (!requireAcademicSaved('health')) return;
+
         setIsLoading(true);
         try {
             const sendData = {
                 rollNumber: fetchRollNumber,
                 createRollNumber: RollNumber,
+                creatorRollNumber: RollNumber,
                 asthma: medicalConditions.asthma || "no",
                 diabetes: medicalConditions.diabetes || "no",
                 heartProblem: medicalConditions.heartProblem || "no",
@@ -1260,10 +1397,13 @@ export default function CreateStudentInfoPage() {
                 },
             });
 
-            setOpen(true);
-            setColor(true);
-            setStatus(true);
-            setMessage("Data Added successfully.");
+            const failedMessage = responseErrorMessage(res);
+            if (failedMessage) {
+                showError(failedMessage);
+                return;
+            }
+
+            showSuccess("Medical info saved successfully. Student profile is complete.");
             setMedicalConditions({
                 asthma: "no",
                 diabetes: "no",
@@ -1272,21 +1412,14 @@ export default function CreateStudentInfoPage() {
                 allergies: "no",
                 others: "no"
             });
-            setIsDisabledHealthInfo(true)
-            setActiveStep("7")
+            setIsDisabledHealthInfo(true);
+            setActiveStep(7);
+            setOpenSection("");
             setTimeout(() => {
                 navigate('/dashboardmenu/student/information')
             }, 1000);
         } catch (error) {
-            const serverMsg =
-                error.response?.data?.message ||
-                error.response?.data?.Message ||
-                error.message ||
-                "Error while inserting data";
-            setOpen(true);
-            setColor(false);
-            setStatus(false);
-            setMessage(serverMsg);
+            showError(apiErrorMessage(error, "Could not save this section. Please try again."));
         } finally {
             setIsLoading(false);
         }
@@ -1331,21 +1464,41 @@ export default function CreateStudentInfoPage() {
         <Box sx={{ width: "100%" }}>
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
             {isLoading && <Loader />}
-            <Box sx={{ backgroundColor: "#f2f2f2", borderRadius: "10px 10px 10px 0px", px: 2,   borderBottom: "1px solid #ddd", }}>
-                <Grid container sx={{ py: 1.5 }}>
-                    <Grid size={{ xs: 12 }} sx={{ display: "flex", alignItems: "center" }}>
-                        <IconButton onClick={() => navigate(-1)} sx={{ width: 30, height: 30, mr: 1 }}>
-                            <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
-                        </IconButton>
-                        <Box sx={{ width: 38, height: 38, borderRadius: "10px", bgcolor: `${websiteSettings.mainColor || "#E60154"}1A`, display: "flex", alignItems: "center", justifyContent: "center", mr: 1.2 }}>
-                            <PersonAddAlt1Icon sx={{ fontSize: 22, color: websiteSettings.mainColor || "#E60154" }} />
+            <Box
+                sx={{
+                    px: { xs: 1.5, md: 3 },
+                    pt: { xs: 1.5, md: 2 },
+                    bgcolor: DASH.canvas,
+                    borderBottom: `1px solid ${DASH.line}`,
+                }}
+            >
+                <PageHeader
+                    title="Create Student Details"
+                    subtitle="Add a new student profile step by step"
+                    onBack={() => navigate(-1)}
+                    right={(
+                        <Box
+                            sx={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 0.8,
+                                height: 36,
+                                px: 1.5,
+                                borderRadius: RADIUS,
+                                bgcolor: "#fff",
+                                border: `1px solid ${DASH.line}`,
+                            }}
+                        >
+                            <CalendarMonthOutlinedIcon sx={{ fontSize: 16, color: DASH.faint }} />
+                            <Typography sx={{ fontSize: "11.5px", fontWeight: 600, color: DASH.muted }}>
+                                Academic Year
+                            </Typography>
+                            <Typography sx={{ fontSize: "12.5px", fontWeight: 700, color: DASH.ink }}>
+                                {academicYear || `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`}
+                            </Typography>
                         </Box>
-                        <Box>
-                            <Typography sx={{ fontWeight: 700, fontSize: "20px", lineHeight: 1.1, color: "#111" }}>Create Student Details</Typography>
-                            <Typography sx={{ fontSize: "11.5px", color: "#6B7280", mt: 0.2 }}>Add a new student profile step by step</Typography>
-                        </Box>
-                    </Grid>
-                </Grid>
+                    )}
+                />
             </Box>
 
             <Box sx={{ maxHeight: "83vh", overflowY: "auto" }}>
@@ -1400,39 +1553,70 @@ export default function CreateStudentInfoPage() {
                                 </Step>
                             ))}
                         </Stepper>
+
+                        <Box
+                            sx={{
+                                mt: 1.8,
+                                pt: 1.5,
+                                borderTop: "1px dashed #E5E7EB",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                gap: 1.5,
+                                flexWrap: "wrap",
+                            }}
+                        >
+                            {fetchRollNumber ? (
+                                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                    <BadgeOutlinedIcon sx={{ fontSize: 18, color: "#2E7D32" }} />
+                                    <Typography sx={{ fontSize: "12.5px", color: "#374151" }}>
+                                        Student created with roll number&nbsp;
+                                        <Box component="span" sx={{ fontWeight: 700, color: "#111827" }}>{fetchRollNumber}</Box>
+                                        &nbsp;- continue with the remaining sections
+                                    </Typography>
+                                </Box>
+                            ) : (
+                                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                    <LockOutlinedIcon sx={{ fontSize: 16, color: "#9CA3AF" }} />
+                                    <Typography sx={{ fontSize: "12.5px", color: "#6B7280" }}>
+                                        Save Student Academic Info to unlock the remaining sections
+                                    </Typography>
+                                </Box>
+                            )}
+                            <Chip
+                                size="small"
+                                label={`${SECTIONS.filter((item) => savedSections[item.key]).length} of ${SECTIONS.length} sections saved`}
+                                sx={{
+                                    height: 22,
+                                    fontSize: "11px",
+                                    fontWeight: 700,
+                                    bgcolor: `${themeColor}1A`,
+                                    color: themeColor,
+                                }}
+                            />
+                        </Box>
                     </Box>
                 </Box>
                 <Box sx={{ p: 2, display: verifyMode ? "none" : "block" }}>
                     <Box pt={1}>
-                        <Accordion sx={{ boxShadow: "none" }} defaultExpanded>
-                            <AccordionSummary
-                                expandIcon={<ExpandMoreIcon />}
-                                aria-controls="panel1-content"
-                                id="panel1-header"
-                                sx={{
-                                    backgroundColor: "#fff7f7",
-                                    py: 0.5,
-                                    position: "relative",
-                                    "& .MuiAccordionSummary-content": {
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "space-between",
-                                        pr: 1,
-                                    },
-                                }}
-                            >
-                                <Typography sx={{ fontWeight: "600" }} component="span">Student Academic Info</Typography>
+                        <Accordion
+                            sx={{ boxShadow: "none" }}
+                            expanded={openSection === "academic"}
+                            onChange={handleSectionToggle("academic")}
+                        >
+                            {renderSectionSummary("academic", 1, (
                                 <FormControlLabel
                                     onClick={(e) => e.stopPropagation()}
                                     onFocus={(e) => e.stopPropagation()}
+                                    disabled={isDisabledAcademic}
                                     control={
                                         <Switch
                                             size="small"
                                             checked={isNewStudent}
                                             onChange={(e) => setIsNewStudent(e.target.checked)}
                                             sx={{
-                                                "& .MuiSwitch-switchBase.Mui-checked": { color: "#E60154" },
-                                                "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": { backgroundColor: "#E60154" },
+                                                "& .MuiSwitch-switchBase.Mui-checked": { color: themeColor },
+                                                "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": { backgroundColor: themeColor },
                                             }}
                                         />
                                     }
@@ -1441,9 +1625,9 @@ export default function CreateStudentInfoPage() {
                                             New Student
                                         </Typography>
                                     }
-                                    sx={{ m: 0 }}
+                                    sx={{ m: 0, flexShrink: 0 }}
                                 />
-                            </AccordionSummary>
+                            ))}
                             <AccordionDetails>
                                 <Grid container pb={1}>
                                     <Grid size={{ xs: 12, sm: 6, md: 3, lg: 2.4 }} sx={{ display: "flex", justifyContent: "center", pt: 1 }} >
@@ -1998,16 +2182,16 @@ export default function CreateStudentInfoPage() {
                                     <Box sx={{ position: "absolute", bottom: "10px", right: "10px" }}>
                                         {!isDisabledAcademic &&
                                             <>
-                                                <Button onClick={handleAcademicClear} sx={{ textTransform: "none", color: "#000", py: 0.2, fontSize: "12px", px: 2.5, borderRadius: "20px" }}>
+                                                <Button onClick={handleAcademicClear} sx={{ textTransform: "none", color: "#6B7280", py: 0.4, fontSize: "12.5px", fontWeight: 600, px: 2.2, mr: 1, borderRadius: "20px", border: "1px solid #E5E7EB", "&:hover": { bgcolor: "#F3F4F6", borderColor: "#D1D5DB" } }}>
                                                     Clear
                                                 </Button>
-                                                <Button onClick={handleAcademicSubmit} sx={{ textTransform: "none", color: "#000", py: 0.2, px: 2.5, fontSize: "12px", borderRadius: "20px", backgroundColor: websiteSettings.mainColor }}>
+                                                <Button onClick={handleAcademicSubmit} disableElevation variant="contained" sx={{ textTransform: "none", color: "#fff", py: 0.4, px: 3, fontSize: "12.5px", fontWeight: 700, borderRadius: "20px", backgroundColor: themeColor, boxShadow: `0 6px 14px ${themeColor}33`, "&:hover": { backgroundColor: themeColor, filter: "brightness(0.92)", boxShadow: `0 8px 18px ${themeColor}45` } }}>
                                                     Save
                                                 </Button>
                                             </>
                                         }
                                         {isDisabledAcademic &&
-                                            <Box sx={{ fontSize: "13px", color: "green", fontWeight: "600", display: "flex", justifyContent: "center", alignItems: "center" }}><CheckCircleIcon style={{ fontSize: "20px" }} />&nbsp; Saved</Box>
+                                            <Box sx={{ fontSize: "12.5px", color: "#2E7D32", fontWeight: 700, display: "flex", alignItems: "center", gap: 0.5, bgcolor: "#E8F5E9", borderRadius: "20px", px: 1.6, py: 0.5 }}><CheckCircleIcon style={{ fontSize: "17px" }} /> Saved</Box>
                                         }
                                     </Box>
 
@@ -2016,15 +2200,12 @@ export default function CreateStudentInfoPage() {
                         </Accordion>
 
                         <Box sx={{ mt: 2 }}>
-                            <Accordion sx={{ boxShadow: "none" }}>
-                                <AccordionSummary
-                                    expandIcon={<ExpandMoreIcon />}
-                                    aria-controls="panel1-content"
-                                    id="panel2-header"
-                                    sx={{ backgroundColor: "#fff7f7", py: 0.5, position: "relative" }}
-                                >
-                                    <Typography sx={{ fontWeight: "600" }} component="span">Student Info</Typography>
-                                </AccordionSummary>
+                            <Accordion
+                                sx={{ boxShadow: "none" }}
+                                expanded={openSection === "student"}
+                                onChange={handleSectionToggle("student")}
+                            >
+                                {renderSectionSummary("student", 2)}
                                 <AccordionDetails>
                                     <Grid container pb={1}>
                                         <Grid size={{ xs: 12, sm: 6, md: 3, lg: 2.4 }} sx={{ display: "flex", justifyContent: "center", pt: 1 }}>
@@ -2580,16 +2761,16 @@ export default function CreateStudentInfoPage() {
                                         <Box sx={{ position: "absolute", bottom: "10px", right: "10px" }}>
                                             {!isDisabledStudentInfo &&
                                                 <>
-                                                    <Button onClick={handleStudentClear} sx={{ textTransform: "none", color: "#000", py: 0.2, fontSize: "12px", px: 2.5, borderRadius: "20px" }}>
+                                                    <Button onClick={handleStudentClear} sx={{ textTransform: "none", color: "#6B7280", py: 0.4, fontSize: "12.5px", fontWeight: 600, px: 2.2, mr: 1, borderRadius: "20px", border: "1px solid #E5E7EB", "&:hover": { bgcolor: "#F3F4F6", borderColor: "#D1D5DB" } }}>
                                                         Clear
                                                     </Button>
-                                                    <Button onClick={handleStudentSubmit} sx={{ textTransform: "none", color: "#000", py: 0.2, px: 2.5, fontSize: "12px", borderRadius: "20px", backgroundColor: websiteSettings.mainColor }}>
+                                                    <Button onClick={handleStudentSubmit} disableElevation variant="contained" sx={{ textTransform: "none", color: "#fff", py: 0.4, px: 3, fontSize: "12.5px", fontWeight: 700, borderRadius: "20px", backgroundColor: themeColor, boxShadow: `0 6px 14px ${themeColor}33`, "&:hover": { backgroundColor: themeColor, filter: "brightness(0.92)", boxShadow: `0 8px 18px ${themeColor}45` } }}>
                                                         Save
                                                     </Button>
                                                 </>
                                             }
                                             {isDisabledStudentInfo &&
-                                                <Box sx={{ fontSize: "13px", color: "green", fontWeight: "600", display: "flex", justifyContent: "center", alignItems: "center" }}><CheckCircleIcon style={{ fontSize: "20px" }} />&nbsp; Saved</Box>
+                                                <Box sx={{ fontSize: "12.5px", color: "#2E7D32", fontWeight: 700, display: "flex", alignItems: "center", gap: 0.5, bgcolor: "#E8F5E9", borderRadius: "20px", px: 1.6, py: 0.5 }}><CheckCircleIcon style={{ fontSize: "17px" }} /> Saved</Box>
                                             }
                                         </Box>
                                     </Grid>
@@ -2598,15 +2779,12 @@ export default function CreateStudentInfoPage() {
                         </Box>
 
                         <Box sx={{ mt: 2 }}>
-                            <Accordion sx={{ boxShadow: "none" }}>
-                                <AccordionSummary
-                                    expandIcon={<ExpandMoreIcon />}
-                                    aria-controls="panel1-content"
-                                    id="panel3-header"
-                                    sx={{ backgroundColor: "#fff7f7", py: 0.5, position: "relative" }}
-                                >
-                                    <Typography sx={{ fontWeight: "600" }} component="span">Family Info</Typography>
-                                </AccordionSummary>
+                            <Accordion
+                                sx={{ boxShadow: "none" }}
+                                expanded={openSection === "family"}
+                                onChange={handleSectionToggle("family")}
+                            >
+                                {renderSectionSummary("family", 3)}
                                 <AccordionDetails>
                                     <Box sx={{ backgroundColor: "#8600BB", width: "150px", textAlign: "center", borderRadius: "0px 50px 50px 0px", py: 0.5, ml: 1.3, mt: 1 }}>
                                         <Typography sx={{ fontSize: "14px", color: "#fff" }} component="span">Fill Father Details</Typography>
@@ -3401,16 +3579,16 @@ export default function CreateStudentInfoPage() {
                                         <Box sx={{ position: "absolute", bottom: "10px", right: "10px" }}>
                                             {!isDisabledFamilyInfo &&
                                                 <>
-                                                    <Button onClick={handleFamilyInfoClear} sx={{ textTransform: "none", color: "#000", py: 0.2, fontSize: "12px", px: 2.5, borderRadius: "20px" }}>
+                                                    <Button onClick={handleFamilyInfoClear} sx={{ textTransform: "none", color: "#6B7280", py: 0.4, fontSize: "12.5px", fontWeight: 600, px: 2.2, mr: 1, borderRadius: "20px", border: "1px solid #E5E7EB", "&:hover": { bgcolor: "#F3F4F6", borderColor: "#D1D5DB" } }}>
                                                         Clear
                                                     </Button>
-                                                    <Button onClick={handleFamilyInfoSubmit} sx={{ textTransform: "none", color: "#000", py: 0.2, px: 2.5, fontSize: "12px", borderRadius: "20px", backgroundColor: websiteSettings.mainColor }}>
+                                                    <Button onClick={handleFamilyInfoSubmit} disableElevation variant="contained" sx={{ textTransform: "none", color: "#fff", py: 0.4, px: 3, fontSize: "12.5px", fontWeight: 700, borderRadius: "20px", backgroundColor: themeColor, boxShadow: `0 6px 14px ${themeColor}33`, "&:hover": { backgroundColor: themeColor, filter: "brightness(0.92)", boxShadow: `0 8px 18px ${themeColor}45` } }}>
                                                         Save
                                                     </Button>
                                                 </>
                                             }
                                             {isDisabledFamilyInfo &&
-                                                <Box sx={{ fontSize: "13px", color: "green", fontWeight: "600", display: "flex", justifyContent: "center", alignItems: "center" }}><CheckCircleIcon style={{ fontSize: "20px" }} />&nbsp; Saved</Box>
+                                                <Box sx={{ fontSize: "12.5px", color: "#2E7D32", fontWeight: 700, display: "flex", alignItems: "center", gap: 0.5, bgcolor: "#E8F5E9", borderRadius: "20px", px: 1.6, py: 0.5 }}><CheckCircleIcon style={{ fontSize: "17px" }} /> Saved</Box>
                                             }
                                         </Box>
                                     </Grid>
@@ -3419,15 +3597,12 @@ export default function CreateStudentInfoPage() {
                         </Box>
 
                         <Box sx={{ mt: 2 }}>
-                            <Accordion sx={{ boxShadow: "none" }}>
-                                <AccordionSummary
-                                    expandIcon={<ExpandMoreIcon />}
-                                    aria-controls="panel1-content"
-                                    id="panel4-header"
-                                    sx={{ backgroundColor: "#fff7f7", py: 0.5, position: "relative" }}
-                                >
-                                    <Typography sx={{ fontWeight: "600" }} component="span">Guardian Info</Typography>
-                                </AccordionSummary>
+                            <Accordion
+                                sx={{ boxShadow: "none" }}
+                                expanded={openSection === "guardian"}
+                                onChange={handleSectionToggle("guardian")}
+                            >
+                                {renderSectionSummary("guardian", 4)}
                                 <AccordionDetails>
                                     <Grid container pb={1}>
                                         <Grid size={{ xs: 12, sm: 6, md: 3, lg: 2.4 }} sx={{ display: "flex", justifyContent: "center", pt: 1 }} >
@@ -3823,15 +3998,15 @@ export default function CreateStudentInfoPage() {
                                         <Box sx={{ position: "absolute", bottom: "10px", right: "10px" }}>
                                             {!isDisabledGuardianInfo &&
                                                 <>
-                                                    <Button onClick={handleGuardianInfoClear} sx={{ textTransform: "none", color: "#000", py: 0.2, fontSize: "12px", px: 2.5, borderRadius: "20px" }}>
+                                                    <Button onClick={handleGuardianInfoClear} sx={{ textTransform: "none", color: "#6B7280", py: 0.4, fontSize: "12.5px", fontWeight: 600, px: 2.2, mr: 1, borderRadius: "20px", border: "1px solid #E5E7EB", "&:hover": { bgcolor: "#F3F4F6", borderColor: "#D1D5DB" } }}>
                                                         Clear
                                                     </Button>
-                                                    <Button onClick={handleGuardianInfoSubmit} sx={{ textTransform: "none", color: "#000", py: 0.2, px: 2.5, fontSize: "12px", borderRadius: "20px", backgroundColor: websiteSettings.mainColor }}>
+                                                    <Button onClick={handleGuardianInfoSubmit} disableElevation variant="contained" sx={{ textTransform: "none", color: "#fff", py: 0.4, px: 3, fontSize: "12.5px", fontWeight: 700, borderRadius: "20px", backgroundColor: themeColor, boxShadow: `0 6px 14px ${themeColor}33`, "&:hover": { backgroundColor: themeColor, filter: "brightness(0.92)", boxShadow: `0 8px 18px ${themeColor}45` } }}>
                                                         Save
                                                     </Button>
                                                 </>}
                                             {isDisabledGuardianInfo &&
-                                                <Box sx={{ fontSize: "13px", color: "green", fontWeight: "600", display: "flex", justifyContent: "center", alignItems: "center" }}><CheckCircleIcon style={{ fontSize: "20px" }} />&nbsp; Saved</Box>
+                                                <Box sx={{ fontSize: "12.5px", color: "#2E7D32", fontWeight: 700, display: "flex", alignItems: "center", gap: 0.5, bgcolor: "#E8F5E9", borderRadius: "20px", px: 1.6, py: 0.5 }}><CheckCircleIcon style={{ fontSize: "17px" }} /> Saved</Box>
                                             }
                                         </Box>
                                     </Grid>
@@ -3840,15 +4015,12 @@ export default function CreateStudentInfoPage() {
                         </Box>
 
                         <Box sx={{ mt: 2 }}>
-                            <Accordion sx={{ boxShadow: "none" }}>
-                                <AccordionSummary
-                                    expandIcon={<ExpandMoreIcon />}
-                                    aria-controls="panel1-content"
-                                    id="panel5-header"
-                                    sx={{ backgroundColor: "#fff7f7", py: 0.5, position: "relative" }}
-                                >
-                                    <Typography sx={{ fontWeight: "600" }} component="span">Sibling Info</Typography>
-                                </AccordionSummary>
+                            <Accordion
+                                sx={{ boxShadow: "none" }}
+                                expanded={openSection === "sibling"}
+                                onChange={handleSectionToggle("sibling")}
+                            >
+                                {renderSectionSummary("sibling", 5)}
                                 <AccordionDetails>
                                     <Box>
                                         {siblings.map((sibling, index) => (
@@ -4236,16 +4408,16 @@ export default function CreateStudentInfoPage() {
                                     <Box sx={{ position: "absolute", bottom: "10px", right: "10px" }}>
                                         {!isDisabledSiblingInfo &&
                                             <>
-                                                <Button onClick={handleSibilingInfoClear} sx={{ textTransform: "none", color: "#000", py: 0.2, fontSize: "12px", px: 2.5, borderRadius: "20px" }}>
+                                                <Button onClick={handleSibilingInfoClear} sx={{ textTransform: "none", color: "#6B7280", py: 0.4, fontSize: "12.5px", fontWeight: 600, px: 2.2, mr: 1, borderRadius: "20px", border: "1px solid #E5E7EB", "&:hover": { bgcolor: "#F3F4F6", borderColor: "#D1D5DB" } }}>
                                                     Clear
                                                 </Button>
-                                                <Button onClick={handleSibilingInfoSubmit} sx={{ textTransform: "none", color: "#000", py: 0.2, px: 2.5, fontSize: "12px", borderRadius: "20px", backgroundColor: websiteSettings.mainColor }}>
+                                                <Button onClick={handleSibilingInfoSubmit} disableElevation variant="contained" sx={{ textTransform: "none", color: "#fff", py: 0.4, px: 3, fontSize: "12.5px", fontWeight: 700, borderRadius: "20px", backgroundColor: themeColor, boxShadow: `0 6px 14px ${themeColor}33`, "&:hover": { backgroundColor: themeColor, filter: "brightness(0.92)", boxShadow: `0 8px 18px ${themeColor}45` } }}>
                                                     Save
                                                 </Button>
                                             </>
                                         }
                                         {isDisabledSiblingInfo &&
-                                            <Box sx={{ fontSize: "13px", color: "green", fontWeight: "600", display: "flex", justifyContent: "center", alignItems: "center" }}><CheckCircleIcon style={{ fontSize: "20px" }} />&nbsp; Saved</Box>
+                                            <Box sx={{ fontSize: "12.5px", color: "#2E7D32", fontWeight: 700, display: "flex", alignItems: "center", gap: 0.5, bgcolor: "#E8F5E9", borderRadius: "20px", px: 1.6, py: 0.5 }}><CheckCircleIcon style={{ fontSize: "17px" }} /> Saved</Box>
                                         }
                                     </Box>
                                 </AccordionDetails>
@@ -4253,15 +4425,12 @@ export default function CreateStudentInfoPage() {
                         </Box>
 
                         <Box sx={{ mt: 2 }}>
-                            <Accordion sx={{ boxShadow: "none" }}>
-                                <AccordionSummary
-                                    expandIcon={<ExpandMoreIcon />}
-                                    aria-controls="panel1-content"
-                                    id="panel6-header"
-                                    sx={{ backgroundColor: "#fff7f7", py: 0.5, position: "relative" }}
-                                >
-                                    <Typography sx={{ fontWeight: "600" }} component="span">Upload Documents</Typography>
-                                </AccordionSummary>
+                            <Accordion
+                                sx={{ boxShadow: "none" }}
+                                expanded={openSection === "documents"}
+                                onChange={handleSectionToggle("documents")}
+                            >
+                                {renderSectionSummary("documents", 6)}
                                 <AccordionDetails>
 
                                     <Dialog
@@ -5076,16 +5245,16 @@ export default function CreateStudentInfoPage() {
                                     <Box sx={{ position: "absolute", bottom: "10px", right: "10px" }}>
                                         {!isDisabledDocument &&
                                             <>
-                                                <Button onClick={handleDocumentsClear} sx={{ textTransform: "none", color: "#000", py: 0.2, fontSize: "12px", px: 2.5, borderRadius: "20px" }}>
+                                                <Button onClick={handleDocumentsClear} sx={{ textTransform: "none", color: "#6B7280", py: 0.4, fontSize: "12.5px", fontWeight: 600, px: 2.2, mr: 1, borderRadius: "20px", border: "1px solid #E5E7EB", "&:hover": { bgcolor: "#F3F4F6", borderColor: "#D1D5DB" } }}>
                                                     Clear
                                                 </Button>
-                                                <Button onClick={handleDocumentsSubmit} sx={{ textTransform: "none", color: "#000", py: 0.2, px: 2.5, fontSize: "12px", borderRadius: "20px", backgroundColor: websiteSettings.mainColor }}>
+                                                <Button onClick={handleDocumentsSubmit} disableElevation variant="contained" sx={{ textTransform: "none", color: "#fff", py: 0.4, px: 3, fontSize: "12.5px", fontWeight: 700, borderRadius: "20px", backgroundColor: themeColor, boxShadow: `0 6px 14px ${themeColor}33`, "&:hover": { backgroundColor: themeColor, filter: "brightness(0.92)", boxShadow: `0 8px 18px ${themeColor}45` } }}>
                                                     Save
                                                 </Button>
                                             </>
                                         }
                                         {isDisabledDocument &&
-                                            <Box sx={{ fontSize: "13px", color: "green", fontWeight: "600", display: "flex", justifyContent: "center", alignItems: "center" }}><CheckCircleIcon style={{ fontSize: "20px" }} />&nbsp; Saved</Box>
+                                            <Box sx={{ fontSize: "12.5px", color: "#2E7D32", fontWeight: 700, display: "flex", alignItems: "center", gap: 0.5, bgcolor: "#E8F5E9", borderRadius: "20px", px: 1.6, py: 0.5 }}><CheckCircleIcon style={{ fontSize: "17px" }} /> Saved</Box>
                                         }
                                     </Box>
                                 </AccordionDetails>
@@ -5093,15 +5262,12 @@ export default function CreateStudentInfoPage() {
                         </Box>
 
                         <Box sx={{ mt: 2 }}>
-                            <Accordion sx={{ boxShadow: "none" }}>
-                                <AccordionSummary
-                                    expandIcon={<ExpandMoreIcon />}
-                                    aria-controls="panel1-content"
-                                    id="panel7-header"
-                                    sx={{ backgroundColor: "#fff7f7", py: 0.5, position: "relative" }}
-                                >
-                                    <Typography sx={{ fontWeight: "600" }} component="span">Student General Health Info</Typography>
-                                </AccordionSummary>
+                            <Accordion
+                                sx={{ boxShadow: "none" }}
+                                expanded={openSection === "health"}
+                                onChange={handleSectionToggle("health")}
+                            >
+                                {renderSectionSummary("health", 7)}
                                 <AccordionDetails>
                                     <Grid container spacing={2} pb={1}>
                                         <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }} >
@@ -5695,15 +5861,15 @@ export default function CreateStudentInfoPage() {
                                         <Box sx={{ position: "absolute", bottom: "10px", right: "10px" }}>
                                             {!isDisabledHealthInfo &&
                                                 <>
-                                                    <Button onClick={handleHealthInfoClear} sx={{ textTransform: "none", color: "#000", py: 0.2, fontSize: "12px", px: 2.5, borderRadius: "20px" }}>
+                                                    <Button onClick={handleHealthInfoClear} sx={{ textTransform: "none", color: "#6B7280", py: 0.4, fontSize: "12.5px", fontWeight: 600, px: 2.2, mr: 1, borderRadius: "20px", border: "1px solid #E5E7EB", "&:hover": { bgcolor: "#F3F4F6", borderColor: "#D1D5DB" } }}>
                                                         Clear
                                                     </Button>
-                                                    <Button onClick={handleHealthInfoSubmit} sx={{ textTransform: "none", color: "#000", py: 0.2, px: 2.5, fontSize: "12px", borderRadius: "20px", backgroundColor: websiteSettings.mainColor }}>
+                                                    <Button onClick={handleHealthInfoSubmit} disableElevation variant="contained" sx={{ textTransform: "none", color: "#fff", py: 0.4, px: 3, fontSize: "12.5px", fontWeight: 700, borderRadius: "20px", backgroundColor: themeColor, boxShadow: `0 6px 14px ${themeColor}33`, "&:hover": { backgroundColor: themeColor, filter: "brightness(0.92)", boxShadow: `0 8px 18px ${themeColor}45` } }}>
                                                         Save
                                                     </Button>
                                                 </>
                                             }{isDisabledHealthInfo &&
-                                                <Box sx={{ fontSize: "13px", color: "green", fontWeight: "600", display: "flex", justifyContent: "center", alignItems: "center" }}><CheckCircleIcon style={{ fontSize: "20px" }} />&nbsp; Saved</Box>
+                                                <Box sx={{ fontSize: "12.5px", color: "#2E7D32", fontWeight: 700, display: "flex", alignItems: "center", gap: 0.5, bgcolor: "#E8F5E9", borderRadius: "20px", px: 1.6, py: 0.5 }}><CheckCircleIcon style={{ fontSize: "17px" }} /> Saved</Box>
                                             }
                                         </Box>
                                     </Grid>
