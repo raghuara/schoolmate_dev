@@ -355,18 +355,26 @@ export const fetchMyLeaveStatus = async ({ rollNumber, academicYear }) => {
 };
 
 /* Accept / decline — PUT api/updateLeaveApprovalAction (root level).
-   Approver must be admin or superadmin; a decline requires a reason. */
+   Approver must be admin or superadmin; a decline requires a reason.
+
+   Unlike every other write in this module, this endpoint binds from the QUERY
+   STRING, not the body. Sent as JSON it reads leaveApplicationId as 0 and answers
+   500 `{ error: true, message: "Invalid leaveApplicationId.", leaveApplicationId: 0 }`
+   — the same id in the query string resolves normally. `Reason` is always sent,
+   empty when accepting, so the URL matches the contract exactly. */
 export const updateLeaveAction = async ({ leaveApplicationId, rollNumber, action, reason = "", academicYear }) => {
     if (action === "decline" && !String(reason).trim()) {
         return { ok: false, message: "A reason is required when declining." };
     }
     try {
-        const res = await client.put(updateLeaveApprovalAction, {
-            leaveApplicationId,
-            RollNumber: rollNumber,
-            Action: action,
-            Reason: reason,
-            AcademicYear: academicYear,
+        const res = await client.put(updateLeaveApprovalAction, null, {
+            params: {
+                AcademicYear: academicYear,
+                leaveApplicationId,
+                RollNumber: rollNumber,
+                Action: action,
+                Reason: action === "decline" ? String(reason).trim() : "",
+            },
         });
         if (res?.data?.error) return { ok: false, message: res.data.message || "Could not update the request" };
         return {
@@ -522,17 +530,29 @@ export const postManualAttendance = async ({ editorRollNumber, date, academicYea
 export const attendanceRowFromApi = (row, index) => {
     const pick = (...keys) => keys.map((k) => row[k]).find((v) => v !== undefined && v !== null && v !== "");
     const status = String(pick("status", "Status") || "").toLowerCase();
+
+    /* Login/logout and their source arrive nested in a `punches` array — one entry per
+       login/logout pair — not as flat fields on the row. A day can hold several pairs,
+       so the row carries the FIRST login and the LAST logout, which is what the Login
+       Time / Logout Time columns mean. Flat fields are still read first so a response
+       in the older shape keeps working. */
+    const punches = pick("punches", "Punches") || [];
+    const firstPunch = punches[0] || {};
+    const lastPunch = punches[punches.length - 1] || {};
+
     return {
         id: pick("id", "Id") ?? index + 1,
         rollNumber: String(pick("rollNumber", "RollNumber") || ""),
-        name: pick("name", "Name") || "",
+        // GetTeachersAttendance returns `userName`; the roster route returns `name`.
+        // `biometricName` is the device's own label, used only when neither is set.
+        name: pick("name", "Name", "userName", "UserName", "biometricName", "BiometricName") || "",
         role: pick("category", "Category", "userType", "UserType") || "",
         employeeId: pick("employeeId", "EmployeeId", "biometricId", "BiometricId") || "",
         date: pick("date", "Date") || "",
-        checkIn: fromApiTime(pick("loginTime", "LoginTime")),
-        checkOut: fromApiTime(pick("logoutTime", "LogoutTime")),
+        checkIn: fromApiTime(pick("loginTime", "LoginTime") || firstPunch.loginTime || firstPunch.LoginTime),
+        checkOut: fromApiTime(pick("logoutTime", "LogoutTime") || lastPunch.logoutTime || lastPunch.LogoutTime),
         // "biometric" | "manual" | null on legacy rows with no audit history
-        source: pick("source", "Source") || null,
+        source: pick("source", "Source") || firstPunch.loginSource || firstPunch.LoginSource || null,
         status: API_TO_ATTENDANCE_STATUS[status] || (status ? status : "Unmarked"),
         breaks: (pick("breaks", "Breaks") || []).map((b, i) => ({
             breakNo: b.breakNo ?? b.BreakNo ?? i + 1,

@@ -170,6 +170,7 @@ import SalaryRegister from "./Components/LeaveAttendanceComps/PayrollComps/Salar
 import MarkSalaryCreditedPage from "./Components/LeaveAttendanceComps/PayrollComps/MarkSalaryCreditedPage";
 import LeavePolicy from "./Components/LeaveAttendanceComps/PayrollComps/LeavePolicy";
 import LeaveMasterScreen from "./Components/LeaveAttendanceComps/PayrollComps/LeaveMasterScreen";
+import StaffCoveragePage from "./Components/LeaveAttendanceComps/StaffCoveragePage";
 import LeaveAttendancePage from "./Components/LeaveAttendanceComps/LeaveAttendancePage";
 import BiometricStaffMappingPage from "./Components/LeaveAttendanceComps/BiometricStaffMappingPage";
 import VehicleDetailsPage from "./Components/TransportComps/TransportAssetComps/VehicleDetailsComps/VehicleDetailsPage";
@@ -391,6 +392,10 @@ export default function RouterPage() {
                 {/*Leave & payroll - Single Page with Tabs*/}
                 <Route path="Leave" element={<LeaveAttendanceMainPage />} />
                 <Route path="Leave/leave-attendance" element={<LeaveAttendancePage />} />
+
+                {/* Who counts as an employee — governs payroll, attendance, bank
+                    details and the salary register. */}
+                <Route path="Leave/coverage" element={<StaffCoveragePage />} />
                 <Route path="Leave/leave-attendance/biometric-mapping" element={<BiometricStaffMappingPage />} />
                 <Route path="Leave/payroll" element={<PayrollOverview />} />
                 <Route path="Leave/payroll/payroll-form" element={<AddEditPayroll />} />

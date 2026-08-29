@@ -4,6 +4,7 @@ import AppsIcon from '@mui/icons-material/Apps';
 import EventNoteIcon from '@mui/icons-material/EventNote';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import PolicyIcon from '@mui/icons-material/Policy';
+import HowToRegIcon from '@mui/icons-material/HowToReg';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { findSubMenuPermissions } from '../../Redux/Slices/AuthSlice';
@@ -117,6 +118,24 @@ const moduleCards = [
                 path: 'payroll/salary-register',
                 subMenu: PAYROLL,
                 needs: ['view'],
+            },
+        ],
+    },
+    {
+        accent: '#7C3AED',
+        icon: HowToRegIcon,
+        text: 'Payroll & Attendance Coverage',
+        description: 'Choose who is treated as an employee across payroll and attendance.',
+        path: 'coverage',
+        // Setup that governs all three cards above, so it is gated on payroll rights
+        // rather than on any one attendance permission.
+        access: [{ subMenu: PAYROLL, needs: ['view', 'create', 'edit'] }],
+        links: [
+            {
+                label: 'Manage Coverage',
+                path: 'coverage',
+                subMenu: PAYROLL,
+                needs: ['view', 'create', 'edit'],
             },
         ],
     },

@@ -462,6 +462,13 @@ const employeeBankDetailsDashboard = `${payRoll}employeeBankDetailsDashboard`;
 const updateEmployeeBankDetailsByRollnumber = `${payRoll}updateEmployeeBankDetailsByRollnumber`;
 const salaryRegisterDashboard = `${payRoll}salaryRegisterDashboard`;
 
+/* Payroll & attendance coverage — which users count as employees.
+   NOT BUILT YET: both routes answer 404 today. StaffCoveragePage keeps a local
+   draft so the screen stays usable, and switches over the moment these ship.
+   See staffCoverageApi.js for the payload the screen sends. */
+const getPayrollCoverage = `${payRoll}getPayrollCoverage`;
+const savePayrollCoverage = `${payRoll}savePayrollCoverage`;
+
 const leavePolicyDashboard = `${payRoll}leavePolicyDashboard`;
 const getPayrollPayslipByRollNumber = `${payRoll}getPayrollPayslipByRollNumber`;
 const postLeaveType = `${payRoll}postLeaveType`;
@@ -920,6 +927,8 @@ export {
     employeeBankDetailsDashboard,
     updateEmployeeBankDetailsByRollnumber,
     salaryRegisterDashboard,
+    getPayrollCoverage,
+    savePayrollCoverage,
     leavePolicyDashboard,
     postLeaveType,
     updateLeaveTypeById,
