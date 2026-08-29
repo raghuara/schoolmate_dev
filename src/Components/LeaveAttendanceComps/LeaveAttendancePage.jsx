@@ -2044,8 +2044,13 @@ export default function LeaveAttendancePage() {
                                 {isBreakPanel &&
                                     entryStaff.map((row, index) => {
                                         const value = entryOf(row.id);
-                                        // Breaks only make sense for staff who actually attended
-                                        const applicable = value.status === "Present" || value.status === "Late";
+                                        /* Breaks only make sense for staff who actually attended. The status can
+                                           come from either side: what is being marked right now, or what was
+                                           already saved for this date. Reading only the unsaved entry made the
+                                           whole tab say "not applicable" whenever someone came back later to add
+                                           breaks to a day they had already marked. */
+                                        const effectiveStatus = value.status || markedOnDate[row.rollNumber]?.status || "";
+                                        const applicable = effectiveStatus === "Present" || effectiveStatus === "Late";
                                         const totalMinutes = totalBreakMinutes(value.breaks);
                                         return (
                                             <TableRow key={row.id} hover>
