@@ -310,7 +310,7 @@ export default function InternalCategoriesPage({ embedded = false }) {
                                             color: C.textMuted,
                                         }}
                                     >
-                                        {row.owner}
+                                        {row.owner || "—"}
                                     </Typography>
 
                                     <Box sx={{ width: COL.status, flexShrink: 0 }}>

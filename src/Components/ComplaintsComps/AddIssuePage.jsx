@@ -144,7 +144,11 @@ export default function AddIssuePage() {
                             value={form.category}
                             onChange={(e) => set("category", e.target.value)}
                             displayEmpty
-                            renderValue={(v) => (v === "" ? "Select Operations Category" : v)}
+                            renderValue={(v) =>
+                                v === ""
+                                    ? "Select Operations Category"
+                                    : OPERATIONS_CATEGORIES.find((c) => c.id === v)?.name
+                            }
                             fullWidth
                             sx={{ ...controlSx, color: form.category === "" ? C.textMuted : C.text }}
                         >
@@ -152,8 +156,8 @@ export default function AddIssuePage() {
                                 Select Operations Category
                             </MenuItem>
                             {OPERATIONS_CATEGORIES.map((option) => (
-                                <MenuItem key={option} value={option} sx={{ fontSize: "14px" }}>
-                                    {option}
+                                <MenuItem key={option.id} value={option.id} sx={{ fontSize: "14px" }}>
+                                    {option.name}
                                 </MenuItem>
                             ))}
                         </Select>

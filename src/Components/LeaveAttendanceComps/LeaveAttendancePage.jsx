@@ -157,7 +157,11 @@ const buildStaffDirectory = () => {
 
 export const STAFF_DIRECTORY = buildStaffDirectory();
 
-export const roleLabelOf = (category) => (category === "Teacher" ? "Teaching Staff" : "Non Teaching Staff");
+/* The roster route returns userType capitalised ("Teacher"); the request that fetches
+   it uses lowercase ("teacher"). Comparing case-sensitively against either one is how
+   every Teacher ended up chipped "Non Teaching Staff", so this folds the case. */
+export const roleLabelOf = (category) =>
+    String(category || "").trim().toLowerCase() === "teacher" ? "Teaching Staff" : "Non Teaching Staff";
 
 const ATTENDANCE_STATUSES = ["Present", "Late", "Absent", "On Leave"];
 
@@ -2134,7 +2138,7 @@ export default function LeaveAttendancePage() {
                                 {!isBreakPanel &&
                                     entryStaff.map((row, index) => {
                                     const value = entryOf(row.id);
-                                    const roleLabel = row.category === "teacher" ? "Teaching Staff" : "Non Teaching Staff";
+                                    const roleLabel = roleLabelOf(row.category);
                                     const roleCfg = ROLE_STYLE[roleLabel];
                                     const timesDisabled = !value.status || value.status === "Absent" || value.status === "On Leave";
                                     const inValue = sameTimeForAll ? sharedTimes.checkIn : value.checkIn;

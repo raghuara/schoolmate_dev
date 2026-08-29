@@ -1,3 +1,5 @@
+import { seedRowsFor, STAFF_MODULE } from "./complaintCategorySeed";
+
 // Internal Complaints > Categories — mock rows mirroring the dev-Figma comp 1:1.
 // Replace INTERNAL_CATEGORY_ROWS with the internal-categories API response.
 //
@@ -24,21 +26,25 @@ export const INTERNAL_CATEGORY_COLS = {
     priorityChipWidth: 90,
 };
 
-// { id, name, priority, owner, status }
-export const INTERNAL_CATEGORY_ROWS = [
-    { id: 1, name: "Academic & Teaching", priority: "NORMAL", owner: "Academic Coordinator", status: "ACTIVE" },
-    { id: 2, name: "Classroom & Students", priority: "NORMAL", owner: "Class Coordinator", status: "ACTIVE" },
-    { id: 3, name: "Staff & Professional Conduct", priority: "HIGH", owner: "Department Head", status: "ACTIVE" },
-    { id: 4, name: "Facilities & Maintenance", priority: "HIGH", owner: "Facility Team", status: "ACTIVE" },
-    { id: 5, name: "Cleanliness & Hygiene", priority: "NORMAL", owner: "Housekeeping", status: "ACTIVE" },
-    { id: 6, name: "Administration & Records", priority: "NORMAL", owner: "Admin Team", status: "ACTIVE" },
-    { id: 7, name: "Communication & Coordination", priority: "NORMAL", owner: "Coordinator", status: "ACTIVE" },
-    { id: 8, name: "Transport & Security", priority: "HIGH", owner: "Operations Team", status: "ACTIVE" },
-    { id: 9, name: "Events & Scheduling", priority: "NORMAL", owner: "Coordinator", status: "ACTIVE" },
-    { id: 10, name: "Technology & Digital Systems", priority: "HIGH", owner: "IT Team", status: "ACTIVE" },
-    { id: 11, name: "Safety & Compliance", priority: "CRITICAL", owner: "School Administrator", status: "ACTIVE" },
-    { id: 12, name: "Improvement & Recognition", priority: "LOW", owner: "Coordinator", status: "ACTIVE" },
-];
+// Owners already configured for these categories; the seed carries none.
+const STAFF_OWNERS = {
+    ACADEMIC_TEACHING: "Academic Coordinator",
+    CLASSROOM_STUDENTS: "Class Coordinator",
+    STAFF_PROFESSIONAL_CONDUCT: "Department Head",
+    FACILITIES_MAINTENANCE: "Facility Team",
+    CLEANLINESS_HYGIENE: "Housekeeping",
+    ADMINISTRATION_RECORDS: "Admin Team",
+    COMMUNICATION_COORDINATION: "Coordinator",
+    TRANSPORT_SECURITY: "Operations Team",
+    EVENTS_SCHEDULING: "Coordinator",
+    TECHNOLOGY_DIGITAL: "IT Team",
+    SAFETY_COMPLIANCE: "School Administrator",
+    IMPROVEMENT_RECOGNITION: "Coordinator",
+};
+
+// The 12 seeded StaffConcern categories. NOTE: the seed rates Technology &
+// Digital Systems NORMAL, where the mock had it HIGH — the seed wins.
+export const INTERNAL_CATEGORY_ROWS = seedRowsFor(STAFF_MODULE, STAFF_OWNERS);
 
 export const INTERNAL_STATUS_FILTER = ["All Status", "ACTIVE", "INACTIVE"];
 

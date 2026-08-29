@@ -307,7 +307,7 @@ export default function ComplaintCategoriesPage({ embedded = false }) {
                                     <Typography
                                         sx={{ width: COL.owner, flexShrink: 0, fontSize: "13px", fontWeight: 400, color: C.text }}
                                     >
-                                        {row.owner}
+                                        {row.owner || "—"}
                                     </Typography>
                                     <Box sx={{ width: COL.status, flexShrink: 0 }}>
                                         <TableChip label={row.status} palette={STATUS_STYLE} width={80} />
