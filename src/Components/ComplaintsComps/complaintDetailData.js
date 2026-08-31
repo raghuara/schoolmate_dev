@@ -9,7 +9,7 @@
 export const TIMELINE_STATE = { DONE: "done", ACTIVE: "active", PENDING: "pending" };
 
 const CMP_00124 = {
-    ref: "MSMS-CMP-2026-00124",
+    ref: "MSMS-CMP-2026-000124",
     stream: "Parent Complaints",
     category: "Teacher-Related",
     priority: "High Priority",
@@ -96,6 +96,8 @@ export const DETAIL_PRIORITY_TONES = {
 export const DETAIL_STATUS_TONES = {
     "Under Review": { bg: "rgba(59, 130, 246, 0.10)", color: "#3B82F6" },
     "Action Required": { bg: "rgba(239, 68, 68, 0.10)", color: "#EF4444" },
+    // What the intake API returns on creation, before anyone picks it up
+    Open: { bg: "#F1F5F9", color: "#64748B" },
     Registered: { bg: "#F1F5F9", color: "#64748B" },
     Resolved: { bg: "rgba(34, 197, 94, 0.10)", color: "#22C55E" },
     Closed: { bg: "#F1F5F9", color: "#64748B" },

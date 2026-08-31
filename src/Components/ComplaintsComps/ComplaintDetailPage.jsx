@@ -27,6 +27,7 @@ import {
 } from "./complaintDetailData";
 import ComplaintTimeline from "./ComplaintTimeline";
 import UpdateStatusDrawer from "./UpdateStatusDrawer";
+import { toneFor } from "./complaintsManagementData";
 
 // Reached from "View" on a row in the Complaints Management workspace.
 //
@@ -100,7 +101,7 @@ export default function ComplaintDetailPage() {
     }, [id]);
 
     const priorityTone = DETAIL_PRIORITY_TONES[detail.priority] || DETAIL_PRIORITY_TONES["Normal Priority"];
-    const statusTone = DETAIL_STATUS_TONES[detail.status] || { bg: C.track, color: C.textMuted };
+    const statusTone = toneFor(DETAIL_STATUS_TONES, detail.status) || { bg: C.track, color: C.textMuted };
 
     const stamp = () => dayjs().format("DD MMM YYYY");
 

@@ -49,7 +49,7 @@ export const AUDIT_ROWS = [
         role: "Vice Principal",
         action: "Complaint Reassigned",
         module: "Complaints",
-        reference: "MSMS-CMP-2026-00124",
+        reference: "MSMS-CMP-2026-000124",
     },
     {
         id: 4,
@@ -76,7 +76,7 @@ export const AUDIT_ROWS = [
         role: "Coordinator",
         action: "Confidential Complaint Viewed",
         module: "Complaints",
-        reference: "MSMS-CMP-2026-00115",
+        reference: "MSMS-CMP-2026-000115",
     },
     {
         id: 7,

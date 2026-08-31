@@ -466,6 +466,12 @@ const salaryRegisterDashboard = `${payRoll}salaryRegisterDashboard`;
    NOT BUILT YET: both routes answer 404 today. StaffCoveragePage keeps a local
    draft so the screen stays usable, and switches over the moment these ship.
    See staffCoverageApi.js for the payload the screen sends. */
+/* Leave approval settings — per leave category, which user types may approve.
+   Root-level route, not under api/leave/.
+   Shape: data.categories[] { leaveCategory: "Student"|"Staff", label, hasApprover,
+   userTypes[] { userTypeID, userType, isSelected } }. */
+const getLeaveApprovalSettings = `${baseApiurl}leaveApprovalSettings/Get`;
+
 const getPayrollCoverage = `${payRoll}getPayrollCoverage`;
 const savePayrollCoverage = `${payRoll}savePayrollCoverage`;
 
@@ -665,6 +671,15 @@ const GetQuestionPaperDashboard = `${baseApiurl}qpaper/getDashboard`;
 const GetQuestionPaperApprovalRequests = `${baseApiurl}qpaper/getApprovalRequests`;
 const UpdateQuestionPaperApproval = `${baseApiurl}qpaper/updateApproval`;
 const PublishQuestionPaper = `${baseApiurl}qpaper/publish`;
+
+//----------------------------------- Complaints ----------------------------------
+//----------------------------------- xxxxxxxx ----------------------------------
+
+// Both take multipart/form-data. The parent endpoint serves four flows, told
+// apart by RegistrationMode (ParentDirect | StaffOnBehalf) and
+// SubmissionPlatform (Mobile | Website) — see the backend's screen/API mapping.
+const PostParentComplaint = `${baseApiurl}complaints/parent`;
+const PostStaffConcern = `${baseApiurl}complaints/staff-concern`;
 
 //----------------------------------- xxxxxxxx ----------------------------------
 
@@ -974,6 +989,7 @@ export {
     employeeBankDetailsDashboard,
     updateEmployeeBankDetailsByRollnumber,
     salaryRegisterDashboard,
+    getLeaveApprovalSettings,
     getPayrollCoverage,
     savePayrollCoverage,
     leavePolicyDashboard,
@@ -1143,5 +1159,7 @@ export {
     GetQuestionPaperDashboard,
     GetQuestionPaperApprovalRequests,
     UpdateQuestionPaperApproval,
-    PublishQuestionPaper
+    PublishQuestionPaper,
+    PostParentComplaint,
+    PostStaffConcern
 }

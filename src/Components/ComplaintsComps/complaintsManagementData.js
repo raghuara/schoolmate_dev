@@ -37,6 +37,10 @@ export const PRIORITY_TONES = {
 };
 
 export const STATUS_TONES = {
+    /* `Open` is what the intake API returns on creation — confirmed against a live
+       staff-concern response. It reads as "not yet picked up", so it takes the same amber
+       as Registered rather than a colour of its own. */
+    Open: { bg: "#FFFBEB", color: "#D97706" },
     Registered: { bg: "#FFFBEB", color: "#D97706" },
     "Action Required": { bg: "rgba(239, 68, 68, 0.10)", color: "#EF4444" },
     "Under Review": { bg: "rgba(59, 130, 246, 0.10)", color: "#3B82F6" },
@@ -45,6 +49,29 @@ export const STATUS_TONES = {
     Resolved: { bg: "rgba(34, 197, 94, 0.10)", color: "#22C55E" },
     Closed: { bg: "#F1F5F9", color: "#64748B" },
 };
+
+/* The API spells statuses without spaces ("InProgress"); the comps spell them with
+   ("In Progress"). Rather than keep two sets of keys in step, a lookup falls back to a
+   space- and case-insensitive match, so either spelling finds its tone.
+   Returns undefined when genuinely unknown — callers already supply a fallback. */
+const squash = (value) => String(value || "").replace(/[\s_-]/g, "").toLowerCase();
+
+export const toneFor = (map, status) => {
+    if (!status) return undefined;
+    if (map[status]) return map[status];
+    const target = squash(status);
+    const key = Object.keys(map).find((name) => squash(name) === target);
+    return key ? map[key] : undefined;
+};
+
+/* Server SLA state → the tone the SLA cell is painted in.
+   Only `WithinSLA` has been seen on a live response; anything else falls through to
+   neutral until its real spelling is confirmed, rather than guessing at names. */
+export const SLA_STATE_TO_TONE = {
+    WithinSLA: "ok",
+};
+
+export const slaToneFor = (slaState) => SLA_STATE_TO_TONE[slaState] || "neutral";
 
 // The SLA cell is plain text, coloured by urgency rather than chipped.
 export const SLA_TONES = {
@@ -58,8 +85,8 @@ export const SLA_TONES = {
 // `student` is absent on internal entries — the comp only shows Owner there.
 export const WORKSPACE_ITEMS = [
     {
-        id: "MSMS-CMP-2026-00124",
-        ref: "MSMS-CMP-2026-00124",
+        id: "MSMS-CMP-2026-000124",
+        ref: "MSMS-CMP-2026-000124",
         type: "Parent Complaint",
         title: "Teacher-related concern",
         student: "Aarav Kumar",
@@ -71,8 +98,8 @@ export const WORKSPACE_ITEMS = [
         date: "14 Aug 2026",
     },
     {
-        id: "MSMS-ACT-2026-0042",
-        ref: "MSMS-ACT-2026-0042",
+        id: "MSMS-IES-2026-000042",
+        ref: "MSMS-IES-2026-000042",
         type: "Internal Excellence",
         title: "Classroom maintenance follow-up",
         owner: "Rajesh Kumar",
@@ -83,8 +110,8 @@ export const WORKSPACE_ITEMS = [
         date: "18 Aug 2026",
     },
     {
-        id: "MSMS-CMP-2026-00125",
-        ref: "MSMS-CMP-2026-00125",
+        id: "MSMS-CMP-2026-000125",
+        ref: "MSMS-CMP-2026-000125",
         type: "Parent Complaint",
         title: "Bus route timing concern",
         student: "Rahul Kumar",
@@ -96,8 +123,8 @@ export const WORKSPACE_ITEMS = [
         date: "12 Aug 2026",
     },
     {
-        id: "MSMS-ACT-2026-0041",
-        ref: "MSMS-ACT-2026-0041",
+        id: "MSMS-IES-2026-000041",
+        ref: "MSMS-IES-2026-000041",
         type: "Internal Excellence",
         title: "Library inventory audit Q3",
         owner: "Mrs. Rekha Nair",
@@ -108,8 +135,8 @@ export const WORKSPACE_ITEMS = [
         date: "15 Aug 2026",
     },
     {
-        id: "MSMS-CMP-2026-00123",
-        ref: "MSMS-CMP-2026-00123",
+        id: "MSMS-CMP-2026-000123",
+        ref: "MSMS-CMP-2026-000123",
         type: "Parent Complaint",
         title: "Broken desk in classroom 7B",
         student: "Meera Patel",
@@ -121,8 +148,8 @@ export const WORKSPACE_ITEMS = [
         date: "10 Aug 2026",
     },
     {
-        id: "MSMS-ACT-2026-0040",
-        ref: "MSMS-ACT-2026-0040",
+        id: "MSMS-IES-2026-000040",
+        ref: "MSMS-IES-2026-000040",
         type: "Internal Excellence",
         title: "Staff training attendance tracking",
         owner: "Admin Tamil",
@@ -138,8 +165,8 @@ export const WORKSPACE_ITEMS = [
 // complaint `category` rather than by type, and carries a lifecycle status.
 export const PARENT_ITEMS = [
     {
-        id: "MSMS-CMP-2026-00124",
-        ref: "MSMS-CMP-2026-00124",
+        id: "MSMS-CMP-2026-000124",
+        ref: "MSMS-CMP-2026-000124",
         type: "Parent Complaint",
         category: "Teacher-Related",
         title: "Concern regarding teacher feedback",
@@ -152,8 +179,8 @@ export const PARENT_ITEMS = [
         date: "14 Aug 2026",
     },
     {
-        id: "MSMS-CMP-2026-00125",
-        ref: "MSMS-CMP-2026-00125",
+        id: "MSMS-CMP-2026-000125",
+        ref: "MSMS-CMP-2026-000125",
         type: "Parent Complaint",
         category: "Transport",
         title: "Bus route timing concern",
@@ -166,8 +193,8 @@ export const PARENT_ITEMS = [
         date: "12 Aug 2026",
     },
     {
-        id: "MSMS-CMP-2026-00123",
-        ref: "MSMS-CMP-2026-00123",
+        id: "MSMS-CMP-2026-000123",
+        ref: "MSMS-CMP-2026-000123",
         type: "Parent Complaint",
         category: "Infrastructure",
         title: "Broken desk in classroom 7B",
@@ -180,8 +207,8 @@ export const PARENT_ITEMS = [
         date: "10 Aug 2026",
     },
     {
-        id: "MSMS-CMP-2026-00122",
-        ref: "MSMS-CMP-2026-00122",
+        id: "MSMS-CMP-2026-000122",
+        ref: "MSMS-CMP-2026-000122",
         type: "Parent Complaint",
         category: "Academic",
         title: "Excessive homework load for Grade V",
@@ -194,8 +221,8 @@ export const PARENT_ITEMS = [
         date: "16 Aug 2026",
     },
     {
-        id: "MSMS-CMP-2026-00121",
-        ref: "MSMS-CMP-2026-00121",
+        id: "MSMS-CMP-2026-000121",
+        ref: "MSMS-CMP-2026-000121",
         type: "Parent Complaint",
         category: "Fee & Finance",
         title: "Late fee charged incorrectly",

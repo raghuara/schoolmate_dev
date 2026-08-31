@@ -22,11 +22,15 @@ export const SECTION_OPTIONS = ["Section A", "Section B", "Section C"];
 // The comp's rows are 4 of 4, one page.
 export const STUDENT_PAGE_SIZE = 4;
 
-// { id, name, admissionNo, grade, section, parentName, parentMobile }
+// { id, name, rollNumber, admissionNo, grade, section, parentName, parentMobile }
+// NOTE: `rollNumber` is what the complaints API keys on (StudentRollNumber) —
+// the admission number is a different identifier and is display-only here.
+// 70707 matches the roll number in the backend's Postman sample.
 export const STUDENT_RESULTS = [
     {
         id: 1,
         name: "Aarav Kumar",
+        rollNumber: "70707",
         admissionNo: "MSMS10234",
         grade: "Grade 5",
         section: "Section A",
@@ -36,6 +40,7 @@ export const STUDENT_RESULTS = [
     {
         id: 2,
         name: "Ananya Sharma",
+        rollNumber: "70708",
         admissionNo: "MSMS10452",
         grade: "Grade 5",
         section: "Section A",
@@ -45,6 +50,7 @@ export const STUDENT_RESULTS = [
     {
         id: 3,
         name: "Rohan Patel",
+        rollNumber: "70709",
         admissionNo: "MSMS11094",
         grade: "Grade 5",
         section: "Section B",
@@ -54,6 +60,7 @@ export const STUDENT_RESULTS = [
     {
         id: 4,
         name: "Ishita Verma",
+        rollNumber: "70710",
         admissionNo: "MSMS09876",
         grade: "Grade 5",
         section: "Section C",
@@ -79,3 +86,27 @@ export const RECEIVING_STAFF_FALLBACK = "Front Office - Sunita Rao";
 // The comp's upload hint. Enforced on the client here; the API is the real gate.
 export const ATTACHMENT_MAX_MB = 5;
 export const ATTACHMENT_ACCEPT = ".png,.jpg,.jpeg,.pdf,.doc,.docx";
+
+// ── Fields the POST API expects that the comp does not draw ─────────────────
+// The intake endpoint takes ParentRelation, IncidentDate, IncidentLocation,
+// PersonOrRoleInvolved and PreferredContactMethod, none of which are in the
+// Figma frame, so they are grouped into their own "Incident Details" card.
+//
+// These option values are the ones the Postman samples send. The backend has
+// not published the full enums yet — confirm before relying on them, and keep
+// `value` matching the API exactly while `label` stays human-readable.
+export const PARENT_RELATIONS = [
+    { value: "Father", label: "Father" },
+    { value: "Mother", label: "Mother" },
+    { value: "Guardian", label: "Guardian" },
+];
+
+export const CONTACT_METHODS = [
+    { value: "PhoneCall", label: "Phone Call" },
+    { value: "WhatsApp", label: "WhatsApp" },
+    { value: "Email", label: "Email" },
+    { value: "SMS", label: "SMS" },
+];
+
+// The API takes ComplaintSource as one word; the comp labels it with a space.
+export const SOURCE_VALUES = { "Phone Call": "PhoneCall", "Walk-In": "WalkIn" };

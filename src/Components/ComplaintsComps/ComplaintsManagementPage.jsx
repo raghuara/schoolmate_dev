@@ -21,6 +21,7 @@ import {
     PRIORITY_TONES,
     STATUS_TONES,
     SLA_TONES,
+    toneFor,
 } from "./complaintsManagementData";
 
 // Reached from "Manage Complaints" on the Complaints dashboard. One workspace
@@ -404,7 +405,7 @@ export default function ComplaintsManagementPage() {
                                     <MetaChip label="Status:">
                                         <Chip
                                             label={item.status}
-                                            tone={STATUS_TONES[item.status] || PRIORITY_TONES.Normal}
+                                            tone={toneFor(STATUS_TONES, item.status) || PRIORITY_TONES.Normal}
                                         />
                                     </MetaChip>
                                     <MetaChip label="SLA / Due:">

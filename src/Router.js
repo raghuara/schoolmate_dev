@@ -164,7 +164,10 @@ import AddEditPayroll from "./Components/LeaveAttendanceComps/PayrollComps/AddEd
 import PayrollOverview from "./Components/LeaveAttendanceComps/PayrollComps/PayrollOverview";
 import SalaryStructures from "./Components/LeaveAttendanceComps/PayrollComps/SalaryStructures";
 import ComplianceSettings from "./Components/LeaveAttendanceComps/PayrollComps/ComplianceSettings";
-import ApprovePayroll from "./Components/LeaveAttendanceComps/PayrollComps/ApprovePayroll";
+/* The payslip dashboard at PayrollComps/ApprovePayroll has no approve action — payroll is
+   approved per CYCLE, not per payslip, and ApprovePayrollPage drives that stage machine
+   (lock attendance -> calculate -> approve -> mark credited) against api/payroll/*. */
+import ApprovePayrollPage from "./Components/LeaveAttendanceComps/ApprovePayrollPage";
 import BankReports from "./Components/LeaveAttendanceComps/PayrollComps/BankReports";
 import SalaryRegister from "./Components/LeaveAttendanceComps/PayrollComps/SalaryRegister";
 import MarkSalaryCreditedPage from "./Components/LeaveAttendanceComps/PayrollComps/MarkSalaryCreditedPage";
@@ -412,7 +415,7 @@ export default function RouterPage() {
                 <Route path="Leave/payroll/payroll-form" element={<AddEditPayroll />} />
                 <Route path="Leave/payroll/salary-structures" element={<SalaryStructures />} />
                 <Route path="Leave/payroll/compliance" element={<ComplianceSettings />} />
-                <Route path="Leave/payroll/approve-payroll" element={<ApprovePayroll />} />
+                <Route path="Leave/payroll/approve-payroll" element={<ApprovePayrollPage />} />
                 <Route path="Leave/payroll/bank-reports" element={<BankReports />} />
                 <Route path="Leave/payroll/salary-register" element={<SalaryRegister />} />
                 <Route path="Leave/payroll/salary-credit" element={<MarkSalaryCreditedPage />} />

@@ -6,6 +6,7 @@ import {
     Dialog, DialogContent, DialogActions, CircularProgress, Tooltip, Paper,
 } from '@mui/material';
 import axios from '../leaveAxios';
+import { withoutExcluded } from "../coverageScope";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SaveOutlinedIcon from '@mui/icons-material/SaveOutlined';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
@@ -182,7 +183,7 @@ export default function ComplianceSettings() {
                     totalAdditionalSalary: d.totalAdditionalSalary,
                     additionalSalaryEmployeesCount: d.additionalSalaryEmployeesCount,
                 });
-                setEmployeeData((d.employees || []).map(emp => ({
+                setEmployeeData((await withoutExcluded(d.employees || [])).map(emp => ({
                     id: emp.id,
                     employeeId: emp.rollNumber,
                     rollNumber: emp.rollNumber,
@@ -229,6 +230,152 @@ export default function ComplianceSettings() {
         setEditedCompliance({ ...employee.compliance });
         setEditDialogOpen(true);
     };
+
+    /* The row list depends only on the fetched employees and the edit permission — never on
+       editedCompliance. Without this every keystroke in the edit dialog re-rendered all
+       employee rows (four MUI Chips each), which is what made typing lag. */
+    const employeeRows = useMemo(
+        () => filteredEmployees.map((emp, idx) => {
+                                    const avColor = avatarColorFor(emp.name || '');
+                                    return (
+                                        <TableRow
+                                            key={emp.id}
+                                            sx={{
+                                                '&:hover': { bgcolor: PRIMARY_LIGHT },
+                                                borderBottom: '1px solid #F3F4F6',
+                                                transition: 'background-color 0.15s',
+                                            }}
+                                        >
+                                            <TableCell sx={{ width: 50, borderBottom: '1px solid #F3F4F6', py: 1.2 }}>
+                                                <Typography sx={{ fontSize: '12px', color: '#9CA3AF', fontWeight: 500 }}>
+                                                    {idx + 1}
+                                                </Typography>
+                                            </TableCell>
+                                            <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.2 }}>
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
+                                                    <Avatar sx={{
+                                                        width: 32, height: 32,
+                                                        bgcolor: `${avColor}15`,
+                                                        color: avColor,
+                                                        fontSize: '11px', fontWeight: 700,
+                                                        border: `1px solid ${avColor}33`,
+                                                    }}>
+                                                        {getInitials(emp.name || '?')}
+                                                    </Avatar>
+                                                    <Box sx={{ minWidth: 0 }}>
+                                                        <Typography sx={{
+                                                            fontSize: '13px', fontWeight: 600,
+                                                            color: '#111827', whiteSpace: 'nowrap',
+                                                        }}>
+                                                            {emp.name || '—'}
+                                                        </Typography>
+                                                        <Typography sx={{ fontSize: '10px', color: '#9CA3AF', fontWeight: 500 }}>
+                                                            {emp.employeeId}{emp.designation ? ` · ${emp.designation}` : ''}
+                                                        </Typography>
+                                                    </Box>
+                                                </Box>
+                                            </TableCell>
+                                            <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.2 }}>
+                                                <Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>
+                                                    {formatINR(emp.basicSalary)}
+                                                </Typography>
+                                            </TableCell>
+                                            <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.2, textAlign: 'center' }}>
+                                                <Chip
+                                                    label={emp.incentive > 0 ? formatINR(emp.incentive) : 'Nil'}
+                                                    size="small"
+                                                    sx={{
+                                                        bgcolor: emp.incentive > 0 ? '#ECFDF5' : '#F3F4F6',
+                                                        color: emp.incentive > 0 ? '#047857' : '#9CA3AF',
+                                                        border: `1px solid ${emp.incentive > 0 ? '#A7F3D0' : '#E5E7EB'}`,
+                                                        fontWeight: 700, fontSize: '10.5px', height: 22,
+                                                    }}
+                                                />
+                                            </TableCell>
+                                            <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.2, textAlign: 'center' }}>
+                                                <Chip
+                                                    label={emp.additionalSalary > 0 ? formatINR(emp.additionalSalary) : 'Nil'}
+                                                    size="small"
+                                                    sx={{
+                                                        bgcolor: emp.additionalSalary > 0 ? '#FEF2F2' : '#F3F4F6',
+                                                        color: emp.additionalSalary > 0 ? '#B91C1C' : '#9CA3AF',
+                                                        border: `1px solid ${emp.additionalSalary > 0 ? '#FECACA' : '#E5E7EB'}`,
+                                                        fontWeight: 700, fontSize: '10.5px', height: 22,
+                                                    }}
+                                                />
+                                            </TableCell>
+                                            <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.2, textAlign: 'center' }}>
+                                                <Chip
+                                                    label={emp.compliance.pfApplicable ? formatINR(emp.compliance.pfPercentage) : 'N/A'}
+                                                    size="small"
+                                                    sx={{
+                                                        bgcolor: emp.compliance.pfApplicable ? '#F5F3FF' : '#F3F4F6',
+                                                        color: emp.compliance.pfApplicable ? '#6D28D9' : '#9CA3AF',
+                                                        border: `1px solid ${emp.compliance.pfApplicable ? '#DDD6FE' : '#E5E7EB'}`,
+                                                        fontWeight: 700, fontSize: '10.5px', height: 22,
+                                                    }}
+                                                />
+                                            </TableCell>
+                                            <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.2, textAlign: 'center' }}>
+                                                <Chip
+                                                    label={emp.compliance.esiApplicable ? formatINR(emp.compliance.esiPercentage) : 'N/A'}
+                                                    size="small"
+                                                    sx={{
+                                                        bgcolor: emp.compliance.esiApplicable ? '#ECFDF5' : '#F3F4F6',
+                                                        color: emp.compliance.esiApplicable ? '#047857' : '#9CA3AF',
+                                                        border: `1px solid ${emp.compliance.esiApplicable ? '#A7F3D0' : '#E5E7EB'}`,
+                                                        fontWeight: 700, fontSize: '10.5px', height: 22,
+                                                    }}
+                                                />
+                                            </TableCell>
+                                            <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.2, textAlign: 'center' }}>
+                                                <Chip
+                                                    label={emp.compliance.ptApplicable ? formatINR(emp.compliance.ptAmount) : 'N/A'}
+                                                    size="small"
+                                                    sx={{
+                                                        bgcolor: emp.compliance.ptApplicable ? '#FFF7ED' : '#F3F4F6',
+                                                        color: emp.compliance.ptApplicable ? '#C2410C' : '#9CA3AF',
+                                                        border: `1px solid ${emp.compliance.ptApplicable ? '#FED7AA' : '#E5E7EB'}`,
+                                                        fontWeight: 700, fontSize: '10.5px', height: 22,
+                                                    }}
+                                                />
+                                            </TableCell>
+                                            <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.2, textAlign: 'center' }}>
+                                                <Chip
+                                                    label={emp.compliance.tdsApplicable ? formatINR(emp.compliance.tdsPercentage) : 'N/A'}
+                                                    size="small"
+                                                    sx={{
+                                                        bgcolor: emp.compliance.tdsApplicable ? '#EFF6FF' : '#F3F4F6',
+                                                        color: emp.compliance.tdsApplicable ? '#1D4ED8' : '#9CA3AF',
+                                                        border: `1px solid ${emp.compliance.tdsApplicable ? '#BFDBFE' : '#E5E7EB'}`,
+                                                        fontWeight: 700, fontSize: '10.5px', height: 22,
+                                                    }}
+                                                />
+                                            </TableCell>
+                                            <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.2, textAlign: 'center' }}>
+                                                {canEdit && (
+                                                    <Tooltip arrow title="Edit compliance">
+                                                        <IconButton
+                                                            size="small"
+                                                            onClick={() => handleEditEmployee(emp)}
+                                                            sx={{
+                                                                bgcolor: '#EFF6FF', borderRadius: '8px',
+                                                                border: '1px solid #BFDBFE',
+                                                                '&:hover': { bgcolor: '#DBEAFE' },
+                                                            }}
+                                                        >
+                                                            <EditIcon sx={{ fontSize: 14, color: '#2563EB' }} />
+                                                        </IconButton>
+                                                    </Tooltip>
+                                                )}
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                }),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [filteredEmployees, canEdit],
+    );
+
 
     const handleSaveEmployeeCompliance = async () => {
         if (!selectedEmployee || !editedCompliance) return;
@@ -279,13 +426,13 @@ export default function ComplianceSettings() {
             'Incentive': emp.incentive,
             'Additional Salary': emp.additionalSalary,
             'PF Applicable': emp.compliance.pfApplicable ? 'Yes' : 'No',
-            'PF %': emp.compliance.pfApplicable ? `${emp.compliance.pfPercentage}%` : 'N/A',
+            'PF Amount': emp.compliance.pfApplicable ? `₹${emp.compliance.pfPercentage}` : 'N/A',
             'ESI Applicable': emp.compliance.esiApplicable ? 'Yes' : 'No',
-            'ESI %': emp.compliance.esiApplicable ? `${emp.compliance.esiPercentage}%` : 'N/A',
+            'ESI Amount': emp.compliance.esiApplicable ? `₹${emp.compliance.esiPercentage}` : 'N/A',
             'PT Applicable': emp.compliance.ptApplicable ? 'Yes' : 'No',
             'PT Amount': emp.compliance.ptApplicable ? `₹${emp.compliance.ptAmount}` : 'N/A',
             'TDS Applicable': emp.compliance.tdsApplicable ? 'Yes' : 'No',
-            'TDS %': emp.compliance.tdsApplicable ? `${emp.compliance.tdsPercentage}%` : 'N/A',
+            'TDS Amount': emp.compliance.tdsApplicable ? `₹${emp.compliance.tdsPercentage}` : 'N/A',
         }));
 
         const wb = XLSX.utils.book_new();
@@ -1083,143 +1230,7 @@ export default function ComplianceSettings() {
                                             </Typography>
                                         </TableCell>
                                     </TableRow>
-                                ) : filteredEmployees.map((emp, idx) => {
-                                    const avColor = avatarColorFor(emp.name || '');
-                                    return (
-                                        <TableRow
-                                            key={emp.id}
-                                            sx={{
-                                                '&:hover': { bgcolor: PRIMARY_LIGHT },
-                                                borderBottom: '1px solid #F3F4F6',
-                                                transition: 'background-color 0.15s',
-                                            }}
-                                        >
-                                            <TableCell sx={{ width: 50, borderBottom: '1px solid #F3F4F6', py: 1.2 }}>
-                                                <Typography sx={{ fontSize: '12px', color: '#9CA3AF', fontWeight: 500 }}>
-                                                    {idx + 1}
-                                                </Typography>
-                                            </TableCell>
-                                            <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.2 }}>
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
-                                                    <Avatar sx={{
-                                                        width: 32, height: 32,
-                                                        bgcolor: `${avColor}15`,
-                                                        color: avColor,
-                                                        fontSize: '11px', fontWeight: 700,
-                                                        border: `1px solid ${avColor}33`,
-                                                    }}>
-                                                        {getInitials(emp.name || '?')}
-                                                    </Avatar>
-                                                    <Box sx={{ minWidth: 0 }}>
-                                                        <Typography sx={{
-                                                            fontSize: '13px', fontWeight: 600,
-                                                            color: '#111827', whiteSpace: 'nowrap',
-                                                        }}>
-                                                            {emp.name || '—'}
-                                                        </Typography>
-                                                        <Typography sx={{ fontSize: '10px', color: '#9CA3AF', fontWeight: 500 }}>
-                                                            {emp.employeeId}{emp.designation ? ` · ${emp.designation}` : ''}
-                                                        </Typography>
-                                                    </Box>
-                                                </Box>
-                                            </TableCell>
-                                            <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.2 }}>
-                                                <Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>
-                                                    {formatINR(emp.basicSalary)}
-                                                </Typography>
-                                            </TableCell>
-                                            <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.2, textAlign: 'center' }}>
-                                                <Chip
-                                                    label={emp.incentive > 0 ? formatINR(emp.incentive) : 'Nil'}
-                                                    size="small"
-                                                    sx={{
-                                                        bgcolor: emp.incentive > 0 ? '#ECFDF5' : '#F3F4F6',
-                                                        color: emp.incentive > 0 ? '#047857' : '#9CA3AF',
-                                                        border: `1px solid ${emp.incentive > 0 ? '#A7F3D0' : '#E5E7EB'}`,
-                                                        fontWeight: 700, fontSize: '10.5px', height: 22,
-                                                    }}
-                                                />
-                                            </TableCell>
-                                            <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.2, textAlign: 'center' }}>
-                                                <Chip
-                                                    label={emp.additionalSalary > 0 ? formatINR(emp.additionalSalary) : 'Nil'}
-                                                    size="small"
-                                                    sx={{
-                                                        bgcolor: emp.additionalSalary > 0 ? '#FEF2F2' : '#F3F4F6',
-                                                        color: emp.additionalSalary > 0 ? '#B91C1C' : '#9CA3AF',
-                                                        border: `1px solid ${emp.additionalSalary > 0 ? '#FECACA' : '#E5E7EB'}`,
-                                                        fontWeight: 700, fontSize: '10.5px', height: 22,
-                                                    }}
-                                                />
-                                            </TableCell>
-                                            <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.2, textAlign: 'center' }}>
-                                                <Chip
-                                                    label={emp.compliance.pfApplicable ? `${emp.compliance.pfPercentage}%` : 'N/A'}
-                                                    size="small"
-                                                    sx={{
-                                                        bgcolor: emp.compliance.pfApplicable ? '#F5F3FF' : '#F3F4F6',
-                                                        color: emp.compliance.pfApplicable ? '#6D28D9' : '#9CA3AF',
-                                                        border: `1px solid ${emp.compliance.pfApplicable ? '#DDD6FE' : '#E5E7EB'}`,
-                                                        fontWeight: 700, fontSize: '10.5px', height: 22,
-                                                    }}
-                                                />
-                                            </TableCell>
-                                            <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.2, textAlign: 'center' }}>
-                                                <Chip
-                                                    label={emp.compliance.esiApplicable ? `${emp.compliance.esiPercentage}%` : 'N/A'}
-                                                    size="small"
-                                                    sx={{
-                                                        bgcolor: emp.compliance.esiApplicable ? '#ECFDF5' : '#F3F4F6',
-                                                        color: emp.compliance.esiApplicable ? '#047857' : '#9CA3AF',
-                                                        border: `1px solid ${emp.compliance.esiApplicable ? '#A7F3D0' : '#E5E7EB'}`,
-                                                        fontWeight: 700, fontSize: '10.5px', height: 22,
-                                                    }}
-                                                />
-                                            </TableCell>
-                                            <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.2, textAlign: 'center' }}>
-                                                <Chip
-                                                    label={emp.compliance.ptApplicable ? formatINR(emp.compliance.ptAmount) : 'N/A'}
-                                                    size="small"
-                                                    sx={{
-                                                        bgcolor: emp.compliance.ptApplicable ? '#FFF7ED' : '#F3F4F6',
-                                                        color: emp.compliance.ptApplicable ? '#C2410C' : '#9CA3AF',
-                                                        border: `1px solid ${emp.compliance.ptApplicable ? '#FED7AA' : '#E5E7EB'}`,
-                                                        fontWeight: 700, fontSize: '10.5px', height: 22,
-                                                    }}
-                                                />
-                                            </TableCell>
-                                            <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.2, textAlign: 'center' }}>
-                                                <Chip
-                                                    label={emp.compliance.tdsApplicable ? `${emp.compliance.tdsPercentage}%` : 'N/A'}
-                                                    size="small"
-                                                    sx={{
-                                                        bgcolor: emp.compliance.tdsApplicable ? '#EFF6FF' : '#F3F4F6',
-                                                        color: emp.compliance.tdsApplicable ? '#1D4ED8' : '#9CA3AF',
-                                                        border: `1px solid ${emp.compliance.tdsApplicable ? '#BFDBFE' : '#E5E7EB'}`,
-                                                        fontWeight: 700, fontSize: '10.5px', height: 22,
-                                                    }}
-                                                />
-                                            </TableCell>
-                                            <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.2, textAlign: 'center' }}>
-                                                {canEdit && (
-                                                    <Tooltip arrow title="Edit compliance">
-                                                        <IconButton
-                                                            size="small"
-                                                            onClick={() => handleEditEmployee(emp)}
-                                                            sx={{
-                                                                bgcolor: '#EFF6FF', borderRadius: '8px',
-                                                                border: '1px solid #BFDBFE',
-                                                                '&:hover': { bgcolor: '#DBEAFE' },
-                                                            }}
-                                                        >
-                                                            <EditIcon sx={{ fontSize: 14, color: '#2563EB' }} />
-                                                        </IconButton>
-                                                    </Tooltip>
-                                                )}
-                                            </TableCell>
-                                        </TableRow>
-                                    );
-                                })}
+                                ) : employeeRows}
                             </TableBody>
                         </Table>
                     </TableContainer>
@@ -1641,14 +1652,14 @@ export default function ComplianceSettings() {
                                             />
                                         </Box>
                                         <TextField
-                                            label="PF Percentage"
+                                            label="PF Amount"
                                             value={editedCompliance.pfPercentage}
                                             onChange={(e) => setEditedCompliance({ ...editedCompliance, pfPercentage: parseFloat(e.target.value) || 0 })}
                                             size="small" fullWidth type="number"
                                             disabled={!editedCompliance.pfApplicable}
                                             slotProps={{
                                                 inputLabel: { shrink: true },
-                                                input: { endAdornment: <InputAdornment position="end">%</InputAdornment> },
+                                                input: { startAdornment: <InputAdornment position="start">₹</InputAdornment> },
                                             }}
                                             sx={fieldSx}
                                         />
@@ -1685,14 +1696,14 @@ export default function ComplianceSettings() {
                                             />
                                         </Box>
                                         <TextField
-                                            label="ESI Percentage"
+                                            label="ESI Amount"
                                             value={editedCompliance.esiPercentage}
                                             onChange={(e) => setEditedCompliance({ ...editedCompliance, esiPercentage: parseFloat(e.target.value) || 0 })}
                                             size="small" fullWidth type="number"
                                             disabled={!editedCompliance.esiApplicable}
                                             slotProps={{
                                                 inputLabel: { shrink: true },
-                                                input: { endAdornment: <InputAdornment position="end">%</InputAdornment> },
+                                                input: { startAdornment: <InputAdornment position="start">₹</InputAdornment> },
                                             }}
                                             sx={fieldSx}
                                         />
@@ -1773,14 +1784,14 @@ export default function ComplianceSettings() {
                                             />
                                         </Box>
                                         <TextField
-                                            label="TDS Percentage"
+                                            label="TDS Amount"
                                             value={editedCompliance.tdsPercentage}
                                             onChange={(e) => setEditedCompliance({ ...editedCompliance, tdsPercentage: parseFloat(e.target.value) || 0 })}
                                             size="small" fullWidth type="number"
                                             disabled={!editedCompliance.tdsApplicable}
                                             slotProps={{
                                                 inputLabel: { shrink: true },
-                                                input: { endAdornment: <InputAdornment position="end">%</InputAdornment> },
+                                                input: { startAdornment: <InputAdornment position="start">₹</InputAdornment> },
                                             }}
                                             sx={fieldSx}
                                         />
@@ -1807,8 +1818,7 @@ export default function ComplianceSettings() {
                     <Button
                         variant="contained"
                         onClick={handleSaveEmployeeCompliance}
-                        disabled={!canEdit}
-                        disabled={isSavingCompliance}
+                        disabled={isSavingCompliance || !canEdit}
                         startIcon={isSavingCompliance
                             ? <CircularProgress size={14} sx={{ color: '#fff' }} />
                             : <SaveOutlinedIcon sx={{ fontSize: 18 }} />}

@@ -9,6 +9,7 @@ import PlaceOutlinedIcon from "@mui/icons-material/PlaceOutlined";
 import { selectWebsiteSettings } from "../../Redux/Slices/websiteSettingsSlice";
 import { C } from "./complaintsTokens";
 import { getMyWorkDetail, DETAIL_STATUS_TONES } from "./myWorkDetailData";
+import { toneFor } from "./complaintsManagementData";
 
 // One assigned item, opened from the My Work queue. This is the staff view of a
 // complaint: everything needed to act on it, plus the status control — it is not
@@ -88,7 +89,7 @@ export default function MyWorkDetailPage() {
     // the list rather than rendering an empty screen.
     if (!item) return <Navigate to="/dashboardmenu/complaints/my-work" replace />;
 
-    const statusTone = DETAIL_STATUS_TONES[item.status] || { bg: C.divider, color: C.textMuted };
+    const statusTone = toneFor(DETAIL_STATUS_TONES, item.status) || { bg: C.divider, color: C.textMuted };
     const { backLabel, subjectTitle, notesTitle, statuses, completeAction, listStyle } = item.config;
 
     return (

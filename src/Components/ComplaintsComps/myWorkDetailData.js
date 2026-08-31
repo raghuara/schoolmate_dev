@@ -14,6 +14,8 @@ import { MY_WORK_ITEMS } from "./myWorkData";
 
 // Status chip on the header card. Same palette as the queue's status column.
 export const DETAIL_STATUS_TONES = {
+    // What the intake API returns on creation, before anyone picks it up
+    Open: { bg: "#FEF3C7", color: "#F59E0B" },
     "Action Required": { bg: "#FEF3C7", color: "#F59E0B" },
     "Under Review": { bg: "#DBEAFE", color: "#3B82F6" },
     "In Progress": { bg: "#CCFBF1", color: "#0D9488" },
@@ -85,7 +87,7 @@ export const VARIANTS = {
 // `subject.kind` picks the avatar treatment: a grey circle for a student, an
 // amber pin chip for a place.
 const DETAILS = {
-    "MSMS-CMP-2026-00124": {
+    "MSMS-CMP-2026-000124": {
         variant: "parent",
         description:
             "Parent noted discrepancies in feedback provided on English midterm assignments, requesting clarification on scoring criteria and written remarks.",

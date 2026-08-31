@@ -1,12 +1,27 @@
 import React, { useRef, useState } from "react";
-import { Box, Button, Divider, IconButton, MenuItem, Select, TextField, Typography } from "@mui/material";
+import {
+    Box,
+    Button,
+    CircularProgress,
+    Divider,
+    IconButton,
+    MenuItem,
+    Select,
+    Switch,
+    TextField,
+    Typography,
+} from "@mui/material";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
+import toast from "react-hot-toast";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import FileUploadOutlinedIcon from "@mui/icons-material/FileUploadOutlined";
 import CloseOutlinedIcon from "@mui/icons-material/CloseOutlined";
 
 import { selectWebsiteSettings } from "../../Redux/Slices/websiteSettingsSlice";
+import { selectAuth } from "../../Redux/Slices/AuthSlice";
+import { PostStaffConcern } from "../../Api/Api";
 import { C } from "./complaintsTokens";
 import {
     OPERATIONS_CATEGORIES,
@@ -68,17 +83,32 @@ const Field = ({ label, required, children }) => (
     </Box>
 );
 
-const EMPTY_FORM = { category: "", title: "", description: "", location: "" };
+// `incidentDate` and `confidential` are not in the comp — the issues API asks
+// for both, so they sit alongside Location rather than in a new section.
+const EMPTY_FORM = {
+    category: "",
+    title: "",
+    description: "",
+    location: "",
+    incidentDate: "",
+    confidential: false,
+};
+
+// The UAT endpoints take the same fixed bearer the rest of this app sends; swap
+// for the session token once the backend confirms which one these accept.
+const TOKEN = "123";
 
 export default function AddIssuePage() {
     const navigate = useNavigate();
     const websiteSettings = useSelector(selectWebsiteSettings);
+    const auth = useSelector(selectAuth);
     const accent = websiteSettings.mainColor;
     const fileInputRef = useRef(null);
 
     const [form, setForm] = useState(EMPTY_FORM);
     const [files, setFiles] = useState([]);
     const [dragging, setDragging] = useState(false);
+    const [saving, setSaving] = useState(false);
 
     const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
@@ -100,10 +130,55 @@ export default function AddIssuePage() {
         addFiles(e.dataTransfer.files);
     };
 
-    // The issues API is not wired yet. Swap the log for the POST + navigate once
-    // the endpoint exists.
-    const handleSubmit = () => {
-        console.log("Submit issue:", { ...form, files });
+    // POST /complaints/staff-concern. Multipart, because the endpoint takes files
+    // alongside the text fields.
+    //
+    // StudentRollNumber is not sent. The collection documents it as "optional
+    // student linkage; leave blank when not applicable", and an operations issue
+    // is about a place. Add it here if the screen ever gains a student picker.
+    const handleSubmit = async () => {
+        if (!canSubmit || saving) return;
+        setSaving(true);
+
+        const body = new FormData();
+        body.append("CategoryId", form.category);
+        body.append("SubmittedByRollNumber", auth?.rollNumber || "");
+        body.append("SubmissionPlatform", "Website");
+        body.append("Title", form.title.trim());
+        body.append("Description", form.description.trim());
+        body.append("Location", form.location.trim());
+        if (form.incidentDate) body.append("IncidentDate", form.incidentDate);
+        body.append("IsConfidential", String(form.confidential));
+        files.forEach((file) => body.append("Attachments", file));
+
+        try {
+            const res = await axios.post(PostStaffConcern, body, {
+                headers: { Accept: "application/json", Authorization: `Bearer ${TOKEN}` },
+            });
+
+            // The response shape is not documented yet — read the token from the
+            // likely spellings and fall back to a plain confirmation.
+            const data = res?.data || {};
+            const reference = data.complaintToken || data.ComplaintToken || data.token;
+            toast.success(reference ? `Issue submitted — ${reference}` : "Issue submitted");
+
+            setForm(EMPTY_FORM);
+            setFiles([]);
+            navigate(-1);
+        } catch (error) {
+            // Surface what the API said rather than a generic failure — the
+            // validation messages are how we learn which fields it requires.
+            const data = error?.response?.data;
+            const message =
+                data?.message ||
+                data?.title ||
+                (data?.errors && Object.values(data.errors).flat().join(" ")) ||
+                "Could not submit the issue. Please try again.";
+            toast.error(message);
+            console.error("Staff concern POST failed:", error?.response?.status, data);
+        } finally {
+            setSaving(false);
+        }
     };
 
     return (
@@ -186,14 +261,48 @@ export default function AddIssuePage() {
                     />
                 </Field>
 
-                <Field label="Location" required>
-                    <TextField
-                        value={form.location}
-                        onChange={(e) => set("location", e.target.value)}
-                        placeholder="e.g. West Wing, Staircase 2"
-                        fullWidth
-                        sx={textFieldSx}
-                    />
+                <Box sx={{ alignSelf: "stretch", display: "flex", gap: 3, flexWrap: "wrap" }}>
+                    <Field label="Location" required>
+                        <TextField
+                            value={form.location}
+                            onChange={(e) => set("location", e.target.value)}
+                            placeholder="e.g. West Wing, Staircase 2"
+                            fullWidth
+                            sx={textFieldSx}
+                        />
+                    </Field>
+
+                    <Field label="Incident Date">
+                        {/* A native date input keeps the value in the API's
+                            YYYY-MM-DD form with no parsing on the way out. */}
+                        <TextField
+                            type="date"
+                            value={form.incidentDate}
+                            onChange={(e) => set("incidentDate", e.target.value)}
+                            fullWidth
+                            sx={textFieldSx}
+                        />
+                    </Field>
+                </Box>
+
+                <Field label="Confidential">
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                        <Switch
+                            checked={form.confidential}
+                            onChange={(e) => set("confidential", e.target.checked)}
+                            sx={{
+                                "& .MuiSwitch-switchBase.Mui-checked": { color: C.surface },
+                                "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": {
+                                    bgcolor: accent,
+                                    opacity: 1,
+                                },
+                                "& .MuiSwitch-track": { bgcolor: "#CBD5E1", opacity: 1 },
+                            }}
+                        />
+                        <Typography sx={{ fontSize: "13px", fontWeight: 400, color: C.textMuted }}>
+                            Visible only to authorised roles.
+                        </Typography>
+                    </Box>
                 </Field>
 
                 <Field label="Attachment">
@@ -332,7 +441,10 @@ export default function AddIssuePage() {
 
                     <Button
                         onClick={handleSubmit}
-                        disabled={!canSubmit}
+                        disabled={!canSubmit || saving}
+                        startIcon={
+                            saving ? <CircularProgress size={14} sx={{ color: C.textFaint }} /> : null
+                        }
                         sx={{
                             px: 3,
                             py: 1.5,
@@ -346,7 +458,7 @@ export default function AddIssuePage() {
                             "&.Mui-disabled": { bgcolor: C.track, color: C.textFaint },
                         }}
                     >
-                        Submit Issue
+                        {saving ? "Submitting..." : "Submit Issue"}
                     </Button>
                 </Box>
             </Box>

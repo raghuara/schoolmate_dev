@@ -25,6 +25,7 @@ import { useSelector } from 'react-redux';
 import { selectWebsiteSettings } from '../../../Redux/Slices/websiteSettingsSlice';
 import * as XLSX from 'xlsx';
 import axios from '../leaveAxios';
+import { withoutExcluded } from "../coverageScope";
 import SnackBar from '../../SnackBar';
 import { employeeBankDetailsDashboard, updateEmployeeBankDetailsByRollnumber } from '../../../Api/Api';
 import usePayrollPermissions from './usePayrollPermissions';
@@ -96,7 +97,7 @@ export default function BankReports() {
                     totalAccounts: d.totalAccounts,
                     totalNetSalary: d.totalNetSalary,
                 });
-                setEmployeeData(d.employees);
+                setEmployeeData(await withoutExcluded(d.employees));
             }
         } catch {
             showSnack('Failed to load bank details', false);
@@ -926,8 +927,7 @@ export default function BankReports() {
                     <Button
                         variant="contained"
                         onClick={handleSaveBankDetails}
-                        disabled={!(isAddMode ? canCreate : canEdit)}
-                        disabled={isSaving}
+                        disabled={isSaving || !(isAddMode ? canCreate : canEdit)}
                         startIcon={isSaving
                             ? <CircularProgress size={14} sx={{ color: '#fff' }} />
                             : <SaveOutlinedIcon sx={{ fontSize: 18 }} />}

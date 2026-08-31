@@ -1,6 +1,7 @@
 import axios from "axios";
 
 import { withActor } from "./apiActor";
+import { withoutExcluded } from "./coverageScope";
 
 import {
     postLeaveRequest,
@@ -328,9 +329,12 @@ export const fetchApprovalDashboard = async ({ rollNumber, academicYear, status,
             ok: true,
             // totalCount added 21 Aug — the card behind it had nothing to bind to before
             cards: data.cards || { totalCount: 0, pendingCount: 0, approvedCount: 0, rejectedCount: 0 },
-            pending: data.pending || [],
-            approved: data.approved || [],
-            rejected: data.rejected || [],
+            /* Cards keep the server's counts on purpose: they are the queue's own totals and
+               excluded staff should have no live requests anyway. Only the rows are trimmed,
+               so a stale request from before an exclusion cannot be actioned here. */
+            pending: await withoutExcluded(data.pending || []),
+            approved: await withoutExcluded(data.approved || []),
+            rejected: await withoutExcluded(data.rejected || []),
         };
     } catch (error) {
         return { ok: false, message: messageOf(error, "Could not load the queue") };
@@ -683,7 +687,7 @@ export const fetchAttendanceOverview = async ({ academicYear, fromDate, toDate, 
             ok: true,
             cards: data.cards || { totalPresent: 0, totalLate: 0, totalLeave: 0, totalAbsent: 0 },
             dateHeaders: data.dateHeaders || [],
-            details: data.details || [],
+            details: await withoutExcluded(data.details || []),
             totalDays: data.totalDays ?? 0,
             staffCount: data.staffCount ?? 0,
         };
@@ -701,7 +705,9 @@ export const fetchAttendanceRoster = async ({ academicYear, userType, biometricI
         if (biometricId) params.BiometricId = biometricId;
         const res = await client.get(GetAttendanceTeacherBefore, { params });
         if (res?.data?.error) return { ok: false, message: res.data.message || "Could not load the roster" };
-        return { ok: true, staff: res?.data?.Details || res?.data?.details || [] };
+        // Excluded staff are off attendance, so they must not be markable
+        const staff = res?.data?.Details || res?.data?.details || [];
+        return { ok: true, staff: await withoutExcluded(staff) };
     } catch (error) {
         if (error?.response?.status === 404) return { ok: true, staff: [] };
         return { ok: false, message: messageOf(error, "Could not load the roster") };
@@ -955,7 +961,7 @@ export const fetchLeaveReport = async ({
                 leaveDays: data.cards?.leaveDays ?? 0,
                 notMarkedDays: data.cards?.notMarkedDays ?? 0,
             },
-            summary: (data.summary || []).map((row, index) => ({
+            summary: (await withoutExcluded(data.summary || [])).map((row, index) => ({
                 sNo: row.sNo ?? index + 1,
                 staffMember: row.staffMember || "",
                 rollNumber: String(row.rollNumber || ""),

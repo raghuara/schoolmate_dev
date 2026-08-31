@@ -2,6 +2,7 @@ import React, { useMemo, useRef, useState } from "react";
 import {
     Box,
     Button,
+    CircularProgress,
     IconButton,
     MenuItem,
     Radio,
@@ -14,6 +15,8 @@ import {
 } from "@mui/material";
 import { useSelector } from "react-redux";
 import { useLocation, useNavigate, useParams, Navigate } from "react-router-dom";
+import axios from "axios";
+import toast from "react-hot-toast";
 import dayjs from "dayjs";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
@@ -22,11 +25,15 @@ import CloseOutlinedIcon from "@mui/icons-material/CloseOutlined";
 
 import { selectWebsiteSettings } from "../../Redux/Slices/websiteSettingsSlice";
 import { selectAuth } from "../../Redux/Slices/AuthSlice";
+import { PostParentComplaint } from "../../Api/Api";
 import { C } from "./complaintsTokens";
 import {
     STUDENT_RESULTS,
     SOURCE_OPTIONS,
+    SOURCE_VALUES,
     COMPLAINT_CATEGORIES,
+    PARENT_RELATIONS,
+    CONTACT_METHODS,
     RECEIVING_STAFF_FALLBACK,
     ATTACHMENT_MAX_MB,
     ATTACHMENT_ACCEPT,
@@ -173,11 +180,22 @@ const initialsOf = (name = "") =>
         .join("")
         .toUpperCase();
 
+// The UAT endpoints take the same fixed bearer the rest of this app sends; swap
+// for the session token once the backend confirms which one these accept.
+const TOKEN = "123";
+
 const EMPTY_FORM = {
     source: SOURCE_OPTIONS[0],
     category: "",
     subject: "",
     statement: "",
+    // Incident Details — required by the API, not marked required in the comp, so
+    // they do not gate Review until the backend confirms which are mandatory.
+    parentRelation: "",
+    incidentDate: "",
+    incidentLocation: "",
+    personInvolved: "",
+    preferredContact: "",
     internalNotes: "",
     immediateAction: "",
     confidential: false,
@@ -200,10 +218,14 @@ export default function RegisterComplaintFormPage() {
     const [form, setForm] = useState(EMPTY_FORM);
     const [files, setFiles] = useState([]);
     const [dragging, setDragging] = useState(false);
+    const [saving, setSaving] = useState(false);
 
     // Stamped once on open — this is when the office took the call, not when the
-    // form was submitted, so it must not tick with re-renders.
-    const receivedAt = useMemo(() => dayjs().format("DD MMM YYYY, hh:mm A"), []);
+    // form was submitted, so it must not tick with re-renders. The field shows the
+    // friendly form; the API takes the ISO one with its offset.
+    const openedAt = useMemo(() => dayjs(), []);
+    const receivedAt = openedAt.format("DD MMM YYYY, hh:mm A");
+    const receivedAtIso = openedAt.format("YYYY-MM-DDTHH:mm:ssZ");
 
     const receivingStaff = [auth?.position, auth?.name].filter(Boolean).join(" - ") || RECEIVING_STAFF_FALLBACK;
 
@@ -211,7 +233,7 @@ export default function RegisterComplaintFormPage() {
 
     // The comp marks Category, Subject and Statement required; the other two
     // required fields are filled by the session and cannot be empty.
-    const canReview =
+    const canSubmit =
         form.category !== "" && form.subject.trim() !== "" && form.statement.trim() !== "";
 
     const addFiles = (incoming) => {
@@ -225,10 +247,67 @@ export default function RegisterComplaintFormPage() {
         addFiles(e.dataTransfer.files);
     };
 
-    // The review screen is a separate comp that is not built yet. Swap the log
-    // for the navigate call once that route exists.
-    const handleReview = () => {
-        console.log("Review complaint:", { student, ...form, receivedAt, receivingStaff, files });
+    // POST /complaints/parent as StaffOnBehalf / Website. Multipart, because the
+    // endpoint takes files alongside the text fields.
+    //
+    // The backend's screen/API mapping names this trigger "Submit Complaint" and
+    // shows no separate review frame for the website flow, so the form's final
+    // action submits. If a Review Complaint screen is designed later, move this
+    // call there and turn the button back into a next-step.
+    const handleSubmit = async () => {
+        if (!canSubmit || saving) return;
+        setSaving(true);
+
+        const body = new FormData();
+        body.append("CategoryId", form.category);
+        body.append("StudentRollNumber", student.rollNumber || "");
+        body.append("SubmittedByRollNumber", auth?.rollNumber || "");
+        body.append("RegistrationMode", "StaffOnBehalf");
+        body.append("SubmissionPlatform", "Website");
+        body.append("ComplaintSource", SOURCE_VALUES[form.source] || form.source);
+        body.append("Subject", form.subject.trim());
+        body.append("StatementOfConcern", form.statement.trim());
+        body.append("ReceivedOn", receivedAtIso);
+        body.append("IsConfidential", String(form.confidential));
+        // Incident Details are not marked required in the comp, so they are only
+        // sent when filled rather than posted as empty strings.
+        if (form.parentRelation) body.append("ParentRelation", form.parentRelation);
+        if (form.incidentDate) body.append("IncidentDate", form.incidentDate);
+        if (form.incidentLocation) body.append("IncidentLocation", form.incidentLocation.trim());
+        if (form.personInvolved) body.append("PersonOrRoleInvolved", form.personInvolved.trim());
+        if (form.preferredContact) body.append("PreferredContactMethod", form.preferredContact);
+        if (form.internalNotes) body.append("InternalStaffNotes", form.internalNotes.trim());
+        if (form.immediateAction) body.append("ImmediateResponse", form.immediateAction.trim());
+        files.forEach((file) => body.append("Attachments", file));
+
+        try {
+            const res = await axios.post(PostParentComplaint, body, {
+                headers: { Accept: "application/json", Authorization: `Bearer ${TOKEN}` },
+            });
+
+            // The response shape is not documented yet — read the token from the
+            // likely spellings and fall back to a plain confirmation.
+            const data = res?.data || {};
+            const reference = data.complaintToken || data.ComplaintToken || data.token;
+            toast.success(reference ? `Complaint registered — ${reference}` : "Complaint registered");
+
+            setForm(EMPTY_FORM);
+            setFiles([]);
+            navigate("/dashboardmenu/complaints/register");
+        } catch (error) {
+            // Surface what the API said rather than a generic failure — the
+            // validation messages are how we learn which fields it requires.
+            const data = error?.response?.data;
+            const message =
+                data?.message ||
+                data?.title ||
+                (data?.errors && Object.values(data.errors).flat().join(" ")) ||
+                "Could not register the complaint. Please try again.";
+            toast.error(message);
+            console.error("Parent complaint POST failed:", error?.response?.status, data);
+        } finally {
+            setSaving(false);
+        }
     };
 
     // Deep-linked with an id that is not in the roster — send the user back to
@@ -413,6 +492,95 @@ export default function RegisterComplaintFormPage() {
                         />
                     </Field>
                 </Box>
+            </SectionCard>
+
+            {/* Incident Details — not in the comp; these are the fields the intake
+                API expects. Kept in their own card so the designed sections stay
+                as drawn. */}
+            <SectionCard title="Incident Details">
+                <Box sx={{ alignSelf: "stretch", display: "flex", gap: 2.5, flexWrap: "wrap" }}>
+                    <Field label="Parent Relation">
+                        <Select
+                            value={form.parentRelation}
+                            onChange={(e) => set("parentRelation", e.target.value)}
+                            displayEmpty
+                            renderValue={(v) =>
+                                v === ""
+                                    ? "Select relation"
+                                    : PARENT_RELATIONS.find((r) => r.value === v)?.label
+                            }
+                            fullWidth
+                            sx={{ ...controlSx, color: form.parentRelation === "" ? C.textMuted : HEADING }}
+                        >
+                            <MenuItem value="" disabled sx={{ fontSize: "14px" }}>
+                                Select relation
+                            </MenuItem>
+                            {PARENT_RELATIONS.map((option) => (
+                                <MenuItem key={option.value} value={option.value} sx={{ fontSize: "14px" }}>
+                                    {option.label}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </Field>
+
+                    <Field label="Preferred Contact Method">
+                        <Select
+                            value={form.preferredContact}
+                            onChange={(e) => set("preferredContact", e.target.value)}
+                            displayEmpty
+                            renderValue={(v) =>
+                                v === ""
+                                    ? "Select contact method"
+                                    : CONTACT_METHODS.find((m) => m.value === v)?.label
+                            }
+                            fullWidth
+                            sx={{ ...controlSx, color: form.preferredContact === "" ? C.textMuted : HEADING }}
+                        >
+                            <MenuItem value="" disabled sx={{ fontSize: "14px" }}>
+                                Select contact method
+                            </MenuItem>
+                            {CONTACT_METHODS.map((option) => (
+                                <MenuItem key={option.value} value={option.value} sx={{ fontSize: "14px" }}>
+                                    {option.label}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </Field>
+                </Box>
+
+                <Box sx={{ alignSelf: "stretch", display: "flex", gap: 2.5, flexWrap: "wrap" }}>
+                    <Field label="Incident Date">
+                        {/* A native date input keeps the value in the API's
+                            YYYY-MM-DD form with no parsing on the way out. */}
+                        <TextField
+                            type="date"
+                            value={form.incidentDate}
+                            onChange={(e) => set("incidentDate", e.target.value)}
+                            fullWidth
+                            sx={textFieldSx}
+                        />
+                    </Field>
+
+                    <Field label="Person or Role Involved">
+                        <TextField
+                            value={form.personInvolved}
+                            onChange={(e) => set("personInvolved", e.target.value)}
+                            placeholder="e.g. Class Teacher"
+                            fullWidth
+                            sx={textFieldSx}
+                        />
+                    </Field>
+                </Box>
+
+                <Field label="Incident Location">
+                    <TextField
+                        value={form.incidentLocation}
+                        onChange={(e) => set("incidentLocation", e.target.value)}
+                        placeholder="e.g. Classroom 7B"
+                        fullWidth
+                        sx={textFieldSx}
+                    />
+                </Field>
             </SectionCard>
 
             {/* Parent Complaint Statement */}
@@ -633,9 +801,15 @@ export default function RegisterComplaintFormPage() {
                 </Button>
 
                 <Button
-                    onClick={handleReview}
-                    disabled={!canReview}
-                    endIcon={<ArrowForwardIcon sx={{ fontSize: "14px" }} />}
+                    onClick={handleSubmit}
+                    disabled={!canSubmit || saving}
+                    endIcon={
+                        saving ? (
+                            <CircularProgress size={14} sx={{ color: C.textFaint }} />
+                        ) : (
+                            <ArrowForwardIcon sx={{ fontSize: "14px" }} />
+                        )
+                    }
                     sx={{
                         px: 3,
                         py: 1.5,
@@ -650,7 +824,7 @@ export default function RegisterComplaintFormPage() {
                         "&.Mui-disabled": { bgcolor: C.track, color: C.textFaint },
                     }}
                 >
-                    Review Complaint
+                    {saving ? "Submitting..." : "Submit Complaint"}
                 </Button>
             </Box>
         </Box>

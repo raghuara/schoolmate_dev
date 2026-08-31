@@ -17,6 +17,8 @@ export const MY_WORK_PRIORITY_TONES = {
 };
 
 export const MY_WORK_STATUS_TONES = {
+    // What the intake API returns on creation, before anyone picks it up
+    Open: { bg: "#FEF3C7", color: "#F59E0B" },
     "Action Required": { bg: "#FEF3C7", color: "#F59E0B" },
     "Under Review": { bg: "#DBEAFE", color: "#3B82F6" },
     "In Progress": { bg: "#CCFBF1", color: "#0D9488" },
@@ -39,8 +41,8 @@ export const MY_WORK_COLS = {
 export const MY_WORK_ITEMS = {
     "Parent Complaints": [
         {
-            id: "MSMS-CMP-2026-00124",
-            ref: "MSMS-CMP-2026-00124",
+            id: "MSMS-CMP-2026-000124",
+            ref: "MSMS-CMP-2026-000124",
             priority: "HIGH PRIORITY",
             category: "Teacher-Related Concern",
             title: "Concern regarding teacher feedback",
@@ -51,8 +53,8 @@ export const MY_WORK_ITEMS = {
             dueUrgent: true,
         },
         {
-            id: "MSMS-CMP-2026-00095",
-            ref: "MSMS-CMP-2026-00095",
+            id: "MSMS-CMP-2026-000095",
+            ref: "MSMS-CMP-2026-000095",
             priority: "NORMAL",
             category: "Classroom Behavior",
             title: "Disturbance during Mathematics session",
@@ -63,8 +65,8 @@ export const MY_WORK_ITEMS = {
             dueUrgent: false,
         },
         {
-            id: "MSMS-CMP-2026-00088",
-            ref: "MSMS-CMP-2026-00088",
+            id: "MSMS-CMP-2026-000088",
+            ref: "MSMS-CMP-2026-000088",
             priority: "HIGH PRIORITY",
             category: "Academic Integrity",
             title: "Unapproved material during mid-term exam",
@@ -91,8 +93,8 @@ export const MY_WORK_ITEMS = {
             dueUrgent: true,
         },
         {
-            id: "MSMS-ACT-2026-0041",
-            ref: "MSMS-ACT-2026-0041",
+            id: "MSMS-IES-2026-000041",
+            ref: "MSMS-IES-2026-000041",
             priority: "NORMAL",
             category: "Audit",
             title: "Library inventory audit Q3",
@@ -103,8 +105,8 @@ export const MY_WORK_ITEMS = {
             dueUrgent: false,
         },
         {
-            id: "MSMS-ACT-2026-0040",
-            ref: "MSMS-ACT-2026-0040",
+            id: "MSMS-IES-2026-000040",
+            ref: "MSMS-IES-2026-000040",
             priority: "HIGH PRIORITY",
             category: "Training",
             title: "Staff training attendance tracking",
@@ -115,8 +117,8 @@ export const MY_WORK_ITEMS = {
             dueUrgent: false,
         },
         {
-            id: "MSMS-ACT-2026-0039",
-            ref: "MSMS-ACT-2026-0039",
+            id: "MSMS-IES-2026-000039",
+            ref: "MSMS-IES-2026-000039",
             priority: "HIGH PRIORITY",
             category: "Safety",
             title: "Fire drill compliance check",

@@ -1,6 +1,7 @@
 import axios from "axios";
 
 import { withActor } from "./apiActor";
+import { withoutExcluded } from "./coverageScope";
 
 import {
     getEmployees,
@@ -363,7 +364,8 @@ export const fetchEmployees = async () => {
     try {
         const data = unwrap(await client.get(getEmployees), "Could not load employees.");
         const list = Array.isArray(data) ? data : data?.employees || [];
-        return list.map(pickerEmployeeFromApi);
+        // Excluded staff are not employees for payroll purposes — keep them out of the picker
+        return (await withoutExcluded(list)).map(pickerEmployeeFromApi);
     } catch (error) {
         throw new Error(messageOf(error, "Could not load employees."));
     }
@@ -416,7 +418,10 @@ export const fetchSalaryStructureDashboard = async () => {
             monthlyPayout: asNullableNumber(data?.monthlyPayout),
             // count of rows whose owner no longer exists as active non-student staff
             orphanedStructures: asNullableNumber(data?.orphanedStructures),
-            structures: (data?.salaryStructures || []).map(structureFromApi),
+            /* Rows only. totalStructures / totalEmployees are the server's own arithmetic and
+               still count excluded staff — that has to be fixed API-side, not papered over
+               with a different number here. */
+            structures: (await withoutExcluded(data?.salaryStructures || [])).map(structureFromApi),
         };
     } catch (error) {
         throw new Error(messageOf(error, "Could not load salary structures."));
@@ -607,7 +612,7 @@ export const fetchEmployeeCompliance = async () => {
     try {
         const data = unwrap(await client.get(employeeComplianceDashboard), "Could not load employee compliance.");
         const list = Array.isArray(data) ? data : data?.employees || data?.employeeCompliance || [];
-        return list.map((item = {}) => ({
+        return (await withoutExcluded(list)).map((item = {}) => ({
             rollNumber: String(item.rollNumber ?? ""),
             name: item.name ?? "",
             grade: item.grade ?? "",
@@ -662,7 +667,7 @@ export const fetchBankDetails = async () => {
     try {
         const data = unwrap(await client.get(employeeBankDetailsDashboard), "Could not load bank details.");
         const list = Array.isArray(data) ? data : data?.employees || data?.bankDetails || [];
-        return list.map((item = {}) => ({
+        return (await withoutExcluded(list)).map((item = {}) => ({
             rollNumber: String(item.rollNumber ?? ""),
             name: item.name ?? "",
             department: item.department ?? "",

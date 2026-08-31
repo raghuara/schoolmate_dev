@@ -8,6 +8,7 @@ import AccessTimeOutlinedIcon from "@mui/icons-material/AccessTimeOutlined";
 
 import { selectWebsiteSettings } from "../../Redux/Slices/websiteSettingsSlice";
 import { C } from "./complaintsTokens";
+import { toneFor } from "./complaintsManagementData";
 import {
     MY_WORK_TABS,
     MY_WORK_ITEMS,
@@ -322,7 +323,7 @@ export default function MyWorkPage({ embedded = false }) {
                             const priorityTone =
                                 MY_WORK_PRIORITY_TONES[row.priority] || MY_WORK_PRIORITY_TONES.NORMAL;
                             const statusTone =
-                                MY_WORK_STATUS_TONES[row.status] || { bg: C.divider, color: C.textMuted };
+                                toneFor(MY_WORK_STATUS_TONES, row.status) || { bg: C.divider, color: C.textMuted };
                             const dueColor = row.dueUrgent ? C.red : C.textMuted;
                             return (
                                 <Box

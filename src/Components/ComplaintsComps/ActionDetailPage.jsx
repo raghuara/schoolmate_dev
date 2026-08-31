@@ -27,6 +27,7 @@ import {
     ACTION_LINK_COLOR,
 } from "./actionDetailData";
 import UpdateStatusDrawer from "./UpdateStatusDrawer";
+import { toneFor } from "./complaintsManagementData";
 
 // Internal Excellence counterpart of ComplaintDetailPage. Built as its own screen
 // rather than a variant of that one: the info grid, the assignment panel (a person
@@ -104,7 +105,7 @@ export default function ActionDetailPage() {
 
     const categoryTone = ACTION_CATEGORY_TONES[detail.category] || ACTION_CATEGORY_TONES.Maintenance;
     const priorityTone = ACTION_PRIORITY_TONES[detail.priority] || ACTION_PRIORITY_TONES.Normal;
-    const statusTone = ACTION_STATUS_TONES[detail.status] || { bg: C.track, color: C.textMuted };
+    const statusTone = toneFor(ACTION_STATUS_TONES, detail.status) || { bg: C.track, color: C.textMuted };
 
     const stamp = () => dayjs().format("DD MMM YYYY");
     const upcoming = nextPendingStep(detail.timeline);
