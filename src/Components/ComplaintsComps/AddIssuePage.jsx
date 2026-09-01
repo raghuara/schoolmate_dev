@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
     Box,
     Button,
@@ -23,8 +23,9 @@ import { selectWebsiteSettings } from "../../Redux/Slices/websiteSettingsSlice";
 import { selectAuth } from "../../Redux/Slices/AuthSlice";
 import { PostStaffConcern } from "../../Api/Api";
 import { C } from "./complaintsTokens";
+import { MODULE } from "./complaintsConfigApi";
+import { fetchLookupCategories } from "./complaintsDetailApi";
 import {
-    OPERATIONS_CATEGORIES,
     ISSUE_ATTACHMENT_MAX_MB,
     ISSUE_ATTACHMENT_ACCEPT,
 } from "./addIssueData";
@@ -107,6 +108,26 @@ export default function AddIssuePage() {
 
     const [form, setForm] = useState(EMPTY_FORM);
     const [files, setFiles] = useState([]);
+    /* The category list comes from the API rather than a bundled seed — a hardcoded copy
+       drifts the moment someone edits a category in the Configuration Hub. */
+    const [categories, setCategories] = useState([]);
+    const [categoryError, setCategoryError] = useState("");
+
+    useEffect(() => {
+        let cancelled = false;
+        fetchLookupCategories({ moduleType: MODULE.staff }).then((result) => {
+            if (cancelled) return;
+            if (!result.ok) setCategoryError(result.message);
+            else {
+                setCategoryError("");
+                setCategories(result.rows);
+            }
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
     const [dragging, setDragging] = useState(false);
     const [saving, setSaving] = useState(false);
 
@@ -222,7 +243,7 @@ export default function AddIssuePage() {
                             renderValue={(v) =>
                                 v === ""
                                     ? "Select Operations Category"
-                                    : OPERATIONS_CATEGORIES.find((c) => c.id === v)?.name
+                                    : categories.find((c) => c.categoryId === v)?.name
                             }
                             fullWidth
                             sx={{ ...controlSx, color: form.category === "" ? C.textMuted : C.text }}
@@ -230,8 +251,8 @@ export default function AddIssuePage() {
                             <MenuItem value="" disabled sx={{ fontSize: "14px" }}>
                                 Select Operations Category
                             </MenuItem>
-                            {OPERATIONS_CATEGORIES.map((option) => (
-                                <MenuItem key={option.id} value={option.id} sx={{ fontSize: "14px" }}>
+                            {categories.map((option) => (
+                                <MenuItem key={option.categoryId} value={option.categoryId} sx={{ fontSize: "14px" }}>
                                     {option.name}
                                 </MenuItem>
                             ))}

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Box, Breadcrumbs, Button, Link, Switch, Typography } from "@mui/material";
 import { useSelector } from "react-redux";
 import { useNavigate, Navigate } from "react-router-dom";
@@ -7,7 +7,7 @@ import toast from "react-hot-toast";
 import { selectWebsiteSettings } from "../../Redux/Slices/websiteSettingsSlice";
 import { C, CARD_SHADOW } from "./complaintsTokens";
 import useComplaintsPermissions from "./useComplaintsPermissions";
-import { DASHBOARD_WIDGETS } from "./dashboardConfigData";
+import { MODULE, fetchDashboardWidgets, saveDashboardWidgets } from "./complaintsConfigApi";
 
 // The Figma frame includes the global top bar (Welcome back / search / avatar).
 // DashBoardLayout already renders that via DashBoardHeader, so this page starts
@@ -41,11 +41,9 @@ export default function DashboardConfigPage({
     crumbLabel = "Dashboard Configuration",
     title = "Dashboard Configuration",
     subtitle = "Configure which complaint metrics and widgets are visible to Management.",
-    widgetList = DASHBOARD_WIDGETS,
-    // Each variant owns its own write path — Parent and Internal save to different
-    // endpoints. Receives the { [widgetKey]: boolean } map. Falling back to a toast
-    // keeps today's behaviour until a caller supplies the real call.
-    onSave = null,
+    /* Both streams share these endpoints and are told apart by moduleType. */
+    moduleType = MODULE.parent,
+    // The comps' seed, shown until the fetch lands
 }) {
     const navigate = useNavigate();
     const websiteSettings = useSelector(selectWebsiteSettings);
@@ -54,24 +52,58 @@ export default function DashboardConfigPage({
     // Who may open and change this comes from the role permissions.
     const { canViewConfig, canEditConfig } = useComplaintsPermissions();
 
-    // Re-seed when a different widget list is passed in, so the two variants do
-    // not share stale toggle state.
-    const [widgets, setWidgets] = useState(() =>
-        widgetList.reduce((acc, w) => ({ ...acc, [w.key]: w.enabled }), {}),
-    );
+    /* Empty until the fetch lands. Seeding from the comps' mock made the screen render
+       one set of rows and then visibly swap it for the server's — a flash of data that was
+       never real. A loading line is honest; wrong content is not. */
+    const [list, setList] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
 
-    if (!canViewConfig) return <Navigate to="/dashboardmenu/dashboard" replace />;
+    /* Empty until the fetch lands — the server owns which widgets exist and which are
+       on, so there is nothing to seed from. */
+    const [widgets, setWidgets] = useState({});
+
+    const load = useCallback(async () => {
+        setLoading(true);
+        const result = await fetchDashboardWidgets({ moduleType });
+        if (!result.ok) {
+            setError(result.message);
+        } else {
+            setError("");
+            setList(result.widgets);
+            setWidgets(result.widgets.reduce((acc, w) => ({ ...acc, [w.key]: w.enabled }), {}));
+        }
+        setLoading(false);
+    }, [moduleType]);
+
+    useEffect(() => {
+        load();
+    }, [load]);
 
     const toggle = (key) => setWidgets((prev) => ({ ...prev, [key]: !prev[key] }));
 
-    const handleSave = () => {
-        if (onSave) {
-            onSave(widgets);
+    const handleSave = async () => {
+        const result = await saveDashboardWidgets({
+            moduleType,
+            /* Every widget is sent, not just the enabled ones — a widget switched off is a
+               real change. displayOrder goes back untouched; this screen does not reorder. */
+            widgets: list.map((w) => ({
+                widgetCode: w.widgetCode,
+                isEnabled: Boolean(widgets[w.key]),
+                displayOrder: w.displayOrder,
+            })),
+        });
+        if (!result.ok) {
+            setError(result.message);
+            toast.error(result.message);
             return;
         }
-        // No caller supplied a save yet — leave the existing placeholder behaviour.
+        setError("");
         toast.success("Dashboard configuration saved");
+        load();
     };
+
+    if (!canViewConfig) return <Navigate to="/dashboardmenu/dashboard" replace />;
 
     return (
         <Box sx={{ p: embedded ? 0 : "28px", display: "flex", flexDirection: "column", gap: 3 }}>
@@ -128,7 +160,15 @@ export default function DashboardConfigPage({
                 }}
             >
                 <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                    {widgetList.map((w) => (
+                    {loading && (
+                        <Typography sx={{ p: 2, fontSize: "13px", color: C.textMuted }}>
+                            Loading dashboard settings…
+                        </Typography>
+                    )}
+                    {!loading && error && (
+                        <Typography sx={{ p: 2, fontSize: "13px", color: C.red }}>{error}</Typography>
+                    )}
+                    {!loading && list.map((w) => (
                         <Box
                             key={w.key}
                             sx={{

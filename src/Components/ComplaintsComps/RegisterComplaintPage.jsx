@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Box, Button, IconButton, MenuItem, Select, TextField, Typography } from "@mui/material";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
@@ -7,8 +7,8 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { selectWebsiteSettings } from "../../Redux/Slices/websiteSettingsSlice";
 import { C, CARD_SHADOW } from "./complaintsTokens";
 import { tableHeaderCellSx, tableHeaderRowSx } from "./ComplaintsTableParts";
+import { searchStudents } from "./complaintsDetailApi";
 import {
-    STUDENT_RESULTS,
     STUDENT_COLS,
     STUDENT_PAGE_SIZE,
     CLASS_OPTIONS,
@@ -103,27 +103,49 @@ export default function RegisterComplaintPage() {
     const runSearch = () => {
         setCriteria(draft);
         setPage(1);
+        setSearched(true);
     };
 
-    const rows = useMemo(() => {
-        const q = criteria.query.trim().toLowerCase();
-        return STUDENT_RESULTS.filter((s) => {
-            if (criteria.grade && s.grade !== criteria.grade) return false;
-            if (criteria.section && s.section !== criteria.section) return false;
-            if (!q) return true;
-            return [s.name, s.admissionNo, s.parentName, s.parentMobile].some((v) =>
-                v.toLowerCase().includes(q),
-            );
-        });
-    }, [criteria]);
+    /* Searching, filtering and paging all happen server-side, so a change to the criteria
+       or the page is a refetch rather than a slice of a local array. */
+    const [rows, setRows] = useState([]);
+    const [total, setTotal] = useState(0);
+    const [pages, setPages] = useState(1);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState("");
+    const [searched, setSearched] = useState(false);
 
-    // Paging is local while the rows are mock. Once the API paginates, the totals
-    // come from the response and `pageRows` holds only what it returned.
-    const pageCount = Math.max(1, Math.ceil(rows.length / STUDENT_PAGE_SIZE));
+    const load = useCallback(async () => {
+        setLoading(true);
+        const result = await searchStudents({
+            search: criteria.query.trim(),
+            grade: criteria.grade,
+            section: criteria.section,
+            page,
+            pageSize: STUDENT_PAGE_SIZE,
+        });
+        if (!result.ok) {
+            setError(result.message || "Could not search students");
+            setRows([]);
+            setTotal(0);
+        } else {
+            setError("");
+            setRows(result.rows);
+            setTotal(result.totalItems);
+            setPages(result.totalPages || 1);
+        }
+        setLoading(false);
+    }, [criteria, page]);
+
+    useEffect(() => {
+        if (searched) load();
+    }, [searched, load]);
+
+    const pageCount = Math.max(1, pages);
     const currentPage = Math.min(page, pageCount);
-    const firstRow = rows.length === 0 ? 0 : (currentPage - 1) * STUDENT_PAGE_SIZE + 1;
-    const lastRow = Math.min(currentPage * STUDENT_PAGE_SIZE, rows.length);
-    const pageRows = rows.slice((currentPage - 1) * STUDENT_PAGE_SIZE, currentPage * STUDENT_PAGE_SIZE);
+    const firstRow = total === 0 ? 0 : (currentPage - 1) * STUDENT_PAGE_SIZE + 1;
+    const lastRow = Math.min(currentPage * STUDENT_PAGE_SIZE, total);
+    const pageRows = rows;
 
     // The student rides along in navigation state so the form does not have to
     // look them up again; the id in the path keeps a refresh working.
@@ -278,7 +300,7 @@ export default function RegisterComplaintPage() {
                         Search Results
                     </Typography>
                     <Typography sx={{ fontSize: "12px", fontWeight: 400, color: C.textMuted }}>
-                        Showing {rows.length} {rows.length === 1 ? "match" : "matches"}
+                        Showing {total} {total === 1 ? "match" : "matches"}
                     </Typography>
                 </Box>
 
@@ -366,10 +388,26 @@ export default function RegisterComplaintPage() {
                             </Box>
                         ))}
 
+                        {/* Before the first search, mid-search and "nothing matched" are
+                            three different things — an unsearched screen should not read as
+                            an empty result. */}
                         {pageRows.length === 0 && (
                             <Box sx={{ px: "12px", py: "28px", display: "flex", justifyContent: "center" }}>
-                                <Typography sx={{ fontSize: "13px", fontWeight: 400, color: C.textMuted }}>
-                                    No students match this search.
+                                <Typography
+                                    sx={{
+                                        fontSize: "13px",
+                                        fontWeight: 400,
+                                        color: error ? C.red : C.textMuted,
+                                        textAlign: "center",
+                                    }}
+                                >
+                                    {loading
+                                        ? "Searching…"
+                                        : error
+                                          ? error
+                                          : !searched
+                                            ? "Search by name, admission number or roll number to find a student."
+                                            : "No students match this search."}
                                 </Typography>
                             </Box>
                         )}
@@ -390,7 +428,7 @@ export default function RegisterComplaintPage() {
                     }}
                 >
                     <Typography sx={{ fontSize: "13px", fontWeight: 400, color: C.textMuted }}>
-                        Showing {firstRow}-{lastRow} of {rows.length} results
+                        Showing {firstRow}-{lastRow} of {total} results
                     </Typography>
 
                     <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>

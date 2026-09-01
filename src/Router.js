@@ -214,6 +214,8 @@ import ComplaintsManagementPage from "./Components/ComplaintsComps/ComplaintsMan
 import ManageItemDetailPage from "./Components/ComplaintsComps/ManageItemDetailPage";
 import MyWorkPage from "./Components/ComplaintsComps/MyWorkPage";
 import MyWorkDetailPage from "./Components/ComplaintsComps/MyWorkDetailPage";
+import ParentComplaintsOverviewPage from "./Components/ComplaintsComps/ParentComplaintsOverviewPage";
+import ParentMyComplaintsPage from "./Components/ComplaintsComps/ParentMyComplaintsPage";
 import RegisterComplaintPage from "./Components/ComplaintsComps/RegisterComplaintPage";
 import RegisterComplaintFormPage from "./Components/ComplaintsComps/RegisterComplaintFormPage";
 import AddIssuePage from "./Components/ComplaintsComps/AddIssuePage";
@@ -234,10 +236,10 @@ import InternalPermissionsPage from "./Components/ComplaintsComps/InternalPermis
 import InternalSlaConfigurationPage from "./Components/ComplaintsComps/InternalSlaConfigurationPage";
 /* The Internal audit-log / templates / dashboard screens are the Parent page
    components rendered with the Internal rows + copy (see each page's props). */
-import { INTERNAL_AUDIT_ROWS, INTERNAL_AUDIT_PAGINATION, INTERNAL_AUDIT_COPY } from "./Components/ComplaintsComps/internalAuditLogData";
-import { getInternalAuditEntry } from "./Components/ComplaintsComps/auditLogDetailData";
-import { INTERNAL_TEMPLATE_ROWS, INTERNAL_TEMPLATE_COPY } from "./Components/ComplaintsComps/internalNotificationTemplatesData";
-import { INTERNAL_DASHBOARD_WIDGETS, INTERNAL_DASHBOARD_COPY } from "./Components/ComplaintsComps/internalDashboardConfigData";
+import { INTERNAL_AUDIT_PAGINATION, INTERNAL_AUDIT_COPY } from "./Components/ComplaintsComps/internalAuditLogData";
+import { INTERNAL_TEMPLATE_COPY } from "./Components/ComplaintsComps/internalNotificationTemplatesData";
+import { MODULE as COMPLAINTS_MODULE } from "./Components/ComplaintsComps/complaintsConfigApi";
+import { INTERNAL_DASHBOARD_COPY } from "./Components/ComplaintsComps/internalDashboardConfigData";
 
 
 export default function RouterPage() {
@@ -444,6 +446,15 @@ export default function RouterPage() {
                 <Route path="complaints/my-work" element={<ComplaintsAccessGate screen="myWork"><MyWorkPage /></ComplaintsAccessGate>} />
                 <Route path="complaints/my-work/:itemId" element={<ComplaintsAccessGate screen="myWork"><MyWorkDetailPage /></ComplaintsAccessGate>} />
 
+                {/* Parent complaint tracking (module 05, Website rows). The subject is the
+                    STUDENT: the :studentId form is how a parent with more than one child, or a
+                    staff member looking at one child, reaches the right overview. Without it the
+                    screens fall back to the signed-in roll number. */}
+                <Route path="complaints/parent" element={<ParentComplaintsOverviewPage />} />
+                <Route path="complaints/parent/my-complaints" element={<ParentMyComplaintsPage />} />
+                <Route path="complaints/parent/:studentId" element={<ParentComplaintsOverviewPage />} />
+                <Route path="complaints/parent/:studentId/my-complaints" element={<ParentMyComplaintsPage />} />
+
                 {/* Configuration hub - the tiles route to the screens below. */}
                 <Route path="complaints/configuration" element={<ComplaintsAccessGate screen="configurations"><ComplaintsConfigurationPage /></ComplaintsAccessGate>} />
 
@@ -456,7 +467,7 @@ export default function RouterPage() {
                 <Route path="complaints/configuration/escalation" element={<ComplaintsAccessGate screen="escalation"><EscalationConfigPage /></ComplaintsAccessGate>} />
                 <Route path="complaints/configuration/notification-templates" element={<ComplaintsAccessGate screen="notificationTemplates"><NotificationTemplatesPage /></ComplaintsAccessGate>} />
                 <Route path="complaints/configuration/dashboard" element={<ComplaintsAccessGate screen="dashboardConfig"><DashboardConfigPage /></ComplaintsAccessGate>} />
-                <Route path="complaints/configuration/audit-log" element={<ComplaintsAccessGate screen="auditLog"><AuditLogPage /></ComplaintsAccessGate>} />
+                <Route path="complaints/configuration/audit-log" element={<ComplaintsAccessGate screen="auditLog"><AuditLogPage moduleType={COMPLAINTS_MODULE.parent} /></ComplaintsAccessGate>} />
                 <Route path="complaints/configuration/audit-log/:id" element={<ComplaintsAccessGate screen="auditLog"><AuditLogDetailPage /></ComplaintsAccessGate>} />
 
                 {/* Internal (School Operations) configuration. The four screens below
@@ -469,7 +480,7 @@ export default function RouterPage() {
                     path="complaints/configuration/internal-notification-templates"
                     element={
                         <ComplaintsAccessGate screen="internalNotificationTemplates">
-                            <NotificationTemplatesPage {...INTERNAL_TEMPLATE_COPY} templateRows={INTERNAL_TEMPLATE_ROWS} />
+                            <NotificationTemplatesPage moduleType={COMPLAINTS_MODULE.staff} {...INTERNAL_TEMPLATE_COPY} />
                         </ComplaintsAccessGate>
                     }
                 />
@@ -477,7 +488,7 @@ export default function RouterPage() {
                     path="complaints/configuration/internal-dashboard"
                     element={
                         <ComplaintsAccessGate screen="internalDashboardConfig">
-                            <DashboardConfigPage {...INTERNAL_DASHBOARD_COPY} widgetList={INTERNAL_DASHBOARD_WIDGETS} />
+                            <DashboardConfigPage moduleType={COMPLAINTS_MODULE.staff} {...INTERNAL_DASHBOARD_COPY} />
                         </ComplaintsAccessGate>
                     }
                 />
@@ -488,11 +499,10 @@ export default function RouterPage() {
                             {/* The Internal comp drops the card shadow and rows open the
                                 internal detail screen. */}
                             <AuditLogPage
+                                moduleType={COMPLAINTS_MODULE.staff}
                                 {...INTERNAL_AUDIT_COPY}
-                                auditRows={INTERNAL_AUDIT_ROWS}
                                 pagination={INTERNAL_AUDIT_PAGINATION}
                                 showCardShadow={false}
-                                detailPathFor={(row) => `/dashboardmenu/complaints/configuration/internal-audit-log/${row.id}`}
                             />
                         </ComplaintsAccessGate>
                     }
@@ -504,7 +514,6 @@ export default function RouterPage() {
                             <AuditLogDetailPage
                                 crumbLabel={INTERNAL_AUDIT_COPY.crumbLabel}
                                 listPath="/dashboardmenu/complaints/configuration/internal-audit-log"
-                                lookup={getInternalAuditEntry}
                             />
                         </ComplaintsAccessGate>
                     }

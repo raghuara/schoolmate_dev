@@ -10,7 +10,6 @@
 // Both mirror their dev-Figma comp 1:1. Everything that differs between them is
 // data here, so the page stays one component.
 
-import { MY_WORK_ITEMS } from "./myWorkData";
 
 // Status chip on the header card. Same palette as the queue's status column.
 export const DETAIL_STATUS_TONES = {
@@ -86,65 +85,15 @@ export const VARIANTS = {
 // { variant, description, subject, attachments, notes, timeline, currentStatus }
 // `subject.kind` picks the avatar treatment: a grey circle for a student, an
 // amber pin chip for a place.
-const DETAILS = {
-    "MSMS-CMP-2026-000124": {
-        variant: "parent",
-        description:
-            "Parent noted discrepancies in feedback provided on English midterm assignments, requesting clarification on scoring criteria and written remarks.",
-        subject: {
-            kind: "student",
-            name: "Aarav Kumar",
-            meta: "Grade VIII-B · Roll #14",
-            contactLabel: "Parent Contact",
-            contact: "Rajesh Kumar (+91 98765 43210)",
-        },
-        attachments: [{ name: "Midterm_English_Rubric.pdf", size: "2.4 MB" }],
-        notes: [
-            {
-                author: "System Admin (Auto-route)",
-                at: "17 Aug, 10:15 AM",
-                body: "Complaint auto-routed to Academic Supervisor for Class VIII based on parent selection.",
-            },
-        ],
-        timeline: [
-            { label: "Priority", value: "High Priority", tone: "red" },
-            { label: "Assigned Date", value: "17 Aug 2026" },
-            { label: "SLA Expected", value: "18 Aug 2026", tone: "amber" },
-        ],
-        currentStatus: "underReview",
-    },
-
-    "MSMS-OBS-2026-00042": {
-        variant: "internal",
-        description:
-            "Severe crack on the third step of the primary staircase in Block-B. Structural integrity compromised, posing immediate trip and fall hazard during class transition periods.",
-        subject: {
-            kind: "location",
-            name: "West Wing Staircase 2",
-            meta: "Connecting Ground Floor to Level 1",
-            contactLabel: "Reported By",
-            contact: "Staff Observational Log · Admin Portal",
-        },
-        attachments: [{ name: "Stair_Crack_Observation.png", size: "4.1 MB" }],
-        notes: [
-            {
-                author: "Operations Supervisor",
-                at: "18 Aug, 08:30 AM",
-                body: "Caution tape deployed around the staircase. Maintenance crew dispatched to replace tread.",
-            },
-        ],
-        timeline: [
-            { label: "Priority", value: "Immediate SLA", tone: "red" },
-            { label: "Opened Date", value: "18 Aug 2026" },
-            { label: "Target Resolution", value: "Within 4 Hours", tone: "red" },
-        ],
-        currentStatus: "inProgress",
-    },
-};
+/* Per-item detail payloads were invented for queue rows that did not exist. There is
+   no My Work endpoint, so there is nothing to key on. */
+const DETAILS = {};
 
 // Every queue row, flattened, so a detail can be composed for the ones the comps
 // do not spell out.
-const QUEUE_ROWS = Object.values(MY_WORK_ITEMS).flat();
+/* The queue this looked rows up in was invented and has been removed; there is no
+   My Work endpoint yet, so there is nothing to find. */
+const QUEUE_ROWS = [];
 
 // Operations references carry -OBS-/-ACT-; complaints carry -CMP-.
 const variantOf = (id) => (id.includes("-CMP-") ? "parent" : "internal");

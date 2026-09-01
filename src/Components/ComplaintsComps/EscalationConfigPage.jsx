@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Box, Breadcrumbs, Button, Link, Switch, Typography } from "@mui/material";
 import { useSelector } from "react-redux";
 import { useNavigate, Navigate } from "react-router-dom";
@@ -8,7 +8,8 @@ import toast from "react-hot-toast";
 import { selectWebsiteSettings } from "../../Redux/Slices/websiteSettingsSlice";
 import { C, CARD_SHADOW } from "./complaintsTokens";
 import useComplaintsPermissions from "./useComplaintsPermissions";
-import { ESCALATION_LEVELS, ESCALATION_TRIGGERS } from "./escalationConfigData";
+import { ESCALATION_TRIGGERS } from "./escalationConfigData";
+import { MODULE, fetchEscalation, saveEscalation, triggerLabel } from "./complaintsConfigApi";
 
 // The Figma frame includes the global top bar (Welcome back / search / avatar).
 // DashBoardLayout already renders that via DashBoardHeader, so this page starts
@@ -52,10 +53,11 @@ export default function EscalationConfigPage({
     embedded = false,
     crumbLabel = "Complaint Configuration",
     subtitle = "Configure when actions should be escalated and who receives them.",
-    levels = ESCALATION_LEVELS,
-    triggerList = ESCALATION_TRIGGERS,
-    // Each variant owns its own write path. Receives the { [key]: boolean } map.
-    onSave = null,
+    /* One route serves both tabs, so the stream cannot be read from the URL — the hub
+       passes it, and a direct visit falls back to the parent stream. */
+    moduleType = MODULE.parent,
+    // The comps' seed, shown until the fetch lands
+    triggerList: seedTriggers = ESCALATION_TRIGGERS,
 }) {
     const navigate = useNavigate();
     const websiteSettings = useSelector(selectWebsiteSettings);
@@ -64,21 +66,91 @@ export default function EscalationConfigPage({
     // Who may open and change these rules comes from the role permissions.
     const { canViewConfig, canEditConfig } = useComplaintsPermissions();
 
+    /* Empty until the fetch lands. Seeding from the comps' mock made the screen render
+       one set of rows and then visibly swap it for the server's — a flash of data that was
+       never real. A loading line is honest; wrong content is not. */
+    const [levels, setLevels] = useState([]);
+    /* Rules keep the server's own rows so a save can send back thresholdMinutes untouched —
+       the screen only edits the on/off flag. */
+    const [rules, setRules] = useState([]);
+    const [triggerList, setTriggerList] = useState([]);
     const [triggers, setTriggers] = useState(() =>
-        triggerList.reduce((acc, t) => ({ ...acc, [t.key]: t.enabled }), {}),
+        seedTriggers.reduce((acc, t) => ({ ...acc, [t.key]: t.enabled }), {}),
     );
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
+
+    const load = useCallback(async () => {
+        setLoading(true);
+        const result = await fetchEscalation({ moduleType });
+        if (!result.ok) {
+            setError(result.message);
+            setLoading(false);
+            return;
+        }
+        setError("");
+        setLevels(
+            (result.levels || []).map((lvl) => ({
+                level: `Level ${lvl.levelNumber}`,
+                levelNumber: lvl.levelNumber,
+                role: lvl.roleName || "",
+                userRollNumber: lvl.userRollNumber || "",
+                description: lvl.description || "",
+            })),
+        );
+        setRules(result.rules || []);
+        setTriggerList(
+            (result.rules || []).map((rule) => ({
+                key: rule.triggerType,
+                title: triggerLabel(rule.triggerType),
+                description:
+                    rule.thresholdMinutes != null
+                        ? `Escalates after ${rule.thresholdMinutes} minutes.`
+                        : "Escalates to the next level when this happens.",
+            })),
+        );
+        setTriggers(
+            (result.rules || []).reduce(
+                (acc, rule) => ({ ...acc, [rule.triggerType]: rule.isEnabled === true }),
+                {},
+            ),
+        );
+        setLoading(false);
+    }, [moduleType]);
+
+    useEffect(() => {
+        load();
+    }, [load]);
 
     if (!canViewConfig) return <Navigate to="/dashboardmenu/dashboard" replace />;
 
     const toggle = (key) => setTriggers((prev) => ({ ...prev, [key]: !prev[key] }));
 
-    const handleSave = () => {
-        if (onSave) {
-            onSave(triggers);
+    const handleSave = async () => {
+        const result = await saveEscalation({
+            moduleType,
+            /* Levels are not editable on this screen, so they go back exactly as they came
+               — sending a trimmed version would drop the ladder. */
+            levels: levels.map((lvl) => ({
+                levelNumber: lvl.levelNumber,
+                roleName: lvl.role,
+                userRollNumber: lvl.userRollNumber || "",
+                description: lvl.description,
+            })),
+            rules: rules.map((rule) => ({
+                triggerType: rule.triggerType,
+                thresholdMinutes: rule.thresholdMinutes ?? null,
+                isEnabled: Boolean(triggers[rule.triggerType]),
+            })),
+        });
+        if (!result.ok) {
+            setError(result.message);
+            toast.error(result.message);
             return;
         }
-        // No caller supplied a save yet — leave the existing placeholder behaviour.
+        setError("");
         toast.success("Escalation rules saved");
+        load();
     };
 
     return (

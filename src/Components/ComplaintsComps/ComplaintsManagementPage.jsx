@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Box, Button, InputAdornment, TextField, Typography } from "@mui/material";
 import { useSelector } from "react-redux";
 import { useNavigate, Navigate } from "react-router-dom";
@@ -11,9 +11,6 @@ import { C } from "./complaintsTokens";
 import useComplaintsPermissions from "./useComplaintsPermissions";
 import {
     WORKSPACE_TABS,
-    WORKSPACE_ITEMS,
-    PARENT_ITEMS,
-    STATUS_FILTERS_BY_TAB,
     PAGINATION_BY_TAB,
     TAB_TYPE,
     TYPE_TONES,
@@ -23,6 +20,8 @@ import {
     SLA_TONES,
     toneFor,
 } from "./complaintsManagementData";
+import { MODULE } from "./complaintsConfigApi";
+import { fetchManagementList, fetchStatusCounts } from "./complaintsWorkApi";
 
 // Reached from "Manage Complaints" on the Complaints dashboard. One workspace
 // listing both parent complaints and internal actions.
@@ -74,28 +73,80 @@ export default function ComplaintsManagementPage() {
 
     const { canViewConfig } = useComplaintsPermissions("dashboard");
 
+    const { pageSize } = PAGINATION_BY_TAB.All;
+
     const [tab, setTab] = useState("All");
+    /* The status the API filters on ("ActionRequired"), not the label shown on the pill. */
     const [statusFilter, setStatusFilter] = useState("All");
+    const [searchInput, setSearchInput] = useState("");
     const [search, setSearch] = useState("");
     const [page, setPage] = useState(1);
+
+    const [items, setItems] = useState([]);
+    const [paging, setPaging] = useState({ totalItems: 0, totalPages: 1 });
+    const [statusFilters, setStatusFilters] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
 
     // The All tab lists both streams; a single tab lists that stream's own rows,
     // which the comps label by category rather than by type.
     const isAllTab = tab === "All";
 
-    const items = useMemo(() => {
-        const wantedType = TAB_TYPE[tab];
-        const source = tab === "Parent Complaints" ? PARENT_ITEMS : WORKSPACE_ITEMS;
-        const q = search.trim().toLowerCase();
-        return source.filter((it) => {
-            if (wantedType && it.type !== wantedType) return false;
-            if (statusFilter !== "All" && it.status !== statusFilter) return false;
-            if (!q) return true;
-            return [it.ref, it.title, it.owner, it.student, it.category]
-                .filter(Boolean)
-                .some((v) => v.toLowerCase().includes(q));
+    /* "" on the All tab — the API reads an empty moduleType as "both streams". */
+    const moduleTypeForTab =
+        tab === "Parent Complaints" ? MODULE.parent : tab === "Internal Excellence" ? MODULE.staff : "";
+
+    /* Debounced: every keystroke is a request, and the API does the matching. */
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setSearch(searchInput.trim());
+            setPage(1);
+        }, 400);
+        return () => clearTimeout(timer);
+    }, [searchInput]);
+
+    /* Filtering and paging are server-side. Doing either here would only ever act on the
+       rows already fetched — one page — and quietly under-report everything else. */
+    const load = useCallback(async () => {
+        setLoading(true);
+        const result = await fetchManagementList({
+            moduleType: moduleTypeForTab,
+            status: statusFilter,
+            search,
+            page,
+            pageSize,
         });
-    }, [tab, statusFilter, search]);
+        if (!result.ok) {
+            setError(
+                result.routeMissing
+                    ? "The complaint list endpoint is not available on this server."
+                    : result.message || "Could not load complaints.",
+            );
+            setItems([]);
+            setPaging({ totalItems: 0, totalPages: 1 });
+        } else {
+            setError("");
+            setItems(result.rows);
+            setPaging({ totalItems: result.totalCount, totalPages: result.totalPages });
+        }
+        setLoading(false);
+    }, [moduleTypeForTab, statusFilter, search, page, pageSize]);
+
+    useEffect(() => {
+        load();
+    }, [load]);
+
+    /* The pills come from the server's own buckets, so a label can never drift from the
+       status value it has to send back. */
+    useEffect(() => {
+        let cancelled = false;
+        fetchStatusCounts({ moduleType: moduleTypeForTab }).then((result) => {
+            if (!cancelled) setStatusFilters(result.ok ? result.pills : []);
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [moduleTypeForTab]);
 
     if (!canViewConfig) return <Navigate to="/dashboardmenu/dashboard" replace />;
 
@@ -104,13 +155,17 @@ export default function ComplaintsManagementPage() {
         setStatusFilter("All");
     };
 
-    // Counts follow the comp's mock totals. Once the API paginates, `totalItems`
-    // and `pageCount` come from the response and `items` holds only this page.
-    const { pageSize, totalItems, pageCount } = PAGINATION_BY_TAB[tab] || PAGINATION_BY_TAB.All;
+    /* status-counts and the list filter speak different vocabularies on the server: the
+       counts report semantic buckets ("actionRequired": 4) while ?status= matches literal
+       status values, and several buckets match nothing. Saying so beats an empty table
+       that reads as a bug on this side. */
+    const activePill = statusFilters.find((f) => f.status === statusFilter);
+    const pillDisagrees =
+        !loading && !error && items.length === 0 && Boolean(activePill?.count);
 
-    // Each tab runs its own lifecycle, so the chip row follows the selected tab.
-    const statusFilters = STATUS_FILTERS_BY_TAB[tab] || STATUS_FILTERS_BY_TAB.All;
-    const firstItem = (page - 1) * pageSize + 1;
+    /* Page size is ours; the totals are the response's. */
+    const { totalItems, totalPages: pageCount } = paging;
+    const firstItem = totalItems === 0 ? 0 : (page - 1) * pageSize + 1;
     const lastItem = Math.min(page * pageSize, totalItems);
 
     // The comp shows 1, 2, 3 … 9 — first three plus the last, with an ellipsis.
@@ -136,6 +191,26 @@ export default function ComplaintsManagementPage() {
 
     return (
         <Box sx={{ display: "flex", flexDirection: "column" }}>
+            {/* Only when the list actually fails — the workspace reads the live
+                /complaints/management/all endpoint. */}
+            {error && (
+            <Box
+                sx={{
+                    mx: "28px",
+                    mt: 1.5,
+                    px: 2,
+                    py: 1.25,
+                    bgcolor: "#FFFBEB",
+                    border: `1px solid #FDE68A`,
+                    borderRadius: "8px",
+                }}
+            >
+                <Typography sx={{ fontSize: "12.5px", color: "#92400E" }}>
+                    {error}
+                </Typography>
+            </Box>
+            )}
+
             {/* Crumb + title */}
             <Box sx={{ px: "28px", pt: 2.5, pb: 1.25, display: "flex", flexDirection: "column", gap: "6px" }}>
                 <Box sx={{ display: "flex", alignItems: "center", gap: "4px" }}>
@@ -215,11 +290,8 @@ export default function ComplaintsManagementPage() {
                         }}
                     >
                         <TextField
-                            value={search}
-                            onChange={(e) => {
-                                setSearch(e.target.value);
-                                setPage(1);
-                            }}
+                            value={searchInput}
+                            onChange={(e) => setSearchInput(e.target.value)}
                             placeholder="Search..."
                             slotProps={{
                                 input: {
@@ -272,12 +344,12 @@ export default function ComplaintsManagementPage() {
                 {!isAllTab && (
                     <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1, flexWrap: "wrap" }}>
                         {statusFilters.map((f) => {
-                            const active = statusFilter === f.label;
+                            const active = statusFilter === f.status;
                             return (
                                 <Box
-                                    key={f.label}
+                                    key={f.key}
                                     onClick={() => {
-                                        setStatusFilter(f.label);
+                                        setStatusFilter(f.status);
                                         setPage(1);
                                     }}
                                     sx={{
@@ -451,10 +523,14 @@ export default function ComplaintsManagementPage() {
                         </Box>
                     ))}
 
-                    {items.length === 0 && (
+                    {(loading || items.length === 0) && (
                         <Box sx={{ ...panelSx, py: 5, textAlign: "center" }}>
                             <Typography sx={{ fontSize: "13px", color: C.textFaint }}>
-                                Nothing matches that search.
+                                {loading
+                                    ? "Loading complaints…"
+                                    : pillDisagrees
+                                      ? `The server counts ${activePill.count} under “${activePill.label}” but returns none when filtering by it.`
+                                      : "No complaints match these filters."}
                             </Typography>
                         </Box>
                     )}

@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
     Box,
     Button,
@@ -27,14 +27,13 @@ import { selectWebsiteSettings } from "../../Redux/Slices/websiteSettingsSlice";
 import { selectAuth } from "../../Redux/Slices/AuthSlice";
 import { PostParentComplaint } from "../../Api/Api";
 import { C } from "./complaintsTokens";
+import { MODULE } from "./complaintsConfigApi";
+import { fetchLookupCategories, searchStudents } from "./complaintsDetailApi";
 import {
-    STUDENT_RESULTS,
     SOURCE_OPTIONS,
     SOURCE_VALUES,
-    COMPLAINT_CATEGORIES,
     PARENT_RELATIONS,
     CONTACT_METHODS,
-    RECEIVING_STAFF_FALLBACK,
     ATTACHMENT_MAX_MB,
     ATTACHMENT_ACCEPT,
 } from "./registerComplaintData";
@@ -210,13 +209,52 @@ export default function RegisterComplaintFormPage() {
     const accent = websiteSettings.mainColor;
     const fileInputRef = useRef(null);
 
-    // Carried in navigation state from the search screen; the id keeps the page
-    // usable on a refresh while the roster is mock.
-    const student =
-        location.state?.student || STUDENT_RESULTS.find((s) => String(s.id) === String(studentId));
+    /* Normally carried in navigation state from the search screen. On a refresh or a
+       pasted link that state is gone, so the student is looked up by roll number through
+       the same search endpoint the picker uses — it used to fall back to a bundled list of
+       invented students, which meant a refresh could show a different child than the one
+       chosen. */
+    const [student, setStudent] = useState(location.state?.student || null);
+    const [studentMissing, setStudentMissing] = useState(false);
+
+    useEffect(() => {
+        if (student || !studentId) return;
+        let cancelled = false;
+        searchStudents({ search: String(studentId), pageSize: 20 }).then((result) => {
+            if (cancelled) return;
+            const match = result.ok
+                ? (result.rows || []).find((s) => String(s.rollNumber) === String(studentId))
+                : null;
+            if (match) setStudent(match);
+            else setStudentMissing(true);
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [student, studentId]);
 
     const [form, setForm] = useState(EMPTY_FORM);
     const [files, setFiles] = useState([]);
+    /* The category list comes from the API rather than a bundled seed — a hardcoded copy
+       drifts the moment someone edits a category in the Configuration Hub. */
+    const [categories, setCategories] = useState([]);
+    const [categoryError, setCategoryError] = useState("");
+
+    useEffect(() => {
+        let cancelled = false;
+        fetchLookupCategories({ moduleType: MODULE.parent }).then((result) => {
+            if (cancelled) return;
+            if (!result.ok) setCategoryError(result.message);
+            else {
+                setCategoryError("");
+                setCategories(result.rows);
+            }
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
     const [dragging, setDragging] = useState(false);
     const [saving, setSaving] = useState(false);
 
@@ -227,7 +265,9 @@ export default function RegisterComplaintFormPage() {
     const receivedAt = openedAt.format("DD MMM YYYY, hh:mm A");
     const receivedAtIso = openedAt.format("YYYY-MM-DDTHH:mm:ssZ");
 
-    const receivingStaff = [auth?.position, auth?.name].filter(Boolean).join(" - ") || RECEIVING_STAFF_FALLBACK;
+    /* The signed-in user, or nothing — this used to name an invented staff member as the
+       person receiving the complaint, on a field that is recorded with the record. */
+    const receivingStaff = [auth?.position, auth?.name].filter(Boolean).join(" - ");
 
     const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
@@ -312,7 +352,12 @@ export default function RegisterComplaintFormPage() {
 
     // Deep-linked with an id that is not in the roster — send the user back to
     // the search rather than rendering a form with no student.
-    if (!student) return <Navigate to="/dashboardmenu/complaints/register" replace />;
+    /* Only once the lookup has actually failed — bouncing while it is still in flight
+       would kick the user out of a page that was about to work. */
+    if (!student && studentMissing) {
+        return <Navigate to="/dashboardmenu/complaints/register" replace />;
+    }
+    if (!student) return null;
 
     return (
         <Box sx={{ p: "28px", display: "flex", flexDirection: "column", gap: 3.5 }}>
@@ -445,7 +490,7 @@ export default function RegisterComplaintFormPage() {
                             renderValue={(v) =>
                                 v === ""
                                     ? "Select category"
-                                    : COMPLAINT_CATEGORIES.find((c) => c.id === v)?.name
+                                    : categories.find((c) => c.categoryId === v)?.name
                             }
                             fullWidth
                             sx={{ ...controlSx, color: form.category === "" ? C.textMuted : HEADING }}
@@ -453,8 +498,8 @@ export default function RegisterComplaintFormPage() {
                             <MenuItem value="" disabled sx={{ fontSize: "14px" }}>
                                 Select category
                             </MenuItem>
-                            {COMPLAINT_CATEGORIES.map((option) => (
-                                <MenuItem key={option.id} value={option.id} sx={{ fontSize: "14px" }}>
+                            {categories.map((option) => (
+                                <MenuItem key={option.categoryId} value={option.categoryId} sx={{ fontSize: "14px" }}>
                                     {option.name}
                                 </MenuItem>
                             ))}

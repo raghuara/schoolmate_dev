@@ -1,8 +1,7 @@
-import React, { useEffect, useState } from "react";
-import { Box, Button, Typography } from "@mui/material";
+import React, { useCallback, useEffect, useState } from "react";
+import { Box, Button, Snackbar, Typography } from "@mui/material";
 import { useSelector } from "react-redux";
 import { useNavigate, useParams } from "react-router-dom";
-import dayjs from "dayjs";
 import ChevronRightOutlinedIcon from "@mui/icons-material/ChevronRightOutlined";
 import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
 import AssignmentOutlinedIcon from "@mui/icons-material/AssignmentOutlined";
@@ -16,9 +15,7 @@ import { selectWebsiteSettings } from "../../Redux/Slices/websiteSettingsSlice";
 import { C } from "./complaintsTokens";
 import { UserAvatar } from "./ComplaintsCheckBox";
 import ComplaintTimeline from "./ComplaintTimeline";
-import { advanceTimeline, moveTimelineTo, nextPendingStep, activeStep } from "./complaintDetailData";
 import {
-    getActionDetail,
     ACTION_CATEGORY_TONES,
     ACTION_PRIORITY_TONES,
     ACTION_STATUS_TONES,
@@ -27,7 +24,15 @@ import {
     ACTION_LINK_COLOR,
 } from "./actionDetailData";
 import UpdateStatusDrawer from "./UpdateStatusDrawer";
+import ComplaintActionDialog from "./ComplaintActionDialog";
+import { updateComplaintStatus } from "./complaintsActionsApi";
 import { toneFor } from "./complaintsManagementData";
+import {
+    actionDetailForScreen,
+    attachmentDownloadUrl,
+    fetchComplaintDetail,
+    fetchComplaintTimeline,
+} from "./complaintsDetailApi";
 
 // Internal Excellence counterpart of ComplaintDetailPage. Built as its own screen
 // rather than a variant of that one: the info grid, the assignment panel (a person
@@ -96,52 +101,160 @@ export default function ActionDetailPage() {
     const websiteSettings = useSelector(selectWebsiteSettings);
     const accent = websiteSettings.mainColor;
 
-    const [detail, setDetail] = useState(() => getActionDetail(id));
+    /* The route param is the token — MSMS-IES-2026-000042. One detail endpoint serves both
+       streams; only the presentation differs from ComplaintDetailPage. */
+    const [detail, setDetail] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
     const [statusOpen, setStatusOpen] = useState(false);
 
-    useEffect(() => {
-        setDetail(getActionDetail(id));
+    /* Which action dialog is open, if any. */
+    const [actionKind, setActionKind] = useState(null);
+    const [toast, setToast] = useState("");
+
+    /* Pulled out of the effect so an action can re-read the record once it has written.
+       The action endpoints do not return the updated record, and the timeline entry they
+       write only appears on a re-read. */
+    const loadDetail = useCallback(async () => {
+        const result = await fetchComplaintDetail({ complaintToken: id });
+        if (result.ok) {
+            setError("");
+            setDetail(actionDetailForScreen(result));
+        }
+        return result;
     }, [id]);
+
+    useEffect(() => {
+        let cancelled = false;
+        setLoading(true);
+        fetchComplaintDetail({ complaintToken: id }).then((result) => {
+            if (cancelled) return;
+            if (!result.ok) {
+                setError(
+                    result.routeMissing
+                        ? "The complaints service is not responding — this is a server-side outage, not this action."
+                        : result.notFound
+                          ? `Action ${id} was not found on the server.`
+                          : result.message,
+                );
+                setDetail(null);
+            } else {
+                setError("");
+                setDetail(actionDetailForScreen(result));
+            }
+            setLoading(false);
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [id]);
+
+
+    /* The detail response already carries the timeline, so this is a refresh of just that
+       section — useful because a complaint moves while someone has it open (the automation
+       escalates, a parent replies) and re-reading the whole record to see one new event is
+       wasteful. */
+    const [refreshingTimeline, setRefreshingTimeline] = useState(false);
+
+    const refreshTimeline = async () => {
+        setRefreshingTimeline(true);
+        const result = await fetchComplaintTimeline({ complaintToken: id });
+        if (result.ok) {
+            setDetail((prev) =>
+                prev
+                    ? {
+                          ...prev,
+                          timeline: result.events.map((event) => ({
+                              label: event.eventType,
+                              at: `${
+                                  event.at
+                                      ? new Date(event.at).toLocaleString(undefined, {
+                                            day: "2-digit",
+                                            month: "short",
+                                            year: "numeric",
+                                            hour: "2-digit",
+                                            minute: "2-digit",
+                                        })
+                                      : ""
+                              }${event.actorName ? ` · ${event.actorName}` : ""}`,
+                              note: event.message,
+                              state: "done",
+                          })),
+                      }
+                    : prev,
+            );
+        }
+        setRefreshingTimeline(false);
+    };
+
+    if (loading) {
+        return (
+            <Box sx={{ p: "28px" }}>
+                <Typography sx={{ fontSize: "14px", color: C.textMuted }}>Loading action…</Typography>
+            </Box>
+        );
+    }
+
+    if (error || !detail) {
+        return (
+            <Box sx={{ p: "28px" }}>
+                <Typography sx={{ fontSize: "14px", color: C.red }}>
+                    {error || "That action could not be found."}
+                </Typography>
+            </Box>
+        );
+    }
 
     const categoryTone = ACTION_CATEGORY_TONES[detail.category] || ACTION_CATEGORY_TONES.Maintenance;
     const priorityTone = ACTION_PRIORITY_TONES[detail.priority] || ACTION_PRIORITY_TONES.Normal;
     const statusTone = toneFor(ACTION_STATUS_TONES, detail.status) || { bg: C.track, color: C.textMuted };
 
-    const stamp = () => dayjs().format("DD MMM YYYY");
-    const upcoming = nextPendingStep(detail.timeline);
 
-    // Same transition rules as the complaint flow: a target that is a timeline
-    // step moves the timeline, one that is not (Escalated, On Hold) only changes
-    // the status.
-    const handleStatusSubmit = ({ status, note }) => {
-        setDetail((d) => {
-            const timeline = moveTimelineTo(d.timeline, status, stamp());
-            const internalNotes = note
-                ? [
-                      ...d.internalNotes,
-                      {
-                          id: `n${d.internalNotes.length + 1}`,
-                          text: `"${note}"`,
-                          author: "Admin Tamil",
-                          at: dayjs().format("DD MMM YYYY, hh:mm A"),
-                      },
-                  ]
-                : d.internalNotes;
-            return { ...d, status, timeline, internalNotes };
+    /* This screen's own status wording mapped onto what the endpoint accepts —
+       PascalCase, no spaces. Anything unmapped is sent through unchanged so a new option
+       fails loudly server-side rather than silently doing nothing. */
+    const STATUS_TO_API = {
+        "Evidence Submitted": "EvidenceSubmitted",
+        "Under Review": "UnderReview",
+        Completed: "Completed",
+        "On Hold": "OnHold",
+        Escalated: "Escalated",
+    };
+
+    /**
+     * Send the status change, then re-read.
+     *
+     * The drawer's note goes to `staffResponse` — the internal record. `parentMessage` is
+     * left empty: the drawer never asks for parent-facing wording, and an internal note is
+     * not something to publish by default.
+     */
+    const handleStatusSubmit = async ({ status, note }) => {
+        const result = await updateComplaintStatus({
+            complaintToken: id,
+            status: STATUS_TO_API[status] || status,
+            staffResponse: note || "",
         });
         setStatusOpen(false);
+        if (!result.ok) {
+            setToast(result.message || "Could not update the status");
+            return;
+        }
+        setToast(result.message || "Status updated");
+        loadDetail();
     };
 
-    // Kept for parity with the complaint screen even though this comp has no
-    // "Next" button — advancing is available through Update Status.
-    const handleAdvance = () => {
-        if (!upcoming) return;
-        const timeline = advanceTimeline(detail.timeline, stamp());
-        setDetail((d) => ({ ...d, timeline, status: activeStep(timeline)?.label || d.status }));
+    const CONTROL_HANDLER = {
+        updateStatus: () => setStatusOpen(true),
+        reassign: () => setActionKind("assign"),
+        requestClarification: () => setActionKind("requestInfo"),
+        escalate: () => setActionKind("escalate"),
+        addNote: () => setActionKind("addNote"),
     };
 
-    const CONTROL_HANDLER = { updateStatus: () => setStatusOpen(true) };
-    const runAction = () => {};
+    /* The two inline affordances outside the Control Panel (the assignment header and the
+       note shortcut) open the same dialogs. */
+    const runAction = () => setActionKind("addNote");
+    const openReassign = () => setActionKind("assign");
 
     const crumbSx = (current) => ({
         fontSize: "13px",
@@ -323,8 +436,18 @@ export default function ActionDetailPage() {
                                             {a.name}
                                         </Typography>
                                         <Box sx={{ pl: 1 }}>
+                                            {/* The endpoint answers with the file and a
+                                                Content-Disposition filename, so the browser is
+                                                handed the URL. New tab, so a failed download
+                                                cannot replace the detail screen. */}
                                             <Typography
-                                                onClick={runAction}
+                                                component="a"
+                                                href={attachmentDownloadUrl({
+                                                    complaintToken: detail.ref,
+                                                    attachmentId: a.id,
+                                                })}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
                                                 sx={{
                                                     fontSize: "12px",
                                                     fontWeight: 700,
@@ -469,7 +592,7 @@ export default function ActionDetailPage() {
                         >
                             <Typography sx={sectionTitleSx}>Assignment Details</Typography>
                             <Box
-                                onClick={runAction}
+                                onClick={openReassign}
                                 sx={{
                                     px: "10px",
                                     py: "4px",
@@ -510,7 +633,20 @@ export default function ActionDetailPage() {
 
                     {/* Timeline */}
                     <Box sx={cardSx}>
-                        <Typography sx={sectionTitleSx}>Action Timeline</Typography>
+                        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                            <Typography sx={sectionTitleSx}>Action Timeline</Typography>
+                            <Typography
+                                onClick={refreshingTimeline ? undefined : refreshTimeline}
+                                sx={{
+                                    fontSize: "12px",
+                                    fontWeight: 700,
+                                    color: refreshingTimeline ? C.textFaint : ACTION_LINK_COLOR,
+                                    cursor: refreshingTimeline ? "default" : "pointer",
+                                }}
+                            >
+                                {refreshingTimeline ? "Refreshing…" : "Refresh"}
+                            </Typography>
+                        </Box>
                         <Divider />
                         <ComplaintTimeline
                             steps={detail.timeline}
@@ -587,6 +723,26 @@ export default function ActionDetailPage() {
                 dateLabel="Target Completion Date"
                 onClose={() => setStatusOpen(false)}
                 onSubmit={handleStatusSubmit}
+            />
+
+            <ComplaintActionDialog
+                open={Boolean(actionKind)}
+                kind={actionKind}
+                complaintToken={id}
+                onClose={() => setActionKind(null)}
+                onDone={(message) => {
+                    setActionKind(null);
+                    setToast(message);
+                    loadDetail();
+                }}
+            />
+
+            <Snackbar
+                open={Boolean(toast)}
+                autoHideDuration={4000}
+                onClose={() => setToast("")}
+                message={toast}
+                anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
             />
         </Box>
     );

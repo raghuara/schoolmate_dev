@@ -21,10 +21,10 @@ import NotificationTemplatesPage from "./NotificationTemplatesPage";
 import DashboardConfigPage from "./DashboardConfigPage";
 import AuditLogPage from "./AuditLogPage";
 
-import { INTERNAL_TEMPLATE_ROWS, INTERNAL_TEMPLATE_COPY } from "./internalNotificationTemplatesData";
-import { INTERNAL_DASHBOARD_WIDGETS, INTERNAL_DASHBOARD_COPY } from "./internalDashboardConfigData";
-import { INTERNAL_AUDIT_ROWS, INTERNAL_AUDIT_PAGINATION, INTERNAL_AUDIT_COPY } from "./internalAuditLogData";
-import { getInternalAuditEntry } from "./auditLogDetailData";
+import { INTERNAL_TEMPLATE_COPY } from "./internalNotificationTemplatesData";
+import { INTERNAL_DASHBOARD_COPY } from "./internalDashboardConfigData";
+import { INTERNAL_AUDIT_PAGINATION, INTERNAL_AUDIT_COPY } from "./internalAuditLogData";
+import { MODULE } from "./complaintsConfigApi";
 
 // Configuration Hub. Replaces the old tile grid: every configuration screen is
 // reachable from one page through the tab rail, with the stream pill choosing
@@ -67,57 +67,51 @@ const SECTIONS = [
         staff: () => <InternalSlaConfigurationPage embedded />,
     },
     {
-        // Only the Staff Concerns escalation comp exists so far; the Parent tab
-        // renders the same screen on the same seed data until its own arrives.
-        // See the note in escalationConfigData.js.
+        /* One comp, two streams: the screen is the same but each tab reads and writes its
+           own escalation ladder and triggers, told apart by moduleType. */
         key: "escalation",
         label: "Escalation",
-        parent: () => <EscalationConfigPage embedded />,
-        staff: () => <EscalationConfigPage embedded />,
+        parent: () => <EscalationConfigPage embedded moduleType={MODULE.parent} />,
+        staff: () => <EscalationConfigPage embedded moduleType={MODULE.staff} />,
     },
     {
         key: "notifications",
         label: "Notifications",
-        parent: () => <NotificationTemplatesPage embedded />,
+        parent: () => <NotificationTemplatesPage embedded moduleType={MODULE.parent} />,
         staff: () => (
             <NotificationTemplatesPage
                 embedded
+                moduleType={MODULE.staff}
                 crumbLabel={INTERNAL_TEMPLATE_COPY.crumbLabel}
                 subtitle={INTERNAL_TEMPLATE_COPY.subtitle}
-                templateRows={INTERNAL_TEMPLATE_ROWS}
             />
         ),
     },
     {
         key: "dashboard",
         label: "Dashboard",
-        parent: () => <DashboardConfigPage embedded />,
+        parent: () => <DashboardConfigPage embedded moduleType={MODULE.parent} />,
         staff: () => (
             <DashboardConfigPage
                 embedded
+                moduleType={MODULE.staff}
                 crumbLabel={INTERNAL_DASHBOARD_COPY.crumbLabel}
                 title={INTERNAL_DASHBOARD_COPY.title}
                 subtitle={INTERNAL_DASHBOARD_COPY.subtitle}
-                widgetList={INTERNAL_DASHBOARD_WIDGETS}
             />
         ),
     },
     {
         key: "auditLog",
         label: "Audit log",
-        parent: () => <AuditLogPage embedded />,
+        parent: () => <AuditLogPage embedded moduleType={MODULE.parent} />,
         staff: () => (
             <AuditLogPage
                 embedded
+                moduleType={MODULE.staff}
                 crumbLabel={INTERNAL_AUDIT_COPY.crumbLabel}
                 subtitle={INTERNAL_AUDIT_COPY.subtitle}
-                auditRows={INTERNAL_AUDIT_ROWS}
                 pagination={INTERNAL_AUDIT_PAGINATION}
-                detailPathFor={(row) =>
-                    getInternalAuditEntry(row.id)
-                        ? `/dashboardmenu/complaints/configuration/internal-audit-log/${row.id}`
-                        : null
-                }
                 showCardShadow={false}
             />
         ),

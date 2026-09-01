@@ -7,6 +7,7 @@ import {
     INTERNAL_WORKING_RULES,
     INTERNAL_PAUSE_TOGGLES,
 } from "./internalSlaConfigData";
+import { MODULE } from "./complaintsConfigApi";
 
 // Internal (School Operations) SLA settings. Reached from the "SLA Configuration"
 // tile on the Internal Complaints configuration screen.
@@ -31,6 +32,7 @@ export default function InternalSlaConfigurationPage({ embedded = false }) {
             currentCrumbColor={CURRENT_CRUMB}
             title="Internal Complaints SLA Configuration"
             subtitle="Configure acknowledgement, assignment, response and resolution timelines for school operation entries."
+            moduleType={MODULE.staff}
             initialRules={INTERNAL_SLA_RULES}
             initialWorking={INTERNAL_WORKING_RULES}
             pauseToggles={INTERNAL_PAUSE_TOGGLES}

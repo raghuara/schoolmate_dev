@@ -1,22 +1,18 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Box, Grid, Typography } from "@mui/material";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 
 import { C } from "./complaintsTokens";
 import { StatCard, SectionCard, StatRow, SourceRow, SlaRow } from "./ComplaintsCards";
 import {
-    VOLUME_STATS,
-    ATTENTION_STATS,
-    BY_CATEGORY,
-    BY_CLASS,
-    BY_ROLE,
-    BY_EMPLOYEE,
-    BY_SOURCE,
-    SLA_METRICS,
-    FREQUENT_COMPLAINTS,
-    FREQUENTLY_INVOLVED,
-    PARENT_SATISFACTION,
-} from "./complaintsMockData";
+    VOLUME_STAT_DEFS,
+    ATTENTION_STAT_DEFS,
+    NOT_IN_DASHBOARD_API,
+    statsFrom,
+    slaMetricsFrom,
+} from "./complaintsDashboardData";
+import { MODULE } from "./complaintsConfigApi";
+import { fetchManagementDashboard } from "./complaintsWorkApi";
 
 // Five tiles per row on desktop — 12 / 5 = 2.4 columns each.
 const STAT_SIZE = { xs: 12, sm: 6, md: 4, lg: 2.4 };
@@ -33,8 +29,14 @@ const StatRowGrid = ({ items }) => (
 );
 
 // Donut + legend. Recharts is the chart library this project standardises on.
-const SatisfactionChart = () => {
-    const { headline, slices } = PARENT_SATISFACTION;
+const SatisfactionChart = ({ slices, headline }) => {
+    if (!slices.length) {
+        return (
+            <Typography sx={{ fontSize: "13px", color: C.textFaint }}>
+                No satisfaction responses yet.
+            </Typography>
+        );
+    }
     return (
         <Box sx={{ display: "flex", alignItems: "center", gap: 3, flexWrap: "wrap" }}>
             <Box sx={{ position: "relative", width: 150, height: 150, flexShrink: 0 }}>
@@ -96,24 +98,62 @@ const SatisfactionChart = () => {
 };
 
 export default function ComplaintsDashboard() {
+    const [data, setData] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
+
+    useEffect(() => {
+        let cancelled = false;
+        fetchManagementDashboard({ moduleType: MODULE.parent }).then((result) => {
+            if (cancelled) return;
+            if (result.ok) setData(result);
+            else setError(result.message || "Could not load the dashboard.");
+            setLoading(false);
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    const counts = data?.counts || null;
+    const empty = [];
+    /* A card with no rows reads as "nothing happened"; these have nothing to read because
+       the endpoint does not report them, which is a different thing and worth saying. */
+    const missing = (
+        <Typography sx={{ fontSize: "12px", color: C.textFaint }}>{NOT_IN_DASHBOARD_API}</Typography>
+    );
+
     return (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
-            <StatRowGrid items={VOLUME_STATS} />
-            <StatRowGrid items={ATTENTION_STATS} />
+            {error && (
+                <Box
+                    sx={{
+                        px: 2,
+                        py: 1.25,
+                        bgcolor: "#FFFBEB",
+                        border: "1px solid #FDE68A",
+                        borderRadius: "8px",
+                    }}
+                >
+                    <Typography sx={{ fontSize: "12.5px", color: "#92400E" }}>{error}</Typography>
+                </Box>
+            )}
+
+            <StatRowGrid items={statsFrom(VOLUME_STAT_DEFS, counts)} />
+            <StatRowGrid items={statsFrom(ATTENTION_STAT_DEFS, counts)} />
 
             <Grid container spacing={2}>
                 <Grid size={HALF_SIZE} sx={{ display: "flex" }}>
                     <SectionCard title="Complaints by Category" subtitle="Distribution across complaint categories">
-                        {BY_CATEGORY.map((r, i) => (
-                            <StatRow key={r.label} {...r} isLast={i === BY_CATEGORY.length - 1} />
+                        {(data?.byCategory || empty).map((r, i) => (
+                            <StatRow key={r.label} {...r} isLast={i === (data?.byCategory || empty).length - 1} />
                         ))}
+                        {!loading && !(data?.byCategory || empty).length && missing}
                     </SectionCard>
                 </Grid>
                 <Grid size={HALF_SIZE} sx={{ display: "flex" }}>
                     <SectionCard title="Complaints by Class" subtitle="Distribution across classes">
-                        {BY_CLASS.map((r, i) => (
-                            <StatRow key={r.label} {...r} isLast={i === BY_CLASS.length - 1} />
-                        ))}
+                        {missing}
                     </SectionCard>
                 </Grid>
             </Grid>
@@ -121,16 +161,15 @@ export default function ComplaintsDashboard() {
             <Grid container spacing={2}>
                 <Grid size={HALF_SIZE} sx={{ display: "flex" }}>
                     <SectionCard title="Complaints by Role" subtitle="Role ownership">
-                        {BY_ROLE.map((r, i) => (
-                            <StatRow key={r.label} {...r} isLast={i === BY_ROLE.length - 1} />
-                        ))}
+                        {missing}
                     </SectionCard>
                 </Grid>
                 <Grid size={HALF_SIZE} sx={{ display: "flex" }}>
                     <SectionCard title="Complaints by Employee" subtitle="Employee ownership">
-                        {BY_EMPLOYEE.map((r, i) => (
-                            <StatRow key={r.label} {...r} isLast={i === BY_EMPLOYEE.length - 1} />
+                        {(data?.byOwner || empty).map((r, i) => (
+                            <StatRow key={r.label} {...r} isLast={i === (data?.byOwner || empty).length - 1} />
                         ))}
+                        {!loading && !(data?.byOwner || empty).length && missing}
                     </SectionCard>
                 </Grid>
             </Grid>
@@ -138,15 +177,13 @@ export default function ComplaintsDashboard() {
             <Grid container spacing={2}>
                 <Grid size={HALF_SIZE} sx={{ display: "flex" }}>
                     <SectionCard title="Complaints by Source" subtitle="Submission channels">
-                        {BY_SOURCE.map((r) => (
-                            <SourceRow key={r.label} {...r} />
-                        ))}
+                        {missing}
                     </SectionCard>
                 </Grid>
                 <Grid size={HALF_SIZE} sx={{ display: "flex" }}>
                     <SectionCard title="SLA Performance" subtitle="Response & resolution metrics">
                         <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-                            {SLA_METRICS.map((r) => (
+                            {slaMetricsFrom(data?.averages).map((r) => (
                                 <SlaRow key={r.label} {...r} />
                             ))}
                         </Box>
@@ -157,15 +194,16 @@ export default function ComplaintsDashboard() {
             <Grid container spacing={2}>
                 <Grid size={HALF_SIZE} sx={{ display: "flex" }}>
                     <SectionCard title="Frequently Requested Complaints" subtitle="Issues that recur most often">
-                        {FREQUENT_COMPLAINTS.map((r, i) => (
+                        {(data?.repeatedIssues || empty).map((r, i) => (
                             <StatRow
                                 key={r.label}
                                 {...r}
                                 valueColor={C.textMuted}
                                 valueWeight={600}
-                                isLast={i === FREQUENT_COMPLAINTS.length - 1}
+                                isLast={i === (data?.repeatedIssues || empty).length - 1}
                             />
                         ))}
+                        {!loading && !(data?.repeatedIssues || empty).length && missing}
 
                         <Typography
                             sx={{
@@ -179,20 +217,15 @@ export default function ComplaintsDashboard() {
                         >
                             Frequently Involved
                         </Typography>
-                        {FREQUENTLY_INVOLVED.map((r, i) => (
-                            <StatRow
-                                key={r.label}
-                                {...r}
-                                valueColor={C.textMuted}
-                                valueWeight={600}
-                                isLast={i === FREQUENTLY_INVOLVED.length - 1}
-                            />
-                        ))}
+                        {missing}
                     </SectionCard>
                 </Grid>
                 <Grid size={HALF_SIZE} sx={{ display: "flex" }}>
                     <SectionCard title="Parent Satisfaction" subtitle="Visual breakdown">
-                        <SatisfactionChart />
+                        <SatisfactionChart
+                            slices={data?.parentSatisfaction || empty}
+                            headline={counts ? counts.total : "—"}
+                        />
                     </SectionCard>
                 </Grid>
             </Grid>

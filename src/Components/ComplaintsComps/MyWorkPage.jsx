@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Box, Button, InputAdornment, MenuItem, Select, TextField, Typography } from "@mui/material";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
@@ -11,7 +11,6 @@ import { C } from "./complaintsTokens";
 import { toneFor } from "./complaintsManagementData";
 import {
     MY_WORK_TABS,
-    MY_WORK_ITEMS,
     MY_WORK_COLS,
     MY_WORK_PRIORITY_TONES,
     MY_WORK_STATUS_TONES,
@@ -19,6 +18,8 @@ import {
     ALL_PRIORITIES,
     ALL_STATUSES,
 } from "./myWorkData";
+import { MODULE } from "./complaintsConfigApi";
+import { fetchStaffMyWork } from "./complaintsWorkApi";
 
 // The staff-facing queue: only what is assigned to the signed-in user.
 //
@@ -97,7 +98,37 @@ export default function MyWorkPage({ embedded = false }) {
     const [status, setStatus] = useState(ALL_STATUSES);
     const [search, setSearch] = useState("");
 
-    const tabRows = MY_WORK_ITEMS[tab] || [];
+    const [tabRows, setTabRows] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
+
+    /* The queue is scoped to the signed-in user by the server — actorRollNumber is the
+       whole filter, so there is nothing to narrow here. */
+    const moduleTypeForTab = tab === MY_WORK_TABS[1] ? MODULE.staff : MODULE.parent;
+
+    const load = useCallback(async () => {
+        setLoading(true);
+        const result = await fetchStaffMyWork({ moduleType: moduleTypeForTab, pageSize: 100 });
+        if (!result.ok) {
+            setError(
+                result.routeMissing
+                    ? "The My Work endpoint is not available on this server."
+                    : result.message || "Could not load your work queue.",
+            );
+            setTabRows([]);
+        } else {
+            setError("");
+            setTabRows(result.rows);
+        }
+        setLoading(false);
+    }, [moduleTypeForTab]);
+
+    useEffect(() => {
+        load();
+    }, [load]);
+
+    /* Priority and status choices come from the rows on screen, so they can only ever
+       offer a filter that matches something. */
     const options = useMemo(() => myWorkFilterOptions(tabRows), [tabRows]);
 
     const rows = useMemo(() => {
@@ -162,7 +193,9 @@ export default function MyWorkPage({ embedded = false }) {
                 >
                     {MY_WORK_TABS.map((t) => {
                         const active = tab === t;
-                        const count = (MY_WORK_ITEMS[t] || []).length;
+                        /* Only the open tab's queue is fetched, so the other tab shows no
+                           count rather than a stale or invented one. */
+                        const count = t === tab ? tabRows.length : null;
                         return (
                             <Box
                                 key={t}
@@ -185,18 +218,20 @@ export default function MyWorkPage({ embedded = false }) {
                                 >
                                     {t}
                                 </Typography>
-                                <Box
-                                    sx={{
-                                        px: "6px",
-                                        py: "2px",
-                                        borderRadius: "99px",
-                                        bgcolor: active ? C.text : C.textFaint,
-                                    }}
-                                >
-                                    <Typography sx={{ fontSize: "10px", fontWeight: 700, color: "#fff" }}>
-                                        {count}
-                                    </Typography>
-                                </Box>
+                                {count !== null && (
+                                    <Box
+                                        sx={{
+                                            px: "6px",
+                                            py: "2px",
+                                            borderRadius: "99px",
+                                            bgcolor: active ? C.text : C.textFaint,
+                                        }}
+                                    >
+                                        <Typography sx={{ fontSize: "10px", fontWeight: 700, color: "#fff" }}>
+                                            {count}
+                                        </Typography>
+                                    </Box>
+                                )}
                             </Box>
                         );
                     })}
@@ -318,6 +353,16 @@ export default function MyWorkPage({ embedded = false }) {
                                 DUE DATE
                             </Typography>
                         </Box>
+
+                        {(loading || rows.length === 0) && (
+                            <Box sx={{ p: 5, textAlign: "center" }}>
+                                <Typography sx={{ fontSize: "13px", color: C.textFaint }}>
+                                    {loading
+                                        ? "Loading your work queue…"
+                                        : error || "Nothing is assigned to you in this stream."}
+                                </Typography>
+                            </Box>
+                        )}
 
                         {rows.map((row) => {
                             const priorityTone =

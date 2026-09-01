@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Box, Button, InputAdornment, TextField, Typography } from "@mui/material";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
@@ -9,13 +9,15 @@ import { C } from "./complaintsTokens";
 import ComplaintsBreadcrumb from "./ComplaintsBreadcrumb";
 import { CheckBox, UserAvatar } from "./ComplaintsCheckBox";
 import {
-    AMBER,
-    INTERNAL_ROLES,
-    INTERNAL_ROLE_USERS,
-    OPERATIONS_PERMISSIONS,
-    DEFAULT_INTERNAL_PERMISSIONS,
-    USERS_PREVIEW_COUNT,
-} from "./internalPermissionsData";
+    MODULE,
+    SUBJECT,
+    fetchPermissions,
+    permissionLabel,
+    savePermissions as savePermissionsApi,
+} from "./complaintsConfigApi";
+import { AMBER, USERS_PREVIEW_COUNT } from "./internalPermissionsData";
+import { rolesFromUserTypes, usersForRole } from "./complaintsRoles";
+import { selectUserTypes } from "../../Redux/Slices/userTypesSlice";
 
 // Reached from the "Role & Permission Configuration" tile on the Internal
 // Complaints tab. Same three-panel shape as the Parent permissions screen, but
@@ -37,15 +39,60 @@ export default function InternalPermissionsPage({ embedded = false }) {
     const websiteSettings = useSelector(selectWebsiteSettings);
     const accent = websiteSettings.mainColor;
 
-    const [roleId, setRoleId] = useState("admin");
-    const [userSearch, setUserSearch] = useState("");
-    const [selectedUsers, setSelectedUsers] = useState(["iad1"]);
-    const [showAllUsers, setShowAllUsers] = useState(false);
-    const [permissions, setPermissions] = useState(DEFAULT_INTERNAL_PERMISSIONS);
+    /* Roles and their members come from the userTypes store — the live directory, not a
+       fixed list. The selected role's NAME is the subjectKey the permissions API saves
+       against, so this has to be the real set. */
+    const userTypes = useSelector(selectUserTypes);
+    const roles = useMemo(() => rolesFromUserTypes(userTypes), [userTypes]);
 
-    const role = INTERNAL_ROLES.find((r) => r.id === roleId);
-    const users = INTERNAL_ROLE_USERS[roleId] || [];
-    const rolePerms = permissions[roleId] || {};
+    const [roleId, setRoleId] = useState("");
+
+    /* Settle on the first real role once the store lands, and recover if the selected
+       role is deleted in Access Control while this screen is open. */
+    useEffect(() => {
+        if (!roles.length) return;
+        if (!roles.some((r) => r.id === roleId)) setRoleId(roles[0].id);
+    }, [roles, roleId]);
+
+    const [userSearch, setUserSearch] = useState("");
+    const [selectedUsers, setSelectedUsers] = useState([]);
+    const [showAllUsers, setShowAllUsers] = useState(false);
+    const moduleType = MODULE.staff;
+
+    /* Same 16 codes as the parent side — the API defines one set for both streams, so the
+       19 hand-written toggles this screen used to carry are gone. Five of them
+       ("Manage Categories / Assignment / SLA / Escalation / Notifications") were one
+       MANAGE_CONFIGURATION code all along. */
+    const [codes, setCodes] = useState([]);
+    const [allowed, setAllowed] = useState({});
+    const [baseline, setBaseline] = useState({});
+    const [loadingPerms, setLoadingPerms] = useState(true);
+    const [permError, setPermError] = useState("");
+
+    const role = roles.find((r) => r.id === roleId);
+    const users = useMemo(() => usersForRole(userTypes, roleId), [userTypes, roleId]);
+    const subjectKey = role?.name || "";
+
+    const loadPermissions = useCallback(async () => {
+        if (!subjectKey) return;
+        setLoadingPerms(true);
+        const result = await fetchPermissions({ moduleType, subjectType: SUBJECT.role, subjectKey });
+        if (!result.ok) {
+            setPermError(result.message);
+            setCodes([]);
+            setAllowed({});
+        } else {
+            setPermError("");
+            setCodes(result.codes);
+            setAllowed(result.allowed);
+            setBaseline(result.allowed);
+        }
+        setLoadingPerms(false);
+    }, [moduleType, subjectKey]);
+
+    useEffect(() => {
+        loadPermissions();
+    }, [loadPermissions]);
 
     const filteredUsers = useMemo(() => {
         const q = userSearch.trim().toLowerCase();
@@ -83,18 +130,29 @@ export default function InternalPermissionsPage({ embedded = false }) {
                 : [...new Set([...prev, ...ids])];
         });
 
-    const togglePermission = (key) =>
-        setPermissions((prev) => ({
-            ...prev,
-            [roleId]: { ...prev[roleId], [key]: !prev[roleId]?.[key] },
-        }));
+    const togglePermission = (code) => setAllowed((prev) => ({ ...prev, [code]: !prev[code] }));
 
-    const resetPermissions = () =>
-        setPermissions((prev) => ({ ...prev, [roleId]: { ...DEFAULT_INTERNAL_PERMISSIONS[roleId] } }));
+    // Back to what the server last returned, not to a hardcoded default
+    const resetPermissions = () => setAllowed(baseline);
 
-    // No endpoint for saving yet — wire these to the permissions API when it lands.
-    const savePermissions = () => {};
-    const savePermissionsForAll = () => {};
+    const savePermissions = async () => {
+        const result = await savePermissionsApi({
+            moduleType,
+            subjectType: SUBJECT.role,
+            subjectKey,
+            // Every code goes, not just the ticked ones — a cleared box is a real change
+            allowed: codes.reduce((acc, code) => ({ ...acc, [code]: Boolean(allowed[code]) }), {}),
+        });
+        if (!result.ok) setPermError(result.message);
+        else {
+            setPermError("");
+            setBaseline(allowed);
+        }
+    };
+
+    /* Applying to every role means one save per role and overwrites them all, so it needs
+       a confirmation step before it can be built. Saves this role for now. */
+    const savePermissionsForAll = savePermissions;
 
     return (
         <Box sx={{ p: embedded ? 0 : "32px", display: "flex", flexDirection: "column", gap: 3.5 }}>
@@ -133,9 +191,9 @@ export default function InternalPermissionsPage({ embedded = false }) {
                     </Box>
 
                     <Box sx={{ pt: 1.25, display: "flex", flexDirection: "column", gap: "4px" }}>
-                        {INTERNAL_ROLES.map((r) => {
+                        {roles.map((r) => {
                             const active = r.id === roleId;
-                            const count = (INTERNAL_ROLE_USERS[r.id] || []).length;
+                            const count = r.userCount;
                             return (
                                 <Box
                                     key={r.id}
@@ -313,11 +371,21 @@ export default function InternalPermissionsPage({ embedded = false }) {
                         </Typography>
 
                         <Box sx={{ display: "flex", flexDirection: "column" }}>
-                            {OPERATIONS_PERMISSIONS.map((p) => {
-                                const granted = !!rolePerms[p.key];
+                            {loadingPerms && (
+                                <Typography sx={{ p: "12px", fontSize: "13px", color: C.textMuted }}>
+                                    Loading permissions…
+                                </Typography>
+                            )}
+                            {!loadingPerms && permError && (
+                                <Typography sx={{ p: "12px", fontSize: "13px", color: C.red }}>
+                                    {permError}
+                                </Typography>
+                            )}
+                            {!loadingPerms && codes.map((code) => {
+                                const granted = !!allowed[code];
                                 return (
                                     <Box
-                                        key={p.key}
+                                        key={code}
                                         sx={{
                                             px: "12px",
                                             py: "11px",
@@ -329,7 +397,7 @@ export default function InternalPermissionsPage({ embedded = false }) {
                                     >
                                         <CheckBox
                                             checked={granted}
-                                            onChange={() => togglePermission(p.key)}
+                                            onChange={() => togglePermission(code)}
                                             accent={accent}
                                         />
                                         {/* Granted rows read heavier and darker than denied ones. */}
@@ -340,7 +408,7 @@ export default function InternalPermissionsPage({ embedded = false }) {
                                                 color: granted ? C.text : C.textMuted,
                                             }}
                                         >
-                                            {p.label}
+                                            {permissionLabel(code)}
                                         </Typography>
                                     </Box>
                                 );

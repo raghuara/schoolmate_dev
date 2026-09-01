@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Box, Button, InputAdornment, TextField, Typography } from "@mui/material";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
@@ -10,11 +10,14 @@ import { C, TINT, CARD_SHADOW } from "./complaintsTokens";
 import ComplaintsBreadcrumb from "./ComplaintsBreadcrumb";
 import { CheckBox, UserAvatar } from "./ComplaintsCheckBox";
 import {
-    PERMISSION_ROLES,
-    ROLE_USERS,
-    COMPLAINT_PERMISSIONS,
-    DEFAULT_ROLE_PERMISSIONS,
-} from "./complaintPermissionsData";
+    MODULE,
+    SUBJECT,
+    fetchPermissions,
+    permissionLabel,
+    savePermissions as savePermissionsApi,
+} from "./complaintsConfigApi";
+import { rolesFromUserTypes, usersForRole } from "./complaintsRoles";
+import { selectUserTypes } from "../../Redux/Slices/userTypesSlice";
 
 // Reached from the "Role & Permission Configuration" tile on the Configurations
 // screen. Three columns: roles rail, users in the selected role, and that role's
@@ -36,14 +39,67 @@ export default function ComplaintPermissionsPage({ embedded = false }) {
     const websiteSettings = useSelector(selectWebsiteSettings);
     const accent = websiteSettings.mainColor;
 
-    const [roleId, setRoleId] = useState("admin");
-    const [userSearch, setUserSearch] = useState("");
-    const [selectedUsers, setSelectedUsers] = useState(["ad1"]);
-    const [permissions, setPermissions] = useState(DEFAULT_ROLE_PERMISSIONS);
+    /* Roles and their members come from the userTypes store — the live directory, not a
+       fixed list. The selected role's NAME is the subjectKey the permissions API saves
+       against, so this has to be the real set. */
+    const userTypes = useSelector(selectUserTypes);
+    const roles = useMemo(() => rolesFromUserTypes(userTypes), [userTypes]);
 
-    const role = PERMISSION_ROLES.find((r) => r.id === roleId);
-    const users = ROLE_USERS[roleId] || [];
-    const rolePerms = permissions[roleId] || {};
+    const [roleId, setRoleId] = useState("");
+
+    /* Settle on the first real role once the store lands, and recover if the selected
+       role is deleted in Access Control while this screen is open. */
+    useEffect(() => {
+        if (!roles.length) return;
+        if (!roles.some((r) => r.id === roleId)) setRoleId(roles[0].id);
+    }, [roles, roleId]);
+    const [userSearch, setUserSearch] = useState("");
+    const [selectedUsers, setSelectedUsers] = useState([]);
+    const moduleType = MODULE.parent;
+
+    /* The matrix is whatever the API says exists — `codes` in the server's order, and
+       `allowed` the subject's current answers. */
+    const [codes, setCodes] = useState([]);
+    const [allowed, setAllowed] = useState({});
+    const [baseline, setBaseline] = useState({});
+    const [loadingPerms, setLoadingPerms] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [permError, setPermError] = useState("");
+
+    const role = roles.find((r) => r.id === roleId);
+    const users = useMemo(() => usersForRole(userTypes, roleId), [userTypes, roleId]);
+    /* subjectKey is the role's NAME — "Super Admin", not the userTypeID. */
+    const subjectKey = role?.name || "";
+
+    const loadPermissions = useCallback(async () => {
+        if (!subjectKey) return;
+        setLoadingPerms(true);
+        const result = await fetchPermissions({
+            moduleType,
+            subjectType: SUBJECT.role,
+            subjectKey,
+        });
+        if (!result.ok) {
+            setPermError(result.message);
+            setCodes([]);
+            setAllowed({});
+        } else {
+            setPermError("");
+            setCodes(result.codes);
+            setAllowed(result.allowed);
+            setBaseline(result.allowed);
+        }
+        setLoadingPerms(false);
+    }, [moduleType, subjectKey]);
+
+    useEffect(() => {
+        loadPermissions();
+    }, [loadPermissions]);
+
+    const dirty = useMemo(
+        () => codes.some((code) => Boolean(allowed[code]) !== Boolean(baseline[code])),
+        [codes, allowed, baseline],
+    );
 
     const visibleUsers = useMemo(() => {
         const q = userSearch.trim().toLowerCase();
@@ -75,18 +131,32 @@ export default function ComplaintPermissionsPage({ embedded = false }) {
             return allVisibleSelected ? prev.filter((id) => !ids.includes(id)) : [...new Set([...prev, ...ids])];
         });
 
-    const togglePermission = (key) =>
-        setPermissions((prev) => ({
-            ...prev,
-            [roleId]: { ...prev[roleId], [key]: !prev[roleId]?.[key] },
-        }));
+    const togglePermission = (code) =>
+        setAllowed((prev) => ({ ...prev, [code]: !prev[code] }));
 
-    const resetPermissions = () =>
-        setPermissions((prev) => ({ ...prev, [roleId]: { ...DEFAULT_ROLE_PERMISSIONS[roleId] } }));
+    // Back to what the server last returned, not to a hardcoded default
+    const resetPermissions = () => setAllowed(baseline);
 
-    // No endpoint for saving yet — wire these to the permissions API when it lands.
-    const savePermissions = () => {};
-    const savePermissionsForAll = () => {};
+    const savePermissions = async () => {
+        setSaving(true);
+        const result = await savePermissionsApi({
+            moduleType,
+            subjectType: SUBJECT.role,
+            subjectKey,
+            // Send every code, not just the ticked ones — a cleared box is a real change
+            allowed: codes.reduce((acc, code) => ({ ...acc, [code]: Boolean(allowed[code]) }), {}),
+        });
+        if (!result.ok) setPermError(result.message);
+        else {
+            setPermError("");
+            setBaseline(allowed);
+        }
+        setSaving(false);
+    };
+
+    /* "Apply to all roles" would be one save per role. Left out rather than half-built:
+       it needs a confirmation step, since it overwrites every role's matrix at once. */
+    const savePermissionsForAll = savePermissions;
 
     const primaryBtnSx = {
         px: "18px",
@@ -147,7 +217,7 @@ export default function ComplaintPermissionsPage({ embedded = false }) {
                     </Box>
 
                     <Box sx={{ pt: 1, display: "flex", flexDirection: "column", gap: "4px" }}>
-                        {PERMISSION_ROLES.map((r) => {
+                        {roles.map((r) => {
                             const active = r.id === roleId;
                             return (
                                 <Box
@@ -301,9 +371,19 @@ export default function ComplaintPermissionsPage({ embedded = false }) {
                             </Typography>
 
                             <Box sx={{ display: "flex", flexDirection: "column" }}>
-                                {COMPLAINT_PERMISSIONS.map((p) => (
+                                {loadingPerms && (
+                                    <Typography sx={{ p: "12px", fontSize: "13px", color: C.textMuted }}>
+                                        Loading permissions…
+                                    </Typography>
+                                )}
+                                {!loadingPerms && permError && (
+                                    <Typography sx={{ p: "12px", fontSize: "13px", color: C.red }}>
+                                        {permError}
+                                    </Typography>
+                                )}
+                                {!loadingPerms && codes.map((code) => (
                                     <Box
-                                        key={p.key}
+                                        key={code}
                                         sx={{
                                             px: "12px",
                                             py: "10px",
@@ -314,12 +394,12 @@ export default function ComplaintPermissionsPage({ embedded = false }) {
                                         }}
                                     >
                                         <CheckBox
-                                            checked={!!rolePerms[p.key]}
-                                            onChange={() => togglePermission(p.key)}
+                                            checked={!!allowed[code]}
+                                            onChange={() => togglePermission(code)}
                                             accent={accent}
                                         />
                                         <Typography sx={{ fontSize: "14px", fontWeight: 500, color: C.text }}>
-                                            {p.label}
+                                            {permissionLabel(code)}
                                         </Typography>
                                     </Box>
                                 ))}
