@@ -15,11 +15,11 @@ import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import SnackBar from "../SnackBar";
-import { useSelector, useDispatch } from "react-redux";
+import { useDispatch } from "react-redux";
 import { fetchUserTypes as refreshUserTypesStore } from "../../Redux/Slices/userTypesSlice";
 import { AddUserType, GetAllUserTypes, GetNonStudentUsers, UpdateUsersUserType } from "../../Api/Api";
 import ApprovalFlowsTab from "./ApprovalFlowsTab";
-import { DASH, RADIUS } from "../DashBoardComps/dashboardTheme";
+import { DASH, RADIUS, createBtnSx } from "../DashBoardComps/dashboardTheme";
 
 const TOKEN = "123";
 
@@ -74,6 +74,21 @@ export default function RolesPermissionsPage() {
     const dispatch = useDispatch();
     const accent = "#4338CA"; // professional indigo for the access-control module
 
+    // One shape for every control on this page, taken from the dashboard theme.
+    const ghostBtnSx = {
+        textTransform: "none", fontWeight: 700, fontSize: 12.5, color: DASH.text,
+        bgcolor: "#fff", border: `1px solid ${DASH.line}`, borderRadius: RADIUS,
+        px: 2, height: 34, boxShadow: "none",
+        "&:hover": { bgcolor: DASH.lineSoft, borderColor: DASH.faint },
+        "&.Mui-disabled": { color: DASH.faint, borderColor: DASH.lineSoft },
+    };
+    const accentBtnSx = {
+        textTransform: "none", fontWeight: 700, fontSize: 12.5, color: "#fff",
+        bgcolor: accent, borderRadius: RADIUS, px: 2, height: 34, boxShadow: "none",
+        "&:hover": { bgcolor: accent, filter: "brightness(0.92)", boxShadow: "none" },
+        "&.Mui-disabled": { bgcolor: DASH.line, color: DASH.faint },
+    };
+
     const [roles, setRoles] = useState([]);
     const [loadingRoles, setLoadingRoles] = useState(false);
     const [search, setSearch] = useState("");
@@ -85,7 +100,6 @@ export default function RolesPermissionsPage() {
     const [nameError, setNameError] = useState("");
     const [isCreating, setIsCreating] = useState(false);
 
-    const isExpanded = useSelector((state) => state.sidebar.isExpanded);
     // Snackbar
     const [snack, setSnack] = useState({ open: false, ok: true, msg: "" });
     const showSnack = (msg, ok = true) => setSnack({ open: true, ok, msg });
@@ -258,64 +272,54 @@ export default function RolesPermissionsPage() {
     };
  
     return (
-        <Box sx={{ width: "100%" }}>
+        <Box sx={{ px: { xs: 1.5, md: 2 }, pt: { xs: 1.5, md: 2 }, pb: 4, bgcolor: DASH.canvas, minHeight: "100%" }}>
             <SnackBar open={snack.open} color={snack.ok} setOpen={(v) => setSnack((s) => ({ ...s, open: v }))} status={snack.ok} message={snack.msg} />
 
-            {/* Header */}
-            <Box sx={{
-                position: "fixed",
-                top: "60px",
-                left: isExpanded ? "260px" : "80px",
-                right: 0,
-                backgroundColor: "#fff",
-                px: 2,
-                py:1,                
-                borderBottom: `1px solid ${DASH.line}`,
-                borderTop: `1px solid ${DASH.line}`,
-                zIndex: 1200,
-                transition: "left 0.3s ease-in-out",
-                overflow: 'hidden',
-                display:"flex",
-                justifyContent:"space-between"
-            }}>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <IconButton onClick={() => navigate(-1)} sx={{ width: 30, height: 30 }}>
-                        <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
+            {/* Page header - same shape as Books & Chapters and Question Paper. */}
+            <Box
+                sx={{
+                    display: "flex", alignItems: { xs: "flex-start", md: "center" },
+                    justifyContent: "space-between", flexDirection: { xs: "column", md: "row" },
+                    gap: 1.5, mb: 2,
+                }}
+            >
+                <Box sx={{ display: "flex", alignItems: "flex-start", gap: 0.5, minWidth: 0 }}>
+                    <IconButton onClick={() => navigate(-1)} sx={{ mt: -0.5 }}>
+                        <ArrowBackIcon sx={{ fontSize: 20, color: DASH.text }} />
                     </IconButton>
-                    <Box sx={{ width: 3, height: 30, borderRadius: RADIUS, bgcolor: accent, flexShrink: 0 }} />
-                    <Box sx={{ width: 34, height: 34, borderRadius: RADIUS, bgcolor: `${accent}14`, border: `1px solid ${accent}33`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                        <AdminPanelSettingsOutlinedIcon sx={{ fontSize: 19, color: accent }} />
-                    </Box>
                     <Box sx={{ minWidth: 0 }}>
-                        <Typography sx={{ fontWeight: 700, fontSize: "20px", color: DASH.ink, lineHeight: 1.2 }}>Roles &amp; Permissions</Typography>
-                        <Typography sx={{ fontSize: "12px", color: DASH.muted, mt: 0.2 }}>Create user types and control who can access which screen</Typography>
+                        <Typography sx={{ fontSize: "21px", fontWeight: 700, color: DASH.ink }}>Roles &amp; Permissions</Typography>
+                        <Typography sx={{ fontSize: "12.5px", color: DASH.muted, mt: 0.2 }}>
+                            Create user types and control who can access which screen
+                        </Typography>
                     </Box>
                 </Box>
 
                 {mainTab === 0 && (
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexShrink: 0, pl: { xs: 5, md: 0 }, flexWrap: "wrap" }}>
                     <TextField
                         size="small"
                         placeholder="Search by role name"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         InputProps={{
-                            startAdornment: (<InputAdornment position="start"><SearchIcon sx={{ fontSize: 18, color: "#9CA3AF" }} /></InputAdornment>),
+                            startAdornment: (<InputAdornment position="start"><SearchIcon sx={{ fontSize: 18, color: DASH.faint }} /></InputAdornment>),
                         }}
                         sx={{
                             width: { xs: "100%", sm: 280 },
                             "& .MuiOutlinedInput-root": {
                                 height: 34, fontSize: 12.5, borderRadius: RADIUS, bgcolor: "#fff",
                                 "& fieldset": { borderColor: DASH.line },
-                                "&:hover fieldset": { borderColor: "#9AA3AF" },
+                                "&:hover fieldset": { borderColor: DASH.faint },
                                 "&.Mui-focused fieldset": { borderColor: accent },
                             },
                         }}
                     />
                     <Button
                         onClick={() => { setCreateOpen(true); setNewName(""); setNameError(""); }}
+                        variant="contained"
                         startIcon={<AddIcon sx={{ fontSize: 18 }} />}
-                        sx={{ textTransform: "none", fontWeight: 700, fontSize: 12.5, bgcolor: accent, color: "#fff", borderRadius: RADIUS, height: 34, px: 2, boxShadow: "none", "&:hover": { bgcolor: accent, filter: "brightness(0.92)", boxShadow: "none" } }}
+                        sx={createBtnSx}
                     >
                         Create User Type
                     </Button>
@@ -324,15 +328,16 @@ export default function RolesPermissionsPage() {
             </Box>
 
             {/* Content */}
-            <Box sx={{ px: 2, pb: 2, pt: "73px", bgcolor: DASH.canvas, minHeight: "100vh", boxSizing: "border-box" }}>
+            <Box>
                 <Box sx={{ display: "flex", gap: 0.5, mb: 2, borderBottom: `1px solid ${DASH.line}` }}>
                     {[{ k: 0, label: "User Types" }, { k: 1, label: "Approval Flows" }].map((t) => (
                         <Box
                             key={t.k}
                             onClick={() => setMainTab(t.k)}
                             sx={{
-                                px: 2, py: 1, cursor: "pointer", fontSize: 13.5, fontWeight: 700,
+                                px: 2, py: 1, cursor: "pointer", fontSize: 13, fontWeight: 700,
                                 color: mainTab === t.k ? accent : DASH.muted,
+                                "&:hover": { color: mainTab === t.k ? accent : DASH.text },
                                 borderBottom: mainTab === t.k ? `2px solid ${accent}` : "2px solid transparent",
                                 mb: "-1px", transition: "color 0.2s",
                             }}
@@ -349,8 +354,28 @@ export default function RolesPermissionsPage() {
                         <CircularProgress size={30} sx={{ color: accent }} />
                     </Box>
                 ) : filteredRoles.length === 0 ? (
-                    <Box sx={{ p: 6, textAlign: "center", borderRadius: "12px", border: "1px dashed #E5E7EB", bgcolor: "#FAFAFA" }}>
-                        <Typography sx={{ fontSize: 13, fontWeight: 600, color: "#9CA3AF" }}>No user types found</Typography>
+                    <Box sx={{ py: 7, px: 3, textAlign: "center", borderRadius: RADIUS, border: `1px dashed ${DASH.line}`, bgcolor: "#fff" }}>
+                        <AdminPanelSettingsOutlinedIcon sx={{ fontSize: 40, color: DASH.line }} />
+                        <Typography sx={{ fontSize: 14.5, fontWeight: 700, color: DASH.ink, mt: 1 }}>
+                            {roles.length === 0 ? "No user types yet" : "Nothing matches this search"}
+                        </Typography>
+                        <Typography sx={{ fontSize: 12.5, color: DASH.muted, mt: 0.5, mb: 2 }}>
+                            {roles.length === 0
+                                ? "Create a user type, then choose which screens it can open."
+                                : "Try a different role name."}
+                        </Typography>
+                        {roles.length === 0 ? (
+                            <Button
+                                onClick={() => { setCreateOpen(true); setNewName(""); setNameError(""); }}
+                                variant="contained"
+                                startIcon={<AddIcon sx={{ fontSize: 18 }} />}
+                                sx={createBtnSx}
+                            >
+                                Create User Type
+                            </Button>
+                        ) : (
+                            <Button onClick={() => setSearch("")} sx={ghostBtnSx}>Clear search</Button>
+                        )}
                     </Box>
                 ) : (
                     <Grid container spacing={2}>
@@ -361,71 +386,71 @@ export default function RolesPermissionsPage() {
                                 <Box sx={{
                                     position: "relative", overflow: "hidden",
                                     width: "100%", height: 120, display: "flex", flexDirection: "column", justifyContent: "space-between",
-                                    p: 1.5, pl: 1.8, borderRadius: "8px", border: "1px solid #ddd", bgcolor: "#fff",
-                                    transition: "transform 0.2s, border-color 0.2s",
-                                    "&::before": { content: '""', position: "absolute", left: 0, top: 0, height: "100%", width: 4, bgcolor: c.accent },
-                                    "&:hover": { transform: "translateY(-3px)", borderColor: `${c.accent}80` },
+                                    p: 1.5, pl: 1.8, borderRadius: RADIUS, border: `1px solid ${c.accent}2E`, bgcolor: c.bg,
+                                    transition: "transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease",
+                                    "&::before": { content: '""', position: "absolute", left: 0, top: 0, height: "100%", width: 3, bgcolor: c.accent },
+                                    "&:hover": { transform: "translateY(-2px)", borderColor: `${c.accent}66`, boxShadow: "0 6px 18px rgba(17,24,39,0.09)" },
                                 }}>
                                     {/* Identity row */}
                                     <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
                                         <Box sx={{ display: "flex", alignItems: "center", gap: 1.1, minWidth: 0 }}>
-                                            <Box sx={{ width: 36, height: 36, borderRadius: "10px", bgcolor: `${c.accent}14`, color: c.accent, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, flexShrink: 0 }}>
+                                            <Box sx={{ width: 36, height: 36, borderRadius: RADIUS, bgcolor: "#fff", border: `1px solid ${c.accent}33`, color: c.accent, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, flexShrink: 0 }}>
                                                 {getInitials(role.name)}
                                             </Box>
                                             <Box sx={{ minWidth: 0 }}>
-                                                <Typography sx={{ fontSize: 14.5, fontWeight: 700, color: "#111827", lineHeight: 1.2 }} noWrap>{role.name}</Typography>
-                                                <Typography sx={{ fontSize: 11, color: "#9CA3AF" }} noWrap>
+                                                <Typography sx={{ fontSize: 14.5, fontWeight: 700, color: DASH.ink, lineHeight: 1.2 }} noWrap>{role.name}</Typography>
+                                                <Typography sx={{ fontSize: 11, color: DASH.faint }} noWrap>
                                                     {role.isStudent ? "All students" : `${role.userCount.toLocaleString()} users`} · {role.createdOn}
                                                 </Typography>
                                             </Box>
                                         </Box>
                                         {role.system && (
-                                            <Chip size="small" label="Default" sx={{ height: 19, fontSize: 9, fontWeight: 800, letterSpacing: 0.3, bgcolor: "#F1F5F9", color: "#475569", textTransform: "uppercase", flexShrink: 0 }} />
+                                            <Chip size="small" label="Default" sx={{ height: 19, fontSize: 9, fontWeight: 800, letterSpacing: 0.3, borderRadius: RADIUS, bgcolor: "#fff", border: `1px solid ${DASH.line}`, color: DASH.muted, textTransform: "uppercase", flexShrink: 0 }} />
                                         )}
                                     </Box>
 
                                     {/* Members / info row (fills the middle) */}
                                     {role.isStudent ? (
-                                        <Typography sx={{ fontSize: 11.5, color: "#6B7280", lineHeight: 1.4 }}>
+                                        <Typography sx={{ fontSize: 11.5, color: DASH.muted, lineHeight: 1.4 }}>
                                             Every student is automatically included in this category.
                                         </Typography>
                                     ) : roleMembers(role).length > 0 ? (
                                         <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
-                                            <AvatarGroup max={5} sx={{ "& .MuiAvatar-root": { width: 26, height: 26, fontSize: 10, fontWeight: 700, border: "2px solid #fff" } }}>
+                                            <AvatarGroup max={5} sx={{ "& .MuiAvatar-root": { width: 26, height: 26, fontSize: 10, fontWeight: 700, border: `2px solid ${c.bg}` } }}>
                                                 {roleMembers(role).map((m) => (
                                                     <Avatar key={m.id} sx={{ bgcolor: `${colorFor(m.name)}22`, color: colorFor(m.name) }}>{getInitials(m.name)}</Avatar>
                                                 ))}
                                             </AvatarGroup>
-                                            <Typography sx={{ fontSize: 11, color: "#9CA3AF", fontWeight: 600 }}>members</Typography>
+                                            <Typography sx={{ fontSize: 11, color: DASH.faint, fontWeight: 600 }}>members</Typography>
                                         </Box>
                                     ) : (
-                                        <Typography sx={{ fontSize: 11.5, color: "#9CA3AF" }}>No members yet</Typography>
+                                        <Typography sx={{ fontSize: 11.5, color: DASH.faint }}>No members yet</Typography>
                                     )}
 
                                     {/* Action row */}
                                     {role.isStudent ? (
-                                        <Box sx={{ display: "flex", alignItems: "center", gap: 1, px: 1, py: 0.9, borderRadius: "8px", bgcolor: `${c.accent}0A`, border: `1px solid ${c.accent}26` }}>
+                                        <Box sx={{ display: "flex", alignItems: "center", gap: 1, px: 1, py: 0.9, borderRadius: RADIUS, bgcolor: "#fff", border: `1px solid ${c.accent}26` }}>
                                             <Typography sx={{ fontSize: 11.5, color: c.accent, fontWeight: 700 }}>Default category</Typography>
-                                            <Typography sx={{ fontSize: 11, color: "#9CA3AF" }}>· cannot be changed</Typography>
+                                            <Typography sx={{ fontSize: 11, color: DASH.faint }}>· cannot be changed</Typography>
                                         </Box>
                                     ) : (
                                         <Box sx={{ display: "flex", gap: 1 }}>
                                             <Button
                                                 onClick={() => openUsers(role)}
                                                 startIcon={<ManageAccountsOutlinedIcon sx={{ fontSize: 16 }} />}
-                                                sx={{ flex: 1, textTransform: "none", fontWeight: 700, fontSize: 11.5, color: c.accent, border: `1px solid ${c.accent}40`, borderRadius: "8px", height: 30, minWidth: 0, "&:hover": { bgcolor: `${c.accent}0A`, borderColor: c.accent } }}
+                                                sx={{ flex: 1, textTransform: "none", fontWeight: 700, fontSize: 11.5, color: c.accent, bgcolor: "#fff", border: `1px solid ${c.accent}33`, borderRadius: RADIUS, height: 30, minWidth: 0, "&:hover": { bgcolor: `${c.accent}0F`, borderColor: c.accent } }}
                                             >
                                                 Users
                                             </Button>
                                             {role.fullAccess ? (
-                                                <Box sx={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 0.5, height: 30, borderRadius: "8px", bgcolor: "#F1F5F9", color: "#94A3B8", fontSize: 11.5, fontWeight: 700, cursor: "not-allowed" }}>
+                                                <Box sx={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 0.5, height: 30, borderRadius: RADIUS, bgcolor: "#fff", border: `1px solid ${DASH.line}`, color: DASH.faint, fontSize: 11.5, fontWeight: 700, cursor: "not-allowed" }}>
                                                     <LockOutlinedIcon sx={{ fontSize: 15 }} /> Full Access
                                                 </Box>
                                             ) : (
                                                 <Button
                                                     onClick={() => navigate("/dashboardmenu/access/feature-permissions", { state: { role, roles } })}
                                                     startIcon={<TuneOutlinedIcon sx={{ fontSize: 16 }} />}
-                                                    sx={{ flex: 1, textTransform: "none", fontWeight: 700, fontSize: 11.5, bgcolor: c.accent, color: "#fff", borderRadius: "8px", height: 30, minWidth: 0, boxShadow: "none", "&:hover": { bgcolor: c.accent, filter: "brightness(0.92)", boxShadow: "none" } }}
+                                                    sx={{ flex: 1, textTransform: "none", fontWeight: 700, fontSize: 11.5, bgcolor: c.accent, color: "#fff", borderRadius: RADIUS, height: 30, minWidth: 0, boxShadow: "none", "&:hover": { bgcolor: c.accent, filter: "brightness(0.92)", boxShadow: "none" } }}
                                                 >
                                                     Access
                                                 </Button>
@@ -441,13 +466,35 @@ export default function RolesPermissionsPage() {
             </Box>
 
             {/* ── Create user type dialog ── */}
-            <Dialog open={createOpen} onClose={() => setCreateOpen(false)} maxWidth="xs" fullWidth slotProps={{ paper: { sx: { borderRadius: "14px" } } }}>
-                <DialogTitle sx={{ p: 2, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <Typography sx={{ fontSize: 16, fontWeight: 800 }}>Create New User Type</Typography>
-                    <IconButton size="small" onClick={() => setCreateOpen(false)}><CloseIcon sx={{ fontSize: 18 }} /></IconButton>
+            <Dialog
+                open={createOpen}
+                onClose={() => { if (!isCreating) setCreateOpen(false); }}
+                maxWidth="xs"
+                fullWidth
+                slotProps={{ paper: { sx: { borderRadius: "12px", overflow: "hidden" } } }}
+            >
+                {/* The same accent rule the page header carries. */}
+                <Box sx={{ height: 3, bgcolor: accent }} />
+
+                <DialogTitle sx={{ p: 2, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 1 }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, minWidth: 0 }}>
+                        <Box sx={{ width: 34, height: 34, borderRadius: RADIUS, bgcolor: `${accent}14`, border: `1px solid ${accent}33`, color: accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                            <AdminPanelSettingsOutlinedIcon sx={{ fontSize: 19 }} />
+                        </Box>
+                        <Box sx={{ minWidth: 0 }}>
+                            <Typography sx={{ fontSize: 15, fontWeight: 700, color: DASH.ink, lineHeight: 1.2 }}>Create User Type</Typography>
+                            <Typography sx={{ fontSize: 11.5, color: DASH.muted, mt: 0.2 }}>Name it now - screen access is set next</Typography>
+                        </Box>
+                    </Box>
+                    <IconButton size="small" onClick={() => setCreateOpen(false)} disabled={isCreating} sx={{ mt: -0.4 }}>
+                        <CloseIcon sx={{ fontSize: 18, color: DASH.muted }} />
+                    </IconButton>
                 </DialogTitle>
-                <DialogContent sx={{ px: 2, pb: 1 }}>
-                    <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: 0.4, mb: 0.5 }}>User Type Name</Typography>
+
+                <DialogContent sx={{ px: 2, pt: 0, pb: 1 }}>
+                    <Typography sx={{ fontSize: 11, fontWeight: 700, color: DASH.muted, textTransform: "uppercase", letterSpacing: 0.4, mb: 0.6 }}>
+                        User Type Name
+                    </Typography>
                     <TextField
                         fullWidth size="small"
                         autoFocus
@@ -456,38 +503,61 @@ export default function RolesPermissionsPage() {
                         onKeyDown={(e) => { if (e.key === "Enter") handleCreate(); }}
                         placeholder="e.g. Office Staff"
                         error={Boolean(nameError)}
-                        helperText={nameError || "Only alphabets are allowed — no numbers or special characters."}
-                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+                        helperText={nameError || "Letters and spaces only - no numbers or symbols."}
+                        sx={{
+                            "& .MuiOutlinedInput-root": {
+                                borderRadius: RADIUS, fontSize: 13, bgcolor: "#fff",
+                                "& fieldset": { borderColor: DASH.line },
+                                "&:hover fieldset": { borderColor: DASH.faint },
+                                "&.Mui-focused fieldset": { borderColor: accent },
+                            },
+                            "& .MuiFormHelperText-root": { fontSize: 11, ml: 0, mt: 0.6, color: DASH.muted },
+                        }}
                     />
+
+                    {/* How the type will read on the card, as it is typed. */}
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, mt: 1.6, p: 1.2, borderRadius: RADIUS, border: `1px solid ${DASH.line}`, bgcolor: DASH.surface }}>
+                        <Box sx={{ width: 34, height: 34, borderRadius: RADIUS, bgcolor: `${accent}14`, border: `1px solid ${accent}2E`, color: accent, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12.5, fontWeight: 800, flexShrink: 0 }}>
+                            {getInitials(newName) || "?"}
+                        </Box>
+                        <Box sx={{ minWidth: 0 }}>
+                            <Typography sx={{ fontSize: 13, fontWeight: 700, color: newName.trim() ? DASH.ink : DASH.faint }} noWrap>
+                                {newName.trim() || "Your new user type"}
+                            </Typography>
+                            <Typography sx={{ fontSize: 11, color: DASH.faint }}>0 users · no screen access yet</Typography>
+                        </Box>
+                    </Box>
                 </DialogContent>
-                <DialogActions sx={{ px: 2, pb: 2, gap: 1 }}>
-                    <Button onClick={() => setCreateOpen(false)} disabled={isCreating} sx={{ textTransform: "none", fontWeight: 700, color: "#374151", border: "1px solid #E5E7EB", borderRadius: "8px", px: 2, height: 36 }}>Cancel</Button>
+
+                <DialogActions sx={{ px: 2, pb: 2, pt: 1.5, gap: 1 }}>
+                    <Button onClick={() => setCreateOpen(false)} disabled={isCreating} sx={ghostBtnSx}>Cancel</Button>
                     <Button
                         onClick={handleCreate}
                         variant="contained"
                         disableElevation
-                        disabled={isCreating}
+                        disabled={isCreating || !newName.trim()}
                         startIcon={isCreating ? <CircularProgress size={15} sx={{ color: "#fff" }} /> : null}
-                        sx={{ textTransform: "none", fontWeight: 700, bgcolor: accent, color: "#fff", borderRadius: "8px", px: 2.4, height: 36, "&:hover": { bgcolor: accent, filter: "brightness(0.92)" }, "&.Mui-disabled": { bgcolor: "#E5E7EB", color: "#9CA3AF" } }}
+                        sx={accentBtnSx}
                     >
-                        {isCreating ? "Creating…" : "Create"}
+                        {isCreating ? "Creating…" : "Create User Type"}
                     </Button>
                 </DialogActions>
             </Dialog>
 
             {/* ── Manage Users dialog ── */}
-            <Dialog open={usersOpen} onClose={() => setUsersOpen(false)} maxWidth="xs" fullWidth slotProps={{ paper: { sx: { borderRadius: "14px" } } }}>
+            <Dialog open={usersOpen} onClose={() => setUsersOpen(false)} maxWidth="xs" fullWidth slotProps={{ paper: { sx: { borderRadius: "12px", overflow: "hidden" } } }}>
+                <Box sx={{ height: 3, bgcolor: accent }} />
                 <DialogTitle sx={{ p: 2, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.2 }}>
-                        <Box sx={{ width: 34, height: 34, borderRadius: "9px", bgcolor: `${accent}14`, color: accent, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, minWidth: 0 }}>
+                        <Box sx={{ width: 34, height: 34, borderRadius: RADIUS, bgcolor: `${accent}14`, border: `1px solid ${accent}33`, color: accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                             <ManageAccountsOutlinedIcon sx={{ fontSize: 19 }} />
                         </Box>
-                        <Box>
-                            <Typography sx={{ fontSize: 15, fontWeight: 800, lineHeight: 1.1 }}>Manage Users</Typography>
-                            <Typography sx={{ fontSize: 11.5, color: "#6B7280" }}>{usersRole?.name} · {liveCount.toLocaleString()} users</Typography>
+                        <Box sx={{ minWidth: 0 }}>
+                            <Typography sx={{ fontSize: 15, fontWeight: 700, color: DASH.ink, lineHeight: 1.2 }}>Manage Users</Typography>
+                            <Typography sx={{ fontSize: 11.5, color: DASH.muted, mt: 0.2 }}>{usersRole?.name} · {liveCount.toLocaleString()} users</Typography>
                         </Box>
                     </Box>
-                    <IconButton size="small" onClick={() => setUsersOpen(false)}><CloseIcon sx={{ fontSize: 18 }} /></IconButton>
+                    <IconButton size="small" onClick={() => setUsersOpen(false)}><CloseIcon sx={{ fontSize: 18, color: DASH.muted }} /></IconButton>
                 </DialogTitle>
                 <DialogContent sx={{ px: 2, pb: 2 }}>
                     {/* Add user */}
@@ -529,7 +599,14 @@ export default function RolesPermissionsPage() {
                                             ),
                                         },
                                     }}
-                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px", fontSize: 13 } }}
+                                    sx={{
+                                        "& .MuiOutlinedInput-root": {
+                                            borderRadius: RADIUS, fontSize: 13, bgcolor: "#fff",
+                                            "& fieldset": { borderColor: DASH.line },
+                                            "&:hover fieldset": { borderColor: DASH.faint },
+                                            "&.Mui-focused fieldset": { borderColor: accent },
+                                        },
+                                    }}
                                 />
                             )}
                             sx={{ flex: 1 }}
@@ -538,7 +615,7 @@ export default function RolesPermissionsPage() {
                             onClick={handleAssign}
                             startIcon={assigning ? <CircularProgress size={15} sx={{ color: "#fff" }} /> : <AddIcon sx={{ fontSize: 18 }} />}
                             disabled={!selectedToAdd.length || assigning}
-                            sx={{ textTransform: "none", fontWeight: 700, fontSize: 13, bgcolor: accent, color: "#fff", borderRadius: "10px", height: 40, px: 2, flexShrink: 0, boxShadow: "none", "&:hover": { bgcolor: accent, filter: "brightness(0.92)" }, "&.Mui-disabled": { bgcolor: "#E5E7EB", color: "#9CA3AF" } }}
+                            sx={{ ...accentBtnSx, height: 40, flexShrink: 0 }}
                         >
                             {assigning ? "Assigning…" : "Assign"}
                         </Button>
@@ -547,11 +624,11 @@ export default function RolesPermissionsPage() {
                     {usersList.length > 0 ? (
                         <Box sx={{ display: "flex", flexDirection: "column", gap: 1, maxHeight: "44vh", overflowY: "auto" }}>
                             {usersList.map((m) => (
-                                <Box key={m.id} sx={{ display: "flex", alignItems: "center", gap: 1.2, p: 1, borderRadius: "10px", border: "1px solid #F1F3F5" }}>
+                                <Box key={m.id} sx={{ display: "flex", alignItems: "center", gap: 1.2, p: 1, borderRadius: RADIUS, border: `1px solid ${DASH.line}`, bgcolor: "#fff" }}>
                                     <Avatar sx={{ width: 34, height: 34, fontSize: 12, fontWeight: 700, bgcolor: `${colorFor(m.name)}22`, color: colorFor(m.name) }}>{getInitials(m.name)}</Avatar>
                                     <Box sx={{ minWidth: 0, flex: 1 }}>
-                                        <Typography sx={{ fontSize: 13, fontWeight: 700, color: "#111827" }} noWrap>{m.name}</Typography>
-                                        <Typography sx={{ fontSize: 11, color: "#9CA3AF" }}>Roll No: {m.rollNumber}</Typography>
+                                        <Typography sx={{ fontSize: 13, fontWeight: 700, color: DASH.ink }} noWrap>{m.name}</Typography>
+                                        <Typography sx={{ fontSize: 11, color: DASH.faint }}>Roll No: {m.rollNumber}</Typography>
                                     </Box>
                                     <Tooltip title="Move to another role" arrow>
                                         <span>
@@ -559,7 +636,7 @@ export default function RolesPermissionsPage() {
                                                 onClick={(e) => openMove(e, m)}
                                                 disabled={movingId === m.id}
                                                 startIcon={movingId === m.id ? <CircularProgress size={13} sx={{ color: accent }} /> : <SwapHorizIcon sx={{ fontSize: 16 }} />}
-                                                sx={{ textTransform: "none", fontWeight: 700, fontSize: 11.5, color: accent, border: `1px solid ${accent}40`, borderRadius: "8px", height: 30, px: 1.2, flexShrink: 0, "&:hover": { bgcolor: `${accent}0A`, borderColor: accent }, "&.Mui-disabled": { color: "#9CA3AF", borderColor: "#E5E7EB" } }}
+                                                sx={{ textTransform: "none", fontWeight: 700, fontSize: 11.5, color: accent, bgcolor: `${accent}0A`, border: `1px solid ${accent}33`, borderRadius: RADIUS, height: 30, px: 1.2, flexShrink: 0, "&:hover": { bgcolor: `${accent}14`, borderColor: accent }, "&.Mui-disabled": { color: DASH.faint, bgcolor: DASH.lineSoft, borderColor: DASH.lineSoft } }}
                                             >
                                                 {movingId === m.id ? "Moving…" : "Move"}
                                             </Button>
@@ -570,16 +647,16 @@ export default function RolesPermissionsPage() {
                         </Box>
                     ) : (
                         <Box sx={{ py: 4, textAlign: "center" }}>
-                            <Typography sx={{ fontSize: 13, color: "#9CA3AF", fontWeight: 600 }}>No users in this role yet.</Typography>
-                            <Typography sx={{ fontSize: 11.5, color: "#9CA3AF", mt: 0.5 }}>Use the field above to add one.</Typography>
+                            <Typography sx={{ fontSize: 13, color: DASH.muted, fontWeight: 700 }}>No users in this role yet.</Typography>
+                            <Typography sx={{ fontSize: 11.5, color: DASH.faint, mt: 0.5 }}>Use the field above to add one.</Typography>
                         </Box>
                     )}
                 </DialogContent>
             </Dialog>
 
             {/* Move-to-role menu */}
-            <Menu anchorEl={moveAnchor} open={Boolean(moveAnchor)} onClose={closeMove} slotProps={{ paper: { sx: { borderRadius: "10px", minWidth: 180, boxShadow: "0 8px 24px rgba(16,24,40,0.12)" } } }}>
-                <Typography sx={{ px: 1.5, py: 0.8, fontSize: 10.5, fontWeight: 800, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: 0.4 }}>Move to</Typography>
+            <Menu anchorEl={moveAnchor} open={Boolean(moveAnchor)} onClose={closeMove} slotProps={{ paper: { sx: { borderRadius: RADIUS, minWidth: 180, border: `1px solid ${DASH.line}`, boxShadow: "0 8px 24px rgba(16,24,40,0.12)" } } }}>
+                <Typography sx={{ px: 1.5, py: 0.8, fontSize: 10.5, fontWeight: 800, color: DASH.faint, textTransform: "uppercase", letterSpacing: 0.4 }}>Move to</Typography>
                 {moveTargets.length === 0 ? (
                     <MenuItem disabled sx={{ fontSize: 12.5 }}>No other roles</MenuItem>
                 ) : (

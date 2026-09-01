@@ -30,7 +30,7 @@ import { selectGrades } from "../../../Redux/Slices/DropdownController";
 import { selectAcademicYear } from "../../../Redux/Slices/academicYearSlice";
 import { BOOK_STATUSES, MEDIUMS, MOCK_BOOKS, downloadBook, fmtDate, parseApiDate } from "./bookApi";
 import {
-    fieldSx, subjectTone, StatusPill, Pill, MetaItem, outlineBtnSx, primaryBtnSx,
+    fieldSx, subjectTone, StatusPill, Pill, MetaItem, outlineBtnSx, createBtnSx, primaryBtnSx,
 } from "./bookTheme";
 
 const PER_PAGE = 8;
@@ -368,11 +368,12 @@ export default function BooksLibraryPage() {
                     </Box>
                 </Box>
 
-                <Box sx={{ display: "flex", gap: 1, flexShrink: 0, pl: { xs: 5, md: 0 } }}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexShrink: 0, pl: { xs: 5, md: 0 } }}>
                     <Tooltip title="Reload library" arrow>
                         <IconButton
                             onClick={loadBooks}
                             sx={{
+                                width: 34, height: 34,
                                 border: `1px solid ${DASH.line}`, borderRadius: RADIUS, bgcolor: "#fff",
                                 "&:hover": { bgcolor: DASH.primaryLight, borderColor: DASH.primaryBorder },
                             }}
@@ -382,8 +383,9 @@ export default function BooksLibraryPage() {
                     </Tooltip>
                     <Button
                         onClick={() => navigate("/dashboardmenu/books/upload")}
-                        startIcon={<AddIcon sx={{ fontSize: 16 }} />}
-                        sx={primaryBtnSx}
+                        variant="contained"
+                        startIcon={<AddIcon sx={{ fontSize: 18 }} />}
+                        sx={createBtnSx}
                     >
                         Upload Book
                     </Button>
@@ -544,8 +546,9 @@ export default function BooksLibraryPage() {
                     {books.length === 0 ? (
                         <Button
                             onClick={() => navigate("/dashboardmenu/books/upload")}
-                            startIcon={<AddIcon sx={{ fontSize: 16 }} />}
-                            sx={primaryBtnSx}
+                            variant="contained"
+                            startIcon={<AddIcon sx={{ fontSize: 18 }} />}
+                            sx={createBtnSx}
                         >
                             Upload Book
                         </Button>

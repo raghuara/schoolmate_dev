@@ -107,8 +107,28 @@ export const DIFFICULTY_LEVELS = [
 
 export const BLOOM_LEVELS = ["Remember", "Understand", "Apply", "Analyse", "Evaluate", "Create"];
 
-// No draft state - a paper is either waiting on an approver or past them.
-export const PAPER_STATUSES = ["Pending", "Approved", "Published", "Rejected"];
+/* No draft state - a paper is either waiting on an approver or past them.
+   An approver has two ways to say no: "Sent Back" hands it to the teacher to fix
+   and resubmit, "Rejected" closes it for good. */
+export const PAPER_STATUSES = ["Pending", "Approved", "Published", "Sent Back", "Rejected"];
+
+// The reviewer's note is stored on the paper for both outcomes.
+export const REVIEW_OUTCOMES = {
+    sendBack: {
+        status: "Sent Back",
+        title: "Send this paper back",
+        blurb: "goes back to be corrected and submitted again.",
+        field: "What needs to change",
+        confirm: "Send back",
+    },
+    reject: {
+        status: "Rejected",
+        title: "Reject this paper",
+        blurb: "is closed. It cannot be submitted again - a new paper has to be built.",
+        field: "Why it is being rejected",
+        confirm: "Reject paper",
+    },
+};
 
 const STATUS_MAP = {
     // Legacy rows that still say draft land in the queue rather than nowhere.
@@ -120,6 +140,9 @@ const STATUS_MAP = {
     approved: "Approved",
     published: "Published",
     live: "Published",
+    sentback: "Sent Back",
+    returned: "Sent Back",
+    reverted: "Sent Back",
     rejected: "Rejected",
     declined: "Rejected",
 };
@@ -184,6 +207,70 @@ export const patternQuestionCount = (pattern) =>
 
 export const patternBalanced = (pattern) =>
     Number(pattern?.totalMarks) === patternTotal(pattern);
+
+// "SECTION A" -> "A", "PART - B" -> "B". Keeps anything it does not recognise.
+export const shortSectionLabel = (text = "") => {
+    const trimmed = String(text).trim();
+    const stripped = trimmed.replace(/^(SECTION|PART|SEC)\s*[-.]?\s*/i, "").trim();
+    return stripped || trimmed;
+};
+
+export const durationLabel = (minutes) => {
+    const total = Number(minutes) || 0;
+    if (total < 60) return `${total} min`;
+    const hours = Math.floor(total / 60);
+    const rest = total % 60;
+    return rest ? `${hours} hr ${rest} min` : `${hours} hr`;
+};
+
+/* One entry per printed group with its share of the total, so a pattern can be
+   drawn as a single bar. This is what makes the shape of a paper readable at a
+   glance - where the marks sit, not just how many there are. */
+export const patternSpread = (pattern) => {
+    const total = patternTotal(pattern) || 1;
+    const bands = [];
+    groupSections(pattern?.sections || []).forEach((group, gi) => {
+        /* A named group prints one heading over its sections, so it is one band.
+           Sections with no group name each carry their own label and become a
+           band of their own - otherwise a PART A / PART B paper collapses into a
+           single bar. */
+        const items = group.name
+            ? [group]
+            : group.sections.map((section) => ({ name: "", sections: [section] }));
+
+        items.forEach((item, ii) => {
+            const first = item.sections[0] || {};
+            const marks = groupMarks(item);
+            const label = shortSectionLabel(item.name || sectionHeading(first) || `${bands.length + 1}`);
+            bands.push({
+                key: `${item.name || first.id || `${gi}-${ii}`}`,
+                label,
+                // Drops a trailing "(LANGUAGE STUDY)" so the label fits a legend.
+                short: label.split(" (")[0].trim() || label,
+                marks,
+                share: (marks / total) * 100,
+                color: typeMeta(first.type).color,
+                questions: item.sections.reduce((sum, s) => sum + (Number(s.questionsToPrint) || 0), 0),
+                types: Array.from(new Set(item.sections.map((s) => typeMeta(s.type).short))),
+            });
+        });
+    });
+    return bands;
+};
+
+// The same total split by question type instead of by section.
+export const patternTypeSpread = (pattern) => {
+    const byType = new Map();
+    (pattern?.sections || []).forEach((section) => {
+        const meta = typeMeta(section.type);
+        const entry = byType.get(meta.key)
+            || { key: meta.key, label: meta.short, color: meta.color, bg: meta.bg, marks: 0, questions: 0 };
+        entry.marks += sectionMarks(section);
+        entry.questions += Number(section.questionsToPrint) || 0;
+        byType.set(meta.key, entry);
+    });
+    return Array.from(byType.values()).sort((a, b) => b.marks - a.marks);
+};
 
 export const sectionInstruction = (section) => {
     if (section?.instruction?.trim()) return section.instruction.trim();
@@ -839,7 +926,8 @@ export const MOCK_PAPERS = [
     { id: 102, name: "Science Unit Test II", gradeId: "9", grade: "IX", subject: "Science", examName: "Unit Test II", examDate: "02-09-2026", academicYear: "2026-2027", totalMarks: 25, durationMinutes: 60, patternName: "Unit Test - 25 Marks", templateId: "minimal", paperCode: "", questionCount: 16, status: "Pending", createdBy: "Karthik S", createdDate: "20-08-2026 14:05", approver: "HOD - Science", rejectReason: "" },
     { id: 103, name: "Geography and Economics - Annual", gradeId: "10", grade: "X", subject: "Social Science", examName: "Annual Examination", examDate: "22-09-2026", academicYear: "2026-2027", totalMarks: 40, durationMinutes: 120, patternName: "State Board Std X - Two Subject Paper (40 Marks)", templateId: "stateboard", paperCode: "", questionCount: 30, status: "Approved", createdBy: "Ravi Kumar", createdDate: "18-08-2026 09:15", approver: "HOD - Social Science", rejectReason: "" },
     { id: 104, name: "English - Annual Examination", gradeId: "10", grade: "X", subject: "English", examName: "Annual Examination", examDate: "26-09-2026", academicYear: "2026-2027", totalMarks: 80, durationMinutes: 180, patternName: "Activity Based English - 80 Marks", templateId: "activity", paperCode: "", questionCount: 36, status: "Pending", createdBy: "Meena D", createdDate: "24-08-2026 16:40", approver: "HOD - Languages", rejectReason: "" },
-    { id: 105, name: "LKG Unit Test II - English", gradeId: "1", grade: "I", subject: "English", examName: "Unit Test II", examDate: "29-08-2026", academicYear: "2026-2027", totalMarks: 35, durationMinutes: 120, patternName: "Primary Unit Test - 35 Marks (LKG to II)", templateId: "primary", paperCode: "", questionCount: 48, status: "Rejected", createdBy: "Divya P", createdDate: "21-08-2026 11:00", approver: "Coordinator", rejectReason: "Two picture questions repeat from last month's paper." },
+    { id: 105, name: "LKG Unit Test II - English", gradeId: "1", grade: "I", subject: "English", examName: "Unit Test II", examDate: "29-08-2026", academicYear: "2026-2027", totalMarks: 35, durationMinutes: 120, patternName: "Primary Unit Test - 35 Marks (LKG to II)", templateId: "primary", paperCode: "", questionCount: 48, status: "Sent Back", createdBy: "Divya P", createdDate: "21-08-2026 11:00", approver: "Coordinator", rejectReason: "Two picture questions repeat from last month's paper. Swap them and send it again." },
+    { id: 106, name: "Mathematics Revision - Std VIII", gradeId: "8", grade: "VIII", subject: "Mathematics", examName: "Revision Test", examDate: "05-09-2026", academicYear: "2026-2027", totalMarks: 20, durationMinutes: 40, patternName: "Quick Revision - 20 Marks", templateId: "minimal", paperCode: "", questionCount: 12, status: "Rejected", createdBy: "Prakash V", createdDate: "22-08-2026 15:20", approver: "HOD - Mathematics", rejectReason: "The revision test was dropped from this term's calendar, so this paper is not needed." },
     { id: 106, name: "English Model Paper", gradeId: "8", grade: "VIII", subject: "English", examName: "Model Examination", examDate: "05-09-2026", academicYear: "2026-2027", totalMarks: 40, durationMinutes: 120, patternName: "Comprehension Model Paper - 40 Marks", templateId: "comprehension", paperCode: "", questionCount: 27, status: "Published", createdBy: "Sangeetha M", createdDate: "14-08-2026 13:20", approver: "Principal", rejectReason: "" },
     { id: 107, name: "Physics Model Exam", gradeId: "12", grade: "XII", subject: "Physics", examName: "Model Examination", examDate: "10-10-2026", academicYear: "2026-2027", totalMarks: 70, durationMinutes: 180, patternName: "Higher Secondary Theory - 70 Marks", templateId: "cbse", paperCode: "04", questionCount: 38, status: "Pending", createdBy: "Karthik S", createdDate: "25-08-2026 08:45", approver: "HOD - Science", rejectReason: "" },
 ];

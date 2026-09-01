@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Box, Grid, TextField, Typography, Button, Tabs, Tab, Switch, Stack, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, createTheme, ThemeProvider, Autocomplete, Paper, Checkbox, ListItemText, Radio, FormControl, InputLabel, Select, OutlinedInput, MenuItem } from "@mui/material";
+import { Box, Divider, Grid, TextField, Typography, Button, Tabs, Tab, Switch, Stack, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, createTheme, ThemeProvider, Autocomplete, Paper, Checkbox, ListItemText, Radio, FormControl, InputLabel, Select, OutlinedInput, MenuItem } from "@mui/material";
 import axios from "axios";
 import { useDropzone } from "react-dropzone";
 import { DateTimePicker, LocalizationProvider } from "@mui/x-date-pickers";
@@ -20,6 +20,7 @@ import { selectGrades } from "../../../../Redux/Slices/DropdownController";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
 import { DASH } from "../../../DashBoardComps/dashboardTheme";
+import { fieldLabelSx, requiredMark, fieldErrorStyle, counterSx, ghostBtnSx, brandBtnSx } from "../../approvalTheme";
 
 export default function MessagesApprovalEditPage() {
     const navigate = useNavigate()
@@ -372,17 +373,15 @@ export default function MessagesApprovalEditPage() {
                 </IconButton>
                 <Typography sx={{ fontSize: "20px", fontWeight: 700, color: DASH.ink, lineHeight: 1.2 }}>Edit Message</Typography>
             </Box>
-            <Grid container >
+            <Grid container spacing={2}>
                 <Grid
-                    mt={2}
-                    p={2}
                     size={{
                         xs: 12,
                         sm: 12,
                         md: 6,
                         lg: 6
                     }}>
-                    <Box sx={{ border: "1px solid #E0E0E0", backgroundColor: "#fbfbfb", p: 2, borderRadius: "7px", mt: 4.5, height: "75.6vh", overflowY: "auto", position: "relative" }}>
+                    <Box sx={{ border: `1px solid ${DASH.line}`, backgroundColor: "#fff", p: 2, borderRadius: "12px", height: "75.6vh", overflowY: "auto", position: "relative" }}>
 
                         {/* <Typography sx={{ mb:0.5}}>Select</Typography> */}
                         {/* <Grid container spacing={2}>
@@ -556,28 +555,26 @@ export default function MessagesApprovalEditPage() {
                             onChange={handleHeadingChange}
                         />
                         {isSubmitted && !heading.trim() && (
-                            <span style={{ color: "red", fontSize: "12px" }}>
+                            <span style={fieldErrorStyle}>
                                 This field is required
                             </span>
                         )}
-                        <Typography sx={{ fontSize: "12px" }} color="textSecondary">
-                            {`${heading.length}/100`}
-                        </Typography>
+                        <Typography sx={counterSx(heading.length >= 100)}>{`${heading.length}/100`}</Typography>
 
 
-                        <Typography sx={{ pt: 3 }}>Add Description</Typography>
+                        <Typography sx={fieldLabelSx}>Add Description <span style={requiredMark}>*</span></Typography>
                         <SimpleTextEditor
                             value={newsContentHTML}
                             onContentChange={handleRichTextChange}
                         />
                         {isSubmitted && !newsContentHTML.trim() && (
-                            <span style={{ color: "red", fontSize: "12px" }}>
+                            <span style={fieldErrorStyle}>
                                 This field is required
                             </span>
                         )}
                         {newsStatus === "schedule" ? (
                             <Box mt={2}>
-                                <Typography>Schedule</Typography>
+                                <Typography sx={fieldLabelSx}>Schedule</Typography>
                                 <ThemeProvider theme={theme}>
                                     <LocalizationProvider dateAdapter={AdapterDayjs}>
                                         <Stack spacing={2}>
@@ -617,7 +614,8 @@ export default function MessagesApprovalEditPage() {
                             <Box sx={{ height: "90px" }} />
                         )
                         }
-                        <Box sx={{ mt: 12, }}>
+                        <Divider sx={{ mt: 3 }} />
+                        <Box sx={{ mt: 2 }}>
                             <Grid container>
                                 <Grid
                                     size={{
@@ -636,15 +634,7 @@ export default function MessagesApprovalEditPage() {
                                         lg: 2.3
                                     }}>
                                     <Button
-                                        sx={{
-                                            textTransform: 'none',
-                                            width: "80px",
-                                            borderRadius: '30px',
-                                            fontSize: '12px',
-                                            py: 0.2,
-                                            color: 'black',
-                                            fontWeight: "600",
-                                        }}
+                                        sx={ghostBtnSx}
                                         onClick={handlePreview}>
                                         Preview
                                     </Button>
@@ -658,16 +648,7 @@ export default function MessagesApprovalEditPage() {
                                         lg: 2.3
                                     }}>
                                     <Button
-                                        sx={{
-                                            textTransform: 'none',
-                                            width: "80px",
-                                            borderRadius: '30px',
-                                            fontSize: '12px',
-                                            py: 0.2,
-                                            border: '1px solid black',
-                                            color: 'black',
-                                            fontWeight: "600",
-                                        }}
+                                        variant="outlined" sx={ghostBtnSx}
                                         onClick={handleCancelClick}>
                                         Cancel
                                     </Button>
@@ -691,29 +672,13 @@ export default function MessagesApprovalEditPage() {
                                             }}>
                                                 <Button
                                                     onClick={() => handleCloseDialog(false)}
-                                                    sx={{
-                                                        textTransform: 'none',
-                                                        width: "80px",
-                                                        borderRadius: '30px',
-                                                        fontSize: '16px',
-                                                        py: 0.2,
-                                                        border: '1px solid black',
-                                                        color: 'black',
-                                                    }}
+                                                    variant="outlined" sx={{ ...ghostBtnSx, height: 34 }}
                                                 >
                                                     No
                                                 </Button>
                                                 <Button
                                                     onClick={() => handleCloseDialog(true)}
-                                                    sx={{
-                                                        textTransform: 'none',
-                                                        backgroundColor: websiteSettings.mainColor,
-                                                        width: "90px",
-                                                        borderRadius: '30px',
-                                                        fontSize: '16px',
-                                                        py: 0.2,
-                                                        color: websiteSettings.textColor,
-                                                    }}
+                                                    variant="contained" disableElevation sx={brandBtnSx(websiteSettings)}
                                                 >
                                                     Yes
                                                 </Button>
@@ -733,16 +698,7 @@ export default function MessagesApprovalEditPage() {
                                             lg: 3
                                         }}>
                                         <Button
-                                            sx={{
-                                                textTransform: 'none',
-                                                backgroundColor: websiteSettings.mainColor,
-                                                width: "80px",
-                                                borderRadius: '30px',
-                                                fontSize: '12px',
-                                                py: 0.2,
-                                                color: websiteSettings.textColor,
-                                                fontWeight: "600",
-                                            }}
+                                            variant="contained" disableElevation sx={brandBtnSx(websiteSettings)}
                                             onClick={() => handleUpdate('post')}>
                                             Accept
                                         </Button>
@@ -758,16 +714,7 @@ export default function MessagesApprovalEditPage() {
                                             lg: 3
                                         }}>
                                         <Button
-                                            sx={{
-                                                textTransform: 'none',
-                                                backgroundColor: websiteSettings.mainColor,
-                                                width: "80px",
-                                                borderRadius: '30px',
-                                                fontSize: '12px',
-                                                py: 0.2,
-                                                color: websiteSettings.textColor,
-                                                fontWeight: "600",
-                                            }}
+                                            variant="contained" disableElevation sx={brandBtnSx(websiteSettings)}
                                             onClick={() => handleUpdate('schedule')}>
                                             Accept
                                         </Button>
@@ -781,16 +728,18 @@ export default function MessagesApprovalEditPage() {
                 </Grid>
 
                 <Grid
-                    sx={{ py: 2, mt: 6.5, pr: 2 }}
                     size={{
                         xs: 12,
                         sm: 12,
                         md: 6,
                         lg: 6
                     }}>
-                    <Box sx={{ border: "1px solid #E0E0E0", backgroundColor: "#fbfbfb", p: 2, borderRadius: "6px", height: "75.6vh", overflowY: "auto" }}>
-                        <Typography sx={{ fontSize: "14px", color: "rgba(0,0,0,0.7)" }}>Live Preview</Typography>
-                        <hr style={{ border: "0.5px solid #CFCFCF" }} />
+                    <Box sx={{ border: `1px solid ${DASH.line}`, backgroundColor: "#fff", p: 2, borderRadius: "12px", height: "75.6vh", overflowY: "auto" }}>
+                        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
+                            <Typography sx={{ fontSize: "14px", fontWeight: 600, color: DASH.text }}>Live Preview</Typography>
+                            <Typography sx={{ fontSize: "11px", color: DASH.faint }}>Updates as you type</Typography>
+                        </Box>
+                        <Divider sx={{ my: 1.5 }} />
                         <Box>
                             {previewData.heading && (
                                 <Typography sx={{ fontWeight: "600", fontSize: "16px" }}>

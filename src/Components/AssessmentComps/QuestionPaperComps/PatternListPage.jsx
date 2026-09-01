@@ -14,19 +14,32 @@ import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import ContentCopyOutlinedIcon from "@mui/icons-material/ContentCopyOutlined";
 import DashboardCustomizeOutlinedIcon from "@mui/icons-material/DashboardCustomizeOutlined";
 import TimerOutlinedIcon from "@mui/icons-material/TimerOutlined";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
-import RocketLaunchOutlinedIcon from "@mui/icons-material/RocketLaunchOutlined";
+import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 
 import SnackBar from "../../SnackBar";
 import Loader from "../../Loader";
 import { DASH, RADIUS } from "../../DashBoardComps/dashboardTheme";
 import { selectGrades } from "../../../Redux/Slices/DropdownController";
 import {
-    MOCK_PATTERNS, patternBalanced, patternQuestionCount,
-    patternTotal, sectionHeading, sectionMarks, sectionMarksLabel, typeMeta,
+    MOCK_PATTERNS, patternBalanced, patternQuestionCount, patternSpread,
+    patternTotal, durationLabel,
 } from "./questionPaperApi";
-import { Pill, fieldSx, outlineBtnSx, primaryBtnSx } from "./questionPaperTheme";
+import { fieldSx, outlineBtnSx, createBtnSx, primaryBtnSx } from "./questionPaperTheme";
+
+/* Every card is the same height. The section count varies from three to eight
+   across the blueprints, so the spread is drawn as one bar of fixed height
+   rather than a list that grows with the pattern. */
+const CARD_H = 236;
+// A paper-white card on a grey page reads as a form field. A light violet wash
+// separates the sheet from the canvas and ties it to the module accent.
+const SHEET_BG = "#FAF9FF";
+// A shade deeper than the sheet - enough to read as a header band, nowhere near
+// a dark bar.
+const SHEET_HEAD_BG = "#F3EEFF";
+const SHEET_LINE = `${DASH.violet}1F`;
+// Room for the paper name on two lines without pushing the rest down.
+const NAME_H = 38;
 
 const classRange = (grades, gradeIds) => {
     if (!gradeIds?.length) return "Any class";
@@ -38,42 +51,81 @@ const classRange = (grades, gradeIds) => {
     return `${signs[0]} - ${signs[signs.length - 1]}`;
 };
 
-const PatternCard = ({ pattern, grades, onEdit, onClone, onDelete, onUse }) => {
+/* The card reads as a mark sheet: a ruled head with the total, one bar showing
+   where the marks sit, and the section letters underneath it. */
+const PatternSheetCard = ({ pattern, grades, onOpen, onEdit, onClone, onDelete }) => {
     const total = patternTotal(pattern);
     const balanced = patternBalanced(pattern);
+    const spread = patternSpread(pattern);
 
     return (
         <Box
+            onClick={() => onOpen(pattern)}
             sx={{
-                bgcolor: "#fff",
-                border: `1px solid ${DASH.line}`,
-                borderLeft: `3px solid ${balanced ? DASH.violet : DASH.red}`,
-                borderRadius: RADIUS,
-                height: "100%",
+                position: "relative",
+                height: CARD_H,
                 boxSizing: "border-box",
+                bgcolor: SHEET_BG,
+                border: `1px solid ${DASH.violet}26`,
+                borderRadius: RADIUS,
                 display: "flex",
                 flexDirection: "column",
                 overflow: "hidden",
-                transition: "box-shadow .2s ease, transform .2s ease",
+                cursor: "pointer",
+                transition: "box-shadow .2s ease, transform .2s ease, border-color .2s ease",
                 "&:hover": {
                     transform: "translateY(-3px)",
+                    borderColor: `${DASH.violet}55`,
                     boxShadow: "0 8px 22px rgba(17,24,39,0.10)",
                     ".patternActions": { opacity: 1 },
                 },
+                /* The punched edge of a paper - two ruled lines down the left,
+                   the detail that makes the card read as a sheet. */
+                "&::before": {
+                    content: '""',
+                    position: "absolute", top: 0, bottom: 0, left: 10,
+                    borderLeft: `1px solid ${SHEET_LINE}`,
+                    borderRight: `1px solid ${SHEET_LINE}`,
+                    width: 3,
+                    pointerEvents: "none",
+                },
             }}
         >
-            <Box sx={{ p: 1.8, flex: 1, minWidth: 0 }}>
+            {/* The title band. A light wash marks it as the head of the sheet
+                without turning it into a dark bar. */}
+            <Box
+                sx={{
+                    pl: 3, pr: 1.6, pt: 1.3, pb: 1.1,
+                    bgcolor: SHEET_HEAD_BG,
+                    borderBottom: `1px solid ${SHEET_LINE}`,
+                }}
+            >
                 <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1 }}>
                     <Box sx={{ minWidth: 0, flex: 1 }}>
-                        <Typography sx={{ fontSize: "13.5px", fontWeight: 700, color: DASH.ink, lineHeight: 1.35 }}>
+                        <Typography
+                            sx={{
+                                fontSize: "13.5px", fontWeight: 700, color: DASH.ink, lineHeight: 1.35,
+                                height: NAME_H, display: "-webkit-box", WebkitLineClamp: 2,
+                                WebkitBoxOrient: "vertical", overflow: "hidden",
+                            }}
+                        >
                             {pattern.name}
                         </Typography>
-                        <Typography sx={{ fontSize: "11px", color: DASH.faint, mt: 0.3 }}>
+                        <Typography
+                            sx={{
+                                fontSize: "11px", color: DASH.faint, mt: 0.2,
+                                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                            }}
+                        >
                             {pattern.exam || "Any exam"} - {classRange(grades, pattern.gradeIds)}
                         </Typography>
                     </Box>
 
-                    <Box className="patternActions" sx={{ display: "flex", gap: 0.1, opacity: { xs: 1, md: 0 }, transition: "opacity .2s ease", flexShrink: 0 }}>
+                    <Box
+                        className="patternActions"
+                        onClick={(e) => e.stopPropagation()}
+                        sx={{ display: "flex", gap: 0.1, opacity: { xs: 1, md: 0 }, transition: "opacity .2s ease", flexShrink: 0 }}
+                    >
                         <Tooltip title="Edit" arrow>
                             <IconButton size="small" onClick={() => onEdit(pattern)} sx={{ width: 26, height: 26 }}>
                                 <EditOutlinedIcon sx={{ fontSize: 15, color: DASH.muted }} />
@@ -91,63 +143,61 @@ const PatternCard = ({ pattern, grades, onEdit, onClone, onDelete, onUse }) => {
                         </Tooltip>
                     </Box>
                 </Box>
+            </Box>
 
-                <Box sx={{ display: "flex", gap: 0.6, flexWrap: "wrap", mt: 1.3 }}>
-                    <Pill
-                        label={`${total} marks`}
-                        color={balanced ? DASH.ink : DASH.red}
-                        bg={balanced ? DASH.primaryLight : DASH.redLight}
-                        border={balanced ? DASH.primaryBorder : "#FECACA"}
-                    />
-                    <Pill label={`${pattern.sections.length} sections`} color={DASH.muted} bg={DASH.lineSoft} />
-                    <Pill label={`${patternQuestionCount(pattern)} questions`} color={DASH.muted} bg={DASH.lineSoft} />
-                </Box>
-
+            <Box sx={{ pl: 3, pr: 1.6, pb: 1.2, flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+                {/* The mark head, printed the way it sits on a real paper. */}
                 <Box
                     sx={{
-                        mt: 1.5, border: `1px solid ${DASH.lineSoft}`, borderRadius: RADIUS,
-                        overflow: "hidden",
+                        display: "flex", alignItems: "center", gap: 1.4,
+                        borderBottom: `1px solid ${SHEET_LINE}`,
+                        py: 0.9,
                     }}
                 >
-                    {pattern.sections.map((section, i) => {
-                        const meta = typeMeta(section.type);
-                        return (
-                            <Box
-                                key={section.id}
-                                sx={{
-                                    display: "flex", alignItems: "center", gap: 1,
-                                    px: 1.2, py: 0.8,
-                                    borderBottom: i < pattern.sections.length - 1 ? `1px solid ${DASH.lineSoft}` : "none",
-                                    bgcolor: i % 2 === 0 ? "#fff" : "#FCFCFD",
-                                }}
-                            >
-                                <Typography sx={{ fontSize: "10.5px", fontWeight: 800, color: DASH.ink, width: 58, flexShrink: 0 }}>
-                                    {(sectionHeading(section) || section.groupName || "").replace("PART - ", "").replace("SECTION ", "")}
-                                </Typography>
-                                <Box sx={{ width: 6, height: 6, borderRadius: "50%", bgcolor: meta.color, flexShrink: 0 }} />
-                                <Typography sx={{ fontSize: "11px", color: DASH.text, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                    {meta.short}
-                                </Typography>
-                                <Typography sx={{ fontSize: "11px", fontWeight: 700, color: DASH.muted, flexShrink: 0 }}>
-                                    {sectionMarksLabel(section) || `${sectionMarks(section)}`}
-                                </Typography>
-                            </Box>
-                        );
-                    })}
+                    <Box sx={{ display: "flex", alignItems: "baseline", gap: 0.5, flexShrink: 0 }}>
+                        <Typography sx={{ fontSize: "22px", fontWeight: 800, color: balanced ? DASH.ink : DASH.red, lineHeight: 1 }}>
+                            {total}
+                        </Typography>
+                        <Typography sx={{ fontSize: "10px", fontWeight: 700, color: DASH.faint, letterSpacing: "0.06em" }}>
+                            MARKS
+                        </Typography>
+                    </Box>
+                    <Box sx={{ width: "1px", height: 22, bgcolor: SHEET_LINE, flexShrink: 0 }} />
+                    <Box sx={{ minWidth: 0 }}>
+                        <Typography sx={{ fontSize: "11.5px", fontWeight: 600, color: DASH.text, whiteSpace: "nowrap" }}>
+                            {spread.length} sections - {patternQuestionCount(pattern)} questions
+                        </Typography>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.4, mt: 0.2 }}>
+                            <TimerOutlinedIcon sx={{ fontSize: 12, color: DASH.faint }} />
+                            <Typography sx={{ fontSize: "11px", color: DASH.muted }}>
+                                {durationLabel(pattern.durationMinutes)}
+                            </Typography>
+                        </Box>
+                    </Box>
                 </Box>
 
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1.4, mt: 1.4, flexWrap: "wrap" }}>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.4 }}>
-                        <TimerOutlinedIcon sx={{ fontSize: 13, color: DASH.faint }} />
-                        <Typography sx={{ fontSize: "11px", color: DASH.muted }}>{pattern.durationMinutes} min</Typography>
+                {/* Where the marks sit. One bar, so eight sections take exactly as
+                    much room as three. */}
+                <Box sx={{ mt: "auto" }}>
+                    <Typography sx={{ fontSize: "9.5px", fontWeight: 700, color: DASH.faint, letterSpacing: "0.08em", mb: 0.6 }}>
+                        MARK SPREAD
+                    </Typography>
+                    <Box sx={{ display: "flex", height: 8, borderRadius: RADIUS, overflow: "hidden", bgcolor: "#fff" }}>
+                        {spread.map((part) => (
+                            <Tooltip key={part.key} title={`${part.label} - ${part.marks} marks`} arrow>
+                                <Box sx={{ width: `${part.share}%`, bgcolor: part.color, borderRight: `1px solid ${SHEET_BG}` }} />
+                            </Tooltip>
+                        ))}
                     </Box>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.4 }}>
-                        {balanced
-                            ? <CheckCircleIcon sx={{ fontSize: 13, color: DASH.green }} />
-                            : <ErrorOutlineIcon sx={{ fontSize: 13, color: DASH.red }} />}
-                        <Typography sx={{ fontSize: "11px", color: balanced ? DASH.green : DASH.red, fontWeight: 600 }}>
-                            {balanced ? "Marks balanced" : `Sections add to ${total}, not ${pattern.totalMarks}`}
-                        </Typography>
+                    <Box sx={{ display: "flex", gap: 0.9, mt: 0.7, height: 15, overflow: "hidden" }}>
+                        {spread.map((part) => (
+                            <Box key={part.key} sx={{ display: "flex", alignItems: "center", gap: 0.35, flexShrink: 0 }}>
+                                <Box sx={{ width: 6, height: 6, borderRadius: "2px", bgcolor: part.color }} />
+                                <Typography sx={{ fontSize: "10.5px", color: DASH.muted, whiteSpace: "nowrap" }}>
+                                    {part.short} <span style={{ fontWeight: 700, color: DASH.text }}>{part.marks}</span>
+                                </Typography>
+                            </Box>
+                        ))}
                     </Box>
                 </Box>
             </Box>
@@ -155,19 +205,25 @@ const PatternCard = ({ pattern, grades, onEdit, onClone, onDelete, onUse }) => {
             <Box
                 sx={{
                     display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1,
-                    px: 1.8, py: 1.1, borderTop: `1px solid ${DASH.lineSoft}`, bgcolor: "#FCFCFD",
+                    pl: 3, pr: 1.6, py: 0.9, borderTop: `1px solid ${SHEET_LINE}`, bgcolor: `${DASH.violet}0F`,
                 }}
             >
-                <Typography sx={{ fontSize: "11px", color: DASH.muted }}>
-                    Used in {pattern.usedCount || 0} paper{(pattern.usedCount || 0) === 1 ? "" : "s"}
-                </Typography>
-                <Button
-                    onClick={() => onUse(pattern)}
-                    endIcon={<RocketLaunchOutlinedIcon sx={{ fontSize: 14 }} />}
-                    sx={{ ...outlineBtnSx, py: 0.3, fontSize: "11.5px" }}
-                >
-                    Use pattern
-                </Button>
+                {balanced ? (
+                    <Typography sx={{ fontSize: "10.5px", color: DASH.muted, whiteSpace: "nowrap" }}>
+                        Used in {pattern.usedCount || 0} paper{(pattern.usedCount || 0) === 1 ? "" : "s"}
+                    </Typography>
+                ) : (
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.4, minWidth: 0 }}>
+                        <ErrorOutlineIcon sx={{ fontSize: 12, color: DASH.red, flexShrink: 0 }} />
+                        <Typography sx={{ fontSize: "10.5px", fontWeight: 600, color: DASH.red, whiteSpace: "nowrap" }}>
+                            Adds to {total}, not {pattern.totalMarks}
+                        </Typography>
+                    </Box>
+                )}
+                <Box sx={{ display: "flex", alignItems: "center", gap: 0.3, color: DASH.violet, flexShrink: 0 }}>
+                    <Typography sx={{ fontSize: "11px", fontWeight: 700 }}>View</Typography>
+                    <ArrowForwardIcon sx={{ fontSize: 13 }} />
+                </Box>
             </Box>
         </Box>
     );
@@ -221,6 +277,9 @@ export default function PatternListPage() {
         return true;
     }), [patterns, search, categoryFilter, gradeFilter]);
 
+    const openPattern = (pattern) =>
+        navigate(`/dashboardmenu/assessment/question-paper/patterns/view/${pattern.id}`, { state: { pattern } });
+
     const editPattern = (pattern) =>
         navigate(`/dashboardmenu/assessment/question-paper/patterns/${pattern.id}`, { state: { pattern } });
 
@@ -228,9 +287,6 @@ export default function PatternListPage() {
         navigate("/dashboardmenu/assessment/question-paper/patterns/create", {
             state: { pattern: { ...pattern, id: null, name: `${pattern.name} (Copy)`, usedCount: 0 } },
         });
-
-    const usePattern = (pattern) =>
-        navigate("/dashboardmenu/assessment/question-paper/create", { state: { presetPattern: pattern } });
 
     const confirmDelete = () => {
         const target = deleteTarget;
@@ -266,11 +322,12 @@ export default function PatternListPage() {
                     </Box>
                 </Box>
 
-                <Box sx={{ display: "flex", gap: 1, flexShrink: 0, pl: { xs: 5, md: 0 } }}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexShrink: 0, pl: { xs: 5, md: 0 } }}>
                     <Button
                         onClick={() => navigate("/dashboardmenu/assessment/question-paper/patterns/create")}
-                        startIcon={<AddIcon sx={{ fontSize: 16 }} />}
-                        sx={primaryBtnSx}
+                        variant="contained"
+                        startIcon={<AddIcon sx={{ fontSize: 18 }} />}
+                        sx={createBtnSx}
                     >
                         Create Pattern
                     </Button>
@@ -335,8 +392,9 @@ export default function PatternListPage() {
                     </Typography>
                     <Button
                         onClick={() => navigate("/dashboardmenu/assessment/question-paper/patterns/create")}
-                        startIcon={<AddIcon sx={{ fontSize: 16 }} />}
-                        sx={primaryBtnSx}
+                        variant="contained"
+                        startIcon={<AddIcon sx={{ fontSize: 18 }} />}
+                        sx={createBtnSx}
                     >
                         Create Pattern
                     </Button>
@@ -344,14 +402,14 @@ export default function PatternListPage() {
             ) : (
                 <Grid container spacing={1.8}>
                     {filtered.map((pattern) => (
-                        <Grid key={pattern.id} size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
-                            <PatternCard
+                        <Grid key={pattern.id} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+                            <PatternSheetCard
                                 pattern={pattern}
                                 grades={grades}
+                                onOpen={openPattern}
                                 onEdit={editPattern}
                                 onClone={clonePattern}
                                 onDelete={setDeleteTarget}
-                                onUse={usePattern}
                             />
                         </Grid>
                     ))}

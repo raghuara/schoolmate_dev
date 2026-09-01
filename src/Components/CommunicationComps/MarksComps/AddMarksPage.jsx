@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Dialog, IconButton, Box, Typography, ThemeProvider, createTheme, Button, Grid, Tabs, Tab, DialogContent, DialogActions, TextField, InputAdornment, FormControl, FormLabel, RadioGroup, FormControlLabel, Radio, Autocomplete, Snackbar, TextareaAutosize, Select, MenuItem } from "@mui/material";
+import { Dialog, IconButton, Box, Typography, ThemeProvider, createTheme, Button, Grid, Tabs, Tab, DialogContent, DialogActions, TextField, InputAdornment, FormControl, FormLabel, RadioGroup, FormControlLabel, Radio, Autocomplete, Snackbar, TextareaAutosize, Select, MenuItem, Skeleton, Tooltip, Popover } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import { display, keyframes, useMediaQuery, useTheme } from "@mui/system";
 import dayjs from "dayjs";
@@ -21,12 +21,15 @@ import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlic
 import ImageIcon from '@mui/icons-material/Image';
 import SnackBar from "../../SnackBar";
 import { selectGrades } from "../../../Redux/Slices/DropdownController";
+import { selectAcademicYear } from "../../../Redux/Slices/academicYearSlice";
 import { selectHasPermission } from "../../../Redux/Slices/AuthSlice";
 import fallbackImage from '../../../Images/PagesImage/dummy-image.jpg';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import BackupOutlinedIcon from '@mui/icons-material/BackupOutlined';
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import { DASH, RADIUS } from "../../DashBoardComps/dashboardTheme";
 
 export default function AddMarksPage() {
     const today = dayjs().format("DD-MM-YYYY");
@@ -38,10 +41,17 @@ export default function AddMarksPage() {
     const userType = user.userType
     const userName = user.name
     const [isLoading, setIsLoading] = useState(false);
+    // Only the student table - lets it show skeleton rows instead of greying
+    // the whole screen behind the overlay loader.
+    const [isTableLoading, setIsTableLoading] = useState(true);
+    // Anchor for the "how import works" popover.
+    const [howAnchor, setHowAnchor] = useState(null);
     const [openImage, setOpenImage] = useState(false);
     const [imageUrl, setImageUrl] = useState('');
     const theme = useTheme();
     const websiteSettings = useSelector(selectWebsiteSettings);
+    // The API rejects marks requests without it - format YYYY-YYYY.
+    const academicYear = useSelector(selectAcademicYear);
     const [open, setOpen] = useState(false);
     const [status, setStatus] = useState(false);
     const [color, setColor] = useState(false);
@@ -138,6 +148,11 @@ export default function AddMarksPage() {
     const handleDownloadTemplate = () => {
         const subjectColumns = [...(getDataSubjects || []), ...(secondarySubjects || [])];
 
+        if (isTableLoading) {
+            notify("Still loading this class - try again in a moment.");
+            return;
+        }
+
         if (!getDataStudents.length) {
             notify("No students found for the selected class, section and exam.");
             return;
@@ -196,6 +211,14 @@ export default function AddMarksPage() {
     };
 
     const handleImport = () => {
+        if (isTableLoading) {
+            notify("Still loading this class - try again in a moment.");
+            return;
+        }
+        if (!getDataStudents.length) {
+            notify("Load a class, section and exam before importing marks.");
+            return;
+        }
         fileInputRef.current.click();
     }
 
@@ -525,10 +548,12 @@ export default function AddMarksPage() {
 
     useEffect(() => {
         handleFetch();
-    }, [selectedGradeId, selectedSection, selectedGroup, selectedExam]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedGradeId, selectedSection, selectedGroup, selectedExam, academicYear]);
 
     const handleFetch = async () => {
         setIsLoading(true);
+        setIsTableLoading(true);
         try {
             const res = await axios.get(MarksStudentsFetch, {
                 params: {
@@ -538,6 +563,7 @@ export default function AddMarksPage() {
                     section: selectedSection || grades?.[0]?.sections[0],
                     exam: selectedExam || grades?.[0]?.exams[0],
                     group: selectedGroup,
+                    academicYear: academicYear,
                 },
 
                 headers: {
@@ -551,8 +577,19 @@ export default function AddMarksPage() {
             setSecondarySubjects(res.data.secondarySubjects || [])
         } catch (error) {
             console.error("Error fetching data:", error);
+            // Clear the roster - otherwise the previous class stays on screen
+            // and gets exported or imported against the wrong students.
+            setGetData([]);
+            setIsPosted("");
+            setGetDataStudents([]);
+            setGetDataSubjects([]);
+            setSecondarySubjects([]);
+            setMarks({});
+            setComments({});
+            notify(error.response?.data?.message || "Could not load students for this selection.");
         } finally {
             setIsLoading(false);
+            setIsTableLoading(false);
         }
     };
 
@@ -567,7 +604,8 @@ export default function AddMarksPage() {
             const status = isPosted === "Y" ? "post" : "draft";
             handleFetchDraft(status);
         }
-    }, [selectedGradeId, isPosted, selectedSection, selectedExam, selectedGroup, getDataSubjects]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedGradeId, isPosted, selectedSection, selectedExam, selectedGroup, getDataSubjects, academicYear]);
 
 
 
@@ -726,6 +764,7 @@ export default function AddMarksPage() {
 
     const handleFetchDraft = async (status) => {
         setIsLoading(true);
+        setIsTableLoading(true);
         try {
             const res = await axios.get(fetchAllMarksStudents02, {
                 params: {
@@ -736,6 +775,7 @@ export default function AddMarksPage() {
                     exam: selectedExam || grades?.[0]?.exams[0],
                     group: selectedGroup || "",
                     status: status,
+                    academicYear: academicYear,
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -827,6 +867,7 @@ export default function AddMarksPage() {
             console.error("Error fetching draft marks:", error);
         } finally {
             setIsLoading(false);
+            setIsTableLoading(false);
         }
     };
 
@@ -929,41 +970,50 @@ export default function AddMarksPage() {
                 xs: "100%",
             }
         }}>
-            {isLoading && <Loader />}
+            {isLoading && !isTableLoading && <Loader />}
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
             <Box>
-                <Grid container sx={{ backgroundColor: "#f2f2f2", py: 1, px: 2, borderBottom: "1px solid #ddd", }} >
-                    <Grid
-                        size={{
-                            xs: 12,
-                            sm: 12,
-                            md: 6,
-                            lg: 3
-                        }}>
-                        <Box sx={{ display: "flex" }}>
+                <Box
+                    sx={{
+                        backgroundColor: "#f2f2f2",
+                        borderBottom: "1px solid #ddd",
+                        py: 1,
+                        px: 2,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 1.5,
+                        flexWrap: "wrap",
+                    }}
+                >
+                    <Box sx={{ minWidth: 0 }}>
+                        <Box sx={{ display: "flex", alignItems: "center" }}>
                             <Link style={{ textDecoration: "none" }} to="/dashboardmenu/marks">
                                 <IconButton sx={{ width: "27px", height: "27px", marginTop: '3px' }}>
                                     <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
                                 </IconButton>
                             </Link>
-                            <Typography sx={{ fontWeight: "600", ml: 1, marginTop: "3px", fontSize: "19px" }}>
-                                Add Marks
-                            </Typography>
+                            <Box sx={{ ml: 1 }}>
+                                <Typography sx={{ fontWeight: 700, fontSize: "20px", color: DASH.ink, lineHeight: 1.2 }}>
+                                    Add Marks
+                                </Typography>
+                                <Typography sx={{ fontSize: "11.5px", color: DASH.muted, whiteSpace: "nowrap" }}>
+                                    Enter marks for a class, then save a draft or publish
+                                </Typography>
+                            </Box>
                         </Box>
-                    </Grid>
-                    <Grid
-                        sx={{ mt: 0.5, pl: 3 }}
-                        size={{
-                            xs: 12,
-                            sm: 12,
-                            md: 4,
-                            lg: 9
-                        }}>
-                        <Grid container spacing={2} sx={{ display: "flex", justifyContent: "end" }}>
-                            <Grid
-                                size={{
-                                    lg: 2.4
-                                }}>
+                    </Box>
+                    <Box sx={{ display: "flex", alignItems: "center", ml: "auto", minWidth: 0 }}>
+                        <Box
+                            sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "flex-end",
+                                gap: 1,
+                                flexWrap: "wrap",
+                            }}
+                        >
+                            <Box sx={{ width: { xs: "100%", sm: 150 } }}>
                                 <Autocomplete
                                     disablePortal
                                     options={grades}
@@ -999,19 +1049,21 @@ export default function AddMarksPage() {
                                                 ...params.InputProps,
                                                 sx: {
                                                     paddingRight: 0,
-                                                    height: "33px",
+                                                    height: 34,
                                                     fontSize: "13px",
-                                                    fontWeight: "600",
+                                                    fontWeight: 600,
+                                                    borderRadius: RADIUS,
+                                                    backgroundColor: "#fff",
+                                                    "& fieldset": { borderColor: DASH.line },
+                                                    "&:hover fieldset": { borderColor: DASH.faint },
+                                                    "&.Mui-focused fieldset": { borderColor: websiteSettings.mainColor || DASH.primary, borderWidth: "1px" },
                                                 },
                                             }}
                                         />
                                     )}
                                 />
-                            </Grid>
-                            <Grid
-                                size={{
-                                    lg: 2.4
-                                }}>
+                            </Box>
+                            <Box sx={{ width: { xs: "100%", sm: 150 } }}>
                                 <Autocomplete
                                     disablePortal
                                     options={sections}
@@ -1050,15 +1102,20 @@ export default function AddMarksPage() {
                                                 ...params.InputProps,
                                                 sx: {
                                                     paddingRight: 0,
-                                                    height: "33px",
+                                                    height: 34,
                                                     fontSize: "13px",
-                                                    fontWeight: "600",
+                                                    fontWeight: 600,
+                                                    borderRadius: RADIUS,
+                                                    backgroundColor: "#fff",
+                                                    "& fieldset": { borderColor: DASH.line },
+                                                    "&:hover fieldset": { borderColor: DASH.faint },
+                                                    "&.Mui-focused fieldset": { borderColor: websiteSettings.mainColor || DASH.primary, borderWidth: "1px" },
                                                 },
                                             }}
                                         />
                                     )}
                                 />
-                            </Grid>
+                            </Box>
                             {/* {!selectedGrade?.subjects && selectedSection && (
                                 <Grid
                                     size={{
@@ -1091,22 +1148,24 @@ export default function AddMarksPage() {
                                                 InputProps={{
                                                     ...params.InputProps,
                                                     sx: {
-                                                        paddingRight: 0,
-                                                        height: "33px",
-                                                        fontSize: "13px",
-                                                        fontWeight: "600",
-                                                    },
+                                                    paddingRight: 0,
+                                                    height: 34,
+                                                    fontSize: "13px",
+                                                    fontWeight: 600,
+                                                    borderRadius: RADIUS,
+                                                    backgroundColor: "#fff",
+                                                    "& fieldset": { borderColor: DASH.line },
+                                                    "&:hover fieldset": { borderColor: DASH.faint },
+                                                    "&.Mui-focused fieldset": { borderColor: websiteSettings.mainColor || DASH.primary, borderWidth: "1px" },
+                                                },
                                                 }}
                                             />
                                         )}
                                     />
-                                </Grid>
+                                </Box>
                             )} */}
 
-                            <Grid
-                                size={{
-                                    lg: 2.4
-                                }}>
+                            <Box sx={{ width: { xs: "100%", sm: 150 } }}>
                                 <Autocomplete
                                     disablePortal
                                     options={examOptions}
@@ -1135,62 +1194,68 @@ export default function AddMarksPage() {
                                                 ...params.InputProps,
                                                 sx: {
                                                     paddingRight: 0,
-                                                    height: "33px",
+                                                    height: 34,
                                                     fontSize: "13px",
-                                                    fontWeight: "600",
+                                                    fontWeight: 600,
+                                                    borderRadius: RADIUS,
+                                                    backgroundColor: "#fff",
+                                                    "& fieldset": { borderColor: DASH.line },
+                                                    "&:hover fieldset": { borderColor: DASH.faint },
+                                                    "&.Mui-focused fieldset": { borderColor: websiteSettings.mainColor || DASH.primary, borderWidth: "1px" },
                                                 },
                                             }}
                                         />
                                     )}
                                 />
-                            </Grid>
+                            </Box>
 
-                            <Grid
-                                size={{
-                                    xs: 6,
-                                    sm: 4,
-                                    md: 3,
-                                    lg: 2.4
-                                }}>
-                                <Button
-                                    variant="outlined"
-                                    sx={{
-                                        borderColor: "#A9A9A9",
-                                        height: "33px",
-                                        width: "100%",
-                                        color: "#000",
-                                        textTransform: "none",
-                                    }}
-                                    onClick={handleDownloadTemplate}
-                                >
-                                    <FileDownloadOutlinedIcon sx={{ fontSize: "20px" }} />
-                                    &nbsp;Format
-                                </Button>
-                            </Grid>
+                            <Box sx={{ width: { xs: "48%", sm: 118 } }}>
+                                <Tooltip title="Download this class as a spreadsheet to fill in" arrow>
+                                    <Button
+                                        variant="outlined"
+                                        sx={{
+                                            height: 34,
+                                            width: "100%",
+                                            textTransform: "none",
+                                            fontSize: "12.5px",
+                                            fontWeight: 700,
+                                            color: DASH.text,
+                                            bgcolor: "#fff",
+                                            borderColor: DASH.line,
+                                            borderRadius: RADIUS,
+                                            "&:hover": { bgcolor: DASH.lineSoft, borderColor: DASH.faint },
+                                        }}
+                                        onClick={handleDownloadTemplate}
+                                    >
+                                        <FileDownloadOutlinedIcon sx={{ fontSize: "20px" }} />
+                                        &nbsp;Format
+                                    </Button>
+                                </Tooltip>
+                            </Box>
 
-                            <Grid
-                                size={{
-                                    xs: 6,
-                                    sm: 4,
-                                    md: 3,
-                                    lg: 2.4
-                                }}>
-                                <Button
-                                    // disabled
-                                    variant="outlined"
-                                    sx={{
-                                        borderColor: "#A9A9A9",
-                                        boder: "1px solid black",
-                                        height: "33px",
-                                        width: "100%",
-                                        color: "#000",
-                                        textTransform: "none",
-                                    }}
-                                    onClick={handleImport}
-                                >
-                                    <BackupOutlinedIcon sx={{ fontSize: "20px" }} />
-                                    &nbsp;Import
-                                </Button>
+                            <Box sx={{ width: { xs: "48%", sm: 118 } }}>
+                                <Tooltip title="Upload the filled spreadsheet - marks are matched by roll number" arrow>
+                                    <Button
+                                        // disabled
+                                        variant="outlined"
+                                        sx={{
+                                            height: 34,
+                                            width: "100%",
+                                            textTransform: "none",
+                                            fontSize: "12.5px",
+                                            fontWeight: 700,
+                                            color: DASH.cyan,
+                                            bgcolor: DASH.cyanLight,
+                                            borderColor: "#A5F3FC",
+                                            borderRadius: RADIUS,
+                                            "&:hover": { bgcolor: DASH.cyanLight, borderColor: DASH.cyan },
+                                        }}
+                                        onClick={handleImport}
+                                    >
+                                        <BackupOutlinedIcon sx={{ fontSize: "20px" }} />
+                                        &nbsp;Import
+                                    </Button>
+                                </Tooltip>
 
                                 <input
                                     type="file"
@@ -1199,23 +1264,121 @@ export default function AddMarksPage() {
                                     onChange={handleFileChange}
                                     style={{ display: "none" }}
                                 />
-                            </Grid>
+                            </Box>
 
-                        </Grid>
-                    </Grid>
-                </Grid>
+                        </Box>
+                    </Box>
+                </Box>
 
                 {/* <Box hidden={value !== 0}> */}
-                <Box sx={{ px: 2, pb:3}}>
-                    <Grid container columnSpacing={2} sx={{ display: "flex", justifyContent: "end", mt: 0.5 }}>
+                <Box sx={{ px: 2, pt: 1.5, pb: 3 }}>
+                    <Grid container columnSpacing={2} rowSpacing={1} sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 0.5 }}>
+
+                        {/* The steps live behind a link - read once, then out of the way. */}
+                        <Grid size={{ xs: 12, md: 7, lg: 8 }} sx={{ display: "flex", alignItems: "flex-start", pt: 0.4 }}>
+                            <Button
+                                onClick={(e) => setHowAnchor(e.currentTarget)}
+                                startIcon={<InfoOutlinedIcon sx={{ fontSize: 15 }} />}
+                                sx={{
+                                    textTransform: "none",
+                                    fontSize: "11.5px",
+                                    fontWeight: 700,
+                                    height: 28,
+                                    px: 1.4,
+                                    borderRadius: "50px",
+                                    color: DASH.cyan,
+                                    bgcolor: DASH.cyanLight,
+                                    border: "1px solid #A5F3FC",
+                                    "& .MuiButton-startIcon": { mr: 0.6 },
+                                    "&:hover": { bgcolor: DASH.cyanLight, borderColor: DASH.cyan },
+                                }}
+                            >
+                                How Format &amp; Import work
+                            </Button>
+
+                            <Popover
+                                open={Boolean(howAnchor)}
+                                anchorEl={howAnchor}
+                                onClose={() => setHowAnchor(null)}
+                                anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+                                transformOrigin={{ vertical: "top", horizontal: "left" }}
+                                slotProps={{
+                                    paper: {
+                                        sx: {
+                                            mt: 0.8,
+                                            maxWidth: 340,
+                                            borderRadius: "10px",
+                                            border: `1px solid ${DASH.line}`,
+                                            boxShadow: "0 8px 24px rgba(16,24,40,0.12)",
+                                        },
+                                    },
+                                }}
+                            >
+                                <Box sx={{ height: 3, bgcolor: DASH.cyan }} />
+                                <Box sx={{ p: 2 }}>
+                                    <Typography sx={{ fontSize: "13.5px", fontWeight: 700, color: DASH.ink, mb: 1.2 }}>
+                                        Entering a whole class at once
+                                    </Typography>
+
+                                    {[
+                                        "Press Format to download this class as a spreadsheet.",
+                                        "Type a mark under each subject column.",
+                                        "Press Import and pick the saved file.",
+                                    ].map((step, i) => (
+                                        <Box key={step} sx={{ display: "flex", gap: 1.2, mb: 1 }}>
+                                            <Box
+                                                sx={{
+                                                    width: 18,
+                                                    height: 18,
+                                                    flexShrink: 0,
+                                                    borderRadius: "50%",
+                                                    bgcolor: DASH.cyanLight,
+                                                    color: DASH.cyan,
+                                                    fontSize: "10.5px",
+                                                    fontWeight: 700,
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    justifyContent: "center",
+                                                }}
+                                            >
+                                                {i + 1}
+                                            </Box>
+                                            <Typography sx={{ fontSize: "12px", color: DASH.text, lineHeight: 1.5 }}>
+                                                {step}
+                                            </Typography>
+                                        </Box>
+                                    ))}
+
+                                    <Box sx={{ mt: 1.4, pt: 1.4, borderTop: `1px solid ${DASH.lineSoft}` }}>
+                                        <Typography sx={{ fontSize: "11.5px", color: DASH.muted, lineHeight: 1.6 }}>
+                                            Rows are matched by roll number, so do not edit that column.
+                                            Leave a cell blank to skip it, or type
+                                            <Box component="span" sx={{ fontWeight: 700, color: DASH.text }}> AB</Box> for absent.
+                                        </Typography>
+                                    </Box>
+                                </Box>
+                            </Popover>
+                        </Grid>
 
                         <Grid
                             size={{
                                 xs: 12,
-                                sm: 12,
+                                sm: 6,
+                                md: 4,
                                 lg: 2
                             }}
                         >
+                            <Typography
+                                sx={{
+                                    fontSize: "11px",
+                                    fontWeight: 700,
+                                    letterSpacing: "0.05em",
+                                    textTransform: "uppercase",
+                                    color: DASH.muted,
+                                }}
+                            >
+                                Max mark per subject
+                            </Typography>
                             <TextField
                                 size="small"
                                 placeholder="Max Mark"
@@ -1245,10 +1408,19 @@ export default function AddMarksPage() {
                                 }}
                                 sx={{
                                     width: "100%",
-                                    "& .MuiInputBase-root": { height: "30px" },
+                                    "& .MuiOutlinedInput-root": {
+                                        height: 34,
+                                        borderRadius: RADIUS,
+                                        bgcolor: "#fff",
+                                        "& fieldset": { borderColor: DASH.line },
+                                        "&:hover fieldset": { borderColor: DASH.faint },
+                                        "&.Mui-focused fieldset": { borderColor: websiteSettings.mainColor || DASH.primary, borderWidth: "1px" },
+                                    },
                                     "& .MuiInputBase-input": {
-                                        fontWeight: 600,
-                                        padding: "0 8px",
+                                        fontSize: "13px",
+                                        fontWeight: 700,
+                                        color: DASH.ink,
+                                        padding: "0 10px",
                                         textAlign: "center",
                                     },
                                 }}
@@ -1256,43 +1428,72 @@ export default function AddMarksPage() {
                         </Grid>
 
                     </Grid>
-                    <Box sx={{ display: "flex" }}>
-                        <Grid container sx={{ justifyContent: "space-between" }}>
-                            <Grid
-                                size={{
-                                    xs: 12,
-                                    sm: 12,
-                                    md: 5,
-                                    lg: 3
-                                }}>
-                                <Box sx={{ display: "flex", marginTop: "-14px", width: "200px", }}>
-                                    <Typography sx={{ fontSize: "12px", color: "#fff", backgroundColor: "#307EB9", padding: "0px 5px 0px 5px", borderRadius: "4px 0px 0px 0px", fontWeight: "600", }}>
-                                        {getData.gradeSection}
-                                    </Typography>
-                                    {/* <Typography sx={{ fontSize: "12px", color: "#000", px: 1, }}>
-                                        Class Teacher - {getData.classTeacher || "Not Assigned"}
-                                    </Typography> */}
-                                </Box>
-                            </Grid>
-
-                        </Grid>
-                    </Box>
-
                     <Grid container>
                         <Grid size={12}>
+                            {/* The class tab sits on the table's top edge - its bottom
+                               border is dropped so the two read as one surface. */}
+                            <Box sx={{ display: "flex" }}>
+                                <Typography
+                                    sx={{
+                                        position: "relative",
+                                        top: "1px",
+                                        zIndex: 1,
+                                        fontSize: "11.5px",
+                                        fontWeight: 700,
+                                        color: "#fff",
+                                        bgcolor: DASH.blue,
+                                        border: `1px solid ${DASH.blue}`,
+                                        borderBottom: "none",
+                                        px: 1.2,
+                                        py: 0.3,
+                                        borderRadius: "5px 5px 0 0",
+                                    }}
+                                >
+                                    {getData.gradeSection}
+                                </Typography>
+                            </Box>
+
                             <TableContainer
                                 ref={scrollContainerRef1}
                                 sx={{
-                                    border: "1px solid #E8DDEA",
+                                    border: `1px solid ${DASH.line}`,
+                                    borderRadius: RADIUS,
+                                    borderTopLeftRadius: 0,
+                                    bgcolor: "#fff",
                                     maxWidth: "100%",
                                     maxHeight: "72vh",
+                                    // Hold the full height while loading so the buttons
+                                    // below do not jump once the rows arrive.
+                                    height: isTableLoading ? "62vh" : "auto",
                                     overflowY: "auto",
                                     overflowX: "auto",
                                     width: "100%",
                                 }}
                                 onScroll={(e) => handleVerticalScroll(e, scrollContainerRef1)}
                             >
-                                <Table sx={{ tableLayout: "fixed" }} stickyHeader={!isMobile} aria-label="attendance and marks table">
+                                <Table
+                                    sx={{
+                                        tableLayout: "fixed",
+                                        "& thead .MuiTableCell-root": {
+                                            color: DASH.muted,
+                                            fontSize: "10.5px",
+                                            fontWeight: 700,
+                                            letterSpacing: "0.06em",
+                                            textTransform: "uppercase",
+                                            py: 1,
+                                        },
+                                        "& tbody .MuiTableCell-root": {
+                                            fontSize: "12.5px",
+                                            color: DASH.text,
+                                            py: 0.9,
+                                        },
+                                        "& tbody .MuiTableRow-root:hover .MuiTableCell-root": {
+                                            backgroundColor: DASH.surface,
+                                        },
+                                    }}
+                                    stickyHeader={!isMobile}
+                                    aria-label="attendance and marks table"
+                                >
                                     <TableHead>
                                         <TableRow>
                                             <TableCell
@@ -1314,9 +1515,9 @@ export default function AddMarksPage() {
                                                     },
                                                     zIndex: 3,
                                                     borderRight: 1,
-                                                    borderColor: "#E8DDEA",
+                                                    borderColor: DASH.line,
                                                     textAlign: "center",
-                                                    backgroundColor: "#fff7f7",
+                                                    backgroundColor: DASH.surface,
                                                     whiteSpace: "nowrap",
                                                     width: "50px",
                                                 }}
@@ -1342,9 +1543,9 @@ export default function AddMarksPage() {
                                                     },
                                                     zIndex: 3,
                                                     borderRight: 1,
-                                                    borderColor: "#E8DDEA",
+                                                    borderColor: DASH.line,
                                                     textAlign: "center",
-                                                    backgroundColor: "#fff7f7",
+                                                    backgroundColor: DASH.surface,
                                                     whiteSpace: "nowrap",
                                                     width: "100px",
                                                 }}
@@ -1368,9 +1569,9 @@ export default function AddMarksPage() {
                                                     },
                                                     zIndex: 3,
                                                     borderRight: 1,
-                                                    borderColor: "#E8DDEA",
+                                                    borderColor: DASH.line,
                                                     textAlign: "center",
-                                                    backgroundColor: "#fff7f7",
+                                                    backgroundColor: DASH.surface,
                                                     whiteSpace: "nowrap",
                                                     width: "150px",
                                                 }}
@@ -1404,9 +1605,9 @@ export default function AddMarksPage() {
                                             <TableCell
                                                 sx={{
                                                     borderRight: 1,
-                                                    borderColor: "#E8DDEA",
+                                                    borderColor: DASH.line,
                                                     textAlign: "center",
-                                                    backgroundColor: "#F8F3FE",
+                                                    backgroundColor: DASH.surface,
                                                     whiteSpace: "nowrap",
                                                     width: "100px",
                                                 }}
@@ -1416,9 +1617,9 @@ export default function AddMarksPage() {
                                             <TableCell
                                                 sx={{
                                                     borderRight: 1,
-                                                    borderColor: "#E8DDEA",
+                                                    borderColor: DASH.line,
                                                     textAlign: "center",
-                                                    backgroundColor: "#F8F3FE",
+                                                    backgroundColor: DASH.surface,
                                                     whiteSpace: "nowrap",
                                                     width: "100px",
                                                 }}
@@ -1428,9 +1629,9 @@ export default function AddMarksPage() {
                                             <TableCell
                                                 sx={{
                                                     borderRight: 1,
-                                                    borderColor: "#E8DDEA",
+                                                    borderColor: DASH.line,
                                                     textAlign: "center",
-                                                    backgroundColor: "#F8F3FE",
+                                                    backgroundColor: DASH.surface,
                                                     whiteSpace: "nowrap",
                                                     width: "100px",
                                                 }}
@@ -1440,9 +1641,9 @@ export default function AddMarksPage() {
                                             <TableCell
                                                 sx={{
                                                     borderRight: 1,
-                                                    borderColor: "#E8DDEA",
+                                                    borderColor: DASH.line,
                                                     textAlign: "center",
-                                                    backgroundColor: "#F8F3FE",
+                                                    backgroundColor: DASH.surface,
                                                     whiteSpace: "nowrap",
                                                     width: "100px",
 
@@ -1455,9 +1656,9 @@ export default function AddMarksPage() {
                                                     key={subject}
                                                     sx={{
                                                         borderRight: 1,
-                                                        borderColor: "#E8DDEA",
+                                                        borderColor: DASH.line,
                                                         textAlign: "center",
-                                                        backgroundColor: "#F8F3FE",
+                                                        backgroundColor: DASH.surface,
                                                         whiteSpace: "nowrap",
                                                         width: "120px",
                                                         whiteSpace: "normal",
@@ -1472,9 +1673,9 @@ export default function AddMarksPage() {
                                                     key={subject}
                                                     sx={{
                                                         borderRight: 1,
-                                                        borderColor: "#E8DDEA",
+                                                        borderColor: DASH.line,
                                                         textAlign: "center",
-                                                        backgroundColor: "#F8F3FE",
+                                                        backgroundColor: DASH.surface,
                                                         whiteSpace: "nowrap",
                                                         width: "120px",
                                                         whiteSpace: "normal",
@@ -1488,9 +1689,9 @@ export default function AddMarksPage() {
                                             <TableCell
                                                 sx={{
                                                     borderRight: 1,
-                                                    borderColor: "#E8DDEA",
+                                                    borderColor: DASH.line,
                                                     textAlign: "center",
-                                                    backgroundColor: "#F8F3FE",
+                                                    backgroundColor: DASH.surface,
                                                     whiteSpace: "nowrap",
                                                     width: "100px",
                                                 }}
@@ -1500,9 +1701,9 @@ export default function AddMarksPage() {
                                             <TableCell
                                                 sx={{
                                                     borderRight: 1,
-                                                    borderColor: "#E8DDEA",
+                                                    borderColor: DASH.line,
                                                     textAlign: "center",
-                                                    backgroundColor: "#F8F3FE",
+                                                    backgroundColor: DASH.surface,
                                                     width: "100px",
                                                 }}
                                             >
@@ -1511,9 +1712,9 @@ export default function AddMarksPage() {
                                             {/* <TableCell
                                                 sx={{
                                                     borderRight: 1,
-                                                    borderColor: "#E8DDEA",
+                                                    borderColor: DASH.line,
                                                     textAlign: "center",
-                                                    backgroundColor: "#F8F3FE",
+                                                    backgroundColor: DASH.surface,
                                                     width: "100px",
                                                 }}
                                             >
@@ -1522,9 +1723,9 @@ export default function AddMarksPage() {
                                             <TableCell
                                                 sx={{
                                                     borderRight: 1,
-                                                    borderColor: "#E8DDEA",
+                                                    borderColor: DASH.line,
                                                     textAlign: "center",
-                                                    backgroundColor: "#F8F3FE",
+                                                    backgroundColor: DASH.surface,
                                                     width: "100px",
                                                 }}
                                             >
@@ -1533,9 +1734,9 @@ export default function AddMarksPage() {
                                             <TableCell
                                                 sx={{
                                                     borderRight: 1,
-                                                    borderColor: "#E8DDEA",
+                                                    borderColor: DASH.line,
                                                     textAlign: "center",
-                                                    backgroundColor: "#F8F3FE",
+                                                    backgroundColor: DASH.surface,
                                                     width: "100px",
                                                 }}
                                             >
@@ -1544,9 +1745,9 @@ export default function AddMarksPage() {
                                             {/* <TableCell
                                                 sx={{
                                                     borderRight: 1,
-                                                    borderColor: "#E8DDEA",
+                                                    borderColor: DASH.line,
                                                     textAlign: "center",
-                                                    backgroundColor: "#F8F3FE",
+                                                    backgroundColor: DASH.surface,
                                                     width: "100px",
                                                 }}
                                             >
@@ -1555,7 +1756,31 @@ export default function AddMarksPage() {
                                         </TableRow>
                                     </TableHead>
                                     <TableBody>
-                                        {sortedStudents.map((row, index) => (
+                                        {isTableLoading &&
+                                            [...Array(10)].map((_, i) => (
+                                                <TableRow key={`skeleton-${i}`}>
+                                                    <TableCell colSpan={100} sx={{ borderBottom: `1px solid ${DASH.lineSoft}`, py: 1.1 }}>
+                                                        <Skeleton variant="rounded" height={18} sx={{ bgcolor: DASH.lineSoft }} />
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+
+                                        {!isTableLoading && sortedStudents.length === 0 && (
+                                            <TableRow>
+                                                <TableCell colSpan={100} sx={{ borderBottom: "none" }}>
+                                                    <Box sx={{ textAlign: "center", py: 5 }}>
+                                                        <Typography sx={{ fontSize: "13.5px", fontWeight: 700, color: DASH.ink }}>
+                                                            No students to show
+                                                        </Typography>
+                                                        <Typography sx={{ fontSize: "12px", color: DASH.muted, mt: 0.5 }}>
+                                                            Pick a class, section and exam above to load the roster.
+                                                        </Typography>
+                                                    </Box>
+                                                </TableCell>
+                                            </TableRow>
+                                        )}
+
+                                        {!isTableLoading && sortedStudents.map((row, index) => (
                                             <TableRow key={row.rollNumber}>
                                                 <TableCell
                                                     sx={{
@@ -1566,7 +1791,7 @@ export default function AddMarksPage() {
                                                         left: 0,
                                                         zIndex: 2,
                                                         borderRight: 1,
-                                                        borderColor: "#E8DDEA",
+                                                        borderColor: DASH.line,
                                                         textAlign: "center",
                                                         backgroundColor: "#fff",
                                                     }}
@@ -1582,7 +1807,7 @@ export default function AddMarksPage() {
                                                         left: 50,
                                                         zIndex: 2,
                                                         borderRight: 1,
-                                                        borderColor: "#E8DDEA",
+                                                        borderColor: DASH.line,
                                                         textAlign: "center",
                                                         backgroundColor: "#fff",
                                                     }}
@@ -1598,22 +1823,29 @@ export default function AddMarksPage() {
                                                         left: 150,
                                                         zIndex: 2,
                                                         borderRight: 1,
-                                                        borderColor: "#E8DDEA",
+                                                        borderColor: DASH.line,
                                                         textAlign: "center",
                                                         backgroundColor: "#fff",
                                                     }}
                                                 >
                                                     {row.name}
                                                 </TableCell>
-                                                <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#fff", }}>
+                                                <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center", backgroundColor: "#fff", }}>
                                                     {row.grade}
                                                 </TableCell>
-                                                <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#fff", }}>
+                                                <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center", backgroundColor: "#fff", }}>
                                                     {row.section}
                                                 </TableCell>
-                                                <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#fff", }}>
+                                                <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center", backgroundColor: "#fff", }}>
                                                     <Button
-                                                        sx={{ color: "#000", textTransform: "none" }}
+                                                        sx={{
+                                                            textTransform: "none",
+                                                            fontSize: "11.5px",
+                                                            fontWeight: 700,
+                                                            color: DASH.blue,
+                                                            borderRadius: RADIUS,
+                                                            "&:hover": { bgcolor: DASH.blueLight },
+                                                        }}
                                                         onClick={() => handleViewClick(row.profile)}
                                                     >
                                                         <ImageIcon sx={{ color: "#000", marginRight: 1 }} />
@@ -1623,7 +1855,7 @@ export default function AddMarksPage() {
                                                 <TableCell
                                                     sx={{
                                                         borderRight: 1,
-                                                        borderColor: "#E8DDEA",
+                                                        borderColor: DASH.line,
                                                         textAlign: "center",
                                                         backgroundColor: "#fff",
                                                         color: "#37474F",
@@ -1661,7 +1893,7 @@ export default function AddMarksPage() {
                                                             key={subject}
                                                             sx={{
                                                                 borderRight: 1,
-                                                                borderColor: "#E8DDEA",
+                                                                borderColor: DASH.line,
                                                                 textAlign: "center",
                                                                 padding: "0px",
                                                                 minWidth: "90px",
@@ -1696,7 +1928,7 @@ export default function AddMarksPage() {
                                                 <TableCell
                                                     sx={{
                                                         borderRight: 1,
-                                                        borderColor: "#E8DDEA",
+                                                        borderColor: DASH.line,
                                                         textAlign: "center",
                                                         backgroundColor: "#fff",
                                                         fontWeight: "600",
@@ -1714,7 +1946,7 @@ export default function AddMarksPage() {
                                                 <TableCell
                                                     sx={{
                                                         borderRight: 1,
-                                                        borderColor: "#E8DDEA",
+                                                        borderColor: DASH.line,
                                                         textAlign: "center",
                                                         backgroundColor: "#fff",
                                                         fontWeight: "600",
@@ -1734,7 +1966,7 @@ export default function AddMarksPage() {
                                                 <TableCell
                                                     sx={{
                                                         borderRight: 1,
-                                                        borderColor: "#E8DDEA",
+                                                        borderColor: DASH.line,
                                                         textAlign: "center",
                                                         backgroundColor: "#fff",
                                                         fontWeight: "600",
@@ -1757,7 +1989,7 @@ export default function AddMarksPage() {
                                                 {/* <TableCell
                                                     sx={{
                                                         borderRight: 1,
-                                                        borderColor: "#E8DDEA",
+                                                        borderColor: DASH.line,
                                                         textAlign: "center",
                                                         backgroundColor: "#fff",
                                                         color:
@@ -1772,11 +2004,20 @@ export default function AddMarksPage() {
                                                 </TableCell> */}
 
                                                 <TableCell
-                                                    sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#fff" }}
+                                                    sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center", backgroundColor: "#fff" }}
                                                 >
                                                     <Button
                                                         onClick={() => handleAdd(row.rollNumber)}
-                                                        sx={{ py: 0.1, textTransform: "none", borderRadius: "30px" }}
+                                                        sx={{
+                                                            textTransform: "none",
+                                                            fontSize: "11.5px",
+                                                            fontWeight: 700,
+                                                            height: 26,
+                                                            px: 1.2,
+                                                            borderRadius: RADIUS,
+                                                            color: comments[row.rollNumber] ? DASH.green : DASH.blue,
+                                                            "&:hover": { bgcolor: comments[row.rollNumber] ? DASH.greenLight : DASH.blueLight },
+                                                        }}
                                                     >
                                                         {comments[row.rollNumber] ? "View" : "Add"}
                                                     </Button>
@@ -1786,34 +2027,24 @@ export default function AddMarksPage() {
                                                         onClose={() => setOpenAlert(null)}
                                                         maxWidth="sm"
                                                         fullWidth
+                                                        slotProps={{ paper: { sx: { borderRadius: "12px", overflow: "hidden" } } }}
                                                     >
-                                                        <Box
-                                                            sx={{
-                                                                display: "flex",
-                                                                justifyContent: "center",
-                                                                alignItems: "center",
-                                                                minHeight: '200px',
-                                                                padding: 2,
-                                                            }}
-                                                        >
-                                                            <Box
-                                                                sx={{
-                                                                    backgroundColor: '#fff',
-                                                                    pr: 3,
-                                                                    width: '100%',
-                                                                }}
-                                                            >
-                                                                <Typography
-                                                                    sx={{
-                                                                        fontSize: "14px",
-                                                                        fontWeight: 'bold',
-                                                                        marginBottom: 1,
-                                                                        pb: 1,
-                                                                        borderBottom: "1px solid #AFAFAF",
-                                                                    }}
-                                                                >
-                                                                    Add Comment
-                                                                </Typography>
+                                                        <Box sx={{ height: 3, bgcolor: websiteSettings.mainColor || DASH.primary }} />
+                                                        <Box sx={{ px: 2.4, py: 2 }}>
+                                                            <Box sx={{ width: '100%' }}>
+                                                                <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1, mb: 1.6 }}>
+                                                                    <Box sx={{ minWidth: 0 }}>
+                                                                        <Typography sx={{ fontSize: "15px", fontWeight: 700, color: DASH.ink, lineHeight: 1.2 }}>
+                                                                            Add Comment
+                                                                        </Typography>
+                                                                        <Typography sx={{ fontSize: "11.5px", color: DASH.muted, mt: 0.2 }}>
+                                                                            {row.name} · {row.rollNumber}
+                                                                        </Typography>
+                                                                    </Box>
+                                                                    <IconButton size="small" onClick={() => setOpenAlert(null)}>
+                                                                        <CloseIcon sx={{ fontSize: 18, color: DASH.muted }} />
+                                                                    </IconButton>
+                                                                </Box>
                                                                 <TextareaAutosize
                                                                     minRows={6}
                                                                     placeholder="Write your comment here..."
@@ -1826,29 +2057,51 @@ export default function AddMarksPage() {
                                                                     }
                                                                     style={{
                                                                         width: '100%',
-                                                                        padding: '12px',
-                                                                        borderRadius: '6px',
-                                                                        border: '1px solid #ccc',
-                                                                        fontSize: '14px',
-                                                                        marginBottom: '20px',
+                                                                        boxSizing: 'border-box',
+                                                                        padding: '10px 12px',
+                                                                        borderRadius: RADIUS,
+                                                                        border: `1px solid ${DASH.line}`,
+                                                                        fontSize: '13px',
+                                                                        fontFamily: 'inherit',
+                                                                        color: DASH.ink,
                                                                         resize: 'none',
-                                                                        border: "none",
                                                                         outline: 'none',
                                                                     }}
                                                                 />
-                                                                <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                                                                <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, pt: 1.8 }}>
                                                                     <Button
+                                                                        variant="outlined"
+                                                                        onClick={() => setOpenAlert(null)}
+                                                                        sx={{
+                                                                            textTransform: "none",
+                                                                            fontSize: "12.5px",
+                                                                            fontWeight: 700,
+                                                                            color: DASH.text,
+                                                                            bgcolor: "#fff",
+                                                                            borderColor: DASH.line,
+                                                                            borderRadius: RADIUS,
+                                                                            px: 2,
+                                                                            height: 34,
+                                                                            "&:hover": { bgcolor: DASH.lineSoft, borderColor: DASH.faint },
+                                                                        }}
+                                                                    >
+                                                                        Cancel
+                                                                    </Button>
+                                                                    <Button
+                                                                        variant="contained"
+                                                                        disableElevation
                                                                         onClick={() => handleSaveComment()}
                                                                         sx={{
-                                                                            textTransform: 'none',
+                                                                            textTransform: "none",
+                                                                            fontSize: "12.5px",
+                                                                            fontWeight: 700,
                                                                             backgroundColor: websiteSettings.mainColor,
                                                                             color: websiteSettings.textColor,
-                                                                            borderRadius: '30px',
-                                                                            fontSize: '16px',
-                                                                            padding: '0px 35px',
-                                                                            '&:hover': {
-                                                                                backgroundColor: websiteSettings.mainColor || '#0056b3',
-                                                                            },
+                                                                            borderRadius: RADIUS,
+                                                                            px: 2.4,
+                                                                            height: 34,
+                                                                            boxShadow: "none",
+                                                                            "&:hover": { backgroundColor: websiteSettings.mainColor, filter: "brightness(0.92)", boxShadow: "none" },
                                                                         }}
                                                                     >
                                                                         Save
@@ -1859,7 +2112,7 @@ export default function AddMarksPage() {
                                                     </Dialog>
                                                 </TableCell>
 
-                                                {/* <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#fff" }}>
+                                                {/* <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center", backgroundColor: "#fff" }}>
                                                     <IconButton onClick={() => handleExportSingleData(row)}>
                                                         <PrintIcon style={{ color: "#000" }} />
                                                     </IconButton>
@@ -1873,22 +2126,33 @@ export default function AddMarksPage() {
                         </Grid>
                     </Grid>
 
-                    <Box sx={{ display: "flex", justifyContent: "center", gap: 2, position: "relative", bottom: "-10px" }}>
+                    <Box sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 1, mt: 2 }}>
+                        {isTableLoading && (
+                            <>
+                                <Skeleton variant="rounded" width={92} height={34} sx={{ bgcolor: DASH.lineSoft }} />
+                                <Skeleton variant="rounded" width={104} height={34} sx={{ bgcolor: DASH.lineSoft }} />
+                            </>
+                        )}
+
+                        {!isTableLoading && (
+                        <>
                         <Button
                             variant="outlined"
                             disabled={isPosted === "Y" || !canCreateMarks}
                             onClick={() => handleSaveMarks('draft')}
                             sx={{
-                                backgroundColor: '#fff',
-                                textTransform: 'none',
-                                color: '#000',
-                                fontWeight: '600',
-                                borderRadius: '50px',
-                                paddingTop: '0px',
-                                paddingBottom: '0px',
-                                borderColor: "black",
-                                px: 3,
+                                textTransform: "none",
+                                fontSize: "12.5px",
+                                fontWeight: 700,
+                                color: DASH.text,
+                                bgcolor: "#fff",
+                                borderColor: DASH.line,
+                                borderRadius: RADIUS,
+                                px: 2.4,
+                                height: 34,
                                 boxShadow: "none",
+                                "&:hover": { bgcolor: DASH.lineSoft, borderColor: DASH.faint },
+                                "&.Mui-disabled": { color: DASH.faint, borderColor: DASH.lineSoft },
                             }}
                         >
                             Save
@@ -1898,20 +2162,24 @@ export default function AddMarksPage() {
                             onClick={() => handleSaveMarks('post')}
                             variant="contained"
                             sx={{
-                                textTransform: 'none',
+                                textTransform: "none",
+                                fontSize: "12.5px",
+                                fontWeight: 700,
                                 backgroundColor: websiteSettings.mainColor,
                                 color: websiteSettings.textColor,
-                                fontWeight: '600',
-                                borderRadius: '50px',
-                                paddingTop: '0px',
-                                paddingBottom: '0px',
-                                px: 3,
+                                borderRadius: RADIUS,
+                                px: 2.8,
+                                height: 34,
                                 boxShadow: "none",
+                                "&:hover": { backgroundColor: websiteSettings.mainColor, filter: "brightness(0.92)", boxShadow: "none" },
+                                "&.Mui-disabled": { backgroundColor: DASH.line, color: DASH.faint },
                             }}
                             disabled={!isFormValid() || !canSubmitMarks}
                         >
                             {isPosted === "N" ? "Publish" : "Update"}
                         </Button>
+                        </>
+                        )}
                     </Box>
 
                 </Box>

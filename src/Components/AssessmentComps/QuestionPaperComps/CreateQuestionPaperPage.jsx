@@ -198,16 +198,26 @@ export default function CreateQuestionPaperPage() {
         setErrors((prev) => ({ ...prev, [key]: "" }));
     };
 
-    /* Books come from the Books & Chapters. Only confirmed books can be used,
-       so the wizard never generates from an unreviewed chapter split. */
-    const books = useMemo(() => {
+    /* Books come from Books & Chapters. Everything the library holds for this
+       class and subject, whatever state it is in. */
+    const matchingBooks = useMemo(() => {
         const pool = presetBook ? [presetBook, ...MOCK_BOOKS.filter((b) => b.id !== presetBook.id)] : MOCK_BOOKS;
         return pool.filter((b) =>
-            b.status === "Ready" &&
             (!form.gradeId || String(b.gradeId) === String(form.gradeId)) &&
-            (!form.subject || b.subject === form.subject)
+            /* Case and stray spacing differ between the subject list and the
+               book record often enough to be worth forgiving here. */
+            (!form.subject || String(b.subject || "").trim().toLowerCase() === String(form.subject).trim().toLowerCase())
         );
     }, [presetBook, form.gradeId, form.subject]);
+
+    /* Only confirmed books can be generated from, so the wizard never reads an
+       unreviewed chapter split. */
+    const books = useMemo(() => matchingBooks.filter((b) => b.status === "Ready"), [matchingBooks]);
+
+    /* The rest are still shown on the step. A book that is in the library but
+       not confirmed is a different problem from no book at all, and the teacher
+       can fix it in one click instead of being sent to upload a duplicate. */
+    const pendingBooks = useMemo(() => matchingBooks.filter((b) => b.status !== "Ready"), [matchingBooks]);
 
     const activeBook = useMemo(
         () => books.find((b) => String(b.id) === String(bookId)) || books[0] || null,
@@ -384,7 +394,7 @@ export default function CreateQuestionPaperPage() {
             next.splice(lastIndex === -1 ? next.length : lastIndex + 1, 0, ...created);
             return next;
         });
-        notify(`${created.length} question(s) added from the bank`, true);
+        notify(`${created.length} question${created.length === 1 ? "" : "s"} added to ${section.label || "the section"}`, true);
     };
 
     const addQuestion = (section) => {
@@ -609,6 +619,9 @@ export default function CreateQuestionPaperPage() {
                     {step === 1 && (
                         <ChaptersStep
                             books={books}
+                            pendingBooks={pendingBooks}
+                            gradeLabel={gradeSign(grades, form.gradeId)}
+                            subject={form.subject}
                             bookId={activeBook?.id}
                             onBookChange={(id) => { setBookId(id); clearChapters(); }}
                             selectedChapterIds={selectedChapterIds}

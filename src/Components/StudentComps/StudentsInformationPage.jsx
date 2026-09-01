@@ -17,6 +17,9 @@ import TaskAltOutlinedIcon from "@mui/icons-material/TaskAltOutlined";
 import PersonOffOutlinedIcon from "@mui/icons-material/PersonOffOutlined";
 import ImageNotSupportedOutlinedIcon from "@mui/icons-material/ImageNotSupportedOutlined";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
+import TrendingUpIcon from "@mui/icons-material/TrendingUp";
+import SchoolIcon from "@mui/icons-material/School";
+import BoltOutlinedIcon from "@mui/icons-material/BoltOutlined";
 import Loader from "../Loader";
 import SnackBar from "../SnackBar";
 import { GetStudentsInformation } from "../../Api/Api";
@@ -24,8 +27,39 @@ import { selectGrades } from "../../Redux/Slices/DropdownController";
 import { findSubMenuPermissions } from "../../Redux/Slices/AuthSlice";
 import {
     DASH, RADIUS, BRAND, SOFT, KPI_TONES, PageHeader, Panel, SolidStatCard, EmptyNote,
+    ModuleCard, SectionTitle,
 } from "../DashBoardComps/dashboardTheme";
 import avatarImage from "../../Images/PagesImage/avatar.png";
+
+/* Shortcuts out to Access Control. Both screens act on the students listed on
+   this page, so they are worth one hop from here - but they belong to a
+   different main menu, so each carries its own permission.
+
+   `needs` mirrors the anyOf on that screen's route in Router.js. Matching the
+   card's condition to the route's keeps a visible shortcut from bouncing the
+   user straight back, which a broader "holds anything on this subMenu" test
+   would not. `to` is absolute because this page is nested three levels deep
+   and ModuleCard links relatively. */
+const ACCESS_SHORTCUTS = [
+    {
+        key: "studentpromotion",
+        accent: "#7DC353",
+        icon: TrendingUpIcon,
+        title: "Student Promotion",
+        desc: "Promote students to the next academic year.",
+        to: "/dashboardmenu/access/student-promotion",
+        needs: ["allowstudentpromotion", "alloweditpromotedstudents"],
+    },
+    {
+        key: "issuetc",
+        accent: "#D97706",
+        icon: SchoolIcon,
+        title: "Issue TC",
+        desc: "Issue transfer certificates for leaving students.",
+        to: "/dashboardmenu/access/issue-tc",
+        needs: ["allowissuetc", "allowdiscontinue"],
+    },
+];
 
 const dropdownPaper = (props) => (
     <Paper
@@ -107,6 +141,11 @@ export default function StudentInformationPage() {
     const canCreate = studentPerms.create === "Y";
     const canEdit = studentPerms.edit === "Y";
     const canMerge = studentPerms.siblingapproval === "Y";
+
+    const shortcuts = ACCESS_SHORTCUTS.filter((item) => {
+        const perms = findSubMenuPermissions(user.permissions, "accesscontrol", item.key);
+        return !!perms && item.needs.some((key) => perms[key] === "Y");
+    });
 
     const [isLoading, setIsLoading] = useState(false);
     const [studentDetails, setStudentDetails] = useState([]);
@@ -460,6 +499,25 @@ export default function StudentInformationPage() {
                     />
                 </Grid>
             </Grid>
+
+            {shortcuts.length > 0 && (
+                <>
+                    <SectionTitle icon={BoltOutlinedIcon}>Quick Actions</SectionTitle>
+                    <Grid container spacing={2} sx={{ alignItems: "stretch", mb: 2 }}>
+                        {shortcuts.map((item) => (
+                            <Grid key={item.key} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+                                <ModuleCard
+                                    accent={item.accent}
+                                    icon={item.icon}
+                                    title={item.title}
+                                    desc={item.desc}
+                                    to={item.to}
+                                />
+                            </Grid>
+                        ))}
+                    </Grid>
+                </>
+            )}
 
             <Panel
                 title="Student Records"

@@ -21,8 +21,8 @@ import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
 import NotesOutlinedIcon from "@mui/icons-material/NotesOutlined";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
-import RocketLaunchOutlinedIcon from "@mui/icons-material/RocketLaunchOutlined";
 import DoneIcon from "@mui/icons-material/Done";
+import UndoIcon from "@mui/icons-material/Undo";
 import PictureAsPdfOutlinedIcon from "@mui/icons-material/PictureAsPdfOutlined";
 import DownloadOutlinedIcon from "@mui/icons-material/DownloadOutlined";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
@@ -35,9 +35,9 @@ import { fieldSx, subjectTone, StatusPill, Pill, outlineBtnSx, softBtnSx, primar
 
 const renumber = (list) => list.map((c, i) => ({ ...c, number: i + 1 }));
 
-/* Wide enough for the longest trailing action ("Confirmed"), so the view switch
-   sits in one place whichever view is open. */
-const VIEW_ACTION_W = 124;
+/* Wide enough for the longest trailing action ("Not confirmed"), so the view
+   switch sits in one place whichever view is open. */
+const VIEW_ACTION_W = 140;
 
 export default function BookChaptersPage() {
     const navigate = useNavigate();
@@ -46,6 +46,9 @@ export default function BookChaptersPage() {
 
     const [book, setBook] = useState(location.state?.book || null);
     const [chapters, setChapters] = useState(location.state?.book?.chapters || []);
+    /* The last saved split. Revert copies this back, so an edit session can be
+       abandoned without reloading the page. */
+    const [baseline, setBaseline] = useState(location.state?.book?.chapters || []);
     const [isLoading, setIsLoading] = useState(!location.state?.book);
     const [selectedId, setSelectedId] = useState(location.state?.book?.chapters?.[0]?.id || null);
     const [editingId, setEditingId] = useState(null);
@@ -78,6 +81,7 @@ export default function BookChaptersPage() {
             if (found) {
                 setBook(found);
                 setChapters(found.chapters);
+                setBaseline(found.chapters);
                 setSelectedId(found.chapters[0]?.id || null);
             }
             setIsLoading(false);
@@ -98,6 +102,10 @@ export default function BookChaptersPage() {
        an edit has been made since the last confirm. A cleanly detected book can
        therefore still be confirmed without touching anything. */
     const needsConfirm = !allConfirmed || dirty;
+
+    /* A chapter is confirmed as part of an edit session. With no session open, or
+       nothing changed in it, the badge is a status and not a button. */
+    const canConfirmChapter = editing && dirty;
 
     const mutate = (next) => { setChapters(renumber(next)); setDirty(true); };
 
@@ -215,12 +223,24 @@ export default function BookChaptersPage() {
 
     /* Replace with POST book/updateChapters { bookId, chapters }. */
     const saveChapters = () => {
+        setBaseline(chapters);
         setDirty(false);
         notify("Chapter list saved", true);
     };
 
+    /* Throws away the current edit session and puts the last saved split back. */
+    const revertChapters = () => {
+        setChapters(baseline);
+        setDirty(false);
+        setEditingId(null);
+        if (!baseline.some((c) => c.id === selectedId)) setSelectedId(baseline[0]?.id || null);
+        notify("Changes reverted", true);
+    };
+
     const confirmAll = () => {
-        mutate(chapters.map((c) => ({ ...c, confirmed: true })));
+        const next = renumber(chapters.map((c) => ({ ...c, confirmed: true })));
+        setChapters(next);
+        setBaseline(next);
         setBook((prev) => (prev ? { ...prev, status: "Ready" } : prev));
         setDirty(false);
         notify("Book is ready for question papers", true);
@@ -328,17 +348,6 @@ export default function BookChaptersPage() {
                         </Box>
                     )}
 
-                    {allConfirmed && (
-                        <Button
-                            onClick={() => navigate("/dashboardmenu/assessment/question-paper/create", {
-                                state: { presetBook: { ...book, chapters } },
-                            })}
-                            startIcon={<RocketLaunchOutlinedIcon sx={{ fontSize: 16 }} />}
-                            sx={{ ...primaryBtnSx, ...headerActionSx }}
-                        >
-                            Create Question Paper
-                        </Button>
-                    )}
                 </Box>
             </Box>
 
@@ -369,6 +378,17 @@ export default function BookChaptersPage() {
                                The list stays clean until Edit is pressed. */
                             editing ? (
                                 <Box sx={{ display: "flex", gap: 0.8 }}>
+                                    {/* A way back out of an edit session, so trying a
+                                        merge or a split is never a one-way door. */}
+                                    {dirty && (
+                                        <Button
+                                            onClick={revertChapters}
+                                            startIcon={<UndoIcon sx={{ fontSize: 15 }} />}
+                                            sx={softBtnSx(SOFT.orange)}
+                                        >
+                                            Revert
+                                        </Button>
+                                    )}
                                     <Button onClick={addChapter} startIcon={<AddIcon sx={{ fontSize: 15 }} />} sx={softBtnSx(SOFT.blue)}>
                                         Add
                                     </Button>
@@ -587,17 +607,43 @@ export default function BookChaptersPage() {
                                     }}
                                 >
                                     {view === "details" && selected && (
-                                        <Button
-                                            onClick={() => toggleConfirm(selected)}
-                                            startIcon={
-                                                selected.confirmed
-                                                    ? <CheckCircleIcon sx={{ fontSize: 15 }} />
-                                                    : <CheckCircleOutlineIcon sx={{ fontSize: 15 }} />
-                                            }
-                                            sx={selected.confirmed ? softBtnSx(SOFT.green) : outlineBtnSx}
-                                        >
-                                            {selected.confirmed ? "Confirmed" : "Confirm"}
-                                        </Button>
+                                        canConfirmChapter ? (
+                                            /* Only an open edit session with unsaved
+                                               changes turns this into an action. */
+                                            <Button
+                                                onClick={() => toggleConfirm(selected)}
+                                                startIcon={
+                                                    selected.confirmed
+                                                        ? <CheckCircleIcon sx={{ fontSize: 15 }} />
+                                                        : <CheckCircleOutlineIcon sx={{ fontSize: 15 }} />
+                                                }
+                                                sx={selected.confirmed ? softBtnSx(SOFT.green) : outlineBtnSx}
+                                            >
+                                                {selected.confirmed ? "Confirmed" : "Confirm"}
+                                            </Button>
+                                        ) : (
+                                            /* Otherwise it is just where this chapter stands. */
+                                            <Box
+                                                sx={{
+                                                    display: "flex", alignItems: "center", gap: 0.6,
+                                                    height: 34, px: 1.4, borderRadius: RADIUS,
+                                                    bgcolor: selected.confirmed ? DASH.greenLight : DASH.lineSoft,
+                                                    border: `1px solid ${selected.confirmed ? "#BBF7D0" : DASH.line}`,
+                                                }}
+                                            >
+                                                {selected.confirmed
+                                                    ? <CheckCircleIcon sx={{ fontSize: 15, color: DASH.green }} />
+                                                    : <CheckCircleOutlineIcon sx={{ fontSize: 15, color: DASH.muted }} />}
+                                                <Typography
+                                                    sx={{
+                                                        fontSize: "12.5px", fontWeight: 700, whiteSpace: "nowrap",
+                                                        color: selected.confirmed ? "#065F46" : DASH.muted,
+                                                    }}
+                                                >
+                                                    {selected.confirmed ? "Confirmed" : "Not confirmed"}
+                                                </Typography>
+                                            </Box>
+                                        )
                                     )}
 
                                     {view === "pdf" && book.fileUrl && (

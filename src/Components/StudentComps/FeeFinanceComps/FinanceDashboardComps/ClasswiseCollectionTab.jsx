@@ -1,44 +1,91 @@
 import React, { useState, useEffect } from 'react';
 import {
     Box,
-    Card,
-    CardContent,
     Grid,
     Typography,
     TextField,
     InputAdornment,
     LinearProgress,
-    Divider,
     Button,
-    FormControl,
-    InputLabel,
-    Select,
     MenuItem,
     Autocomplete,
     Paper,
     Chip,
     IconButton,
     Dialog,
-    DialogTitle,
     DialogContent,
     DialogActions,
-    CircularProgress,
+    Skeleton,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
 } from '@mui/material';
 import PendingActionsIcon from '@mui/icons-material/PendingActions';
 import SearchIcon from '@mui/icons-material/Search';
-import CancelIcon from '@mui/icons-material/Cancel';
+import CloseIcon from '@mui/icons-material/Close';
+import SchoolIcon from '@mui/icons-material/School';
 import { useSelector } from 'react-redux';
 import { selectGrades } from '../../../../Redux/Slices/DropdownController';
 import { classWiseCollection } from '../../../../Api/Api';
 import axios from 'axios';
+import {
+    DASH, RADIUS, KPI_TONES, Panel, SolidStatCard, EmptyNote,
+} from '../../../DashBoardComps/dashboardTheme';
 
 const token = "123";
 
-const GRADE_COLORS = [
-    '#FF6B35', '#004E89', '#7C3AED', '#22C55E', '#F97316',
-    '#0891B2', '#E91E63', '#8B5CF6', '#EA580C', '#14B8A6',
-    '#2563EB', '#D97706', '#059669',
-];
+const FEE_TYPES = ['School Fee', 'Transport Fee', 'ECA Fee', 'Additional Fee'];
+
+// A grade's colour says how its collection is going, not which grade it is -
+// that way the grid can be read at a glance for the ones falling behind.
+const rateTone = (rate) => {
+    if (rate >= 90) return { color: DASH.green, bg: DASH.greenLight, border: '#BBF7D0', label: 'On track' };
+    if (rate >= 70) return { color: DASH.cyan, bg: DASH.cyanLight, border: '#A5F3FC', label: 'Fair' };
+    if (rate >= 50) return { color: DASH.amber, bg: DASH.amberLight, border: '#FDE68A', label: 'Behind' };
+    return { color: DASH.red, bg: DASH.redLight, border: '#FECACA', label: 'Critical' };
+};
+
+const fieldSx = (width) => ({
+    width,
+    '& .MuiOutlinedInput-root': {
+        height: 32,
+        fontSize: '12.5px',
+        fontWeight: 600,
+        borderRadius: RADIUS,
+        bgcolor: '#fff',
+        '& fieldset': { borderColor: DASH.line },
+        '&:hover fieldset': { borderColor: '#9AA3AF' },
+        '&.Mui-focused fieldset': { borderColor: DASH.primary, borderWidth: '1px' },
+    },
+});
+
+const TH = ({ children, align }) => (
+    <TableCell
+        align={align}
+        sx={{
+            bgcolor: DASH.surface,
+            borderBottom: `1px solid ${DASH.line}`,
+            color: DASH.muted,
+            fontSize: '10.5px',
+            fontWeight: 700,
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase',
+            py: 1,
+            whiteSpace: 'nowrap',
+        }}
+    >
+        {children}
+    </TableCell>
+);
+
+const TD = ({ children, align }) => (
+    <TableCell align={align} sx={{ borderBottom: `1px solid ${DASH.lineSoft}`, py: 1 }}>
+        {children}
+    </TableCell>
+);
 
 export default function ClasswiseCollectionTab({ selectedYear }) {
     const grades = useSelector(selectGrades);
@@ -46,7 +93,7 @@ export default function ClasswiseCollectionTab({ selectedYear }) {
     const [classwiseData, setClasswiseData] = useState([]);
     const [selectedFeeType, setSelectedFeeType] = useState('School Fee');
     const [selectedGradeId, setSelectedGradeId] = useState(null);
-    const [classwiseModal, setClasswiseModal] = useState({ open: false, grade: '', color: '', defaulters: [], totalDefaulters: 0, totalPendingDisplay: '₹0' });
+    const [classwiseModal, setClasswiseModal] = useState({ open: false, grade: '', tone: rateTone(100), defaulters: [], totalDefaulters: 0, totalPendingDisplay: '₹0' });
     const [defaulterSearch, setDefaulterSearch] = useState('');
 
     const handleGradeChange = (newValue) => {
@@ -55,6 +102,7 @@ export default function ClasswiseCollectionTab({ selectedYear }) {
 
     useEffect(() => {
         fetchOverviewData();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedYear, selectedFeeType]);
 
     const fetchOverviewData = async () => {
@@ -89,416 +137,425 @@ export default function ClasswiseCollectionTab({ selectedYear }) {
             d.name.toLowerCase().includes(defaulterSearch.toLowerCase())
     );
 
+    // Roll-ups across whatever grades are on screen. Counts and rates only -
+    // the money arrives pre-formatted per grade, so it is not summed here.
+    const totalStudents = displayedData.reduce((sum, g) => sum + (Number(g.studentsCount) || 0), 0);
+    const totalDefaulters = displayedData.reduce((sum, g) => sum + (Number(g.defaultersCount) || 0), 0);
+    const avgRate = displayedData.length
+        ? displayedData.reduce((sum, g) => sum + (Number(g.collectionRate) || 0), 0) / displayedData.length
+        : 0;
+
+    const cards = [
+        {
+            label: selectedGrade ? 'Grade' : 'Grades',
+            value: displayedData.length,
+            note: `${selectedFeeType} this year`,
+            tone: KPI_TONES.orange,
+        },
+        {
+            label: 'Students',
+            value: totalStudents.toLocaleString(),
+            note: 'Across the grades shown',
+            tone: KPI_TONES.blue,
+        },
+        {
+            label: 'Avg Collection Rate',
+            value: `${avgRate.toFixed(1)}%`,
+            note: 'Mean across the grades shown',
+            tone: KPI_TONES.green,
+        },
+        {
+            label: 'Defaulters',
+            value: totalDefaulters.toLocaleString(),
+            note: 'Students with pending fees',
+            tone: KPI_TONES.pink,
+        },
+    ];
+
     return (
         <>
             <Box>
-                <Grid container spacing={3}>
-                    <Grid size={{ xs: 12, sm: 12, md: 12, lg: 12 }}>
-                        <Card sx={{ boxShadow: 'none', border: '1px solid #E8E8E8', borderRadius: '4px', bgcolor: '#FFFFFF' }}>
-                            <CardContent>
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 1.5 }}>
-                                    <Typography sx={{ fontSize: '18px', fontWeight: '600' }}>
-                                        Grade-wise Fee Collection Status
-                                    </Typography>
-                                    <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
-                                        <FormControl size="small" sx={{ minWidth: 180 }}>
-                                            <InputLabel>Fee Type</InputLabel>
-                                            <Select
-                                                value={selectedFeeType}
-                                                onChange={(e) => setSelectedFeeType(e.target.value)}
-                                                label="Fee Type"
-                                            >
-                                                <MenuItem value="School Fee">School Fee</MenuItem>
-                                                <MenuItem value="Transport Fee">Transport Fee</MenuItem>
-                                                <MenuItem value="ECA Fee">ECA Fee</MenuItem>
-                                                <MenuItem value="Additional Fee">Additional Fee</MenuItem>
-                                            </Select>
-                                        </FormControl>
-                                        <FormControl size="small" sx={{ minWidth: 180 }}>
-                                            <Autocomplete
-                                                disablePortal
-                                                options={grades}
-                                                getOptionLabel={(option) => option.sign}
-                                                value={grades.find((item) => item.id === selectedGradeId) || null}
-                                                onChange={(event, newValue) => {
-                                                    handleGradeChange(newValue);
-                                                }}
-                                                isOptionEqualToValue={(option, value) => option.id === value.id}
-                                                sx={{ width: '150px' }}
-                                                PaperComponent={(props) => (
-                                                    <Paper
-                                                        {...props}
-                                                        style={{
-                                                            ...props.style,
-                                                            maxHeight: '150px',
-                                                            backgroundColor: '#000',
-                                                            color: '#fff',
-                                                        }}
-                                                    />
-                                                )}
-                                                renderOption={(props, option) => (
-                                                    <li {...props} className="classdropdownOptions">
-                                                        {option.sign}
-                                                    </li>
-                                                )}
-                                                renderInput={(params) => (
-                                                    <TextField
-                                                        placeholder="Select Class"
-                                                        {...params}
-                                                        fullWidth
-                                                        slotProps={{
-                                                            input: {
-                                                                ...params.InputProps,
-                                                                sx: {
-                                                                    paddingRight: 0,
-                                                                    height: '33px',
-                                                                    fontSize: '13px',
-                                                                    fontWeight: '600',
-                                                                },
-                                                            },
-                                                        }}
-                                                    />
-                                                )}
-                                            />
-                                        </FormControl>
-                                    </Box>
-                                </Box>
+                {/* ── Collection at a glance ── */}
+                <Grid container spacing={2} sx={{ mb: 2, alignItems: 'stretch' }}>
+                    {cards.map((card) => (
+                        <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }} key={card.label}>
+                            <SolidStatCard
+                                label={card.label}
+                                value={isLoading ? <Skeleton width={90} height={28} /> : card.value}
+                                note={isLoading ? '' : card.note}
+                                tone={card.tone}
+                            />
+                        </Grid>
+                    ))}
+                </Grid>
 
-                                {isLoading ? (
-                                    <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-                                        <CircularProgress size={36} />
-                                    </Box>
-                                ) : displayedData.length === 0 ? (
-                                    <Box sx={{ textAlign: 'center', py: 8 }}>
-                                        <Typography sx={{ fontSize: '14px', color: '#999' }}>
-                                            No data available
-                                        </Typography>
-                                    </Box>
-                                ) : (
-                                    <Grid container spacing={2}>
-                                        {displayedData.map((item, index) => {
-                                            const color = GRADE_COLORS[index % GRADE_COLORS.length];
-                                            const collectionRate = Number(item.collectionRate) || 0;
-                                            return (
-                                                <Grid key={item.grade} size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
-                                                    <Card
+                <Panel
+                    title="Grade-wise Fee Collection"
+                    subtitle={
+                        isLoading
+                            ? 'Loading grades…'
+                            : `${displayedData.length} grade${displayedData.length === 1 ? '' : 's'} · ${selectedFeeType}`
+                    }
+                    accent={DASH.primary}
+                    right={
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                            <TextField
+                                select
+                                size="small"
+                                value={selectedFeeType}
+                                onChange={(e) => setSelectedFeeType(e.target.value)}
+                                sx={fieldSx(160)}
+                            >
+                                {FEE_TYPES.map((t) => (
+                                    <MenuItem key={t} value={t} sx={{ fontSize: '12.5px' }}>{t}</MenuItem>
+                                ))}
+                            </TextField>
+
+                            <Autocomplete
+                                disablePortal
+                                options={grades}
+                                getOptionLabel={(option) => option.sign}
+                                value={grades.find((item) => item.id === selectedGradeId) || null}
+                                onChange={(event, newValue) => handleGradeChange(newValue)}
+                                isOptionEqualToValue={(option, value) => option.id === value.id}
+                                PaperComponent={(props) => (
+                                    <Paper
+                                        {...props}
+                                        style={{ ...props.style, maxHeight: '150px', backgroundColor: '#000', color: '#fff' }}
+                                    />
+                                )}
+                                renderOption={(props, option) => (
+                                    <li {...props} className="classdropdownOptions">
+                                        {option.sign}
+                                    </li>
+                                )}
+                                renderInput={(params) => (
+                                    <TextField
+                                        {...params}
+                                        placeholder="All classes"
+                                        sx={fieldSx(150)}
+                                        slotProps={{
+                                            input: { ...params.InputProps, sx: { paddingRight: 0, height: 32, fontSize: '12.5px', fontWeight: 600 } },
+                                        }}
+                                    />
+                                )}
+                            />
+                        </Box>
+                    }
+                    bodySx={{ p: 1.8 }}
+                >
+                    {isLoading ? (
+                        <Grid container spacing={1.8}>
+                            {[0, 1, 2, 3].map((i) => (
+                                <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }} key={i}>
+                                    <Skeleton variant="rounded" height={186} />
+                                </Grid>
+                            ))}
+                        </Grid>
+                    ) : displayedData.length === 0 ? (
+                        <Box sx={{ textAlign: 'center', py: 6 }}>
+                            <SchoolIcon sx={{ fontSize: 40, color: DASH.line }} />
+                            <Typography sx={{ fontSize: '13.5px', fontWeight: 700, color: DASH.ink, mt: 1 }}>
+                                No collection data for this view
+                            </Typography>
+                            <Typography sx={{ fontSize: '12px', color: DASH.muted, mt: 0.4 }}>
+                                Try another fee type, or clear the class filter.
+                            </Typography>
+                        </Box>
+                    ) : (
+                        <Grid container spacing={1.8}>
+                            {displayedData.map((item) => {
+                                const rate = Number(item.collectionRate) || 0;
+                                const tone = rateTone(rate);
+                                return (
+                                    <Grid key={item.grade} size={{ xs: 12, sm: 12, md: 6, lg: 6 }} sx={{ display: 'flex' }}>
+                                        <Box
+                                            sx={{
+                                                position: 'relative',
+                                                overflow: 'hidden',
+                                                width: '100%',
+                                                p: 1.8,
+                                                pl: 2.1,
+                                                borderRadius: RADIUS,
+                                                border: `1px solid ${DASH.line}`,
+                                                bgcolor: '#fff',
+                                                transition: 'transform .2s ease, box-shadow .2s ease, border-color .2s ease',
+                                                '&::before': { content: '""', position: 'absolute', left: 0, top: 0, height: '100%', width: 3, bgcolor: tone.color },
+                                                '&:hover': { transform: 'translateY(-2px)', borderColor: `${tone.color}66`, boxShadow: '0 6px 18px rgba(17,24,39,0.09)' },
+                                            }}
+                                        >
+                                            {/* Identity + rate */}
+                                            <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1.5, mb: 1.4 }}>
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, minWidth: 0 }}>
+                                                    <Box
                                                         sx={{
-                                                            boxShadow: 'none',
-                                                            border: `1px solid ${color}`,
-                                                            borderRadius: '8px',
-                                                            bgcolor: `${color}08`,
-                                                            transition: 'transform 0.2s',
-                                                            '&:hover': {
-                                                                transform: 'translateY(-4px)',
-                                                                boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                                                            },
+                                                            minWidth: 40, height: 40, px: 0.8, borderRadius: RADIUS,
+                                                            bgcolor: tone.bg, border: `1px solid ${tone.border}`, color: tone.color,
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                            fontSize: '14px', fontWeight: 800, flexShrink: 0,
                                                         }}
                                                     >
-                                                        <CardContent>
-                                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                                                                <Box>
-                                                                    <Typography sx={{ fontSize: '20px', fontWeight: '700', color, mb: 0.5 }}>
-                                                                        {item.gradeDisplay}
-                                                                    </Typography>
-                                                                    <Typography sx={{ fontSize: '12px', color: '#666' }}>
-                                                                        {item.sectionsCount} Section{item.sectionsCount !== 1 ? 's' : ''} • {item.studentsCount} Student{item.studentsCount !== 1 ? 's' : ''}
-                                                                    </Typography>
-                                                                </Box>
-                                                                <Box sx={{ textAlign: 'right' }}>
-                                                                    <Typography sx={{ fontSize: '24px', fontWeight: '700', color }}>
-                                                                        {item.collectionRateDisplay}
-                                                                    </Typography>
-                                                                    <Typography sx={{ fontSize: '10px', color: '#666' }}>
-                                                                        Collection Rate
-                                                                    </Typography>
-                                                                </Box>
-                                                            </Box>
+                                                        {item.gradeDisplay}
+                                                    </Box>
+                                                    <Box sx={{ minWidth: 0 }}>
+                                                        <Typography sx={{ fontSize: '13.5px', fontWeight: 700, color: DASH.ink, lineHeight: 1.25 }} noWrap>
+                                                            Grade {item.gradeDisplay}
+                                                        </Typography>
+                                                        <Typography sx={{ fontSize: '11px', color: DASH.faint }} noWrap>
+                                                            {item.sectionsCount} section{item.sectionsCount !== 1 ? 's' : ''} · {item.studentsCount} student{item.studentsCount !== 1 ? 's' : ''}
+                                                        </Typography>
+                                                    </Box>
+                                                </Box>
+                                                <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
+                                                    <Typography sx={{ fontSize: '20px', fontWeight: 700, color: DASH.ink, lineHeight: 1 }}>
+                                                        {item.collectionRateDisplay}
+                                                    </Typography>
+                                                    <Typography sx={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: DASH.faint, mt: 0.4 }}>
+                                                        Collected
+                                                    </Typography>
+                                                </Box>
+                                            </Box>
 
-                                                            <LinearProgress
-                                                                variant="determinate"
-                                                                value={Math.min(collectionRate, 100)}
-                                                                sx={{
-                                                                    height: 8,
-                                                                    borderRadius: 4,
-                                                                    bgcolor: '#E8E8E8',
-                                                                    mb: 2,
-                                                                    '& .MuiLinearProgress-bar': {
-                                                                        bgcolor: color,
-                                                                        borderRadius: 4,
-                                                                    },
-                                                                }}
-                                                            />
+                                            <LinearProgress
+                                                variant="determinate"
+                                                value={Math.min(rate, 100)}
+                                                sx={{
+                                                    height: 6,
+                                                    borderRadius: RADIUS,
+                                                    bgcolor: DASH.lineSoft,
+                                                    mb: 1.4,
+                                                    '& .MuiLinearProgress-bar': { bgcolor: tone.color, borderRadius: RADIUS },
+                                                }}
+                                            />
 
-                                                            <Grid container spacing={2}>
-                                                                <Grid size={{ xs: 6, sm: 6, md: 6, lg: 6 }}>
-                                                                    <Box sx={{ bgcolor: '#FFFFFF', p: 1.5, borderRadius: '6px' }}>
-                                                                        <Typography sx={{ fontSize: '11px', color: '#666', mb: 0.5 }}>
-                                                                            Collected
-                                                                        </Typography>
-                                                                        <Typography sx={{ fontSize: '16px', fontWeight: '700', color: '#22C55E' }}>
-                                                                            {item.collectedDisplay}
-                                                                        </Typography>
-                                                                    </Box>
-                                                                </Grid>
-                                                                <Grid size={{ xs: 6, sm: 6, md: 6, lg: 6 }}>
-                                                                    <Box sx={{ bgcolor: '#FFFFFF', p: 1.5, borderRadius: '6px' }}>
-                                                                        <Typography sx={{ fontSize: '11px', color: '#666', mb: 0.5 }}>
-                                                                            Pending
-                                                                        </Typography>
-                                                                        <Typography sx={{ fontSize: '16px', fontWeight: '700', color: '#F97316' }}>
-                                                                            {item.pendingDisplay}
-                                                                        </Typography>
-                                                                    </Box>
-                                                                </Grid>
-                                                            </Grid>
+                                            {/* Money split */}
+                                            <Box sx={{ display: 'flex', gap: 1, mb: 1.4 }}>
+                                                <Box sx={{ flex: 1, px: 1.2, py: 1, borderRadius: RADIUS, bgcolor: DASH.greenLight, border: '1px solid #BBF7D0' }}>
+                                                    <Typography sx={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: DASH.green }}>
+                                                        Collected
+                                                    </Typography>
+                                                    <Typography sx={{ fontSize: '14.5px', fontWeight: 700, color: DASH.ink, mt: 0.2 }} noWrap>
+                                                        {item.collectedDisplay}
+                                                    </Typography>
+                                                </Box>
+                                                <Box sx={{ flex: 1, px: 1.2, py: 1, borderRadius: RADIUS, bgcolor: DASH.amberLight, border: '1px solid #FDE68A' }}>
+                                                    <Typography sx={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#B45309' }}>
+                                                        Pending
+                                                    </Typography>
+                                                    <Typography sx={{ fontSize: '14.5px', fontWeight: 700, color: DASH.ink, mt: 0.2 }} noWrap>
+                                                        {item.pendingDisplay}
+                                                    </Typography>
+                                                </Box>
+                                            </Box>
 
-                                                            <Divider sx={{ my: 1.5 }} />
-
-                                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                                                    <PendingActionsIcon sx={{ fontSize: 16, color: '#DC2626' }} />
-                                                                    <Typography sx={{ fontSize: '12px', color: '#666' }}>
-                                                                        {item.defaultersCount} Defaulter{item.defaultersCount !== 1 ? 's' : ''}
-                                                                    </Typography>
-                                                                </Box>
-                                                                <Button
-                                                                    size="small"
-                                                                    onClick={() => {
-                                                                        setDefaulterSearch('');
-                                                                        setClasswiseModal({
-                                                                            open: true,
-                                                                            grade: item.gradeDisplay,
-                                                                            color,
-                                                                            defaulters: item.defaultersSummary.items,
-                                                                            totalDefaulters: item.defaultersSummary.totalDefaulters,
-                                                                            totalPendingDisplay: item.defaultersSummary.totalPendingDisplay,
-                                                                        });
-                                                                    }}
-                                                                    sx={{
-                                                                        textTransform: 'none',
-                                                                        fontSize: '11px',
-                                                                        color,
-                                                                        fontWeight: '600',
-                                                                        border: `1px solid ${color}40`,
-                                                                        borderRadius: '6px',
-                                                                        px: 1.5,
-                                                                        '&:hover': { bgcolor: `${color}15` },
-                                                                    }}
-                                                                >
-                                                                    View Details
-                                                                </Button>
-                                                            </Box>
-                                                        </CardContent>
-                                                    </Card>
-                                                </Grid>
-                                            );
-                                        })}
+                                            {/* Who is behind */}
+                                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, pt: 1.2, borderTop: `1px solid ${DASH.lineSoft}` }}>
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, minWidth: 0 }}>
+                                                    <PendingActionsIcon sx={{ fontSize: 15, color: item.defaultersCount > 0 ? DASH.red : DASH.faint }} />
+                                                    <Typography sx={{ fontSize: '11.5px', color: DASH.muted }} noWrap>
+                                                        {item.defaultersCount} defaulter{item.defaultersCount !== 1 ? 's' : ''}
+                                                    </Typography>
+                                                    <Chip
+                                                        label={tone.label}
+                                                        size="small"
+                                                        sx={{
+                                                            ml: 0.4, height: 19, borderRadius: RADIUS,
+                                                            bgcolor: tone.bg, color: tone.color, border: `1px solid ${tone.border}`,
+                                                            fontSize: '10px', fontWeight: 700,
+                                                        }}
+                                                    />
+                                                </Box>
+                                                <Button
+                                                    size="small"
+                                                    disabled={!item.defaultersSummary?.items?.length}
+                                                    onClick={() => {
+                                                        setDefaulterSearch('');
+                                                        setClasswiseModal({
+                                                            open: true,
+                                                            grade: item.gradeDisplay,
+                                                            tone,
+                                                            defaulters: item.defaultersSummary.items,
+                                                            totalDefaulters: item.defaultersSummary.totalDefaulters,
+                                                            totalPendingDisplay: item.defaultersSummary.totalPendingDisplay,
+                                                        });
+                                                    }}
+                                                    sx={{
+                                                        textTransform: 'none', fontSize: '11.5px', fontWeight: 700,
+                                                        color: tone.color, bgcolor: '#fff',
+                                                        border: `1px solid ${tone.color}40`, borderRadius: RADIUS,
+                                                        height: 28, px: 1.4, flexShrink: 0,
+                                                        '&:hover': { bgcolor: tone.bg, borderColor: tone.color },
+                                                        '&.Mui-disabled': { color: DASH.faint, borderColor: DASH.lineSoft },
+                                                    }}
+                                                >
+                                                    View Details
+                                                </Button>
+                                            </Box>
+                                        </Box>
                                     </Grid>
-                                )}
-                            </CardContent>
-                        </Card>
-                    </Grid>
-                </Grid>
+                                );
+                            })}
+                        </Grid>
+                    )}
+                </Panel>
             </Box>
 
-            {/* Defaulters Modal */}
+            {/* ── Defaulters for one grade ── */}
             <Dialog
                 open={classwiseModal.open}
                 onClose={() => setClasswiseModal((p) => ({ ...p, open: false }))}
                 maxWidth="sm"
                 fullWidth
-                PaperProps={{ sx: { borderRadius: '16px', overflow: 'hidden' } }}
+                slotProps={{ paper: { sx: { borderRadius: '12px', overflow: 'hidden' } } }}
             >
-                {/* Dialog Header */}
-                <DialogTitle sx={{ p: 0 }}>
-                    <Box
-                        sx={{
-                            background: `linear-gradient(135deg, ${classwiseModal.color}15, ${classwiseModal.color}05)`,
-                            borderBottom: `3px solid ${classwiseModal.color}`,
-                            px: 3,
-                            py: 2.5,
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'flex-start',
-                        }}
-                    >
-                        <Box>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                                <Box
-                                    sx={{
-                                        width: 10,
-                                        height: 10,
-                                        borderRadius: '50%',
-                                        bgcolor: classwiseModal.color,
-                                    }}
-                                />
-                                <Typography sx={{ fontSize: '18px', fontWeight: '800', color: '#1a1a1a' }}>
-                                    {classwiseModal.grade} — Defaulters
-                                </Typography>
-                            </Box>
-                            <Typography sx={{ fontSize: '12px', color: '#888' }}>
+                <Box sx={{ height: 3, bgcolor: classwiseModal.tone.color }} />
+
+                <Box sx={{ px: 2, py: 1.6, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, minWidth: 0 }}>
+                        <Box
+                            sx={{
+                                minWidth: 34, height: 34, px: 0.8, borderRadius: RADIUS,
+                                bgcolor: classwiseModal.tone.bg, border: `1px solid ${classwiseModal.tone.border}`,
+                                color: classwiseModal.tone.color, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                fontSize: '13px', fontWeight: 800, flexShrink: 0,
+                            }}
+                        >
+                            {classwiseModal.grade}
+                        </Box>
+                        <Box sx={{ minWidth: 0 }}>
+                            <Typography sx={{ fontSize: '15px', fontWeight: 700, color: DASH.ink, lineHeight: 1.2 }}>
+                                Grade {classwiseModal.grade} defaulters
+                            </Typography>
+                            <Typography sx={{ fontSize: '11.5px', color: DASH.muted, mt: 0.2 }}>
                                 {classwiseModal.totalDefaulters || 0} student{(classwiseModal.totalDefaulters || 0) !== 1 ? 's' : ''} with pending fees
                             </Typography>
                         </Box>
-                        <IconButton
-                            size="small"
-                            onClick={() => setClasswiseModal((p) => ({ ...p, open: false }))}
-                            sx={{ bgcolor: '#F5F5F5', '&:hover': { bgcolor: '#EBEBEB' } }}
-                        >
-                            <CancelIcon sx={{ fontSize: 18, color: '#666' }} />
-                        </IconButton>
                     </Box>
-                </DialogTitle>
+                    <IconButton size="small" onClick={() => setClasswiseModal((p) => ({ ...p, open: false }))}>
+                        <CloseIcon sx={{ fontSize: 18, color: DASH.muted }} />
+                    </IconButton>
+                </Box>
 
                 <DialogContent sx={{ p: 0 }}>
-                    {/* Search Bar */}
-                    <Box sx={{ px: 2.5, pt: 2, pb: 1.5, borderBottom: '1px solid #F0F0F0' }}>
+                    {/* Totals + search */}
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.4, bgcolor: DASH.surface, borderTop: `1px solid ${DASH.line}`, borderBottom: `1px solid ${DASH.line}`, flexWrap: 'wrap' }}>
+                        <Box>
+                            <Typography sx={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: DASH.muted }}>
+                                Defaulters
+                            </Typography>
+                            <Typography sx={{ fontSize: '16px', fontWeight: 700, color: DASH.ink, lineHeight: 1.2 }}>
+                                {classwiseModal.totalDefaulters || 0}
+                            </Typography>
+                        </Box>
+                        <Box sx={{ width: '1px', alignSelf: 'stretch', bgcolor: DASH.line }} />
+                        <Box>
+                            <Typography sx={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: DASH.muted }}>
+                                Total Pending
+                            </Typography>
+                            <Typography sx={{ fontSize: '16px', fontWeight: 700, color: DASH.red, lineHeight: 1.2 }}>
+                                {classwiseModal.totalPendingDisplay || '₹0'}
+                            </Typography>
+                        </Box>
+                        <Box sx={{ flexGrow: 1 }} />
                         <TextField
-                            fullWidth
                             size="small"
-                            placeholder="Search by roll no. or name..."
+                            placeholder="Search roll no. or name…"
                             value={defaulterSearch}
                             onChange={(e) => setDefaulterSearch(e.target.value)}
                             slotProps={{
                                 input: {
                                     startAdornment: (
                                         <InputAdornment position="start">
-                                            <SearchIcon sx={{ fontSize: 18, color: '#999' }} />
+                                            <SearchIcon sx={{ fontSize: 17, color: DASH.faint }} />
                                         </InputAdornment>
                                     ),
                                 },
                             }}
                             sx={{
-                                '& .MuiOutlinedInput-root': { borderRadius: '10px', fontSize: '13px' },
+                                width: { xs: '100%', sm: 220 },
+                                '& .MuiOutlinedInput-root': {
+                                    height: 32, fontSize: '12.5px', borderRadius: RADIUS, bgcolor: '#fff',
+                                    '& fieldset': { borderColor: DASH.line },
+                                    '&:hover fieldset': { borderColor: '#9AA3AF' },
+                                    '&.Mui-focused fieldset': { borderColor: classwiseModal.tone.color, borderWidth: '1px' },
+                                },
                             }}
                         />
                     </Box>
 
-                    {/* Summary Strip */}
-                    <Box sx={{ display: 'flex', gap: 0, borderBottom: '1px solid #F0F0F0' }}>
-                        {[
-                            { label: 'Total Defaulters', value: classwiseModal.totalDefaulters || 0, color: classwiseModal.color },
-                            { label: 'Total Pending', value: classwiseModal.totalPendingDisplay || '₹0', color: '#F97316' },
-                        ].map((s, i) => (
-                            <Box
-                                key={i}
-                                sx={{
-                                    flex: 1,
-                                    px: 2.5,
-                                    py: 1.5,
-                                    borderRight: i === 0 ? '1px solid #F0F0F0' : 'none',
-                                    bgcolor: '#FAFAFA',
-                                }}
-                            >
-                                <Typography sx={{ fontSize: '10px', color: '#888' }}>{s.label}</Typography>
-                                <Typography sx={{ fontSize: '16px', fontWeight: '800', color: s.color }}>
-                                    {s.value}
-                                </Typography>
-                            </Box>
-                        ))}
-                    </Box>
-
-                    {/* Table Header */}
-                    <Box sx={{ display: 'flex', px: 2.5, py: 1, bgcolor: '#F7F8FA', borderBottom: '1px solid #EFEFEF' }}>
-                        <Typography sx={{ fontSize: '11px', fontWeight: '700', color: '#888', width: '35%' }}>
-                            ROLL NO. & NAME
-                        </Typography>
-                        <Typography sx={{ fontSize: '11px', fontWeight: '700', color: '#888', width: '25%', textAlign: 'center' }}>
-                            SECTION
-                        </Typography>
-                        <Typography sx={{ fontSize: '11px', fontWeight: '700', color: '#888', width: '20%', textAlign: 'center' }}>
-                            FEE TYPE
-                        </Typography>
-                        <Typography sx={{ fontSize: '11px', fontWeight: '700', color: '#888', width: '20%', textAlign: 'right' }}>
-                            PENDING
-                        </Typography>
-                    </Box>
-
-                    {/* Defaulter List */}
-                    <Box
-                        sx={{
-                            maxHeight: 340,
-                            overflowY: 'auto',
-                            '&::-webkit-scrollbar': { width: '4px' },
-                            '&::-webkit-scrollbar-thumb': { bgcolor: '#D0D0D0', borderRadius: '10px' },
-                        }}
-                    >
-                        {filteredDefaulters.map((d, i) => (
-                            <Box
-                                key={i}
-                                sx={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    px: 2.5,
-                                    py: 1.5,
-                                    borderBottom: '1px solid #F8F8F8',
-                                    '&:hover': { bgcolor: `${classwiseModal.color}08` },
-                                    transition: '0.15s',
-                                }}
-                            >
-                                {/* Roll + Name */}
-                                <Box sx={{ width: '35%', display: 'flex', alignItems: 'center', gap: 1.2 }}>
-                                    <Box
-                                        sx={{
-                                            bgcolor: `${classwiseModal.color}15`,
-                                            border: `1px solid ${classwiseModal.color}40`,
-                                            borderRadius: '6px',
-                                            px: 1,
-                                            py: 0.3,
-                                        }}
-                                    >
-                                        <Typography sx={{ fontSize: '11px', fontWeight: '700', color: classwiseModal.color }}>
-                                            {d.rollNumber}
-                                        </Typography>
-                                    </Box>
-                                    <Typography sx={{ fontSize: '13px', fontWeight: '600', color: '#1a1a1a' }}>
-                                        {d.name || '—'}
-                                    </Typography>
-                                </Box>
-                                {/* Section */}
-                                <Box sx={{ width: '25%', textAlign: 'center' }}>
-                                    <Typography sx={{ fontSize: '12px', color: '#555' }}>{d.section}</Typography>
-                                </Box>
-                                {/* Fee Type */}
-                                <Box sx={{ width: '20%', textAlign: 'center' }}>
-                                    <Chip
-                                        label={d.feeType}
-                                        size="small"
-                                        sx={{
-                                            fontSize: '10px',
-                                            height: '20px',
-                                            bgcolor: '#F0F4FF',
-                                            color: '#3457D5',
-                                            fontWeight: '600',
-                                        }}
-                                    />
-                                </Box>
-                                {/* Pending */}
-                                <Box sx={{ width: '20%', textAlign: 'right' }}>
-                                    <Typography sx={{ fontSize: '13px', fontWeight: '700', color: '#DC2626' }}>
-                                        {d.pendingDisplay}
-                                    </Typography>
-                                </Box>
-                            </Box>
-                        ))}
-                        {filteredDefaulters.length === 0 && (
-                            <Box sx={{ textAlign: 'center', py: 5 }}>
-                                <Typography sx={{ fontSize: '13px', color: '#999' }}>No results found</Typography>
-                            </Box>
-                        )}
-                    </Box>
+                    <TableContainer sx={{ maxHeight: 360 }}>
+                        <Table size="small" stickyHeader>
+                            <TableHead>
+                                <TableRow>
+                                    <TH>Student</TH>
+                                    <TH>Section</TH>
+                                    <TH>Fee Type</TH>
+                                    <TH align="right">Pending</TH>
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {filteredDefaulters.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={4} sx={{ borderBottom: 'none' }}>
+                                            <EmptyNote
+                                                text={
+                                                    (classwiseModal.defaulters || []).length === 0
+                                                        ? 'No defaulters in this grade.'
+                                                        : `No student matches “${defaulterSearch}”.`
+                                                }
+                                            />
+                                        </TableCell>
+                                    </TableRow>
+                                ) : (
+                                    filteredDefaulters.map((d, i) => (
+                                        <TableRow
+                                            key={i}
+                                            sx={{ transition: 'background-color 0.15s', '&:hover': { bgcolor: DASH.surface } }}
+                                        >
+                                            <TD>
+                                                <Typography sx={{ fontSize: '12.5px', fontWeight: 700, color: DASH.ink }}>
+                                                    {d.name || '—'}
+                                                </Typography>
+                                                <Typography sx={{ fontSize: '10.5px', color: DASH.faint }}>
+                                                    {d.rollNumber}
+                                                </Typography>
+                                            </TD>
+                                            <TD>
+                                                <Typography sx={{ fontSize: '12px', color: DASH.muted }}>{d.section}</Typography>
+                                            </TD>
+                                            <TD>
+                                                <Chip
+                                                    label={d.feeType}
+                                                    size="small"
+                                                    sx={{
+                                                        height: 20, borderRadius: RADIUS,
+                                                        bgcolor: DASH.blueLight, color: DASH.blue,
+                                                        fontSize: '10.5px', fontWeight: 700,
+                                                    }}
+                                                />
+                                            </TD>
+                                            <TD align="right">
+                                                <Typography sx={{ fontSize: '12.5px', fontWeight: 700, color: DASH.red, whiteSpace: 'nowrap' }}>
+                                                    {d.pendingDisplay}
+                                                </Typography>
+                                            </TD>
+                                        </TableRow>
+                                    ))
+                                )}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
                 </DialogContent>
 
-                <DialogActions sx={{ px: 2.5, py: 1.5, borderTop: '1px solid #F0F0F0', bgcolor: '#FAFAFA' }}>
+                <DialogActions sx={{ px: 2, py: 1.4, borderTop: `1px solid ${DASH.line}` }}>
                     <Button
                         onClick={() => setClasswiseModal((p) => ({ ...p, open: false }))}
-                        variant="contained"
                         sx={{
-                            textTransform: 'none',
-                            borderRadius: '8px',
-                            bgcolor: classwiseModal.color,
-                            fontSize: '13px',
-                            '&:hover': { bgcolor: classwiseModal.color, opacity: 0.9 },
+                            textTransform: 'none', fontSize: '12.5px', fontWeight: 700,
+                            color: DASH.text, bgcolor: '#fff',
+                            border: `1px solid ${DASH.line}`, borderRadius: RADIUS,
+                            px: 2, height: 34,
+                            '&:hover': { bgcolor: DASH.lineSoft, borderColor: DASH.faint },
                         }}
                     >
                         Close

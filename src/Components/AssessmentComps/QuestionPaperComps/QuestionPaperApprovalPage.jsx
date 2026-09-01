@@ -15,14 +15,24 @@ import PendingActionsOutlinedIcon from "@mui/icons-material/PendingActionsOutlin
 import EventOutlinedIcon from "@mui/icons-material/EventOutlined";
 import HelpOutlineOutlinedIcon from "@mui/icons-material/HelpOutlineOutlined";
 import DashboardCustomizeOutlinedIcon from "@mui/icons-material/DashboardCustomizeOutlined";
+import ReplayOutlinedIcon from "@mui/icons-material/ReplayOutlined";
 
 import SnackBar from "../../SnackBar";
 import Loader from "../../Loader";
 import { DASH, RADIUS, KPI_TONES, SolidStatCard } from "../../DashBoardComps/dashboardTheme";
-import { MOCK_PAPERS, fmtDate } from "./questionPaperApi";
+import { MOCK_PAPERS, REVIEW_OUTCOMES, fmtDate } from "./questionPaperApi";
 import { StatusPill, Pill, fieldSx, outlineBtnSx, primaryBtnSx } from "./questionPaperTheme";
 
-const TABS = ["Pending", "Approved", "Rejected"];
+const TABS = ["Pending", "Approved", "Sent Back", "Rejected"];
+
+/* The left edge says at a glance which pile a paper is in. Amber for the one
+   waiting on the teacher, red only for the one that is closed. */
+const EDGE_COLOR = {
+    Pending: DASH.primary,
+    Approved: DASH.green,
+    "Sent Back": DASH.amber,
+    Rejected: DASH.red,
+};
 
 const Meta = ({ icon: Icon, label }) => (
     <Box sx={{ display: "flex", alignItems: "center", gap: 0.4 }}>
@@ -37,8 +47,11 @@ export default function QuestionPaperApprovalPage() {
     const [papers, setPapers] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [tab, setTab] = useState(0);
-    const [rejectTarget, setRejectTarget] = useState(null);
-    const [rejectReason, setRejectReason] = useState("");
+    /* One dialog serves both ways of saying no. It holds the paper and which
+       outcome was chosen, so the wording and the resulting status follow from
+       the same place. */
+    const [review, setReview] = useState(null);
+    const [remarks, setRemarks] = useState("");
 
     const [open, setOpen] = useState(false);
     const [status, setStatus] = useState(false);
@@ -53,7 +66,7 @@ export default function QuestionPaperApprovalPage() {
     const load = useCallback(() => {
         setIsLoading(true);
         const timer = setTimeout(() => {
-            setPapers(MOCK_PAPERS.filter((p) => ["Pending", "Approved", "Rejected"].includes(p.status)));
+            setPapers(MOCK_PAPERS.filter((p) => TABS.includes(p.status)));
             setIsLoading(false);
         }, 300);
         return () => clearTimeout(timer);
@@ -61,11 +74,10 @@ export default function QuestionPaperApprovalPage() {
 
     useEffect(() => { load(); }, [load]);
 
-    const counts = useMemo(() => ({
-        Pending: papers.filter((p) => p.status === "Pending").length,
-        Approved: papers.filter((p) => p.status === "Approved").length,
-        Rejected: papers.filter((p) => p.status === "Rejected").length,
-    }), [papers]);
+    const counts = useMemo(() => TABS.reduce(
+        (acc, name) => ({ ...acc, [name]: papers.filter((p) => p.status === name).length }),
+        {}
+    ), [papers]);
 
     const filtered = useMemo(
         () => papers.filter((p) => p.status === TABS[tab]),
@@ -90,12 +102,26 @@ export default function QuestionPaperApprovalPage() {
         notify(`"${paper.name}" published`, true);
     };
 
-    const confirmReject = () => {
-        if (!rejectReason.trim()) { notify("Tell the teacher what to fix"); return; }
-        setPaperStatus(rejectTarget, "Rejected", rejectReason.trim());
-        notify(`"${rejectTarget.name}" sent back`, true);
-        setRejectTarget(null);
-        setRejectReason("");
+    const openReview = (paper, key) => { setReview({ paper, key }); setRemarks(""); };
+
+    const outcome = review ? REVIEW_OUTCOMES[review.key] : null;
+
+    /* Both outcomes need a note - the teacher has to know what happened, and a
+       rejection with no reason is the one thing worse than no answer at all. */
+    const confirmReview = () => {
+        if (!remarks.trim()) {
+            notify(review.key === "reject" ? "Give a reason for rejecting" : "Tell the teacher what to fix");
+            return;
+        }
+        setPaperStatus(review.paper, outcome.status, remarks.trim());
+        notify(
+            review.key === "reject"
+                ? `"${review.paper.name}" rejected`
+                : `"${review.paper.name}" sent back to ${review.paper.createdBy}`,
+            true
+        );
+        setReview(null);
+        setRemarks("");
     };
 
     return (
@@ -141,7 +167,7 @@ export default function QuestionPaperApprovalPage() {
             </Box>
 
             <Grid container spacing={1.5} sx={{ mb: 2 }}>
-                <Grid size={{ xs: 12, sm: 4, md: 4, lg: 4 }}>
+                <Grid size={{ xs: 6, sm: 3, md: 3, lg: 3 }}>
                     <SolidStatCard
                         icon={PendingActionsOutlinedIcon}
                         label="Waiting on you"
@@ -151,7 +177,7 @@ export default function QuestionPaperApprovalPage() {
                         onClick={() => setTab(0)}
                     />
                 </Grid>
-                <Grid size={{ xs: 12, sm: 4, md: 4, lg: 4 }}>
+                <Grid size={{ xs: 6, sm: 3, md: 3, lg: 3 }}>
                     <SolidStatCard
                         icon={CheckCircleOutlineIcon}
                         label="Approved"
@@ -161,14 +187,24 @@ export default function QuestionPaperApprovalPage() {
                         onClick={() => setTab(1)}
                     />
                 </Grid>
-                <Grid size={{ xs: 12, sm: 4, md: 4, lg: 4 }}>
+                <Grid size={{ xs: 6, sm: 3, md: 3, lg: 3 }}>
+                    <SolidStatCard
+                        icon={ReplayOutlinedIcon}
+                        label="Sent back"
+                        value={counts["Sent Back"]}
+                        note="Waiting on the teacher"
+                        tone={KPI_TONES.violet}
+                        onClick={() => setTab(2)}
+                    />
+                </Grid>
+                <Grid size={{ xs: 6, sm: 3, md: 3, lg: 3 }}>
                     <SolidStatCard
                         icon={CancelOutlinedIcon}
-                        label="Sent back"
+                        label="Rejected"
                         value={counts.Rejected}
-                        note="Waiting on the teacher"
+                        note="Closed, not reworked"
                         tone={KPI_TONES.pink}
-                        onClick={() => setTab(2)}
+                        onClick={() => setTab(3)}
                     />
                 </Grid>
             </Grid>
@@ -226,7 +262,7 @@ export default function QuestionPaperApprovalPage() {
                             <Box
                                 sx={{
                                     bgcolor: "#fff", border: `1px solid ${DASH.line}`,
-                                    borderLeft: `3px solid ${paper.status === "Pending" ? DASH.primary : paper.status === "Approved" ? DASH.green : DASH.red}`,
+                                    borderLeft: `3px solid ${EDGE_COLOR[paper.status] || DASH.line}`,
                                     borderRadius: RADIUS, height: "100%", boxSizing: "border-box",
                                     display: "flex", flexDirection: "column", overflow: "hidden",
                                     transition: "box-shadow .2s ease",
@@ -258,9 +294,30 @@ export default function QuestionPaperApprovalPage() {
                                         <Meta icon={DashboardCustomizeOutlinedIcon} label={paper.patternName} />
                                     </Box>
 
-                                    {paper.status === "Rejected" && paper.rejectReason && (
-                                        <Box sx={{ mt: 1.3, px: 1.2, py: 0.9, borderRadius: RADIUS, bgcolor: DASH.redLight, border: "1px solid #FECACA" }}>
-                                            <Typography sx={{ fontSize: "11.5px", color: "#991B1B", lineHeight: 1.55 }}>
+                                    {/* The note the reviewer left, in the colour of
+                                        the decision it belongs to. */}
+                                    {paper.rejectReason && (paper.status === "Sent Back" || paper.status === "Rejected") && (
+                                        <Box
+                                            sx={{
+                                                mt: 1.3, px: 1.2, py: 0.9, borderRadius: RADIUS,
+                                                bgcolor: paper.status === "Sent Back" ? DASH.amberLight : DASH.redLight,
+                                                border: `1px solid ${paper.status === "Sent Back" ? "#FDE68A" : "#FECACA"}`,
+                                            }}
+                                        >
+                                            <Typography
+                                                sx={{
+                                                    fontSize: "10.5px", fontWeight: 700, letterSpacing: "0.05em",
+                                                    color: paper.status === "Sent Back" ? "#B45309" : "#991B1B", mb: 0.3,
+                                                }}
+                                            >
+                                                {paper.status === "Sent Back" ? "TO FIX" : "REASON"}
+                                            </Typography>
+                                            <Typography
+                                                sx={{
+                                                    fontSize: "11.5px", lineHeight: 1.55,
+                                                    color: paper.status === "Sent Back" ? "#92400E" : "#991B1B",
+                                                }}
+                                            >
                                                 {paper.rejectReason}
                                             </Typography>
                                         </Box>
@@ -273,27 +330,51 @@ export default function QuestionPaperApprovalPage() {
                                         px: 1.8, py: 1.2, borderTop: `1px solid ${DASH.lineSoft}`, bgcolor: "#FCFCFD",
                                     }}
                                 >
-                                    <Button
-                                        onClick={() => navigate(`/dashboardmenu/assessment/question-paper/${paper.id}`, { state: { paper } })}
-                                        startIcon={<VisibilityOutlinedIcon sx={{ fontSize: 15 }} />}
-                                        sx={{ ...outlineBtnSx, py: 0.3, fontSize: "11.5px" }}
-                                    >
-                                        Read paper
-                                    </Button>
+                                    {/* Reading the paper is an icon - it is the one
+                                        action on this row that needs no label, and
+                                        the width it gives back keeps the three
+                                        decisions on a single line. */}
+                                    <Tooltip title="Read paper" arrow>
+                                        <IconButton
+                                            onClick={() => navigate(`/dashboardmenu/assessment/question-paper/${paper.id}`, { state: { paper } })}
+                                            sx={{
+                                                width: 30, height: 30, borderRadius: RADIUS, flexShrink: 0,
+                                                border: `1px solid ${DASH.line}`, bgcolor: "#fff",
+                                                "&:hover": { bgcolor: DASH.primaryLight, borderColor: DASH.primaryBorder },
+                                            }}
+                                        >
+                                            <VisibilityOutlinedIcon sx={{ fontSize: 16, color: DASH.text }} />
+                                        </IconButton>
+                                    </Tooltip>
 
+                                    {/* Two ways to say no. Send back asks for a fix,
+                                        reject closes the paper - so they are worded
+                                        and coloured apart rather than sharing one
+                                        button. */}
                                     {paper.status === "Pending" && (
                                         <>
-                                            <Button
-                                                onClick={() => { setRejectTarget(paper); setRejectReason(""); }}
-                                                startIcon={<CancelOutlinedIcon sx={{ fontSize: 15 }} />}
-                                                sx={{ ...outlineBtnSx, py: 0.3, fontSize: "11.5px", color: DASH.red, borderColor: "#FECACA" }}
-                                            >
-                                                Send back
-                                            </Button>
+                                            <Tooltip title="Back to the teacher to correct and resubmit" arrow>
+                                                <Button
+                                                    onClick={() => openReview(paper, "sendBack")}
+                                                    startIcon={<ReplayOutlinedIcon sx={{ fontSize: 15 }} />}
+                                                    sx={{ ...outlineBtnSx, height: 30, py: 0, fontSize: "11.5px", color: "#B45309", borderColor: "#FDE68A" }}
+                                                >
+                                                    Send back
+                                                </Button>
+                                            </Tooltip>
+                                            <Tooltip title="Close this paper - it cannot be resubmitted" arrow>
+                                                <Button
+                                                    onClick={() => openReview(paper, "reject")}
+                                                    startIcon={<CancelOutlinedIcon sx={{ fontSize: 15 }} />}
+                                                    sx={{ ...outlineBtnSx, height: 30, py: 0, fontSize: "11.5px", color: DASH.red, borderColor: "#FECACA" }}
+                                                >
+                                                    Reject
+                                                </Button>
+                                            </Tooltip>
                                             <Button
                                                 onClick={() => approve(paper)}
                                                 startIcon={<CheckCircleOutlineIcon sx={{ fontSize: 15 }} />}
-                                                sx={{ ...primaryBtnSx, py: 0.3, fontSize: "11.5px", ml: "auto" }}
+                                                sx={{ ...primaryBtnSx, height: 30, py: 0, fontSize: "11.5px", ml: "auto" }}
                                             >
                                                 Approve
                                             </Button>
@@ -304,7 +385,7 @@ export default function QuestionPaperApprovalPage() {
                                         <Button
                                             onClick={() => publish(paper)}
                                             startIcon={<RocketLaunchOutlinedIcon sx={{ fontSize: 15 }} />}
-                                            sx={{ ...primaryBtnSx, py: 0.3, fontSize: "11.5px", ml: "auto", bgcolor: DASH.green, "&:hover": { bgcolor: "#059669" } }}
+                                            sx={{ ...primaryBtnSx, height: 30, py: 0, fontSize: "11.5px", ml: "auto", bgcolor: DASH.green, "&:hover": { bgcolor: "#059669" } }}
                                         >
                                             Publish
                                         </Button>
@@ -317,29 +398,37 @@ export default function QuestionPaperApprovalPage() {
             )}
 
             <Dialog
-                open={Boolean(rejectTarget)}
-                onClose={() => setRejectTarget(null)}
+                open={Boolean(review)}
+                onClose={() => setReview(null)}
                 slotProps={{ paper: { sx: { borderRadius: RADIUS, width: 440 } } }}
             >
                 <DialogTitle sx={{ fontSize: "15px", fontWeight: 700, color: DASH.ink }}>
-                    Send this paper back
+                    {outcome?.title}
                 </DialogTitle>
                 <DialogContent>
-                    <Typography sx={{ fontSize: "12.5px", color: DASH.muted, mb: 1.6 }}>
-                        "{rejectTarget?.name}" goes back to {rejectTarget?.createdBy} with your note.
+                    <Typography sx={{ fontSize: "12.5px", color: DASH.muted, mb: 1.6, lineHeight: 1.6 }}>
+                        "{review?.paper?.name}" {outcome?.blurb}
+                        {review?.key === "sendBack" ? ` ${review?.paper?.createdBy} is notified with your note.` : ""}
                     </Typography>
                     <TextField
                         fullWidth multiline minRows={3} size="small"
-                        label="What needs to change"
-                        value={rejectReason}
-                        onChange={(e) => setRejectReason(e.target.value)}
+                        label={outcome?.field}
+                        value={remarks}
+                        onChange={(e) => setRemarks(e.target.value)}
                         sx={fieldSx}
                     />
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2 }}>
-                    <Button onClick={() => setRejectTarget(null)} sx={outlineBtnSx}>Cancel</Button>
-                    <Button onClick={confirmReject} sx={{ ...primaryBtnSx, bgcolor: DASH.red, "&:hover": { bgcolor: "#DC2626" } }}>
-                        Send back
+                    <Button onClick={() => setReview(null)} sx={outlineBtnSx}>Cancel</Button>
+                    <Button
+                        onClick={confirmReview}
+                        sx={{
+                            ...primaryBtnSx,
+                            bgcolor: review?.key === "reject" ? DASH.red : DASH.amber,
+                            "&:hover": { bgcolor: review?.key === "reject" ? "#DC2626" : "#D97706" },
+                        }}
+                    >
+                        {outcome?.confirm}
                     </Button>
                 </DialogActions>
             </Dialog>

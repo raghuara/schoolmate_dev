@@ -79,9 +79,7 @@ const items = [
         accessKey: "Expense",
         links: [
             { label: "Add Expense", path: "expense", state: { value: "Y", tabKey: "addExpense" }, accessKey: "Expense: Add Expense" },
-            // Add Budget is a dialog on the Expense dashboard, so the shortcut
-            // has to land on that tab and open it.
-            { label: "Add Budget", path: "expense", state: { value: "Y", tabKey: "dashboard", openBudget: true }, accessKey: "Expense: Add Budget" },
+            { label: "Add Budget", path: "expense", state: { value: "Y", tabKey: "setAllocation" }, accessKey: "Expense: Add Budget" },
         ],
     },
     {
@@ -145,14 +143,15 @@ export default function FeeFinancePage() {
     };
     /*
        Expense chips are per-operation, not per-module: the card itself appears
-       for anyone with any expense key, but "Add Expense" needs allowaddexpense
-       and "Add Budget" needs allowaddbudget together with viewdashboard, since
-       the budget dialog lives on that tab.
+       for anyone with any expense key, while each chip carries the one key that
+       grants it. Add Budget used to also require viewdashboard because the
+       budget dialog lived on that tab; it is its own tab now, so allowaddbudget
+       is enough.
     */
     const expensePerms = findSubMenuPermissions(perms, "feeandfinance", "expense") || {};
     const expenseGranted = (key) => allow(() => expensePerms[key] === "Y");
     cardAccess["Expense: Add Expense"] = expenseGranted("allowaddexpense");
-    cardAccess["Expense: Add Budget"] = expenseGranted("allowaddbudget") && expenseGranted("viewdashboard");
+    cardAccess["Expense: Add Budget"] = expenseGranted("allowaddbudget");
 
     // Fee Student Mapping is a wrapper over the two student-assignment screens,
     // so it shows when the user can reach either one.

@@ -481,7 +481,6 @@ export default function NotificationPage() {
             <Grid container>
                 {/* ── FORM COLUMN ── */}
                 <Grid
-                    mt={2}
                     p={2}
                     size={{ xs: 12, sm: 12, md: 6, lg: 6 }}>
                     <Box sx={{
@@ -489,7 +488,6 @@ export default function NotificationPage() {
                         backgroundColor: "#fff",
                         p: 2,
                         borderRadius: "12px",
-                        mt: 4.5,
                         maxHeight: "75.6vh",
                         overflow: "hidden auto",
                         "& *": { maxWidth: "100%" },
@@ -883,7 +881,7 @@ export default function NotificationPage() {
 
                 {/* ── PREVIEW COLUMN ── */}
                 <Grid
-                    sx={{ py: 2, mt: 6.5, pr: 2 }}
+                    sx={{ py: 2, pr: 2 }}
                     size={{ xs: 12, sm: 12, md: 6, lg: 6 }}>
                     <Box sx={{
                         backgroundColor: "#fff",

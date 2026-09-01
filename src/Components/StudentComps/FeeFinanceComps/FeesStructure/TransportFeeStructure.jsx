@@ -32,6 +32,8 @@ import LinkIcon from '@mui/icons-material/Link';
 import InfoIcon from '@mui/icons-material/Info';
 import CloseIcon from '@mui/icons-material/Close';
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import RestartAltIcon from '@mui/icons-material/RestartAlt';
+import { DASH, RADIUS, PageHeader } from '../../../DashBoardComps/dashboardTheme';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import { getAllRoutes, getAllTrip, postTranspoartFee, transpoartFeeFetchByRouteId } from '../../../../Api/Api';
 import LockIcon from '@mui/icons-material/Lock';
@@ -81,28 +83,23 @@ export default function TransportFeeStructure() {
   const canActDirect = approvalRoleFor(approvalMatrix, APPROVAL_SUBMENUS.FEE_STRUCTURE, userTypeID).canPublishDirect;
 
 
-  const isExpanded = useSelector((state) => state.sidebar.isExpanded);
 
   const selectSx = {
-    height: 57,
-    borderRadius: "5px",
-    fontSize: "14px",
+    height: 38,
+    borderRadius: RADIUS,
+    fontSize: "13px",
     backgroundColor: "#fff",
-    transition: "all 0.2s ease",
-    "&:hover": {
-      borderColor: "#1976d2",
-    },
-    "&.Mui-focused": {
-      borderColor: "#1976d2",
-      boxShadow: "0 0 0 2px rgba(25, 118, 210, 0.1)",
-    }
+    transition: "border-color 0.2s ease",
+    "& fieldset": { borderColor: DASH.line },
+    "&:hover fieldset": { borderColor: DASH.faint },
+    "&.Mui-focused fieldset": { borderColor: DASH.blue, borderWidth: "1px" },
   };
 
   const labelSx = {
-    color: "#333",
+    color: DASH.text,
     fontWeight: 600,
-    fontSize: "13px",
-    mb: 0.75,
+    fontSize: "12.5px",
+    mb: 0.6,
     display: "flex",
     alignItems: "center",
     gap: 0.5,
@@ -437,64 +434,41 @@ export default function TransportFeeStructure() {
   };
 
   return (
-    <Box>
-      <Box sx={{ width: "100%", bgcolor: "#fafafa" }}>
+    <Box sx={{ px: { xs: 1.5, md: 3 }, pt: { xs: 1.5, md: 2 }, pb: 4, bgcolor: DASH.canvas, minHeight: "100%", boxSizing: "border-box" }}>
+      <Box sx={{ width: "100%" }}>
         <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
         {isLoading && <Loader />}
 
-        {/* Fixed Header */}
-        <Box sx={{
-          position: "fixed",
-          top: "60px",
-          left: isExpanded ? "260px" : "80px",
-          right: 0,
-          backgroundColor: "#f2f2f2",
-          px: 2,
-          borderTop: "1px solid #ddd",
-          borderBottom: "1px solid #ddd",
-          zIndex: 1200,
-          transition: "left 0.3s ease-in-out",
-          overflow: "hidden",
-          py: 0.7
-        }}>
-          <Grid container>
-            <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }} sx={{ display: "flex", alignItems: "center" }}>
-              <IconButton onClick={() => navigate(-1)} sx={{ width: "32px", height: "32px", mr: 1 }}>
-                <ArrowBackIcon sx={{ fontSize: 20, color: "#333" }} />
-              </IconButton>
-              <Typography sx={{ fontWeight: 600, fontSize: "18px", color: "#333" }}>
-                Create Transport Fee Structure
-              </Typography>
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }} sx={{ display: "flex", alignItems: "center", justifyContent: { xs: "flex-start", md: "flex-end" }, gap: 1.5, mt: { xs: 1, md: 0 } }}>
-              <Button
-                startIcon={<VisibilityIcon />}
-                onClick={() => navigate('created-fees')}
-                sx={{
-                  background: "none",
-                  color: "#000",
-                  textTransform: "none",
-                  fontSize: "13px",
-                  fontWeight: 600,
-                  height: 30,
-                  borderRadius: "30px",
-                  border: "1px solid #000",
-                  px: 3,
-                  boxShadow: "none",
-                  "&:hover": { bgcolor: "#e8e8e8" }
-                }}
-              >
-                Created Fees
-              </Button>
-            </Grid>
-          </Grid>
-        </Box>
+        <PageHeader
+          title="Create Transport Fee"
+          subtitle="Charges by route and stop"
+          onBack={() => navigate(-1)}
+          right={
+            <Button
+              onClick={() => navigate('created-fees')}
+              startIcon={<VisibilityIcon sx={{ fontSize: 17 }} />}
+              sx={{
+                textTransform: "none",
+                fontSize: "13px",
+                fontWeight: 700,
+                height: 34,
+                px: 1.8,
+                borderRadius: RADIUS,
+                color: DASH.text,
+                bgcolor: "#fff",
+                border: `1px solid ${DASH.line}`,
+                "&:hover": { bgcolor: DASH.lineSoft, borderColor: DASH.faint },
+              }}
+            >
+              Created Fees
+            </Button>
+          }
+        />
 
-        {/* Main Content */}
-        <Box sx={{ px: 2, pb: 2, pt: "68px" }}>
+        <Box>
 
           {/* Filter Dropdowns */}
-          <Box sx={{ border: "1px solid #E8DDEA", borderRadius: "5px", bgcolor: "#fff", p: 2, mb: 2 }}>
+          <Box sx={{ border: `1px solid ${DASH.line}`, borderRadius: "5px", bgcolor: "#fff", p: 2, mb: 2 }}>
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, sm: 6, md: 3, lg: 2.5 }}>
                 <InputLabel sx={labelSx}>
@@ -655,36 +629,36 @@ export default function TransportFeeStructure() {
                 {selectedTripDetails.routeInformation.assignBus}
               </Box>
 
-              <Box sx={{ border: "1px solid #E8DDEA", borderRadius: "5px", borderTopLeftRadius: 0, mb: 2, bgcolor: "#fff" }}>
+              <Box sx={{ border: `1px solid ${DASH.line}`, borderRadius: "5px", borderTopLeftRadius: 0, mb: 2, bgcolor: "#fff" }}>
                 <TableContainer>
                   <Table sx={{ minWidth: "100%" }}>
                     <TableHead>
                       <TableRow>
-                        <TableCell sx={{ backgroundColor: "#faf6fc", borderRight: 1, borderColor: "#E8DDEA", fontWeight: 600, fontSize: "13px", color: "#555", py: 1.5, textAlign: "center" }}>
+                        <TableCell sx={{ backgroundColor: DASH.surface, borderRight: 1, borderColor: DASH.line, fontWeight: 700, fontSize: "10.5px", letterSpacing: "0.06em", textTransform: "uppercase", color: DASH.muted, py: 1.2, textAlign: "center" }}>
                           <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, justifyContent: "center" }}>
                             <RouteIcon sx={{ fontSize: 16, color: "#1976d2" }} />
                             Trip Name
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ backgroundColor: "#faf6fc", borderRight: 1, borderColor: "#E8DDEA", fontWeight: 600, fontSize: "13px", color: "#555", textAlign: "center" }}>
+                        <TableCell sx={{ backgroundColor: DASH.surface, borderRight: 1, borderColor: DASH.line, fontWeight: 700, fontSize: "10.5px", letterSpacing: "0.06em", textTransform: "uppercase", color: DASH.muted, py: 1.2, textAlign: "center" }}>
                           <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, justifyContent: "center" }}>
                             <SyncAltIcon sx={{ fontSize: 16, color: "#1976d2" }} />
                             Trip Type
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ backgroundColor: "#faf6fc", borderRight: 1, borderColor: "#E8DDEA", fontWeight: 600, fontSize: "13px", color: "#555", textAlign: "center" }}>
+                        <TableCell sx={{ backgroundColor: DASH.surface, borderRight: 1, borderColor: DASH.line, fontWeight: 700, fontSize: "10.5px", letterSpacing: "0.06em", textTransform: "uppercase", color: DASH.muted, py: 1.2, textAlign: "center" }}>
                           <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, justifyContent: "center" }}>
                             <ScheduleIcon sx={{ fontSize: 16, color: "#1976d2" }} />
                             Trip Slot
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ backgroundColor: "#faf6fc", borderRight: 1, borderColor: "#E8DDEA", fontWeight: 600, fontSize: "13px", color: "#555", textAlign: "center" }}>
+                        <TableCell sx={{ backgroundColor: DASH.surface, borderRight: 1, borderColor: DASH.line, fontWeight: 700, fontSize: "10.5px", letterSpacing: "0.06em", textTransform: "uppercase", color: DASH.muted, py: 1.2, textAlign: "center" }}>
                           <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, justifyContent: "center" }}>
                             <AccessTimeIcon sx={{ fontSize: 16, color: "#1976d2" }} />
                             Duration
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ backgroundColor: "#faf6fc", fontWeight: 600, fontSize: "13px", color: "#555", textAlign: "center" }}>
+                        <TableCell sx={{ backgroundColor: DASH.surface, fontWeight: 600, fontSize: "13px", color: "#555", textAlign: "center" }}>
                           <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, justifyContent: "center" }}>
                             <FmdGoodIcon sx={{ fontSize: 16, color: "#00796b" }} />
                             No. of Bus Stops
@@ -694,12 +668,12 @@ export default function TransportFeeStructure() {
                     </TableHead>
                     <TableBody>
                       <TableRow>
-                        <TableCell sx={{ fontSize: "14px", color: "#333", textAlign: "center", borderRight: 1, borderColor: "#E8DDEA" }}>
+                        <TableCell sx={{ fontSize: "12.5px", color: DASH.text, textAlign: "center", borderRight: 1, borderColor: DASH.line }}>
                           <Typography sx={{ fontWeight: 600, fontSize: "14px" }}>
                             {selectedTripDetails.routeInformation.tripName}
                           </Typography>
                         </TableCell>
-                        <TableCell sx={{ fontSize: "14px", color: "#333", textAlign: "center", borderRight: 1, borderColor: "#E8DDEA" }}>
+                        <TableCell sx={{ fontSize: "12.5px", color: DASH.text, textAlign: "center", borderRight: 1, borderColor: DASH.line }}>
                           <Chip
                             label={selectedTripDetails.routeInformation.tripType.charAt(0).toUpperCase() + selectedTripDetails.routeInformation.tripType.slice(1)}
                             size="small"
@@ -726,7 +700,7 @@ export default function TransportFeeStructure() {
                             }}
                           />
                         </TableCell>
-                        <TableCell sx={{ fontSize: "14px", color: "#333", textAlign: "center", borderRight: 1, borderColor: "#E8DDEA" }}>
+                        <TableCell sx={{ fontSize: "12.5px", color: DASH.text, textAlign: "center", borderRight: 1, borderColor: DASH.line }}>
                           <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, justifyContent: "center" }}>
                             {selectedTripDetails.routeInformation.tripSlot.toLowerCase() === 'morning' && (
                               <WbTwilightIcon sx={{ fontSize: 16, color: "#F97316" }} />
@@ -743,7 +717,7 @@ export default function TransportFeeStructure() {
                             {selectedTripDetails.routeInformation.tripSlot.charAt(0).toUpperCase() + selectedTripDetails.routeInformation.tripSlot.slice(1)}
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ fontSize: "14px", color: "#333", textAlign: "center", borderRight: 1, borderColor: "#E8DDEA" }}>
+                        <TableCell sx={{ fontSize: "12.5px", color: DASH.text, textAlign: "center", borderRight: 1, borderColor: DASH.line }}>
                           <Typography sx={{ fontSize: "14px", fontWeight: 600, color: "#333" }}>
                             {selectedTripDetails.routeInformation.durationTime}
                           </Typography>
@@ -776,7 +750,7 @@ export default function TransportFeeStructure() {
           {!selectedRoute && (
             <Box sx={{
               bgcolor: "#fff",
-              border: "1px solid #E8DDEA",
+              border: `1px solid ${DASH.line}`,
               borderRadius: "5px",
               p: 5,
               mb: 2,
@@ -794,11 +768,11 @@ export default function TransportFeeStructure() {
               }}>
                 <DirectionsBusIcon sx={{ fontSize: 32, color: "#1976d2" }} />
               </Box>
-              <Typography sx={{ fontSize: "16px", fontWeight: 600, color: "#333", mb: 1 }}>
-                No Trip Selected
+              <Typography sx={{ fontSize: "14.5px", fontWeight: 700, color: DASH.ink, mb: 0.5 }}>
+                No trip selected
               </Typography>
-              <Typography sx={{ fontSize: "14px", color: "#666", lineHeight: 1.5 }}>
-                Please select a trip from the dropdown above
+              <Typography sx={{ fontSize: "12.5px", color: DASH.muted, lineHeight: 1.6 }}>
+                Pick a trip from the dropdown above to set its stop-wise fees.
               </Typography>
             </Box>
           )}
@@ -833,10 +807,13 @@ export default function TransportFeeStructure() {
                   ml: "auto",
                   textTransform: "none",
                   fontSize: "12px",
-                  borderRadius: "30px",
-                  color: "#16A34A",
-                  borderColor: "#16A34A",
-                  "&:hover": { bgcolor: "#DCFCE7", borderColor: "#15803D" }
+                  fontWeight: 700,
+                  height: 30,
+                  borderRadius: RADIUS,
+                  color: DASH.green,
+                  borderColor: "#86EFAC",
+                  bgcolor: "#fff",
+                  "&:hover": { bgcolor: DASH.greenLight, borderColor: DASH.green }
                 }}
               >
                 View Created Fees
@@ -849,14 +826,18 @@ export default function TransportFeeStructure() {
             <>
               <Box
                 sx={{
-                  bgcolor: "#00796b",
+                  bgcolor: DASH.blue,
                   color: "#fff",
-                  fontSize: "13px",
-                  px: 3,
-                  py: 0.75,
-                  fontWeight: 600,
-                  borderTopLeftRadius: "7px",
-                  borderTopRightRadius: "7px",
+                  fontSize: "11.5px",
+                  px: 1.4,
+                  py: 0.4,
+                  fontWeight: 700,
+                  position: "relative",
+                  top: "1px",
+                  zIndex: 1,
+                  border: `1px solid ${DASH.blue}`,
+                  borderBottom: "none",
+                  borderRadius: "5px 5px 0 0",
                   width: "fit-content",
                   display: "flex",
                   alignItems: "center",
@@ -869,7 +850,7 @@ export default function TransportFeeStructure() {
 
               <Box sx={{
                 bgcolor: "#fff",
-                border: "1px solid #E8DDEA",
+                border: `1px solid ${DASH.line}`,
                 borderRadius: "5px",
                 borderTopLeftRadius: 0
               }}>
@@ -1001,7 +982,7 @@ export default function TransportFeeStructure() {
                                             maxHeight: 280,
                                             minWidth: 220,
                                             borderRadius: "5px",
-                                            border: "1px solid #E8DDEA",
+                                            border: `1px solid ${DASH.line}`,
                                             boxShadow: "0 6px 20px rgba(0,0,0,0.12)",
                                           }
                                         }
@@ -1097,7 +1078,7 @@ export default function TransportFeeStructure() {
                           >
                             <Box
                               sx={{
-                                border: "1px solid #E8DDEA",
+                                border: `1px solid ${DASH.line}`,
                                 borderRadius: "5px",
                                 p: 1.5,
                               }}
@@ -1132,17 +1113,17 @@ export default function TransportFeeStructure() {
                                 }}
                                 sx={{
                                   "& .MuiOutlinedInput-root": {
-                                    fontSize: "14px",
-                                    bgcolor: "#fafafa",
-                                    borderRadius: "4px",
+                                    fontSize: "13px",
+                                    bgcolor: "#fff",
+                                    borderRadius: RADIUS,
                                     "& fieldset": {
-                                      borderColor: "#E8DDEA"
+                                      borderColor: DASH.line
                                     },
                                     "&:hover fieldset": {
-                                      borderColor: "#bdbdbd"
+                                      borderColor: DASH.faint
                                     },
                                     "&.Mui-focused fieldset": {
-                                      borderColor: "#1976d2",
+                                      borderColor: DASH.blue,
                                       borderWidth: "1px"
                                     }
                                   },
@@ -1181,22 +1162,19 @@ export default function TransportFeeStructure() {
               <Button
                 disabled={feeAlreadyCreated}
                 onClick={handleResetAll}
+                startIcon={<RestartAltIcon sx={{ fontSize: 18 }} />}
                 sx={{
-                  border: "1px solid #000",
-                  borderRadius: "30px",
                   textTransform: "none",
-                  width: "120px",
-                  height: "35px",
-                  color: "#000",
                   fontSize: "13px",
-                  fontWeight: 600,
-                  "&:hover": {
-                    bgcolor: "#f5f5f5"
-                  },
-                  "&.Mui-disabled": {
-                    border: "1px solid #ccc",
-                    color: "#aaa"
-                  }
+                  fontWeight: 700,
+                  height: 34,
+                  px: 1.8,
+                  borderRadius: RADIUS,
+                  color: DASH.text,
+                  bgcolor: "#fff",
+                  border: `1px solid ${DASH.line}`,
+                  "&:hover": { bgcolor: DASH.lineSoft, borderColor: DASH.faint },
+                  "&.Mui-disabled": { color: DASH.faint, borderColor: DASH.lineSoft },
                 }}
               >
                 Reset All
@@ -1211,26 +1189,20 @@ export default function TransportFeeStructure() {
                     variant="contained"
                     disabled={feeAlreadyCreated}
                     onClick={handleApply}
+                    disableElevation
                     sx={{
-                      backgroundColor: websiteSettings.mainColor,
-                      borderRadius: "30px",
                       textTransform: "none",
-                      boxShadow: "none",
-                      border: "1px solid rgba(0,0,0,0.1)",
-                      px: 3,
-                      height: "35px",
-                      color: websiteSettings.textColor,
                       fontSize: "13px",
-                      fontWeight: 600,
-                      "&:hover": {
-                        boxShadow: "none",
-                        opacity: 0.9,
-                      },
-                      "&.Mui-disabled": {
-                        bgcolor: "#e0e0e0",
-                        color: "#aaa",
-                        boxShadow: "none"
-                      }
+                      fontWeight: 700,
+                      height: 34,
+                      px: 2.2,
+                      borderRadius: RADIUS,
+                      backgroundColor: websiteSettings.mainColor,
+                      color: websiteSettings.textColor,
+                      border: "1px solid rgba(0,0,0,0.08)",
+                      boxShadow: "none",
+                      "&:hover": { backgroundColor: websiteSettings.mainColor, filter: "brightness(0.95)", boxShadow: "none" },
+                      "&.Mui-disabled": { bgcolor: DASH.line, color: DASH.faint, boxShadow: "none" },
                     }}
                   >
                     {canActDirect ? "Apply" : "Send for Approval"}
@@ -1299,43 +1271,43 @@ export default function TransportFeeStructure() {
                 <Table stickyHeader>
                   <TableHead>
                     <TableRow>
-                      <TableCell sx={{ backgroundColor: "#faf6fc", borderRight: 1, borderColor: "#E8DDEA", fontWeight: 700, fontSize: "13px", color: "#333", textAlign: "center" }}>
+                      <TableCell sx={{ backgroundColor: DASH.surface, borderRight: 1, borderColor: DASH.line, fontWeight: 700, fontSize: "13px", color: "#333", textAlign: "center" }}>
                         <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, justifyContent: "center" }}>
                           <RouteIcon sx={{ fontSize: 16, color: "#1976d2" }} />
                           Trip Name
                         </Box>
                       </TableCell>
-                      <TableCell sx={{ backgroundColor: "#faf6fc", borderRight: 1, borderColor: "#E8DDEA", fontWeight: 700, fontSize: "13px", color: "#333", textAlign: "center" }}>
+                      <TableCell sx={{ backgroundColor: DASH.surface, borderRight: 1, borderColor: DASH.line, fontWeight: 700, fontSize: "13px", color: "#333", textAlign: "center" }}>
                         <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, justifyContent: "center" }}>
                           <DirectionsBusIcon sx={{ fontSize: 16, color: "#1976d2" }} />
                           Assigned Bus
                         </Box>
                       </TableCell>
-                      <TableCell sx={{ backgroundColor: "#faf6fc", borderRight: 1, borderColor: "#E8DDEA", fontWeight: 700, fontSize: "13px", color: "#333", textAlign: "center" }}>
+                      <TableCell sx={{ backgroundColor: DASH.surface, borderRight: 1, borderColor: DASH.line, fontWeight: 700, fontSize: "13px", color: "#333", textAlign: "center" }}>
                         <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, justifyContent: "center" }}>
                           <SyncAltIcon sx={{ fontSize: 16, color: "#1976d2" }} />
                           Trip Type
                         </Box>
                       </TableCell>
-                      <TableCell sx={{ backgroundColor: "#faf6fc", borderRight: 1, borderColor: "#E8DDEA", fontWeight: 700, fontSize: "13px", color: "#333", textAlign: "center" }}>
+                      <TableCell sx={{ backgroundColor: DASH.surface, borderRight: 1, borderColor: DASH.line, fontWeight: 700, fontSize: "13px", color: "#333", textAlign: "center" }}>
                         <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, justifyContent: "center" }}>
                           <ScheduleIcon sx={{ fontSize: 16, color: "#1976d2" }} />
                           Trip Slot
                         </Box>
                       </TableCell>
-                      <TableCell sx={{ backgroundColor: "#faf6fc", borderRight: 1, borderColor: "#E8DDEA", fontWeight: 700, fontSize: "13px", color: "#333", textAlign: "center" }}>
+                      <TableCell sx={{ backgroundColor: DASH.surface, borderRight: 1, borderColor: DASH.line, fontWeight: 700, fontSize: "13px", color: "#333", textAlign: "center" }}>
                         <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, justifyContent: "center" }}>
                           <AccessTimeIcon sx={{ fontSize: 16, color: "#1976d2" }} />
                           Time & Duration
                         </Box>
                       </TableCell>
-                      <TableCell sx={{ backgroundColor: "#faf6fc", borderRight: 1, borderColor: "#E8DDEA", fontWeight: 700, fontSize: "13px", color: "#333", textAlign: "center" }}>
+                      <TableCell sx={{ backgroundColor: DASH.surface, borderRight: 1, borderColor: DASH.line, fontWeight: 700, fontSize: "13px", color: "#333", textAlign: "center" }}>
                         <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, justifyContent: "center" }}>
                           <CheckCircleIcon sx={{ fontSize: 16, color: "#1976d2" }} />
                           Status
                         </Box>
                       </TableCell>
-                      <TableCell sx={{ backgroundColor: "#faf6fc", fontWeight: 700, fontSize: "13px", color: "#333", textAlign: "center" }}>
+                      <TableCell sx={{ backgroundColor: DASH.surface, fontWeight: 700, fontSize: "13px", color: "#333", textAlign: "center" }}>
                         Action
                       </TableCell>
                     </TableRow>
@@ -1349,7 +1321,7 @@ export default function TransportFeeStructure() {
                           bgcolor: selectedRoute === route.routeInformationId ? "#E3F2FD" : "transparent",
                         }}
                       >
-                        <TableCell sx={{ fontSize: "14px", fontWeight: 600, color: "#333", borderRight: 1, borderColor: "#E8DDEA" }}>
+                        <TableCell sx={{ fontSize: "14px", fontWeight: 600, color: "#333", borderRight: 1, borderColor: DASH.line }}>
                           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                             <Box
                               sx={{
@@ -1370,13 +1342,13 @@ export default function TransportFeeStructure() {
                             {route.tripName}
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ fontSize: "14px", color: "#555", borderRight: 1, borderColor: "#E8DDEA" }}>
+                        <TableCell sx={{ fontSize: "14px", color: "#555", borderRight: 1, borderColor: DASH.line }}>
                           <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
                             <DirectionsBusIcon sx={{ fontSize: 16, color: "#1976d2" }} />
                             {route.assignBus}
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ fontSize: "14px", color: "#555", borderRight: 1, borderColor: "#E8DDEA", textAlign: "center" }}>
+                        <TableCell sx={{ fontSize: "14px", color: "#555", borderRight: 1, borderColor: DASH.line, textAlign: "center" }}>
                           <Chip
                             label={route.tripType}
                             size="small"
@@ -1403,7 +1375,7 @@ export default function TransportFeeStructure() {
                             }}
                           />
                         </TableCell>
-                        <TableCell sx={{ fontSize: "14px", color: "#555", borderRight: 1, borderColor: "#E8DDEA" }}>
+                        <TableCell sx={{ fontSize: "14px", color: "#555", borderRight: 1, borderColor: DASH.line }}>
                           <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
                             {route.tripSlot.toLowerCase() === 'morning' && (
                               <WbTwilightIcon sx={{ fontSize: 16, color: "#F97316" }} />
@@ -1420,7 +1392,7 @@ export default function TransportFeeStructure() {
                             {route.tripSlot}
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ fontSize: "13px", color: "#555", borderRight: 1, borderColor: "#E8DDEA" }}>
+                        <TableCell sx={{ fontSize: "13px", color: "#555", borderRight: 1, borderColor: DASH.line }}>
                           <Typography sx={{ fontSize: "14px", fontWeight: 600, color: "#333" }}>
                             {route.time}
                           </Typography>
@@ -1428,7 +1400,7 @@ export default function TransportFeeStructure() {
                             {route.duration}
                           </Typography>
                         </TableCell>
-                        <TableCell sx={{ textAlign: "center", borderRight: 1, borderColor: "#E8DDEA" }}>
+                        <TableCell sx={{ textAlign: "center", borderRight: 1, borderColor: DASH.line }}>
                           <Chip
                             label={route.active}
                             size="small"
@@ -1449,13 +1421,14 @@ export default function TransportFeeStructure() {
                             sx={{
                               textTransform: "none",
                               fontSize: "12px",
-                              fontWeight: 600,
-                              borderRadius: "30px",
-                              px: 2,
+                              fontWeight: 700,
+                              borderRadius: RADIUS,
+                              height: 28,
+                              px: 1.6,
                               ...(selectedRoute === route.routeInformationId ? {
-                                bgcolor: "#1976d2",
+                                bgcolor: DASH.blue,
                                 boxShadow: "none",
-                                "&:hover": { bgcolor: "#1565c0", boxShadow: "none" }
+                                "&:hover": { bgcolor: "#2563EB", boxShadow: "none" }
                               } : {
                                 borderColor: "#1976d2",
                                 color: "#1976d2",

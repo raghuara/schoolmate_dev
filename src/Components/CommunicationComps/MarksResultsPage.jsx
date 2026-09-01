@@ -1,259 +1,150 @@
-import { Box, Grid, Typography, Button } from "@mui/material";
-import { Link } from "react-router-dom";
+import React, { useState } from "react";
+import { Box, Button, Chip, IconButton, InputAdornment, TextField, Typography } from "@mui/material";
 import { useSelector } from "react-redux";
-import AddIcon from '@mui/icons-material/Add';
+import { useNavigate } from "react-router-dom";
+import AddIcon from "@mui/icons-material/Add";
+import SearchIcon from "@mui/icons-material/Search";
+import HighlightOffIcon from "@mui/icons-material/HighlightOff";
+import NewspaperIcon from "@mui/icons-material/Newspaper";
+import AssessmentOutlinedIcon from "@mui/icons-material/AssessmentOutlined";
+
 import { selectGrades } from "../../Redux/Slices/DropdownController";
 import { selectHasPermission } from "../../Redux/Slices/AuthSlice";
-import NewspaperIcon from '@mui/icons-material/Newspaper';
-import { useLocation, useNavigate } from "react-router-dom";
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-
-
-const categoryColorMap = {
-    Nursery: {
-        primary: "#A749CC",
-        light: "rgba(167, 73, 204, .1)",
-        dark: "rgba(167, 73, 204, .2)",
-    },
-    Primary: {
-        primary: "#F6A059",
-        light: "rgba(246, 160, 89, .1)",
-        dark: "rgba(246, 160, 89, .2)",
-    },
-    Secondary: {
-        primary: "#CF02AB",
-        light: "rgba(159, 1, 132, .1)",
-        dark: "rgba(159, 1, 132, .2)",
-    },
-};
-
-const getCategoryColors = (category) =>
-    categoryColorMap[category] || {
-        primary: "#6C757D",
-        light: "#E9ECEF",
-        dark: "#343A40",
-    };
+import { DASH, createBtnSx } from "../DashBoardComps/dashboardTheme";
+import ClassPickerGrid from "./ClassPickerGrid";
 
 export default function MarksPage() {
-    const navigate = useNavigate()
+    const navigate = useNavigate();
     const grades = useSelector(selectGrades);
-    const user = useSelector((state) => state.auth);
-    const canCreateMarks = useSelector(selectHasPermission('communication', 'marks', 'create'));
-    const rollNumber = user.rollNumber
-    const userType = user.userType
-    const userName = user.name
+    const canCreateMarks = useSelector(selectHasPermission("communication", "marks", "create"));
 
-    const groupedGrades = grades.reduce((acc, item) => {
-        const category = item.category || "Others";
-        if (!acc[category]) acc[category] = [];
-        acc[category].push(item);
-        return acc;
-    }, {});
+    const [searchQuery, setSearchQuery] = useState("");
 
-    const handleCreateNews = () => {
-        navigate('addmarks')
-    }
+    // Search narrows on the class label before grouping, so an empty category
+    // never renders a heading with nothing under it.
+    const visibleGrades = (grades || []).filter((g) =>
+        String(g?.sign || "").toLowerCase().includes(searchQuery.trim().toLowerCase())
+    );
+
     return (
         <Box sx={{ width: "100%" }}>
+            {/* ═══ TOOLBAR — same shape as the other Communication listings ═══ */}
             <Box
                 sx={{
                     backgroundColor: "#f2f2f2",
-                    py: 1.5,
-                    px: 3,
+                    py: 1,
+                    px: 2,
                     borderRadius: "10px 10px 10px 0px",
                     borderBottom: "1px solid #ddd",
                     display: "flex",
-                    justifyContent: "space-between"
+                    alignItems: "center",
+                    gap: 1.5,
+                    flexWrap: "wrap",
                 }}
             >
-                <Typography
-                    sx={{
-                        fontWeight: "600",
-                        fontSize: "20px",
-                    }}
-                >
-                    Marks / Results
-                </Typography>
-
-                {canCreateMarks && (
-                    <Button
-                        onClick={handleCreateNews}
-                        variant="outlined"
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}>
+                    <Typography sx={{ fontWeight: "600", fontSize: "20px", color: DASH.ink, whiteSpace: "nowrap" }}>
+                        Marks / Results
+                    </Typography>
+                    <Chip
+                        size="small"
+                        label={visibleGrades.length}
                         sx={{
-                            borderColor: "#A9A9A9",
-                            backgroundColor: "#000",
-                            py: 0.3,
-                            width: "110px",
-                            height: "30px",
-                            color: "#fff",
-                            textTransform: "none",
-                            border: "none",
-
+                            height: "20px",
+                            fontSize: "11px",
+                            fontWeight: 700,
+                            borderRadius: "6px",
+                            backgroundColor: "#fff",
+                            border: "1px solid #DDE1E6",
+                            color: "#4B5563",
                         }}
-                    >
-                        <AddIcon sx={{ fontSize: "20px" }} />
-                        &nbsp;Marks
-                    </Button>
-                )}
+                    />
+                </Box>
 
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1, ml: "auto", flexWrap: "wrap" }}>
+                    <TextField
+                        variant="outlined"
+                        placeholder="Search by class"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        slotProps={{
+                            input: {
+                                startAdornment: (
+                                    <InputAdornment position="start">
+                                        <SearchIcon sx={{ fontSize: 17, color: "#8A93A0" }} />
+                                    </InputAdornment>
+                                ),
+                                endAdornment: searchQuery ? (
+                                    <InputAdornment position="end">
+                                        <IconButton size="small" onClick={() => setSearchQuery("")} sx={{ p: 0.2 }}>
+                                            <HighlightOffIcon sx={{ fontSize: 15, color: "#8A93A0" }} />
+                                        </IconButton>
+                                    </InputAdornment>
+                                ) : null,
+                                sx: {
+                                    padding: "0 10px",
+                                    borderRadius: "50px",
+                                    height: "28px",
+                                    fontSize: "12px",
+                                },
+                            },
+                        }}
+                        sx={{
+                            width: { xs: "100%", sm: 240 },
+                            "& .MuiOutlinedInput-root": {
+                                minHeight: "28px",
+                                paddingRight: "3px",
+                                backgroundColor: "#fff",
+                            },
+                            "& .MuiOutlinedInput-root .MuiOutlinedInput-notchedOutline": { borderColor: "#DDE1E6" },
+                            "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: DASH.primary },
+                        }}
+                    />
+
+                    {canCreateMarks && (
+                        <Button
+                            onClick={() => navigate("addmarks")}
+                            variant="contained"
+                            startIcon={<AddIcon sx={{ fontSize: 16 }} />}
+                            sx={createBtnSx}
+                        >
+                            Marks
+                        </Button>
+                    )}
+                </Box>
             </Box>
-            <Box sx={{ p: 2 }}>
-                <Box
-                    sx={{
-                        backgroundColor: "#fff",
-                        px: 2,
-                        pt: 2,
-                        borderRadius: "15px",
-                        height: "74vh",
-                        overflowY: "auto",
-                    }}
-                >
-                    {Object.entries(groupedGrades).map(([category, items]) => {
-                        const { primary } = getCategoryColors(category);
 
-                        return (
-                            <Box key={category} sx={{ mb: 1 }}>
-                                {/* Category Heading */}
-                                <Box
-                                    sx={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                        mb: 2
-                                    }}
-                                >
-                                    <Box
-                                        sx={{
-                                            width: "10px",
-                                            height: "10px",
-                                            backgroundColor: primary,
-                                            borderRadius: "50%",
-                                            mr: 1
-                                        }}
-                                    />
-                                    <Typography
-                                        sx={{
-                                            fontWeight: "700",
-                                            fontSize: "16px",
-                                            color: "#000",
-                                        }}
-                                    >
-                                        {category} Results
-                                    </Typography>
-                                </Box>
-                                {/* Items in Category */}
-                                <Grid container spacing={3}>
-                                    {items.map((item, index) => {
-                                        const { light, dark } = getCategoryColors(item.category);
-
-                                        return (
-                                            <Grid
-                                                key={index}
-                                                sx={{ display: "flex", justifyContent: "center" }}
-                                                size={{
-                                                    xs: 12,
-                                                    sm: 6,
-                                                    md: 4
-                                                }}>
-                                                <Link
-                                                    to={`view`}
-                                                    state={{ grade: item.sign, gradeId: item.id }}
-                                                    style={{ textDecoration: "none", width: "100%" }}
-                                                >
-                                                    <Box
-                                                        sx={{
-                                                            backgroundColor: light,
-                                                            width: "100%",
-                                                            height: "80px",
-                                                            py: 2,
-                                                            mb: 2,
-                                                            position: "relative",
-                                                            borderRadius: "7px",
-                                                            cursor: "pointer",
-                                                            "&:hover": {
-                                                                ".arrowIcon": {
-                                                                    opacity: 1,
-                                                                },
-                                                            },
-                                                        }}
-                                                    >
-                                                        <Box
-                                                            sx={{
-                                                                width: "7px",
-                                                                backgroundColor: primary,
-                                                                height: "100%",
-                                                                position: "absolute",
-                                                                left: 0,
-                                                                top: 0,
-                                                                borderTopLeftRadius: "5px",
-                                                                borderBottomLeftRadius: "5px",
-                                                            }}
-                                                        />
-                                                        <Grid
-                                                            container
-                                                            spacing={1}
-                                                            sx={{ height: "100%", px: 2 }}
-                                                        >
-                                                            <Grid
-                                                                sx={{
-                                                                    display: "flex",
-                                                                    justifyContent: "center",
-                                                                    alignItems: "center",
-                                                                }}
-                                                                size={3}>
-                                                                <Box
-                                                                    sx={{
-                                                                        backgroundColor: dark,
-                                                                        borderRadius: "50%",
-                                                                        width: "40px",
-                                                                        height: "40px",
-                                                                        display: "flex",
-                                                                        justifyContent: "center",
-                                                                        alignItems: "center",
-                                                                    }}
-                                                                >
-                                                                    <NewspaperIcon sx={{ color: primary }} width={25} height={25} />
-                                                                </Box>
-                                                            </Grid>
-                                                            <Grid
-                                                                sx={{ display: "flex", justifyContent: "center", alignItems: "center" }}
-                                                                size={5}>
-                                                                <Typography
-                                                                    sx={{
-                                                                        fontWeight: "600",
-                                                                        color: "#000",
-                                                                    }}
-                                                                >
-                                                                    {item.sign}
-                                                                </Typography>
-                                                            </Grid>
-                                                            <Grid
-                                                                sx={{
-                                                                    display: "flex",
-                                                                    alignItems: "center",
-                                                                    justifyContent: "end"
-                                                                }}
-                                                                size={3}>
-                                                                <ArrowForwardIcon
-                                                                    className="arrowIcon"
-                                                                    sx={{
-                                                                        opacity: 0,
-                                                                        fontSize: "28px",
-                                                                        fontWeight: "700",
-                                                                        transition: "opacity 0.3s ease",
-                                                                        color: primary,
-                                                                    }}
-                                                                />
-                                                            </Grid>
-                                                        </Grid>
-                                                    </Box>
-                                                </Link>
-                                            </Grid>
-                                        );
-                                    })}
-                                </Grid>
-                            </Box>
-                        );
-                    })}
+            <Box sx={{ p: 2, pb: 4, bgcolor: DASH.canvas, minHeight: "100%", boxSizing: "border-box" }}>
+                <Box>
+                    {visibleGrades.length === 0 ? (
+                        <Box
+                            sx={{
+                                display: "flex",
+                                flexDirection: "column",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                height: "60vh",
+                                textAlign: "center",
+                            }}
+                        >
+                            <AssessmentOutlinedIcon sx={{ fontSize: 40, color: "#C9CFD8" }} />
+                            <Typography sx={{ fontSize: "15px", fontWeight: 600, color: DASH.text, mt: 1.5 }}>
+                                {searchQuery ? "No classes match your search" : "No classes yet"}
+                            </Typography>
+                            <Typography sx={{ fontSize: "13px", color: DASH.faint, mt: 0.5, maxWidth: 340 }}>
+                                {searchQuery
+                                    ? "Try a different class name, or clear the search to see everything."
+                                    : "Once classes are set up they will appear here."}
+                            </Typography>
+                        </Box>
+                    ) : (
+                        <ClassPickerGrid
+                            grades={visibleGrades}
+                            icon={NewspaperIcon}
+                            sectionSuffix="Results"
+                            getLink={(item) => ({ to: "view", state: { grade: item.sign, gradeId: item.id } })}
+                        />
+                    )}
                 </Box>
             </Box>
         </Box>

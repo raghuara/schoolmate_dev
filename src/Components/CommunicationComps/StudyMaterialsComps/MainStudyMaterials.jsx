@@ -1,4 +1,4 @@
-import { Autocomplete, Box, Button, DialogActions, Dialog, Fab,  IconButton, Paper, Switch, TextField, Typography, ThemeProvider, createTheme, ToggleButtonGroup, ToggleButton, Grid, Tooltip } from "@mui/material";
+import { Autocomplete, Box, Button, Chip, DialogActions, Dialog, Fab, IconButton, Paper, Switch, TextField, Typography, ThemeProvider, createTheme, Grid, Tooltip } from "@mui/material";
 import axios from "axios";
 import { PostedCardsSkeleton } from "../../InnerLoader";
 import React, { useEffect, useRef, useState } from "react";
@@ -19,14 +19,15 @@ import dayjs from "dayjs";
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
-import PdfDemoImage from '../../../Images/pdf-demo.png';
 import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted';
 import GridViewIcon from '@mui/icons-material/GridView';
 import UploadOutlinedIcon from '@mui/icons-material/UploadOutlined';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import folderImage from '../../../Images/PagesImage/folder.png';
 import HighlightOffIcon from '@mui/icons-material/HighlightOff';
 import { findSubMenuPermissions } from "../../../Redux/Slices/AuthSlice";
+import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
+import PictureAsPdfOutlinedIcon from '@mui/icons-material/PictureAsPdfOutlined';
+import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import { DASH, RADIUS } from "../../DashBoardComps/dashboardTheme";
 
 export default function MainStudyMaterialsPage() {
@@ -34,6 +35,21 @@ export default function MainStudyMaterialsPage() {
     const navigate = useNavigate();
     const folderName = localStorage.getItem("FolderName")
     const websiteSettings = useSelector(selectWebsiteSettings);
+    const mainColor = websiteSettings.mainColor || DASH.primary;
+
+    const ghostBtnSx = {
+        textTransform: "none", fontSize: "12.5px", fontWeight: 600, color: DASH.text,
+        bgcolor: "#fff", border: `1px solid ${DASH.line}`, borderRadius: RADIUS,
+        px: 2, height: 34, boxShadow: "none",
+        "&:hover": { bgcolor: DASH.lineSoft, borderColor: DASH.faint },
+    };
+
+    const primaryBtnSx = {
+        textTransform: "none", fontSize: "12.5px", fontWeight: 700,
+        color: websiteSettings.textColor || "#fff", bgcolor: websiteSettings.mainColor || DASH.primary,
+        borderRadius: RADIUS, px: 2.4, height: 34, boxShadow: "none",
+        "&:hover": { bgcolor: websiteSettings.mainColor || DASH.primary, filter: "brightness(0.92)", boxShadow: "none" },
+    };
     const academicYear = useSelector(selectAcademicYear);
     const [openAlert, setOpenAlert] = useState(false);
     const [openImage, setOpenImage] = useState(false);
@@ -89,12 +105,6 @@ export default function MainStudyMaterialsPage() {
         sectionName: section,
     })) || [];
 
-
-    const handleViewChange = (event, nextView) => {
-        if (nextView) {
-            setView(nextView);
-        }
-    };
 
     useEffect(() => {
         if (grades && grades.length > 0) {
@@ -325,575 +335,253 @@ export default function MainStudyMaterialsPage() {
         <Box sx={{ width: "100%", }}>
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
             {isLoading && <Loader />}
-            <Box sx={{ backgroundColor: "#f2f2f2", px: 2, py: 1, borderRadius: "10px 10px 10px 0px", borderBottom: "1px solid #ddd", }}>
-                <Grid container>
-                    <Grid
-                        sx={{ display: "flex", alignItems: "center" }}
-                        size={{
-                            xs: 6,
-                            sm: 6,
-                            md: 6,
-                            lg: 2.5
+            <Box sx={{
+                backgroundColor: "#f2f2f2",
+                px: 2,
+                py: 1,
+                borderRadius: "10px 10px 10px 0px",
+                borderBottom: "1px solid #ddd",
+                display: "flex",
+                alignItems: "center",
+                gap: 1.5,
+                flexWrap: "wrap",
+            }}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}>
+                    <Link style={{ textDecoration: "none" }} to="/dashboardmenu/studymaterials/folder">
+                        <IconButton sx={{ width: "27px", height: "27px" }}>
+                            <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
+                        </IconButton>
+                    </Link>
+
+                    <Box sx={{
+                        width: 30, height: 30, flexShrink: 0, borderRadius: RADIUS,
+                        bgcolor: `${mainColor}14`, border: `1px solid ${mainColor}33`,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                    }}>
+                        <FolderOutlinedIcon sx={{ fontSize: 16, color: mainColor }} />
+                    </Box>
+
+                    <Tooltip title={folderName} arrow>
+                        <Typography sx={{
+                            fontSize: "19px", fontWeight: 600, color: DASH.ink,
+                            maxWidth: { xs: "140px", sm: "240px", md: "340px" },
+                            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                         }}>
-                        <Link style={{ textDecoration: "none" }} to="/dashboardmenu/studymaterials/folder">
-                            <IconButton sx={{ width: "27px", height: "27px", marginTop: '2px', mr: 1 }}>
-                                <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
-                            </IconButton>
-                        </Link>
-                        <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                            <Box sx={{ display: "flex", alignItems: "center" }}>
-                                <img src={folderImage} width={"25px"} height={"20px"} alt="" />
-                                <Tooltip title={folderName}>
-                                    <Typography sx={{ fontSize: '19px', color: '#000', fontWeight: '600', pl: 1, maxWidth: { xs: "160px", sm: "260px", md: "360px" }, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                        {folderName}
-                                    </Typography>
-                                </Tooltip>
-                            </Box>
+                            {folderName}
+                        </Typography>
+                    </Tooltip>
 
-                            <Box
-                                sx={{
-                                    position: "fixed",
-                                    top: "120px",
-                                    right: "20px",
-                                    zIndex: 999,
-                                }}
-                            >
-                                {canView && (
-                                    <ToggleButtonGroup
-                                        value={view}
-                                        exclusive
-                                        onChange={handleViewChange}
-                                        sx={{ marginBottom: 2 }}
-                                        aria-label="View Toggle"
-                                    >
-                                        <ToggleButton
-                                            value="grid"
-                                            aria-label="Grid View"
-                                            sx={{
-                                                borderRadius: "50px",
-                                                pl: 2,
-                                                pt: 0.3,
-                                                pb: 0.3,
-                                                color: "#000",
-                                                backgroundColor: "#E3E3E5",
-                                                '&:hover': {
-                                                    backgroundColor: "#d0d0d0",
-                                                },
-                                                '&.Mui-selected': {
-                                                    backgroundColor: websiteSettings.mainColor,
-                                                    color: websiteSettings.textColor,
-                                                    '&:hover': {
-                                                        backgroundColor: websiteSettings.mainColor,
-                                                    },
-                                                },
-                                            }}
-                                        >
-                                            <GridViewIcon sx={{ fontSize: "18px" }} />
-                                        </ToggleButton>
-
-                                        <ToggleButton
-                                            value="list"
-                                            aria-label="List View"
-                                            sx={{
-                                                borderRadius: "50px",
-                                                pr: 2,
-                                                pt: 0.3,
-                                                pb: 0.3,
-                                                color: "#000",
-                                                backgroundColor: "#E3E3E5",
-                                                '&:hover': {
-                                                    backgroundColor: "#d0d0d0",
-                                                },
-                                                '&.Mui-selected': {
-                                                    backgroundColor: websiteSettings.mainColor,
-                                                    color: '#000',
-                                                    '&:hover': {
-                                                        backgroundColor: websiteSettings.mainColor,
-                                                    },
-                                                },
-                                            }}
-                                        >
-                                            <FormatListBulletedIcon sx={{ fontSize: "18px" }} />
-                                        </ToggleButton>
-                                    </ToggleButtonGroup>
-                                )}
-                            </Box>
-                        </Box>
-                    </Grid>
-                    <Grid
-                        sx={{ display: "flex", justifyContent: "center", alignItems: "center", pr: 2 }}
-                        size={{
-                            xs: 6,
-                            sm: 6,
-                            md: 6,
-                            lg: 3
-                        }}>
-                        {canCreate &&
-                            <>
-                                <Typography sx={{ fontWeight: "600", fontSize: "12px" }} >My Projects</Typography>
-                                <Switch
-                                    checked={checked}
-                                    onChange={handleCheck}
-                                    inputProps={{ "aria-label": "controlled" }}
-                                    sx={{
-                                        "& .MuiSwitch-thumb": {
-                                            backgroundColor: checked ? websiteSettings.mainColor : "default",
-                                        },
-                                        "& .MuiSwitch-track": {
-                                            borderWidth: checked ? "0" : "1px",
-                                            borderStyle: "solid",
-                                            backgroundColor: checked ? `${websiteSettings.mainColor} !important` : "#fff",
-                                            // borderColor: checked ? websiteSettings.mainColor : "#bdbdbd",
-                                        },
-                                        "&.MuiSwitch-root.Mui-focusVisible .MuiSwitch-thumb": {
-                                            backgroundColor: checked ? websiteSettings.mainColor : "default",
-                                        },
-                                        "&.MuiSwitch-root.Mui-focusVisible .MuiSwitch-track": {
-                                            backgroundColor: checked ? websiteSettings.mainColor : "#bdbdbd",
-                                        },
-                                        "& .MuiSwitch-focusVisible": {
-                                            outline: "none !important",
-                                        },
-                                    }}
-                                />
-                            </>
-                        }
-                    </Grid>
-                    <Grid
-                        sx={{ display: "flex", justifyContent: "center", alignItems: "center" }}
-                        size={{
-                            xs: 12,
-                            sm: 12,
-                            md: 6,
-                            lg: 5
-                        }}>
-                        <Grid container spacing={2}>
-                            <Grid
-                                size={{
-                                    lg: 4
-                                }}>
-                                {/* <Autocomplete
-                                    disablePortal
-                                    options={grades}
-                                    getOptionLabel={(option) => option.sign}
-                                    value={grades.find((item) => item.id === selectedGradeId) || null}
-                                    onChange={(event, newValue) => {
-                                        handleGradeChange(newValue);
-                                    }}
-                                    isOptionEqualToValue={(option, value) => option.id === value.id}
-                                    sx={{ width: "100%" }}
-                                    PaperComponent={(props) => (
-                                        <Paper
-                                            {...props}
-                                            style={{
-                                                ...props.style,
-                                                maxHeight: "150px",
-                                                backgroundColor: "#000",
-                                                color: "#fff",
-                                            }}
-                                        />
-                                    )}
-                                    renderOption={(props, option) => (
-                                        <li {...props} className="classdropdownOptions">
-                                            {option.sign}
-                                        </li>
-                                    )}
-                                    renderInput={(params) => (
-                                        <TextField
-                                            placeholder="Select Class"
-                                            {...params}
-                                            fullWidth
-                                            InputProps={{
-                                                ...params.InputProps,
-                                                sx: {
-                                                    paddingRight: 0,
-                                                    height: "33px",
-                                                    fontSize: "13px",
-                                                    fontWeight: "600",
-                                                },
-                                            }}
-                                        />
-                                    )}
-                                /> */}
-                            </Grid>
-
-                            <Grid
-                                size={{
-                                    lg: 4
-                                }}>
-                                {/* <Autocomplete
-                                    disablePortal
-                                    options={subjectOptions.map((subject) => ({ sectionName: subject }))}
-                                    getOptionLabel={(option) => option.sectionName}
-                                    value={
-                                        selectedSubject
-                                            ? { sectionName: selectedSubject }
-                                            : null
-                                    }
-                                    onChange={handleSubjectChange}
-                                    isOptionEqualToValue={(option, value) =>
-                                        option.sectionName === value.sectionName
-                                    }
-                                    sx={{ width: "100%" }}
-                                    PaperComponent={(props) => (
-                                        <Paper
-                                            {...props}
-                                            style={{
-                                                ...props.style,
-                                                maxHeight: "150px",
-                                                backgroundColor: "#000",
-                                                color: "#fff",
-                                            }}
-                                        />
-                                    )}
-                                    renderOption={(props, option) => (
-                                        <li {...props} className="classdropdownOptions">
-                                            {option.sectionName}
-                                        </li>
-                                    )}
-                                    renderInput={(params) => (
-                                        <TextField
-                                            {...params}
-                                            fullWidth
-                                            InputProps={{
-                                                ...params.InputProps,
-                                                sx: {
-                                                    height: "33px",
-                                                    fontSize: "13px",
-                                                    fontWeight: "600",
-                                                },
-                                            }}
-                                            placeholder="Select Subject"
-                                        />
-                                    )}
-                                /> */}
-                            </Grid>
-                            <Grid
-                                size={{
-                                    lg: 4
-                                }}>
-                                <Autocomplete
-                                    disablePortal
-                                    options={sections}
-                                    getOptionLabel={(option) => option.sectionName}
-                                    value={
-                                        sections.find((option) => option.sectionName === selectedSection) ||
-                                        null
-                                    }
-                                    onChange={handleSectionChange}
-                                    isOptionEqualToValue={(option, value) =>
-                                        option.sectionName === value.sectionName
-                                    }
-                                    sx={{ width: "100%" }}
-                                    PaperComponent={(props) => (
-                                        <Paper
-                                            {...props}
-                                            style={{
-                                                ...props.style,
-                                                maxHeight: "150px",
-                                                backgroundColor: "#000",
-                                                color: "#fff",
-                                            }}
-                                        />
-                                    )}
-                                    renderOption={(props, option) => (
-                                        <li {...props} className="classdropdownOptions">
-                                            {option.sectionName}
-                                        </li>
-                                    )}
-                                    renderInput={(params) => (
-                                        <TextField
-                                            {...params}
-                                            fullWidth
-                                            placeholder="Select Section"
-                                            InputProps={{
-                                                ...params.InputProps,
-                                                sx: {
-                                                    paddingRight: 0,
-                                                    height: "33px",
-                                                    fontSize: "13px",
-                                                    fontWeight: "600",
-                                                },
-                                            }}
-                                        />
-                                    )}
-                                />
-                            </Grid>
-                        </Grid>
-                    </Grid>
-
-                    <Grid
-                        sx={{ display: "flex", justifyContent: "end", alignItems: "center", px: 1 }}
-                        size={{
-                            xs: 8,
-                            sm: 8,
-                            md: 6,
-                            lg: 1.5
-                        }}>
-                        <Box sx={{ width: "100px" }}>
-                            <ThemeProvider theme={darkTheme}>
-                                <LocalizationProvider dateAdapter={AdapterDayjs}>
-                                    <DatePicker
-                                        open={openCal}
-                                        onClose={handleClose}
-                                        value={selectedDate}
-                                        onChange={(newValue) => {
-                                            setSelectedDate(newValue);
-                                            const newFormattedDate = dayjs(newValue).format('DD-MM-YYYY');
-                                            setFormattedDate(newFormattedDate);
-                                            handleClose();
-                                        }}
-                                        disableFuture
-                                        views={['year', 'month', 'day']}
-                                        renderInput={() => null}
-                                        sx={{
-                                            opacity: 0,
-                                            pointerEvents: 'none',
-                                            width: "0px",
-                                        }}
-
-                                    />
-
-                                    <IconButton sx={{
-                                        width: '40px',
-                                        mt: 0.8,
-                                        height: '40px',
-                                        transition: 'color 0.3s, background-color 0.3s',
-                                        '&:hover': {
-                                            color: '#fff',
-                                            backgroundColor: 'rgba(0,0,0,0.1)',
-                                        },
-
-                                    }}
-                                        onClick={handleOpen}>
-                                        <CalendarMonthIcon style={{ color: "#000" }} />
-                                    </IconButton>
-                                    {selectedDate ? (
-                                        <Tooltip title="Clear Date">
-                                            <IconButton sx={{
-                                                marginTop: '10px',
-                                                width: '40px',
-                                                mt: 0.8,
-                                                height: '40px',
-                                                transition: 'color 0.3s, background-color 0.3s',
-                                                '&:hover': {
-                                                    color: '#fff',
-                                                    backgroundColor: 'rgba(0,0,0,0.1)',
-                                                },
-                                            }} onClick={handleClearDate}>
-                                                <HighlightOffIcon style={{ color: "#000" }} />
-                                            </IconButton>
-                                        </Tooltip>
-                                    ) : (
-                                        <Box sx={{ width: "80px" }}>
-                                        </Box>
-                                    )}
-                                </LocalizationProvider>
-                            </ThemeProvider>
-                        </Box>
-                        {/* <Button
-                            onClick={handleCreateNews}
-                            variant="outlined"
+                    {selectedGradeName && (
+                        <Chip
+                            size="small"
+                            label={selectedGradeName}
                             sx={{
-                                borderColor: "#A9A9A9",
-                                backgroundColor: "#000",
-                                py: 0.3,
-                                width: "180px",
-                                height: "30px",
-                                color: "#fff",
-                                textTransform: "none",
-                                border: "none",
-
+                                height: 20, fontSize: "11px", fontWeight: 700, borderRadius: "6px",
+                                bgcolor: `${mainColor}14`, color: mainColor,
                             }}
-                        >
-                            <AddIcon sx={{ fontSize: "20px" }} />
-                            &nbsp;Materials
-                        </Button> */}
-                    </Grid>
-                </Grid>
+                        />
+                    )}
+                </Box>
+
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1, ml: "auto", flexWrap: "wrap" }}>
+                    <Autocomplete
+                        disablePortal
+                        size="small"
+                        options={sections}
+                        getOptionLabel={(option) => option.sectionName}
+                        value={sections.find((option) => option.sectionName === selectedSection) || null}
+                        onChange={handleSectionChange}
+                        isOptionEqualToValue={(option, value) => option.sectionName === value.sectionName}
+                        PaperComponent={(props) => (
+                            <Paper {...props} style={{ ...props.style, maxHeight: "150px", backgroundColor: "#000", color: "#fff" }} />
+                        )}
+                        renderOption={(props, option) => (
+                            <li {...props} className="classdropdownOptions">{option.sectionName}</li>
+                        )}
+                        renderInput={(params) => (
+                            <TextField
+                                {...params}
+                                fullWidth
+                                placeholder="All sections"
+                                sx={{
+                                    "& .MuiOutlinedInput-root": {
+                                        height: 30, fontSize: "12.5px", borderRadius: RADIUS, bgcolor: "#fff", paddingRight: 0,
+                                        "& fieldset": { borderColor: "#DDE1E6" },
+                                        "&:hover fieldset": { borderColor: "#9AA3AF" },
+                                        "&.Mui-focused fieldset": { borderColor: mainColor, borderWidth: "1px" },
+                                    },
+                                }}
+                            />
+                        )}
+                        sx={{ width: { xs: "100%", sm: 160 } }}
+                    />
+
+                    <ThemeProvider theme={darkTheme}>
+                        <LocalizationProvider dateAdapter={AdapterDayjs}>
+                            <DatePicker
+                                open={openCal}
+                                onClose={handleClose}
+                                value={selectedDate}
+                                onChange={(newValue) => {
+                                    setSelectedDate(newValue);
+                                    setFormattedDate(dayjs(newValue).format('DD-MM-YYYY'));
+                                    handleClose();
+                                }}
+                                disableFuture
+                                views={['year', 'month', 'day']}
+                                sx={{ opacity: 0, pointerEvents: 'none', width: 0, position: "absolute" }}
+                            />
+
+                            {selectedDate ? (
+                                <Chip
+                                    size="small"
+                                    icon={<CalendarMonthIcon sx={{ fontSize: 15 }} />}
+                                    label={formattedDate}
+                                    onClick={handleOpen}
+                                    onDelete={handleClearDate}
+                                    deleteIcon={<HighlightOffIcon sx={{ fontSize: 15 }} />}
+                                    sx={{
+                                        height: 30, fontSize: "12px", fontWeight: 700, borderRadius: RADIUS,
+                                        bgcolor: `${mainColor}14`, color: mainColor, border: `1px solid ${mainColor}33`,
+                                        "& .MuiChip-icon, & .MuiChip-deleteIcon": { color: "inherit" },
+                                    }}
+                                />
+                            ) : (
+                                <Tooltip title="Filter by date" arrow>
+                                    <IconButton
+                                        onClick={handleOpen}
+                                        sx={{
+                                            width: 30, height: 30, borderRadius: RADIUS,
+                                            border: "1px solid #DDE1E6", bgcolor: "#fff",
+                                            "&:hover": { bgcolor: DASH.lineSoft, borderColor: "#9AA3AF" },
+                                        }}
+                                    >
+                                        <CalendarMonthIcon sx={{ fontSize: 16, color: DASH.text }} />
+                                    </IconButton>
+                                </Tooltip>
+                            )}
+                        </LocalizationProvider>
+                    </ThemeProvider>
+
+                    {canCreate && (
+                        <Box sx={{
+                            display: "flex", alignItems: "center", gap: 0.4, height: 30, pl: 1.2, pr: 0.4,
+                            borderRadius: RADIUS, border: "1px solid #DDE1E6", bgcolor: "#fff",
+                        }}>
+                            <Typography sx={{ fontSize: "11.5px", fontWeight: 700, color: checked ? mainColor : DASH.muted, whiteSpace: "nowrap" }}>
+                                My Projects
+                            </Typography>
+                            <Switch
+                                size="small"
+                                checked={checked}
+                                onChange={handleCheck}
+                                inputProps={{ "aria-label": "My projects only" }}
+                                sx={{
+                                    "& .MuiSwitch-thumb": { backgroundColor: checked ? mainColor : "#fff" },
+                                    "& .MuiSwitch-track": { backgroundColor: checked ? `${mainColor} !important` : "#C9CFD8" },
+                                }}
+                            />
+                        </Box>
+                    )}
+
+                    {canView && (
+                        <Box sx={{
+                            display: "flex", alignItems: "center", gap: 0.4, height: 30, p: 0.4,
+                            borderRadius: RADIUS, border: "1px solid #DDE1E6", bgcolor: "#fff",
+                        }}>
+                            {[
+                                { key: "grid", icon: GridViewIcon, label: "Grid view" },
+                                { key: "list", icon: FormatListBulletedIcon, label: "List view" },
+                            ].map((option) => {
+                                const OptionIcon = option.icon;
+                                const active = view === option.key;
+                                return (
+                                    <Tooltip key={option.key} title={option.label} arrow>
+                                        <Box
+                                            onClick={() => setView(option.key)}
+                                            sx={{
+                                                display: "flex", alignItems: "center", justifyContent: "center",
+                                                width: 26, height: 22, borderRadius: RADIUS, cursor: "pointer",
+                                                bgcolor: active ? `${mainColor}14` : "transparent",
+                                                transition: "background-color .15s ease",
+                                                "&:hover": { bgcolor: active ? `${mainColor}14` : DASH.lineSoft },
+                                            }}
+                                        >
+                                            <OptionIcon sx={{ fontSize: 15, color: active ? mainColor : DASH.faint }} />
+                                        </Box>
+                                    </Tooltip>
+                                );
+                            })}
+                        </Box>
+                    )}
+                </Box>
             </Box>
             <Box ref={boxRef} sx={{ maxHeight: "83vh", overflowY: "auto" }}>
-                <Dialog open={openAlert} onClose={() => setOpenAlert(false)}>
-                    <Box sx={{ display: "flex", justifyContent: "center", p: 2, backgroundColor: '#fff', }}>
-
+                <Dialog
+                    open={openAlert}
+                    onClose={() => setOpenAlert(false)}
+                    maxWidth="xs"
+                    fullWidth
+                    slotProps={{ paper: { sx: { borderRadius: "12px", overflow: "hidden" } } }}
+                >
+                    <Box sx={{ height: 3, bgcolor: DASH.red }} />
+                    <Box sx={{ p: 2.4, textAlign: "center" }}>
                         <Box sx={{
-                            textAlign: 'center',
-                            backgroundColor: '#fff',
-                            p: 3,
-                            maxWidth: "420px",
+                            width: 40, height: 40, mx: "auto", borderRadius: RADIUS,
+                            bgcolor: DASH.redLight, border: "1px solid #FECACA",
+                            display: "flex", alignItems: "center", justifyContent: "center",
                         }}>
-
-                            <Typography sx={{ fontSize: "20px" }}> Do you really want to delete
-                                this?</Typography>
-                            <DialogActions sx={{
-                                justifyContent: 'center',
-                                backgroundColor: '#fff',
-                                pt: 2
-                            }}>
-                                <Button
-                                    onClick={() => handleCloseDialog(false)}
-                                    sx={{
-                                        textTransform: 'none',
-                                        width: "80px",
-                                        borderRadius: '10px',
-                                        fontSize: '16px',
-                                        py: 0.2,
-                                        border: '1px solid black',
-                                        color: 'black',
-                                    }}
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    onClick={() => handleCloseDialog(true)}
-                                    sx={{
-                                        textTransform: 'none',
-                                        backgroundColor: websiteSettings.mainColor,
-                                        width: "90px",
-                                        borderRadius: '10px',
-                                        fontSize: '16px',
-                                        py: 0.2,
-                                        color: websiteSettings.textColor,
-                                    }}
-                                >
-                                    Delete
-                                </Button>
-                            </DialogActions>
+                            <DeleteOutlineOutlinedIcon sx={{ fontSize: 21, color: DASH.red }} />
                         </Box>
-
+                        <Typography sx={{ fontSize: "15.5px", fontWeight: 700, color: DASH.ink, mt: 1.4 }}>
+                            Delete this study material?
+                        </Typography>
+                        <Typography sx={{ fontSize: "12.5px", color: DASH.muted, mt: 0.6, lineHeight: 1.6 }}>
+                            Students will no longer see it. This cannot be undone.
+                        </Typography>
+                        <DialogActions sx={{ justifyContent: "center", pt: 2.4, gap: 1 }}>
+                            <Button sx={ghostBtnSx} onClick={() => handleCloseDialog(false)}>Cancel</Button>
+                            <Button
+                                sx={{ ...primaryBtnSx, bgcolor: DASH.red, color: "#fff", "&:hover": { bgcolor: "#DC2626", boxShadow: "none" } }}
+                                onClick={() => handleCloseDialog(true)}
+                            >
+                                Yes, delete
+                            </Button>
+                        </DialogActions>
                     </Box>
                 </Dialog>
 
-                <Dialog open={openEditAlert} onClose={() => setOpenEditAlert(false)}>
-                    <Box sx={{ display: "flex", justifyContent: "center", p: 2, backgroundColor: '#fff', }}>
-
+                <Dialog
+                    open={openEditAlert}
+                    onClose={() => setOpenEditAlert(false)}
+                    maxWidth="xs"
+                    fullWidth
+                    slotProps={{ paper: { sx: { borderRadius: "12px", overflow: "hidden" } } }}
+                >
+                    <Box sx={{ height: 3, bgcolor: mainColor }} />
+                    <Box sx={{ p: 2.4, textAlign: "center" }}>
                         <Box sx={{
-                            textAlign: 'center',
-                            backgroundColor: '#fff',
-                            p: 3,
-                            maxWidth: "420px",
+                            width: 40, height: 40, mx: "auto", borderRadius: RADIUS,
+                            bgcolor: `${mainColor}14`, border: `1px solid ${mainColor}33`,
+                            display: "flex", alignItems: "center", justifyContent: "center",
                         }}>
-
-                            <Typography sx={{ fontSize: "20px" }}>Do you really want to make
-                                changes to this study material?</Typography>
-                            <DialogActions sx={{
-                                justifyContent: 'center',
-                                backgroundColor: '#fff',
-                                pt: 2
-                            }}>
-                                <Button
-                                    onClick={() => handleEditCloseDialog(false)}
-                                    sx={{
-                                        textTransform: 'none',
-                                        width: "80px",
-                                        borderRadius: '10px',
-                                        fontSize: '16px',
-                                        py: 0.2,
-                                        border: '1px solid black',
-                                        color: 'black',
-                                    }}
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    onClick={() => handleEditCloseDialog(true)}
-                                    sx={{
-                                        textTransform: 'none',
-                                        backgroundColor: websiteSettings.mainColor,
-                                        width: "80px",
-                                        borderRadius: '10px',
-                                        fontSize: '16px',
-                                        py: 0.2,
-                                        color: websiteSettings.textColor,
-                                    }}
-                                >
-                                    Edit
-                                </Button>
-                            </DialogActions>
+                            <EditOutlinedIcon sx={{ fontSize: 20, color: mainColor }} />
                         </Box>
-
+                        <Typography sx={{ fontSize: "15.5px", fontWeight: 700, color: DASH.ink, mt: 1.4 }}>
+                            Replace this study material?
+                        </Typography>
+                        <Typography sx={{ fontSize: "12.5px", color: DASH.muted, mt: 0.6, lineHeight: 1.6 }}>
+                            You will be taken to the edit screen to upload a new file.
+                        </Typography>
+                        <DialogActions sx={{ justifyContent: "center", pt: 2.4, gap: 1 }}>
+                            <Button sx={ghostBtnSx} onClick={() => handleEditCloseDialog(false)}>Cancel</Button>
+                            <Button sx={primaryBtnSx} onClick={() => handleEditCloseDialog(true)}>Continue</Button>
+                        </DialogActions>
                     </Box>
                 </Dialog>
 
                 <Box sx={{ p: 2 }}>
                     <Box>
-                        {/* <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                            <Box sx={{ display: "flex", alignItems: "center" }}>
-                                <img src={folderImage} width={"25px"} height={"20px"} alt="" />
-                                <Typography sx={{ fontSize: '19px', color: '#000', fontWeight: '600', pl: 1 }}>
-                                    {folderName}
-                                </Typography>
-                            </Box>
-
-                            <Box
-                        sx={{
-                            position: "fixed",
-                            top: "120px",
-                            right: "20px",
-                            zIndex: 999,
-                        }}
-                    >
-                        {canView && (
-                            <ToggleButtonGroup
-                                value={view}
-                                exclusive
-                                onChange={handleViewChange}
-                                sx={{ marginBottom: 2 }}
-                                aria-label="View Toggle"
-                            >
-                                <ToggleButton
-                                    value="grid"
-                                    aria-label="Grid View"
-                                    sx={{
-                                        borderRadius: "50px",
-                                        pl: 2,
-                                        pt: 0.3,
-                                        pb: 0.3,
-                                        color: "#000",
-                                        backgroundColor: "#E3E3E5",
-                                        '&:hover': {
-                                            backgroundColor: "#d0d0d0",
-                                        },
-                                        '&.Mui-selected': {
-                                            backgroundColor: websiteSettings.mainColor,
-                                            color: '#000',
-                                            '&:hover': {
-                                                backgroundColor: websiteSettings.mainColor,
-                                            },
-                                        },
-                                    }}
-                                >
-                                    <GridViewIcon sx={{ fontSize: "18px" }} />
-                                </ToggleButton>
-
-                                <ToggleButton
-                                    value="list"
-                                    aria-label="List View"
-                                    sx={{
-                                        borderRadius: "50px",
-                                        pr: 2,
-                                        pt: 0.3,
-                                        pb: 0.3,
-                                        color: "#000",
-                                        backgroundColor: "#E3E3E5",
-                                        '&:hover': {
-                                            backgroundColor: "#d0d0d0",
-                                        },
-                                        '&.Mui-selected': {
-                                            backgroundColor: websiteSettings.mainColor,
-                                            color: '#000',
-                                            '&:hover': {
-                                                backgroundColor: websiteSettings.mainColor,
-                                            },
-                                        },
-                                    }}
-                                >
-                                    <FormatListBulletedIcon sx={{ fontSize: "18px" }} />
-                                </ToggleButton>
-                            </ToggleButtonGroup>
-                        )}
-                    </Box>
-                        </Box> */}
 
                         {view === 'grid' ? (
                             <Grid container spacing={3}>
@@ -904,19 +592,25 @@ export default function MainStudyMaterialsPage() {
                                     <React.Fragment key={date}>
                                         {/* Render the date */}
                                         <Grid size={12}>
-                                            <Typography sx={{
-                                                fontSize: "11px",
-                                                color: "rgba(0,0,0,0.7)",
-
-                                            }}>
-                                                Posted on: {date} {day}
-                                            </Typography>
+                                            <Box sx={{ display: "flex", alignItems: "center", gap: 1.2 }}>
+                                                <Typography sx={{
+                                                    fontSize: "11px",
+                                                    fontWeight: 700,
+                                                    letterSpacing: "0.06em",
+                                                    textTransform: "uppercase",
+                                                    color: DASH.muted,
+                                                    whiteSpace: "nowrap",
+                                                }}>
+                                                    {date} · {day}
+                                                </Typography>
+                                                <Box sx={{ flex: 1, height: "1px", bgcolor: DASH.line }} />
+                                            </Box>
                                         </Grid>
 
                                         {items.map((table, index) => (
                                             <Grid
                                                 key={index}
-                                                sx={{ position: 'relative' }}
+                                                sx={{ position: 'relative', display: 'flex' }}
                                                 size={{
                                                     xs: 12,
                                                     sm: 6,
@@ -925,154 +619,157 @@ export default function MainStudyMaterialsPage() {
 
                                                 <Box
                                                     sx={{
-                                                        backgroundColor: '#00467B',
-                                                        p: 0.5,
-                                                        borderRadius: '5px 5px 0px 0px',
-                                                        width: '100px',
-                                                        pl: 1.2
+                                                        width: "100%",
+                                                        display: "flex",
+                                                        flexDirection: "column",
+                                                        overflow: "hidden",
+                                                        bgcolor: "#fff",
+                                                        border: `1px solid ${DASH.line}`,
+                                                        borderRadius: RADIUS,
+                                                        boxShadow: "0px 1px 3px rgba(16,24,40,0.06)",
+                                                        transition: "box-shadow .2s ease, border-color .2s ease, transform .2s ease",
+                                                        "&:hover": {
+                                                            transform: "translateY(-2px)",
+                                                            borderColor: `${mainColor}66`,
+                                                            boxShadow: "0 6px 18px rgba(17,24,39,0.10)",
+                                                            ".smOverlay": { opacity: 1 },
+                                                        },
                                                     }}
                                                 >
-                                                    <Typography sx={{ fontSize: '12px', color: '#fff', fontWeight: '600' }}>
-                                                        {selectedGradeName} - {selectedSection || "A1"}
-                                                    </Typography>
-                                                </Box>
-                                                <Box sx={{ border: "1px solid #e7e7e7", borderRadius: "0px 5px 5px 5px" }}>
-                                                    <Box
-                                                        sx={{
-                                                            backgroundColor: '#fff',
-                                                            borderRadius: '5px 5px 0px 0px',
-                                                            width: '100%',
-                                                            py: 1
-                                                        }}
-                                                    >
-                                                        <Typography sx={{ fontSize: '14px', color: '#000', fontWeight: '600', pl: 1 }}>
-                                                            {table.heading} ({table.subject})
-                                                        </Typography>
+                                                    <Box sx={{ px: 1.4, py: 1.2, borderBottom: `1px solid ${DASH.lineSoft}` }}>
+                                                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.6, mb: 0.6, flexWrap: "wrap" }}>
+                                                            <Chip
+                                                                size="small"
+                                                                label={`${selectedGradeName} - ${selectedSection || "A1"}`}
+                                                                sx={{ height: 19, fontSize: "10px", fontWeight: 700, borderRadius: RADIUS, bgcolor: `${mainColor}14`, color: mainColor }}
+                                                            />
+                                                            {table.subject && (
+                                                                <Chip
+                                                                    size="small"
+                                                                    label={table.subject}
+                                                                    sx={{ height: 19, fontSize: "10px", fontWeight: 700, borderRadius: RADIUS, bgcolor: DASH.lineSoft, color: DASH.muted }}
+                                                                />
+                                                            )}
+                                                        </Box>
+                                                        <Tooltip title={table.heading} arrow>
+                                                            <Typography sx={{ fontSize: "13.5px", fontWeight: 700, color: DASH.ink }} noWrap>
+                                                                {table.heading}
+                                                            </Typography>
+                                                        </Tooltip>
                                                     </Box>
-                                                    <Box
-                                                        sx={{
-                                                            position: 'relative',
-                                                            display: "flex",
-                                                            justifyContent: "center",
-                                                            '&:hover .overlay': {
-                                                                opacity: 1,
-                                                            },
-                                                        }}
-                                                    >
-                                                        {table.fileType === "image" &&
-                                                            <img
+
+                                                    <Box sx={{
+                                                        position: "relative",
+                                                        height: 200,
+                                                        bgcolor: DASH.surface,
+                                                        display: "flex",
+                                                        alignItems: "center",
+                                                        justifyContent: "center",
+                                                        overflow: "hidden",
+                                                    }}>
+                                                        {table.fileType === "image" ? (
+                                                            <Box
+                                                                component="img"
                                                                 src={table.filePath}
-                                                                alt={`Timetable for ${table.gradeSection}`}
-                                                                width="100%"
-                                                                height="271px"
-                                                                style={{ borderRadius: '0px 0px 5px 5px' }}
+                                                                alt={table.heading}
+                                                                sx={{ width: "100%", height: "100%", objectFit: "cover" }}
                                                             />
-                                                        }
-                                                        {table.fileType === "pdf" &&
-                                                            <img
-                                                                src={PdfDemoImage}
-                                                                alt={`Timetable for ${table.gradeSection}`}
-                                                                width="300px"
-                                                                height="271px"
+                                                        ) : (
+                                                            <Box sx={{ textAlign: "center" }}>
+                                                                <PictureAsPdfOutlinedIcon sx={{ fontSize: 38, color: DASH.red }} />
+                                                                <Typography sx={{ fontSize: "11.5px", color: DASH.muted, mt: 0.4 }}>
+                                                                    PDF document
+                                                                </Typography>
+                                                            </Box>
+                                                        )}
 
-                                                                style={{ borderRadius: '0px 0px 5px 5px', }}
-                                                            />
-                                                        }
-
-                                                        {/* Overlay Box for the View Button */}
                                                         <Box
-                                                            className="overlay"
+                                                            className="smOverlay"
                                                             sx={{
-                                                                position: 'absolute',
-                                                                top: 0,
-                                                                left: 0,
-                                                                width: '100%',
-                                                                height: '100%',
-                                                                backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                justifyContent: 'center',
+                                                                position: "absolute",
+                                                                inset: 0,
+                                                                bgcolor: "rgba(17,24,39,0.55)",
+                                                                display: "flex",
+                                                                alignItems: "center",
+                                                                justifyContent: "center",
                                                                 opacity: 0,
-                                                                transition: 'opacity 0.3s ease-in-out',
+                                                                transition: "opacity .25s ease",
                                                             }}
                                                         >
-                                                            {table.fileType === "image" &&
-                                                                <Button
-                                                                    variant="outlined"
-                                                                    sx={{
-                                                                        textTransform: 'none',
-                                                                        padding: '2px 15px',
-                                                                        borderRadius: '10px',
-                                                                        fontSize: '12px',
-                                                                        border: '2px solid white',
-                                                                        color: 'white',
-                                                                        fontWeight: '600',
-                                                                        backgroundColor: 'transparent',
-                                                                    }}
-                                                                    onClick={() => handleViewClick(table.filePath)}
-                                                                >
-                                                                    View Image
-                                                                </Button>
-                                                            }
-                                                            {table.fileType === "pdf" &&
-                                                                <Button
-                                                                    variant="outlined"
-                                                                    sx={{
-                                                                        textTransform: 'none',
-                                                                        padding: '2px 15px',
-                                                                        borderRadius: '10px',
-                                                                        fontSize: '12px',
-                                                                        border: '2px solid white',
-                                                                        color: 'white',
-                                                                        fontWeight: '600',
-                                                                        backgroundColor: 'transparent',
-                                                                    }}
-                                                                    onClick={() => handlePdfViewClick(table.filePath)}
-                                                                >
-                                                                    View Pdf
-                                                                </Button>
-                                                            }
+                                                            <Button
+                                                                startIcon={<VisibilityOutlinedIcon sx={{ fontSize: 15 }} />}
+                                                                onClick={() => (
+                                                                    table.fileType === "image"
+                                                                        ? handleViewClick(table.filePath)
+                                                                        : handlePdfViewClick(table.filePath)
+                                                                )}
+                                                                sx={{
+                                                                    textTransform: "none",
+                                                                    fontSize: "12px",
+                                                                    fontWeight: 700,
+                                                                    color: "#fff",
+                                                                    border: "1px solid rgba(255,255,255,0.7)",
+                                                                    borderRadius: RADIUS,
+                                                                    px: 1.8,
+                                                                    height: 30,
+                                                                    "&:hover": { bgcolor: "rgba(255,255,255,0.12)" },
+                                                                }}
+                                                            >
+                                                                {table.fileType === "image" ? "View image" : "View PDF"}
+                                                            </Button>
                                                         </Box>
                                                     </Box>
-                                                </Box>
-                                                <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
-                                                    {canEdit && (
-                                                        <Button
-                                                            variant="outlined"
-                                                            onClick={() => handleEdit(table.id)}
-                                                            sx={{
-                                                                textTransform: 'none',
-                                                                width: '100px',
-                                                                height: '25px',
-                                                                mr: 1,
-                                                                borderRadius: '10px',
-                                                                fontSize: '10px',
-                                                                border: '1px solid black',
-                                                                color: 'black',
-                                                                fontWeight: '600',
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                justifyContent: 'center',
-                                                            }}
-                                                        >
-                                                            <EditOutlinedIcon style={{ fontSize: '15px' }} />
-                                                            &nbsp;Reupload
-                                                        </Button>
-                                                    )}
 
-                                                    {canDelete && (
-                                                        <IconButton
-                                                            onClick={() => handleDelete(table.id)}
-                                                            sx={{
-                                                                border: '1px solid black',
-                                                                width: '25px',
-                                                                height: '25px',
-                                                            }}
-                                                        >
-                                                            <DeleteOutlineOutlinedIcon style={{ fontSize: '15px', color: '#000' }} />
-                                                        </IconButton>
+                                                    {(canEdit || canDelete) && (
+                                                        <Box sx={{
+                                                            display: "flex",
+                                                            alignItems: "center",
+                                                            justifyContent: "flex-end",
+                                                            gap: 0.8,
+                                                            px: 1.4,
+                                                            py: 1,
+                                                            borderTop: `1px solid ${DASH.lineSoft}`,
+                                                            bgcolor: DASH.surface,
+                                                        }}>
+                                                            {canEdit && (
+                                                                <Button
+                                                                    onClick={() => handleEdit(table.id)}
+                                                                    startIcon={<EditOutlinedIcon sx={{ fontSize: 14 }} />}
+                                                                    sx={{
+                                                                        textTransform: "none",
+                                                                        fontSize: "11.5px",
+                                                                        fontWeight: 700,
+                                                                        color: DASH.text,
+                                                                        bgcolor: "#fff",
+                                                                        border: `1px solid ${DASH.line}`,
+                                                                        borderRadius: RADIUS,
+                                                                        height: 28,
+                                                                        px: 1.2,
+                                                                        "&:hover": { bgcolor: DASH.lineSoft, borderColor: DASH.faint },
+                                                                    }}
+                                                                >
+                                                                    Reupload
+                                                                </Button>
+                                                            )}
+                                                            {canDelete && (
+                                                                <Tooltip title="Delete" arrow>
+                                                                    <IconButton
+                                                                        onClick={() => handleDelete(table.id)}
+                                                                        sx={{
+                                                                            width: 28,
+                                                                            height: 28,
+                                                                            borderRadius: RADIUS,
+                                                                            border: `1px solid ${DASH.line}`,
+                                                                            bgcolor: "#fff",
+                                                                            "&:hover": { bgcolor: DASH.redLight, borderColor: "#FECACA" },
+                                                                        }}
+                                                                    >
+                                                                        <DeleteOutlineOutlinedIcon sx={{ fontSize: 15, color: DASH.red }} />
+                                                                    </IconButton>
+                                                                </Tooltip>
+                                                            )}
+                                                        </Box>
                                                     )}
-
                                                 </Box>
                                             </Grid>
                                         ))}
@@ -1086,12 +783,19 @@ export default function MainStudyMaterialsPage() {
                                     <React.Fragment key={date}>
                                         {/* Render the date */}
                                         <Grid size={12}>
-                                            <Typography sx={{
-                                                fontSize: "11px",
-                                                color: "rgba(0,0,0,0.7)",
-                                            }}>
-                                                Posted on: {date} | {day}
-                                            </Typography>
+                                            <Box sx={{ display: "flex", alignItems: "center", gap: 1.2 }}>
+                                                <Typography sx={{
+                                                    fontSize: "11px",
+                                                    fontWeight: 700,
+                                                    letterSpacing: "0.06em",
+                                                    textTransform: "uppercase",
+                                                    color: DASH.muted,
+                                                    whiteSpace: "nowrap",
+                                                }}>
+                                                    {date} · {day}
+                                                </Typography>
+                                                <Box sx={{ flex: 1, height: "1px", bgcolor: DASH.line }} />
+                                            </Box>
                                         </Grid>
 
                                         {/* Render the grids for that date */}

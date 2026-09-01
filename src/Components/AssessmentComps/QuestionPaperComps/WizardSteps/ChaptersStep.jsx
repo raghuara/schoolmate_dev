@@ -12,10 +12,14 @@ import CloudUploadOutlinedIcon from "@mui/icons-material/CloudUploadOutlined";
 
 import { DASH, RADIUS, Panel, EmptyNote } from "../../../DashBoardComps/dashboardTheme";
 import { chapterPageCount } from "../../../AcademicsComps/BooksChaptersComps/bookApi";
+import { StatusPill } from "../../../AcademicsComps/BooksChaptersComps/bookTheme";
 import { fieldSx, outlineBtnSx, primaryBtnSx, Banner } from "../questionPaperTheme";
 
 export default function ChaptersStep({
     books,
+    pendingBooks = [],
+    gradeLabel,
+    subject,
     bookId,
     onBookChange,
     selectedChapterIds,
@@ -38,24 +42,81 @@ export default function ChaptersStep({
     const weightTotal = selected.reduce((sum, c) => sum + (Number(weightage[c.id]) || 0), 0);
     const balanced = selected.length === 0 || weightTotal === 100;
 
+    const portion = [gradeLabel, subject].filter(Boolean).join(" - ");
+
     if (!books.length) {
+        /* The library does hold books for this class and subject - they just are
+           not confirmed. Listing them turns a dead end into one click. */
+        const hasPending = pendingBooks.length > 0;
+
         return (
-            <Box sx={{ bgcolor: "#fff", border: `1px dashed ${DASH.line}`, borderRadius: RADIUS, py: 7, px: 3, textAlign: "center" }}>
-                <MenuBookOutlinedIcon sx={{ fontSize: 44, color: DASH.line }} />
-                <Typography sx={{ fontSize: "15px", fontWeight: 700, color: DASH.ink, mt: 1.2 }}>
-                    No confirmed book for this class and subject
-                </Typography>
-                <Typography sx={{ fontSize: "12.5px", color: DASH.muted, mt: 0.6, mb: 2.4, maxWidth: 520, mx: "auto", lineHeight: 1.7 }}>
-                    Questions are generated from chapters, so a book has to be in the library first.
-                    Upload it, confirm the detected chapter split, then come back to this step.
-                </Typography>
-                <Button
-                    onClick={() => navigate("/dashboardmenu/books/upload")}
-                    startIcon={<CloudUploadOutlinedIcon sx={{ fontSize: 16 }} />}
-                    sx={primaryBtnSx}
-                >
-                    Upload Book
-                </Button>
+            <Box sx={{ bgcolor: "#fff", border: `1px dashed ${DASH.line}`, borderRadius: RADIUS, py: hasPending ? 4 : 7, px: 3 }}>
+                <Box sx={{ textAlign: "center" }}>
+                    <MenuBookOutlinedIcon sx={{ fontSize: 44, color: DASH.line }} />
+                    <Typography sx={{ fontSize: "15px", fontWeight: 700, color: DASH.ink, mt: 1.2 }}>
+                        {hasPending
+                            ? `No confirmed book yet${portion ? ` for ${portion}` : ""}`
+                            : `No book in the library${portion ? ` for ${portion}` : " for this class and subject"}`}
+                    </Typography>
+                    <Typography sx={{ fontSize: "12.5px", color: DASH.muted, mt: 0.6, mb: 2.4, maxWidth: 540, mx: "auto", lineHeight: 1.7 }}>
+                        {hasPending
+                            ? "Questions are generated from chapters, so the chapter split has to be confirmed first. These are already in the library:"
+                            : "Questions are generated from chapters, so a book has to be in the library first. Upload it, confirm the detected chapter split, then come back to this step."}
+                    </Typography>
+                </Box>
+
+                {hasPending && (
+                    <Box sx={{ maxWidth: 560, mx: "auto", mb: 2.4 }}>
+                        {pendingBooks.map((b) => (
+                            <Box
+                                key={b.id}
+                                sx={{
+                                    display: "flex", alignItems: "center", gap: 1.2, flexWrap: "wrap",
+                                    border: `1px solid ${DASH.line}`, borderRadius: RADIUS,
+                                    bgcolor: "#FCFCFD", px: 1.4, py: 1.1, mb: 1,
+                                }}
+                            >
+                                <Box sx={{ minWidth: 0, flex: 1 }}>
+                                    <Typography
+                                        sx={{
+                                            fontSize: "12.5px", fontWeight: 700, color: DASH.ink,
+                                            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                                        }}
+                                    >
+                                        {b.title}
+                                    </Typography>
+                                    <Typography sx={{ fontSize: "11px", color: DASH.muted, mt: 0.2 }}>
+                                        {b.chapterCount || (b.chapters || []).length} chapters - {b.pages} pages
+                                    </Typography>
+                                </Box>
+                                <StatusPill status={b.status} dense />
+                                <Button
+                                    onClick={() => navigate(`/dashboardmenu/books/${b.id}`, { state: { book: b } })}
+                                    sx={{ ...outlineBtnSx, py: 0.3, fontSize: "11.5px" }}
+                                >
+                                    {b.status === "Needs Review" ? "Confirm chapters" : "Open book"}
+                                </Button>
+                            </Box>
+                        ))}
+                    </Box>
+                )}
+
+                <Box sx={{ display: "flex", gap: 1, justifyContent: "center", flexWrap: "wrap" }}>
+                    <Button
+                        onClick={() => navigate("/dashboardmenu/books")}
+                        startIcon={<MenuBookOutlinedIcon sx={{ fontSize: 16 }} />}
+                        sx={outlineBtnSx}
+                    >
+                        Books &amp; Chapters
+                    </Button>
+                    <Button
+                        onClick={() => navigate("/dashboardmenu/books/upload")}
+                        startIcon={<CloudUploadOutlinedIcon sx={{ fontSize: 16 }} />}
+                        sx={primaryBtnSx}
+                    >
+                        Upload Book
+                    </Button>
+                </Box>
             </Box>
         );
     }

@@ -1,13 +1,15 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useRef, useState, useEffect } from "react";
 import {
     Box, Grid, Typography, Button, TextField, InputAdornment, IconButton, Switch, Chip,
-    Avatar, AvatarGroup, Dialog, DialogTitle, DialogContent, Menu, MenuItem, Divider, Tooltip, CircularProgress,
+    Avatar, AvatarGroup, Menu, MenuItem, Tooltip, CircularProgress,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import CloseIcon from "@mui/icons-material/Close";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import NorthEastIcon from "@mui/icons-material/NorthEast";
 import SwapHorizIcon from "@mui/icons-material/SwapHoriz";
+import HighlightOffIcon from "@mui/icons-material/HighlightOff";
+import GroupOutlinedIcon from "@mui/icons-material/GroupOutlined";
 import ForumOutlinedIcon from "@mui/icons-material/ForumOutlined";
 import BadgeOutlinedIcon from "@mui/icons-material/BadgeOutlined";
 import PaymentsOutlinedIcon from "@mui/icons-material/PaymentsOutlined";
@@ -25,7 +27,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
 import SnackBar from "../SnackBar";
 import { GetUserTypePermissions, UpdateUserTypePermissions, UpdateUsersUserType } from "../../Api/Api";
-import { DASH, RADIUS, BRAND, CARD_DESC_H, PageHeader, SectionTitle, EmptyNote } from "../DashBoardComps/dashboardTheme";
+import { DASH, RADIUS, BRAND, CARD_DESC_H, PageHeader, SectionTitle, EmptyNote, Panel } from "../DashBoardComps/dashboardTheme";
 
 const TOKEN = "123";
 
@@ -104,9 +106,10 @@ export default function FeaturePermissionsPage() {
     const [savedDashboardView, setSavedDashboardView] = useState(DEFAULT_DASHBOARD_VIEW);
     const [savingDashboard, setSavingDashboard] = useState(false);
 
-    // Members / move
-    const [membersOpen, setMembersOpen] = useState(false);
-    const [members, setMembers] = useState([]);
+    // Members / move - rendered inline on the page.
+    const usersRef = useRef(null);
+    const [members, setMembers] = useState(() => roleMembers(role));
+    const [memberSearch, setMemberSearch] = useState("");
     const [moveAnchor, setMoveAnchor] = useState(null);
     const [moveMember, setMoveMember] = useState(null);
     const [movingId, setMovingId] = useState(null);
@@ -203,7 +206,18 @@ export default function FeaturePermissionsPage() {
         return !q || "dashboard".includes(q) || DASHBOARD_VIEWS.some((v) => v.name.toLowerCase().includes(q));
     }, [search]);
 
-    const openMembers = () => { setMembers(roleMembers(role)); setMembersOpen(true); };
+    // Keep the list in step with whichever role was opened.
+    useEffect(() => { setMembers(roleMembers(role)); }, [role]);
+
+    const scrollToUsers = () => usersRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+
+    const visibleMembers = useMemo(() => {
+        const q = memberSearch.trim().toLowerCase();
+        if (!q) return members;
+        return members.filter(
+            (m) => (m.name || "").toLowerCase().includes(q) || String(m.rollNumber || "").toLowerCase().includes(q),
+        );
+    }, [members, memberSearch]);
     const openMoveMenu = (e, m) => { setMoveAnchor(e.currentTarget); setMoveMember(m); };
     const closeMoveMenu = () => { setMoveAnchor(null); setMoveMember(null); };
     const handleMove = async (target) => {
@@ -314,7 +328,7 @@ export default function FeaturePermissionsPage() {
                         </Box>
                     </Box>
                     <Button
-                        onClick={openMembers}
+                        onClick={scrollToUsers}
                         endIcon={<NorthEastIcon sx={{ fontSize: 13 }} />}
                         sx={{ textTransform: "none", fontWeight: 700, fontSize: "12px", color: ACCENT, "&:hover": { bgcolor: "transparent", textDecoration: "underline" } }}
                     >
@@ -558,56 +572,122 @@ export default function FeaturePermissionsPage() {
                 {enabledCount} of {MODULES.length} features enabled for {role.name}.
             </Typography>
 
-            {/* Manage Users dialog */}
-            <Dialog open={membersOpen} onClose={() => setMembersOpen(false)} maxWidth="sm" fullWidth slotProps={{ paper: { sx: { borderRadius: "10px" } } }}>
-                <DialogTitle sx={{ p: 2, display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: `1px solid ${DASH.lineSoft}` }}>
-                    <Box>
-                        <Typography sx={{ fontSize: "15px", fontWeight: 700, color: DASH.ink }}>{role.name} — Users</Typography>
-                        <Typography sx={{ fontSize: "11.5px", color: DASH.muted }}>{members.length.toLocaleString()} users in this role</Typography>
-                    </Box>
-                    <IconButton size="small" onClick={() => setMembersOpen(false)}><CloseIcon sx={{ fontSize: 18 }} /></IconButton>
-                </DialogTitle>
-                <DialogContent sx={{ p: 2 }}>
-                    {members.length === 0 ? (
-                        <EmptyNote text="No users to show." />
-                    ) : members.map((m, i) => (
-                        <Box key={m.id}>
-                            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1, py: 1 }}>
-                                <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, minWidth: 0 }}>
-                                    <Avatar sx={{ width: 32, height: 32, fontSize: "11.5px", fontWeight: 700, bgcolor: `${colorFor(m.name)}22`, color: colorFor(m.name) }}>
-                                        {getInitials(m.name)}
-                                    </Avatar>
-                                    <Box sx={{ minWidth: 0 }}>
-                                        <Typography sx={{ fontSize: "13px", fontWeight: 700, color: DASH.ink }} noWrap>{m.name}</Typography>
-                                        <Typography sx={{ fontSize: "10.5px", color: DASH.faint, fontFamily: "monospace" }}>#{m.rollNumber}</Typography>
-                                    </Box>
-                                </Box>
-                                <Tooltip title="Move to another user type" arrow>
-                                    <span>
-                                        <Button
-                                            size="small"
-                                            onClick={(e) => openMoveMenu(e, m)}
-                                            disabled={movingId === m.id}
-                                            startIcon={movingId === m.id
-                                                ? <CircularProgress size={12} sx={{ color: DASH.text }} />
-                                                : <SwapHorizIcon sx={{ fontSize: 15 }} />}
+            {/* Users in this role - on the page, not in a popup */}
+            <Box ref={usersRef} sx={{ mt: 3 }}>
+                <SectionTitle icon={GroupOutlinedIcon}>Users in this role</SectionTitle>
+
+                <Panel
+                    title={`${role.name} Users`}
+                    subtitle={
+                        memberSearch
+                            ? `${visibleMembers.length} of ${members.length} shown`
+                            : `${members.length.toLocaleString()} user${members.length === 1 ? "" : "s"} assigned to this role`
+                    }
+                    accent={ACCENT}
+                    bodySx={{ p: 0 }}
+                    right={
+                        <TextField
+                            size="small"
+                            placeholder="Search name or roll number"
+                            value={memberSearch}
+                            onChange={(e) => setMemberSearch(e.target.value)}
+                            slotProps={{
+                                input: {
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <SearchIcon sx={{ fontSize: 17, color: DASH.faint }} />
+                                        </InputAdornment>
+                                    ),
+                                    endAdornment: memberSearch ? (
+                                        <InputAdornment position="end">
+                                            <IconButton size="small" onClick={() => setMemberSearch("")} sx={{ p: 0.2 }}>
+                                                <HighlightOffIcon sx={{ fontSize: 15, color: DASH.faint }} />
+                                            </IconButton>
+                                        </InputAdornment>
+                                    ) : null,
+                                },
+                            }}
+                            sx={{
+                                width: { xs: "100%", sm: 240 },
+                                "& .MuiOutlinedInput-root": {
+                                    height: 32,
+                                    fontSize: "12.5px",
+                                    borderRadius: RADIUS,
+                                    bgcolor: "#fff",
+                                    "& fieldset": { borderColor: DASH.line },
+                                    "&:hover fieldset": { borderColor: DASH.faint },
+                                    "&.Mui-focused fieldset": { borderColor: ACCENT, borderWidth: "1px" },
+                                },
+                            }}
+                        />
+                    }
+                >
+                    {visibleMembers.length === 0 ? (
+                        <EmptyNote
+                            text={
+                                members.length === 0
+                                    ? "No users are assigned to this role yet."
+                                    : `No user matches \u201c${memberSearch}\u201d.`
+                            }
+                        />
+                    ) : (
+                        <Box sx={{ maxHeight: "52vh", overflowY: "auto" }}>
+                            <Grid container>
+                                {visibleMembers.map((m) => (
+                                    <Grid key={m.id} size={{ xs: 12, md: 6, lg: 4 }} sx={{ display: "flex" }}>
+                                        <Box
                                             sx={{
-                                                textTransform: "none", fontWeight: 700, fontSize: "11.5px", color: DASH.text,
-                                                border: `1px solid ${DASH.line}`, borderRadius: RADIUS, height: 28, px: 1.2,
+                                                display: "flex",
+                                                alignItems: "center",
+                                                justifyContent: "space-between",
+                                                gap: 1,
+                                                width: "100%",
+                                                px: 1.6,
+                                                py: 1.1,
+                                                borderBottom: `1px solid ${DASH.lineSoft}`,
+                                                borderRight: { xs: "none", md: `1px solid ${DASH.lineSoft}` },
+                                                transition: "background-color 0.15s",
                                                 "&:hover": { bgcolor: DASH.surface },
-                                                "&.Mui-disabled": { color: DASH.faint, borderColor: DASH.line },
                                             }}
                                         >
-                                            {movingId === m.id ? "Moving…" : "Move"}
-                                        </Button>
-                                    </span>
-                                </Tooltip>
-                            </Box>
-                            {i < members.length - 1 && <Divider />}
+                                            <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, minWidth: 0 }}>
+                                                <Avatar sx={{ width: 32, height: 32, fontSize: "11.5px", fontWeight: 700, bgcolor: `${colorFor(m.name)}22`, color: colorFor(m.name) }}>
+                                                    {getInitials(m.name)}
+                                                </Avatar>
+                                                <Box sx={{ minWidth: 0 }}>
+                                                    <Typography sx={{ fontSize: "13px", fontWeight: 700, color: DASH.ink }} noWrap>{m.name}</Typography>
+                                                    <Typography sx={{ fontSize: "10.5px", color: DASH.faint, fontFamily: "monospace" }}>#{m.rollNumber}</Typography>
+                                                </Box>
+                                            </Box>
+                                            <Tooltip title="Move to another user type" arrow>
+                                                <span>
+                                                    <Button
+                                                        size="small"
+                                                        onClick={(e) => openMoveMenu(e, m)}
+                                                        disabled={movingId === m.id}
+                                                        startIcon={movingId === m.id
+                                                            ? <CircularProgress size={12} sx={{ color: DASH.text }} />
+                                                            : <SwapHorizIcon sx={{ fontSize: 15 }} />}
+                                                        sx={{
+                                                            textTransform: "none", fontWeight: 700, fontSize: "11.5px", color: DASH.text,
+                                                            bgcolor: "#fff", border: `1px solid ${DASH.line}`, borderRadius: RADIUS,
+                                                            height: 28, px: 1.2, flexShrink: 0,
+                                                            "&:hover": { bgcolor: DASH.lineSoft, borderColor: DASH.faint },
+                                                            "&.Mui-disabled": { color: DASH.faint, borderColor: DASH.lineSoft },
+                                                        }}
+                                                    >
+                                                        {movingId === m.id ? "Moving…" : "Move"}
+                                                    </Button>
+                                                </span>
+                                            </Tooltip>
+                                        </Box>
+                                    </Grid>
+                                ))}
+                            </Grid>
                         </Box>
-                    ))}
-                </DialogContent>
-            </Dialog>
+                    )}
+                </Panel>
+            </Box>
 
             {/* Move target menu */}
             <Menu anchorEl={moveAnchor} open={Boolean(moveAnchor)} onClose={closeMoveMenu} slotProps={{ paper: { sx: { borderRadius: RADIUS, minWidth: 180 } } }}>

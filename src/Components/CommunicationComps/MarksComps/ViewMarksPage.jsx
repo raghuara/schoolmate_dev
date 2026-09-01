@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Dialog, IconButton, Box, Typography, ThemeProvider, createTheme, Button, Grid, Tabs, Tab, DialogContent, DialogActions, TextField, InputAdornment, FormControl, FormLabel, RadioGroup, FormControlLabel, Radio, Autocomplete, Snackbar, TextareaAutosize } from "@mui/material";
+import { Dialog, IconButton, Box, Typography, ThemeProvider, createTheme, Button, Grid, Tabs, Tab, DialogContent, DialogActions, TextField, InputAdornment, FormControl, FormLabel, RadioGroup, FormControlLabel, Radio, Autocomplete, Snackbar, TextareaAutosize, Skeleton } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import { display, keyframes, useMediaQuery, useTheme } from "@mui/system";
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
@@ -28,6 +28,8 @@ import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlic
 import AddIcon from '@mui/icons-material/Add';
 import ImageIcon from '@mui/icons-material/Image';
 import SnackBar from "../../SnackBar";
+import { DASH, RADIUS } from "../../DashBoardComps/dashboardTheme";
+import { selectAcademicYear } from "../../../Redux/Slices/academicYearSlice";
 import { selectGrades } from "../../../Redux/Slices/DropdownController";
 
 const percentageRanges = [
@@ -51,12 +53,17 @@ export default function ViewMarksPage() {
     const userType = user.userType
     const userName = user.name
     const [isLoading, setIsLoading] = useState(false);
+    // Only the student table - lets it show skeleton rows instead of greying
+    // the whole screen behind the overlay loader.
+    const [isTableLoading, setIsTableLoading] = useState(true);
     const location = useLocation();
     const { gradeId: passedGradeId } = location.state || {};
     const [openImage, setOpenImage] = useState(false);
     const [imageUrl, setImageUrl] = useState('');
     const theme = useTheme();
     const websiteSettings = useSelector(selectWebsiteSettings);
+    // The API rejects marks requests without it - format YYYY-YYYY.
+    const academicYear = useSelector(selectAcademicYear);
     const [selectedClassSection, setSelectedClassSection] = useState("A1");
     const [attendanceData, setAttendanceData] = useState([]);
     const [attendanceTableData, setAttendanceTableData] = useState([]);
@@ -278,7 +285,8 @@ export default function ViewMarksPage() {
 
     useEffect(() => {
         handleFetchStudent();
-    }, [selectedGradeId, selectedSection, selectedGroup, selectedExam]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedGradeId, selectedSection, selectedGroup, selectedExam, academicYear]);
 
     const handleFetchStudent = async () => {
         setIsLoading(true);
@@ -291,6 +299,7 @@ export default function ViewMarksPage() {
                     section: selectedSection || grades?.[0]?.sections[0],
                     exam: selectedExam || grades?.[0]?.exams[0],
                     group: selectedGroup,
+                    academicYear: academicYear,
                 },
 
                 headers: {
@@ -308,10 +317,12 @@ export default function ViewMarksPage() {
 
     useEffect(() => {
         handleFetch();
-    }, [selectedGradeId, selectedSection, selectedExam, selectedGroup, getDataSubjects]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedGradeId, selectedSection, selectedExam, selectedGroup, getDataSubjects, academicYear]);
 
     const handleFetch = async () => {
         setIsLoading(true);
+        setIsTableLoading(true);
         try {
             const res = await axios.get(fetchAllMarksStudents02, {
                 params: {
@@ -321,7 +332,8 @@ export default function ViewMarksPage() {
                     section: selectedSection || grades?.[0]?.sections?.[0],
                     exam: selectedExam || grades?.[0]?.exams?.[0]?.exam,
                     group: selectedGroup || "",
-                    status: "post"
+                    status: "post",
+                    academicYear: academicYear,
                 },
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -340,8 +352,15 @@ export default function ViewMarksPage() {
         } catch (error) {
             console.error("Error fetching data:", error);
             setMaxMarks(100);
+            // Clear the roster - otherwise the previous class stays on screen.
+            setGetData([]);
+            setMessage(error.response?.data?.message || "Could not load marks for this selection.");
+            setColor(false);
+            setStatus(false);
+            setOpen(true);
         } finally {
             setIsLoading(false);
+            setIsTableLoading(false);
         }
     };
 
@@ -362,7 +381,7 @@ export default function ViewMarksPage() {
                 xs: "100%",
             }
         }}>
-            {isLoading && <Loader />}
+            {isLoading && !isTableLoading && <Loader />}
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
             <Box>
                 <Box
@@ -377,42 +396,47 @@ export default function ViewMarksPage() {
                         borderBottom: "1px solid #ddd",
                     }}
                 >
-                    <Grid container >
-                        <Grid
-                            size={{
-                                xs: 12,
-                                sm: 12,
-                                md: 6,
-                                lg: 3
-                            }}>
+                    <Box
+                        sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: 1.5,
+                            flexWrap: "wrap",
+                        }}
+                    >
+                        <Box sx={{ minWidth: 0 }}>
 
-                            <Box sx={{ display: "flex" }}>
+                            <Box sx={{ display: "flex", alignItems: "center" }}>
                                 <Link style={{ textDecoration: "none" }} to="/dashboardmenu/marks">
 
-                                    <IconButton sx={{ width: "27px", height: "27px", marginTop: '3px' }}>
+                                    <IconButton sx={{ width: "27px", height: "27px" }}>
                                         <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
                                     </IconButton>
                                 </Link>
 
-                                <Typography sx={{ fontWeight: "600", ml: 1, marginTop: "3px", fontSize: "19px" }}>
-                                    View Marks
-                                </Typography>
+                                <Box sx={{ ml: 1 }}>
+                                    <Typography sx={{ fontWeight: 700, fontSize: "20px", color: DASH.ink, lineHeight: 1.2 }}>
+                                        View Marks
+                                    </Typography>
+                                    <Typography sx={{ fontSize: "11.5px", color: DASH.muted, whiteSpace: "nowrap" }}>
+                                        Published marks for the selected class and exam
+                                    </Typography>
+                                </Box>
                             </Box>
-                        </Grid>
+                        </Box>
 
-                        <Grid
-                            sx={{ mt: 0.5, pl: 3 }}
-                            size={{
-                                xs: 12,
-                                sm: 12,
-                                md: 9,
-                                lg: 9
-                            }}>
-                            <Grid container spacing={2} sx={{ display: "flex", justifyContent: "end" }}>
-                                <Grid
-                                    size={{
-                                        lg: 2.4
-                                    }}>
+                        <Box sx={{ display: "flex", alignItems: "center", ml: "auto", minWidth: 0 }}>
+                            <Box
+                                sx={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "flex-end",
+                                    gap: 1,
+                                    flexWrap: "wrap",
+                                }}
+                            >
+                                <Box sx={{ width: { xs: "100%", sm: 150 } }}>
                                     <Autocomplete
                                         disablePortal
                                         options={grades}
@@ -447,20 +471,22 @@ export default function ViewMarksPage() {
                                                 InputProps={{
                                                     ...params.InputProps,
                                                     sx: {
-                                                        paddingRight: 0,
-                                                        height: "33px",
-                                                        fontSize: "13px",
-                                                        fontWeight: "600",
-                                                    },
+                                                    paddingRight: 0,
+                                                    height: 34,
+                                                    fontSize: "13px",
+                                                    fontWeight: 600,
+                                                    borderRadius: RADIUS,
+                                                    backgroundColor: "#fff",
+                                                    "& fieldset": { borderColor: DASH.line },
+                                                    "&:hover fieldset": { borderColor: DASH.faint },
+                                                    "&.Mui-focused fieldset": { borderColor: websiteSettings.mainColor || DASH.primary, borderWidth: "1px" },
+                                                },
                                                 }}
                                             />
                                         )}
                                     />
-                                </Grid>
-                                <Grid
-                                    size={{
-                                        lg: 2.4
-                                    }}>
+                                </Box>
+                                <Box sx={{ width: { xs: "100%", sm: 150 } }}>
                                     <Autocomplete
                                         disablePortal
                                         options={sections}
@@ -498,16 +524,21 @@ export default function ViewMarksPage() {
                                                 InputProps={{
                                                     ...params.InputProps,
                                                     sx: {
-                                                        paddingRight: 0,
-                                                        height: "33px",
-                                                        fontSize: "13px",
-                                                        fontWeight: "600",
-                                                    },
+                                                    paddingRight: 0,
+                                                    height: 34,
+                                                    fontSize: "13px",
+                                                    fontWeight: 600,
+                                                    borderRadius: RADIUS,
+                                                    backgroundColor: "#fff",
+                                                    "& fieldset": { borderColor: DASH.line },
+                                                    "&:hover fieldset": { borderColor: DASH.faint },
+                                                    "&.Mui-focused fieldset": { borderColor: websiteSettings.mainColor || DASH.primary, borderWidth: "1px" },
+                                                },
                                                 }}
                                             />
                                         )}
                                     />
-                                </Grid>
+                                </Box>
                                 {/* {!selectedGrade?.subjects && selectedSection && (
                                     <Grid
                                         size={{
@@ -540,11 +571,16 @@ export default function ViewMarksPage() {
                                                     InputProps={{
                                                         ...params.InputProps,
                                                         sx: {
-                                                            paddingRight: 0,
-                                                            height: "33px",
-                                                            fontSize: "13px",
-                                                            fontWeight: "600",
-                                                        },
+                                                    paddingRight: 0,
+                                                    height: 34,
+                                                    fontSize: "13px",
+                                                    fontWeight: 600,
+                                                    borderRadius: RADIUS,
+                                                    backgroundColor: "#fff",
+                                                    "& fieldset": { borderColor: DASH.line },
+                                                    "&:hover fieldset": { borderColor: DASH.faint },
+                                                    "&.Mui-focused fieldset": { borderColor: websiteSettings.mainColor || DASH.primary, borderWidth: "1px" },
+                                                },
                                                     }}
                                                 />
                                             )}
@@ -552,12 +588,7 @@ export default function ViewMarksPage() {
                                     </Grid>
                                 )} */}
 
-                                <Grid
-                                    size={{
-                                        lg: 2.4,
-                                        md: 6,
-                                        sm: 12
-                                    }}>
+                                <Box sx={{ width: { xs: "100%", sm: 150 } }}>
                                     <Autocomplete
                                         disablePortal
                                         options={examOptions}
@@ -585,42 +616,48 @@ export default function ViewMarksPage() {
                                                 InputProps={{
                                                     ...params.InputProps,
                                                     sx: {
-                                                        paddingRight: 0,
-                                                        height: "33px",
-                                                        fontSize: "13px",
-                                                        fontWeight: "600",
-                                                    },
+                                                    paddingRight: 0,
+                                                    height: 34,
+                                                    fontSize: "13px",
+                                                    fontWeight: 600,
+                                                    borderRadius: RADIUS,
+                                                    backgroundColor: "#fff",
+                                                    "& fieldset": { borderColor: DASH.line },
+                                                    "&:hover fieldset": { borderColor: DASH.faint },
+                                                    "&.Mui-focused fieldset": { borderColor: websiteSettings.mainColor || DASH.primary, borderWidth: "1px" },
+                                                },
                                                 }}
                                             />
                                         )}
                                     />
-                                </Grid>
+                                </Box>
 
 
-                                <Grid
-                                    size={{
-                                        lg: 2.4
-                                    }}>
+                                <Box sx={{ width: { xs: "100%", sm: 150 } }}>
                                     <Button
                                         variant="outlined"
                                         onClick={handleExportAllData}
                                         sx={{
-                                            borderColor: "#A9A9A9",
-                                            py: 0.3,
+                                            height: 34,
                                             width: "100%",
-                                            color: "#000",
                                             textTransform: "none",
-                                            mb: 1
+                                            fontSize: "12.5px",
+                                            fontWeight: 700,
+                                            color: DASH.cyan,
+                                            bgcolor: DASH.cyanLight,
+                                            borderColor: "#A5F3FC",
+                                            borderRadius: RADIUS,
+                                            "&:hover": { bgcolor: DASH.cyanLight, borderColor: DASH.cyan },
                                         }}>
                                         <ExitToAppIcon sx={{ fontSize: "20px" }} />
                                         &nbsp;Export
                                     </Button>
-                                </Grid>
+                                </Box>
 
-                            </Grid>
+                            </Box>
 
-                        </Grid>
-                    </Grid>
+                        </Box>
+                    </Box>
                 </Box>
 
                 <Box sx={{ px: 2, pb: 2 }}>
@@ -666,11 +703,16 @@ export default function ViewMarksPage() {
                                         InputProps={{
                                             ...params.InputProps,
                                             sx: {
-                                                paddingRight: 0,
-                                                height: "33px",
-                                                fontSize: "13px",
-                                                fontWeight: "600",
-                                            },
+                                                    paddingRight: 0,
+                                                    height: 34,
+                                                    fontSize: "13px",
+                                                    fontWeight: 600,
+                                                    borderRadius: RADIUS,
+                                                    backgroundColor: "#fff",
+                                                    "& fieldset": { borderColor: DASH.line },
+                                                    "&:hover fieldset": { borderColor: DASH.faint },
+                                                    "&.Mui-focused fieldset": { borderColor: websiteSettings.mainColor || DASH.primary, borderWidth: "1px" },
+                                                },
                                         }}
                                     />
                                 )}
@@ -695,14 +737,19 @@ export default function ViewMarksPage() {
                                 }}
                                 sx={{
                                     width: "100%",
-                                    "& .MuiInputBase-root": {
-                                        height: "33px",
+                                    "& .MuiOutlinedInput-root": {
+                                        height: 34,
+                                        borderRadius: RADIUS,
+                                        bgcolor: "#fff",
+                                        "& fieldset": { borderColor: DASH.line },
                                     },
                                     "& .MuiInputBase-input": {
-                                        fontWeight: 600,
-                                        fontSize: "14px",
-                                        padding: "0 8px",
+                                        fontWeight: 700,
+                                        fontSize: "13px",
+                                        color: DASH.ink,
+                                        padding: "0 10px",
                                         textAlign: "center",
+                                        WebkitTextFillColor: DASH.ink,
                                     },
                                 }}
                             />
@@ -718,8 +765,18 @@ export default function ViewMarksPage() {
                                     md: 5,
                                     lg: 3
                                 }}>
-                                <Box sx={{ display: "flex", marginTop: "-15px", width: "200px", }}>
-                                    <Typography sx={{ fontSize: "12px", color: "#fff", backgroundColor: "#307EB9", padding: "0px 5px 0px 5px", borderRadius: "4px 0px 0px 0px", fontWeight: "600", }}>
+                                <Box sx={{ display: "flex", alignItems: "center", marginTop: "-4px", width: "200px" }}>
+                                    <Typography
+                                        sx={{
+                                            fontSize: "11.5px",
+                                            fontWeight: 700,
+                                            color: "#fff",
+                                            bgcolor: DASH.blue,
+                                            px: 1.2,
+                                            py: 0.3,
+                                            borderRadius: "5px 5px 0 0",
+                                        }}
+                                    >
                                         {getData.gradeSection}
                                     </Typography>
                                     {/* <Typography sx={{ fontSize: "12px", color: "#000", px: 1, }}>
@@ -734,16 +791,43 @@ export default function ViewMarksPage() {
                             <TableContainer
                                 ref={scrollContainerRef1}
                                 sx={{
-                                    border: "1px solid #E8DDEA",
+                                    border: `1px solid ${DASH.line}`,
+                                    borderRadius: RADIUS,
+                                    bgcolor: "#fff",
                                     maxWidth: "100%",
                                     maxHeight: "76vh",
+                                    // Hold the full height while loading so the buttons
+                                    // below do not jump once the rows arrive.
+                                    height: isTableLoading ? "56vh" : "auto",
                                     overflowY: "auto",
                                     overflowX: "auto",
                                     width: "100%",
                                 }}
                                 onScroll={(e) => handleVerticalScroll(e, scrollContainerRef1)}
                             >
-                                <Table sx={{ tableLayout: "fixed" }} stickyHeader={!isMobile} aria-label="attendance and marks table">
+                                <Table
+                                    sx={{
+                                        tableLayout: "fixed",
+                                        "& thead .MuiTableCell-root": {
+                                            color: DASH.muted,
+                                            fontSize: "10.5px",
+                                            fontWeight: 700,
+                                            letterSpacing: "0.06em",
+                                            textTransform: "uppercase",
+                                            py: 1,
+                                        },
+                                        "& tbody .MuiTableCell-root": {
+                                            fontSize: "12.5px",
+                                            color: DASH.text,
+                                            py: 0.9,
+                                        },
+                                        "& tbody .MuiTableRow-root:hover .MuiTableCell-root": {
+                                            backgroundColor: DASH.surface,
+                                        },
+                                    }}
+                                    stickyHeader={!isMobile}
+                                    aria-label="attendance and marks table"
+                                >
                                     <TableHead>
                                         <TableRow>
                                             <TableCell
@@ -762,9 +846,9 @@ export default function ViewMarksPage() {
                                                     },
                                                     zIndex: 3,
                                                     borderRight: 1,
-                                                    borderColor: "#E8DDEA",
+                                                    borderColor: DASH.line,
                                                     textAlign: "center",
-                                                    backgroundColor: "#fff7f7",
+                                                    backgroundColor: DASH.surface,
                                                     whiteSpace: "nowrap",
                                                     width: "50px",
                                                 }}
@@ -787,9 +871,9 @@ export default function ViewMarksPage() {
                                                     },
                                                     zIndex: 3,
                                                     borderRight: 1,
-                                                    borderColor: "#E8DDEA",
+                                                    borderColor: DASH.line,
                                                     textAlign: "center",
-                                                    backgroundColor: "#fff7f7",
+                                                    backgroundColor: DASH.surface,
                                                     whiteSpace: "nowrap",
                                                     width: "100px",
                                                 }}
@@ -813,9 +897,9 @@ export default function ViewMarksPage() {
                                                     },
                                                     zIndex: 3,
                                                     borderRight: 1,
-                                                    borderColor: "#E8DDEA",
+                                                    borderColor: DASH.line,
                                                     textAlign: "center",
-                                                    backgroundColor: "#fff7f7",
+                                                    backgroundColor: DASH.surface,
                                                     whiteSpace: "nowrap",
                                                     width: "120px",
                                                 }}
@@ -825,9 +909,9 @@ export default function ViewMarksPage() {
                                             <TableCell
                                                 sx={{
                                                     borderRight: 1,
-                                                    borderColor: "#E8DDEA",
+                                                    borderColor: DASH.line,
                                                     textAlign: "center",
-                                                    backgroundColor: "#F8F3FE",
+                                                    backgroundColor: DASH.surface,
                                                     whiteSpace: "nowrap",
                                                     width: "100px",
                                                 }}
@@ -837,9 +921,9 @@ export default function ViewMarksPage() {
                                             <TableCell
                                                 sx={{
                                                     borderRight: 1,
-                                                    borderColor: "#E8DDEA",
+                                                    borderColor: DASH.line,
                                                     textAlign: "center",
-                                                    backgroundColor: "#F8F3FE",
+                                                    backgroundColor: DASH.surface,
                                                     whiteSpace: "nowrap",
                                                     width: "100px",
                                                 }}
@@ -849,9 +933,9 @@ export default function ViewMarksPage() {
                                             <TableCell
                                                 sx={{
                                                     borderRight: 1,
-                                                    borderColor: "#E8DDEA",
+                                                    borderColor: DASH.line,
                                                     textAlign: "center",
-                                                    backgroundColor: "#F8F3FE",
+                                                    backgroundColor: DASH.surface,
                                                     whiteSpace: "nowrap",
                                                     width: "100px",
                                                 }}
@@ -861,9 +945,9 @@ export default function ViewMarksPage() {
                                             <TableCell
                                                 sx={{
                                                     borderRight: 1,
-                                                    borderColor: "#E8DDEA",
+                                                    borderColor: DASH.line,
                                                     textAlign: "center",
-                                                    backgroundColor: "#F8F3FE",
+                                                    backgroundColor: DASH.surface,
                                                     whiteSpace: "nowrap",
                                                     width: "100px",
                                                 }}
@@ -875,9 +959,9 @@ export default function ViewMarksPage() {
                                                     key={subject}
                                                     sx={{
                                                         borderRight: 1,
-                                                        borderColor: "#E8DDEA",
+                                                        borderColor: DASH.line,
                                                         textAlign: "center",
-                                                        backgroundColor: "#F8F3FE",
+                                                        backgroundColor: DASH.surface,
                                                         whiteSpace: "nowrap",
                                                         width: "100px",
                                                     }}
@@ -891,9 +975,9 @@ export default function ViewMarksPage() {
                                                     key={subject}
                                                     sx={{
                                                         borderRight: 1,
-                                                        borderColor: "#E8DDEA",
+                                                        borderColor: DASH.line,
                                                         textAlign: "center",
-                                                        backgroundColor: "#F8F3FE",
+                                                        backgroundColor: DASH.surface,
                                                         whiteSpace: "nowrap",
                                                         width: "120px",
                                                         whiteSpace: "normal",
@@ -907,9 +991,9 @@ export default function ViewMarksPage() {
                                             <TableCell
                                                 sx={{
                                                     borderRight: 1,
-                                                    borderColor: "#E8DDEA",
+                                                    borderColor: DASH.line,
                                                     textAlign: "center",
-                                                    backgroundColor: "#F8F3FE",
+                                                    backgroundColor: DASH.surface,
                                                     whiteSpace: "nowrap",
                                                     width: "100px",
                                                 }}
@@ -919,9 +1003,9 @@ export default function ViewMarksPage() {
                                             <TableCell
                                                 sx={{
                                                     borderRight: 1,
-                                                    borderColor: "#E8DDEA",
+                                                    borderColor: DASH.line,
                                                     textAlign: "center",
-                                                    backgroundColor: "#F8F3FE",
+                                                    backgroundColor: DASH.surface,
                                                     width: "100px",
                                                 }}
                                             >
@@ -930,9 +1014,9 @@ export default function ViewMarksPage() {
                                             <TableCell
                                                 sx={{
                                                     borderRight: 1,
-                                                    borderColor: "#E8DDEA",
+                                                    borderColor: DASH.line,
                                                     textAlign: "center",
-                                                    backgroundColor: "#F8F3FE",
+                                                    backgroundColor: DASH.surface,
                                                     width: "100px",
                                                 }}
                                             >
@@ -942,9 +1026,9 @@ export default function ViewMarksPage() {
                                             <TableCell
                                                 sx={{
                                                     borderRight: 1,
-                                                    borderColor: "#E8DDEA",
+                                                    borderColor: DASH.line,
                                                     textAlign: "center",
-                                                    backgroundColor: "#F8F3FE",
+                                                    backgroundColor: DASH.surface,
                                                     width: "100px",
                                                 }}
                                             >
@@ -953,9 +1037,9 @@ export default function ViewMarksPage() {
                                             <TableCell
                                                 sx={{
                                                     borderRight: 1,
-                                                    borderColor: "#E8DDEA",
+                                                    borderColor: DASH.line,
                                                     textAlign: "center",
-                                                    backgroundColor: "#F8F3FE",
+                                                    backgroundColor: DASH.surface,
                                                     width: "100px",
                                                 }}
                                             >
@@ -964,18 +1048,25 @@ export default function ViewMarksPage() {
                                         </TableRow>
                                     </TableHead>
                                     <TableBody>
-                                        {filteredData.length === 0 ? (
+                                        {isTableLoading ? (
+                                            [...Array(10)].map((_, i) => (
+                                                <TableRow key={`skeleton-${i}`}>
+                                                    <TableCell colSpan={100} sx={{ borderBottom: `1px solid ${DASH.lineSoft}`, py: 1.1 }}>
+                                                        <Skeleton variant="rounded" height={18} sx={{ bgcolor: DASH.lineSoft }} />
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))
+                                        ) : filteredData.length === 0 ? (
                                             <TableRow>
-                                                <TableCell
-                                                    colSpan={subjects.length + 10}
-                                                    sx={{
-                                                        textAlign: "center",
-                                                        fontWeight: "600",
-                                                        color: "#999",
-                                                        height: "100px"
-                                                    }}
-                                                >
-                                                    No data available
+                                                <TableCell colSpan={100} sx={{ borderBottom: "none" }}>
+                                                    <Box sx={{ textAlign: "center", py: 5 }}>
+                                                        <Typography sx={{ fontSize: "13.5px", fontWeight: 700, color: DASH.ink }}>
+                                                            No published marks to show
+                                                        </Typography>
+                                                        <Typography sx={{ fontSize: "12px", color: DASH.muted, mt: 0.5 }}>
+                                                            Pick a class, section and exam above, or clear the percentage filter.
+                                                        </Typography>
+                                                    </Box>
                                                 </TableCell>
                                             </TableRow>
                                         ) : (
@@ -993,7 +1084,7 @@ export default function ViewMarksPage() {
                                                                 left: 0,
                                                                 zIndex: 2,
                                                                 borderRight: 1,
-                                                                borderColor: "#E8DDEA",
+                                                                borderColor: DASH.line,
                                                                 textAlign: "center",
                                                                 backgroundColor: "#fff",
                                                             }}
@@ -1009,7 +1100,7 @@ export default function ViewMarksPage() {
                                                                 left: 50,
                                                                 zIndex: 2,
                                                                 borderRight: 1,
-                                                                borderColor: "#E8DDEA",
+                                                                borderColor: DASH.line,
                                                                 textAlign: "center",
                                                                 backgroundColor: "#fff",
                                                             }}
@@ -1025,20 +1116,20 @@ export default function ViewMarksPage() {
                                                                 left: 150,
                                                                 zIndex: 2,
                                                                 borderRight: 1,
-                                                                borderColor: "#E8DDEA",
+                                                                borderColor: DASH.line,
                                                                 textAlign: "center",
                                                                 backgroundColor: "#fff",
                                                             }}
                                                         >
                                                             {row.studentName}
                                                         </TableCell>
-                                                        <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#fff" }}>
+                                                        <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center", backgroundColor: "#fff" }}>
                                                             {row.grade}
                                                         </TableCell>
-                                                        <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#fff" }}>
+                                                        <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center", backgroundColor: "#fff" }}>
                                                             {row.section}
                                                         </TableCell>
-                                                        <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#fff" }}>
+                                                        <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center", backgroundColor: "#fff" }}>
                                                             <Button
                                                                 sx={{ color: "#000", textTransform: "none" }}
                                                                 onClick={() => handleViewClick(row.profile)}
@@ -1051,7 +1142,7 @@ export default function ViewMarksPage() {
                                                         <TableCell
                                                             sx={{
                                                                 borderRight: 1,
-                                                                borderColor: "#E8DDEA",
+                                                                borderColor: DASH.line,
                                                                 textAlign: "center",
                                                                 backgroundColor: "#fff",
                                                                 fontWeight: "600",
@@ -1070,7 +1161,7 @@ export default function ViewMarksPage() {
                                                                     key={`${row.rollnumber}-${subject}`}
                                                                     sx={{
                                                                         borderRight: 1,
-                                                                        borderColor: "#E8DDEA",
+                                                                        borderColor: DASH.line,
                                                                         textAlign: "center",
                                                                         padding: "0px",
                                                                         minWidth: "90px",
@@ -1092,7 +1183,7 @@ export default function ViewMarksPage() {
                                                                     key={`${row.rollnumber}-${subject}`}
                                                                     sx={{
                                                                         borderRight: 1,
-                                                                        borderColor: "#E8DDEA",
+                                                                        borderColor: DASH.line,
                                                                         textAlign: "center",
                                                                         padding: "0px",
                                                                         minWidth: "90px",
@@ -1108,7 +1199,7 @@ export default function ViewMarksPage() {
                                                         <TableCell
                                                             sx={{
                                                                 borderRight: 1,
-                                                                borderColor: "#E8DDEA",
+                                                                borderColor: DASH.line,
                                                                 textAlign: "center",
                                                                 backgroundColor: "#fff",
                                                                 color: "black",
@@ -1120,7 +1211,7 @@ export default function ViewMarksPage() {
                                                         <TableCell
                                                             sx={{
                                                                 borderRight: 1,
-                                                                borderColor: "#E8DDEA",
+                                                                borderColor: DASH.line,
                                                                 textAlign: "center",
                                                                 backgroundColor: "#fff",
                                                                 fontWeight: "600",
@@ -1137,7 +1228,7 @@ export default function ViewMarksPage() {
                                                         <TableCell
                                                             sx={{
                                                                 borderRight: 1,
-                                                                borderColor: "#E8DDEA",
+                                                                borderColor: DASH.line,
                                                                 textAlign: "center",
                                                                 backgroundColor: "#fff",
                                                                 fontWeight: "600",
@@ -1158,7 +1249,7 @@ export default function ViewMarksPage() {
 
 
                                                         <TableCell
-                                                            sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#fff" }}
+                                                            sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center", backgroundColor: "#fff" }}
                                                         >
                                                             <Button
                                                                 onClick={() => handleAdd(row.rollnumber)}
@@ -1234,9 +1325,19 @@ export default function ViewMarksPage() {
                                                             </Dialog>
                                                         </TableCell>
 
-                                                        <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#fff" }}>
-                                                            <IconButton onClick={() => handleExportSingleData(row)}>
-                                                                <PrintIcon style={{ color: "#000" }} />
+                                                        <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center", backgroundColor: "#fff" }}>
+                                                            <IconButton
+                                                                onClick={() => handleExportSingleData(row)}
+                                                                sx={{
+                                                                    width: 28,
+                                                                    height: 28,
+                                                                    borderRadius: RADIUS,
+                                                                    border: `1px solid ${DASH.line}`,
+                                                                    bgcolor: "#fff",
+                                                                    "&:hover": { bgcolor: DASH.blueLight, borderColor: DASH.blue },
+                                                                }}
+                                                            >
+                                                                <PrintIcon sx={{ fontSize: 15, color: DASH.text }} />
                                                             </IconButton>
                                                         </TableCell>
                                                     </TableRow>

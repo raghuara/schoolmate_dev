@@ -4,6 +4,8 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import { DASH, RADIUS } from "../../DashBoardComps/dashboardTheme";
 import { DIFFICULTY_LEVELS, typeMeta } from "./questionPaperApi";
 
+export { createBtnSx } from "../../DashBoardComps/dashboardTheme";
+
 export const fieldSx = {
     "& .MuiOutlinedInput-root": {
         borderRadius: RADIUS,
@@ -16,6 +18,16 @@ export const fieldSx = {
     "& .MuiInputLabel-root": { fontSize: "13px", color: DASH.muted },
     "& .MuiInputLabel-root.Mui-focused": { color: DASH.primary },
     "& .MuiFormHelperText-root": { fontSize: "11px", color: DASH.muted, ml: 0, mt: 0.5, lineHeight: 1.5 },
+};
+
+/* Page header actions run taller than the buttons inside a panel, so a header
+   row reads as one band. Spread over any of the button styles below. */
+export const HEADER_ACTION_H = 38;
+
+export const headerActionSx = {
+    height: HEADER_ACTION_H,
+    fontSize: "13px",
+    px: 2,
 };
 
 export const outlineBtnSx = {
@@ -66,6 +78,8 @@ export const STATUS_TONES = {
     Pending: { bg: DASH.primaryLight, color: "#B45309", border: DASH.primaryBorder },
     Approved: { bg: DASH.cyanLight, color: DASH.cyan, border: "#A5F3FC" },
     Published: { bg: DASH.greenLight, color: DASH.green, border: "#BBF7D0" },
+    // Amber reads as "your move"; red is reserved for the paper that is closed.
+    "Sent Back": { bg: DASH.amberLight, color: "#B45309", border: "#FDE68A" },
     Rejected: { bg: DASH.redLight, color: DASH.red, border: "#FECACA" },
 };
 

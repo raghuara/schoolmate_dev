@@ -1,19 +1,20 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
-    Box, Grid, IconButton, Typography, Button, TextField, InputAdornment,
+    Box, IconButton, Typography, Button, TextField, InputAdornment,
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
     TablePagination, Dialog, DialogContent, DialogActions, Chip, Avatar,
-    MenuItem, Select,
+    MenuItem, Select, Tooltip,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import SearchIcon from "@mui/icons-material/Search";
+import HighlightOffIcon from "@mui/icons-material/HighlightOff";
 import LockResetIcon from "@mui/icons-material/LockReset";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import ImageIcon from "@mui/icons-material/Image";
 import CloseIcon from "@mui/icons-material/Close";
-import FileDownloadIcon from "@mui/icons-material/FileDownload";
-import { useNavigate, Navigate } from "react-router-dom";
+import FileDownloadOutlinedIcon from "@mui/icons-material/FileDownloadOutlined";
+import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlice";
 import { hasPermission } from "../../../Redux/Slices/AuthSlice";
@@ -24,121 +25,183 @@ import { UsersPassword, updateLoginPassword } from "../../../Api/Api";
 import avatarImage from "../../../Images/PagesImage/avatar.png";
 import * as XLSX from "xlsx";
 import dayjs from "dayjs";
+import { DASH, RADIUS, Panel, EmptyNote } from "../../DashBoardComps/dashboardTheme";
+
+const ACCENT = DASH.violet;
 
 const USER_TYPE_COLORS = {
-    Student: { color: "#1976D2", bg: "#E3F2FD" },
-    Teacher: { color: "#388E3C", bg: "#E8F5E9" },
-    Staff: { color: "#F57C00", bg: "#FFF3E0" },
-    Parent: { color: "#8E24AA", bg: "#F3E5F5" },
+    Student: { color: DASH.blue, bg: DASH.blueLight },
+    Teacher: { color: DASH.green, bg: DASH.greenLight },
+    Staff: { color: "#C2701F", bg: "#FBF4EF" },
+    Parent: { color: "#A749CC", bg: "#F7F0F9" },
 };
 
 const ROWS_OPTIONS = [10, 25, 50, 100];
 
 const isStudentRow = (row) => String(row?.userType || "").toLowerCase() === "student";
 
+const TH = ({ children, align }) => (
+    <TableCell
+        align={align}
+        sx={{
+            bgcolor: DASH.surface,
+            borderBottom: `1px solid ${DASH.line}`,
+            color: DASH.muted,
+            fontSize: "10.5px",
+            fontWeight: 700,
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
+            py: 1,
+            whiteSpace: "nowrap",
+        }}
+    >
+        {children}
+    </TableCell>
+);
+
+const TD = ({ children, align }) => (
+    <TableCell align={align} sx={{ borderBottom: `1px solid ${DASH.lineSoft}`, py: 1 }}>
+        {children}
+    </TableCell>
+);
+
 // ─── Memoised table — skips re-render when dialog state changes ───────────────
-const PasswordTable = React.memo(({ pageData, allData, page, rowsPerPage, onPageChange, onRowsPerPageChange, onChangePassword, onViewImage }) => (
-    <Box sx={{ border: "1px solid #e0e0e0", borderRadius: "10px", overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}>
-        <TableContainer sx={{ maxHeight: "74vh", overflowY: "auto" }}>
+const PasswordTable = React.memo(({ pageData, allData, page, rowsPerPage, onPageChange, onRowsPerPageChange, onChangePassword, onViewImage, searchQuery }) => (
+    <>
+        <TableContainer sx={{ maxHeight: "62vh" }}>
             <Table stickyHeader size="small">
                 <TableHead>
                     <TableRow>
-                        {["S.No", "Roll Number", "Name", "User Type", "Class", "Section", "Picture", "Password", "Action"].map((col) => (
-                            <TableCell
-                                key={col}
-                                sx={{
-                                    bgcolor: "#faf6fc",
-                                    fontWeight: 700,
-                                    fontSize: "12px",
-                                    textAlign: "center",
-                                    borderRight: "1px solid #e0e0e0",
-                                    whiteSpace: "nowrap",
-                                    color: "#444",
-                                }}
-                            >
-                                {col}
-                            </TableCell>
-                        ))}
+                        <TH align="center">S.No</TH>
+                        <TH>Roll Number</TH>
+                        <TH>Name</TH>
+                        <TH>User Type</TH>
+                        <TH align="center">Class</TH>
+                        <TH align="center">Section</TH>
+                        <TH align="center">Picture</TH>
+                        <TH>Password</TH>
+                        <TH align="right">Action</TH>
                     </TableRow>
                 </TableHead>
                 <TableBody>
                     {pageData.length === 0 ? (
                         <TableRow>
-                            <TableCell colSpan={9} sx={{ textAlign: "center", py: 5, color: "#bbb", fontSize: "13px", fontStyle: "italic" }}>
-                                No records found
+                            <TableCell colSpan={9} sx={{ borderBottom: "none" }}>
+                                <EmptyNote
+                                    text={searchQuery ? `No member matches “${searchQuery}”.` : "No records to show."}
+                                />
                             </TableCell>
                         </TableRow>
                     ) : (
                         pageData.map((row, index) => {
-                            const utStyle = USER_TYPE_COLORS[row.userType] || { color: "#555", bg: "#f5f5f5" };
+                            const utStyle = USER_TYPE_COLORS[row.userType] || { color: DASH.muted, bg: DASH.lineSoft };
                             const globalIndex = page * rowsPerPage + index;
                             return (
-                                <TableRow key={row.rollNumber || index} sx={{ "&:hover": { bgcolor: "#fafafa" } }}>
-                                    <TableCell sx={{ borderRight: "1px solid #e0e0e0", textAlign: "center", fontSize: "13px", color: "#666" }}>
-                                        {globalIndex + 1}
-                                    </TableCell>
-                                    <TableCell sx={{ borderRight: "1px solid #e0e0e0", textAlign: "center", fontSize: "13px", fontWeight: 600 }}>
-                                        {row.rollNumber}
-                                    </TableCell>
-                                    <TableCell sx={{ borderRight: "1px solid #e0e0e0", fontSize: "13px", color: row.name ? "#222" : "#e53935", fontWeight: row.name ? 400 : 600, minWidth: 140 }}>
-                                        {row.name || "Name not provided"}
-                                    </TableCell>
-                                    <TableCell sx={{ borderRight: "1px solid #e0e0e0", textAlign: "center" }}>
+                                <TableRow
+                                    key={row.rollNumber || index}
+                                    sx={{ transition: "background-color 0.15s", "&:hover": { bgcolor: DASH.surface } }}
+                                >
+                                    <TD align="center">
+                                        <Typography sx={{ fontSize: "12px", color: DASH.faint }}>{globalIndex + 1}</Typography>
+                                    </TD>
+                                    <TD>
+                                        <Typography sx={{ fontSize: "12.5px", fontWeight: 600, color: DASH.text, whiteSpace: "nowrap" }}>
+                                            {row.rollNumber}
+                                        </Typography>
+                                    </TD>
+                                    <TD>
+                                        <Typography sx={{ fontSize: "12.5px", fontWeight: 700, color: row.name ? DASH.ink : DASH.red, minWidth: 140 }}>
+                                            {row.name || "Name not provided"}
+                                        </Typography>
+                                    </TD>
+                                    <TD>
                                         <Chip
-                                            label={row.userType || "—"}
+                                            label={row.userType || "-"}
                                             size="small"
                                             sx={{
+                                                height: 20,
+                                                borderRadius: RADIUS,
                                                 bgcolor: utStyle.bg,
                                                 color: utStyle.color,
-                                                fontWeight: 600,
-                                                fontSize: "11px",
-                                                height: "22px",
                                                 border: `1px solid ${utStyle.color}33`,
+                                                fontWeight: 700,
+                                                fontSize: "10.5px",
                                             }}
                                         />
-                                    </TableCell>
-                                    <TableCell sx={{ borderRight: "1px solid #e0e0e0", textAlign: "center", fontSize: "13px" }}>
-                                        {row.grade || "—"}
-                                    </TableCell>
-                                    <TableCell sx={{ borderRight: "1px solid #e0e0e0", textAlign: "center", fontSize: "13px" }}>
-                                        {row.section || "—"}
-                                    </TableCell>
-                                    <TableCell sx={{ borderRight: "1px solid #e0e0e0", textAlign: "center" }}>
+                                    </TD>
+                                    <TD align="center">
+                                        <Typography sx={{ fontSize: "12px", color: row.grade ? DASH.text : DASH.faint }}>
+                                            {row.grade || "-"}
+                                        </Typography>
+                                    </TD>
+                                    <TD align="center">
+                                        <Typography sx={{ fontSize: "12px", color: row.section ? DASH.text : DASH.faint }}>
+                                            {row.section || "-"}
+                                        </Typography>
+                                    </TD>
+                                    <TD align="center">
                                         {row.filepath ? (
                                             <Button
                                                 size="small"
                                                 onClick={() => onViewImage(row.filepath)}
-                                                sx={{ textTransform: "none", fontSize: "12px", color: "#1976D2" }}
                                                 startIcon={<ImageIcon sx={{ fontSize: 14 }} />}
+                                                sx={{
+                                                    textTransform: "none",
+                                                    fontSize: "11.5px",
+                                                    fontWeight: 700,
+                                                    height: 26,
+                                                    px: 1.2,
+                                                    borderRadius: RADIUS,
+                                                    color: DASH.blue,
+                                                    "&:hover": { bgcolor: DASH.blueLight },
+                                                }}
                                             >
                                                 View
                                             </Button>
                                         ) : (
-                                            <Typography sx={{ fontSize: "12px", color: "#bbb", fontStyle: "italic" }}>No image</Typography>
+                                            <Typography sx={{ fontSize: "11.5px", color: DASH.faint }}>No image</Typography>
                                         )}
-                                    </TableCell>
-                                    <TableCell sx={{ borderRight: "1px solid #e0e0e0", textAlign: "center", fontSize: "13px", fontFamily: "monospace", letterSpacing: "0.5px" }}>
-                                        {row.password || "—"}
-                                    </TableCell>
-                                    <TableCell sx={{ textAlign: "center" }}>
+                                    </TD>
+                                    <TD>
+                                        <Box
+                                            component="span"
+                                            sx={{
+                                                display: "inline-block",
+                                                px: 1,
+                                                py: 0.3,
+                                                borderRadius: RADIUS,
+                                                bgcolor: DASH.lineSoft,
+                                                color: DASH.text,
+                                                fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+                                                fontSize: "12px",
+                                                letterSpacing: "0.5px",
+                                            }}
+                                        >
+                                            {row.password || "-"}
+                                        </Box>
+                                    </TD>
+                                    <TD align="right">
                                         <Button
                                             size="small"
                                             onClick={() => onChangePassword(row)}
-                                            startIcon={<LockResetIcon sx={{ fontSize: 14 }} />}
+                                            startIcon={<LockResetIcon sx={{ fontSize: 15 }} />}
                                             sx={{
                                                 textTransform: "none",
-                                                fontSize: "11px",
-                                                color: "#F57C00",
-                                                fontWeight: 600,
-                                                borderRadius: "20px",
-                                                px: 1.5,
-                                                "&:hover": { bgcolor: "#FFF3E0" },
+                                                fontSize: "11.5px",
+                                                fontWeight: 700,
+                                                height: 28,
+                                                px: 1.4,
+                                                borderRadius: RADIUS,
+                                                color: "#B45309",
+                                                bgcolor: DASH.amberLight,
+                                                border: "1px solid #FDE68A",
                                                 whiteSpace: "nowrap",
+                                                "&:hover": { bgcolor: DASH.amberLight, borderColor: DASH.amber },
                                             }}
                                         >
                                             Change
                                         </Button>
-                                    </TableCell>
+                                    </TD>
                                 </TableRow>
                             );
                         })
@@ -148,11 +211,21 @@ const PasswordTable = React.memo(({ pageData, allData, page, rowsPerPage, onPage
         </TableContainer>
 
         {/* Pagination bar */}
-        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", px: 2, py: 0.5, borderTop: "1px solid #e0e0e0", bgcolor: "#fafafa" }}>
-            <Typography sx={{ fontSize: "12px", color: "#888" }}>
+        <Box sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 1,
+            flexWrap: "wrap",
+            px: 2,
+            py: 0.5,
+            borderTop: `1px solid ${DASH.line}`,
+            bgcolor: DASH.surface,
+        }}>
+            <Typography sx={{ fontSize: "11.5px", color: DASH.muted }}>
                 Showing{" "}
                 <strong>{allData.length === 0 ? 0 : page * rowsPerPage + 1}</strong>
-                {" – "}
+                {" - "}
                 <strong>{Math.min((page + 1) * rowsPerPage, allData.length)}</strong>
                 {" of "}
                 <strong>{allData.length}</strong> records
@@ -167,14 +240,14 @@ const PasswordTable = React.memo(({ pageData, allData, page, rowsPerPage, onPage
                 rowsPerPageOptions={ROWS_OPTIONS}
                 sx={{
                     "& .MuiTablePagination-toolbar": { minHeight: "40px", p: 0 },
-                    "& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows": { fontSize: "12px", color: "#888", mb: 0 },
-                    "& .MuiTablePagination-select": { fontSize: "12px" },
+                    "& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows": { fontSize: "11.5px", color: DASH.muted, mb: 0 },
+                    "& .MuiTablePagination-select": { fontSize: "11.5px" },
                     "& .MuiIconButton-root": { p: 0.5 },
                     border: "none",
                 }}
             />
         </Box>
-    </Box>
+    </>
 ));
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -217,6 +290,8 @@ export default function PasswordManagementPage() {
     // SnackBar — single object to avoid multiple setStates
     const [snack, setSnack] = useState({ open: false, status: false, color: false, message: "" });
 
+    const mainColor = websiteSettings.mainColor || DASH.primary;
+
     // Rows the permissions allow, narrowed further by the audience toggle when
     // the user is allowed to see both sides.
     const fetchAllData = useCallback(async () => {
@@ -247,8 +322,7 @@ export default function PasswordManagementPage() {
 
     useEffect(() => { fetchAllData(); }, [fetchAllData]);
 
-    const handleSearchChange = (e) => {
-        const query = e.target.value.toLowerCase();
+    const runSearch = (query) => {
         setSearchQuery(query);
         setPage(0); // reset to first page on search
         setFilteredData(
@@ -261,6 +335,8 @@ export default function PasswordManagementPage() {
                 : passwords
         );
     };
+
+    const handleSearchChange = (e) => runSearch(e.target.value.toLowerCase());
 
     const handleExport = () => {
         if (!filteredData.length) {
@@ -331,9 +407,29 @@ export default function PasswordManagementPage() {
         }
     };
 
+    const fieldSx = {
+        "& .MuiOutlinedInput-root": {
+            height: 36,
+            fontSize: "13px",
+            borderRadius: RADIUS,
+            bgcolor: "#fff",
+            "& fieldset": { borderColor: DASH.line },
+            "&:hover fieldset": { borderColor: DASH.faint },
+            "&.Mui-focused fieldset": { borderColor: mainColor, borderWidth: "1px" },
+        },
+    };
+
+    const labelSx = { fontSize: "11px", fontWeight: 700, color: DASH.muted, textTransform: "uppercase", letterSpacing: "0.4px", mb: 0.6 };
+
+    const ghostBtnSx = {
+        textTransform: "none", fontSize: "12.5px", fontWeight: 700, color: DASH.text,
+        bgcolor: "#fff", border: `1px solid ${DASH.line}`, borderRadius: RADIUS,
+        px: 2, height: 34, boxShadow: "none",
+        "&:hover": { bgcolor: DASH.lineSoft, borderColor: DASH.faint },
+    };
 
     return (
-        <Box sx={{ width: "100%" }}>
+        <Box sx={{ px: { xs: 1.5, md: 2 }, pt: { xs: 1.5, md: 2 }, pb: 4, bgcolor: DASH.canvas, minHeight: "100%", boxSizing: "border-box" }}>
             {isLoading && <Loader />}
             <SnackBar
                 open={snack.open}
@@ -344,77 +440,117 @@ export default function PasswordManagementPage() {
             />
 
             {/* Header */}
-            <Box sx={{ backgroundColor: "#f2f2f2", p: 1.5, borderRadius: "10px 10px 10px 0px", borderBottom: "1px solid #ddd" }}>
-                <Grid container alignItems="center" spacing={1}>
-                    <Grid size={{ xs: 12, sm: 5 }} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                        <IconButton sx={{ width: 27, height: 27 }} onClick={() => navigate(-1)}>
-                            <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
-                        </IconButton>
-                        <Typography sx={{ fontWeight: 600, fontSize: "20px" }}>Password Management</Typography>
-                        {canBoth ? (
-                            <Select
-                                size="small"
-                                value={audience}
-                                onChange={(e) => setAudience(e.target.value)}
-                                sx={{ fontSize: "12.5px", height: 30, borderRadius: "6px", bgcolor: "#fff", ml: 1 }}
-                            >
-                                <MenuItem value="all" sx={{ fontSize: "12.5px" }}>Students &amp; Staff</MenuItem>
-                                <MenuItem value="student" sx={{ fontSize: "12.5px" }}>Students only</MenuItem>
-                                <MenuItem value="staff" sx={{ fontSize: "12.5px" }}>Staff only</MenuItem>
-                            </Select>
-                        ) : (
-                            <Chip
-                                label={canStudents ? "Students" : "Staff"}
-                                size="small"
-                                sx={{ ml: 1, height: 22, fontSize: "11px", fontWeight: 600, bgcolor: "#EDE7F6", color: "#5E35B1" }}
-                            />
-                        )}
-                    </Grid>
+            <Box
+                sx={{
+                    display: "flex", alignItems: { xs: "flex-start", md: "center" },
+                    justifyContent: "space-between", flexDirection: { xs: "column", md: "row" },
+                    gap: 1.5, mb: 2,
+                }}
+            >
+                <Box sx={{ display: "flex", alignItems: "flex-start", gap: 0.5, minWidth: 0 }}>
+                    <IconButton onClick={() => navigate(-1)} sx={{ mt: -0.5 }}>
+                        <ArrowBackIcon sx={{ fontSize: 20, color: DASH.text }} />
+                    </IconButton>
+                    <Box sx={{ minWidth: 0 }}>
+                        <Typography sx={{ fontSize: "21px", fontWeight: 700, color: DASH.ink }}>
+                            Password Management
+                        </Typography>
+                        <Typography sx={{ fontSize: "12.5px", color: DASH.muted, mt: 0.2 }}>
+                            Look up a member's login and reset it when they are locked out
+                        </Typography>
+                    </Box>
+                </Box>
 
-                    <Grid size={{ xs: 12, sm: 5 }}>
-                        <TextField
-                            fullWidth
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexShrink: 0, pl: { xs: 5, md: 0 }, flexWrap: "wrap" }}>
+                    {canBoth ? (
+                        <Select
                             size="small"
-                            placeholder="Search by name or roll number..."
-                            value={searchQuery}
-                            onChange={handleSearchChange}
-                            slotProps={{
-                                input: {
-                                    startAdornment: (
-                                        <InputAdornment position="start">
-                                            <SearchIcon sx={{ fontSize: 18, color: "#aaa" }} />
-                                        </InputAdornment>
-                                    ),
-                                    sx: { borderRadius: "50px", fontSize: "13px", height: "32px" },
-                                },
-                            }}
-                            sx={{ "& .MuiOutlinedInput-root": { borderRadius: "50px" } }}
-                        />
-                    </Grid>
-
-                    <Grid size={{ xs: 12, sm: 2 }} sx={{ display: "flex", justifyContent: { xs: "flex-start", sm: "flex-end" } }}>
-                        <Button
-                            variant="contained"
-                            onClick={handleExport}
-                            startIcon={<FileDownloadIcon sx={{ fontSize: 18 }} />}
+                            value={audience}
+                            onChange={(e) => setAudience(e.target.value)}
                             sx={{
-                                textTransform: "none",
-                                bgcolor: websiteSettings.mainColor,
-                                "&:hover": { bgcolor: websiteSettings.mainColor, opacity: 0.9 },
-                                borderRadius: "6px",
-                                fontSize: "13px",
-                                fontWeight: 600,
-                                height: "32px",
+                                fontSize: "12.5px", fontWeight: 600, height: 32, minWidth: 150,
+                                borderRadius: RADIUS, bgcolor: "#fff",
+                                "& fieldset": { borderColor: DASH.line },
+                                "&:hover fieldset": { borderColor: DASH.faint },
+                                "&.Mui-focused fieldset": { borderColor: mainColor, borderWidth: "1px" },
                             }}
                         >
-                            Export
-                        </Button>
-                    </Grid>
-                </Grid>
+                            <MenuItem value="all" sx={{ fontSize: "12.5px" }}>Students &amp; Staff</MenuItem>
+                            <MenuItem value="student" sx={{ fontSize: "12.5px" }}>Students only</MenuItem>
+                            <MenuItem value="staff" sx={{ fontSize: "12.5px" }}>Staff only</MenuItem>
+                        </Select>
+                    ) : (
+                        <Chip
+                            label={canStudents ? "Students" : "Staff"}
+                            size="small"
+                            sx={{ height: 24, fontSize: "11px", fontWeight: 700, borderRadius: RADIUS, bgcolor: `${ACCENT}14`, color: ACCENT }}
+                        />
+                    )}
+
+                    <TextField
+                        size="small"
+                        placeholder="Search by name or roll number"
+                        value={searchQuery}
+                        onChange={handleSearchChange}
+                        slotProps={{
+                            input: {
+                                startAdornment: (
+                                    <InputAdornment position="start">
+                                        <SearchIcon sx={{ fontSize: 17, color: DASH.faint }} />
+                                    </InputAdornment>
+                                ),
+                                endAdornment: searchQuery ? (
+                                    <InputAdornment position="end">
+                                        <IconButton size="small" onClick={() => runSearch("")} sx={{ p: 0.2 }}>
+                                            <HighlightOffIcon sx={{ fontSize: 15, color: DASH.faint }} />
+                                        </IconButton>
+                                    </InputAdornment>
+                                ) : null,
+                            },
+                        }}
+                        sx={{
+                            width: { xs: "100%", sm: 260 },
+                            "& .MuiOutlinedInput-root": {
+                                height: 32,
+                                fontSize: "12.5px",
+                                borderRadius: RADIUS,
+                                bgcolor: "#fff",
+                                "& fieldset": { borderColor: DASH.line },
+                                "&:hover fieldset": { borderColor: DASH.faint },
+                                "&.Mui-focused fieldset": { borderColor: mainColor, borderWidth: "1px" },
+                            },
+                        }}
+                    />
+
+                    <Button
+                        onClick={handleExport}
+                        startIcon={<FileDownloadOutlinedIcon sx={{ fontSize: 16 }} />}
+                        sx={{
+                            textTransform: "none",
+                            fontSize: "12.5px",
+                            fontWeight: 700,
+                            height: 32,
+                            px: 1.8,
+                            borderRadius: RADIUS,
+                            color: DASH.cyan,
+                            bgcolor: DASH.cyanLight,
+                            border: "1px solid #A5F3FC",
+                            boxShadow: "none",
+                            "&:hover": { bgcolor: DASH.cyanLight, borderColor: DASH.cyan },
+                        }}
+                    >
+                        Export
+                    </Button>
+                </Box>
             </Box>
 
             {/* Table */}
-            <Box sx={{ p: 2 }}>
+            <Panel
+                title="Member Logins"
+                subtitle={isLoading ? "Loading…" : `${filteredData.length} of ${passwords.length} record${passwords.length === 1 ? "" : "s"}`}
+                accent={ACCENT}
+                bodySx={{ p: 0 }}
+            >
                 <PasswordTable
                     pageData={pageData}
                     allData={filteredData}
@@ -424,34 +560,58 @@ export default function PasswordManagementPage() {
                     onRowsPerPageChange={handleRowsPerPageChange}
                     onChangePassword={handleOpenChange}
                     onViewImage={handleViewImage}
+                    searchQuery={searchQuery}
                 />
-            </Box>
+            </Panel>
 
             {/* ── Change Password Dialog ── */}
-            <Dialog open={dialog.open} onClose={closeDialog} fullWidth maxWidth="xs">
-                <Box sx={{ bgcolor: "#f2f2f2", px: 2.5, py: 1.5, display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #ddd" }}>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                        <LockResetIcon sx={{ fontSize: 18, color: "#F57C00" }} />
-                        <Typography sx={{ fontWeight: 600, fontSize: "16px" }}>Change Password</Typography>
+            <Dialog
+                open={dialog.open}
+                onClose={closeDialog}
+                fullWidth
+                maxWidth="xs"
+                slotProps={{ paper: { sx: { borderRadius: "12px", overflow: "hidden" } } }}
+            >
+                <Box sx={{ height: 3, bgcolor: DASH.amber }} />
+                <Box sx={{ px: 2, py: 1.6, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, minWidth: 0 }}>
+                        <Box sx={{
+                            width: 34, height: 34, flexShrink: 0, borderRadius: RADIUS,
+                            bgcolor: DASH.amberLight, border: "1px solid #FDE68A",
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                        }}>
+                            <LockResetIcon sx={{ fontSize: 18, color: "#B45309" }} />
+                        </Box>
+                        <Box sx={{ minWidth: 0 }}>
+                            <Typography sx={{ fontSize: "15px", fontWeight: 700, color: DASH.ink, lineHeight: 1.2 }}>
+                                Change Password
+                            </Typography>
+                            <Typography sx={{ fontSize: "11.5px", color: DASH.muted, mt: 0.2 }}>
+                                The member signs in with the new one straight away
+                            </Typography>
+                        </Box>
                     </Box>
                     <IconButton size="small" onClick={closeDialog}>
-                        <CloseIcon sx={{ fontSize: 18 }} />
+                        <CloseIcon sx={{ fontSize: 18, color: DASH.muted }} />
                     </IconButton>
                 </Box>
 
-                <DialogContent sx={{ pt: 2.5, pb: 1 }}>
-                    {/* User info card */}
+                <DialogContent sx={{ px: 2, pt: 0, pb: 1 }}>
+                    {/* Who this is for */}
                     {dialog.user && (
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, p: 1.5, bgcolor: "#fafafa", border: "1px solid #e8e8e8", borderRadius: "8px", mb: 2.5 }}>
+                        <Box sx={{
+                            display: "flex", alignItems: "center", gap: 1.5, p: 1.4, mb: 2.2,
+                            bgcolor: DASH.surface, border: `1px solid ${DASH.line}`, borderRadius: RADIUS,
+                        }}>
                             <Avatar
                                 src={dialog.user.filepath || avatarImage}
-                                sx={{ width: 40, height: 40, border: "2px solid #e0e0e0" }}
+                                sx={{ width: 38, height: 38, border: `1px solid ${DASH.line}` }}
                             />
-                            <Box>
-                                <Typography sx={{ fontWeight: 700, fontSize: "14px", color: "#222" }}>
+                            <Box sx={{ minWidth: 0 }}>
+                                <Typography sx={{ fontWeight: 700, fontSize: "13.5px", color: DASH.ink }} noWrap>
                                     {dialog.user.name || "Name not provided"}
                                 </Typography>
-                                <Typography sx={{ fontSize: "12px", color: "#888" }}>
+                                <Typography sx={{ fontSize: "11.5px", color: DASH.muted }} noWrap>
                                     {dialog.user.rollNumber}
                                     {dialog.user.userType ? ` · ${dialog.user.userType}` : ""}
                                     {dialog.user.grade ? ` · ${dialog.user.grade}` : ""}
@@ -461,10 +621,7 @@ export default function PasswordManagementPage() {
                         </Box>
                     )}
 
-                    {/* New password */}
-                    <Typography sx={{ fontSize: "12px", fontWeight: 600, color: "#555", mb: 0.5, textTransform: "uppercase", letterSpacing: "0.4px" }}>
-                        New Password
-                    </Typography>
+                    <Typography sx={labelSx}>New Password</Typography>
                     <TextField
                         fullWidth
                         size="small"
@@ -472,13 +629,13 @@ export default function PasswordManagementPage() {
                         placeholder="Enter new password"
                         value={dialog.newPassword}
                         onChange={(e) => setDialog((prev) => ({ ...prev, newPassword: e.target.value }))}
-                        sx={{ mb: 2 }}
+                        sx={{ ...fieldSx, mb: 2 }}
                         slotProps={{
                             input: {
                                 endAdornment: (
                                     <InputAdornment position="end">
                                         <IconButton size="small" onClick={() => setDialog((prev) => ({ ...prev, showNew: !prev.showNew }))}>
-                                            {dialog.showNew ? <VisibilityIcon sx={{ fontSize: 18 }} /> : <VisibilityOffIcon sx={{ fontSize: 18 }} />}
+                                            {dialog.showNew ? <VisibilityIcon sx={{ fontSize: 17 }} /> : <VisibilityOffIcon sx={{ fontSize: 17 }} />}
                                         </IconButton>
                                     </InputAdornment>
                                 ),
@@ -486,10 +643,7 @@ export default function PasswordManagementPage() {
                         }}
                     />
 
-                    {/* Confirm password */}
-                    <Typography sx={{ fontSize: "12px", fontWeight: 600, color: "#555", mb: 0.5, textTransform: "uppercase", letterSpacing: "0.4px" }}>
-                        Confirm Password
-                    </Typography>
+                    <Typography sx={labelSx}>Confirm Password</Typography>
                     <TextField
                         fullWidth
                         size="small"
@@ -498,12 +652,15 @@ export default function PasswordManagementPage() {
                         value={dialog.confirmPassword}
                         onChange={(e) => setDialog((prev) => ({ ...prev, confirmPassword: e.target.value }))}
                         error={!!passwordMismatch}
-                        helperText={passwordMismatch ? "Passwords do not match" : passwordsMatch ? "✓ Passwords match" : ""}
+                        helperText={passwordMismatch ? "Passwords do not match" : passwordsMatch ? "Passwords match" : " "}
                         sx={{
+                            ...fieldSx,
                             "& .MuiFormHelperText-root": {
-                                color: passwordMismatch ? "#e53935" : "#388E3C",
+                                color: passwordMismatch ? DASH.red : DASH.green,
                                 fontWeight: 600,
-                                fontSize: "12px",
+                                fontSize: "11px",
+                                ml: 0,
+                                mt: 0.6,
                             },
                         }}
                         slotProps={{
@@ -511,7 +668,7 @@ export default function PasswordManagementPage() {
                                 endAdornment: (
                                     <InputAdornment position="end">
                                         <IconButton size="small" onClick={() => setDialog((prev) => ({ ...prev, showConfirm: !prev.showConfirm }))}>
-                                            {dialog.showConfirm ? <VisibilityIcon sx={{ fontSize: 18 }} /> : <VisibilityOffIcon sx={{ fontSize: 18 }} />}
+                                            {dialog.showConfirm ? <VisibilityIcon sx={{ fontSize: 17 }} /> : <VisibilityOffIcon sx={{ fontSize: 17 }} />}
                                         </IconButton>
                                     </InputAdornment>
                                 ),
@@ -520,24 +677,25 @@ export default function PasswordManagementPage() {
                     />
                 </DialogContent>
 
-                <DialogActions sx={{ px: 2.5, pb: 2, pt: 1 }}>
-                    <Button
-                        onClick={closeDialog}
-                        sx={{ textTransform: "none", color: "#555", borderRadius: "20px", border: "1px solid #ddd" }}
-                    >
-                        Cancel
-                    </Button>
+                <DialogActions sx={{ px: 2, pb: 2, pt: 1, gap: 1 }}>
+                    <Button onClick={closeDialog} sx={ghostBtnSx}>Cancel</Button>
                     <Button
                         variant="contained"
+                        disableElevation
                         disabled={!passwordsMatch}
                         onClick={handleChangePassword}
                         sx={{
                             textTransform: "none",
-                            borderRadius: "20px",
-                            bgcolor: websiteSettings.mainColor,
-                            "&:hover": { bgcolor: websiteSettings.mainColor, opacity: 0.9 },
-                            "&:disabled": { bgcolor: "#e0e0e0", color: "#bbb" },
-                            px: 3,
+                            fontSize: "12.5px",
+                            fontWeight: 700,
+                            borderRadius: RADIUS,
+                            px: 2.4,
+                            height: 34,
+                            color: websiteSettings.textColor || "#fff",
+                            bgcolor: mainColor,
+                            boxShadow: "none",
+                            "&:hover": { bgcolor: mainColor, filter: "brightness(0.92)", boxShadow: "none" },
+                            "&.Mui-disabled": { bgcolor: DASH.line, color: DASH.faint },
                         }}
                     >
                         Update Password
@@ -549,20 +707,31 @@ export default function PasswordManagementPage() {
             <Dialog
                 open={openImage}
                 onClose={() => setOpenImage(false)}
-                sx={{ "& .MuiPaper-root": { backgroundColor: "transparent", boxShadow: "none", overflow: "visible" } }}
-                BackdropProps={{ style: { backgroundColor: "rgba(0,0,0,0.85)" } }}
+                maxWidth="md"
+                slotProps={{
+                    paper: { sx: { backgroundColor: "transparent", boxShadow: "none", overflow: "visible", position: "relative" } },
+                    backdrop: { sx: { backgroundColor: "rgba(0,0,0,0.85)" } },
+                }}
             >
                 <img
                     src={imageUrl || avatarImage}
                     alt="User"
-                    style={{ width: "auto", height: "auto", maxWidth: "80vw", maxHeight: "80vh", display: "block", margin: "auto" }}
+                    style={{ width: "auto", height: "auto", maxWidth: "80vw", maxHeight: "80vh", display: "block", margin: "auto", borderRadius: "8px" }}
                 />
-                <IconButton
-                    onClick={() => setOpenImage(false)}
-                    sx={{ position: "absolute", top: -10, right: -40, bgcolor: "rgba(255,255,255,0.2)", "&:hover": { bgcolor: "rgba(255,255,255,0.4)" } }}
-                >
-                    <CloseIcon sx={{ color: "#fff" }} />
-                </IconButton>
+                <Tooltip title="Close" arrow>
+                    <IconButton
+                        onClick={() => setOpenImage(false)}
+                        sx={{
+                            position: "absolute",
+                            top: 8,
+                            right: 8,
+                            bgcolor: "rgba(0,0,0,0.45)",
+                            "&:hover": { bgcolor: "rgba(0,0,0,0.65)" },
+                        }}
+                    >
+                        <CloseIcon sx={{ color: "#fff", fontSize: 18 }} />
+                    </IconButton>
+                </Tooltip>
             </Dialog>
         </Box>
     );

@@ -24,7 +24,7 @@ import { DASH, RADIUS } from "../../DashBoardComps/dashboardTheme";
 import { selectGrades } from "../../../Redux/Slices/DropdownController";
 import { selectAcademicYear } from "../../../Redux/Slices/academicYearSlice";
 import { MOCK_PAPERS, PAPER_STATUSES, fmtDate, parseApiDate } from "./questionPaperApi";
-import { StatusPill, Pill, fieldSx, outlineBtnSx, primaryBtnSx } from "./questionPaperTheme";
+import { StatusPill, Pill, fieldSx, outlineBtnSx, createBtnSx, primaryBtnSx } from "./questionPaperTheme";
 
 const STATUS_TABS = ["All", ...PAPER_STATUSES];
 const PER_PAGE = 9;
@@ -115,8 +115,13 @@ const PaperCard = ({ paper, onOpen, onClone }) => {
                     </Typography>
                 </Box>
 
-                {paper.status === "Rejected" && paper.rejectReason && (
-                    <Typography sx={{ fontSize: "11px", color: DASH.red, mt: 1, lineHeight: 1.5 }}>
+                {paper.rejectReason && (paper.status === "Sent Back" || paper.status === "Rejected") && (
+                    <Typography
+                        sx={{
+                            fontSize: "11px", mt: 1, lineHeight: 1.5,
+                            color: paper.status === "Sent Back" ? "#B45309" : DASH.red,
+                        }}
+                    >
                         {paper.rejectReason}
                     </Typography>
                 )}
@@ -271,11 +276,12 @@ export default function AllQuestionPapersPage() {
                     </Box>
                 </Box>
 
-                <Box sx={{ display: "flex", gap: 1, flexShrink: 0, pl: { xs: 5, md: 0 } }}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexShrink: 0, pl: { xs: 5, md: 0 } }}>
                     <Tooltip title="Reload" arrow>
                         <IconButton
                             onClick={load}
                             sx={{
+                                width: 34, height: 34,
                                 border: `1px solid ${DASH.line}`, borderRadius: RADIUS, bgcolor: "#fff",
                                 "&:hover": { bgcolor: DASH.primaryLight, borderColor: DASH.primaryBorder },
                             }}
@@ -285,8 +291,9 @@ export default function AllQuestionPapersPage() {
                     </Tooltip>
                     <Button
                         onClick={() => navigate("/dashboardmenu/assessment/question-paper/create")}
-                        startIcon={<AddIcon sx={{ fontSize: 16 }} />}
-                        sx={primaryBtnSx}
+                        variant="contained"
+                        startIcon={<AddIcon sx={{ fontSize: 18 }} />}
+                        sx={createBtnSx}
                     >
                         Create Paper
                     </Button>
@@ -407,8 +414,9 @@ export default function AllQuestionPapersPage() {
                     </Typography>
                     <Button
                         onClick={() => navigate("/dashboardmenu/assessment/question-paper/create")}
-                        startIcon={<AddIcon sx={{ fontSize: 16 }} />}
-                        sx={primaryBtnSx}
+                        variant="contained"
+                        startIcon={<AddIcon sx={{ fontSize: 18 }} />}
+                        sx={createBtnSx}
                     >
                         Create Paper
                     </Button>

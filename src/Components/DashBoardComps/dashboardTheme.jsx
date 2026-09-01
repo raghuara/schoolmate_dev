@@ -123,6 +123,25 @@ export const SOFT = {
     cyan: { color: "#0891B2", bg: BRAND.cyan.bg, border: "#C7EDF3", hover: BRAND.cyan.icon },
 };
 
+/* The create action - "add a new one" entry points across every module.
+   The tinted SOFT buttons are for secondary actions and the module's own
+   primary colour stays on submits inside a flow (Next, Save, Confirm). */
+export const createBtnSx = {
+    textTransform: "none",
+    bgcolor: "#000",
+    color: "#fff",
+    fontWeight: 700,
+    fontSize: 12.5,
+    borderRadius: "50px",
+    px: 2,
+    py: 0.6,
+    height: 34,
+    whiteSpace: "nowrap",
+    boxShadow: "0 2px 6px rgba(0,0,0,0.18)",
+    "&:hover": { bgcolor: "#1a1a1a", boxShadow: "0 4px 12px rgba(0,0,0,0.22)" },
+    "&.Mui-disabled": { bgcolor: DASH.line, color: DASH.faint, boxShadow: "none" },
+};
+
 export const SEVERITY = {
     critical: { color: DASH.red, bg: DASH.redLight, border: "#FECACA" },
     warning: { color: DASH.amber, bg: DASH.amberLight, border: "#FDE68A" },

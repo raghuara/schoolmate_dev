@@ -88,6 +88,7 @@ import CircularsApprovalEditPage from "./Components/Approvals/ApprovalPages/Edit
 // import FeedBackDraftPage from "./Components/MyProjects/DraftComps/FeedBackComps/FeedBackDraftPage";   // draft feature is off
 // import FeedBackDraftEditPage from "./Components/MyProjects/DraftComps/FeedBackComps/FeedBackDraftEditPage";   // draft feature is off
 import SoonPage from "./Components/Soon";
+import HelpCenterPage from "./Components/DashBoard/HelpComps/HelpCenterPage";
 import FolderStudyMaterialsPage from "./Components/CommunicationComps/StudyMaterialsComps/FolderStudyMaterials";
 import MainStudyMaterialsPage from "./Components/CommunicationComps/StudyMaterialsComps/MainStudyMaterials";
 import ManagementPage from "./Components/DashBoard/ManagementPage";
@@ -187,6 +188,7 @@ import QuestionPaperDashboard from "./Components/AssessmentComps/QuestionPaperCo
 import AllQuestionPapersPage from "./Components/AssessmentComps/QuestionPaperComps/AllQuestionPapersPage";
 import PatternListPage from "./Components/AssessmentComps/QuestionPaperComps/PatternListPage";
 import PatternBuilderPage from "./Components/AssessmentComps/QuestionPaperComps/PatternBuilderPage";
+import PatternViewPage from "./Components/AssessmentComps/QuestionPaperComps/PatternViewPage";
 import CreateQuestionPaperPage from "./Components/AssessmentComps/QuestionPaperComps/CreateQuestionPaperPage";
 import QuestionPaperPreviewPage from "./Components/AssessmentComps/QuestionPaperComps/QuestionPaperPreviewPage";
 import QuestionPaperApprovalPage from "./Components/AssessmentComps/QuestionPaperComps/QuestionPaperApprovalPage";
@@ -262,6 +264,7 @@ export default function RouterPage() {
             <Route path="chat" element={<ChatPage />} />
             <Route path="dashboardmenu" element={<DashBoardLayout />}>
                 <Route path="soon" element={<SoonPage />} />
+                <Route path="help" element={<HelpCenterPage />} />
 
                 {/*Main Pages */}
                 <Route path="dashboard" element={<DashBoardPage />} />
@@ -651,6 +654,7 @@ export default function RouterPage() {
                 <Route path="assessment/question-paper/bank" element={<QuestionBankPage />} />
                 <Route path="assessment/question-paper/patterns" element={<PatternListPage />} />
                 <Route path="assessment/question-paper/patterns/create" element={<PatternBuilderPage />} />
+                <Route path="assessment/question-paper/patterns/view/:patternId" element={<PatternViewPage />} />
                 <Route path="assessment/question-paper/patterns/:patternId" element={<PatternBuilderPage />} />
                 {/* Question paper approvals live in the Approvals module now - the old path is a shortcut. */}
                 <Route path="assessment/question-paper/approvals" element={<Navigate to="/dashboardmenu/approvals/question-paper" replace />} />

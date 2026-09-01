@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
     Box, Grid, Typography, Button, IconButton, TextField, MenuItem, Tooltip,
     Select, OutlinedInput, Checkbox, ListItemText, Divider, Autocomplete,
+    FormControl, InputLabel, FormHelperText,
 } from "@mui/material";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 
@@ -25,31 +26,54 @@ import {
 } from "./questionPaperApi";
 import { Pill, fieldSx, outlineBtnSx, primaryBtnSx, Banner } from "./questionPaperTheme";
 
+// Strips anything that is not part of a number, without deciding a value.
+const digitsOnly = (raw, decimal = false) => (decimal
+    ? String(raw).replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1")
+    : String(raw).replace(/[^0-9]/g, ""));
+
 const clampNumber = (raw, min, max, decimal = false) => {
-    const cleaned = decimal
-        ? String(raw).replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1")
-        : String(raw).replace(/[^0-9]/g, "");
+    const cleaned = digitsOnly(raw, decimal);
     if (cleaned === "" || cleaned === ".") return min;
     const parsed = Number(cleaned);
     if (Number.isNaN(parsed)) return min;
     return Math.min(max, Math.max(min, parsed));
 };
 
-const NumberField = ({ label, value, onChange, min = 0, max = 999, helper, error, decimal = false, sx }) => (
-    <TextField
-        fullWidth size="small" label={label}
-        value={value}
-        onChange={(e) => onChange(clampNumber(e.target.value, min, max, decimal))}
-        error={Boolean(error)}
-        helperText={error || helper || " "}
-        sx={{ ...fieldSx, ...sx }}
-    />
-);
+const isBlank = (value) => value === "" || value === null || value === undefined;
+
+/* Clearing the field used to snap it straight back to the minimum, so replacing
+   5 with 6 left 16 behind. The field now holds whatever was typed - including
+   nothing - and only clamps to the range when it loses focus. An empty required
+   field says so instead of quietly inventing a number. */
+const NumberField = ({
+    label, value, onChange, min = 0, max = 999, helper, error,
+    decimal = false, required = true, disabled = false, sx,
+}) => {
+    const text = isBlank(value) ? "" : String(value);
+    const missing = required && text.trim() === "";
+    return (
+        <TextField
+            fullWidth size="small" label={label}
+            value={text}
+            disabled={disabled}
+            onChange={(e) => onChange(digitsOnly(e.target.value, decimal))}
+            onBlur={() => { if (text.trim() !== "") onChange(clampNumber(text, min, max, decimal)); }}
+            error={Boolean(error) || missing}
+            helperText={error || (missing ? "Required" : helper || " ")}
+            sx={{ ...fieldSx, ...sx }}
+        />
+    );
+};
 
 const SectionCard = ({ section, index, total, onChange, onRemove, onMove, onDuplicate }) => {
     const meta = typeMeta(section.type);
     const marks = sectionMarks(section);
-    const answerOverPrint = section.questionsToAnswer > section.questionsToPrint;
+    // The counts are text while they are being typed, so compare as numbers.
+    const printCount = Number(section.questionsToPrint) || 0;
+    const answerCount = Number(section.questionsToAnswer) || 0;
+    const answerOverPrint = answerCount > printCount;
+    // True or False has exactly two options; nothing else is a valid paper.
+    const optionsLocked = section.type === "truefalse";
     const mix = section.difficulty || { easy: 0, medium: 0, hard: 0 };
     const mixTotal = (mix.easy || 0) + (mix.medium || 0) + (mix.hard || 0);
 
@@ -251,7 +275,7 @@ const SectionCard = ({ section, index, total, onChange, onRemove, onMove, onDupl
                                 ...section,
                                 questionsToPrint: v,
                                 questionsToAnswer: section.choiceMode === "any"
-                                    ? Math.min(section.questionsToAnswer, v)
+                                    ? String(Math.min(answerCount, Number(v) || 0))
                                     : v,
                             })}
                             min={1} max={99}
@@ -270,9 +294,11 @@ const SectionCard = ({ section, index, total, onChange, onRemove, onMove, onDupl
                         <Grid size={{ xs: 6, sm: 4, md: 2, lg: 2 }}>
                             <NumberField
                                 label="Options"
-                                value={section.optionCount}
+                                value={optionsLocked ? 2 : section.optionCount}
                                 onChange={(v) => set("optionCount", v)}
                                 min={2} max={6}
+                                disabled={optionsLocked}
+                                helper={optionsLocked ? "True and False only" : "Between 2 and 6"}
                             />
                         </Grid>
                     )}
@@ -282,7 +308,8 @@ const SectionCard = ({ section, index, total, onChange, onRemove, onMove, onDupl
                                 label="With OR choice"
                                 value={section.internalChoiceCount}
                                 onChange={(v) => set("internalChoiceCount", v)}
-                                min={0} max={section.questionsToPrint}
+                                min={0} max={printCount || 99}
+                                required={false}
                                 helper="Questions carrying (a) / (b)"
                             />
                         </Grid>
@@ -304,11 +331,12 @@ const SectionCard = ({ section, index, total, onChange, onRemove, onMove, onDupl
 
                     <Grid size={{ xs: 6, sm: 4, md: 2, lg: 2 }}>
                         <NumberField
-                            label="Ruled answer lines"
+                            label="Blank lines to write on"
                             value={section.answerLines}
                             onChange={(v) => set("answerLines", v)}
                             min={0} max={20}
-                            helper="0 = no writing lines"
+                            required={false}
+                            helper="Ruled lines printed under each question. 0 = none"
                         />
                     </Grid>
 
@@ -491,11 +519,22 @@ export default function PatternBuilderPage() {
             notify("Fill the highlighted fields");
             return false;
         }
+        /* A number left blank is not a zero - the section is simply unfinished,
+           and saving it would print a section that asks for nothing. */
+        const blankSection = pattern.sections.find((s) => (
+            isBlank(s.marksPerQuestion) || isBlank(s.questionsToPrint) || isBlank(s.questionsToAnswer)
+        ));
+        if (blankSection) {
+            notify(`${sectionHeading(blankSection) || blankSection.label} has an empty required field`);
+            return false;
+        }
         if (!balanced) {
             notify(`Sections add up to ${sectionsTotal}, but the paper is ${pattern.totalMarks} marks`);
             return false;
         }
-        const badSection = pattern.sections.find((s) => s.questionsToAnswer > s.questionsToPrint);
+        const badSection = pattern.sections.find(
+            (s) => (Number(s.questionsToAnswer) || 0) > (Number(s.questionsToPrint) || 0)
+        );
         if (badSection) {
             notify(`${badSection.label} asks for more answers than it prints`);
             return false;
@@ -542,38 +581,41 @@ export default function PatternBuilderPage() {
                     </Grid>
                     {/* Classes come first - the exam list below is built from them. */}
                     <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
-                        <Typography sx={{ fontSize: "11px", color: DASH.muted, mb: 0.4 }}>Applies to classes</Typography>
-                        <Select
-                            multiple
-                            size="small"
-                            fullWidth
-                            displayEmpty
-                            value={pattern.gradeIds}
-                            onChange={(e) => setField("gradeIds", e.target.value)}
-                            input={<OutlinedInput />}
-                            renderValue={(selected) => (
-                                selected.length === 0
-                                    ? "Any class"
-                                    : selected
-                                        .map((id) => grades.find((g) => String(g.id) === String(id))?.sign || id)
-                                        .join(", ")
-                            )}
-                            sx={{ ...fieldSx, fontSize: "13px" }}
-                        >
-                            {grades.map((g) => (
-                                <MenuItem key={g.id} value={String(g.id)} sx={{ fontSize: "13px", py: 0.4 }}>
-                                    <Checkbox
-                                        size="small"
-                                        checked={pattern.gradeIds.map(String).includes(String(g.id))}
-                                        sx={{ p: 0.5, "&.Mui-checked": { color: DASH.primary } }}
-                                    />
-                                    <ListItemText primary={g.sign} slotProps={{ primary: { fontSize: "13px" } }} />
-                                </MenuItem>
-                            ))}
-                        </Select>
-                        <Typography sx={{ fontSize: "11px", color: DASH.muted, mt: 0.5 }}>
-                            Sections are chosen on the paper, not here.
-                        </Typography>
+                        {/* The label sits in the notch like every other field on
+                            this row - a caption above the control left it taller
+                            than its neighbours and broke the row alignment. */}
+                        <FormControl fullWidth size="small" sx={fieldSx}>
+                            <InputLabel shrink sx={{ fontSize: "13px" }}>Applies to classes</InputLabel>
+                            <Select
+                                multiple
+                                displayEmpty
+                                value={pattern.gradeIds}
+                                onChange={(e) => setField("gradeIds", e.target.value)}
+                                input={<OutlinedInput notched label="Applies to classes" />}
+                                renderValue={(selected) => (
+                                    selected.length === 0
+                                        ? "Any class"
+                                        : selected
+                                            .map((id) => grades.find((g) => String(g.id) === String(id))?.sign || id)
+                                            .join(", ")
+                                )}
+                                sx={{ fontSize: "13px" }}
+                            >
+                                {grades.map((g) => (
+                                    <MenuItem key={g.id} value={String(g.id)} sx={{ fontSize: "13px", py: 0.4 }}>
+                                        <Checkbox
+                                            size="small"
+                                            checked={pattern.gradeIds.map(String).includes(String(g.id))}
+                                            sx={{ p: 0.5, "&.Mui-checked": { color: DASH.primary } }}
+                                        />
+                                        <ListItemText primary={g.sign} slotProps={{ primary: { fontSize: "13px" } }} />
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                            <FormHelperText sx={{ fontSize: "11px", color: DASH.muted, ml: 0, mt: 0.5 }}>
+                                Sections are chosen on the paper, not here.
+                            </FormHelperText>
+                        </FormControl>
                     </Grid>
 
                     {/* Real exams mapped to those classes, not a made-up category. */}
@@ -623,21 +665,14 @@ export default function PatternBuilderPage() {
                             value={pattern.readingTimeMinutes || 0}
                             onChange={(v) => setField("readingTimeMinutes", v)}
                             min={0} max={30}
+                            required={false}
                             helper="0 = not printed"
                         />
                     </Grid>
-                    <Grid size={{ xs: 6, sm: 4, md: 2, lg: 2 }}>
-                        <TextField
-                            select fullWidth size="small" label="Q.P. Code"
-                            value={pattern.showPaperCode ? "Y" : "N"}
-                            onChange={(e) => setField("showPaperCode", e.target.value === "Y")}
-                            helperText="Prints the code box on the paper"
-                            sx={fieldSx}
-                        >
-                            <MenuItem value="N" sx={{ fontSize: "13px" }}>Not printed</MenuItem>
-                            <MenuItem value="Y" sx={{ fontSize: "13px" }}>Printed on the paper</MenuItem>
-                        </TextField>
-                    </Grid>
+                    {/* No Q.P. Code control here. Whether the code box prints is
+                        decided by the template chosen on the paper, and the code
+                        itself is typed per paper - the pattern had no say in
+                        either, so the field only looked like a setting. */}
                     <Grid size={{ xs: 12, sm: 12, md: 12, lg: 12 }}>
                         <TextField
                             fullWidth multiline minRows={2} size="small"

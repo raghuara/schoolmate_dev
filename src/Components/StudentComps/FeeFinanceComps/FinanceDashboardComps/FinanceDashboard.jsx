@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { findSubMenuPermissions } from '../../../../Redux/Slices/AuthSlice';
 import { selectAcademicYear } from "../../../../Redux/Slices/academicYearSlice";
-import { Box, Tabs, Tab } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import MonetizationOnIcon from '@mui/icons-material/MonetizationOn';
 import DashboardIcon from '@mui/icons-material/Dashboard';
@@ -11,7 +11,7 @@ import AssessmentIcon from '@mui/icons-material/Assessment';
 import SchoolIcon from '@mui/icons-material/School';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-import { DASH, PageHeader } from '../../../DashBoardComps/dashboardTheme';
+import { DASH, RADIUS, PageHeader } from '../../../DashBoardComps/dashboardTheme';
 
 import OverviewTab from './OverviewTab';
 import TodaysCollectionTab from './TodaysCollectionTab';
@@ -35,11 +35,6 @@ export default function FinanceDashboard() {
     const dashPerms = findSubMenuPermissions(user.permissions, "feeandfinance", "financedashboard") || {};
     const rbacReady = (user.permissions?.mainMenus || []).length > 0;
     const canReportTab = !rbacReady || dashPerms.allowreporttab === "Y";
-
-    const handleChange = (event, newValue) => {
-        setValue(newValue);
-    };
-
 
     // Every tab in one place: what it is called, what it renders, and whether
     // this role is allowed it. Fee Report is the only conditional one today.
@@ -76,36 +71,60 @@ export default function FinanceDashboard() {
                 onBack={() => navigate(-1)}
             />
 
-            <Tabs
-                value={activeTab}
-                onChange={handleChange}
-                variant="scrollable"
-                scrollButtons="auto"
+            {/* Segmented control - the same treatment the chapter and book views
+               use, so a tab strip reads the same wherever it appears. */}
+            <Box
                 sx={{
-                    minHeight: 40,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.5,
+                    p: 0.5,
                     mb: 2,
-                    borderBottom: `1px solid ${DASH.line}`,
-                    '& .MuiTab-root': {
-                        textTransform: 'none',
-                        fontSize: '13px',
-                        fontWeight: 600,
-                        minHeight: 40,
-                        color: DASH.muted,
-                        px: 2,
-                    },
-                    '& .Mui-selected': { color: `${DASH.ink} !important` },
-                    '& .MuiTabs-indicator': { backgroundColor: DASH.primary, height: 2.5, borderRadius: '3px 3px 0 0' },
+                    bgcolor: DASH.lineSoft,
+                    border: `1px solid ${DASH.line}`,
+                    borderRadius: RADIUS,
+                    overflowX: 'auto',
+                    scrollbarWidth: 'none',
+                    '&::-webkit-scrollbar': { display: 'none' },
                 }}
             >
-                {visibleTabs.map((t) => (
-                    <Tab
-                        key={t.key}
-                        icon={<t.Icon sx={{ fontSize: 18 }} />}
-                        iconPosition="start"
-                        label={t.label}
-                    />
-                ))}
-            </Tabs>
+                {visibleTabs.map((t, index) => {
+                    const active = index === activeTab;
+                    return (
+                        <Box
+                            key={t.key}
+                            onClick={() => setValue(index)}
+                            sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 0.7,
+                                flexShrink: 0,
+                                height: 32,
+                                px: 1.4,
+                                borderRadius: RADIUS,
+                                cursor: 'pointer',
+                                whiteSpace: 'nowrap',
+                                bgcolor: active ? '#fff' : 'transparent',
+                                border: `1px solid ${active ? DASH.line : 'transparent'}`,
+                                boxShadow: active ? '0 1px 3px rgba(17,24,39,0.12)' : 'none',
+                                transition: 'background-color .15s ease, box-shadow .15s ease',
+                                '&:hover': { bgcolor: active ? '#fff' : 'rgba(17,24,39,0.04)' },
+                            }}
+                        >
+                            <t.Icon sx={{ fontSize: 16, color: active ? DASH.primary : DASH.faint }} />
+                            <Typography
+                                sx={{
+                                    fontSize: '12.5px',
+                                    fontWeight: active ? 700 : 600,
+                                    color: active ? DASH.ink : DASH.muted,
+                                }}
+                            >
+                                {t.label}
+                            </Typography>
+                        </Box>
+                    );
+                })}
+            </Box>
 
             {visibleTabs[activeTab]?.render()}
         </Box>

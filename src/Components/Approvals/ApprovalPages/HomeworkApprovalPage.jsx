@@ -18,6 +18,7 @@ import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined
 import { selectGrades } from "../../../Redux/Slices/DropdownController";
 import pdfDemo from '../../../Images/PDF.png';
 import { BRAND, DASH, RADIUS, PageHeader } from "../../DashBoardComps/dashboardTheme";
+import { SectionBand, ghostBtnSx, declineBtnSx, acceptBtnSx, dangerBtnSx, brandBtnSx, iconBtnSx, fieldLabelSx, requiredMark, reasonBoxStyle } from "../approvalTheme";
 
 export default function HomeworkApprovalPage() {
     const [formattedDate, setFormattedDate] = useState('');
@@ -323,13 +324,7 @@ export default function HomeworkApprovalPage() {
             <Box ref={boxRef} sx={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
                 <Box sx={{ p: 2 }}>
                     {scheduleData.length > 0 &&
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1.5 }}>
-                            <Box sx={{ width: 3, height: 18, borderRadius: RADIUS, bgcolor: DASH.violet, flexShrink: 0 }} />
-                            <Typography sx={{ fontSize: "11.5px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: DASH.muted, whiteSpace: "nowrap" }}>
-                                Scheduled Homework
-                            </Typography>
-                            <Divider sx={{ flex: 1 }} />
-                        </Box>
+                        <SectionBand label="Scheduled Homework" accent={DASH.violet} />
                     }
                     {scheduleData.length > 0 && (
                         <Grid container spacing={2}>
@@ -525,35 +520,17 @@ export default function HomeworkApprovalPage() {
                                                 >
                                                     {statusItem.requestFor === "delete" &&
                                                         <IconButton
-                                                            sx={{
-                                                                border: "1px solid black",
-                                                                width: "25px",
-                                                                height: "25px",
-                                                                backgroundColor: "#fff",
-                                                            }}
+                                                            sx={iconBtnSx}
                                                             onClick={() => handleDelete(statusItem.id)}
                                                         >
-                                                            <DeleteOutlineOutlinedIcon
-                                                                style={{ fontSize: "15px", color: "#000" }}
-                                                            />
+                                                            <DeleteOutlineOutlinedIcon sx={{ fontSize: 16, color: DASH.red }} />
                                                         </IconButton>
                                                     }
                                                     {statusItem.requestFor !== "delete" &&
                                                         <>
                                                             <Button
                                                                 variant="outlined"
-                                                                sx={{
-                                                                    textTransform: 'none',
-                                                                    borderRadius: RADIUS,
-                                                                    px: 2,
-                                                                    height: 32,
-                                                                    fontSize: '12.5px',
-                                                                    fontWeight: 700,
-                                                                    color: DASH.red,
-                                                                    borderColor: `${DASH.red}55`,
-                                                                    backgroundColor: "#fff",
-                                                                    "&:hover": { borderColor: DASH.red, backgroundColor: DASH.redLight },
-                                                                }}
+                                                                sx={declineBtnSx}
                                                                 onClick={() => handleEdit(statusItem.id)}
                                                             >
                                                                 Decline
@@ -561,18 +538,7 @@ export default function HomeworkApprovalPage() {
                                                             <Button
                                                                 variant="contained"
                                                                 disableElevation
-                                                                sx={{
-                                                                    textTransform: 'none',
-                                                                    borderRadius: RADIUS,
-                                                                    px: 2.4,
-                                                                    height: 32,
-                                                                    fontSize: '12.5px',
-                                                                    fontWeight: 700,
-                                                                    color: "#fff",
-                                                                    backgroundColor: "#00963C",
-                                                                    boxShadow: "none",
-                                                                    "&:hover": { backgroundColor: "#047857", boxShadow: "none" },
-                                                                }}
+                                                                sx={acceptBtnSx}
                                                                 onClick={() => handleSubmit(statusItem.id)}
                                                             >
                                                                 Accept
@@ -580,76 +546,69 @@ export default function HomeworkApprovalPage() {
                                                         </>
                                                     }
                                                 </Box>
-                                                <Dialog open={openEditAlert === statusItem.id} onClose={() => setOpenEditAlert(false)}
+                                                <Dialog
+                                                    open={openEditAlert === statusItem.id}
+                                                    onClose={() => setOpenEditAlert(false)}
                                                     maxWidth="sm"
-                                                    fullWidth>
-                                                    <Box
-                                                        sx={{
-                                                            display: "flex",
-                                                            justifyContent: "center",
-                                                            alignItems: "center",
-                                                            minHeight: '200px',
-                                                            padding: 2,
-                                                        }}
-                                                    >
-                                                        <Box
-                                                            sx={{
-                                                                backgroundColor: '#fff',
-                                                                pr: 3,
-                                                                width: '100%',
-                                                            }}
-                                                        >
-                                                            <Typography
-                                                                sx={{
-                                                                    fontSize: "14px",
-                                                                    fontWeight: 'bold',
-                                                                    marginBottom: 1,
-                                                                    pb: 1,
-                                                                    borderBottom: "1px solid #AFAFAF",
-                                                                }}
-                                                            >
-                                                                Add Reason
-                                                            </Typography>
-                                                            <TextareaAutosize
-                                                                minRows={6}
-                                                                placeholder="Write your reason here..."
-                                                                value={comments[statusItem.id] || ""}
-                                                                onChange={(e) =>
-                                                                    setComments((prev) => ({
-                                                                        ...prev,
-                                                                        [statusItem.id]: e.target.value,
-                                                                    }))
-                                                                }
-                                                                style={{
-                                                                    width: '100%',
-                                                                    padding: '12px',
-                                                                    borderRadius: RADIUS,
-                                                                    border: `1px solid ${DASH.line}`,
-                                                                    fontSize: '14px',
-                                                                    marginBottom: '20px',
-                                                                    resize: 'none',
-                                                                    outline: 'none',
-                                                                }}
-                                                            />
-                                                            <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-                                                                <Button
-                                                                    disabled={!comments}
-                                                                    onClick={() => handleDecline(statusItem.id)}
-                                                                    sx={{
-                                                                        textTransform: 'none',
-                                                                        backgroundColor: websiteSettings.mainColor,
-                                                                        color: websiteSettings.textColor,
-                                                                        borderRadius: '30px',
-                                                                        fontSize: '16px',
-                                                                        padding: '0px 35px',
-                                                                        '&:hover': {
-                                                                            backgroundColor: websiteSettings.mainColor || '#0056b3',
-                                                                        },
-                                                                    }}
-                                                                >
-                                                                    Confirm
-                                                                </Button>
+                                                    fullWidth
+                                                    slotProps={{ paper: { sx: { borderRadius: "12px", overflow: "hidden" } } }}
+                                                >
+                                                    <Box sx={{ height: 3, bgcolor: DASH.red }} />
+                                                    <Box sx={{ px: 2.4, py: 2 }}>
+                                                        <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 1, mb: 1.8 }}>
+                                                            <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, minWidth: 0 }}>
+                                                                <Box sx={{
+                                                                    width: 34, height: 34, flexShrink: 0, borderRadius: RADIUS,
+                                                                    bgcolor: DASH.redLight, border: "1px solid #FECACA",
+                                                                    display: "flex", alignItems: "center", justifyContent: "center",
+                                                                }}>
+                                                                    <CloseIcon sx={{ fontSize: 18, color: DASH.red }} />
+                                                                </Box>
+                                                                <Box sx={{ minWidth: 0 }}>
+                                                                    <Typography sx={{ fontSize: "15px", fontWeight: 700, color: DASH.ink, lineHeight: 1.2 }}>
+                                                                        Decline this request
+                                                                    </Typography>
+                                                                    <Typography sx={{ fontSize: "11.5px", color: DASH.muted, mt: 0.2 }}>
+                                                                        The reason goes back to whoever created it
+                                                                    </Typography>
+                                                                </Box>
                                                             </Box>
+                                                            <IconButton size="small" onClick={() => setOpenEditAlert(false)}>
+                                                                <CloseIcon sx={{ fontSize: 18, color: DASH.muted }} />
+                                                            </IconButton>
+                                                        </Box>
+                                                
+                                                        <Typography sx={fieldLabelSx}>Reason <span style={requiredMark}>*</span></Typography>
+                                                        <TextareaAutosize
+                                                            minRows={5}
+                                                            placeholder="Write your reason here..."
+                                                            value={comments[statusItem.id] || ""}
+                                                            onChange={(e) =>
+                                                                setComments((prev) => ({
+                                                                    ...prev,
+                                                                    [statusItem.id]: e.target.value,
+                                                                }))
+                                                            }
+                                                            style={reasonBoxStyle}
+                                                        />
+                                                
+                                                        <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1, pt: 1.8 }}>
+                                                            <Button
+                                                                variant="outlined"
+                                                                sx={{ ...ghostBtnSx, height: 34 }}
+                                                                onClick={() => setOpenEditAlert(false)}
+                                                            >
+                                                                Cancel
+                                                            </Button>
+                                                            <Button
+                                                                variant="contained"
+                                                                disableElevation
+                                                                disabled={!(comments[statusItem.id] || "").trim()}
+                                                                onClick={() => handleDecline(statusItem.id)}
+                                                                sx={dangerBtnSx}
+                                                            >
+                                                                Decline
+                                                            </Button>
                                                         </Box>
                                                     </Box>
                                                 </Dialog>
@@ -894,17 +853,10 @@ export default function HomeworkApprovalPage() {
                                                 >
                                                     {statusItem.requestFor === "delete" &&
                                                         <IconButton
-                                                            sx={{
-                                                                border: "1px solid black",
-                                                                width: "25px",
-                                                                height: "25px",
-                                                                backgroundColor: "#fff",
-                                                            }}
+                                                            sx={iconBtnSx}
                                                             onClick={() => handleDelete(statusItem.id)}
                                                         >
-                                                            <DeleteOutlineOutlinedIcon
-                                                                style={{ fontSize: "15px", color: "#000" }}
-                                                            />
+                                                            <DeleteOutlineOutlinedIcon sx={{ fontSize: 16, color: DASH.red }} />
                                                         </IconButton>
                                                     }
                                                     {statusItem.requestFor !== "delete" &&
@@ -912,18 +864,7 @@ export default function HomeworkApprovalPage() {
 
                                                             <Button
                                                                 variant="outlined"
-                                                                sx={{
-                                                                    textTransform: 'none',
-                                                                    borderRadius: RADIUS,
-                                                                    px: 2,
-                                                                    height: 32,
-                                                                    fontSize: '12.5px',
-                                                                    fontWeight: 700,
-                                                                    color: DASH.red,
-                                                                    borderColor: `${DASH.red}55`,
-                                                                    backgroundColor: "#fff",
-                                                                    "&:hover": { borderColor: DASH.red, backgroundColor: DASH.redLight },
-                                                                }}
+                                                                sx={declineBtnSx}
                                                                 onClick={() => handleEdit(statusItem.id)}
                                                             >
                                                                 Decline
@@ -931,18 +872,7 @@ export default function HomeworkApprovalPage() {
                                                             <Button
                                                                 variant="contained"
                                                                 disableElevation
-                                                                sx={{
-                                                                    textTransform: 'none',
-                                                                    borderRadius: RADIUS,
-                                                                    px: 2.4,
-                                                                    height: 32,
-                                                                    fontSize: '12.5px',
-                                                                    fontWeight: 700,
-                                                                    color: "#fff",
-                                                                    backgroundColor: "#00963C",
-                                                                    boxShadow: "none",
-                                                                    "&:hover": { backgroundColor: "#047857", boxShadow: "none" },
-                                                                }}
+                                                                sx={acceptBtnSx}
                                                                 onClick={() => handleSubmit(statusItem.id)}
                                                             >
                                                                 Accept
@@ -950,76 +880,69 @@ export default function HomeworkApprovalPage() {
                                                         </>
                                                     }
                                                 </Box>
-                                                <Dialog open={openEditAlert === statusItem.id} onClose={() => setOpenEditAlert(false)}
+                                                <Dialog
+                                                    open={openEditAlert === statusItem.id}
+                                                    onClose={() => setOpenEditAlert(false)}
                                                     maxWidth="sm"
-                                                    fullWidth>
-                                                    <Box
-                                                        sx={{
-                                                            display: "flex",
-                                                            justifyContent: "center",
-                                                            alignItems: "center",
-                                                            minHeight: '200px',
-                                                            padding: 2,
-                                                        }}
-                                                    >
-                                                        <Box
-                                                            sx={{
-                                                                backgroundColor: '#fff',
-                                                                pr: 3,
-                                                                width: '100%',
-                                                            }}
-                                                        >
-                                                            <Typography
-                                                                sx={{
-                                                                    fontSize: "14px",
-                                                                    fontWeight: 'bold',
-                                                                    marginBottom: 1,
-                                                                    pb: 1,
-                                                                    borderBottom: "1px solid #AFAFAF",
-                                                                }}
-                                                            >
-                                                                Add Reason
-                                                            </Typography>
-                                                            <TextareaAutosize
-                                                                minRows={6}
-                                                                placeholder="Write your reason here..."
-                                                                value={comments[statusItem.id] || ""}
-                                                                onChange={(e) =>
-                                                                    setComments((prev) => ({
-                                                                        ...prev,
-                                                                        [statusItem.id]: e.target.value,
-                                                                    }))
-                                                                }
-                                                                style={{
-                                                                    width: '100%',
-                                                                    padding: '12px',
-                                                                    borderRadius: RADIUS,
-                                                                    border: `1px solid ${DASH.line}`,
-                                                                    fontSize: '14px',
-                                                                    marginBottom: '20px',
-                                                                    resize: 'none',
-                                                                    outline: 'none',
-                                                                }}
-                                                            />
-                                                            <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-                                                                <Button
-                                                                    disabled={!comments}
-                                                                    onClick={() => handleDecline(statusItem.id)}
-                                                                    sx={{
-                                                                        textTransform: 'none',
-                                                                        backgroundColor: websiteSettings.mainColor,
-                                                                        color: websiteSettings.textColor,
-                                                                        borderRadius: '30px',
-                                                                        fontSize: '16px',
-                                                                        padding: '0px 35px',
-                                                                        '&:hover': {
-                                                                            backgroundColor: websiteSettings.mainColor || '#0056b3',
-                                                                        },
-                                                                    }}
-                                                                >
-                                                                    Confirm
-                                                                </Button>
+                                                    fullWidth
+                                                    slotProps={{ paper: { sx: { borderRadius: "12px", overflow: "hidden" } } }}
+                                                >
+                                                    <Box sx={{ height: 3, bgcolor: DASH.red }} />
+                                                    <Box sx={{ px: 2.4, py: 2 }}>
+                                                        <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 1, mb: 1.8 }}>
+                                                            <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, minWidth: 0 }}>
+                                                                <Box sx={{
+                                                                    width: 34, height: 34, flexShrink: 0, borderRadius: RADIUS,
+                                                                    bgcolor: DASH.redLight, border: "1px solid #FECACA",
+                                                                    display: "flex", alignItems: "center", justifyContent: "center",
+                                                                }}>
+                                                                    <CloseIcon sx={{ fontSize: 18, color: DASH.red }} />
+                                                                </Box>
+                                                                <Box sx={{ minWidth: 0 }}>
+                                                                    <Typography sx={{ fontSize: "15px", fontWeight: 700, color: DASH.ink, lineHeight: 1.2 }}>
+                                                                        Decline this request
+                                                                    </Typography>
+                                                                    <Typography sx={{ fontSize: "11.5px", color: DASH.muted, mt: 0.2 }}>
+                                                                        The reason goes back to whoever created it
+                                                                    </Typography>
+                                                                </Box>
                                                             </Box>
+                                                            <IconButton size="small" onClick={() => setOpenEditAlert(false)}>
+                                                                <CloseIcon sx={{ fontSize: 18, color: DASH.muted }} />
+                                                            </IconButton>
+                                                        </Box>
+                                                
+                                                        <Typography sx={fieldLabelSx}>Reason <span style={requiredMark}>*</span></Typography>
+                                                        <TextareaAutosize
+                                                            minRows={5}
+                                                            placeholder="Write your reason here..."
+                                                            value={comments[statusItem.id] || ""}
+                                                            onChange={(e) =>
+                                                                setComments((prev) => ({
+                                                                    ...prev,
+                                                                    [statusItem.id]: e.target.value,
+                                                                }))
+                                                            }
+                                                            style={reasonBoxStyle}
+                                                        />
+                                                
+                                                        <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1, pt: 1.8 }}>
+                                                            <Button
+                                                                variant="outlined"
+                                                                sx={{ ...ghostBtnSx, height: 34 }}
+                                                                onClick={() => setOpenEditAlert(false)}
+                                                            >
+                                                                Cancel
+                                                            </Button>
+                                                            <Button
+                                                                variant="contained"
+                                                                disableElevation
+                                                                disabled={!(comments[statusItem.id] || "").trim()}
+                                                                onClick={() => handleDecline(statusItem.id)}
+                                                                sx={dangerBtnSx}
+                                                            >
+                                                                Decline
+                                                            </Button>
                                                         </Box>
                                                     </Box>
                                                 </Dialog>
@@ -1071,29 +994,13 @@ export default function HomeworkApprovalPage() {
                                 }}>
                                     <Button
                                         onClick={() => handleCloseDialog(false)}
-                                        sx={{
-                                            textTransform: 'none',
-                                            width: "80px",
-                                            borderRadius: '30px',
-                                            fontSize: '16px',
-                                            py: 0.2,
-                                            border: '1px solid black',
-                                            color: 'black',
-                                        }}
+                                        variant="outlined" sx={{ ...ghostBtnSx, height: 34 }}
                                     >
                                         Cancel
                                     </Button>
                                     <Button
                                         onClick={() => handleCloseDialog(true)}
-                                        sx={{
-                                            textTransform: 'none',
-                                            backgroundColor: websiteSettings.mainColor,
-                                            width: "90px",
-                                            borderRadius: '30px',
-                                            fontSize: '16px',
-                                            py: 0.2,
-                                            color: websiteSettings.textColor,
-                                        }}
+                                        variant="contained" disableElevation sx={dangerBtnSx}
                                     >
                                        Delete
                                     </Button>

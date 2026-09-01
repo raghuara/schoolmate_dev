@@ -23,6 +23,8 @@ import { postAdditionalFee, additionalFeeFetch } from '../../../../Api/Api';
 import axios from 'axios';
 import EditIcon from '@mui/icons-material/Edit';
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import RestartAltIcon from '@mui/icons-material/RestartAlt';
+import { DASH, RADIUS, PageHeader } from '../../../DashBoardComps/dashboardTheme';
 
 
 export default function ExtraFeeStructure() {
@@ -47,7 +49,6 @@ export default function ExtraFeeStructure() {
   const approvalMatrix = useSelector(selectApprovalMatrix);
   const canActDirect = approvalRoleFor(approvalMatrix, APPROVAL_SUBMENUS.FEE_STRUCTURE, userTypeID).canPublishDirect;
 
-  const isExpanded = useSelector((state) => state.sidebar.isExpanded);
 
 
   const [fees, setFees] = useState({
@@ -207,79 +208,51 @@ export default function ExtraFeeStructure() {
   if (!grades?.length) return null;
 
   return (
-    <Box>
-      <Box sx={{ width: "100%", }}>
+    <Box sx={{ px: { xs: 1.5, md: 3 }, pt: { xs: 1.5, md: 2 }, pb: 4, bgcolor: DASH.canvas, minHeight: "100%", boxSizing: "border-box" }}>
+      <Box sx={{ width: "100%" }}>
         <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
         {isLoading && <Loader />}
 
-        {/* Fixed Header */}
-        <Box sx={{
-          position: "fixed",
-          top: "60px",
-          left: isExpanded ? "260px" : "80px",
-          right: 0,
-          backgroundColor: "#f2f2f2",
-          px: 2,
-          borderTop: "1px solid #ddd",
-          borderBottom: "1px solid #ddd",
-          zIndex: 1200,
-          transition: "left 0.3s ease-in-out",
-          overflow: 'hidden',
-          py: 0.7
-        }}>
-          <Grid container>
-            <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }} sx={{ display: "flex", alignItems: "center" }}>
-              <IconButton onClick={() => navigate(-1)} sx={{ width: "27px", height: "27px", marginTop: '2px', }}>
-                <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
-              </IconButton>
-              <Typography sx={{ fontWeight: "600", fontSize: "19px" }}>Create Additional Fee</Typography>
-            </Grid>
-            <Grid
-              size={{ xs: 12, sm: 12, md: 6, lg: 6 }}
-              sx={{ display: "flex", alignItems: "center", justifyContent: "end" }}
+        <PageHeader
+          title="Create Additional Fee"
+          subtitle="One-off and miscellaneous charges"
+          onBack={() => navigate(-1)}
+          right={
+            <Button
+              onClick={() => navigate('created-fees')}
+              startIcon={<VisibilityIcon sx={{ fontSize: 17 }} />}
+              sx={{
+                textTransform: "none",
+                fontSize: "13px",
+                fontWeight: 700,
+                height: 34,
+                px: 1.8,
+                borderRadius: RADIUS,
+                color: DASH.text,
+                bgcolor: "#fff",
+                border: `1px solid ${DASH.line}`,
+                "&:hover": { bgcolor: DASH.lineSoft, borderColor: DASH.faint },
+              }}
             >
-              <Grid container>
-                <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }} sx={{ display: "flex", alignItems: "center", justifyContent: "end", pr: { md: 1 } }}>
-                  <Button
-                    variant="contained"
-                    startIcon={<VisibilityIcon />}
-                    onClick={() => navigate('created-fees')}
-                    sx={{
-                      background: "none",
-                      color: "#000",
-                      textTransform: "none",
-                      fontSize: "13px",
-                      fontWeight: 600,
-                      width: "fit-content",
-                      height: 30,
-                      borderRadius: "30px",
-                      border: "1px solid black",
-                      px: 3,
-                      boxShadow: "none"
-                    }}
-                  >
-                    Created Fees
-                  </Button>
-                </Grid>
-              </Grid>
-            </Grid>
-          </Grid>
-        </Box>
+              Created Fees
+            </Button>
+          }
+        />
 
-        <Box sx={{ px: 2, pb: 2, pt: "68px" }}>
-          <Box sx={{ border: "1px solid #FFD5C2", borderRadius: "5px", mt: 2, overflow: 'hidden' }}>
+        <Box>
+          <Box sx={{ border: `1px solid #FFD5C2`, borderRadius: RADIUS, mt: 2, overflow: 'hidden' }}>
 
             {/* Fee Details Header */}
-            <Box sx={{ background: '#FFF5F2', borderBottom: '1px solid #FFD5C2', px: 3, py: 1.25, display: 'flex', alignItems: 'center', gap: 1.5 }}>
-              <Box sx={{ width: 30, height: 30, borderRadius: '6px', backgroundColor: '#FFD5C2', border: '1px solid #FFB088', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Box sx={{ background: '#FFF5F2', borderBottom: `1px solid #FFD5C2`, px: 2.2, py: 1.1, display: 'flex', alignItems: 'center', gap: 1.2 }}>
+              <Box sx={{ width: 28, height: 28, borderRadius: RADIUS, backgroundColor: '#FFD5C2', border: '1px solid #FFB088', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <EditIcon sx={{ color: '#EA580C', fontSize: 15 }} />
               </Box>
-              <Typography sx={{ fontWeight: 600, fontSize: 14, color: '#C2410C' }}>Fee Details</Typography>
+              <Typography sx={{ fontWeight: 700, fontSize: "13.5px", color: '#C2410C' }}>Fee Details</Typography>
             </Box>
 
             <Grid container rowSpacing={2} columnSpacing={4} p={3}>
               <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
-                <Typography sx={{ mb: 0.5, fontWeight: "600" }}>Fee Name</Typography>
+                <Typography sx={{ mb: 0.6, fontSize: "12.5px", fontWeight: 600, color: DASH.text }}>Fee Name</Typography>
                 <TextField
                   size="small"
                   value={fees.feeName}
@@ -287,15 +260,20 @@ export default function ExtraFeeStructure() {
                   variant="outlined"
                   sx={{
                     "& .MuiOutlinedInput-root": {
-                      borderRadius: "5px",
-                      fontSize: 14,
+                      height: 38,
+                      borderRadius: RADIUS,
+                      fontSize: "13px",
+                      bgcolor: "#fff",
+                      "& fieldset": { borderColor: DASH.line },
+                      "&:hover fieldset": { borderColor: DASH.faint },
+                      "&.Mui-focused fieldset": { borderColor: DASH.blue, borderWidth: "1px" },
                     },
                     width: "100%"
                   }}
                 />
               </Grid>
               <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
-                <Typography sx={{ mb: 0.5, fontWeight: '600' }}>Remarks</Typography>
+                <Typography sx={{ mb: 0.6, fontSize: "12.5px", fontWeight: 600, color: DASH.text }}>Remarks</Typography>
                 <TextField
                   size="small"
                   value={fees.remarks}
@@ -311,7 +289,7 @@ export default function ExtraFeeStructure() {
                 />
               </Grid>
               <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
-                <Typography sx={{ mb: 0.5, fontWeight: '600' }}>Add due date</Typography>
+                <Typography sx={{ mb: 0.6, fontSize: "12.5px", fontWeight: 600, color: DASH.text }}>Add due date</Typography>
                 <LocalizationProvider dateAdapter={AdapterDayjs}>
                   <DatePicker
                     open={openCal}
@@ -401,7 +379,7 @@ export default function ExtraFeeStructure() {
                   <InfoOutlinedIcon sx={{ color: '#EA580C', fontSize: 15 }} />
                 </Box>
                 <Box>
-                  <Typography sx={{ fontWeight: 600, fontSize: 14, color: '#C2410C' }}>
+                  <Typography sx={{ fontWeight: 700, fontSize: "13.5px", color: '#C2410C' }}>
                     Grade-wise Fee Amount
                   </Typography>
                   <Typography sx={{ fontSize: 11, color: '#EA580C' }}>
@@ -497,8 +475,10 @@ export default function ExtraFeeStructure() {
                       '& .MuiOutlinedInput-root': {
                         height: 33,
                         fontSize: 14,
-                        borderRadius: '5px',
-                        backgroundColor: '#F6F6F8',
+                        borderRadius: RADIUS,
+                        backgroundColor: '#fff',
+                        "& fieldset": { borderColor: DASH.line },
+                        "&:hover fieldset": { borderColor: DASH.faint },
                       },
                     }}
                   />
@@ -507,31 +487,39 @@ export default function ExtraFeeStructure() {
             </Grid>
           </Box>
 
-          <Box sx={{ display: "flex", justifyContent: "center", py: 2 }}>
+          <Box sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 1, py: 2 }}>
             <Button
               onClick={handleReset}
+              startIcon={<RestartAltIcon sx={{ fontSize: 18 }} />}
               sx={{
-                border: "1px solid #000",
-                borderRadius: "30px",
                 textTransform: "none",
-                width: "100px",
-                height: "30px",
-                color: "#000"
+                fontSize: "13px",
+                fontWeight: 700,
+                height: 34,
+                px: 1.8,
+                borderRadius: RADIUS,
+                color: DASH.text,
+                bgcolor: "#fff",
+                border: `1px solid ${DASH.line}`,
+                "&:hover": { bgcolor: DASH.lineSoft, borderColor: DASH.faint },
               }}>
               Reset All
             </Button>
             <Button
               onClick={handleSubmit}
+              disableElevation
               sx={{
-                backgroundColor: websiteSettings.mainColor,
-                borderRadius: "30px",
                 textTransform: "none",
-                ml: "10px",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
-                border: "1px solid rgba(0,0,0,0.1)",
-                px: 3,
-                height: "30px",
-                color: websiteSettings.textColor
+                fontSize: "13px",
+                fontWeight: 700,
+                height: 34,
+                px: 2.2,
+                borderRadius: RADIUS,
+                bgcolor: websiteSettings.mainColor,
+                color: websiteSettings.textColor,
+                border: "1px solid rgba(0,0,0,0.08)",
+                boxShadow: "none",
+                "&:hover": { bgcolor: websiteSettings.mainColor, filter: "brightness(0.95)", boxShadow: "none" },
               }}>
               {canActDirect ? "Apply" : "Send for Approval"}
             </Button>

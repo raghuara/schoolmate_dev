@@ -8,10 +8,25 @@ import {
 
 const token = "123";
 
-/* The dashboard endpoints have no saved sample responses yet, so every field is
-   looked up through a list of likely key names and each section also keeps its
-   raw payload. Once the real shapes are confirmed these lists collapse to the
-   one exact key. */
+/* The master endpoints' real shapes are confirmed against UAT (31 Aug 2026) and
+   each reader is anchored on the key the API actually sends, with the older
+   guesses kept behind it as fallbacks. Every section also keeps its raw payload.
+
+   The shapes that matter, all nested one level deeper than the first pass assumed:
+     overview/headline           -> data.stats.{students,staff,studentAttendance,
+                                    staffAttendance}, data.needsAttention.items[]
+     overview/attendanceSection  -> data.trend.points[], data.gradeWiseToday.grades[],
+                                    data.markedStatus
+     overview/academicsSection   -> data.atAGlance, data.recentExamTimetables.items[],
+                                    data.marksEntryStatus.examStatuses[]
+
+   The commonDashboard/* readers below are still on guessed keys - that endpoint
+   group answers "This user does not have permission to view the Common Dashboard"
+   for every roll number tried, so no sample response exists to check them against. */
+
+// A section may arrive as the array itself or wrapped in an object under a
+// named list. Both shapes appear across these endpoints.
+const rowsOf = (root, keys) => (Array.isArray(root) ? root : listOf(root, keys));
 export const val = (row, keys, fallback = null) => {
     for (const key of keys) {
         const found = row?.[key];
@@ -51,7 +66,15 @@ const spark = (row, keys, fallbackValue) => {
     return [flat, flat, flat, flat, flat, flat, flat];
 };
 
+/* Keyed by the alert key lowercased with separators stripped. The first five are
+   the keys needsAttention actually returns; the short ones are kept as aliases. */
 const ALERT_META = {
+    classeswithoutattendancetoday: { severity: "critical", path: "/dashboardmenu/attendance" },
+    approvalswaitingover3days: { severity: "warning", path: "/dashboardmenu/approvals" },
+    feedefaulterspast60days: { severity: "critical", path: "/dashboardmenu/fee" },
+    vehicledocumentsexpiringin30days: { severity: "warning", path: "/dashboardmenu/transport" },
+    studentswithouttransportroute: { severity: "info", path: "/dashboardmenu/transport" },
+
     attendance: { severity: "critical", path: "/dashboardmenu/attendance" },
     unmarkedattendance: { severity: "critical", path: "/dashboardmenu/attendance" },
     approvals: { severity: "warning", path: "/dashboardmenu/approvals" },
@@ -82,50 +105,74 @@ const readAlert = (row, index) => {
 
 export const readMasterHeadline = (payload) => {
     const data = unwrap(payload);
-    const students = val(data, ["students", "studentCount", "totalStudents"], {});
-    const staff = val(data, ["staff", "staffCount", "totalStaff"], {});
-    const studentAtt = val(data, ["studentAttendance", "studentsAttendance"], {});
-    const staffAtt = val(data, ["staffAttendance"], {});
-    const fee = val(data, ["fee", "feeCollection", "finance"], {});
-    const approvals = val(data, ["approvals", "pendingApprovals"], {});
+    // Every counter sits under stats; older responses put them at the root.
+    const stats = val(data, ["stats"], data) || {};
+    const students = val(stats, ["students", "studentCount", "totalStudents"], {});
+    const staff = val(stats, ["staff", "staffCount", "totalStaff"], {});
+    const studentAtt = val(stats, ["studentAttendance", "studentsAttendance"], {});
+    const staffAtt = val(stats, ["staffAttendance"], {});
+    const fee = val(stats, ["fee", "feeCollection", "finance"], {});
+    const approvals = val(stats, ["approvals", "pendingApprovals"], {});
 
     // Each block may arrive as a plain number or as an object with a total.
     const block = (source, keys) =>
         (source && typeof source === "object" ? num(val(source, keys, 0)) : num(source));
 
+    const studentsTotal = block(students, ["total", "count", "value"]);
+    const staffTotal = block(staff, ["total", "count", "value"]);
+    const studentPercent = round1(block(studentAtt, ["percentage", "percent", "value", "total"]));
+    const staffPercent = round1(block(staffAtt, ["percentage", "percent", "value", "total"]));
+
+    /* The API sends the supporting numbers but no caption text, so the notes
+       under each card are written from those numbers here. */
+    const newStudents = num(val(students, ["newThisMonth", "newAdmissions"], 0));
+    const teaching = num(val(staff, ["teaching", "teachingStaff"], 0));
+    const support = num(val(staff, ["support", "supportStaff", "nonTeaching"], 0));
+    const delta = round1(val(studentAtt, ["deltaVsYesterday", "delta", "change"], 0));
+    const onLeave = num(val(staffAtt, ["onLeaveToday", "onLeave"], 0));
+
+    const studentsTrend = val(students, ["trend", "note", "changeLabel"], "") ||
+        (newStudents ? `${newStudents} new this month` : "No new admissions this month");
+    const staffSplit = val(staff, ["split", "note", "breakup"], "") ||
+        (teaching || support ? `${teaching} teaching · ${support} support` : "");
+    const studentAttendanceTrend = val(studentAtt, ["trend", "note", "changeLabel"], "") ||
+        (delta ? `${delta > 0 ? "+" : ""}${delta}% vs yesterday` : "Same as yesterday");
+    const staffAttendanceNote = val(staffAtt, ["note", "onLeaveLabel", "trend"], "") ||
+        (onLeave ? `${onLeave} on leave today` : "Nobody on leave today");
+
+    // needsAttention is an object wrapping the list, not the list itself.
+    const attention = val(data, ["needsAttention", "attention"], {});
+    const alertRows = rowsOf(attention, ["items", "alerts"]);
+
     return {
         kpis: {
-            students: block(students, ["total", "count", "value"]),
-            studentsTrend: val(students, ["trend", "note", "changeLabel"], "") ||
-                val(data, ["studentsTrend"], ""),
-            studentsSpark: spark(students, ["spark", "trendData", "history"], block(students, ["total", "count", "value"])),
+            students: studentsTotal,
+            studentsTrend,
+            studentsSpark: spark(students, ["spark", "trendData", "history"], studentsTotal),
 
-            staff: block(staff, ["total", "count", "value"]),
-            staffSplit: val(staff, ["split", "note", "breakup"], "") || val(data, ["staffSplit"], ""),
-            staffSpark: spark(staff, ["spark", "trendData", "history"], block(staff, ["total", "count", "value"])),
+            staff: staffTotal,
+            staffSplit,
+            staffSpark: spark(staff, ["spark", "trendData", "history"], staffTotal),
 
-            studentAttendance: round1(block(studentAtt, ["percent", "percentage", "value", "total"])),
-            studentAttendanceTrend: val(studentAtt, ["trend", "note", "changeLabel"], "") ||
-                val(data, ["studentAttendanceTrend"], ""),
-            studentAttendanceSpark: spark(studentAtt, ["spark", "trendData", "history"], block(studentAtt, ["percent", "percentage", "value"])),
+            studentAttendance: studentPercent,
+            studentAttendanceTrend,
+            studentAttendanceSpark: spark(studentAtt, ["spark", "trendData", "history"], studentPercent),
 
-            staffAttendance: round1(block(staffAtt, ["percent", "percentage", "value", "total"])),
-            staffAttendanceNote: val(staffAtt, ["note", "onLeaveLabel", "trend"], "") ||
-                val(data, ["staffAttendanceNote"], ""),
-            staffAttendanceSpark: spark(staffAtt, ["spark", "trendData", "history"], block(staffAtt, ["percent", "percentage", "value"])),
+            staffAttendance: staffPercent,
+            staffAttendanceNote,
+            staffAttendanceSpark: spark(staffAtt, ["spark", "trendData", "history"], staffPercent),
 
-            // Money arrives pre-formatted ("12.4L") or as a raw number.
-            feeCollected: val(fee, ["collectedLabel", "collectedDisplay", "collected", "total"], "") ||
-                val(data, ["feeCollected"], ""),
-            feeOutstanding: val(fee, ["outstandingLabel", "outstandingDisplay", "outstanding", "pending"], "") ||
-                val(data, ["feeOutstanding"], ""),
+            /* Not in the headline response today - the endpoint returns no fee or
+               approvals block, so these stay empty rather than showing a wrong 0. */
+            feeCollected: val(fee, ["collectedLabel", "collectedDisplay", "collected", "total"], ""),
+            feeOutstanding: val(fee, ["outstandingLabel", "outstandingDisplay", "outstanding", "pending"], ""),
             feeSpark: spark(fee, ["spark", "trendData", "history"], 0),
 
             pendingApprovals: block(approvals, ["count", "pending", "total", "value"]),
-            approvalsNote: val(approvals, ["note", "label"], "") || val(data, ["approvalsNote"], ""),
-            approvalsSpark: spark(approvals, ["spark", "trendData", "history"], block(approvals, ["count", "pending", "total"])),
+            approvalsNote: val(approvals, ["note", "label"], ""),
+            approvalsSpark: spark(approvals, ["spark", "trendData", "history"], 0),
         },
-        alerts: listOf(data, ["alerts", "needsAttention", "attention", "warnings"]).map(readAlert),
+        alerts: (alertRows.length ? alertRows : listOf(data, ["alerts", "warnings"])).map(readAlert),
         raw: data,
     };
 };
@@ -133,23 +180,32 @@ export const readMasterHeadline = (payload) => {
 export const readMasterAttendance = (payload) => {
     const data = unwrap(payload);
 
-    const trend = listOf(data, ["trend", "attendanceTrend", "weeklyTrend", "last6Days"]).map((row) => ({
-        day: val(row, ["day", "label", "date", "dayName"], ""),
-        students: round1(val(row, ["students", "studentPercent", "studentAttendance", "student"], 0)),
-        staff: round1(val(row, ["staff", "staffPercent", "staffAttendance"], 0)),
-    }));
+    // trend -> { points: [...] }, one row per day.
+    const trend = rowsOf(val(data, ["trend", "attendanceTrend", "weeklyTrend", "last6Days"], {}), ["points"])
+        .map((row) => ({
+            day: val(row, ["dayLabel", "day", "label", "dayName", "date"], ""),
+            date: val(row, ["date"], ""),
+            students: round1(val(row, ["studentPercentage", "students", "studentPercent", "studentAttendance", "student"], 0)),
+            staff: round1(val(row, ["staffPercentage", "staff", "staffPercent", "staffAttendance"], 0)),
+        }));
 
-    const gradeWise = listOf(data, ["gradeWise", "gradeWiseToday", "grades", "classWise"]).map((row) => ({
-        grade: val(row, ["grade", "gradeName", "gradeSign", "className", "label"], ""),
-        present: round1(val(row, ["present", "percent", "percentage", "value"], 0)),
-    }));
+    // gradeWiseToday -> { date, grades: [...] }.
+    const gradeWise = rowsOf(val(data, ["gradeWiseToday", "gradeWise", "classWise"], {}), ["grades"])
+        .map((row) => ({
+            grade: val(row, ["grade", "gradeName", "gradeSign", "className", "label"], ""),
+            present: round1(val(row, ["percentage", "present", "percent", "value"], 0)),
+            total: num(val(row, ["total", "strength", "students"], 0)),
+        }));
 
-    const unmarked = listOf(data, ["unmarkedClasses", "pendingClasses", "notMarked", "unmarked"]).map((row, i) => ({
-        id: val(row, ["id", "classId", "sectionId"], i + 1),
-        grade: val(row, ["grade", "gradeName", "gradeSign", "className"], ""),
-        section: val(row, ["section", "sectionName"], ""),
-        teacher: val(row, ["teacher", "teacherName", "classTeacher", "inCharge"], "-"),
-    }));
+    /* Neither list is in the response yet - the endpoint returns counts only, no
+       per-class or per-person rows. Both bands render their own empty state. */
+    const unmarked = listOf(data, ["unmarkedClasses", "pendingClasses", "notMarked", "unmarked"])
+        .map((row, i) => ({
+            id: val(row, ["id", "classId", "sectionId"], i + 1),
+            grade: val(row, ["grade", "gradeName", "gradeSign", "className"], ""),
+            section: val(row, ["section", "sectionName"], ""),
+            teacher: val(row, ["teacher", "teacherName", "classTeacher", "inCharge"], "-"),
+        }));
 
     const staffOnLeave = listOf(data, ["staffOnLeave", "onLeave", "leaveToday"]).map((row, i) => ({
         id: val(row, ["id", "leaveId", "rollNumber"], i + 1),
@@ -158,38 +214,46 @@ export const readMasterAttendance = (payload) => {
         type: val(row, ["type", "leaveType"], ""),
     }));
 
-    const totalClasses = num(val(data, ["totalClasses", "totalSections", "expectedClasses"], 0));
-    const markedClasses = num(
-        val(data, ["markedClasses", "marked", "completedClasses"],
-            totalClasses ? totalClasses - unmarked.length : 0)
+    // markedStatus -> { totalClasses, markedClasses, pendingClasses, ... }.
+    const marked = val(data, ["markedStatus", "marking"], data) || {};
+    const totalClasses = num(val(marked, ["totalClasses", "totalSections", "expectedClasses"], 0));
+    const markedClasses = num(val(marked, ["markedClasses", "marked", "completedClasses"], 0));
+    const pendingClasses = num(
+        val(marked, ["pendingClasses", "unmarkedClasses"], Math.max(0, totalClasses - markedClasses))
     );
 
-    return { trend, gradeWise, unmarkedClasses: unmarked, staffOnLeave, totalClasses, markedClasses, raw: data };
+    return { trend, gradeWise, unmarkedClasses: unmarked, staffOnLeave, totalClasses, markedClasses, pendingClasses, raw: data };
 };
 
 export const readMasterAcademics = (payload) => {
     const data = unwrap(payload);
-    const summary = val(data, ["summary", "academicSummary", "overview"], data) || {};
+    const glance = val(data, ["atAGlance", "summary", "academicSummary", "overview"], data) || {};
 
     return {
         summary: {
-            homeworkToday: num(val(summary, ["homeworkToday", "todayHomework"], 0)),
-            homeworkThisWeek: num(val(summary, ["homeworkThisWeek", "weekHomework", "homeworkWeek"], 0)),
-            materialsThisWeek: num(val(summary, ["materialsThisWeek", "studyMaterialsThisWeek", "materialsWeek"], 0)),
-            quizzesActive: num(val(summary, ["quizzesActive", "activeQuizzes"], 0)),
-            quizAverage: round1(val(summary, ["quizAverage", "averageQuizScore", "quizAvg"], 0)),
+            homeworkToday: num(val(glance, ["homeworkAssignedToday", "homeworkToday", "todayHomework"], 0)),
+            // Not returned by the endpoint - kept so the tile has a slot when it is.
+            homeworkThisWeek: num(val(glance, ["homeworkThisWeek", "weekHomework", "homeworkWeek"], 0)),
+            materialsThisWeek: num(val(glance, ["materialsThisWeek", "studyMaterialsThisWeek", "materialsWeek"], 0)),
+            quizzesActive: num(val(glance, ["quizzesActive", "activeQuizzes"], 0)),
+            quizAverage: round1(val(glance, ["quizAverage", "averageQuizScore", "quizAvg"], 0)),
         },
-        upcomingExams: listOf(data, ["upcomingExams", "exams", "examSchedule"]).map((row, i) => ({
-            id: val(row, ["id", "examId"], i + 1),
-            name: val(row, ["name", "examName", "title", "exam"], ""),
-            grade: val(row, ["grade", "gradeName", "gradeSign", "className"], ""),
-            date: val(row, ["date", "examDate", "scheduledDate"], ""),
-        })),
-        marksEntry: listOf(data, ["marksEntry", "marksProgress", "marksEntryStatus"]).map((row) => ({
-            exam: val(row, ["exam", "examName", "name"], ""),
-            entered: num(val(row, ["entered", "completed", "done"], 0)),
-            total: num(val(row, ["total", "expected", "totalSubjects"], 0)),
-        })),
+        // recentExamTimetables -> { items: [...] }.
+        upcomingExams: rowsOf(val(data, ["recentExamTimetables", "upcomingExams", "exams", "examSchedule"], {}), ["items"])
+            .map((row, i) => ({
+                id: val(row, ["id", "examId"], i + 1),
+                name: val(row, ["examName", "name", "title", "exam"], ""),
+                grade: val(row, ["grade", "gradeName", "gradeSign", "className"], ""),
+                date: val(row, ["date", "examDate", "scheduledDate", "fromDate"], ""),
+            })),
+        // marksEntryStatus -> { examStatuses: [...] }.
+        marksEntry: rowsOf(val(data, ["marksEntryStatus", "marksEntry", "marksProgress"], {}), ["examStatuses", "items"])
+            .map((row) => ({
+                exam: val(row, ["examName", "exam", "name"], ""),
+                entered: num(val(row, ["subjectsEntered", "entered", "completed", "done"], 0)),
+                total: num(val(row, ["subjectsTotal", "total", "expected", "totalSubjects"], 0)),
+                percent: round1(val(row, ["percentage", "percent"], 0)),
+            })),
         raw: data,
     };
 };

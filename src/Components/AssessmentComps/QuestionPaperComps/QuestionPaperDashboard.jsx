@@ -30,7 +30,7 @@ import {
 } from "../../DashBoardComps/dashboardTheme";
 import { selectAcademicYear } from "../../../Redux/Slices/academicYearSlice";
 import { MOCK_PAPERS, MOCK_PATTERNS, MOCK_QUESTION_BANK, fmtDate, parseApiDate } from "./questionPaperApi";
-import { StatusPill, Pill, outlineBtnSx, primaryBtnSx } from "./questionPaperTheme";
+import { StatusPill, Pill, outlineBtnSx, createBtnSx, primaryBtnSx } from "./questionPaperTheme";
 
 const SUBJECT_COLORS = [DASH.primary, DASH.blue, DASH.violet, DASH.cyan, DASH.green, DASH.pink, DASH.red];
 
@@ -38,6 +38,7 @@ const STATUS_COLORS = {
     Pending: DASH.primary,
     Approved: DASH.cyan,
     Published: DASH.green,
+    "Sent Back": DASH.amber,
     Rejected: DASH.red,
 };
 
@@ -191,11 +192,12 @@ export default function QuestionPaperDashboard() {
                     </Box>
                 </Box>
 
-                <Box sx={{ display: "flex", gap: 1, flexShrink: 0, pl: { xs: 5, md: 0 } }}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexShrink: 0, pl: { xs: 5, md: 0 } }}>
                     <Tooltip title="Reload" arrow>
                         <IconButton
                             onClick={load}
                             sx={{
+                                width: 34, height: 34,
                                 border: `1px solid ${DASH.line}`, borderRadius: RADIUS, bgcolor: "#fff",
                                 "&:hover": { bgcolor: DASH.primaryLight, borderColor: DASH.primaryBorder },
                             }}
@@ -205,8 +207,9 @@ export default function QuestionPaperDashboard() {
                     </Tooltip>
                     <Button
                         onClick={() => navigate("/dashboardmenu/assessment/question-paper/create")}
-                        startIcon={<AddIcon sx={{ fontSize: 16 }} />}
-                        sx={primaryBtnSx}
+                        variant="contained"
+                        startIcon={<AddIcon sx={{ fontSize: 18 }} />}
+                        sx={createBtnSx}
                     >
                         Create Paper
                     </Button>

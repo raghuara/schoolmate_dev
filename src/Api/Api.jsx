@@ -592,6 +592,12 @@ const UpdateUserTypePermissions = `${UserTypes}/UpdateUserTypePermissions`;
 const GetAllApprovalMatrix = `${UserTypes}/GetAllApprovalMatrix`;
 const UpdateApprovalMatrix = `${UserTypes}/UpdateApprovalMatrix`;
 
+// Leave approvers live outside the approval matrix - one call carries both
+// categories (Student and Staff) as a set of user type ids each.
+const LeaveApprovalSettings = `${baseApiurl}leaveApprovalSettings/`;
+const GetLeaveApprovalSettings = `${LeaveApprovalSettings}Get`;
+const UpdateLeaveApprovalSettings = `${LeaveApprovalSettings}Update`;
+
 
 // Class & Section Management
 const postGrade = `${baseApiurl}GradeValueFetch/postGrade`;
@@ -1103,6 +1109,8 @@ export {
     GetAllUserTypes,
     GetAllApprovalMatrix,
     UpdateApprovalMatrix,
+    GetLeaveApprovalSettings,
+    UpdateLeaveApprovalSettings,
     UpdateUsersUserType,
     GetNonStudentUsers,
     GetUserTypePermissions,

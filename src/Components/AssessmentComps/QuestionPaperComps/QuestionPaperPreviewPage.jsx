@@ -199,19 +199,35 @@ export default function QuestionPaperPreviewPage() {
                         {paper.approver && <InfoRow label="Approver" value={paper.approver} />}
                     </Panel>
 
-                    {paper.status === "Rejected" && paper.rejectReason && (
+                    {paper.rejectReason && (paper.status === "Sent Back" || paper.status === "Rejected") && (
                         <Box
                             sx={{
-                                bgcolor: DASH.redLight, border: "1px solid #FECACA",
+                                bgcolor: paper.status === "Sent Back" ? DASH.amberLight : DASH.redLight,
+                                border: `1px solid ${paper.status === "Sent Back" ? "#FDE68A" : "#FECACA"}`,
                                 borderRadius: RADIUS, px: 1.8, py: 1.4, mb: 1.8,
                             }}
                         >
-                            <Typography sx={{ fontSize: "12.5px", fontWeight: 700, color: "#991B1B" }}>
-                                Sent back by {paper.approver}
+                            <Typography
+                                sx={{
+                                    fontSize: "12.5px", fontWeight: 700,
+                                    color: paper.status === "Sent Back" ? "#B45309" : "#991B1B",
+                                }}
+                            >
+                                {paper.status === "Sent Back" ? "Sent back" : "Rejected"} by {paper.approver}
                             </Typography>
-                            <Typography sx={{ fontSize: "12px", color: "#991B1B", mt: 0.4, lineHeight: 1.6 }}>
+                            <Typography
+                                sx={{
+                                    fontSize: "12px", mt: 0.4, lineHeight: 1.6,
+                                    color: paper.status === "Sent Back" ? "#92400E" : "#991B1B",
+                                }}
+                            >
                                 {paper.rejectReason}
                             </Typography>
+                            {paper.status === "Rejected" && (
+                                <Typography sx={{ fontSize: "11.5px", color: "#991B1B", mt: 0.8, fontWeight: 600 }}>
+                                    This paper is closed. Build a new one to try again.
+                                </Typography>
+                            )}
                         </Box>
                     )}
 
@@ -236,8 +252,9 @@ export default function QuestionPaperPreviewPage() {
                     </Box>
 
                     {/* A sent-back paper is the only one that still needs to enter
-                        the queue - everything else is already in it or past it. */}
-                    {paper.status === "Rejected" && (
+                        the queue - everything else is already in it, past it, or
+                        rejected outright and not coming back. */}
+                    {paper.status === "Sent Back" && (
                         <Button
                             fullWidth
                             onClick={() => {

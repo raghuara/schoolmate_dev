@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
     Box,
-    Card,
-    CardContent,
+    Button,
     Grid,
     Typography,
     TextField,
@@ -13,14 +12,15 @@ import {
     TableHead,
     TableRow,
     Chip,
-    CircularProgress,
+    Skeleton,
 } from '@mui/material';
-import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import MonetizationOnIcon from '@mui/icons-material/MonetizationOn';
-import PeopleIcon from '@mui/icons-material/People';
 import TodayIcon from '@mui/icons-material/Today';
 import axios from 'axios';
 import { cashCollection } from '../../../../Api/Api';
+import {
+    DASH, RADIUS, KPI_TONES, Panel, SolidStatCard, EmptyNote,
+} from '../../../DashBoardComps/dashboardTheme';
 
 const token = "123";
 const today = new Date().toISOString().split('T')[0];
@@ -38,10 +38,48 @@ const denomConfig = {
     1: { label: '₹1', color: '#546E7A', bg: '#ECEFF1' },
 };
 
+const STATUS_TONES = {
+    Completed: { bg: DASH.greenLight, color: DASH.green },
+    Pending: { bg: DASH.amberLight, color: DASH.amber },
+};
+const STATUS_FALLBACK = { bg: DASH.redLight, color: DASH.red };
+
 const formatTime = (isoString) => {
     if (!isoString) return '-';
     return new Date(isoString).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
 };
+
+const formatDate = (value) => {
+    if (!value) return '-';
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return value;
+    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+};
+
+const TH = ({ children, align }) => (
+    <TableCell
+        align={align}
+        sx={{
+            bgcolor: DASH.surface,
+            borderBottom: `1px solid ${DASH.line}`,
+            color: DASH.muted,
+            fontSize: '10.5px',
+            fontWeight: 700,
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase',
+            py: 1,
+            whiteSpace: 'nowrap',
+        }}
+    >
+        {children}
+    </TableCell>
+);
+
+const TD = ({ children, align }) => (
+    <TableCell align={align} sx={{ borderBottom: `1px solid ${DASH.lineSoft}`, py: 1 }}>
+        {children}
+    </TableCell>
+);
 
 export default function CashCollectionTab({ cashDate, setCashDate, selectedYear }) {
     const [cashData, setCashData] = useState(null);
@@ -49,6 +87,7 @@ export default function CashCollectionTab({ cashDate, setCashDate, selectedYear 
 
     useEffect(() => {
         fetchCashCollection();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [cashDate, selectedYear]);
 
     const fetchCashCollection = async () => {
@@ -68,332 +107,347 @@ export default function CashCollectionTab({ cashDate, setCashDate, selectedYear 
 
     const denominationBreakdown = cashData?.denominationBreakdown ?? [];
     const cashTransactions = cashData?.cashTransactions ?? [];
+    const isToday = cashDate === today;
+    const studentsPaid = cashData?.studentsPaid ?? 0;
+
+    const cards = [
+        {
+            label: 'Total Cash Collected',
+            value: cashData?.totalCashCollected?.display ?? '₹0',
+            note: 'All time cash collected',
+            tone: KPI_TONES.green,
+        },
+        {
+            label: isToday ? 'Collected Today' : 'Collected On Date',
+            value: cashData?.todayCashCollected?.display ?? '₹0',
+            note: `${studentsPaid} receipt${studentsPaid === 1 ? '' : 's'} ${isToday ? 'today' : `on ${formatDate(cashDate)}`}`,
+            tone: KPI_TONES.cyan,
+        },
+        {
+            label: 'Students Paid',
+            value: studentsPaid,
+            note: isToday ? 'Paid in cash today' : `Paid on ${formatDate(cashDate)}`,
+            tone: KPI_TONES.violet,
+        },
+    ];
 
     return (
         <Box>
-            {/* Header Row */}
-            <Box sx={{
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                mb: 2.5, pb: 2, borderBottom: '1px solid #F0F0F0'
-            }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <Box sx={{
-                        width: 40, height: 40, borderRadius: '10px',
-                        bgcolor: '#E8F5E9', display: 'flex', alignItems: 'center', justifyContent: 'center'
-                    }}>
-                        <MonetizationOnIcon sx={{ color: '#22C55E', fontSize: 22 }} />
-                    </Box>
-                    <Box>
-                        <Typography sx={{ fontSize: '17px', fontWeight: '700', color: '#1a1a1a' }}>
-                            Cash Collection
-                        </Typography>
-                        <Typography sx={{ fontSize: '11px', color: '#888' }}>
-                            {cashDate === today ? "Showing today's data" : `Showing data for ${cashDate}`}
-                        </Typography>
-                    </Box>
-                </Box>
-
-            </Box>
-
-            {/* Summary Cards */}
-            <Grid container spacing={2} sx={{ mb: 3 }}>
-                <Grid size={{ xs: 12, sm: 4, md: 4, lg: 4 }}>
-                    <Card sx={{ boxShadow: 'none', border: '1px solid #22C55E', borderRadius: '4px', bgcolor: '#F1F8F4' }}>
-                        <CardContent>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <Box>
-                                    <Typography sx={{ fontSize: '12px', color: '#666', mb: 0.5 }}>Total Cash Collected</Typography>
-                                    {isLoading ? (
-                                        <CircularProgress size={20} sx={{ my: 1 }} />
-                                    ) : (
-                                        <Typography sx={{ fontSize: '26px', fontWeight: '700', color: '#1a1a1a' }}>
-                                            {cashData?.totalCashCollected?.display ?? '₹0'}
-                                        </Typography>
-                                    )}
-                                    <Typography sx={{ fontSize: '11px', color: '#888' }}>All time cash collected</Typography>
-                                </Box>
-                                <AccountBalanceWalletIcon sx={{ fontSize: 36, color: '#22C55E' }} />
-                            </Box>
-                        </CardContent>
-                    </Card>
-                </Grid>
-
-                <Grid size={{ xs: 12, sm: 4, md: 4, lg: 4 }}>
-                    <Card sx={{ boxShadow: 'none', border: '1px solid #0891B2', borderRadius: '4px', bgcolor: '#F0F9FA' }}>
-                        <CardContent>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <Box>
-                                    <Typography sx={{ fontSize: '12px', color: '#666', mb: 0.5 }}>Today Cash Collected</Typography>
-                                    {isLoading ? (
-                                        <CircularProgress size={20} sx={{ my: 1 }} />
-                                    ) : (
-                                        <Typography sx={{ fontSize: '26px', fontWeight: '700', color: '#1a1a1a' }}>
-                                            {cashData?.todayCashCollected?.display ?? '₹0'}
-                                        </Typography>
-                                    )}
-                                    <Typography sx={{ fontSize: '11px', color: '#888' }}>
-                                        {cashData?.studentsPaid ?? 0} receipt{cashData?.studentsPaid !== 1 ? 's' : ''} today
-                                    </Typography>
-                                </Box>
-                                <MonetizationOnIcon sx={{ fontSize: 36, color: '#0891B2' }} />
-                            </Box>
-                        </CardContent>
-                    </Card>
-                </Grid>
-
-                <Grid size={{ xs: 12, sm: 4, md: 4, lg: 4 }}>
-                    <Card sx={{ boxShadow: 'none', border: '1px solid #7C3AED', borderRadius: '4px', bgcolor: '#F9F0FB' }}>
-                        <CardContent>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <Box>
-                                    <Typography sx={{ fontSize: '12px', color: '#666', mb: 0.5 }}>Students Paid</Typography>
-                                    {isLoading ? (
-                                        <CircularProgress size={20} sx={{ my: 1 }} />
-                                    ) : (
-                                        <Typography sx={{ fontSize: '26px', fontWeight: '700', color: '#1a1a1a' }}>
-                                            {cashData?.studentsPaid ?? 0}
-                                        </Typography>
-                                    )}
-                                    <Typography sx={{ fontSize: '11px', color: '#888' }}>
-                                        {cashDate === today ? 'Paid in cash today' : `Paid on ${cashDate}`}
-                                    </Typography>
-                                </Box>
-                                <PeopleIcon sx={{ fontSize: 36, color: '#7C3AED' }} />
-                            </Box>
-                        </CardContent>
-                    </Card>
-                </Grid>
+            {/* ── Cash at a glance ── */}
+            <Grid container spacing={2} sx={{ mb: 2, alignItems: 'stretch' }}>
+                {cards.map((card) => (
+                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }} key={card.label}>
+                        <SolidStatCard
+                            label={card.label}
+                            value={isLoading ? <Skeleton width={110} height={28} /> : card.value}
+                            note={isLoading ? '' : card.note}
+                            tone={card.tone}
+                        />
+                    </Grid>
+                ))}
             </Grid>
-            {/* Date Filter Section */}
+
+            {/* ── The date both tables below are read against ── */}
             <Box
                 sx={{
                     display: 'flex',
-                    alignItems: 'center',
+                    alignItems: { xs: 'flex-start', md: 'center' },
                     justifyContent: 'space-between',
+                    flexDirection: { xs: 'column', md: 'row' },
+                    gap: 1.5,
                     mb: 2,
-                    px: 2,
-                    py: 1.5,
-                    bgcolor: '#F8FAFC',
-                    border: '1px solid #E8EFF5',
-                    borderRadius: '8px',
+                    px: 1.8,
+                    py: 1.2,
+                    bgcolor: '#fff',
+                    border: `1px solid ${DASH.line}`,
+                    borderRadius: RADIUS,
                 }}
             >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Box sx={{
-                        width: 6, height: 28, borderRadius: '3px', bgcolor: '#0891B2',
-                    }} />
-                    <Box>
-                        <Typography sx={{ fontSize: '13px', fontWeight: '700', color: '#1a1a1a' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, minWidth: 0 }}>
+                    <Box sx={{ width: 3, height: 26, borderRadius: RADIUS, bgcolor: DASH.cyan, flexShrink: 0 }} />
+                    <Box sx={{ minWidth: 0 }}>
+                        <Typography sx={{ fontSize: '13px', fontWeight: 700, color: DASH.ink, lineHeight: 1.3 }}>
                             Date-wise Breakdown
                         </Typography>
-                        <Typography sx={{ fontSize: '11px', color: '#888' }}>
-                            Denomination & transactions filtered by selected date
+                        <Typography sx={{ fontSize: '11.5px', color: DASH.muted }}>
+                            {isToday
+                                ? "Denominations and receipts for today"
+                                : `Denominations and receipts for ${formatDate(cashDate)}`}
                         </Typography>
                     </Box>
                 </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Typography sx={{ fontSize: '11px', color: '#888', fontWeight: '500' }}>
-                        Viewing:
-                    </Typography>
-                    <Box sx={{
-                        display: 'flex', alignItems: 'center', gap: 0.8,
-                        bgcolor: '#fff', border: '1.5px solid #0891B2',
-                        borderRadius: '8px', px: 1.5, py: 0.6,
-                    }}>
-                        <TodayIcon sx={{ fontSize: 16, color: '#0891B2' }} />
-                        <TextField
-                            type="date"
-                            size="small"
-                            value={cashDate}
-                            onChange={(e) => setCashDate(e.target.value)}
-                            variant="standard"
-                            sx={{ width: '130px' }}
-                            slotProps={{
-                                input: { disableUnderline: true, style: { fontSize: '13px', fontWeight: '600', color: '#0891B2' } }
-                            }}
-                        />
-                    </Box>
-                    {cashDate === today && (
+
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
+                    {isToday ? (
                         <Chip
                             label="Today"
                             size="small"
-                            sx={{ bgcolor: '#E0F2FE', color: '#0891B2', fontWeight: '700', fontSize: '10px', height: '22px' }}
+                            sx={{
+                                height: 22, fontSize: '10.5px', fontWeight: 700, borderRadius: RADIUS,
+                                bgcolor: DASH.cyanLight, color: DASH.cyan, border: '1px solid #A5F3FC',
+                            }}
                         />
+                    ) : (
+                        <Button
+                            onClick={() => setCashDate(today)}
+                            startIcon={<TodayIcon sx={{ fontSize: 15 }} />}
+                            sx={{
+                                textTransform: 'none', fontSize: '12px', fontWeight: 700,
+                                color: DASH.cyan, bgcolor: DASH.cyanLight,
+                                border: '1px solid #A5F3FC', borderRadius: RADIUS,
+                                height: 32, px: 1.4,
+                                '&:hover': { bgcolor: DASH.cyanLight, borderColor: DASH.cyan },
+                            }}
+                        >
+                            Back to today
+                        </Button>
                     )}
+                    <TextField
+                        type="date"
+                        size="small"
+                        value={cashDate}
+                        onChange={(e) => setCashDate(e.target.value)}
+                        sx={{
+                            width: 165,
+                            '& .MuiOutlinedInput-root': {
+                                height: 32,
+                                fontSize: '12.5px',
+                                fontWeight: 600,
+                                color: DASH.ink,
+                                borderRadius: RADIUS,
+                                bgcolor: '#fff',
+                                '& fieldset': { borderColor: DASH.line },
+                                '&:hover fieldset': { borderColor: '#9AA3AF' },
+                                '&.Mui-focused fieldset': { borderColor: DASH.cyan, borderWidth: '1px' },
+                            },
+                        }}
+                    />
                 </Box>
             </Box>
-            {/* Denomination Breakdown */}
-            <Card sx={{ boxShadow: 'none', border: '1px solid #E8E8E8', borderRadius: '4px', bgcolor: '#FFFFFF', mb: 3 }}>
-                <CardContent>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                        <Typography sx={{ fontSize: '15px', fontWeight: '600' }}>
-                            Denomination Breakdown
-                        </Typography>
-                        <Box sx={{ textAlign: 'right' }}>
-                            <Typography sx={{ fontSize: '11px', color: '#888' }}>Grand Total (Inwards)</Typography>
-                            {isLoading ? (
-                                <CircularProgress size={16} />
-                            ) : (
-                                <Typography sx={{ fontSize: '18px', fontWeight: '700', color: '#22C55E' }}>
-                                    {cashData?.grandTotalInwards?.display ?? '₹0'}
+
+            <Grid container spacing={2} sx={{ alignItems: 'stretch' }}>
+                {/* ── What is in the drawer, note by note ── */}
+                <Grid size={{ xs: 12, md: 12, lg: 5 }}>
+                    <Panel
+                        title="Denomination Breakdown"
+                        subtitle={isLoading ? 'Counting…' : `${denominationBreakdown.length} denomination${denominationBreakdown.length === 1 ? '' : 's'} recorded`}
+                        accent={DASH.green}
+                        sx={{ height: '100%' }}
+                        bodySx={{ p: 0 }}
+                        right={
+                            <Box sx={{ textAlign: 'right' }}>
+                                <Typography sx={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: DASH.muted }}>
+                                    Grand Total In
                                 </Typography>
-                            )}
-                        </Box>
-                    </Box>
-                    {isLoading ? (
-                        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-                            <CircularProgress size={28} />
-                        </Box>
-                    ) : (
-                        <TableContainer>
-                            <Table size="small">
-                                <TableHead>
-                                    <TableRow>
-                                        <TableCell sx={{ fontWeight: '600', fontSize: '12px', bgcolor: '#f5f5f5', width: '25%' }}>Denomination</TableCell>
-                                        <TableCell sx={{ fontWeight: '600', fontSize: '12px', bgcolor: '#f5f5f5', width: '15%' }}>Type</TableCell>
-                                        <TableCell sx={{ fontWeight: '600', fontSize: '12px', bgcolor: '#f5f5f5', width: '20%' }}>Inwards Count</TableCell>
-                                        <TableCell sx={{ fontWeight: '600', fontSize: '12px', bgcolor: '#f5f5f5', width: '20%' }}>Inwards Amount</TableCell>
-                                        <TableCell sx={{ fontWeight: '600', fontSize: '12px', bgcolor: '#f5f5f5', width: '20%' }}>Outwards Count</TableCell>
-                                    </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                    {denominationBreakdown.map((d) => {
-                                        const cfg = denomConfig[d.denomination] ?? { label: `₹${d.denomination}`, color: '#546E7A', bg: '#ECEFF1' };
-                                        return (
-                                            <TableRow key={d.denomination} sx={{ '&:hover': { bgcolor: '#fafafa' } }}>
-                                                <TableCell>
-                                                    <Chip
-                                                        label={cfg.label}
-                                                        size="small"
-                                                        sx={{
-                                                            bgcolor: cfg.bg,
-                                                            color: cfg.color,
-                                                            fontWeight: '700',
-                                                            fontSize: '12px',
-                                                            border: `1px solid ${cfg.color}40`,
-                                                        }}
-                                                    />
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Typography sx={{ fontSize: '11px', color: '#666' }}>{d.type}</Typography>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Typography sx={{ fontSize: '13px', fontWeight: '600', color: d.inwardsCount > 0 ? '#1a1a1a' : '#bbb' }}>
-                                                        {d.inwardsCount}
-                                                    </Typography>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Typography sx={{ fontSize: '13px', fontWeight: '600', color: d.inwardsCount > 0 ? cfg.color : '#bbb' }}>
-                                                        {d.inwardsAmount?.display ?? '₹0'}
-                                                    </Typography>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Typography sx={{ fontSize: '13px', fontWeight: '600', color: d.outwardsCount > 0 ? '#EF4444' : '#bbb' }}>
-                                                        {d.outwardsCount}
-                                                    </Typography>
+                                {isLoading ? (
+                                    <Skeleton width={80} height={22} />
+                                ) : (
+                                    <Typography sx={{ fontSize: '16px', fontWeight: 700, color: DASH.green, lineHeight: 1.2 }}>
+                                        {cashData?.grandTotalInwards?.display ?? '₹0'}
+                                    </Typography>
+                                )}
+                            </Box>
+                        }
+                    >
+                        {isLoading ? (
+                            <Box sx={{ p: 2 }}>
+                                {[0, 1, 2, 3, 4, 5].map((i) => (
+                                    <Skeleton key={i} height={34} sx={{ mb: 0.5 }} />
+                                ))}
+                            </Box>
+                        ) : (
+                            <TableContainer sx={{ maxHeight: 470 }}>
+                                <Table size="small" stickyHeader>
+                                    <TableHead>
+                                        <TableRow>
+                                            <TH>Denomination</TH>
+                                            <TH>Type</TH>
+                                            <TH align="right">In</TH>
+                                            <TH align="right">In Amount</TH>
+                                            <TH align="right">Out</TH>
+                                        </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                        {denominationBreakdown.length === 0 ? (
+                                            <TableRow>
+                                                <TableCell colSpan={5} sx={{ borderBottom: 'none' }}>
+                                                    <EmptyNote text="No denominations were counted for this date." />
                                                 </TableCell>
                                             </TableRow>
-                                        );
-                                    })}
-                                    {/* Grand Total Row */}
-                                    <TableRow sx={{ bgcolor: '#F8F9FA' }}>
-                                        <TableCell colSpan={3} sx={{ fontWeight: '700', fontSize: '13px' }}>Grand Total</TableCell>
-                                        <TableCell sx={{ fontWeight: '700', fontSize: '14px', color: '#22C55E' }}>
-                                            {cashData?.grandTotalInwards?.display ?? '₹0'}
-                                        </TableCell>
-                                        <TableCell sx={{ fontWeight: '700', fontSize: '14px', color: '#EF4444' }}>
-                                            {cashData?.grandTotalOutwards?.display ?? '₹0'}
-                                        </TableCell>
-                                    </TableRow>
-                                </TableBody>
-                            </Table>
-                        </TableContainer>
-                    )}
-                </CardContent>
-            </Card>
+                                        ) : (
+                                            <>
+                                                {denominationBreakdown.map((d) => {
+                                                    const cfg = denomConfig[d.denomination] ?? { label: `₹${d.denomination}`, color: DASH.muted, bg: DASH.lineSoft };
+                                                    const hasIn = d.inwardsCount > 0;
+                                                    return (
+                                                        <TableRow
+                                                            key={d.denomination}
+                                                            sx={{ transition: 'background-color 0.15s', '&:hover': { bgcolor: DASH.surface } }}
+                                                        >
+                                                            <TD>
+                                                                <Chip
+                                                                    label={cfg.label}
+                                                                    size="small"
+                                                                    sx={{
+                                                                        height: 21,
+                                                                        borderRadius: RADIUS,
+                                                                        bgcolor: cfg.bg,
+                                                                        color: cfg.color,
+                                                                        border: `1px solid ${cfg.color}33`,
+                                                                        fontWeight: 700,
+                                                                        fontSize: '11px',
+                                                                    }}
+                                                                />
+                                                            </TD>
+                                                            <TD>
+                                                                <Typography sx={{ fontSize: '11.5px', color: DASH.muted }}>{d.type}</Typography>
+                                                            </TD>
+                                                            <TD align="right">
+                                                                <Typography sx={{ fontSize: '12.5px', fontWeight: 700, color: hasIn ? DASH.ink : DASH.faint }}>
+                                                                    {d.inwardsCount}
+                                                                </Typography>
+                                                            </TD>
+                                                            <TD align="right">
+                                                                <Typography sx={{ fontSize: '12.5px', fontWeight: 700, color: hasIn ? DASH.ink : DASH.faint, whiteSpace: 'nowrap' }}>
+                                                                    {d.inwardsAmount?.display ?? '₹0'}
+                                                                </Typography>
+                                                            </TD>
+                                                            <TD align="right">
+                                                                <Typography sx={{ fontSize: '12.5px', fontWeight: 700, color: d.outwardsCount > 0 ? DASH.red : DASH.faint }}>
+                                                                    {d.outwardsCount}
+                                                                </Typography>
+                                                            </TD>
+                                                        </TableRow>
+                                                    );
+                                                })}
+                                                <TableRow sx={{ bgcolor: DASH.surface }}>
+                                                    <TableCell colSpan={3} sx={{ borderBottom: 'none', py: 1.2 }}>
+                                                        <Typography sx={{ fontSize: '12px', fontWeight: 700, color: DASH.ink }}>
+                                                            Grand Total
+                                                        </Typography>
+                                                    </TableCell>
+                                                    <TableCell align="right" sx={{ borderBottom: 'none', py: 1.2 }}>
+                                                        <Typography sx={{ fontSize: '13px', fontWeight: 700, color: DASH.green, whiteSpace: 'nowrap' }}>
+                                                            {cashData?.grandTotalInwards?.display ?? '₹0'}
+                                                        </Typography>
+                                                    </TableCell>
+                                                    <TableCell align="right" sx={{ borderBottom: 'none', py: 1.2 }}>
+                                                        <Typography sx={{ fontSize: '13px', fontWeight: 700, color: DASH.red, whiteSpace: 'nowrap' }}>
+                                                            {cashData?.grandTotalOutwards?.display ?? '₹0'}
+                                                        </Typography>
+                                                    </TableCell>
+                                                </TableRow>
+                                            </>
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+                        )}
+                    </Panel>
+                </Grid>
 
-            {/* Cash Transactions Table */}
-            <Card sx={{ boxShadow: 'none', border: '1px solid #E8E8E8', borderRadius: '4px', bgcolor: '#FFFFFF' }}>
-                <CardContent>
-                    <Typography sx={{ fontSize: '15px', fontWeight: '600', mb: 2 }}>
-                        Cash Transactions
-                    </Typography>
-                    {isLoading ? (
-                        <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-                            <CircularProgress size={28} />
-                        </Box>
-                    ) : cashTransactions.length === 0 ? (
-                        <Box sx={{ textAlign: 'center', py: 6 }}>
-                            <MonetizationOnIcon sx={{ fontSize: 48, color: '#ccc', mb: 1 }} />
-                            <Typography sx={{ fontSize: '14px', color: '#999' }}>
-                                No cash transactions found for this date
-                            </Typography>
-                        </Box>
-                    ) : (
-                        <TableContainer>
-                            <Table size="small">
-                                <TableHead>
-                                    <TableRow>
-                                        <TableCell sx={{ fontWeight: '600', fontSize: '12px', bgcolor: '#f5f5f5' }}>Time</TableCell>
-                                        <TableCell sx={{ fontWeight: '600', fontSize: '12px', bgcolor: '#f5f5f5' }}>Student</TableCell>
-                                        <TableCell sx={{ fontWeight: '600', fontSize: '12px', bgcolor: '#f5f5f5' }}>Grade</TableCell>
-                                        <TableCell sx={{ fontWeight: '600', fontSize: '12px', bgcolor: '#f5f5f5' }}>Fee Type</TableCell>
-                                        <TableCell sx={{ fontWeight: '600', fontSize: '12px', bgcolor: '#f5f5f5' }}>Amount</TableCell>
-                                        <TableCell sx={{ fontWeight: '600', fontSize: '12px', bgcolor: '#f5f5f5' }}>Receipt No.</TableCell>
-                                        <TableCell sx={{ fontWeight: '600', fontSize: '12px', bgcolor: '#f5f5f5' }}>Status</TableCell>
-                                    </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                    {cashTransactions.map((txn, idx) => (
-                                        <TableRow key={idx} sx={{ '&:hover': { bgcolor: '#f9f9f9' } }}>
-                                            <TableCell>
-                                                <Typography sx={{ fontSize: '12px', fontWeight: '600' }}>
-                                                    {formatTime(txn.paidOn)}
-                                                </Typography>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Typography sx={{ fontSize: '12px', fontWeight: '600' }}>{txn.name}</Typography>
-                                                <Typography sx={{ fontSize: '10px', color: '#666' }}>{txn.rollNumber}</Typography>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Typography sx={{ fontSize: '12px', color: '#666' }}>
-                                                    {txn.grade} {txn.section}
-                                                </Typography>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Typography sx={{ fontSize: '12px' }}>{txn.feeType}</Typography>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Typography sx={{ fontSize: '12px', fontWeight: '700', color: '#22C55E' }}>
-                                                    {txn.amount?.display ?? '₹0'}
-                                                </Typography>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Typography sx={{ fontSize: '11px', color: '#0891B2', fontWeight: '600' }}>
-                                                    {txn.receiptNo}
-                                                </Typography>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Chip
-                                                    label={txn.status}
-                                                    size="small"
-                                                    sx={{
-                                                        bgcolor: txn.status === 'Completed' ? '#DCFCE7' : txn.status === 'Pending' ? '#FFF7ED' : '#FEE2E2',
-                                                        color: txn.status === 'Completed' ? '#22C55E' : txn.status === 'Pending' ? '#F97316' : '#DC2626',
-                                                        fontWeight: '600',
-                                                        fontSize: '10px',
-                                                        height: '20px',
-                                                    }}
-                                                />
-                                            </TableCell>
+                {/* ── Receipt by receipt ── */}
+                <Grid size={{ xs: 12, md: 12, lg: 7 }}>
+                    <Panel
+                        title="Cash Transactions"
+                        subtitle={
+                            isLoading
+                                ? 'Loading receipts…'
+                                : `${cashTransactions.length} cash receipt${cashTransactions.length === 1 ? '' : 's'} ${isToday ? 'today' : `on ${formatDate(cashDate)}`}`
+                        }
+                        accent={DASH.cyan}
+                        sx={{ height: '100%' }}
+                        bodySx={{ p: 0 }}
+                    >
+                        {isLoading ? (
+                            <Box sx={{ p: 2 }}>
+                                {[0, 1, 2, 3, 4, 5].map((i) => (
+                                    <Skeleton key={i} height={34} sx={{ mb: 0.5 }} />
+                                ))}
+                            </Box>
+                        ) : cashTransactions.length === 0 ? (
+                            <Box sx={{ textAlign: 'center', py: 6, px: 2 }}>
+                                <MonetizationOnIcon sx={{ fontSize: 40, color: DASH.line }} />
+                                <Typography sx={{ fontSize: '13.5px', fontWeight: 700, color: DASH.ink, mt: 1 }}>
+                                    No cash receipts for this date
+                                </Typography>
+                                <Typography sx={{ fontSize: '12px', color: DASH.muted, mt: 0.4 }}>
+                                    Pick another date above to see earlier collections.
+                                </Typography>
+                            </Box>
+                        ) : (
+                            <TableContainer sx={{ maxHeight: 470 }}>
+                                <Table size="small" stickyHeader>
+                                    <TableHead>
+                                        <TableRow>
+                                            <TH>Time</TH>
+                                            <TH>Student</TH>
+                                            <TH>Fee Type</TH>
+                                            <TH align="right">Amount</TH>
+                                            <TH>Receipt No.</TH>
+                                            <TH>Status</TH>
                                         </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </TableContainer>
-                    )}
-                </CardContent>
-            </Card>
+                                    </TableHead>
+                                    <TableBody>
+                                        {cashTransactions.map((txn, idx) => {
+                                            const tone = STATUS_TONES[txn.status] || STATUS_FALLBACK;
+                                            return (
+                                                <TableRow
+                                                    key={idx}
+                                                    sx={{ transition: 'background-color 0.15s', '&:hover': { bgcolor: DASH.surface } }}
+                                                >
+                                                    <TD>
+                                                        <Typography sx={{ fontSize: '12px', fontWeight: 600, color: DASH.text, whiteSpace: 'nowrap' }}>
+                                                            {formatTime(txn.paidOn)}
+                                                        </Typography>
+                                                    </TD>
+                                                    <TD>
+                                                        <Typography sx={{ fontSize: '12.5px', fontWeight: 700, color: DASH.ink }}>
+                                                            {txn.name}
+                                                        </Typography>
+                                                        <Typography sx={{ fontSize: '10.5px', color: DASH.faint }}>
+                                                            {txn.rollNumber} · {txn.grade} {txn.section}
+                                                        </Typography>
+                                                    </TD>
+                                                    <TD>
+                                                        <Typography sx={{ fontSize: '12px', color: DASH.muted }}>
+                                                            {txn.feeType}
+                                                        </Typography>
+                                                    </TD>
+                                                    <TD align="right">
+                                                        <Typography sx={{ fontSize: '12.5px', fontWeight: 700, color: DASH.ink, whiteSpace: 'nowrap' }}>
+                                                            {txn.amount?.display ?? '₹0'}
+                                                        </Typography>
+                                                    </TD>
+                                                    <TD>
+                                                        <Typography sx={{ fontSize: '11.5px', fontWeight: 600, color: DASH.cyan, whiteSpace: 'nowrap' }}>
+                                                            {txn.receiptNo}
+                                                        </Typography>
+                                                    </TD>
+                                                    <TD>
+                                                        <Chip
+                                                            label={txn.status}
+                                                            size="small"
+                                                            sx={{
+                                                                height: 20,
+                                                                borderRadius: RADIUS,
+                                                                bgcolor: tone.bg,
+                                                                color: tone.color,
+                                                                fontWeight: 700,
+                                                                fontSize: '10.5px',
+                                                            }}
+                                                        />
+                                                    </TD>
+                                                </TableRow>
+                                            );
+                                        })}
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+                        )}
+                    </Panel>
+                </Grid>
+            </Grid>
         </Box>
     );
 }

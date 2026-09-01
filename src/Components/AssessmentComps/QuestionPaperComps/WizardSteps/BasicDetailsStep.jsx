@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 import {
     Box, Grid, Typography, TextField, MenuItem, Autocomplete,
-    Select, OutlinedInput, Checkbox, ListItemText,
+    Checkbox, ListItemText,
 } from "@mui/material";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import SchoolOutlinedIcon from "@mui/icons-material/SchoolOutlined";
@@ -63,18 +63,25 @@ export default function BasicDetailsStep({
                             </Grid>
 
                             <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
-                                <Typography sx={{ fontSize: "11px", color: DASH.muted, mb: 0.4 }}>Sections</Typography>
-                                <Select
-                                    multiple
-                                    size="small"
-                                    fullWidth
-                                    displayEmpty
+                                <TextField
+                                    select fullWidth size="small" label="Sections"
                                     value={form.sections}
                                     onChange={(e) => setField("sections", e.target.value)}
                                     disabled={!form.gradeId}
-                                    input={<OutlinedInput />}
-                                    renderValue={(selected) => (selected.length ? selected.join(", ") : "All sections")}
-                                    sx={{ ...fieldSx, fontSize: "13px" }}
+                                    helperText={
+                                        form.gradeId && sections.length === 0
+                                            ? "No sections on this class"
+                                            : "Leave empty to cover every section"
+                                    }
+                                    sx={fieldSx}
+                                    slotProps={{
+                                        inputLabel: { shrink: true },
+                                        select: {
+                                            multiple: true,
+                                            displayEmpty: true,
+                                            renderValue: (selected) => (selected.length ? selected.join(", ") : "All sections"),
+                                        },
+                                    }}
                                 >
                                     {sections.map((s) => (
                                         <MenuItem key={s} value={s} sx={{ fontSize: "13px", py: 0.4 }}>
@@ -86,12 +93,7 @@ export default function BasicDetailsStep({
                                             <ListItemText primary={s} slotProps={{ primary: { fontSize: "13px" } }} />
                                         </MenuItem>
                                     ))}
-                                </Select>
-                                <Typography sx={{ fontSize: "11px", color: DASH.muted, mt: 0.5 }}>
-                                    {form.gradeId && sections.length === 0
-                                        ? "No sections on this class"
-                                        : "Leave empty to cover every section"}
-                                </Typography>
+                                </TextField>
                             </Grid>
 
                             <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
@@ -124,7 +126,7 @@ export default function BasicDetailsStep({
                                 </TextField>
                             </Grid>
 
-                            <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
+                            <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
                                 <Autocomplete
                                     freeSolo
                                     size="small"
@@ -138,14 +140,14 @@ export default function BasicDetailsStep({
                                             label="Exam name"
                                             placeholder="Half Yearly Examination"
                                             error={Boolean(errors.examName)}
-                                            helperText={errors.examName || "Pick a mapped exam or type your own"}
+                                            helperText={errors.examName || "Pick a mapped exam, or type your own"}
                                             sx={fieldSx}
                                         />
                                     )}
                                 />
                             </Grid>
 
-                            <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
+                            <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
                                 <TextField
                                     fullWidth size="small" label="Paper name"
                                     placeholder="Mathematics - Half Yearly"
@@ -157,24 +159,24 @@ export default function BasicDetailsStep({
                                 />
                             </Grid>
 
-                            <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
+                            <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
                                 <TextField
                                     fullWidth size="small" type="date" label="Exam date"
                                     value={form.examDate}
                                     onChange={(e) => setField("examDate", e.target.value)}
-                                    helperText=" "
+                                    helperText="Optional - prints on the header"
                                     sx={fieldSx}
                                     slotProps={{ inputLabel: { shrink: true } }}
                                 />
                             </Grid>
 
 
-                            <Grid size={{ xs: 6, sm: 3, md: 2, lg: 2 }}>
+                            <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
                                 <TextField
                                     select fullWidth size="small" label="Medium"
                                     value={form.medium}
                                     onChange={(e) => setField("medium", e.target.value)}
-                                    helperText=" "
+                                    helperText="Language the paper prints in"
                                     sx={fieldSx}
                                 >
                                     {MEDIUMS.map((m) => (
@@ -183,12 +185,12 @@ export default function BasicDetailsStep({
                                 </TextField>
                             </Grid>
 
-                            <Grid size={{ xs: 6, sm: 3, md: 1, lg: 1 }}>
+                            <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
                                 <TextField
                                     fullWidth size="small" label="Q.P. Code"
                                     value={form.paperCode}
                                     onChange={(e) => setField("paperCode", e.target.value.slice(0, 6))}
-                                    helperText=" "
+                                    helperText="Up to 6 characters"
                                     sx={fieldSx}
                                 />
                             </Grid>

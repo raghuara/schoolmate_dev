@@ -16,7 +16,7 @@ import axios from "axios";
 import { useDispatch, useSelector } from "react-redux";
 import { selectApproverUserTypes } from "../../Redux/Slices/userTypesSlice";
 import { APPROVAL_MODULES, fetchApprovalMatrix, selectApprovalMatrix } from "../../Redux/Slices/approvalMatrixSlice";
-import { UpdateApprovalMatrix } from "../../Api/Api";
+import { UpdateApprovalMatrix, GetLeaveApprovalSettings, UpdateLeaveApprovalSettings } from "../../Api/Api";
 import { DASH, RADIUS } from "../DashBoardComps/dashboardTheme";
 
 const ACCENT = "#4338CA";
@@ -33,6 +33,40 @@ const SINGLE_APPROVER_KEYS = new Set(SINGLE_APPROVER_PAGES.map((p) => p.key));
 const MULTI_LEVEL_PAGES = APPROVAL_MODULES.filter((p) => !p.singleApprover);
 
 const emptyFlow = (key) => ({ enabled: SINGLE_APPROVER_KEYS.has(key), levels: [], allowSameLevel: false });
+
+// Leave approvers are not part of the approval matrix - they have their own
+// endpoint, which addresses them by category name rather than by subMenu.
+const LEAVE_CATEGORY_BY_KEY = { studentleave: "Student", staffleave: "Staff" };
+const LEAVE_KEY_BY_CATEGORY = { student: "studentleave", staff: "staffleave" };
+
+// The API answers a denied feature permission with a message plus the exact
+// switch to flip. Both are worth showing - the second one is the fix.
+const apiMessage = (body, fallback) => {
+    if (!body) return fallback;
+    return [body.message, body.solution].filter(Boolean).join(" ") || fallback;
+};
+
+const readCategories = (body) => {
+    const raw = body?.data?.categories || body?.categories;
+    return Array.isArray(raw) ? raw : [];
+};
+
+/* Get returns every user type for the category with an isSelected flag, while
+   Update takes only the chosen ids. Tolerate a bare userTypeIDs array too, so a
+   response trimmed to the Update shape still reads. */
+const selectedUserTypeIds = (category) => {
+    if (Array.isArray(category?.userTypes)) {
+        return category.userTypes
+            .filter((u) => u?.isSelected)
+            .map((u) => u?.userTypeID)
+            .filter((id) => id !== null && id !== undefined && id !== "")
+            .map(String);
+    }
+    return (Array.isArray(category?.userTypeIDs) ? category.userTypeIDs : [])
+        .map((x) => (x && typeof x === "object" ? x.userTypeID : x))
+        .filter((id) => id !== null && id !== undefined && id !== "")
+        .map(String);
+};
 
 const blankFlows = () => {
     const init = {};
@@ -52,7 +86,11 @@ export default function ApprovalFlowsTab({ showSnack }) {
         [roleOptions],
     );
 
+    const rollNumber = useSelector((state) => state.auth?.rollNumber);
+
     const [flows, setFlows] = useState(blankFlows);
+    // Leave approvers as the server last returned them, in its own shape.
+    const [leaveCategories, setLeaveCategories] = useState(null);
     // What the server last gave us, so Save only sends what actually changed.
     const [saved, setSaved] = useState(blankFlows);
     const [expanded, setExpanded] = useState(APPROVAL_PAGES[0].key);
@@ -73,34 +111,90 @@ export default function ApprovalFlowsTab({ showSnack }) {
                 if (typeof lvl === "object") return [lvl.userTypeID];
                 return String(lvl).split(",").map((x) => x.trim()).filter(Boolean);
             };
+            // Leave rows may still exist in the matrix from before it had its own
+            // endpoint. Ignore them, or a stale row would overwrite the live value.
+            if (SINGLE_APPROVER_KEYS.has(row.subMenu)) return;
             const levels = [row.level1, row.level2, row.level3]
                 .flatMap(readLevel)
                 .filter((id) => id !== null && id !== undefined && id !== "");
             next[row.subMenu] = {
                 id: row.id,
                 levels,
-                // Leave always requires approval - it has no off switch.
-                enabled: SINGLE_APPROVER_KEYS.has(row.subMenu) ? true : levels.length > 0,
+                enabled: levels.length > 0,
                 allowSameLevel: row.approvalWithinSameLevel === "Y",
             };
         });
+
+        // Leave approvers come from leaveApprovalSettings, keyed by category name.
+        (leaveCategories || []).forEach((row) => {
+            const key = LEAVE_KEY_BY_CATEGORY[String(row?.leaveCategory || "").trim().toLowerCase()];
+            if (!key) return;
+            // Leave always requires approval - it has no off switch.
+            next[key] = { levels: selectedUserTypeIds(row), enabled: true, allowSameLevel: false };
+        });
+
         setFlows(next);
         setSaved(JSON.parse(JSON.stringify(next)));
-    }, [matrix]);
+    }, [matrix, leaveCategories]);
+
+    const loadLeaveSettings = useCallback(async () => {
+        try {
+            const res = await axios.get(GetLeaveApprovalSettings, {
+                params: { requestedByRollNumber: rollNumber },
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (res?.data?.error) {
+                // Feature Permissions denies this read until View = "Y" for
+                // Leave & Payroll > Leaveandattendanceleavemanagement. Pass the
+                // server's own wording through - it names the switch to flip.
+                showSnack?.(apiMessage(res.data, "Failed to load leave approvers."), false);
+                setLeaveCategories([]);
+                return;
+            }
+            setLeaveCategories(readCategories(res?.data));
+        } catch (err) {
+            showSnack?.(apiMessage(err?.response?.data, "Failed to load leave approvers."), false);
+            setLeaveCategories([]);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [rollNumber]);
 
     const loadMatrix = useCallback(async () => {
         setIsLoading(true);
         try {
-            await dispatch(fetchApprovalMatrix()).unwrap();
-        } catch (err) {
-            showSnack?.(typeof err === "string" ? err : "Failed to load approval flows.", false);
+            await Promise.all([
+                dispatch(fetchApprovalMatrix()).unwrap().catch((err) => {
+                    showSnack?.(typeof err === "string" ? err : "Failed to load approval flows.", false);
+                }),
+                loadLeaveSettings(),
+            ]);
         } finally {
             setIsLoading(false);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [dispatch]);
+    }, [dispatch, loadLeaveSettings]);
 
     useEffect(() => { loadMatrix(); }, [loadMatrix]);
+
+    // Everything the leave cards display, keyed the way this screen addresses
+    // them. Falls back to the static module list when the fetch has not landed.
+    const leaveMeta = useMemo(() => {
+        const map = {};
+        (leaveCategories || []).forEach((row) => {
+            const key = LEAVE_KEY_BY_CATEGORY[String(row?.leaveCategory || "").trim().toLowerCase()];
+            if (!key) return;
+            map[key] = {
+                label: row.label,
+                raisedBy: row.raisedBy,
+                // The server already drops user types that cannot approve -
+                // students among them - so this list is narrower than roleOptions.
+                options: (Array.isArray(row.userTypes) ? row.userTypes : [])
+                    .filter((u) => u?.userTypeID !== null && u?.userTypeID !== undefined)
+                    .map((u) => ({ userTypeID: u.userTypeID, userType: u.userType })),
+            };
+        });
+        return map;
+    }, [leaveCategories]);
 
     const cfg = (key) => flows[key] || emptyFlow(key);
 
@@ -213,20 +307,6 @@ export default function ApprovalFlowsTab({ showSnack }) {
 
     const toPayload = (key, c) => {
         const levels = c.enabled ? filledLevels(c) : [];
-        // Leave flows carry one approver, so levels 2 and 3 are always cleared -
-        // a stale level left over from the old multi-level shape would otherwise
-        // keep asking for a second approval nobody configured.
-        if (isSingleApprover(key)) {
-            // Co-equal approvers: all of them ride in level1 as a comma separated
-            // list, and 2/3 are always cleared so no stale level can block a request.
-            return {
-                subMenu: key,
-                level1: levels.map(String).join(","),
-                level2: "",
-                level3: "",
-                approvalWithinSameLevel: "N",
-            };
-        }
         return {
             subMenu: key,
             level1: levels[0] !== undefined ? String(levels[0]) : "",
@@ -236,9 +316,32 @@ export default function ApprovalFlowsTab({ showSnack }) {
         };
     };
 
+    // Leave approvers are a co-equal set, so order carries no meaning - sort
+    // before comparing or reordering the ticks alone would read as a change.
+    const leaveUserTypeIDs = (c) => filledLevels(c)
+        .map(Number)
+        .filter((n) => !Number.isNaN(n))
+        .sort((a, b) => a - b);
+
+    // Leave and the matrix are saved through different endpoints, so they are
+    // compared in their own shapes too.
+    const flowSignature = (key, c) => (isSingleApprover(key)
+        ? JSON.stringify(leaveUserTypeIDs(c))
+        : JSON.stringify(toPayload(key, c)));
+
     const changedKeys = APPROVAL_PAGES
         .map((p) => p.key)
-        .filter((key) => JSON.stringify(toPayload(key, cfg(key))) !== JSON.stringify(toPayload(key, saved[key] || emptyFlow(key))));
+        .filter((key) => flowSignature(key, cfg(key)) !== flowSignature(key, saved[key] || emptyFlow(key)));
+
+    // The Update endpoint replaces the whole set, so every category rides along
+    // even when only one of them changed.
+    const leavePayload = () => ({
+        categories: SINGLE_APPROVER_PAGES.map((lp) => ({
+            leaveCategory: LEAVE_CATEGORY_BY_KEY[lp.key],
+            userTypeIDs: leaveUserTypeIDs(cfg(lp.key)),
+        })),
+        updatedByRollNumber: String(rollNumber || ""),
+    });
 
     const handleSave = async () => {
         if (changedKeys.length === 0) {
@@ -260,21 +363,36 @@ export default function ApprovalFlowsTab({ showSnack }) {
             return;
         }
 
+        const matrixKeys = changedKeys.filter((key) => !isSingleApprover(key));
+        const leaveKeys = changedKeys.filter(isSingleApprover);
+
         setIsSaving(true);
         try {
-            const results = await Promise.all(changedKeys.map((key) =>
+            const calls = matrixKeys.map((key) =>
                 axios.post(UpdateApprovalMatrix, toPayload(key, cfg(key)), {
                     headers: { Authorization: `Bearer ${token}` },
-                }).then((res) => ({ key, ok: !res?.data?.error, message: res?.data?.message }))
-                    .catch((err) => ({ key, ok: false, message: err?.response?.data?.message }))
-            ));
+                }).then((res) => ({ key, ok: !res?.data?.error, message: apiMessage(res?.data) }))
+                    .catch((err) => ({ key, ok: false, message: apiMessage(err?.response?.data) }))
+            );
 
+            // Both leave categories go up in one call - the endpoint takes the
+            // whole set, so sending them separately would wipe the other one.
+            if (leaveKeys.length) {
+                calls.push(
+                    axios.post(UpdateLeaveApprovalSettings, leavePayload(), {
+                        headers: { Authorization: `Bearer ${token}` },
+                    }).then((res) => ({ key: leaveKeys[0], ok: !res?.data?.error, message: apiMessage(res?.data) }))
+                        .catch((err) => ({ key: leaveKeys[0], ok: false, message: apiMessage(err?.response?.data) }))
+                );
+            }
+
+            const results = await Promise.all(calls);
             const failed = results.filter((r) => !r.ok);
             if (failed.length) {
                 const names = failed.map((f) => APPROVAL_PAGES.find((p) => p.key === f.key)?.label || f.key);
                 showSnack?.(failed[0].message || `Could not save: ${names.join(", ")}.`, false);
             } else {
-                showSnack?.(`Saved ${results.length} approval flow${results.length > 1 ? "s" : ""}.`);
+                showSnack?.(`Saved ${changedKeys.length} approval flow${changedKeys.length > 1 ? "s" : ""}.`);
             }
             await loadMatrix();
         } finally {
@@ -543,6 +661,15 @@ export default function ApprovalFlowsTab({ showSnack }) {
                                         const accent = isStudent ? DASH.cyan : DASH.violet;
                                         const accentLight = isStudent ? DASH.cyanLight : DASH.violetLight;
 
+                                        const meta = leaveMeta[lp.key] || {};
+                                        const label = meta.label || lp.label;
+                                        const raisedBy = meta.raisedBy || (isStudent ? "Raised by students" : "Raised by staff");
+                                        // The category's own approver list, which the server has already
+                                        // filtered. roleOptions only stands in until the fetch lands.
+                                        const options = meta.options?.length ? meta.options : roleOptions;
+                                        const optionName = (id) =>
+                                            options.find((o) => String(o.userTypeID) === String(id))?.userType || roleName(id);
+
                                         const toggleApprover = (id) => {
                                             const key = String(id);
                                             setApprovers(lp.key, picked.includes(key)
@@ -564,10 +691,10 @@ export default function ApprovalFlowsTab({ showSnack }) {
                                                     <Box sx={{ width: 3, height: 20, borderRadius: RADIUS, bgcolor: accent, flexShrink: 0 }} />
                                                     <Box sx={{ minWidth: 0, flex: 1 }}>
                                                         <Typography sx={{ fontSize: 14, fontWeight: 700, color: DASH.ink, lineHeight: 1.35 }}>
-                                                            {lp.label}
+                                                            {label}
                                                         </Typography>
                                                         <Typography sx={{ fontSize: 11.5, color: DASH.muted, mt: 0.1 }}>
-                                                            {isStudent ? "Raised by students" : "Raised by staff"}
+                                                            {raisedBy}
                                                         </Typography>
                                                     </Box>
                                                     <Chip
@@ -587,7 +714,7 @@ export default function ApprovalFlowsTab({ showSnack }) {
                                                     </Typography>
 
                                                     <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", lg: "repeat(3, 1fr)" }, gap: 1.2 }}>
-                                                        {roleOptions.map((u) => {
+                                                        {options.map((u) => {
                                                             const id = String(u.userTypeID);
                                                             const on = picked.includes(id);
                                                             const initials = String(u.userType || "?")
@@ -647,7 +774,7 @@ export default function ApprovalFlowsTab({ showSnack }) {
                                                         {picked.length === 0
                                                             ? `Pick at least one user type — ${isStudent ? "student" : "staff"} leave cannot be approved until you do.`
                                                             : picked.length === 1
-                                                                ? `${roleName(picked[0])} approves every ${isStudent ? "student" : "staff"} leave request.`
+                                                                ? `${optionName(picked[0])} approves every ${isStudent ? "student" : "staff"} leave request.`
                                                                 : `Any one of these ${picked.length} user types can approve a ${isStudent ? "student" : "staff"} leave request.`}
                                                     </Typography>
                                                 </Box>

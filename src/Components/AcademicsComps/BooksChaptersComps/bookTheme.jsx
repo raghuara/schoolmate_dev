@@ -2,6 +2,8 @@ import React from "react";
 import { Box, Typography } from "@mui/material";
 import { DASH, RADIUS } from "../../DashBoardComps/dashboardTheme";
 
+export { createBtnSx } from "../../DashBoardComps/dashboardTheme";
+
 export const fieldSx = {
     "& .MuiOutlinedInput-root": {
         borderRadius: RADIUS,

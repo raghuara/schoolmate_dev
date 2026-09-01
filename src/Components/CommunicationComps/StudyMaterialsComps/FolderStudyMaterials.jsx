@@ -1,16 +1,20 @@
-import { Box, Grid, Typography, Button, IconButton, CardActionArea, Dialog, DialogContent, TextField, Tooltip } from "@mui/material";
+import { Box, Grid, Typography, Button, IconButton, Chip, Dialog, DialogContent, TextField, Tooltip, InputAdornment } from "@mui/material";
 import { Link } from "react-router-dom";
 import { useSelector } from "react-redux";
-import AddIcon from '@mui/icons-material/Add';
 import { selectGrades } from "../../../Redux/Slices/DropdownController";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import FolderImage from "../../../Images/PagesImage/folder.png"
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import SearchIcon from '@mui/icons-material/Search';
+import HighlightOffIcon from '@mui/icons-material/HighlightOff';
+import FolderRoundedIcon from '@mui/icons-material/FolderRounded';
+import FolderOffOutlinedIcon from '@mui/icons-material/FolderOffOutlined';
 import { useEffect, useState } from "react";
 import { getStudyMaterialFolderById, getStudyMaterialFoldersByGrade, updateStudyMaterialFolder } from "../../../Api/Api";
 import axios from "axios";
 import Loader from "../../Loader";
-import EditIcon from "@mui/icons-material/Edit";
+import SnackBar from "../../SnackBar";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlice";
 import { findSubMenuPermissions } from "../../../Redux/Slices/AuthSlice";
 import { DASH, RADIUS } from "../../DashBoardComps/dashboardTheme";
@@ -19,9 +23,6 @@ export default function FolderStudyMaterialPage() {
     const user = useSelector((state) => state.auth);
     const studyPerms = findSubMenuPermissions(user.permissions, "communication", "studymaterial") || {};
     const canEdit = studyPerms.edit === "Y";
-    const rollNumber = user.rollNumber
-    const userType = user.userType
-    const userName = user.name
     const navigate = useNavigate()
     const grades = useSelector(selectGrades);
     const [folders, setFolders] = useState([]);
@@ -33,10 +34,13 @@ export default function FolderStudyMaterialPage() {
     const [openFolderPopup, setOpenFolderPopup] = useState(false);
     const [renameId, setRenameId] = useState("");
     const [folderName, setFolderName] = useState("");
+    const [searchQuery, setSearchQuery] = useState("");
     const [open, setOpen] = useState(false);
     const [status, setStatus] = useState(false);
     const [color, setColor] = useState(false);
     const [message, setMessage] = useState('');
+
+    const mainColor = websiteSettings.mainColor || DASH.primary;
 
     useEffect(() => {
         const stored = localStorage.getItem("studyMaterialGrade");
@@ -51,9 +55,10 @@ export default function FolderStudyMaterialPage() {
         setOpenFolderPopup(false);
         setFolderName("");
     };
-    const handleClick = (folderName) => {
+
+    const handleClick = (name) => {
         navigate("/dashboardmenu/studymaterials/main");
-        localStorage.setItem("FolderName", folderName)
+        localStorage.setItem("FolderName", name)
     };
 
     const handleRenameClick = (id) => {
@@ -66,6 +71,7 @@ export default function FolderStudyMaterialPage() {
         if (gradeId) {
             fetchFolder();
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [gradeId]);
 
     const fetchFolder = async () => {
@@ -106,7 +112,6 @@ export default function FolderStudyMaterialPage() {
         }
     };
 
-
     const handleSubmitCreateFolder = async () => {
         setIsLoading(true);
 
@@ -117,7 +122,7 @@ export default function FolderStudyMaterialPage() {
                 gradeId: gradeId.toString()
             };
 
-            const res = await axios.put(updateStudyMaterialFolder, sendData, {
+            await axios.put(updateStudyMaterialFolder, sendData, {
                 headers: {
                     Authorization: `Bearer ${token}`,
                 },
@@ -125,11 +130,11 @@ export default function FolderStudyMaterialPage() {
             setOpen(true);
             setColor(true);
             setStatus(true);
-            setMessage("Folder created successfully.");
+            setMessage("Folder renamed successfully.");
             handleCreateFolderClose();
             fetchFolder()
         } catch (error) {
-            setMessage("An error occurred while creating the message.");
+            setMessage("An error occurred while renaming the folder.");
             setOpen(true);
             setColor(false);
             setStatus(false);
@@ -137,175 +142,339 @@ export default function FolderStudyMaterialPage() {
             setIsLoading(false);
         }
     };
+
+    const visibleFolders = (folders || []).filter((f) =>
+        String(f?.folderName || "").toLowerCase().includes(searchQuery.trim().toLowerCase())
+    );
+
+    const ghostBtnSx = {
+        textTransform: "none",
+        fontSize: "12.5px",
+        fontWeight: 600,
+        color: DASH.text,
+        bgcolor: "#fff",
+        border: `1px solid ${DASH.line}`,
+        borderRadius: RADIUS,
+        px: 2,
+        height: 34,
+        boxShadow: "none",
+        "&:hover": { bgcolor: DASH.lineSoft, borderColor: DASH.faint },
+    };
+
+    const primaryBtnSx = {
+        textTransform: "none",
+        fontSize: "12.5px",
+        fontWeight: 700,
+        color: websiteSettings.textColor || "#fff",
+        bgcolor: mainColor,
+        borderRadius: RADIUS,
+        px: 2.4,
+        height: 34,
+        boxShadow: "none",
+        "&:hover": { bgcolor: mainColor, filter: "brightness(0.92)", boxShadow: "none" },
+        "&.Mui-disabled": { bgcolor: DASH.line, color: DASH.faint },
+    };
+
     return (
         <Box sx={{ width: "100%" }}>
+            <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
             {isLoading && <Loader />}
+
+            {/* ═══ TOOLBAR — same shape as the Study Materials listing ═══ */}
             <Box
                 sx={{
                     backgroundColor: "#f2f2f2",
                     py: 1,
                     px: 2,
                     borderRadius: "10px 10px 10px 0px",
-                    display: "flex",
-                    justifyContent: "space-between",
                     borderBottom: "1px solid #ddd",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1.5,
+                    flexWrap: "wrap",
                 }}
             >
-                <Box sx={{ display: "flex" }}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}>
                     <Link style={{ textDecoration: "none" }} to="/dashboardmenu/studymaterials">
-                        <IconButton sx={{ width: "27px", height: "27px", marginTop: '2px', mr: 1 }}>
+                        <IconButton sx={{ width: "27px", height: "27px" }}>
                             <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
                         </IconButton>
                     </Link>
-                    <Typography
-                        sx={{
-                            fontWeight: "600",
-                            fontSize: "20px",
-                        }}
-                    >
+                    <Typography sx={{ fontWeight: "600", fontSize: "20px", color: DASH.ink, whiteSpace: "nowrap" }}>
                         Folders
                     </Typography>
+                    <Chip
+                        size="small"
+                        label={visibleFolders.length}
+                        sx={{
+                            height: "20px",
+                            fontSize: "11px",
+                            fontWeight: 700,
+                            borderRadius: "6px",
+                            backgroundColor: "#fff",
+                            border: "1px solid #DDE1E6",
+                            color: "#4B5563",
+                        }}
+                    />
+                    <Chip
+                        size="small"
+                        label={grade || grades?.[0]?.sign || ""}
+                        sx={{
+                            height: "20px",
+                            fontSize: "11px",
+                            fontWeight: 700,
+                            borderRadius: "6px",
+                            backgroundColor: `${mainColor}14`,
+                            color: mainColor,
+                        }}
+                    />
+                </Box>
+
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1, ml: "auto", flexWrap: "wrap" }}>
+                    <TextField
+                        variant="outlined"
+                        placeholder="Search folders"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        slotProps={{
+                            input: {
+                                startAdornment: (
+                                    <InputAdornment position="start">
+                                        <SearchIcon sx={{ fontSize: 17, color: "#8A93A0" }} />
+                                    </InputAdornment>
+                                ),
+                                endAdornment: searchQuery ? (
+                                    <InputAdornment position="end">
+                                        <IconButton size="small" onClick={() => setSearchQuery("")} sx={{ p: 0.2 }}>
+                                            <HighlightOffIcon sx={{ fontSize: 15, color: "#8A93A0" }} />
+                                        </IconButton>
+                                    </InputAdornment>
+                                ) : null,
+                                sx: {
+                                    padding: "0 10px",
+                                    borderRadius: "50px",
+                                    height: "28px",
+                                    fontSize: "12px",
+                                },
+                            },
+                        }}
+                        sx={{
+                            width: { xs: "100%", sm: 240 },
+                            "& .MuiOutlinedInput-root": {
+                                minHeight: "28px",
+                                paddingRight: "3px",
+                                backgroundColor: "#fff",
+                            },
+                            "& .MuiOutlinedInput-root .MuiOutlinedInput-notchedOutline": { borderColor: "#DDE1E6" },
+                            "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: mainColor },
+                        }}
+                    />
                 </Box>
             </Box>
-            <Box sx={{ p: 2 }}>
-                <Typography sx={{ fontSize: "16px", fontWeight: "600", pl: 1 }}> {grade || grades?.[0]?.sign || ""}</Typography>
-                {folders.length === 0 && !isLoading ? (
+
+            <Box sx={{ p: 2, pb: 4, bgcolor: DASH.canvas, minHeight: "100%", boxSizing: "border-box" }}>
+                {visibleFolders.length === 0 && !isLoading ? (
                     <Box
                         sx={{
                             display: "flex",
-                            justifyContent: "center",
+                            flexDirection: "column",
                             alignItems: "center",
-                            height: "70vh",
-                            textAlign: "center"
+                            justifyContent: "center",
+                            height: "60vh",
+                            textAlign: "center",
                         }}
                     >
-                        <Typography sx={{ fontSize: "18px", fontWeight: 500, color: "#888" }}>
-                            No folder found
+                        <FolderOffOutlinedIcon sx={{ fontSize: 40, color: "#C9CFD8" }} />
+                        <Typography sx={{ fontSize: "15px", fontWeight: 600, color: DASH.text, mt: 1.5 }}>
+                            {searchQuery ? "No folders match your search" : "No folders yet"}
+                        </Typography>
+                        <Typography sx={{ fontSize: "13px", color: DASH.faint, mt: 0.5, maxWidth: 340 }}>
+                            {searchQuery
+                                ? "Try a different name, or clear the search to see everything."
+                                : "Folders are created on the Create Study Material screen."}
                         </Typography>
                     </Box>
                 ) : (
-                    <Grid container>
-                        {folders.map((folder) => (
-                            <Grid
-                                key={folder.id}
-                                size={{ lg: 2, md: 3, sm: 6 }}
-                                sx={{
-                                    position: "relative",
-                                    p: 1,
-                                }}
-                            >
-                                <CardActionArea
+                    <Grid container spacing={1.5}>
+                        {visibleFolders.map((folder) => (
+                            <Grid key={folder.id} size={{ xs: 6, sm: 4, md: 3, lg: 2 }}>
+                                {/* A real folder silhouette - a tab on the top left, then the
+                                   body with a squared-off top-left corner to meet it. */}
+                                <Box
+                                    role="button"
+                                    tabIndex={0}
                                     onClick={() => handleClick(folder.folderName)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter" || e.key === " ") {
+                                            e.preventDefault();
+                                            handleClick(folder.folderName);
+                                        }
+                                    }}
                                     sx={{
-                                        width: "100%",
-                                        backgroundColor: "#fff",
-                                        border: `1px solid ${websiteSettings.mainColor}`,
-                                        borderRadius: "14px",
-                                        overflow: "hidden",
-                                        transition: "all .25s ease",
-                                        boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-                                        minHeight: "220px",
-
+                                        position: "relative",
+                                        pt: "13px",
+                                        cursor: "pointer",
+                                        userSelect: "none",
+                                        transition: "transform .2s ease",
                                         "&:hover": {
-                                            transform: "translateY(-5px)",
-                                            boxShadow: "0 10px 25px rgba(0,0,0,0.15)",
+                                            transform: "translateY(-3px)",
+                                            ".fmTab": { bgcolor: mainColor, filter: "brightness(0.94)" },
+                                            ".fmBody": {
+                                                bgcolor: `${mainColor}33`,
+                                                borderColor: `${mainColor}8C`,
+                                                boxShadow: "0 8px 20px rgba(17,24,39,0.12)",
+                                            },
+                                            ".fmArrow": { opacity: 1, transform: "translateX(2px)" },
+                                            ".fmEdit": { opacity: 1 },
                                         },
+                                        "&:focus-visible": { outline: `2px solid ${mainColor}`, outlineOffset: 2 },
                                     }}
                                 >
+                                    {/* tab */}
                                     <Box
+                                        className="fmTab"
                                         sx={{
+                                            position: "absolute",
+                                            top: 0,
+                                            left: 0,
+                                            width: "46%",
+                                            height: 14,
+                                            bgcolor: mainColor,
+                                            borderRadius: "5px 10px 0 0",
+                                            transition: "background-color .2s ease, filter .2s ease",
+                                        }}
+                                    />
+
+                                    {/* body */}
+                                    <Box
+                                        className="fmBody"
+                                        sx={{
+                                            position: "relative",
+                                            overflow: "hidden",
+                                            height: 96,
+                                            p: 1.4,
                                             display: "flex",
                                             flexDirection: "column",
-                                            alignItems: "center",
                                             justifyContent: "space-between",
-                                            height: "100%",
-                                            py: 2,
-                                            px: 2,
+                                            bgcolor: `${mainColor}24`,
+                                            border: `1px solid ${mainColor}59`,
+                                            borderTop: `3px solid ${mainColor}`,
+                                            borderRadius: "0 8px 8px 8px",
+                                            transition: "background-color .2s ease, border-color .2s ease, box-shadow .2s ease",
                                         }}
                                     >
-                                        <Box
+                                        {/* a large, faint folder mark for texture */}
+                                        <FolderRoundedIcon
                                             sx={{
-                                                display: "flex",
-                                                justifyContent: "center",
-                                                alignItems: "center",
-                                                width: "100%",
-                                                height: 140,
+                                                position: "absolute",
+                                                right: -10,
+                                                bottom: -12,
+                                                fontSize: 74,
+                                                color: mainColor,
+                                                opacity: 0.16,
+                                                pointerEvents: "none",
                                             }}
-                                        >
-                                            <img
-                                                src={FolderImage}
-                                                alt="folder"
-                                                style={{
-                                                    width: "90px",
-                                                    height: "90px",
-                                                    objectFit: "contain",
+                                        />
+
+                                        <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 0.5 }}>
+                                            <Tooltip title={folder.folderName} arrow>
+                                                <Typography
+                                                    sx={{
+                                                        fontSize: "13.5px",
+                                                        fontWeight: 700,
+                                                        color: DASH.ink,
+                                                        lineHeight: 1.35,
+                                                        display: "-webkit-box",
+                                                        WebkitLineClamp: 2,
+                                                        WebkitBoxOrient: "vertical",
+                                                        overflow: "hidden",
+                                                        wordBreak: "break-word",
+                                                    }}
+                                                >
+                                                    {folder.folderName}
+                                                </Typography>
+                                            </Tooltip>
+
+                                            {canEdit && (
+                                                <Tooltip title="Rename folder" arrow>
+                                                    <IconButton
+                                                        className="fmEdit"
+                                                        size="small"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleRenameClick(folder.id);
+                                                        }}
+                                                        sx={{
+                                                            flexShrink: 0,
+                                                            width: 24,
+                                                            height: 24,
+                                                            opacity: 0,
+                                                            bgcolor: "#fff",
+                                                            border: `1px solid ${mainColor}33`,
+                                                            borderRadius: RADIUS,
+                                                            transition: "opacity .2s ease",
+                                                            "&:hover": { bgcolor: `${mainColor}14` },
+                                                        }}
+                                                    >
+                                                        <EditOutlinedIcon sx={{ fontSize: 13, color: mainColor }} />
+                                                    </IconButton>
+                                                </Tooltip>
+                                            )}
+                                        </Box>
+
+                                        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 0.5, position: "relative" }}>
+                                            <Typography sx={{ fontSize: "11px", fontWeight: 700, color: mainColor }}>
+                                                Open
+                                            </Typography>
+                                            <ArrowForwardIcon
+                                                className="fmArrow"
+                                                sx={{
+                                                    fontSize: 15,
+                                                    color: mainColor,
+                                                    opacity: 0.35,
+                                                    transition: "opacity .25s ease, transform .25s ease",
                                                 }}
                                             />
                                         </Box>
-
-                                        <Tooltip title={folder.folderName}>
-                                            <Typography
-                                                sx={{
-                                                    mt: 1,
-                                                    fontWeight: 600,
-                                                    fontSize: "15px",
-                                                    color: "#333",
-                                                    textAlign: "center",
-                                                    width: "100%",
-                                                    whiteSpace: "nowrap",
-                                                    overflow: "hidden",
-                                                    textOverflow: "ellipsis",
-                                                }}
-                                            >
-                                                {folder.folderName}
-                                            </Typography>
-                                        </Tooltip>
                                     </Box>
-                                </CardActionArea>
-                                {canEdit &&
-                                    <IconButton
-                                        onClick={() => handleRenameClick(folder.id)}
-                                        sx={{
-                                            position: "absolute",
-                                            top: "16px",
-                                            right: "16px",
-                                            zIndex: 2,
-                                            width: "28px",
-                                            height: "28px",
-                                            backgroundColor: "#fff",
-                                            border: `1px solid ${websiteSettings.mainColor}`,
-                                            boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
-                                            transition: "all 0.2s ease-in-out",
-                                            "&:hover": {
-                                                backgroundColor: websiteSettings.mainColor,
-                                                "& .edit-icon-svg": { color: websiteSettings.textColor || "#fff" },
-                                            },
-                                        }}
-                                    >
-                                        <EditIcon className="edit-icon-svg" sx={{ fontSize: "16px", color: websiteSettings.mainColor }} />
-                                    </IconButton>
-                                }
+                                </Box>
                             </Grid>
                         ))}
                     </Grid>
                 )}
             </Box>
-            <Dialog maxWidth="xs" fullWidth open={openFolderPopup} onClose={handleCreateFolderClose}>
-                <DialogContent>
-                    <Typography
-                        sx={{
-                            fontWeight: 600,
-                            fontSize: '16px',
-                            mb: 1,
-                            display: 'inline',
-                            borderBottom: `3px solid ${websiteSettings.mainColor}`,
-                            pb: 1,
-                        }}
-                    >
-                        Rename Folder
-                    </Typography>
 
-                    <Typography sx={{ mb: 1, mt: 2 }}>Folder Name<span style={{ color: "#777", fontSize: "13px" }}> (Required)</span></Typography>
+            {/* ═══ RENAME ═══ */}
+            <Dialog
+                maxWidth="xs"
+                fullWidth
+                open={openFolderPopup}
+                onClose={handleCreateFolderClose}
+                slotProps={{ paper: { sx: { borderRadius: "12px", overflow: "hidden" } } }}
+            >
+                <Box sx={{ height: 3, bgcolor: mainColor }} />
+                <DialogContent sx={{ p: 2 }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, mb: 2 }}>
+                        <Box sx={{
+                            width: 34, height: 34, flexShrink: 0, borderRadius: RADIUS,
+                            bgcolor: `${mainColor}14`, border: `1px solid ${mainColor}33`,
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                        }}>
+                            <EditOutlinedIcon sx={{ fontSize: 17, color: mainColor }} />
+                        </Box>
+                        <Box>
+                            <Typography sx={{ fontSize: "15px", fontWeight: 700, color: DASH.ink, lineHeight: 1.2 }}>
+                                Rename folder
+                            </Typography>
+                            <Typography sx={{ fontSize: "11.5px", color: DASH.muted, mt: 0.2 }}>
+                                Files inside it are not affected
+                            </Typography>
+                        </Box>
+                    </Box>
+
+                    <Typography sx={{ fontSize: "12.5px", fontWeight: 600, color: DASH.text, mb: 0.6 }}>
+                        Folder name <span style={{ color: "#E30053" }}>*</span>
+                    </Typography>
                     <TextField
                         type="text"
                         size="small"
@@ -313,43 +482,25 @@ export default function FolderStudyMaterialPage() {
                         value={folderName}
                         onChange={(e) => setFolderName(e.target.value)}
                         inputProps={{ maxLength: 30 }}
+                        sx={{
+                            "& .MuiOutlinedInput-root": {
+                                height: 36,
+                                fontSize: "13px",
+                                borderRadius: RADIUS,
+                                bgcolor: "#fff",
+                                "& fieldset": { borderColor: DASH.line },
+                                "&:hover fieldset": { borderColor: DASH.faint },
+                                "&.Mui-focused fieldset": { borderColor: mainColor, borderWidth: "1px" },
+                            },
+                        }}
                     />
-                    <Box sx={{ display: "flex", justifyContent: "end", pt: 2, }}>
-                        <Button
-                            variant="outlined"
-                            sx={{
-                                textTransform: "none",
-                                borderRadius: RADIUS,
-                                px: 2,
-                                height: 34,
-                                fontSize: "12.5px",
-                                fontWeight: 600,
-                                color: DASH.text,
-                                borderColor: "#D6DAE1",
-                                backgroundColor: "#fff",
-                                mr: 1.5,
-                                "&:hover": { borderColor: "#9AA3AF", backgroundColor: DASH.surface },
-                            }}
-                            onClick={handleCreateFolderClose}>
-                            Cancel
-                        </Button>
+                    <Typography sx={{ fontSize: "11px", color: DASH.faint, mt: 0.5 }}>
+                        {`${folderName.length}/30`}
+                    </Typography>
 
-                        <Button
-                            disabled={!folderName.trim()}
-                            sx={{
-                                textTransform: "none",
-                                backgroundColor: websiteSettings.mainColor,
-                                borderRadius: RADIUS,
-                                px: 2.4,
-                                height: 34,
-                                fontSize: "12.5px",
-                                fontWeight: 700,
-                                color: websiteSettings.textColor,
-                                boxShadow: "none",
-                                "&:hover": { backgroundColor: websiteSettings.mainColor, opacity: 0.9, boxShadow: "none" },
-                                "&.Mui-disabled": { backgroundColor: "#E5E7EB", color: DASH.faint },
-                            }}
-                            onClick={handleSubmitCreateFolder}>
+                    <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1, pt: 1.5 }}>
+                        <Button sx={ghostBtnSx} onClick={handleCreateFolderClose}>Cancel</Button>
+                        <Button disabled={!folderName.trim()} sx={primaryBtnSx} onClick={handleSubmitCreateFolder}>
                             Rename
                         </Button>
                     </Box>

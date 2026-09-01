@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Box, IconButton, useMediaQuery, useTheme, Typography, Dialog, DialogContent, DialogActions,
+  Box, IconButton, useMediaQuery, useTheme, Typography, Dialog, DialogActions,
   Button, Tooltip, tooltipClasses, Autocomplete, TextField, Avatar, Badge, Menu, MenuItem,
   ListItemIcon, ListItemText, Divider, Popover,
 } from '@mui/material';
@@ -16,8 +16,6 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import CampaignOutlinedIcon from '@mui/icons-material/CampaignOutlined';
 import EventAvailableOutlinedIcon from '@mui/icons-material/EventAvailableOutlined';
 import AssignmentTurnedInOutlinedIcon from '@mui/icons-material/AssignmentTurnedInOutlined';
-import MailOutlineRoundedIcon from '@mui/icons-material/MailOutlineRounded';
-import CallOutlinedIcon from '@mui/icons-material/CallOutlined';
 import axios from 'axios';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
@@ -29,6 +27,7 @@ import { closeSubmenu } from '../../Redux/Slices/SubMenuController';
 import { logout, hasMainMenuAccess } from '../../Redux/Slices/AuthSlice';
 import { selectChatUnreadTotal } from '../../Redux/Slices/chatSlice';
 import { DashboardUsers } from '../../Api/Api';
+import HelpCenterDrawer from './HelpComps/HelpCenterDrawer';
 import {
   fetchAcademicYearConfig,
   setSelectedAcademicYear,
@@ -38,12 +37,6 @@ import {
 } from '../../Redux/Slices/academicYearSlice';
 
 const HEADER_HEIGHT = 60;
-
-const SUPPORT = {
-  email: 'hello@araschoolmate.com',
-  phone: '+91 81100 151152',
-  hours: 'Monday to Friday, 10:00 AM - 6:00 PM',
-};
 
 const MOCK_NOTIFICATIONS = [
   { id: 1, icon: AssignmentTurnedInOutlinedIcon, color: '#10B981', bg: '#ECFDF5', title: 'Circular approved', body: 'Annual Day circular was approved by the Principal.', time: '10 min ago', unread: true },
@@ -507,72 +500,7 @@ function DashbrdHeader() {
         </MenuItem>
       </Menu>
 
-      <Dialog
-        open={helpOpen}
-        onClose={() => setHelpOpen(false)}
-        slotProps={{ paper: { sx: { borderRadius: '5px', width: 400, maxWidth: '92vw' } } }}
-      >
-        <Box sx={{ px: 3, pt: 2.5, pb: 1 }}>
-          <Typography sx={{ fontSize: 18, fontWeight: 700, color: '#111827' }}>
-            Help & Support
-          </Typography>
-          <Typography sx={{ fontSize: 13, color: '#6B7280', mt: 0.4 }}>
-            Reach the SchoolMate team and we will get back to you.
-          </Typography>
-        </Box>
-
-        <DialogContent sx={{ pt: 1 }}>
-          {[
-            { icon: MailOutlineRoundedIcon, label: 'Email', value: SUPPORT.email, href: `mailto:${SUPPORT.email}` },
-            { icon: CallOutlinedIcon, label: 'Phone', value: SUPPORT.phone, href: `tel:${SUPPORT.phone.replace(/\s/g, '')}` },
-          ].map((row) => (
-            <Box
-              key={row.label}
-              component="a"
-              href={row.href}
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1.5,
-                p: 1.5,
-                mb: 1,
-                borderRadius: '5px',
-                border: '1px solid #E5E7EB',
-                textDecoration: 'none',
-                transition: '0.2s',
-                '&:hover': { borderColor: '#FCBE3A', bgcolor: '#FFFBEB' },
-              }}
-            >
-              <Box
-                sx={{
-                  width: 34, height: 34, borderRadius: '5px', bgcolor: '#FFF7E5',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                }}
-              >
-                <row.icon sx={{ fontSize: 18, color: '#EEA200' }} />
-              </Box>
-              <Box sx={{ minWidth: 0 }}>
-                <Typography sx={{ fontSize: 11.5, color: '#6B7280' }}>{row.label}</Typography>
-                <Typography sx={{ fontSize: 13.5, fontWeight: 600, color: '#111827' }}>
-                  {row.value}
-                </Typography>
-              </Box>
-            </Box>
-          ))}
-          <Typography sx={{ fontSize: 12, color: '#9CA3AF', mt: 1.5 }}>
-            Support hours: {SUPPORT.hours}
-          </Typography>
-        </DialogContent>
-
-        <DialogActions sx={{ px: 3, pb: 2.5 }}>
-          <Button
-            onClick={() => setHelpOpen(false)}
-            sx={{ textTransform: 'none', fontWeight: 700, borderRadius: '5px', color: '#111827', border: '1px solid #E5E7EB', px: 2.5 }}
-          >
-            Close
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <HelpCenterDrawer open={helpOpen} onClose={() => setHelpOpen(false)} />
 
       <Dialog
         open={logoutOpen}

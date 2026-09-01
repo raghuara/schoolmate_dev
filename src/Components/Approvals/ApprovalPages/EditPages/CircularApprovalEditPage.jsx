@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Box, Grid, TextField, Typography, Button, Tabs, Tab, Switch, Stack, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, createTheme, ThemeProvider, Autocomplete, Paper, FormControl, Select, OutlinedInput, MenuItem, Checkbox } from "@mui/material";
+import { Box, Divider, Grid, TextField, Typography, Button, Tabs, Tab, Switch, Stack, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, createTheme, ThemeProvider, Autocomplete, Paper, FormControl, Select, OutlinedInput, MenuItem, Checkbox } from "@mui/material";
 import axios from "axios";
 import { useDropzone } from "react-dropzone";
 import UploadFileIcon from '@mui/icons-material/UploadFile';
@@ -21,6 +21,7 @@ import CancelIcon from "@mui/icons-material/Cancel";
 import SimpleTextEditor from "../../../EditTextEditor";
 import { selectGrades } from "../../../../Redux/Slices/DropdownController";
 import { DASH } from "../../../DashBoardComps/dashboardTheme";
+import { fieldLabelSx, requiredMark, fieldErrorStyle, counterSx, dropzoneSx, ghostBtnSx, brandBtnSx } from "../../approvalTheme";
 
 export default function CircularsApprovalEditPage() {
     const navigate = useNavigate()
@@ -504,18 +505,16 @@ export default function CircularsApprovalEditPage() {
                 </IconButton>
                 <Typography sx={{ fontSize: "20px", fontWeight: 700, color: DASH.ink, lineHeight: 1.2 }}>Edit Circulars</Typography>
             </Box>
-            <Grid container >
+            <Grid container spacing={2}>
                 <Grid
-                    mt={2}
-                    p={2}
                     size={{
                         xs: 12,
                         sm: 12,
                         md: 6,
                         lg: 6
                     }}>
-                    <Box sx={{ border: "1px solid #E0E0E0", backgroundColor: "#fbfbfb", p: 2, borderRadius: "7px", mt: 4.5, maxHeight: "75.6vh", overflowY: "auto" }}>
-                        <Typography>Add Heading <span style={{ color: "#777", fontSize: "13px", }}> (Required)</span></Typography>
+                    <Box sx={{ border: `1px solid ${DASH.line}`, backgroundColor: "#fff", p: 2, borderRadius: "12px", maxHeight: "75.6vh", overflowY: "auto" }}>
+                        <Typography sx={fieldLabelSx}>Add Heading <span style={requiredMark}>*</span></Typography>
                         <TextField
                             sx={{ backgroundColor: "#fff" }}
                             id="outlined-size-small"
@@ -526,15 +525,13 @@ export default function CircularsApprovalEditPage() {
                             onChange={handleHeadingChange}
                         />
                         {isSubmitted && !heading.trim() && (
-                            <span style={{ color: "red", fontSize: "12px" }}>
+                            <span style={fieldErrorStyle}>
                                 This field is required
                             </span>
                         )}
-                        <Typography sx={{ fontSize: "12px" }} color="textSecondary">
-                            {`${heading.length}/100`}
-                        </Typography>
+                        <Typography sx={counterSx(heading.length >= 100)}>{`${heading.length}/100`}</Typography>
 
-                        <Typography sx={{ pt: 3 }}>Add Description<span style={{ color: "#777", fontSize: "13px" }}> (Required)</span></Typography>
+                        <Typography sx={fieldLabelSx}>Add Description <span style={requiredMark}>*</span></Typography>
 
                         <SimpleTextEditor
                             value={newsContentHTML}
@@ -542,7 +539,7 @@ export default function CircularsApprovalEditPage() {
                         />
 
                         {isSubmitted && !newsContentHTML.trim() && (
-                            <span style={{ color: "red", fontSize: "12px" }}>
+                            <span style={fieldErrorStyle}>
                                 This field is required
                             </span>
                         )}
@@ -553,18 +550,13 @@ export default function CircularsApprovalEditPage() {
                                 backgroundColor: "#fdfdfd",
                             }}
                         >
-                            <Typography sx={{ pt: 2 }}>Select Image</Typography>
+                            <Typography sx={fieldLabelSx}>Select Image <span style={requiredMark}>*</span></Typography>
 
                             <Box sx={{ mt: 2, textAlign: "center" }}>
                                 <Box
                                     {...getRootProps()}
                                     sx={{
-                                        border: "2px dashed #1976d2",
-                                        borderRadius: "8px",
-                                        p: 1,
-                                        backgroundColor: isDragActive ? "#e3f2fd" : "#e3f2fd",
-                                        textAlign: "center",
-                                        cursor: "pointer",
+                                        ...dropzoneSx(isDragActive),
                                     }}
                                 >
                                     <input {...getInputProps()} accept=".jpg, .jpeg, .webp, .png, .pdf" />
@@ -717,7 +709,8 @@ export default function CircularsApprovalEditPage() {
                                 </ThemeProvider>
                             </Box>
                         }
-                        <Box sx={{ mt: 3 }}>
+                        <Divider sx={{ mt: 3 }} />
+                        <Box sx={{ mt: 2 }}>
                             <Grid container>
                                 <Grid
                                     size={{
@@ -737,15 +730,7 @@ export default function CircularsApprovalEditPage() {
                                         lg: 2.3
                                     }}>
                                     <Button
-                                        sx={{
-                                            textTransform: 'none',
-                                            width: "80px",
-                                            borderRadius: '30px',
-                                            fontSize: '12px',
-                                            py: 0.2,
-                                            color: 'black',
-                                            fontWeight: "600",
-                                        }}
+                                        sx={ghostBtnSx}
                                         onClick={handlePreview}>
                                         Preview
                                     </Button>
@@ -759,16 +744,7 @@ export default function CircularsApprovalEditPage() {
                                         lg: 2.3
                                     }}>
                                     <Button
-                                        sx={{
-                                            textTransform: 'none',
-                                            width: "80px",
-                                            borderRadius: '30px',
-                                            fontSize: '12px',
-                                            py: 0.2,
-                                            border: '1px solid black',
-                                            color: 'black',
-                                            fontWeight: "600",
-                                        }}
+                                        variant="outlined" sx={ghostBtnSx}
                                         onClick={handleCancelClick}>
                                         Cancel
                                     </Button>
@@ -792,29 +768,13 @@ export default function CircularsApprovalEditPage() {
                                             }}>
                                                 <Button
                                                     onClick={() => handleCloseDialog(false)}
-                                                    sx={{
-                                                        textTransform: 'none',
-                                                        width: "80px",
-                                                        borderRadius: '30px',
-                                                        fontSize: '16px',
-                                                        py: 0.2,
-                                                        border: '1px solid black',
-                                                        color: 'black',
-                                                    }}
+                                                    variant="outlined" sx={{ ...ghostBtnSx, height: 34 }}
                                                 >
                                                     No
                                                 </Button>
                                                 <Button
                                                     onClick={() => handleCloseDialog(true)}
-                                                    sx={{
-                                                        textTransform: 'none',
-                                                        backgroundColor: websiteSettings.mainColor,
-                                                        width: "90px",
-                                                        borderRadius: '30px',
-                                                        fontSize: '16px',
-                                                        py: 0.2,
-                                                        color: websiteSettings.textColor,
-                                                    }}
+                                                    variant="contained" disableElevation sx={brandBtnSx(websiteSettings)}
                                                 >
                                                     Yes
                                                 </Button>
@@ -837,16 +797,7 @@ export default function CircularsApprovalEditPage() {
                                                     lg: 3
                                                 }}>
                                                 <Button
-                                                    sx={{
-                                                        textTransform: 'none',
-                                                        backgroundColor: websiteSettings.mainColor,
-                                                        width: "80px",
-                                                        borderRadius: '30px',
-                                                        fontSize: '12px',
-                                                        py: 0.2,
-                                                        color: websiteSettings.textColor,
-                                                        fontWeight: "600",
-                                                    }}
+                                                    variant="contained" disableElevation sx={brandBtnSx(websiteSettings)}
                                                     onClick={() => handleUpdate('post')}>
                                                     Update
                                                 </Button>
@@ -861,16 +812,7 @@ export default function CircularsApprovalEditPage() {
                                                     lg: 3
                                                 }}>
                                                 <Button
-                                                    sx={{
-                                                        textTransform: 'none',
-                                                        backgroundColor: websiteSettings.mainColor,
-                                                        width: "80px",
-                                                        borderRadius: '30px',
-                                                        fontSize: '12px',
-                                                        py: 0.2,
-                                                        color: websiteSettings.textColor,
-                                                        fontWeight: "600",
-                                                    }}
+                                                    variant="contained" disableElevation sx={brandBtnSx(websiteSettings)}
                                                     onClick={() => handleUpdate('schedule')}>
                                                     Schedule
                                                 </Button>
@@ -913,16 +855,18 @@ export default function CircularsApprovalEditPage() {
                     </Box>
                 </Grid>
                 <Grid
-                    sx={{ py: 2, mt: 6.5, pr: 2 }}
                     size={{
                         xs: 12,
                         sm: 12,
                         md: 6,
                         lg: 6
                     }}>
-                    <Box sx={{ border: "1px solid #E0E0E0", backgroundColor: "#fbfbfb", p: 2, borderRadius: "6px", height: "75.6vh", overflowY: "auto" }}>
-                        <Typography sx={{ fontSize: "14px", color: "rgba(0,0,0,0.7)" }}>Live Preview</Typography>
-                        <hr style={{ border: "0.5px solid #CFCFCF" }} />
+                    <Box sx={{ border: `1px solid ${DASH.line}`, backgroundColor: "#fff", p: 2, borderRadius: "12px", height: "75.6vh", overflowY: "auto" }}>
+                        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
+                            <Typography sx={{ fontSize: "14px", fontWeight: 600, color: DASH.text }}>Live Preview</Typography>
+                            <Typography sx={{ fontSize: "11px", color: DASH.faint }}>Updates as you type</Typography>
+                        </Box>
+                        <Divider sx={{ my: 1.5 }} />
                         <Box>
                             {previewData.heading && (
                                 <Typography sx={{ fontWeight: "600", fontSize: "16px" }}>

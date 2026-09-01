@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import {
     Box, Grid, Typography, Button, Chip, Divider, Table, TableBody, TableCell,
     TableContainer, TableHead, TableRow, Avatar, Tooltip,
@@ -31,6 +31,7 @@ import RefreshIcon from "@mui/icons-material/Refresh";
 
 import { findSubMenuPermissions, hasMainMenuAccess } from "../Redux/Slices/AuthSlice";
 import CommonDashboard from "../Components/DashBoardComps/CommonDashboard";
+import MasterDashboardSkeleton from "../Components/DashBoardComps/MasterDashboardSkeleton";
 import { selectAcademicYear } from "../Redux/Slices/academicYearSlice";
 import {
     DASH, RADIUS, KPI_TONES, SOFT, Panel, SolidStatCard, AlertCard, MeterRow, ChartTooltip, EmptyNote,
@@ -65,6 +66,44 @@ const EMPTY_KPIS = {
     staffAttendance: 0, staffAttendanceNote: "", staffAttendanceSpark: [],
     feeCollected: "", feeOutstanding: "", feeSpark: [],
     pendingApprovals: 0, approvalsNote: "", approvalsSpark: [],
+};
+
+/* One exam's marks-entry progress. MeterRow's fixed 78px label truncates exam
+   names like "1StMidTermExam" to nothing useful, so this row gives the name the
+   free space and keeps the bar and count at a fixed width. */
+const MarksRow = ({ exam, entered, total }) => {
+    const pct = total > 0 ? Math.min(100, (entered / total) * 100) : 0;
+    const color = total > 0 && entered >= total
+        ? DASH.green
+        : entered > 0
+            ? DASH.primary
+            : DASH.line;
+
+    return (
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, py: 0.65 }}>
+            <Tooltip title={exam} arrow placement="top">
+                <Typography
+                    sx={{
+                        fontSize: "12px",
+                        color: DASH.text,
+                        flex: 1,
+                        minWidth: 0,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                    }}
+                >
+                    {exam}
+                </Typography>
+            </Tooltip>
+            <Box sx={{ width: 72, height: 5, borderRadius: RADIUS, bgcolor: DASH.lineSoft, flexShrink: 0, overflow: "hidden" }}>
+                <Box sx={{ width: `${pct}%`, height: "100%", bgcolor: color, borderRadius: RADIUS }} />
+            </Box>
+            <Typography sx={{ fontSize: "11.5px", fontWeight: 700, color: entered ? DASH.ink : DASH.faint, width: 58, textAlign: "right", flexShrink: 0 }}>
+                {entered}/{total}
+            </Typography>
+        </Box>
+    );
 };
 
 const SEVERITY_ICON = {
@@ -146,13 +185,20 @@ export default function DashBoardPage() {
     const canViewComm = (sub) =>
         (findSubMenuPermissions(permissions, "communication", sub) || {}).view === "Y";
 
-    // Which dashboard this role lands on after login is set in Access Control
-    // (Roles & Permissions > Dashboard View) and arrives on the login response
-    // as newdashboard > newdashboard, where exactly one flag is "Y".
-    // Until the backend publishes that key the master view stays the default,
-    // so no role loses the dashboard it has today.
+    /* Which dashboard this role lands on after login is set in Access Control
+       (Feature Permissions > Dashboard View) and arrives on the login response as
+       newdashboard > newdashboard, where the two flags are meant to be exclusive:
+
+         { defaultdashboardcommon: "N", defaultdashboardmaster: "Y" }
+
+       Common only wins when it is the one explicitly set. Master covers every
+       other case - the key missing from an older login response, master chosen,
+       neither flag set, or both set by bad data. Master is the safe default
+       because its endpoints answer for any role, while every commonDashboard/*
+       endpoint refuses a caller who does not hold the common flag. */
     const dashPerms = findSubMenuPermissions(permissions, "newdashboard", "newdashboard");
-    const landsOnCommon = dashPerms?.defaultdashboardcommon === "Y";
+    const landsOnCommon =
+        dashPerms?.defaultdashboardcommon === "Y" && dashPerms?.defaultdashboardmaster !== "Y";
     const showMasterDashboard = !landsOnCommon;
 
     const showAcademics = canViewComm("homework") || canViewComm("marks") || canViewComm("examtimetable") || canViewComm("attendance");
@@ -168,6 +214,10 @@ export default function DashBoardPage() {
         academicYear,
         workingDays: 6,
     });
+
+    // The first load has nothing to show yet; later refreshes keep the data on
+    // screen so the page does not blank out under the user.
+    const showSkeleton = masterLoading && !master;
 
     const kpis = master?.headline?.kpis || EMPTY_KPIS;
     const alerts = master?.headline?.alerts || [];
@@ -186,10 +236,35 @@ export default function DashBoardPage() {
     const failedSections = Object.keys(masterErrors || {})
         .filter((k) => masterErrors[k])
         .map((k) => SECTION_LABELS[k] || k);
-    const marksEntry = master?.academics?.marksEntry || [];
 
     // Today's marking as two slices, shaped like MOCK_FEE_SPLIT so the card can
     // reuse the Fee Split treatment. Percent is carried per slice for the legend.
+    /* 19 exams is a scroll, not a dashboard. The card leads with the totals and
+       lists only what still needs work; the rest sits behind the toggle. */
+    const [showAllMarks, setShowAllMarks] = useState(false);
+    const MARKS_VISIBLE = 6;
+
+    const marksStats = useMemo(() => {
+        const rows = (master?.academics?.marksEntry || []).filter((m) => m.total > 0);
+        const entered = rows.reduce((sum, m) => sum + m.entered, 0);
+        const total = rows.reduce((sum, m) => sum + m.total, 0);
+        const done = rows.filter((m) => m.entered >= m.total).length;
+        const started = rows.filter((m) => m.entered > 0 && m.entered < m.total).length;
+        // Part-entered exams first - those are the ones somebody has to finish.
+        // Untouched next, biggest first. Completed exams need no action, so last.
+        const rank = (m) => (m.entered >= m.total ? 2 : m.entered > 0 ? 0 : 1);
+        const ordered = [...rows].sort((a, b) => rank(a) - rank(b) || b.total - a.total);
+        return {
+            rows: ordered,
+            entered,
+            total,
+            percent: total ? Math.round((entered / total) * 1000) / 10 : 0,
+            done,
+            started,
+            notStarted: rows.length - done - started,
+        };
+    }, [master]);
+
     const attendanceSplit = useMemo(() => {
         if (!totalClasses) return [];
         const done = markedClasses;
@@ -303,6 +378,9 @@ export default function DashBoardPage() {
                     </Typography>
                 )}
             </Box>
+
+            {showSkeleton ? <MasterDashboardSkeleton /> : (
+            <>
 
             {/* Band 1 - KPI strip: 3 across on desktop, 2 on tablet, 1 on mobile */}
             <Grid container spacing={2} sx={{ alignItems: "stretch", mb: 2 }}>
@@ -593,20 +671,80 @@ export default function DashBoardPage() {
                         </Grid>
 
                         <Grid size={{ xs: 12, sm: 12, md: 4, lg: 5 }}>
-                            <Panel title="Marks Entry Status" subtitle="Subjects entered vs total" accent={DASH.violet} sx={{ height: "100%" }}>
-                                {marksEntry.length === 0 && (
-                                    <EmptyNote text={masterErrors.academics || (masterLoading ? "Loading..." : "No marks entry in progress.")} />
+                            <Panel
+                                title="Marks Entry Status"
+                                subtitle={marksStats.rows.length
+                                    ? `${marksStats.entered} of ${marksStats.total} subjects entered`
+                                    : "Subjects entered vs total"}
+                                accent={DASH.violet}
+                                sx={{ height: "100%" }}
+                                right={marksStats.rows.length > MARKS_VISIBLE && (
+                                    <Button
+                                        onClick={() => setShowAllMarks((v) => !v)}
+                                        sx={{
+                                            textTransform: "none",
+                                            fontSize: "11.5px",
+                                            fontWeight: 700,
+                                            minWidth: 0,
+                                            px: 1,
+                                            height: 26,
+                                            borderRadius: RADIUS,
+                                            color: DASH.violet,
+                                            "&:hover": { bgcolor: DASH.violetLight },
+                                        }}
+                                    >
+                                        {showAllMarks ? "Show less" : `All ${marksStats.rows.length}`}
+                                    </Button>
                                 )}
-                                {marksEntry.map((m) => (
-                                    <MeterRow
-                                        key={m.exam}
-                                        label={m.exam}
-                                        value={m.entered}
-                                        max={m.total}
-                                        right={`${m.entered}/${m.total}`}
-                                        color={m.entered === m.total ? DASH.green : m.entered / m.total > 0.6 ? DASH.primary : DASH.red}
-                                    />
-                                ))}
+                            >
+                                {marksStats.rows.length === 0 ? (
+                                    <EmptyNote text={masterErrors.academics || (masterLoading ? "Loading..." : "No marks entry in progress.")} />
+                                ) : (
+                                    <>
+                                        {/* Overall progress first - the individual exams are the detail */}
+                                        <Box sx={{ mb: 1.4 }}>
+                                            <Box sx={{ display: "flex", alignItems: "baseline", gap: 1, mb: 0.7 }}>
+                                                <Typography sx={{ fontSize: "22px", fontWeight: 700, color: DASH.ink, lineHeight: 1 }}>
+                                                    {marksStats.percent}%
+                                                </Typography>
+                                                <Typography sx={{ fontSize: "11.5px", color: DASH.muted }}>
+                                                    of all subjects entered
+                                                </Typography>
+                                            </Box>
+                                            <Box sx={{ height: 6, borderRadius: RADIUS, bgcolor: DASH.lineSoft, overflow: "hidden" }}>
+                                                <Box sx={{ width: `${marksStats.percent}%`, height: "100%", bgcolor: DASH.violet, borderRadius: RADIUS }} />
+                                            </Box>
+                                        </Box>
+
+                                        <Box sx={{ display: "flex", gap: 0.7, flexWrap: "wrap", mb: 1.2 }}>
+                                            {[
+                                                { label: "In progress", value: marksStats.started, color: DASH.primary, bg: DASH.primaryLight },
+                                                { label: "Not started", value: marksStats.notStarted, color: DASH.muted, bg: DASH.lineSoft },
+                                                { label: "Complete", value: marksStats.done, color: DASH.green, bg: DASH.greenLight },
+                                            ].map((chip) => (
+                                                <Chip
+                                                    key={chip.label}
+                                                    size="small"
+                                                    label={`${chip.value} ${chip.label}`}
+                                                    sx={{ height: 21, fontSize: "10.5px", fontWeight: 700, borderRadius: RADIUS, bgcolor: chip.bg, color: chip.color }}
+                                                />
+                                            ))}
+                                        </Box>
+
+                                        {/* Capped so this card can never outgrow the two beside it */}
+                                        <Box sx={{ maxHeight: showAllMarks ? 208 : "none", overflowY: showAllMarks ? "auto" : "visible", pr: showAllMarks ? 0.5 : 0 }}>
+                                            {(showAllMarks ? marksStats.rows : marksStats.rows.slice(0, MARKS_VISIBLE)).map((m) => (
+                                                <MarksRow key={m.exam} exam={m.exam} entered={m.entered} total={m.total} />
+                                            ))}
+                                        </Box>
+
+                                        {!showAllMarks && marksStats.rows.length > MARKS_VISIBLE && (
+                                            <Typography sx={{ fontSize: "11px", color: DASH.faint, mt: 0.8 }}>
+                                                +{marksStats.rows.length - MARKS_VISIBLE} more exams
+                                            </Typography>
+                                        )}
+                                    </>
+                                )}
                             </Panel>
                         </Grid>
                     </Grid>
@@ -949,6 +1087,9 @@ export default function DashBoardPage() {
                         </Box>
                     </Panel>
                 </Box>
+            )}
+
+            </>
             )}
         </Box>
     );
