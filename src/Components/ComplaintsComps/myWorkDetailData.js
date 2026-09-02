@@ -137,3 +137,69 @@ export function getMyWorkDetail(id) {
         currentStatus: VARIANTS[variant].statuses[0].key,
     };
 }
+
+/**
+ * One complaint, shaped for this screen.
+ *
+ * There is no My Work detail endpoint — the queue and the detail come from different
+ * places, so this reads the ordinary complaint record (`complaints/{token}`) and maps it
+ * into the shape the screen renders. `detailForScreen` already normalises that response
+ * for the two admin detail pages; this takes the same input and lays it out for the
+ * lighter staff view.
+ *
+ * The token picks the variant: -CMP- is a parent complaint, -ACT-/-IES- an internal action.
+ */
+export const myWorkDetailFrom = (screen, token) => {
+    const variant = /-(?:IES|ACT)-/i.test(token) ? "internal" : "parent";
+    const config = VARIANTS[variant];
+
+    const find = (rows, label) => (rows || []).find((r) => r.label === label)?.value || "";
+
+    /* The subject block is a student on a parent complaint and a place on an internal
+       action — different avatar, different labels, same slot. */
+    const subject =
+        variant === "internal"
+            ? {
+                  kind: "location",
+                  name: find(screen.assignment, "Assigned To") || "Unassigned",
+                  meta: screen.category,
+                  contactLabel: "Role",
+                  contact: find(screen.assignment, "Role") || "—",
+              }
+            : {
+                  kind: "student",
+                  name: find(screen.student, "Student Name"),
+                  meta: find(screen.student, "Class & Section"),
+                  contactLabel: "Parent Contact",
+                  contact: find(screen.parent, "Contact Number") || "—",
+              };
+
+    /* A facts rail, not the event list — MetaRow renders label/value pairs. Empty values
+       are dropped so the card does not carry rows reading "SLA Due: —". */
+    const facts = [
+        { label: "Registered", value: screen.registeredAt },
+        { label: "SLA Due", value: screen.slaDue, tone: screen.slaState === "Overdue" ? "overdue" : undefined },
+        { label: "Priority", value: screen.priority },
+        { label: "Category", value: screen.category },
+    ].filter((row) => row.value);
+
+    return {
+        ...screen,
+        id: token,
+        variant,
+        config,
+        subject,
+        currentStatus: screen.status,
+        /* Sizes are bytes on the API; the screen prints whatever string it is given. */
+        attachments: (screen.attachments || []).map((file) => ({
+            ...file,
+            size: file.sizeBytes ? `${Math.max(1, Math.round(file.sizeBytes / 1024))} KB` : "",
+        })),
+        notes: (screen.internalNotes || []).map((note) => ({
+            author: note.author || "School staff",
+            at: note.at || "",
+            body: note.text || "",
+        })),
+        timeline: facts,
+    };
+};

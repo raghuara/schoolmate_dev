@@ -731,12 +731,6 @@ const GetComplaintTimeline = (complaintToken) =>
 const DownloadComplaintAttachment = `${baseApiurl}complaints/attachments/download`;
 const GetComplaintNotifications = `${baseApiurl}complaints/notifications`;
 
-/* Parent complaint tracking and actions (module 05).
-   The actor here is the PARENT/STUDENT roll number, not a staff member — /parent/withdraw
-   records whoever is named in actorRollNumber as the person withdrawing. */
-/* Staff My Work and Complaints Management (modules 06 and 07).
-   These are the list endpoints the workspace, the My Work queue and the dashboards read.
-   All are GET + query string, and every one requires actorRollNumber. */
 /* Complaint actions (modules 06 and 07). All JSON POSTs except /resolution, which is
    multipart because it carries evidence attachments. Every one takes actorRollNumber and
    complaintToken, and every one changes the complaint's state — reload the detail after. */
@@ -753,17 +747,14 @@ const PostComplaintClose = `${baseApiurl}complaints/management/close`;
 const PostComplaintDuplicate = `${baseApiurl}complaints/management/duplicate`;
 const PostComplaintParticipants = `${baseApiurl}complaints/management/participants`;
 
+/* Staff My Work and Complaints Management (modules 06 and 07).
+   These are the list endpoints the workspace, the My Work queue and the dashboards read.
+   All are GET + query string, and every one requires actorRollNumber. */
 const GetComplaintsManagementAll = `${baseApiurl}complaints/management/all`;
 const GetComplaintsStatusCounts = `${baseApiurl}complaints/management/status-counts`;
 const GetComplaintsManagementDashboard = `${baseApiurl}complaints/management/dashboard`;
 const GetStaffMyWork = `${baseApiurl}complaints/staff/my-work`;
 
-const GetParentComplaintOverview = `${baseApiurl}complaints/parent/overview`;
-const GetParentMyComplaints = `${baseApiurl}complaints/parent/my-complaints`;
-const PostParentAdditionalInformation = `${baseApiurl}complaints/parent/additional-information`;
-const PostParentFeedback = `${baseApiurl}complaints/parent/feedback`;
-const PostParentWithdraw = `${baseApiurl}complaints/parent/withdraw`;
-const PostParentReopen = `${baseApiurl}complaints/parent/reopen`;
 
 //----------------------------------- xxxxxxxx ----------------------------------
 
@@ -1285,11 +1276,5 @@ export {
     GetComplaintsManagementAll,
     GetComplaintsStatusCounts,
     GetComplaintsManagementDashboard,
-    GetStaffMyWork,
-    GetParentComplaintOverview,
-    GetParentMyComplaints,
-    PostParentAdditionalInformation,
-    PostParentFeedback,
-    PostParentWithdraw,
-    PostParentReopen
+    GetStaffMyWork
 }

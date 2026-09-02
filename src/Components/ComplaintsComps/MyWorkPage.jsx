@@ -354,16 +354,6 @@ export default function MyWorkPage({ embedded = false }) {
                             </Typography>
                         </Box>
 
-                        {(loading || rows.length === 0) && (
-                            <Box sx={{ p: 5, textAlign: "center" }}>
-                                <Typography sx={{ fontSize: "13px", color: C.textFaint }}>
-                                    {loading
-                                        ? "Loading your work queue…"
-                                        : error || "Nothing is assigned to you in this stream."}
-                                </Typography>
-                            </Box>
-                        )}
-
                         {rows.map((row) => {
                             const priorityTone =
                                 MY_WORK_PRIORITY_TONES[row.priority] || MY_WORK_PRIORITY_TONES.NORMAL;
@@ -509,7 +499,14 @@ export default function MyWorkPage({ embedded = false }) {
                         {rows.length === 0 && (
                             <Box sx={{ p: 5, textAlign: "center" }}>
                                 <Typography sx={{ fontSize: "13px", color: C.textFaint }}>
-                                    Nothing assigned to you matches those filters.
+                                    {/* One line for all three states — a loading message and an
+                                        empty message rendered together read as a contradiction. */}
+                                    {loading
+                                        ? "Loading your work queue…"
+                                        : error ||
+                                          (tabRows.length === 0
+                                              ? "Nothing is assigned to you in this stream."
+                                              : "Nothing assigned to you matches those filters.")}
                                 </Typography>
                             </Box>
                         )}

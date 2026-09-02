@@ -214,8 +214,6 @@ import ComplaintsManagementPage from "./Components/ComplaintsComps/ComplaintsMan
 import ManageItemDetailPage from "./Components/ComplaintsComps/ManageItemDetailPage";
 import MyWorkPage from "./Components/ComplaintsComps/MyWorkPage";
 import MyWorkDetailPage from "./Components/ComplaintsComps/MyWorkDetailPage";
-import ParentComplaintsOverviewPage from "./Components/ComplaintsComps/ParentComplaintsOverviewPage";
-import ParentMyComplaintsPage from "./Components/ComplaintsComps/ParentMyComplaintsPage";
 import RegisterComplaintPage from "./Components/ComplaintsComps/RegisterComplaintPage";
 import RegisterComplaintFormPage from "./Components/ComplaintsComps/RegisterComplaintFormPage";
 import AddIssuePage from "./Components/ComplaintsComps/AddIssuePage";
@@ -446,14 +444,6 @@ export default function RouterPage() {
                 <Route path="complaints/my-work" element={<ComplaintsAccessGate screen="myWork"><MyWorkPage /></ComplaintsAccessGate>} />
                 <Route path="complaints/my-work/:itemId" element={<ComplaintsAccessGate screen="myWork"><MyWorkDetailPage /></ComplaintsAccessGate>} />
 
-                {/* Parent complaint tracking (module 05, Website rows). The subject is the
-                    STUDENT: the :studentId form is how a parent with more than one child, or a
-                    staff member looking at one child, reaches the right overview. Without it the
-                    screens fall back to the signed-in roll number. */}
-                <Route path="complaints/parent" element={<ParentComplaintsOverviewPage />} />
-                <Route path="complaints/parent/my-complaints" element={<ParentMyComplaintsPage />} />
-                <Route path="complaints/parent/:studentId" element={<ParentComplaintsOverviewPage />} />
-                <Route path="complaints/parent/:studentId/my-complaints" element={<ParentMyComplaintsPage />} />
 
                 {/* Configuration hub - the tiles route to the screens below. */}
                 <Route path="complaints/configuration" element={<ComplaintsAccessGate screen="configurations"><ComplaintsConfigurationPage /></ComplaintsAccessGate>} />
