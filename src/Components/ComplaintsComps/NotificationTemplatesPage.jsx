@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Box, Typography } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 
@@ -13,8 +13,14 @@ import {
 } from "./ComplaintsTableParts";
 // STATUS_STYLE is shared with the Categories table — same ACTIVE/INACTIVE palette.
 import { STATUS_STYLE } from "./complaintCategoriesData";
-import { TEMPLATE_ROWS, TEMPLATE_COLS, CHANNEL_STYLE } from "./notificationTemplatesData";
+import { TEMPLATE_COLS, CHANNEL_STYLE } from "./notificationTemplatesData";
 import EditTemplateDialog from "./EditTemplateDialog";
+import {
+    MODULE,
+    fetchNotificationTemplates,
+    saveNotificationTemplate,
+    templateRowToApi,
+} from "./complaintsConfigApi";
 
 // Reached from the "Notification Template Configuration" tile on the
 // Configurations screen.
@@ -30,22 +36,51 @@ export default function NotificationTemplatesPage({
     embedded = false,
     crumbLabel = "Complaint Configuration",
     subtitle = "Manage complaint-related notification messages.",
-    templateRows = TEMPLATE_ROWS,
-    // Each variant owns its own write path — Parent and Internal templates save to
-    // different endpoints. Receives the edited template.
-    onSave = null,
+    /* Both streams share these endpoints and are told apart by moduleType. */
+    moduleType = MODULE.parent,
 }) {
     const navigate = useNavigate();
 
-    const [rows, setRows] = useState(templateRows);
+    /* Empty until the fetch lands. Seeding from the comps' mock made the screen render
+       one set of rows and then visibly swap it for the server's — a flash of data that was
+       never real. A loading line is honest; wrong content is not. */
+    const [rows, setRows] = useState([]);
     const [editing, setEditing] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
 
-    // The optimistic local update runs either way so the table reflects the edit;
-    // persisting it is the caller's job.
-    const saveTemplate = (updated) => {
-        setRows((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+    const load = useCallback(async () => {
+        setLoading(true);
+        const result = await fetchNotificationTemplates({ moduleType });
+        if (!result.ok) {
+            setError(result.message);
+            setRows([]);
+        } else {
+            setError("");
+            // Already in table shape — the wrapper normalises once
+            setRows(result.rows);
+        }
+        setLoading(false);
+    }, [moduleType]);
+
+    useEffect(() => {
+        load();
+    }, [load]);
+
+    /* The endpoint saves ONE template, addressed by eventCode — so only the edited row is
+       sent, not the whole list. */
+    const saveTemplate = async (updated) => {
+        const result = await saveNotificationTemplate({
+            moduleType,
+            template: templateRowToApi(updated),
+        });
+        if (!result.ok) {
+            setError(result.message);
+            return;
+        }
+        setError("");
         setEditing(null);
-        if (onSave) onSave(updated);
+        load();
     };
 
     return (
@@ -104,7 +139,19 @@ export default function NotificationTemplatesPage({
                             </Typography>
                         </Box>
 
-                        {rows.map((row) => (
+                        {loading && (
+                            <Box sx={{ p: "24px", textAlign: "center" }}>
+                                <Typography sx={{ fontSize: "13px", color: C.textMuted }}>
+                                    Loading templates…
+                                </Typography>
+                            </Box>
+                        )}
+                        {!loading && error && (
+                            <Box sx={{ p: "24px", textAlign: "center" }}>
+                                <Typography sx={{ fontSize: "13px", color: C.red }}>{error}</Typography>
+                            </Box>
+                        )}
+                        {!loading && rows.map((row) => (
                             <Box key={row.id} sx={{ ...tableBodyRowSx, gap: COL.gap }}>
                                 <Typography
                                     sx={{

@@ -17,6 +17,7 @@ import dayjs from 'dayjs';
 import axios from './leaveAxios';
 import { useSelector } from 'react-redux';
 import { postLeaveRequest, GetEmployeeLeaveBalance, GetWorkingcalendar, GetleaveTypes } from '../../Api/Api';
+import { isExcluded } from './coverageScope';
 import SnackBar from '../SnackBar';
 
 const token = '123';
@@ -668,6 +669,16 @@ export default function ApplyLeavePage({ onSuccess, onCancel }) {
     };
 
     const handleSubmit = async () => {
+        /* Someone taken off payroll and attendance has no leave entitlement to draw on, so
+           the request is refused here rather than being created and then stranded in a
+           queue nobody can action — they no longer appear in the approver's list either. */
+        if (await isExcluded(rollNumber)) {
+            showSnack(
+                'You are not on payroll and attendance coverage, so leave cannot be applied for. Contact the office if this is wrong.',
+                false,
+            );
+            return;
+        }
         if (!form.leaveType || !selectedStart || !form.reason.trim()) {
             showSnack('Please fill all required fields', false);
             return;

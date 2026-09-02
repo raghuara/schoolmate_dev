@@ -8,14 +8,14 @@ import MenuIcon from '@mui/icons-material/Menu';
 import CloseIcon from '@mui/icons-material/Close';
 import ForumRoundedIcon from '@mui/icons-material/ForumRounded';
 import NotificationsNoneRoundedIcon from '@mui/icons-material/NotificationsNoneRounded';
+import SupportAgentOutlinedIcon from '@mui/icons-material/SupportAgentOutlined';
 import HelpOutlineRoundedIcon from '@mui/icons-material/HelpOutlineRounded';
 import KeyboardArrowDownRoundedIcon from '@mui/icons-material/KeyboardArrowDownRounded';
 import PersonOutlineRoundedIcon from '@mui/icons-material/PersonOutlineRounded';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import LogoutIcon from '@mui/icons-material/Logout';
-import CampaignOutlinedIcon from '@mui/icons-material/CampaignOutlined';
-import EventAvailableOutlinedIcon from '@mui/icons-material/EventAvailableOutlined';
-import AssignmentTurnedInOutlinedIcon from '@mui/icons-material/AssignmentTurnedInOutlined';
+import MailOutlineRoundedIcon from '@mui/icons-material/MailOutlineRounded';
+import CallOutlinedIcon from '@mui/icons-material/CallOutlined';
 import axios from 'axios';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
@@ -27,6 +27,7 @@ import { closeSubmenu } from '../../Redux/Slices/SubMenuController';
 import { logout, hasMainMenuAccess } from '../../Redux/Slices/AuthSlice';
 import { selectChatUnreadTotal } from '../../Redux/Slices/chatSlice';
 import { DashboardUsers } from '../../Api/Api';
+import { fetchComplaintNotifications } from '../ComplaintsComps/complaintsDetailApi';
 import HelpCenterDrawer from './HelpComps/HelpCenterDrawer';
 import {
   fetchAcademicYearConfig,
@@ -38,11 +39,33 @@ import {
 
 const HEADER_HEIGHT = 60;
 
-const MOCK_NOTIFICATIONS = [
-  { id: 1, icon: AssignmentTurnedInOutlinedIcon, color: '#10B981', bg: '#ECFDF5', title: 'Circular approved', body: 'Annual Day circular was approved by the Principal.', time: '10 min ago', unread: true },
-  { id: 2, icon: EventAvailableOutlinedIcon, color: '#3B82F6', bg: '#EFF6FF', title: 'Quiz scheduled', body: 'Physics Motion & Force starts tomorrow at 10:00 AM.', time: '2 hours ago', unread: true },
-  { id: 3, icon: CampaignOutlinedIcon, color: '#6D28D9', bg: '#F5F3FF', title: 'New announcement', body: 'Fee payment window for Term 2 is now open.', time: 'Yesterday', unread: false },
-];
+const SUPPORT = {
+  email: 'hello@araschoolmate.com',
+  phone: '+91 81100 151152',
+  hours: 'Monday to Friday, 10:00 AM - 6:00 PM',
+};
+
+
+/* Complaint alerts for the signed-in user.
+
+   The bell previously showed three hardcoded examples. They are gone: an alert that is not
+   real is worse than an empty bell, because it invites someone to act on it. Complaints is
+   the only module with a notifications endpoint today, so that is what the bell carries —
+   as other modules gain one, they join the same list.
+
+   Every failure is silent. A header that throws takes down every screen behind it, and a
+   missed notification is not worth that risk. */
+const toBellRow = (n) => ({
+  id: `complaint-${n.id}`,
+  icon: SupportAgentOutlinedIcon,
+  color: '#D97706',
+  bg: '#FFFBEB',
+  title: n.title,
+  body: n.body,
+  time: n.at ? new Date(n.at).toLocaleString(undefined, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '',
+  unread: n.unread,
+  complaintToken: n.complaintToken,
+});
 
 const CustomTooltip = styled(({ className, ...props }) => (
   <Tooltip {...props} classes={{ popper: className }} />
@@ -96,7 +119,7 @@ function DashbrdHeader() {
   const [imageError, setImageError] = useState(false);
   const [profileAnchor, setProfileAnchor] = useState(null);
   const [notifyAnchor, setNotifyAnchor] = useState(null);
-  const [notifications, setNotifications] = useState(MOCK_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState([]);
   const [helpOpen, setHelpOpen] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
 
@@ -105,6 +128,19 @@ function DashbrdHeader() {
   useEffect(() => {
     dispatch(fetchAcademicYearConfig());
   }, [dispatch]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchComplaintNotifications({ page: 1, pageSize: 50 })
+      .then((result) => {
+        if (cancelled || !result.ok) return;
+        setNotifications(result.rows.map(toBellRow));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;

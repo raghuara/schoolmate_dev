@@ -1,14 +1,16 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Box, Button, Divider, TextField, Typography } from "@mui/material";
 import { useSelector } from "react-redux";
-import { useNavigate, useParams, Navigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import InsertDriveFileOutlinedIcon from "@mui/icons-material/InsertDriveFileOutlined";
 import PlaceOutlinedIcon from "@mui/icons-material/PlaceOutlined";
 
 import { selectWebsiteSettings } from "../../Redux/Slices/websiteSettingsSlice";
 import { C } from "./complaintsTokens";
-import { getMyWorkDetail, DETAIL_STATUS_TONES } from "./myWorkDetailData";
+import { myWorkDetailFrom, DETAIL_STATUS_TONES } from "./myWorkDetailData";
+import { fetchComplaintDetail, detailForScreen } from "./complaintsDetailApi";
+import { toneFor } from "./complaintsManagementData";
 
 // One assigned item, opened from the My Work queue. This is the staff view of a
 // complaint: everything needed to act on it, plus the status control — it is not
@@ -70,7 +72,33 @@ export default function MyWorkDetailPage() {
     const websiteSettings = useSelector(selectWebsiteSettings);
     const accent = websiteSettings.mainColor;
 
-    const item = getMyWorkDetail(decodeURIComponent(itemId || ""));
+    const token = decodeURIComponent(itemId || "");
+
+    /* The queue and the detail come from different places: there is no My Work detail
+       endpoint, so this reads the ordinary complaint record and lays it out for this
+       screen. It used to look the row up in a bundled queue, which meant a real token
+       found nothing and the screen bounced back to the list. */
+    const [item, setItem] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
+
+    useEffect(() => {
+        let cancelled = false;
+        setLoading(true);
+        fetchComplaintDetail({ complaintToken: token }).then((result) => {
+            if (cancelled) return;
+            if (result.ok) {
+                setError("");
+                setItem(myWorkDetailFrom(detailForScreen(result), token));
+            } else {
+                setError(result.message || `${token} could not be loaded.`);
+            }
+            setLoading(false);
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [token]);
 
     // Hooks must run before the early return below, so the fallbacks stand in
     // while `item` is missing.
@@ -84,11 +112,17 @@ export default function MyWorkDetailPage() {
         setNote("");
     };
 
-    // Deep-linked with an id that is not in this user's queue — send them back to
-    // the list rather than rendering an empty screen.
-    if (!item) return <Navigate to="/dashboardmenu/complaints/my-work" replace />;
+    if (loading || !item) {
+        return (
+            <Box sx={{ p: "40px" }}>
+                <Typography sx={{ fontSize: "13px", color: error ? C.red : C.textMuted }}>
+                    {error || "Loading…"}
+                </Typography>
+            </Box>
+        );
+    }
 
-    const statusTone = DETAIL_STATUS_TONES[item.status] || { bg: C.divider, color: C.textMuted };
+    const statusTone = toneFor(DETAIL_STATUS_TONES, item.status) || { bg: C.divider, color: C.textMuted };
     const { backLabel, subjectTitle, notesTitle, statuses, completeAction, listStyle } = item.config;
 
     return (

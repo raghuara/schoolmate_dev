@@ -1,4 +1,3 @@
-import { seedRowsFor, PARENT_MODULE } from "./complaintCategorySeed";
 
 // Complaint Categories table — mock rows mirroring the dev-Figma comp 1:1.
 // Replace CATEGORY_ROWS with the categories API response; the shape below is what
@@ -48,6 +47,3 @@ const PARENT_OWNERS = {
     TEACHER_RELATED: "Vice Principal",
 };
 
-// The 12 seeded ParentComplaint categories, carrying the CategoryId the POST
-// APIs expect. See complaintCategorySeed.js for the caveats on those ids.
-export const CATEGORY_ROWS = seedRowsFor(PARENT_MODULE, PARENT_OWNERS);

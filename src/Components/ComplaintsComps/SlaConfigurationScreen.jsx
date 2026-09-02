@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Box, Button, Switch, TextField, Typography } from "@mui/material";
+import React, { useCallback, useEffect, useState } from "react";
+import { Box, Button, MenuItem, Select, Switch, TextField, Typography } from "@mui/material";
 import { useSelector } from "react-redux";
 import { Navigate } from "react-router-dom";
 import ScheduleOutlinedIcon from "@mui/icons-material/ScheduleOutlined";
@@ -11,6 +11,15 @@ import ComplaintsBreadcrumb from "./ComplaintsBreadcrumb";
 import useComplaintsPermissions from "./useComplaintsPermissions";
 import { PRIORITY_STYLE } from "./complaintCategoriesData";
 import { SLA_FIELDS } from "./slaConfigData";
+import {
+    DURATION_UNITS,
+    fetchSla,
+    minutesToParts,
+    partsToMinutes,
+    saveSla,
+    slaPolicyToValues,
+    valuesToSlaPolicy,
+} from "./complaintsConfigApi";
 
 // Priority-band deadlines plus the working-hours rules. Written to serve both the
 // parent-side and internal (School Operations) SLA comps — they are the same
@@ -40,12 +49,80 @@ const fieldLabelSx = {
 };
 
 /* Input styled to the comp: #F4F6FA fill, 6px radius, 8/12 padding. */
-function RuleField({ label, value, onChange, disabled }) {
+function RuleField({ label, minutes, onChange, disabled = false }) {
+    /* A number and a unit rather than free text: there is nothing to spell, so a typo
+       cannot become a wrong deadline and no parser has to guess at one. */
+    const { amount, unit } = minutesToParts(minutes);
     return (
-        <Box sx={{ flex: "1 1 0", minWidth: 140, display: "flex", flexDirection: "column", gap: "6px" }}>
+        <Box
+            sx={{
+                flex: "1 1 0",
+                minWidth: 140,
+                display: "flex",
+                flexDirection: "column",
+                gap: "6px",
+            }}
+        >
+            <Typography sx={fieldLabelSx}>{label}</Typography>
+            <Box sx={{ display: "flex", gap: "6px" }}>
+                <TextField
+                    type="number"
+                    value={amount}
+                    onChange={(e) => onChange(partsToMinutes(e.target.value, unit))}
+                    disabled={disabled}
+                    slotProps={{ htmlInput: { min: 0, step: 1 } }}
+                    sx={{
+                        flex: 1,
+                        "& .MuiOutlinedInput-root": {
+                            bgcolor: "#F4F6FA",
+                            borderRadius: "6px",
+                            "& fieldset": { borderColor: C.border },
+                            "&:hover fieldset": { borderColor: C.border },
+                        },
+                        "& .MuiOutlinedInput-input": { p: "8px 10px", fontSize: "13px" },
+                    }}
+                />
+                <Select
+                    value={unit}
+                    onChange={(e) => onChange(partsToMinutes(amount, e.target.value))}
+                    disabled={disabled}
+                    sx={{
+                        width: 84,
+                        bgcolor: "#F4F6FA",
+                        borderRadius: "6px",
+                        fontSize: "13px",
+                        "& .MuiOutlinedInput-input": { p: "8px 10px" },
+                        "& fieldset": { borderColor: C.border },
+                        "&:hover fieldset": { borderColor: C.border },
+                    }}
+                >
+                    {DURATION_UNITS.map((u) => (
+                        <MenuItem key={u.key} value={u.key} sx={{ fontSize: "13px" }}>
+                            {u.label}
+                        </MenuItem>
+                    ))}
+                </Select>
+            </Box>
+        </Box>
+    );
+}
+
+
+/* Plain text, for the working-calendar fields that are not durations. */
+function TextRuleField({ label, value, onChange, disabled = false }) {
+    return (
+        <Box
+            sx={{
+                flex: "1 1 0",
+                minWidth: 140,
+                display: "flex",
+                flexDirection: "column",
+                gap: "6px",
+            }}
+        >
             <Typography sx={fieldLabelSx}>{label}</Typography>
             <TextField
-                value={value}
+                value={value ?? ""}
                 onChange={(e) => onChange(e.target.value)}
                 disabled={disabled}
                 fullWidth
@@ -56,12 +133,7 @@ function RuleField({ label, value, onChange, disabled }) {
                         "& fieldset": { borderColor: C.border },
                         "&:hover fieldset": { borderColor: C.border },
                     },
-                    "& .MuiOutlinedInput-input": {
-                        p: "8px 12px",
-                        fontSize: "13px",
-                        fontWeight: 400,
-                        color: C.text,
-                    },
+                    "& .MuiOutlinedInput-input": { p: "8px 12px", fontSize: "13px" },
                 }}
             />
         </Box>
@@ -107,6 +179,10 @@ export default function SlaConfigurationScreen({
     currentCrumbColor,
     title,
     subtitle,
+    /* Which stream to configure — the SLA endpoints serve both and are told apart by
+       moduleType. `initialRules` / `initialWorking` remain as the shape to render before
+       the fetch lands. */
+    moduleType,
     initialRules,
     initialWorking,
     pauseToggles,
@@ -119,6 +195,49 @@ export default function SlaConfigurationScreen({
 
     const [rules, setRules] = useState(initialRules);
     const [working, setWorking] = useState(initialWorking);
+    const [serverRules, setServerRules] = useState(initialRules);
+    const [serverWorking, setServerWorking] = useState(initialWorking);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState("");
+
+    const load = useCallback(async () => {
+        if (!moduleType) return;
+        setLoading(true);
+        const result = await fetchSla({ moduleType });
+        if (!result.ok) {
+            setError(result.message);
+            setLoading(false);
+            return;
+        }
+        setError("");
+        const nextRules = (result.policies || []).map((policy) => ({
+            key: String(policy.priority || "").toLowerCase(),
+            title: `${policy.priority} Priority Rules`,
+            badge: String(policy.priority || "").toUpperCase(),
+            values: slaPolicyToValues(policy),
+        }));
+        const nextWorking = {
+            workingDays: result.workingDays,
+            workingHours: `${result.workingDayStart} - ${result.workingDayEnd}`,
+            pauseWeekends: result.pauseOnWeekends,
+            pauseHolidays: result.pauseOnSchoolHolidays,
+            pauseOutsideHours: result.pauseOutsideWorkingHours,
+            workingDayStart: result.workingDayStart,
+            workingDayEnd: result.workingDayEnd,
+            timeZoneId: result.timeZoneId,
+        };
+        setRules(nextRules);
+        setWorking(nextWorking);
+        // Reset returns to what the server sent, not to the comps' seed
+        setServerRules(nextRules);
+        setServerWorking(nextWorking);
+        setLoading(false);
+    }, [moduleType]);
+
+    useEffect(() => {
+        load();
+    }, [load]);
 
     if (!canViewConfig) return <Navigate to="/dashboardmenu/dashboard" replace />;
 
@@ -130,13 +249,50 @@ export default function SlaConfigurationScreen({
     const setWorkingValue = (key, value) => setWorking((prev) => ({ ...prev, [key]: value }));
 
     const resetChanges = () => {
-        setRules(initialRules);
-        setWorking(initialWorking);
+        setRules(serverRules);
+        setWorking(serverWorking);
+        setError("");
     };
 
-    const saveChanges = () => {
-        // TODO: PUT { rules, working } to the SLA settings endpoint.
+    const saveChanges = async () => {
+        /* Deadlines are edited as text and stored as minutes. One unreadable field stops
+           the whole save — a partial policy would leave a deadline nobody chose. */
+        const policies = [];
+        for (const rule of rules) {
+            const priority = rule.badge
+                ? rule.badge.charAt(0) + rule.badge.slice(1).toLowerCase()
+                : rule.title;
+            const policy = valuesToSlaPolicy(priority, rule.values);
+            if (!policy) {
+                setError(`${priority}: every deadline must read like "30 min", "2 hrs" or "3 days".`);
+                return;
+            }
+            policies.push(policy);
+        }
+
+        setSaving(true);
+        const result = await saveSla({
+            moduleType,
+            settings: {
+                workingDays: working.workingDays,
+                workingDayStart: working.workingDayStart,
+                workingDayEnd: working.workingDayEnd,
+                pauseOnWeekends: working.pauseWeekends,
+                pauseOnSchoolHolidays: working.pauseHolidays,
+                pauseOutsideWorkingHours: working.pauseOutsideHours !== false,
+                timeZoneId: working.timeZoneId,
+                policies,
+            },
+        });
+        setSaving(false);
+        if (!result.ok) {
+            setError(result.message);
+            toast.error(result.message);
+            return;
+        }
+        setError("");
         toast.success("SLA configuration saved");
+        load();
     };
 
     return (
@@ -155,6 +311,15 @@ export default function SlaConfigurationScreen({
             )}
 
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+
+                {/* The bands render with empty fields until the policy lands, so say why
+                    rather than showing blanks that look like a policy of "no deadline". */}
+                {loading && (
+                    <Typography sx={{ fontSize: "13px", color: C.textMuted }}>
+                        Loading SLA policy&hellip;
+                    </Typography>
+                )}
+
                 {/* One card per priority band */}
                 {rules.map((rule) => {
                     const tone = PRIORITY_STYLE[rule.badge] || { bg: C.track, color: C.textMuted };
@@ -216,7 +381,7 @@ export default function SlaConfigurationScreen({
                                     <RuleField
                                         key={f.key}
                                         label={f.label}
-                                        value={rule.values[f.key]}
+                                        minutes={rule.values[f.key]}
                                         disabled={!canEditConfig}
                                         onChange={(v) => setRuleValue(rule.key, f.key, v)}
                                     />
@@ -233,13 +398,13 @@ export default function SlaConfigurationScreen({
                     </Typography>
 
                     <Box sx={{ display: "flex", alignItems: "flex-start", gap: 2.5, flexWrap: "wrap" }}>
-                        <RuleField
+                        <TextRuleField
                             label="Working Days"
                             value={working.workingDays}
                             disabled={!canEditConfig}
                             onChange={(v) => setWorkingValue("workingDays", v)}
                         />
-                        <RuleField
+                        <TextRuleField
                             label="Working Hours"
                             value={working.workingHours}
                             disabled={!canEditConfig}

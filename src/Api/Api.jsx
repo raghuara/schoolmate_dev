@@ -466,6 +466,12 @@ const salaryRegisterDashboard = `${payRoll}salaryRegisterDashboard`;
    NOT BUILT YET: both routes answer 404 today. StaffCoveragePage keeps a local
    draft so the screen stays usable, and switches over the moment these ship.
    See staffCoverageApi.js for the payload the screen sends. */
+/* Leave approval settings — per leave category, which user types may approve.
+   Root-level route, not under api/leave/.
+   Shape: data.categories[] { leaveCategory: "Student"|"Staff", label, hasApprover,
+   userTypes[] { userTypeID, userType, isSelected } }. */
+const getLeaveApprovalSettings = `${baseApiurl}leaveApprovalSettings/Get`;
+
 const getPayrollCoverage = `${payRoll}getPayrollCoverage`;
 const savePayrollCoverage = `${payRoll}savePayrollCoverage`;
 
@@ -646,12 +652,13 @@ const CommonDashboardForMe = `${baseApiurl}commonDashboard/forMe`;
 //----------------------------------- Books & Chapters ----------------------------------
 //----------------------------------- xxxxxxxx ----------------------------------
 
-const UploadBook = `${baseApiurl}book/upload`;
-const GetAllBooks = `${baseApiurl}book/getAll`;
-const GetBookById = `${baseApiurl}book/getById`;
-const UpdateBookChapters = `${baseApiurl}book/updateChapters`;
-const ConfirmBookChapters = `${baseApiurl}book/confirmChapters`;
-const DeleteBook = `${baseApiurl}book/delete`;
+/* questionpapergeneration > bookupload. view for the two GETs, create for the
+   upload, edit for confirm/update. UAT only - not on Live yet. */
+const UploadBook = `${baseApiurl}questionpapergeneration/uploadBook`;
+const GetBookStatus = `${baseApiurl}questionpapergeneration/getBookStatus`;
+const ListBooks = `${baseApiurl}questionpapergeneration/listBooks`;
+const ConfirmBookChapters = `${baseApiurl}questionpapergeneration/confirmChapters`;
+const UpdateBookMetadata = `${baseApiurl}questionpapergeneration/updateBookMetadata`;
 
 //----------------------------------- xxxxxxxx ----------------------------------
 
@@ -671,6 +678,90 @@ const GetQuestionPaperDashboard = `${baseApiurl}qpaper/getDashboard`;
 const GetQuestionPaperApprovalRequests = `${baseApiurl}qpaper/getApprovalRequests`;
 const UpdateQuestionPaperApproval = `${baseApiurl}qpaper/updateApproval`;
 const PublishQuestionPaper = `${baseApiurl}qpaper/publish`;
+
+//----------------------------------- Complaints ----------------------------------
+//----------------------------------- xxxxxxxx ----------------------------------
+
+// Both take multipart/form-data. The parent endpoint serves four flows, told
+// apart by RegistrationMode (ParentDirect | StaffOnBehalf) and
+// SubmissionPlatform (Mobile | Website) — see the backend's screen/API mapping.
+const PostParentComplaint = `${baseApiurl}complaints/parent`;
+const PostStaffConcern = `${baseApiurl}complaints/staff-concern`;
+
+/* Complaints Configuration Hub — 18 body-only routes.
+   Every one is a POST or PUT with a JSON body; even the reads take no query string, so a
+   GET here answers 405. Parent and Staff Concern share one set of endpoints and are told
+   apart by `moduleType`, and the actor field is `actorRollNumber` — NOT the
+   requestedByRollNumber / creatorRollNumber pair the rest of the app sends. */
+const complaintsConfig = `${baseApiurl}complaints/configuration/`;
+
+const GetComplaintCategories = `${complaintsConfig}categories/get`;
+const CreateComplaintCategory = `${complaintsConfig}categories/create`;
+const UpdateComplaintCategory = `${complaintsConfig}categories/update`;
+const SetComplaintCategoryStatus = `${complaintsConfig}categories/status`;
+
+const GetComplaintAssignmentMappings = `${complaintsConfig}assignment-mappings/get`;
+const CreateComplaintAssignmentMapping = `${complaintsConfig}assignment-mappings/create`;
+const UpdateComplaintAssignmentMapping = `${complaintsConfig}assignment-mappings/update`;
+
+const GetComplaintPermissions = `${complaintsConfig}permissions/get`;
+const SaveComplaintPermissions = `${complaintsConfig}permissions/save`;
+
+const GetComplaintSla = `${complaintsConfig}sla/get`;
+const SaveComplaintSla = `${complaintsConfig}sla/save`;
+
+const GetComplaintEscalation = `${complaintsConfig}escalation/get`;
+const SaveComplaintEscalation = `${complaintsConfig}escalation/save`;
+
+const GetComplaintNotificationTemplates = `${complaintsConfig}notification-templates/get`;
+const SaveComplaintNotificationTemplate = `${complaintsConfig}notification-templates/save`;
+
+const GetComplaintDashboardWidgets = `${complaintsConfig}dashboard-widgets/get`;
+const SaveComplaintDashboardWidgets = `${complaintsConfig}dashboard-widgets/save`;
+
+const GetComplaintConfigAuditLog = `${complaintsConfig}audit-log/get`;
+
+/* Shared lookups and complaint detail — conventional GETs with a query string, unlike the
+   Configuration Hub's body-only POSTs above. The actor rides in the query as
+   `actorRollNumber`. */
+const GetComplaintLookupCategories = `${baseApiurl}complaints/categories`;
+const SearchComplaintStudents = `${baseApiurl}complaints/students/search`;
+/* Detail and timeline take the token as a PATH segment, not a query parameter.
+   The `complaints/detail?complaintToken=` and `complaints/timeline?complaintToken=` forms
+   that the module 04 collection documents were replaced when modules 06/07 shipped: they
+   now answer 404 "ComplaintToken was not found" for every token, including ones the list
+   endpoint returns, because `complaints/{token}` matches them with token="detail". */
+const GetComplaintDetail = (complaintToken) =>
+    `${baseApiurl}complaints/${encodeURIComponent(complaintToken)}`;
+const GetComplaintTimeline = (complaintToken) =>
+    `${baseApiurl}complaints/${encodeURIComponent(complaintToken)}/timeline`;
+const DownloadComplaintAttachment = `${baseApiurl}complaints/attachments/download`;
+const GetComplaintNotifications = `${baseApiurl}complaints/notifications`;
+
+/* Complaint actions (modules 06 and 07). All JSON POSTs except /resolution, which is
+   multipart because it carries evidence attachments. Every one takes actorRollNumber and
+   complaintToken, and every one changes the complaint's state — reload the detail after. */
+const PostComplaintAcknowledge = `${baseApiurl}complaints/acknowledge`;
+const PostComplaintStatus = `${baseApiurl}complaints/status`;
+const PostComplaintNote = `${baseApiurl}complaints/notes`;
+const PostComplaintRequestInformation = `${baseApiurl}complaints/request-information`;
+const PostComplaintResolution = `${baseApiurl}complaints/resolution`;
+const PostComplaintAssign = `${baseApiurl}complaints/management/assign`;
+const PostComplaintEscalate = `${baseApiurl}complaints/management/escalate`;
+const PostComplaintManagementReopen = `${baseApiurl}complaints/management/reopen`;
+const PostComplaintReviewResolution = `${baseApiurl}complaints/management/review-resolution`;
+const PostComplaintClose = `${baseApiurl}complaints/management/close`;
+const PostComplaintDuplicate = `${baseApiurl}complaints/management/duplicate`;
+const PostComplaintParticipants = `${baseApiurl}complaints/management/participants`;
+
+/* Staff My Work and Complaints Management (modules 06 and 07).
+   These are the list endpoints the workspace, the My Work queue and the dashboards read.
+   All are GET + query string, and every one requires actorRollNumber. */
+const GetComplaintsManagementAll = `${baseApiurl}complaints/management/all`;
+const GetComplaintsStatusCounts = `${baseApiurl}complaints/management/status-counts`;
+const GetComplaintsManagementDashboard = `${baseApiurl}complaints/management/dashboard`;
+const GetStaffMyWork = `${baseApiurl}complaints/staff/my-work`;
+
 
 //----------------------------------- xxxxxxxx ----------------------------------
 
@@ -980,6 +1071,7 @@ export {
     employeeBankDetailsDashboard,
     updateEmployeeBankDetailsByRollnumber,
     salaryRegisterDashboard,
+    getLeaveApprovalSettings,
     getPayrollCoverage,
     savePayrollCoverage,
     leavePolicyDashboard,
@@ -1134,11 +1226,10 @@ export {
     CommonDashboardWork,
     CommonDashboardForMe,
     UploadBook,
-    GetAllBooks,
-    GetBookById,
-    UpdateBookChapters,
+    GetBookStatus,
+    ListBooks,
     ConfirmBookChapters,
-    DeleteBook,
+    UpdateBookMetadata,
     GetQuestionPaperPatterns,
     PostQuestionPaperPattern,
     UpdateQuestionPaperPattern,
@@ -1151,5 +1242,47 @@ export {
     GetQuestionPaperDashboard,
     GetQuestionPaperApprovalRequests,
     UpdateQuestionPaperApproval,
-    PublishQuestionPaper
+    PublishQuestionPaper,
+    PostParentComplaint,
+    PostStaffConcern,
+    GetComplaintCategories,
+    CreateComplaintCategory,
+    UpdateComplaintCategory,
+    SetComplaintCategoryStatus,
+    GetComplaintAssignmentMappings,
+    CreateComplaintAssignmentMapping,
+    UpdateComplaintAssignmentMapping,
+    GetComplaintPermissions,
+    SaveComplaintPermissions,
+    GetComplaintSla,
+    SaveComplaintSla,
+    GetComplaintEscalation,
+    SaveComplaintEscalation,
+    GetComplaintNotificationTemplates,
+    SaveComplaintNotificationTemplate,
+    GetComplaintDashboardWidgets,
+    SaveComplaintDashboardWidgets,
+    GetComplaintConfigAuditLog,
+    GetComplaintLookupCategories,
+    SearchComplaintStudents,
+    GetComplaintDetail,
+    GetComplaintTimeline,
+    DownloadComplaintAttachment,
+    GetComplaintNotifications,
+    PostComplaintAcknowledge,
+    PostComplaintStatus,
+    PostComplaintNote,
+    PostComplaintRequestInformation,
+    PostComplaintResolution,
+    PostComplaintAssign,
+    PostComplaintEscalate,
+    PostComplaintManagementReopen,
+    PostComplaintReviewResolution,
+    PostComplaintClose,
+    PostComplaintDuplicate,
+    PostComplaintParticipants,
+    GetComplaintsManagementAll,
+    GetComplaintsStatusCounts,
+    GetComplaintsManagementDashboard,
+    GetStaffMyWork
 }

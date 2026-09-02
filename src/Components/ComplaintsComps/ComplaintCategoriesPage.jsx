@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Box, Button, InputAdornment, MenuItem, Select, TextField, Typography } from "@mui/material";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
@@ -16,7 +16,6 @@ import {
     tableBodyRowSx,
 } from "./ComplaintsTableParts";
 import {
-    CATEGORY_ROWS,
     CATEGORY_COLS,
     CATEGORY_PAGE_SIZE,
     STATUS_FILTER,
@@ -25,6 +24,15 @@ import {
     STATUS_STYLE,
 } from "./complaintCategoriesData";
 import AddCategoryDrawer from "./AddCategoryDrawer";
+import {
+    MODULE,
+    categoryQueryFrom,
+    categoryRowForTable,
+    createCategory,
+    fetchCategories,
+    fetchRoleNames,
+    setCategoryStatus,
+} from "./complaintsConfigApi";
 
 // Reached from the "Category Configuration" tile on the Configurations screen.
 // The Figma frame includes the global top bar; DashBoardLayout already renders
@@ -37,9 +45,16 @@ export default function ComplaintCategoriesPage({ embedded = false }) {
     const websiteSettings = useSelector(selectWebsiteSettings);
     const accent = websiteSettings.mainColor;
 
-    // Local only — the enable/disable action has no endpoint yet, so it just
-    // flips the row so the screen behaves while the API is built.
-    const [rows, setRows] = useState(CATEGORY_ROWS);
+    /* Which stream this screen configures. Parent and Staff Concern share one set of
+       endpoints and are told apart by moduleType, so InternalCategoriesPage renders the
+       same data with MODULE.staff. */
+    const moduleType = MODULE.parent;
+
+    const [rows, setRows] = useState([]);
+    const [total, setTotal] = useState(0);
+    const [pageCountFromApi, setPageCountFromApi] = useState(1);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
 
     const [addOpen, setAddOpen] = useState(false);
 
@@ -50,42 +65,79 @@ export default function ComplaintCategoriesPage({ embedded = false }) {
     const [priority, setPriority] = useState(PRIORITY_FILTER[0]);
     const [page, setPage] = useState(1);
 
-    const toggleStatus = (id) =>
-        setRows((prev) =>
-            prev.map((r) =>
-                r.id === id ? { ...r, status: r.status === "ACTIVE" ? "INACTIVE" : "ACTIVE" } : r,
-            ),
-        );
+    /* Search, filters and paging are all applied server-side, so a change to any of them
+       is a refetch rather than a slice of a local array. */
+    const load = useCallback(async () => {
+        setLoading(true);
+        const result = await fetchCategories({
+            moduleType,
+            ...categoryQueryFrom({ search, status, priority }),
+            page,
+            pageSize: CATEGORY_PAGE_SIZE,
+        });
+        if (!result.ok) {
+            setError(result.message);
+            setRows([]);
+            setTotal(0);
+        } else {
+            setError("");
+            setRows(result.rows.map(categoryRowForTable));
+            setTotal(result.totalItems);
+            setPageCountFromApi(result.totalPages || 1);
+        }
+        setLoading(false);
+    }, [moduleType, search, status, priority, page]);
+
+    useEffect(() => {
+        load();
+    }, [load]);
+
+    // Typing shouldn't fire a request per keystroke; settle first, then search.
+    const [searchInput, setSearchInput] = useState("");
+    useEffect(() => {
+        const id = setTimeout(() => {
+            setSearch(searchInput);
+            setPage(1);
+        }, 350);
+        return () => clearTimeout(id);
+    }, [searchInput]);
+
+    const toggleStatus = async (id) => {
+        const row = rows.find((r) => r.id === id);
+        if (!row) return;
+        const result = await setCategoryStatus({
+            categoryId: row.categoryId,
+            isActive: row.status !== "ACTIVE",
+        });
+        if (!result.ok) setError(result.message);
+        // Re-read rather than flipping locally: the server owns the row's version stamp
+        else load();
+    };
 
     // The drawer's Default Owner list is not in the comp — derive it from the
     // owners already in use rather than inventing one. Swap for the staff API.
-    const ownerOptions = useMemo(
-        () => [...new Set(rows.map((r) => r.owner).filter(Boolean))].sort(),
-        [rows],
-    );
+    /* The picker offers the school's roles, not the owners already in use — an unowned
+       category list would otherwise leave the dropdown empty with nothing to choose. */
+    const [ownerOptions, setOwnerOptions] = useState([]);
 
-    const visibleRows = useMemo(() => {
-        const q = search.trim().toLowerCase();
-        return rows.filter((r) => {
-            if (status !== STATUS_FILTER[0] && r.status !== status) return false;
-            if (priority !== PRIORITY_FILTER[0] && r.priority !== priority) return false;
-            if (!q) return true;
-            return [r.name, r.description, r.owner]
-                .filter(Boolean)
-                .some((v) => v.toLowerCase().includes(q));
+    useEffect(() => {
+        let cancelled = false;
+        fetchRoleNames().then((names) => {
+            if (!cancelled) setOwnerOptions(names);
         });
-    }, [rows, search, status, priority]);
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
-    // Paging is local while the rows are mock. Once the API paginates, the totals
-    // come from the response and `pageRows` holds only what it returned.
-    const pageCount = Math.max(1, Math.ceil(visibleRows.length / CATEGORY_PAGE_SIZE));
+    /* `rows` is already the current page, filtered and searched by the server, so the
+       footer counts come from the response — counting the rows on screen would report
+       "1-8 of 8" on every page. */
+    const pageCount = Math.max(1, pageCountFromApi);
     const currentPage = Math.min(page, pageCount);
-    const firstRow = visibleRows.length === 0 ? 0 : (currentPage - 1) * CATEGORY_PAGE_SIZE + 1;
-    const lastRow = Math.min(currentPage * CATEGORY_PAGE_SIZE, visibleRows.length);
-    const pageRows = visibleRows.slice(
-        (currentPage - 1) * CATEGORY_PAGE_SIZE,
-        currentPage * CATEGORY_PAGE_SIZE,
-    );
+    const firstRow = total === 0 ? 0 : (currentPage - 1) * CATEGORY_PAGE_SIZE + 1;
+    const lastRow = Math.min(currentPage * CATEGORY_PAGE_SIZE, total);
+    const pageRows = rows;
 
     const filterControlSx = {
         height: 36,
@@ -116,17 +168,35 @@ export default function ComplaintCategoriesPage({ embedded = false }) {
         "&.Mui-disabled": { bgcolor: "#F4F6FA", color: C.textFaint },
     });
 
-    // Local only — appends to component state until the categories API exists.
-    const addCategory = (draft) => {
-        setRows((prev) => [
-            ...prev,
-            {
-                ...draft,
-                id: Math.max(0, ...prev.map((r) => r.id)) + 1,
-                priority: (draft.priority || "Normal").toUpperCase(),
-            },
-        ]);
+    /* The drawer collects { name, description, priority, owner, status }; the API also wants
+       a categoryCode, which the comp has no field for. Deriving it from the name keeps the
+       one required field the drawer cannot ask for from blocking a save — SNAKE_CASE is the
+       convention every seeded code follows (ACADEMICS, FEE_ACCOUNT, TEACHER_RELATED). */
+    const codeFrom = (name) =>
+        name
+            .trim()
+            .toUpperCase()
+            .replace(/[^A-Z0-9]+/g, "_")
+            .replace(/^_+|_+$/g, "")
+            .slice(0, 40);
+
+    const addCategory = async (draft) => {
+        const result = await createCategory({
+            moduleType,
+            code: codeFrom(draft.name),
+            name: draft.name.trim(),
+            description: draft.description || "",
+            priority: (draft.priority || "Normal").replace(/^(.)(.*)$/, (m, a, b) => a + b.toLowerCase()),
+            ownerRole: draft.owner || "",
+            isActive: draft.status !== "INACTIVE",
+        });
+        if (!result.ok) {
+            setError(result.message);
+            return;
+        }
         setAddOpen(false);
+        setPage(1);
+        load();
     };
 
     return (
@@ -162,11 +232,8 @@ export default function ComplaintCategoriesPage({ embedded = false }) {
             >
                 <Box sx={{ display: "flex", alignItems: "center", gap: 2.5, flexWrap: "wrap" }}>
                     <TextField
-                        value={search}
-                        onChange={(e) => {
-                            setSearch(e.target.value);
-                            setPage(1);
-                        }}
+                        value={searchInput}
+                        onChange={(e) => setSearchInput(e.target.value)}
                         placeholder="Search categories..."
                         slotProps={{
                             input: {
@@ -287,7 +354,32 @@ export default function ComplaintCategoriesPage({ embedded = false }) {
                             </Typography>
                         </Box>
 
-                        {pageRows.map((row) => {
+                        {/* A fetch in flight and a genuinely empty result are different
+                            states — showing "no categories" while loading sends the reader
+                            looking for a filter to clear. */}
+                        {loading && (
+                            <Box sx={{ ...tableBodyRowSx, justifyContent: "center", py: 4 }}>
+                                <Typography sx={{ fontSize: "13px", color: C.textMuted }}>
+                                    Loading categories…
+                                </Typography>
+                            </Box>
+                        )}
+
+                        {!loading && error && (
+                            <Box sx={{ ...tableBodyRowSx, justifyContent: "center", py: 4 }}>
+                                <Typography sx={{ fontSize: "13px", color: C.red }}>{error}</Typography>
+                            </Box>
+                        )}
+
+                        {!loading && !error && pageRows.length === 0 && (
+                            <Box sx={{ ...tableBodyRowSx, justifyContent: "center", py: 4 }}>
+                                <Typography sx={{ fontSize: "13px", color: C.textMuted }}>
+                                    No categories match these filters.
+                                </Typography>
+                            </Box>
+                        )}
+
+                        {!loading && pageRows.map((row) => {
                             const isActive = row.status === "ACTIVE";
                             return (
                                 <Box key={row.id} sx={{ ...tableBodyRowSx, gap: COL.gap }}>
@@ -346,7 +438,7 @@ export default function ComplaintCategoriesPage({ embedded = false }) {
                 }}
             >
                 <Typography sx={{ fontSize: "13px", fontWeight: 400, color: C.textMuted }}>
-                    Showing {firstRow}-{lastRow} of {visibleRows.length} categories
+                    Showing {firstRow}-{lastRow} of {total} categories
                 </Typography>
 
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>

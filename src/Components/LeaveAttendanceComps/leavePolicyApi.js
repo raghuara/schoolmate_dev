@@ -1,6 +1,7 @@
 import axios from "axios";
 
 import { withActor } from "./apiActor";
+import { withoutExcluded } from "./coverageScope";
 
 import {
     postleavepolicy,
@@ -614,7 +615,7 @@ export const fetchUnassignedStaff = async (academicYear, search = "") => {
     try {
         const res = await client.get(GetunassignedStaff, { params: { academicYear, search } });
         if (res?.data?.error) return { ok: false, message: res.data.message || "Could not load staff" };
-        return { ok: true, staff: staffListFrom(res) };
+        return { ok: true, staff: await withoutExcluded(staffListFrom(res)) };
     } catch (error) {
         if (error?.response?.status === 404) return { ok: true, staff: [] };
         return { ok: false, message: messageOf(error, "Could not load staff") };
@@ -625,7 +626,7 @@ export const fetchShiftStaff = async (academicYear, shiftId, search = "") => {
     try {
         const res = await client.get(GetShiftAssignedStaffs, { params: { academicYear, shiftId, search } });
         if (res?.data?.error) return { ok: false, message: res.data.message || "Could not load staff" };
-        return { ok: true, staff: staffListFrom(res) };
+        return { ok: true, staff: await withoutExcluded(staffListFrom(res)) };
     } catch (error) {
         if (error?.response?.status === 404) return { ok: true, staff: [] };
         return { ok: false, message: messageOf(error, "Could not load staff") };

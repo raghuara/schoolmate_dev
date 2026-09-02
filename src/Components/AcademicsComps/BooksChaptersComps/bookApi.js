@@ -43,6 +43,21 @@ export const pickArray = (root) => {
     return [];
 };
 
+/* This API answers a rejected request with HTTP 200 and { error: true, message }
+   in the body, so a 2xx is not on its own a success. Returns the message when
+   the call failed, an empty string when it went through. */
+export const apiFailed = (payload) => {
+    const root = payload?.data ?? payload;
+    if (!root || typeof root !== "object") return "";
+    const rejected =
+        root.error === true ||
+        String(root.error).toLowerCase() === "true" ||
+        root.success === false ||
+        String(root.success).toLowerCase() === "false";
+    if (!rejected) return "";
+    return String(root.message || root.error || "The request was rejected").trim();
+};
+
 export const unwrap = (root) => {
     if (!root || typeof root !== "object") return {};
     if (Array.isArray(root)) return root[0] || {};
@@ -70,7 +85,11 @@ export const gradeLabel = (grades, gradeId) => {
     return match?.sign || (gradeId ? `Grade ${gradeId}` : "");
 };
 
+/* The API's four states are Processing | NeedsReview | Confirmed | Failed.
+   "Confirmed" is what the screens call "Ready" - the split has been reviewed and
+   the book can be used to generate a paper. */
 const STATUS_MAP = {
+    confirmed: "Ready",
     ready: "Ready",
     completed: "Ready",
     success: "Ready",
@@ -91,44 +110,77 @@ export const bookStatusLabel = (raw) => {
     return key.charAt(0).toUpperCase() + key.slice(1);
 };
 
-export const normalizeChapter = (row, index) => ({
+/* startPage/endPage are real PDF page indices - they drive the viewer and are
+   what confirmChapters expects back. printedStartPage/printedEndPage are the
+   book's own printed numbers and are display-only; they can be null when there
+   was no reliable table of contents to read them from. */
+export const normalizeChapter = (row, index, bookStatus = "") => ({
     id: val(row, ["chapterId", "chapterID", "id"], `ch-${index + 1}`),
-    number: Number(val(row, ["chapterNumber", "number", "sequence", "order"], index + 1)) || index + 1,
-    title: val(row, ["chapterTitle", "title", "chapterName", "name"], `Chapter ${index + 1}`),
+    // Nothing on the wire carries a chapter number - the order is the number.
+    number: Number(val(row, ["chapterNumber", "number", "sequence"], 0))
+        || Number(val(row, ["displayOrder"], -1)) + 1
+        || index + 1,
+    displayOrder: Number(val(row, ["displayOrder"], index)) || index,
+    title: val(row, ["chapterName", "chapterTitle", "title", "name"], `Chapter ${index + 1}`),
     startPage: Number(val(row, ["startPage", "fromPage", "pageFrom"], 0)) || 0,
     endPage: Number(val(row, ["endPage", "toPage", "pageTo"], 0)) || 0,
+    printedStartPage: Number(val(row, ["printedStartPage"], 0)) || null,
+    printedEndPage: Number(val(row, ["printedEndPage"], 0)) || null,
+    pageCount: Number(val(row, ["pageCount"], 0)) || 0,
     wordCount: Number(val(row, ["wordCount", "words", "totalWords"], 0)) || 0,
     topics: (() => {
         const raw = val(row, ["topics", "keyTopics", "concepts"], []);
         if (Array.isArray(raw)) return raw.map((t) => String(t)).filter(Boolean);
         return String(raw || "").split(",").map((t) => t.trim()).filter(Boolean);
     })(),
-    preview: val(row, ["preview", "content", "extractedText", "summary"], ""),
-    confirmed: String(val(row, ["confirmed", "isConfirmed", "verified"], "N")).toUpperCase() === "Y",
+    // A short AI-written overview of the lesson, not raw OCR text.
+    preview: val(row, ["extractedPreview", "preview", "summary", "content", "extractedText"], ""),
+    /* Confirmation is a book-level state on the wire. A chapter in a confirmed
+       book is confirmed; in one still under review, none of them are. */
+    confirmed: row?.confirmed !== undefined || row?.isConfirmed !== undefined
+        ? String(val(row, ["confirmed", "isConfirmed", "verified"], "N")).toUpperCase() === "Y"
+        : bookStatusLabel(bookStatus) === "Ready",
 });
 
 export const normalizeBook = (row, grades) => {
     const gradeId = val(row, ["gradeId", "gradeID"], null);
-    const chapters = pickArray(val(row, ["chapters", "chapterList", "bookChapters"], []) || []).map(normalizeChapter);
+    const status = bookStatusLabel(val(row, ["status", "parseStatus", "bookStatus"], ""));
+    const chapters = pickArray(val(row, ["chapters", "chapterList", "bookChapters"], []) || [])
+        .map((c, i) => normalizeChapter(c, i, status));
+
+    /* The list sends bytes, the detail screen may send MB. Read whichever
+       arrived rather than guessing a unit. */
+    const bytes = Number(val(row, ["fileSizeBytes"], 0)) || 0;
+    const fileSizeMB = bytes
+        ? Math.round((bytes / (1024 * 1024)) * 10) / 10
+        : Math.round((Number(val(row, ["fileSizeMB", "fileSize", "size"], 0)) || 0) * 10) / 10;
 
     return {
         id: val(row, ["bookId", "bookID", "id"], null),
         title: val(row, ["bookTitle", "title", "name", "bookName"], "Untitled book"),
         gradeId,
-        grade: gradeLabel(grades, gradeId) || val(row, ["grade", "gradeSign", "className"], ""),
+        // The API answers with the class sign ("VIII"), not an id.
+        grade: val(row, ["grade", "gradeSign", "className"], "") || gradeLabel(grades, gradeId),
         subject: val(row, ["subject", "subjectName"], "General"),
         academicYear: val(row, ["academicYear", "year"], ""),
         medium: val(row, ["medium", "language"], "English"),
-        board: val(row, ["board", "publisher", "syllabus"], ""),
-        edition: val(row, ["edition", "editionYear"], ""),
+        board: val(row, ["boardOrPublisher", "board", "publisher", "syllabus"], ""),
+        edition: val(row, ["editionYear", "edition"], ""),
         fileName: val(row, ["fileName", "originalFileName", "documentName"], ""),
-        fileUrl: val(row, ["fileUrl", "documentUrl", "url", "filePath"], ""),
-        fileSizeMB: Math.round((Number(val(row, ["fileSize", "fileSizeMB", "size"], 0)) || 0) * 10) / 10,
+        fileType: val(row, ["fileType"], ""),
+        fileUrl: val(row, ["filePath", "fileUrl", "documentUrl", "url"], ""),
+        fileSizeMB,
         pages: Number(val(row, ["totalPages", "pages", "pageCount"], 0)) || 0,
+        totalWords: Number(val(row, ["totalWords"], 0)) || 0,
         chapterCount: Number(val(row, ["chapterCount", "totalChapters"], chapters.length)) || chapters.length,
         chapters,
-        status: bookStatusLabel(val(row, ["status", "parseStatus", "bookStatus"], "")),
-        uploadedBy: val(row, ["uploadedByName", "createdByName", "uploadedBy", "createdBy"], "-"),
+        status,
+        failureReason: val(row, ["failureReason", "errorMessage", "error"], ""),
+        // Kept even after an admin corrects the metadata, as an audit trail.
+        detectedGrade: val(row, ["detectedGrade"], ""),
+        detectedSubject: val(row, ["detectedSubject"], ""),
+        detectionMethod: val(row, ["detectionMethod"], ""),
+        uploadedBy: val(row, ["uploadedByName", "createdByName", "uploadedBy", "uploadedByRollNumber", "createdBy"], "-"),
         uploadedDate: val(row, ["uploadedOn", "createdOn", "postedDateAndTime", "createdDate"], null),
         usedInPapers: Number(val(row, ["usedInPapers", "paperCount"], 0)) || 0,
     };
@@ -136,6 +188,143 @@ export const normalizeBook = (row, grades) => {
 
 export const normalizeBookList = (payload, grades) =>
     pickArray(payload?.data ?? payload).map((row) => normalizeBook(row, grades));
+
+/* listBooks returns the badge counts alongside the rows, so the library never
+   has to add them up from a page of results. */
+export const normalizeBookCounts = (payload) => {
+    const root = unwrap(payload);
+    const num = (keys) => Number(val(root, keys, 0)) || 0;
+    return {
+        total: num(["totalCount"]),
+        needsReview: num(["needsReviewCount"]),
+        confirmed: num(["confirmedCount"]),
+        failed: num(["failedCount"]),
+        needsAttention: num(["needsAttentionCount"]),
+        chaptersIndexed: num(["totalChaptersIndexed"]),
+    };
+};
+
+/* Everything the upload screen needs while a book is being read. There is no
+   ETA - only whether the worker has picked it up, how many are ahead of it, and
+   how long it has been going. */
+export const normalizeProcessing = (payload) => {
+    const root = unwrap(payload);
+    const active = val(root, ["isActivelyProcessing"], null);
+    return {
+        isActivelyProcessing: String(active).toLowerCase() === "true" || active === true,
+        queuePosition: Number(val(root, ["queuePosition"], 0)) || 0,
+        elapsedSeconds: Number(val(root, ["elapsedSeconds"], 0)) || 0,
+        startedOn: val(root, ["processingStartedOn"], null),
+        pollSeconds: Number(val(root, ["recommendedPollIntervalSeconds"], 0)) || 15,
+    };
+};
+
+/* The upload response and the status response carry the same book fields, so
+   both go through normalizeBook and pick up the processing block. */
+export const normalizeBookResponse = (payload, grades) => {
+    const root = unwrap(payload);
+    return { ...normalizeBook(root, grades), processing: normalizeProcessing(payload) };
+};
+
+/* confirmChapters is validated all-or-nothing: one bad range and nothing at all
+   is saved. The server answers with a page number ("overlap around page 214"),
+   which does not say which chapters disagree - so the same rule is checked here
+   first, where both titles are known and the offending rows can be pointed at.
+   Returns { ids, message } for the first problem found, or null. */
+export const findChapterRangeIssue = (chapters = [], maxPage = 0) => {
+    const num = (value) => Number(value) || 0;
+    const brief = (chapter) => ({
+        id: chapter.id,
+        title: chapter.title,
+        startPage: num(chapter.startPage),
+        endPage: num(chapter.endPage),
+    });
+
+    for (const chapter of chapters) {
+        const start = num(chapter.startPage);
+        const end = num(chapter.endPage);
+        if (start <= 0 || end <= 0) {
+            return {
+                kind: "missing",
+                ids: [chapter.id],
+                items: [brief(chapter)],
+                title: "A chapter has no page range",
+                message: `"${chapter.title}" is missing a start or end page.`,
+                hint: "Every chapter needs the page it starts on and the page it ends on.",
+            };
+        }
+        if (end < start) {
+            return {
+                kind: "reversed",
+                ids: [chapter.id],
+                items: [brief(chapter)],
+                title: "A chapter ends before it starts",
+                message: `"${chapter.title}" runs from page ${start} to page ${end}.`,
+                hint: "The end page has to be the same as, or after, the start page.",
+            };
+        }
+        if (maxPage > 0 && end > maxPage) {
+            return {
+                kind: "beyond",
+                ids: [chapter.id],
+                items: [brief(chapter)],
+                title: "A chapter runs past the end of the book",
+                message: `"${chapter.title}" ends on page ${end}, but the book has ${maxPage} pages.`,
+                hint: `No chapter can end after page ${maxPage}.`,
+            };
+        }
+    }
+
+    // Sorted by start page, any chapter beginning on or before the previous one
+    // ended is an overlap, whatever order the list happens to be in.
+    const ordered = [...chapters].sort((a, b) => num(a.startPage) - num(b.startPage));
+    for (let i = 1; i < ordered.length; i += 1) {
+        const prev = ordered[i - 1];
+        const current = ordered[i];
+        if (num(current.startPage) <= num(prev.endPage)) {
+            const page = num(current.startPage);
+            return {
+                kind: "overlap",
+                ids: [prev.id, current.id],
+                items: [brief(prev), brief(current)],
+                page,
+                title: "Two chapters claim the same page",
+                message: `"${prev.title}" and "${current.title}" both include page ${page}.`,
+                hint: "A page can only belong to one chapter. Move one range so they do not meet.",
+            };
+        }
+    }
+
+    return null;
+};
+
+/* What confirmChapters expects: the full edited list, page ranges as real PDF
+   indices, chapterId null for a chapter the admin added by hand, and the ones
+   removed sent back flagged rather than dropped. */
+export const confirmChaptersPayload = (bookId, chapters, removed, rollNumber) => ({
+    bookId,
+    confirmedByRollNumber: rollNumber,
+    chapters: [
+        ...chapters.map((chapter, index) => ({
+            chapterId: typeof chapter.id === "number" ? chapter.id : null,
+            chapterName: chapter.title,
+            startPage: Number(chapter.startPage) || 0,
+            endPage: Number(chapter.endPage) || 0,
+            displayOrder: index,
+            isDeleted: false,
+        })),
+        ...(removed || [])
+            .filter((chapter) => typeof chapter.id === "number")
+            .map((chapter, index) => ({
+                chapterId: chapter.id,
+                chapterName: chapter.title,
+                startPage: Number(chapter.startPage) || 0,
+                endPage: Number(chapter.endPage) || 0,
+                displayOrder: chapters.length + index,
+                isDeleted: true,
+            })),
+    ],
+});
 
 export const chapterPageCount = (chapter) => {
     if (!chapter?.startPage || !chapter?.endPage) return 0;

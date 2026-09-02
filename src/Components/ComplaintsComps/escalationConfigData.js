@@ -7,27 +7,6 @@
 // this data until its own comp arrives; pass `levels` / `triggerList` to
 // EscalationConfigPage at that point rather than editing these in place.
 
-// Escalation ladder, lowest level first.
-// NOTE: `role` must come from GetAllUserTypes (userTypesSlice) once wired — the
-// ladder is school-configurable, so these are seed labels, not a fixed list.
-export const ESCALATION_LEVELS = [
-    {
-        level: "Level 1",
-        role: "Teacher / Office Staff",
-        description: "First-level owner for assigned School Operations actions.",
-    },
-    {
-        level: "Level 2",
-        role: "Admin",
-        description: "Receives escalations for overdue, blocked or unresolved actions.",
-    },
-    {
-        level: "Level 3",
-        role: "Super Admin",
-        description: "Final escalation authority for critical or unresolved actions.",
-    },
-];
-
 // { key, title, description, enabled } — `enabled` seeds the toggle state.
 export const ESCALATION_TRIGGERS = [
     {

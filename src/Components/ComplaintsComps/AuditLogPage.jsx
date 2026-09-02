@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Box, Button, MenuItem, Select, Typography } from "@mui/material";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { selectWebsiteSettings } from "../../Redux/Slices/websiteSettingsSlice";
 import { C, CARD_SHADOW } from "./complaintsTokens";
 import ComplaintsBreadcrumb from "./ComplaintsBreadcrumb";
+import { MODULE, fetchConfigAuditLog } from "./complaintsConfigApi";
 import {
     TableChip,
     RowAction,
@@ -14,7 +15,6 @@ import {
     tableBodyRowSx,
 } from "./ComplaintsTableParts";
 import {
-    AUDIT_ROWS,
     AUDIT_COLS,
     AUDIT_PAGINATION,
 
@@ -67,10 +67,15 @@ export default function AuditLogPage({
     embedded = false,
     crumbLabel = "Complaint Configuration",
     subtitle = "Track complaint system activity and configuration changes.",
-    auditRows = AUDIT_ROWS,
+    /* Both streams share this endpoint and are told apart by moduleType. */
+    moduleType = MODULE.parent,
     pagination = AUDIT_PAGINATION,
-    // (row) => path, or null where no detail screen exists for that variant.
-    detailPathFor = (row) => `/dashboardmenu/complaints/configuration/audit-log/${row.id}`,
+    /* (row) => path, or null where no detail screen exists for that variant.
+       Null by default now that the list is API-backed: AuditLogDetailPage still looks its
+       entry up in the mock seed, so a real audit id finds nothing and bounces straight back
+       here. A row that goes nowhere is better than one that appears broken. Restore the
+       path once the detail screen reads the API. */
+    detailPathFor = null,
     // The Parent comp gives both cards a shadow; the Internal comp does not.
     showCardShadow = true,
 }) {
@@ -91,26 +96,61 @@ export default function AuditLogPage({
         setPage(1);
     };
 
+    /* Empty until the fetch lands. Seeding from the comps' mock made the screen render
+       one set of rows and then visibly swap it for the server's — a flash of data that was
+       never real. A loading line is honest; wrong content is not. */
+    const [fetched, setFetched] = useState([]);
+    const [paging, setPaging] = useState(pagination);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
+
+    /* `module` is the one filter the endpoint takes (as `area`), so it is sent; user and
+       action are narrowed over the page that came back. */
+    const load = useCallback(async () => {
+        setLoading(true);
+        const result = await fetchConfigAuditLog({
+            moduleType,
+            area: filters.module || "",
+            page,
+            pageSize: pagination.pageSize,
+        });
+        if (!result.ok) {
+            setError(result.message);
+            setFetched([]);
+        } else {
+            setError("");
+            setFetched(result.rows);
+            setPaging({
+                pageSize: result.pageSize,
+                totalEntries: result.totalItems,
+                pageCount: result.totalPages,
+            });
+        }
+        setLoading(false);
+    }, [moduleType, filters.module, page, pagination.pageSize]);
+
+    useEffect(() => {
+        load();
+    }, [load]);
+
     // Derived from the rows in play, so the dropdowns stay correct for either variant.
     const filterOptions = useMemo(() => {
-        const distinct = (key) => [...new Set(auditRows.map((r) => r[key]))].sort();
+        const distinct = (key) => [...new Set(fetched.map((r) => r[key]).filter(Boolean))].sort();
         return { user: distinct("user"), action: distinct("action"), module: distinct("module") };
-    }, [auditRows]);
+    }, [fetched]);
 
     const rows = useMemo(
         () =>
-            auditRows.filter(
+            fetched.filter(
                 (r) =>
                     (!filters.user || r.user === filters.user) &&
-                    (!filters.action || r.action === filters.action) &&
-                    (!filters.module || r.module === filters.module),
+                    (!filters.action || r.action === filters.action),
             ),
-        [auditRows, filters],
+        [fetched, filters],
     );
 
-    // Counts follow the comp's mock totals. Once the API paginates, `totalEntries`
-    // and `pageCount` come from the response and `rows` holds only the current page.
-    const { pageSize, totalEntries, pageCount } = pagination;
+    // Totals come from the response — the rows on screen are only the current page.
+    const { pageSize, totalEntries, pageCount } = paging;
     const firstEntry = (page - 1) * pageSize + 1;
     const lastEntry = Math.min(page * pageSize, totalEntries);
 
@@ -293,14 +333,15 @@ export default function AuditLogPage({
                                         justifyContent: "flex-end",
                                     }}
                                 >
-                                    <RowAction
-                                        label="View"
-                                        color={C.blue}
-                                        onClick={() => {
-                                            const to = detailPathFor && detailPathFor(row);
-                                            if (to) navigate(to);
-                                        }}
-                                    />
+                                    {/* Only offered when there is somewhere to go — a "View"
+                                        that does nothing reads as a broken screen. */}
+                                    {detailPathFor && detailPathFor(row) && (
+                                        <RowAction
+                                            label="View"
+                                            color={C.blue}
+                                            onClick={() => navigate(detailPathFor(row))}
+                                        />
+                                    )}
                                 </Box>
                             </Box>
                         ))}

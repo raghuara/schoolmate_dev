@@ -29,13 +29,16 @@ import { useSelector } from "react-redux";
 
 import SnackBar from "../SnackBar";
 import { DASH, RADIUS, EmptyNote, PageHeader } from "../DashBoardComps/dashboardTheme";
-import { selectAcademicYear } from "../../Redux/Slices/academicYearSlice";
+import { selectSubMenuPermissions, selectUserTypeID } from "../../Redux/Slices/AuthSlice";
 import {
+    COVERAGE_MAIN_MENU,
+    COVERAGE_SUB_MENU,
     EXCLUSION_EFFECTS,
     fetchCoverage,
-    fetchCoverageRoster,
+    resolveCoverageAccess,
     saveCoverage,
 } from "./staffCoverageApi";
+import { refreshExcluded } from "./coverageScope";
 
 /* Payroll & attendance coverage.
    One roster of every employee-eligible user with an Included switch per row. Excluding
@@ -119,19 +122,28 @@ function CountTile({ label, value, tone, active, onClick }) {
 
 export default function StaffCoveragePage() {
     const navigate = useNavigate();
-    const academicYear = useSelector(selectAcademicYear) || "";
+    const userTypeID = useSelector(selectUserTypeID);
+    const coveragePerms = useSelector(selectSubMenuPermissions(COVERAGE_MAIN_MENU, COVERAGE_SUB_MENU));
+    const payrollPerms = useSelector(selectSubMenuPermissions(COVERAGE_MAIN_MENU, "payrollmanagement"));
+    // raw value, not a boolean — undefined (submenu absent) must not read as a refusal
+    const coverageView = coveragePerms?.view;
+    const payrollEdit = payrollPerms?.edit === "Y";
+
+    /* Only a staff-leave approver may open this. "checking" holds the screen blank until
+       the settings answer, so a denied user never sees the roster flash first. */
+    const [access, setAccess] = useState({ state: "checking", message: "" });
 
     const [roster, setRoster] = useState([]);
     const [roles, setRoles] = useState([]);
-    // { [rollNumber]: { included, reason } } — anyone absent is included
+    /* Edits live here as { [rollNumber]: { included, reason } }; anyone absent is unchanged
+       from what the server sent. `baseline` is that server state, so the save can send only
+       what actually moved. */
     const [coverage, setCoverage] = useState({});
     const [baseline, setBaseline] = useState({});
     const [selected, setSelected] = useState(() => new Set());
 
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    // true while the coverage API is still missing and decisions live in a local draft
-    const [pending, setPending] = useState(false);
 
     const [search, setSearch] = useState("");
     const [role, setRole] = useState(ALL_ROLES);
@@ -142,31 +154,38 @@ export default function StaffCoveragePage() {
 
     const load = useCallback(async () => {
         setLoading(true);
-        const [rosterResult, coverageResult] = await Promise.all([
-            fetchCoverageRoster(),
-            fetchCoverage(academicYear),
-        ]);
-        if (!rosterResult.ok) {
-            showSnack(rosterResult.message, false);
+        const result = await fetchCoverage();
+        if (!result.ok) {
+            showSnack(result.message, false);
             setRoster([]);
         } else {
-            setRoster(rosterResult.rows);
-            setRoles(rosterResult.roles);
-        }
-        if (!coverageResult.ok) {
-            showSnack(coverageResult.message, false);
-        } else {
-            setCoverage(coverageResult.map);
-            setBaseline(coverageResult.map);
-            setPending(Boolean(coverageResult.pending));
+            setRoster(result.rows);
+            setRoles(result.roles);
+            // Seed both from the server so `dirty` compares against what is stored
+            const map = {};
+            result.rows.forEach((row) => {
+                map[row.rollNumber] = { included: row.included, reason: row.reason };
+            });
+            setCoverage(map);
+            setBaseline(map);
         }
         setSelected(new Set());
         setLoading(false);
-    }, [academicYear]);
+    }, []);
 
     useEffect(() => {
-        load();
-    }, [load]);
+        let cancelled = false;
+        resolveCoverageAccess(userTypeID, { coverageView, payrollEdit }).then((result) => {
+            if (!cancelled) setAccess(result);
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [userTypeID, coverageView, payrollEdit]);
+
+    useEffect(() => {
+        if (access.state === "allowed") load();
+    }, [access.state, load]);
 
     const entryOf = (rollNumber) => coverage[rollNumber] || { included: true, reason: "" };
 
@@ -200,7 +219,7 @@ export default function StaffCoveragePage() {
     const rows = useMemo(() => {
         const term = search.trim().toLowerCase();
         return roster.filter((row) => {
-            if (role !== ALL_ROLES && row.userType !== role) return false;
+            if (role !== ALL_ROLES && row.role !== role) return false;
             const isIncluded = entryOf(row.rollNumber).included;
             if (status === INCLUDED && !isIncluded) return false;
             if (status === EXCLUDED && isIncluded) return false;
@@ -247,14 +266,48 @@ export default function StaffCoveragePage() {
 
     const handleSave = async () => {
         setSaving(true);
-        const result = await saveCoverage({ academicYear, map: coverage });
+        /* Only what actually moved — the API takes a change list, so an untouched row
+           must not be resent as if it had been re-decided. */
+        const changes = roster
+            .map((row) => ({ ...row, ...(coverage[row.rollNumber] || {}) }))
+            .filter((row) => {
+                const before = baseline[row.rollNumber] || { included: true, reason: "" };
+                return (
+                    before.included !== row.included ||
+                    (!row.included && (before.reason || "") !== (row.reason || ""))
+                );
+            });
+        const result = await saveCoverage({ changes });
         showSnack(result.message, result.ok);
         if (result.ok) {
             setBaseline(coverage);
-            setPending(Boolean(result.pending));
+            // Every other screen filters on a cached copy of this list — refresh it now
+            refreshExcluded();
+            // Re-read so the counts and the excludedOn / excludedBy trail come from the server
+            load();
         }
         setSaving(false);
     };
+
+    if (access.state !== "allowed") {
+        return (
+            <Box sx={{ p: 2, bgcolor: DASH.canvas, minHeight: "100%" }}>
+                <PageHeader
+                    title="Payroll & Attendance Coverage"
+                    onBack={() => navigate(-1)}
+                />
+                <Box sx={{ ...panelSx, p: 4, textAlign: "center" }}>
+                    <Typography sx={{ fontSize: "14px", color: DASH.muted }}>
+                        {access.state === "checking" && "Checking your access…"}
+                        {access.state === "denied" &&
+                            "Only a staff leave approver can change payroll and attendance coverage."}
+                        {access.state === "unavailable" &&
+                            (access.message || "The approval settings could not be read, so access cannot be confirmed.")}
+                    </Typography>
+                </Box>
+            </Box>
+        );
+    }
 
     return (
         <Box sx={{ p: 2, bgcolor: DASH.canvas, minHeight: "100%" }}>
@@ -315,11 +368,6 @@ export default function StaffCoveragePage() {
                     <Typography sx={{ fontSize: "13px", color: DASH.muted }}>
                         {EXCLUSION_EFFECTS.join(" · ")}
                     </Typography>
-                    {pending && (
-                        <Typography sx={{ fontSize: "12px", color: DASH.red, mt: 0.6 }}>
-                            The coverage API is not live yet, so changes are held on this device only.
-                        </Typography>
-                    )}
                 </Box>
             </Box>
 
@@ -476,7 +524,7 @@ export default function StaffCoveragePage() {
                             {!loading &&
                                 rows.map((row) => {
                                     const entry = entryOf(row.rollNumber);
-                                    const tone = roleTone(row.userType);
+                                    const tone = roleTone(row.role);
                                     return (
                                         <TableRow
                                             key={row.rollNumber}
@@ -517,7 +565,7 @@ export default function StaffCoveragePage() {
 
                                             <TableCell sx={bodyCellSx}>
                                                 <Chip
-                                                    label={row.userType}
+                                                    label={row.role}
                                                     size="small"
                                                     sx={{
                                                         bgcolor: tone.bg,

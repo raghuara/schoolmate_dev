@@ -36,6 +36,7 @@ import PrintOutlinedIcon from "@mui/icons-material/PrintOutlined";
 import SchoolIcon from "@mui/icons-material/School";
 import BadgeOutlinedIcon from "@mui/icons-material/BadgeOutlined";
 import { useNavigate } from "react-router-dom";
+import usePayrollPermissions from "./PayrollComps/usePayrollPermissions";
 import { useSelector } from "react-redux";
 
 import { avatarToneOf, initialsOf, GREEN, RED, BLUE } from "./LeaveAttendancePage";
@@ -129,6 +130,11 @@ const recentPayoutMonths = (from) => {
 
 export default function ApprovePayrollPage() {
     const navigate = useNavigate();
+    /* Every stage POST is an edit-class action the API enforces as
+       "Leave & Payroll > Payroll Management > edit". Offering a button the server will
+       refuse is what made the compliance and bank-details screens fail at save, so the
+       controls are hidden for anyone without it rather than failing on click. */
+    const { canEdit } = usePayrollPermissions();
     const authUser = useSelector((state) => state.auth);
     const [today] = useState(() => new Date());
     const [payoutMonth, setPayoutMonth] = useState(() => toPayoutMonth(today));
@@ -645,7 +651,8 @@ export default function ApprovePayrollPage() {
                                 </TableRow>
                             </TableHead>
                             <TableBody>
-                                {visibleRows.map((row, index) => {
+                                {!loading &&
+                                    visibleRows.map((row, index) => {
                                     const tone = avatarToneOf(row.staffId);
                                     const approved = row.status === "Approved";
                                     return (
@@ -755,13 +762,25 @@ export default function ApprovePayrollPage() {
                                         </TableRow>
                                     );
                                 })}
-                                {visibleRows.length === 0 && (
+                                {loading && (
+                                    <TableRow>
+                                        <TableCell colSpan={9} sx={{ textAlign: "center", py: 5 }}>
+                                            <CircularProgress size={22} sx={{ color: GREEN.main }} />
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                                {/* An empty cycle and a search that matched nothing are different
+                                    situations — saying "no match" when the run has not produced any
+                                    payslips sends the reader looking for a filter to clear. */}
+                                {!loading && visibleRows.length === 0 && (
                                     <TableRow>
                                         <TableCell
                                             colSpan={9}
                                             sx={{ textAlign: "center", py: 5, color: "#9CA3AF", fontSize: "13px" }}
                                         >
-                                            No payroll records match your search
+                                            {rows.length === 0
+                                                ? "No payslips in this cycle yet — run Calculate Payroll to generate them."
+                                                : "No payroll records match your search"}
                                         </TableCell>
                                     </TableRow>
                                 )}
@@ -804,7 +823,7 @@ export default function ApprovePayrollPage() {
                         <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
                             {/* Rollback is hidden at Credited and meaningless at None. It is also the
                                 way out of a locked attendance month — editing a punch requires it. */}
-                            {stageIndex > 0 && stage !== "Credited" && (
+                            {stageIndex > 0 && stage !== "Credited" && canEdit && (
                                 <Button
                                     onClick={rollback}
                                     disabled={busy}
@@ -823,7 +842,7 @@ export default function ApprovePayrollPage() {
                                 </Button>
                             )}
 
-                            {action && (
+                            {action && canEdit && (
                                 <Button
                                     variant="contained"
                                     startIcon={

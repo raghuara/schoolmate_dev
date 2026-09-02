@@ -16,6 +16,7 @@ import ApprovalWorkflowPage from './ApprovalWorkflowPage';
 import AttendanceReportsPage from './AttendanceReportsPage';
 import LeaveAttendancePage from './LeaveAttendancePage';
 import AddStaffAttendancePage from './AddStaffAttendancePage';
+import { COVERAGE_SUB_MENU } from './staffCoverageApi';
 
 const MAIN_MENU = 'leaveandpayroll';
 const ATTENDANCE_ACCESS = 'leaveandattendanceattendanceaccess';
@@ -130,6 +131,8 @@ const moduleCards = [
         // Setup that governs all three cards above, so it is gated on payroll rights
         // rather than on any one attendance permission.
         access: [{ subMenu: PAYROLL, needs: ['view', 'create', 'edit'] }],
+        // Additionally gated on being a staff-leave approver — see coverageAllowed below
+        requiresStaffApprover: true,
         links: [
             {
                 label: 'Manage Coverage',
@@ -170,7 +173,19 @@ export default function LeaveAttendanceMainPage() {
         return needs.some((k) => p[k] === 'Y');
     };
 
+    /* Coverage is gated on the permission already in the store from login, so the card
+       renders with the other three instead of arriving seconds later — the approval-settings
+       call it used to await takes over a second and left a visible gap.
+       Only an explicit 'N' refuses: an absent key means the session predates the
+       payrollcoverage submenu, not that access was withheld. The staff-approver narrowing
+       still runs on the screen itself, which is where a wrong answer is recoverable. */
+    const coverageView = findSubMenuPermissions(perms, MAIN_MENU, COVERAGE_SUB_MENU)?.view;
+    const coverageAllowed =
+        coverageView !== 'N' &&
+        (coverageView === 'Y' || findSubMenuPermissions(perms, MAIN_MENU, PAYROLL)?.edit === 'Y');
+
     const visibleCards = moduleCards
+        .filter((card) => (card.requiresStaffApprover ? coverageAllowed : true))
         .filter((card) => card.access.some((a) => granted(a.subMenu, a.needs)))
         .map((card) => ({ ...card, links: card.links.filter((l) => granted(l.subMenu, l.needs)) }));
 
