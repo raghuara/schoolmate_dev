@@ -7,79 +7,8 @@
 
 import { TIMELINE_STATE } from "./complaintDetailData";
 
-const ACT_0042 = {
-    ref: "MSMS-ACT-2026-0042",
-    stream: "Manage Actions",
-    category: "Maintenance",
-    priority: "Normal",
-    status: "Action Required",
-    title: "Classroom maintenance follow-up",
-    owner: "Rajesh Kumar",
-    createdAt: "14 Aug 2026, 09:15 AM",
-    slaDue: "18 Aug 2026",
-    slaRemaining: "(2 days remaining)",
-
-    // Left column then right column, as drawn — the right column holds one field.
-    infoPrimary: [
-        { label: "Action Type", value: "Maintenance" },
-        { label: "Created By", value: "Admin Tamil" },
-        { label: "Category", value: "Facility & Infrastructure" },
-        { label: "Assigned By", value: "Admin Tamil" },
-        { label: "Owner", value: "Rajesh Kumar" },
-    ],
-    infoSecondary: [{ label: "Assigned Date", value: "14 Aug 2026, 11:30 AM" }],
-
-    description:
-        "Classroom maintenance follow-up required. Check the classroom fan, lighting and furniture " +
-        "condition and submit completion evidence after the required work is completed. Building A, " +
-        "Floor 2, Room 7B - inspect all ceiling fans, tube lights and student desks. Replace any " +
-        "non-functional items and submit before/after photographic evidence.",
-
-    attachments: [{ id: "a1", name: "maintenance_checklist.pdf", url: null }],
-
-    internalNotes: [
-        {
-            id: "n1",
-            text: '"Vendor confirmed availability for 18 Aug. Quote received for Rs. 12,500 for all repairs."',
-            author: "Rajesh Kumar",
-            at: "16 Aug 2026, 10:30 AM",
-        },
-        {
-            id: "n2",
-            text: '"Approved budget allocation from maintenance fund."',
-            author: "Admin Tamil",
-            at: "17 Aug 2026",
-        },
-    ],
-
-    resolution: null,
-
-    // The assignee card shows a person rather than a stacked field list.
-    assignee: {
-        name: "Rajesh Kumar",
-        initials: "RK",
-        role: "Office Staff (Maintenance)",
-    },
-    assignmentMeta: [
-        { label: "Assigned On", value: "14 Aug 2026, 11:30 AM" },
-        { label: "Assigned By", value: "Admin Tamil" },
-    ],
-
-    timeline: [
-        { label: "Created", at: "14 Aug 2026, 09:15 AM", state: TIMELINE_STATE.DONE },
-        { label: "Assigned", at: "14 Aug 2026, 11:30 AM", state: TIMELINE_STATE.DONE },
-        { label: "Acknowledged", at: "14 Aug 2026, 02:00 PM", state: TIMELINE_STATE.DONE },
-        { label: "In Progress", at: "Active · 15 Aug 2026", state: TIMELINE_STATE.ACTIVE },
-        { label: "Evidence Submitted", state: TIMELINE_STATE.PENDING },
-        { label: "Under Review", state: TIMELINE_STATE.PENDING },
-        { label: "Completed", state: TIMELINE_STATE.PENDING },
-        { label: "Closed", state: TIMELINE_STATE.PENDING },
-    ],
-};
-
-export const ACTION_DETAILS = { [ACT_0042.ref]: ACT_0042 };
-
-export const getActionDetail = (ref) => ACTION_DETAILS[ref] || ACT_0042;
+/* The sample action record that used to sit here has been removed — the detail screen
+   reads the live endpoint through complaintsDetailApi. */
 
 // Internal actions use a different blue from the parent-complaint screens.
 export const ACTION_CATEGORY_TONES = {

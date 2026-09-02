@@ -4,15 +4,14 @@ import { useSelector } from "react-redux";
 import CloseOutlinedIcon from "@mui/icons-material/CloseOutlined";
 import KeyboardArrowDownOutlinedIcon from "@mui/icons-material/KeyboardArrowDownOutlined";
 
+import { usersForRoleName } from "./complaintsRoles";
 import { selectWebsiteSettings } from "../../Redux/Slices/websiteSettingsSlice";
 import { selectUserTypes } from "../../Redux/Slices/userTypesSlice";
 import { C } from "./complaintsTokens";
 import {
     ASSIGNMENT_MODES,
     MODE_HELPER_TEXT,
-    STAFF_BY_ROLE,
     AVATAR_TONES,
-    ASSIGNMENT_MAPPINGS,
 } from "./assignmentMappingData";
 
 const AUTO = "Auto Assign";
@@ -56,14 +55,14 @@ export default function AssignmentMappingDrawer({ open, mapping, categories = []
     const websiteSettings = useSelector(selectWebsiteSettings);
     const accent = websiteSettings.mainColor;
 
-    // Roles come from the user-types store, never a hardcoded list. While the
-    // store is empty, fall back to the roles already present on the mappings.
+    /* Roles come from the user-types store, never a hardcoded list. There is no fallback:
+       the old one read role names off a set of invented mappings, which offered roles the
+       school does not have. An empty store means an empty list, which is the truth. */
     const userTypes = useSelector(selectUserTypes);
-    const roles = useMemo(() => {
-        const fromStore = (userTypes || []).map((u) => u.userType).filter(Boolean);
-        if (fromStore.length) return fromStore;
-        return [...new Set(ASSIGNMENT_MAPPINGS.map((m) => m.role))];
-    }, [userTypes]);
+    const roles = useMemo(
+        () => (userTypes || []).map((u) => u.userType).filter(Boolean),
+        [userTypes],
+    );
 
     const [form, setForm] = useState(EMPTY);
 
@@ -72,14 +71,14 @@ export default function AssignmentMappingDrawer({ open, mapping, categories = []
     // usable straight away instead of sitting disabled on a fresh form.
     useEffect(() => {
         if (!open) return;
-        const defaultRole = roles.find((r) => (STAFF_BY_ROLE[r] || []).length) || roles[0] || "";
+        const defaultRole = roles.find((r) => usersForRoleName(userTypes, r).length) || roles[0] || "";
         setForm(mapping ? { ...mapping } : { ...EMPTY, role: defaultRole });
     }, [open, mapping, roles]);
 
     const set = (key) => (value) => setForm((prev) => ({ ...prev, [key]: value }));
 
     const isManual = form.mode !== AUTO;
-    const staff = STAFF_BY_ROLE[form.role] || [];
+    const staff = useMemo(() => usersForRoleName(userTypes, form.role), [userTypes, form.role]);
     const canSave = form.category && form.mode && (!isManual || (form.role && form.owner));
 
     const handleSave = () => {

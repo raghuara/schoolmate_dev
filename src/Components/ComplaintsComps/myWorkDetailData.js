@@ -10,10 +10,11 @@
 // Both mirror their dev-Figma comp 1:1. Everything that differs between them is
 // data here, so the page stays one component.
 
-import { MY_WORK_ITEMS } from "./myWorkData";
 
 // Status chip on the header card. Same palette as the queue's status column.
 export const DETAIL_STATUS_TONES = {
+    // What the intake API returns on creation, before anyone picks it up
+    Open: { bg: "#FEF3C7", color: "#F59E0B" },
     "Action Required": { bg: "#FEF3C7", color: "#F59E0B" },
     "Under Review": { bg: "#DBEAFE", color: "#3B82F6" },
     "In Progress": { bg: "#CCFBF1", color: "#0D9488" },
@@ -84,65 +85,15 @@ export const VARIANTS = {
 // { variant, description, subject, attachments, notes, timeline, currentStatus }
 // `subject.kind` picks the avatar treatment: a grey circle for a student, an
 // amber pin chip for a place.
-const DETAILS = {
-    "MSMS-CMP-2026-00124": {
-        variant: "parent",
-        description:
-            "Parent noted discrepancies in feedback provided on English midterm assignments, requesting clarification on scoring criteria and written remarks.",
-        subject: {
-            kind: "student",
-            name: "Aarav Kumar",
-            meta: "Grade VIII-B · Roll #14",
-            contactLabel: "Parent Contact",
-            contact: "Rajesh Kumar (+91 98765 43210)",
-        },
-        attachments: [{ name: "Midterm_English_Rubric.pdf", size: "2.4 MB" }],
-        notes: [
-            {
-                author: "System Admin (Auto-route)",
-                at: "17 Aug, 10:15 AM",
-                body: "Complaint auto-routed to Academic Supervisor for Class VIII based on parent selection.",
-            },
-        ],
-        timeline: [
-            { label: "Priority", value: "High Priority", tone: "red" },
-            { label: "Assigned Date", value: "17 Aug 2026" },
-            { label: "SLA Expected", value: "18 Aug 2026", tone: "amber" },
-        ],
-        currentStatus: "underReview",
-    },
-
-    "MSMS-OBS-2026-00042": {
-        variant: "internal",
-        description:
-            "Severe crack on the third step of the primary staircase in Block-B. Structural integrity compromised, posing immediate trip and fall hazard during class transition periods.",
-        subject: {
-            kind: "location",
-            name: "West Wing Staircase 2",
-            meta: "Connecting Ground Floor to Level 1",
-            contactLabel: "Reported By",
-            contact: "Staff Observational Log · Admin Portal",
-        },
-        attachments: [{ name: "Stair_Crack_Observation.png", size: "4.1 MB" }],
-        notes: [
-            {
-                author: "Operations Supervisor",
-                at: "18 Aug, 08:30 AM",
-                body: "Caution tape deployed around the staircase. Maintenance crew dispatched to replace tread.",
-            },
-        ],
-        timeline: [
-            { label: "Priority", value: "Immediate SLA", tone: "red" },
-            { label: "Opened Date", value: "18 Aug 2026" },
-            { label: "Target Resolution", value: "Within 4 Hours", tone: "red" },
-        ],
-        currentStatus: "inProgress",
-    },
-};
+/* Per-item detail payloads were invented for queue rows that did not exist. There is
+   no My Work endpoint, so there is nothing to key on. */
+const DETAILS = {};
 
 // Every queue row, flattened, so a detail can be composed for the ones the comps
 // do not spell out.
-const QUEUE_ROWS = Object.values(MY_WORK_ITEMS).flat();
+/* The queue this looked rows up in was invented and has been removed; there is no
+   My Work endpoint yet, so there is nothing to find. */
+const QUEUE_ROWS = [];
 
 // Operations references carry -OBS-/-ACT-; complaints carry -CMP-.
 const variantOf = (id) => (id.includes("-CMP-") ? "parent" : "internal");
@@ -186,3 +137,69 @@ export function getMyWorkDetail(id) {
         currentStatus: VARIANTS[variant].statuses[0].key,
     };
 }
+
+/**
+ * One complaint, shaped for this screen.
+ *
+ * There is no My Work detail endpoint — the queue and the detail come from different
+ * places, so this reads the ordinary complaint record (`complaints/{token}`) and maps it
+ * into the shape the screen renders. `detailForScreen` already normalises that response
+ * for the two admin detail pages; this takes the same input and lays it out for the
+ * lighter staff view.
+ *
+ * The token picks the variant: -CMP- is a parent complaint, -ACT-/-IES- an internal action.
+ */
+export const myWorkDetailFrom = (screen, token) => {
+    const variant = /-(?:IES|ACT)-/i.test(token) ? "internal" : "parent";
+    const config = VARIANTS[variant];
+
+    const find = (rows, label) => (rows || []).find((r) => r.label === label)?.value || "";
+
+    /* The subject block is a student on a parent complaint and a place on an internal
+       action — different avatar, different labels, same slot. */
+    const subject =
+        variant === "internal"
+            ? {
+                  kind: "location",
+                  name: find(screen.assignment, "Assigned To") || "Unassigned",
+                  meta: screen.category,
+                  contactLabel: "Role",
+                  contact: find(screen.assignment, "Role") || "—",
+              }
+            : {
+                  kind: "student",
+                  name: find(screen.student, "Student Name"),
+                  meta: find(screen.student, "Class & Section"),
+                  contactLabel: "Parent Contact",
+                  contact: find(screen.parent, "Contact Number") || "—",
+              };
+
+    /* A facts rail, not the event list — MetaRow renders label/value pairs. Empty values
+       are dropped so the card does not carry rows reading "SLA Due: —". */
+    const facts = [
+        { label: "Registered", value: screen.registeredAt },
+        { label: "SLA Due", value: screen.slaDue, tone: screen.slaState === "Overdue" ? "overdue" : undefined },
+        { label: "Priority", value: screen.priority },
+        { label: "Category", value: screen.category },
+    ].filter((row) => row.value);
+
+    return {
+        ...screen,
+        id: token,
+        variant,
+        config,
+        subject,
+        currentStatus: screen.status,
+        /* Sizes are bytes on the API; the screen prints whatever string it is given. */
+        attachments: (screen.attachments || []).map((file) => ({
+            ...file,
+            size: file.sizeBytes ? `${Math.max(1, Math.round(file.sizeBytes / 1024))} KB` : "",
+        })),
+        notes: (screen.internalNotes || []).map((note) => ({
+            author: note.author || "School staff",
+            at: note.at || "",
+            body: note.text || "",
+        })),
+        timeline: facts,
+    };
+};

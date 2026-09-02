@@ -7,6 +7,7 @@ import {
     CircularProgress, Stack, LinearProgress,
 } from '@mui/material';
 import axios from '../leaveAxios';
+import { withoutExcluded } from "../coverageScope";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import EditIcon from '@mui/icons-material/Edit';
@@ -152,7 +153,8 @@ export default function SalaryStructures() {
             const res = await axios.get(getEmployees, {
                 headers: { Authorization: `Bearer ${token}` },
             });
-            setEmployeesData(res.data.data);
+            // Excluded staff are not on payroll, so they cannot be given a structure
+            setEmployeesData(await withoutExcluded(res.data.data));
         } catch {
         }
     };
@@ -166,7 +168,7 @@ export default function SalaryStructures() {
             if (res.data && !res.data.error) {
                 const { totalStructures, totalEmployees, salaryStructures } = res.data.data;
                 setKpiData({ totalStructures, totalEmployees });
-                setStructures(salaryStructures || []);
+                setStructures(await withoutExcluded(salaryStructures || []));
             } else {
                 showSnack('Failed to load salary structures', false);
             }

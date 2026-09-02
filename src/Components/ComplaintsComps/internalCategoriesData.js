@@ -1,4 +1,3 @@
-import { seedRowsFor, STAFF_MODULE } from "./complaintCategorySeed";
 
 // Internal Complaints > Categories — mock rows mirroring the dev-Figma comp 1:1.
 // Replace INTERNAL_CATEGORY_ROWS with the internal-categories API response.
@@ -42,10 +41,6 @@ const STAFF_OWNERS = {
     IMPROVEMENT_RECOGNITION: "Coordinator",
 };
 
-// The 12 seeded StaffConcern categories. NOTE: the seed rates Technology &
-// Digital Systems NORMAL, where the mock had it HIGH — the seed wins.
-export const INTERNAL_CATEGORY_ROWS = seedRowsFor(STAFF_MODULE, STAFF_OWNERS);
-
 export const INTERNAL_STATUS_FILTER = ["All Status", "ACTIVE", "INACTIVE"];
 
 // Create Category dialog options.
@@ -55,10 +50,3 @@ export const PRIORITY_OPTIONS = ["Critical", "High", "Normal", "Low"];
 // select is usable. Replace with the real SLA options when they are specified.
 export const SLA_OPTIONS = ["1 Day", "2 Days", "3 Days", "5 Days", "7 Days", "14 Days"];
 
-// The existing rows carry no department field — the owner values read as
-// departments ("Facility Team", "IT Team", "Housekeeping"), so they stand in as
-// the department list until the API supplies a real one. Categories created
-// through the dialog do store a proper `department`.
-export const DEPARTMENT_OPTIONS = [
-    ...new Set(INTERNAL_CATEGORY_ROWS.map((r) => r.owner)),
-].sort();

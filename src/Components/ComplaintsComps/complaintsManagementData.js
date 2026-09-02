@@ -37,6 +37,10 @@ export const PRIORITY_TONES = {
 };
 
 export const STATUS_TONES = {
+    /* `Open` is what the intake API returns on creation — confirmed against a live
+       staff-concern response. It reads as "not yet picked up", so it takes the same amber
+       as Registered rather than a colour of its own. */
+    Open: { bg: "#FFFBEB", color: "#D97706" },
     Registered: { bg: "#FFFBEB", color: "#D97706" },
     "Action Required": { bg: "rgba(239, 68, 68, 0.10)", color: "#EF4444" },
     "Under Review": { bg: "rgba(59, 130, 246, 0.10)", color: "#3B82F6" },
@@ -46,6 +50,29 @@ export const STATUS_TONES = {
     Closed: { bg: "#F1F5F9", color: "#64748B" },
 };
 
+/* The API spells statuses without spaces ("InProgress"); the comps spell them with
+   ("In Progress"). Rather than keep two sets of keys in step, a lookup falls back to a
+   space- and case-insensitive match, so either spelling finds its tone.
+   Returns undefined when genuinely unknown — callers already supply a fallback. */
+const squash = (value) => String(value || "").replace(/[\s_-]/g, "").toLowerCase();
+
+export const toneFor = (map, status) => {
+    if (!status) return undefined;
+    if (map[status]) return map[status];
+    const target = squash(status);
+    const key = Object.keys(map).find((name) => squash(name) === target);
+    return key ? map[key] : undefined;
+};
+
+/* Server SLA state → the tone the SLA cell is painted in.
+   Only `WithinSLA` has been seen on a live response; anything else falls through to
+   neutral until its real spelling is confirmed, rather than guessing at names. */
+export const SLA_STATE_TO_TONE = {
+    WithinSLA: "ok",
+};
+
+export const slaToneFor = (slaState) => SLA_STATE_TO_TONE[slaState] || "neutral";
+
 // The SLA cell is plain text, coloured by urgency rather than chipped.
 export const SLA_TONES = {
     overdue: "#EF4444",
@@ -53,161 +80,6 @@ export const SLA_TONES = {
     ok: "#22C55E",
     neutral: "#1E293B",
 };
-
-// { id, ref, type, title, student?, owner, priority, status, sla, slaTone, date }
-// `student` is absent on internal entries — the comp only shows Owner there.
-export const WORKSPACE_ITEMS = [
-    {
-        id: "MSMS-CMP-2026-00124",
-        ref: "MSMS-CMP-2026-00124",
-        type: "Parent Complaint",
-        title: "Teacher-related concern",
-        student: "Aarav Kumar",
-        owner: "Priya Sharma",
-        priority: "High",
-        status: "Under Review",
-        sla: "Due Today",
-        slaTone: "due",
-        date: "14 Aug 2026",
-    },
-    {
-        id: "MSMS-ACT-2026-0042",
-        ref: "MSMS-ACT-2026-0042",
-        type: "Internal Excellence",
-        title: "Classroom maintenance follow-up",
-        owner: "Rajesh Kumar",
-        priority: "Normal",
-        status: "Action Required",
-        sla: "Due Today",
-        slaTone: "due",
-        date: "18 Aug 2026",
-    },
-    {
-        id: "MSMS-CMP-2026-00125",
-        ref: "MSMS-CMP-2026-00125",
-        type: "Parent Complaint",
-        title: "Bus route timing concern",
-        student: "Rahul Kumar",
-        owner: "Office Staff",
-        priority: "Critical",
-        status: "Action Required",
-        sla: "Overdue",
-        slaTone: "overdue",
-        date: "12 Aug 2026",
-    },
-    {
-        id: "MSMS-ACT-2026-0041",
-        ref: "MSMS-ACT-2026-0041",
-        type: "Internal Excellence",
-        title: "Library inventory audit Q3",
-        owner: "Mrs. Rekha Nair",
-        priority: "Normal",
-        status: "In Progress",
-        sla: "Due 22 Aug 2026",
-        slaTone: "neutral",
-        date: "15 Aug 2026",
-    },
-    {
-        id: "MSMS-CMP-2026-00123",
-        ref: "MSMS-CMP-2026-00123",
-        type: "Parent Complaint",
-        title: "Broken desk in classroom 7B",
-        student: "Meera Patel",
-        owner: "Mr. Suresh Kumar",
-        priority: "Normal",
-        status: "Resolved",
-        sla: "Resolved within SLA",
-        slaTone: "ok",
-        date: "10 Aug 2026",
-    },
-    {
-        id: "MSMS-ACT-2026-0040",
-        ref: "MSMS-ACT-2026-0040",
-        type: "Internal Excellence",
-        title: "Staff training attendance tracking",
-        owner: "Admin Tamil",
-        priority: "High",
-        status: "Awaiting Review",
-        sla: "Due 19 Aug 2026",
-        slaTone: "neutral",
-        date: "13 Aug 2026",
-    },
-];
-
-// Parent Complaints tab. Same card shape, but each entry is labelled by its
-// complaint `category` rather than by type, and carries a lifecycle status.
-export const PARENT_ITEMS = [
-    {
-        id: "MSMS-CMP-2026-00124",
-        ref: "MSMS-CMP-2026-00124",
-        type: "Parent Complaint",
-        category: "Teacher-Related",
-        title: "Concern regarding teacher feedback",
-        student: "Aarav Kumar",
-        owner: "Priya Sharma",
-        priority: "High",
-        status: "Under Review",
-        sla: "Due Today",
-        slaTone: "due",
-        date: "14 Aug 2026",
-    },
-    {
-        id: "MSMS-CMP-2026-00125",
-        ref: "MSMS-CMP-2026-00125",
-        type: "Parent Complaint",
-        category: "Transport",
-        title: "Bus route timing concern",
-        student: "Rahul Kumar",
-        owner: "Office Staff",
-        priority: "Critical",
-        status: "Action Required",
-        sla: "Overdue",
-        slaTone: "overdue",
-        date: "12 Aug 2026",
-    },
-    {
-        id: "MSMS-CMP-2026-00123",
-        ref: "MSMS-CMP-2026-00123",
-        type: "Parent Complaint",
-        category: "Infrastructure",
-        title: "Broken desk in classroom 7B",
-        student: "Meera Patel",
-        owner: "Mr. Suresh Kumar",
-        priority: "Normal",
-        status: "Resolved",
-        sla: "Within SLA",
-        slaTone: "ok",
-        date: "10 Aug 2026",
-    },
-    {
-        id: "MSMS-CMP-2026-00122",
-        ref: "MSMS-CMP-2026-00122",
-        type: "Parent Complaint",
-        category: "Academic",
-        title: "Excessive homework load for Grade V",
-        student: "Ananya Gupta",
-        owner: "Mrs. Rekha Nair",
-        priority: "Normal",
-        status: "Registered",
-        sla: "Due 20 Aug 2026",
-        slaTone: "neutral",
-        date: "16 Aug 2026",
-    },
-    {
-        id: "MSMS-CMP-2026-00121",
-        ref: "MSMS-CMP-2026-00121",
-        type: "Parent Complaint",
-        category: "Fee & Finance",
-        title: "Late fee charged incorrectly",
-        student: "Vikram Singh",
-        owner: "Accounts Team",
-        priority: "High",
-        status: "Closed",
-        sla: "Within SLA",
-        slaTone: "ok",
-        date: "5 Aug 2026",
-    },
-];
 
 // Lifecycle filter row, shown once a single tab is selected. Counts are the
 // comps' mock totals — they come from the API alongside the rows.
@@ -247,11 +119,12 @@ export const STATUS_FILTERS_BY_TAB = {
 // Kept so any caller written against the flat export keeps working.
 export const STATUS_FILTERS = STATUS_FILTERS_BY_TAB["Parent Complaints"];
 
-// Each tab's footer totals. "Showing 1-6 of 52" on All, "1-5 of 34" on Parent.
+/* Page sizes are real settings; the totals come from the list response, which does not
+   exist yet — they used to read "of 52", "of 34", "of 18" against an invented table. */
 export const PAGINATION_BY_TAB = {
-    All: { pageSize: 6, totalItems: 52, pageCount: 9 },
-    "Parent Complaints": { pageSize: 5, totalItems: 34, pageCount: 7 },
-    "Internal Excellence": { pageSize: 5, totalItems: 18, pageCount: 4 },
+    All: { pageSize: 6, totalItems: 0, pageCount: 0 },
+    "Parent Complaints": { pageSize: 5, totalItems: 0, pageCount: 0 },
+    "Internal Excellence": { pageSize: 5, totalItems: 0, pageCount: 0 },
 };
 
 export const WORKSPACE_PAGINATION = PAGINATION_BY_TAB.All;

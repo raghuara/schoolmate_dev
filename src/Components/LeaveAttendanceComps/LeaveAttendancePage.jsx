@@ -1093,7 +1093,7 @@ export default function LeaveAttendancePage() {
     const filteredRecords = records.filter((row) =>
         !query
             ? true
-            : [row.name, row.role, row.source, row.status].some((value) =>
+            : [row.name, row.role, roleLabelOf(row.role), row.source, row.status].some((value) =>
                   String(value).toLowerCase().includes(query)
               )
     );
@@ -1149,12 +1149,12 @@ export default function LeaveAttendancePage() {
                             </TableCell>
                             <TableCell>
                                 <Chip
-                                    label={row.role}
+                                    label={roleLabelOf(row.role)}
                                     size="small"
                                     sx={{
-                                        bgcolor: "#F0FDFA",
-                                        color: "#0D9488",
-                                        border: "1px solid #99F6E4",
+                                        bgcolor: (ROLE_STYLE[roleLabelOf(row.role)] || ROLE_STYLE["Non Teaching Staff"]).bg,
+                                        color: (ROLE_STYLE[roleLabelOf(row.role)] || ROLE_STYLE["Non Teaching Staff"]).color,
+                                        border: `1px solid ${(ROLE_STYLE[roleLabelOf(row.role)] || ROLE_STYLE["Non Teaching Staff"]).border}`,
                                         fontWeight: "600",
                                         fontSize: "11px",
                                     }}
@@ -2044,8 +2044,13 @@ export default function LeaveAttendancePage() {
                                 {isBreakPanel &&
                                     entryStaff.map((row, index) => {
                                         const value = entryOf(row.id);
-                                        // Breaks only make sense for staff who actually attended
-                                        const applicable = value.status === "Present" || value.status === "Late";
+                                        /* Breaks only make sense for staff who actually attended. The status can
+                                           come from either side: what is being marked right now, or what was
+                                           already saved for this date. Reading only the unsaved entry made the
+                                           whole tab say "not applicable" whenever someone came back later to add
+                                           breaks to a day they had already marked. */
+                                        const effectiveStatus = value.status || markedOnDate[row.rollNumber]?.status || "";
+                                        const applicable = effectiveStatus === "Present" || effectiveStatus === "Late";
                                         const totalMinutes = totalBreakMinutes(value.breaks);
                                         return (
                                             <TableRow key={row.id} hover>
@@ -2436,7 +2441,7 @@ export default function LeaveAttendancePage() {
 
         // Search + role + status all narrow the same list
         const todayRows = filteredRecords
-            .filter((row) => todayRole === "All Roles" || row.role === todayRole)
+            .filter((row) => todayRole === "All Roles" || roleLabelOf(row.role) === todayRole)
             .filter((row) => todayStatus === "All Status" || row.status === todayStatus);
 
         const statusDot =
@@ -2696,12 +2701,12 @@ export default function LeaveAttendancePage() {
                                             </TableCell>
                                             <TableCell>
                                                 <Chip
-                                                    label={row.role}
+                                                    label={roleLabelOf(row.role)}
                                                     size="small"
                                                     sx={{
-                                                        bgcolor: "#F0FDFA",
-                                                        color: "#0D9488",
-                                                        border: "1px solid #99F6E4",
+                                                        bgcolor: (ROLE_STYLE[roleLabelOf(row.role)] || ROLE_STYLE["Non Teaching Staff"]).bg,
+                                                        color: (ROLE_STYLE[roleLabelOf(row.role)] || ROLE_STYLE["Non Teaching Staff"]).color,
+                                                        border: `1px solid ${(ROLE_STYLE[roleLabelOf(row.role)] || ROLE_STYLE["Non Teaching Staff"]).border}`,
                                                         fontWeight: "600",
                                                         fontSize: "11px",
                                                     }}

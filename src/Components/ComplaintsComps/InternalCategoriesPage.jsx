@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Box, Button, InputAdornment, MenuItem, Select, TextField, Typography } from "@mui/material";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
@@ -19,12 +19,19 @@ import {
 // Categories table.
 import { PRIORITY_STYLE, STATUS_STYLE } from "./complaintCategoriesData";
 import {
-    INTERNAL_CATEGORY_ROWS,
     INTERNAL_CATEGORY_COLS,
     INTERNAL_STATUS_FILTER,
-    DEPARTMENT_OPTIONS,
 } from "./internalCategoriesData";
 import CreateCategoryDialog from "./CreateCategoryDialog";
+import {
+    MODULE,
+    categoryQueryFrom,
+    categoryRowForTable,
+    createCategory,
+    fetchCategories,
+    fetchRoleNames,
+    setCategoryStatus,
+} from "./complaintsConfigApi";
 
 // Reached from the "Entry & Category Configuration" tile on the Internal
 // Complaints tab of the Configurations screen.
@@ -52,15 +59,57 @@ export default function InternalCategoriesPage({ embedded = false }) {
     const websiteSettings = useSelector(selectWebsiteSettings);
     const accent = websiteSettings.mainColor;
 
-    const [rows, setRows] = useState(INTERNAL_CATEGORY_ROWS);
+    /* The Staff Concern half of the same endpoints the parent screen uses — only the
+       moduleType differs. */
+    const moduleType = MODULE.staff;
+
+    const [rows, setRows] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
+    const [searchInput, setSearchInput] = useState("");
     const [search, setSearch] = useState("");
     const [status, setStatus] = useState("All Status");
     const [department, setDepartment] = useState("All Departments");
     const [addOpen, setAddOpen] = useState(false);
 
-    // Seeded rows carry no department, so they fall back to their owner — see the
-    // note on DEPARTMENT_OPTIONS. Rows created through the dialog have a real one.
+    /* Search and status are applied server-side; department is not a filter the API takes,
+       so it stays local over the returned page. */
+    const load = useCallback(async () => {
+        setLoading(true);
+        const result = await fetchCategories({
+            moduleType,
+            ...categoryQueryFrom({ search, status, priority: "" }),
+            page: 1,
+            pageSize: 100,
+        });
+        if (!result.ok) {
+            setError(result.message);
+            setRows([]);
+        } else {
+            setError("");
+            setRows(result.rows.map(categoryRowForTable));
+        }
+        setLoading(false);
+    }, [moduleType, search, status]);
+
+    useEffect(() => {
+        load();
+    }, [load]);
+
+    useEffect(() => {
+        const id = setTimeout(() => setSearch(searchInput), 350);
+        return () => clearTimeout(id);
+    }, [searchInput]);
+
+    /* Not every category carries a department, so fall back to its owner. */
     const departmentOf = (row) => row.department || row.owner;
+
+    /* The same list without the filter sentinel, for the create dialog — it is
+       choosing a department, not filtering by one. */
+    const departmentChoices = useMemo(
+        () => [...new Set(rows.map(departmentOf).filter(Boolean))].sort(),
+        [rows],
+    );
 
     const departmentOptions = useMemo(
         () => [
@@ -70,39 +119,64 @@ export default function InternalCategoriesPage({ embedded = false }) {
         [rows],
     );
 
-    const visibleRows = useMemo(() => {
-        const q = search.trim().toLowerCase();
-        return rows.filter(
-            (r) =>
-                (!q || r.name.toLowerCase().includes(q) || r.owner.toLowerCase().includes(q)) &&
-                (status === "All Status" || r.status === status) &&
-                (department === "All Departments" || departmentOf(r) === department),
-        );
-    }, [rows, search, status, department]);
-
-    const toggleStatus = (id) =>
-        setRows((prev) =>
-            prev.map((r) =>
-                r.id === id ? { ...r, status: r.status === "ACTIVE" ? "INACTIVE" : "ACTIVE" } : r,
+    /* `rows` already came back searched and status-filtered by the server. Department is
+       not a filter the API accepts, so it is the one narrowing still done here. */
+    const visibleRows = useMemo(
+        () =>
+            rows.filter(
+                (r) => department === "All Departments" || departmentOf(r) === department,
             ),
-        );
-
-    const ownerOptions = useMemo(
-        () => [...new Set(rows.map((r) => r.owner).filter(Boolean))].sort(),
-        [rows],
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [rows, department],
     );
 
-    // Local only — appends to component state until the categories API exists.
-    const addCategory = (draft) => {
-        setRows((prev) => [
-            ...prev,
-            {
-                ...draft,
-                id: Math.max(0, ...prev.map((r) => r.id)) + 1,
-                priority: (draft.priority || "Normal").toUpperCase(),
-            },
-        ]);
+    const toggleStatus = async (id) => {
+        const row = rows.find((r) => r.id === id);
+        if (!row) return;
+        const result = await setCategoryStatus({
+            categoryId: row.categoryId,
+            isActive: row.status !== "ACTIVE",
+        });
+        if (!result.ok) setError(result.message);
+        else load();
+    };
+
+    /* The picker offers the school's roles, not the owners already in use — an unowned
+       category list would otherwise leave the dropdown empty with nothing to choose. */
+    const [ownerOptions, setOwnerOptions] = useState([]);
+
+    useEffect(() => {
+        let cancelled = false;
+        fetchRoleNames().then((names) => {
+            if (!cancelled) setOwnerOptions(names);
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    /* The API needs a categoryCode the dialog has no field for; derived from the name in
+       the SNAKE_CASE every seeded code uses. */
+    const codeFrom = (name) =>
+        name.trim().toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 40);
+
+    const addCategory = async (draft) => {
+        const result = await createCategory({
+            moduleType,
+            code: codeFrom(draft.name),
+            name: draft.name.trim(),
+            description: draft.description || "",
+            department: draft.department || "",
+            priority: (draft.priority || "Normal").replace(/^(.)(.*)$/, (m, a, b) => a + b.toLowerCase()),
+            ownerRole: draft.owner || "",
+            isActive: draft.status !== "INACTIVE",
+        });
+        if (!result.ok) {
+            setError(result.message);
+            return;
+        }
         setAddOpen(false);
+        load();
     };
 
     return (
@@ -175,8 +249,8 @@ export default function InternalCategoriesPage({ embedded = false }) {
                 }}
             >
                 <TextField
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
                     placeholder="Search categories..."
                     slotProps={{
                         input: {
@@ -273,7 +347,29 @@ export default function InternalCategoriesPage({ embedded = false }) {
                             </Typography>
                         </Box>
 
-                        {visibleRows.map((row) => {
+                        {loading && (
+                            <Box sx={{ ...tableBodyRowSx, justifyContent: "center", py: 4 }}>
+                                <Typography sx={{ fontSize: "13px", color: C.textMuted }}>
+                                    Loading categories…
+                                </Typography>
+                            </Box>
+                        )}
+
+                        {!loading && error && (
+                            <Box sx={{ ...tableBodyRowSx, justifyContent: "center", py: 4 }}>
+                                <Typography sx={{ fontSize: "13px", color: C.red }}>{error}</Typography>
+                            </Box>
+                        )}
+
+                        {!loading && !error && visibleRows.length === 0 && (
+                            <Box sx={{ ...tableBodyRowSx, justifyContent: "center", py: 4 }}>
+                                <Typography sx={{ fontSize: "13px", color: C.textMuted }}>
+                                    No categories match these filters.
+                                </Typography>
+                            </Box>
+                        )}
+
+                        {!loading && visibleRows.map((row) => {
                             const isActive = row.status === "ACTIVE";
                             return (
                                 <Box key={row.id} sx={{ ...tableBodyRowSx, gap: COL.gap }}>
@@ -352,7 +448,7 @@ export default function InternalCategoriesPage({ embedded = false }) {
                 onClose={() => setAddOpen(false)}
                 onSave={addCategory}
                 ownerOptions={ownerOptions}
-                departmentOptions={DEPARTMENT_OPTIONS}
+                departmentOptions={departmentChoices}
             />
         </Box>
     );

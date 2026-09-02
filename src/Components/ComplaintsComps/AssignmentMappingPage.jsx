@@ -1,9 +1,9 @@
-import React, { useMemo } from "react";
+import React from "react";
 import { useNavigate } from "react-router-dom";
 
 import AssignmentMappingScreen from "./AssignmentMappingScreen";
-import { CATEGORY_ROWS } from "./complaintCategoriesData";
-import { ASSIGNMENT_MAPPINGS, MODE_STYLES, COLUMNS } from "./assignmentMappingData";
+import { MODE_STYLES, COLUMNS } from "./assignmentMappingData";
+import { MODULE } from "./complaintsConfigApi";
 
 // Parent-side mapping. Reached from the "Assignment Mapping" tile on the
 // Complaint Configuration screen.
@@ -12,11 +12,6 @@ const CONFIG_PATH = "/dashboardmenu/complaints/configuration";
 
 export default function AssignmentMappingPage({ embedded = false }) {
     const navigate = useNavigate();
-
-    const categories = useMemo(
-        () => CATEGORY_ROWS.filter((c) => c.status === "ACTIVE").map((c) => c.name),
-        [],
-    );
 
     return (
         <AssignmentMappingScreen
@@ -28,9 +23,8 @@ export default function AssignmentMappingPage({ embedded = false }) {
             ]}
             title="Complaint Assignment Mapping"
             subtitle="Define which role and staff member should normally handle each complaint category."
-            initialRows={ASSIGNMENT_MAPPINGS}
+            moduleType={MODULE.parent}
             columns={COLUMNS}
-            categories={categories}
             modeStyles={MODE_STYLES}
             modeChipWidth={120}
         />

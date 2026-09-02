@@ -11,44 +11,6 @@ export const AMBER = {
     activeRow: "#FFFCF5",
 };
 
-// { id, name, badge }  — userCount is derived from ROLE_USERS below so the rail
-// can never disagree with the list it opens.
-export const INTERNAL_ROLES = [
-    { id: "superadmin", name: "Super Admin", badge: "Authorized" },
-    { id: "admin", name: "Admin", badge: "Authorized" },
-    { id: "officestaff", name: "Office Staff", badge: "Authorized" },
-    { id: "teacher", name: "Teacher", badge: "Authorized" },
-];
-
-// { id, name, title, initials }
-// The comp draws four Admin users plus a "+ view 1 more" link, so the Admin list
-// holds five — the fifth is invented to make that affordance real. Only the four
-// named in the comp are from the design. Other roles are placeholders sized to
-// the comp's rail counts (1 / 5 / 32).
-export const INTERNAL_ROLE_USERS = {
-    superadmin: [{ id: "isa1", name: "Tamil Selvan", title: "Principal", initials: "TS" }],
-    admin: [
-        { id: "iad1", name: "Rajesh Kumar", title: "Vice Principal", initials: "RK" },
-        { id: "iad2", name: "Adithu Devi", title: "Head of Academics", initials: "AD" },
-        { id: "iad3", name: "Meena Kumar", title: "Admin Officer", initials: "MK" },
-        { id: "iad4", name: "Karthik", title: "Sports Administrator", initials: "K" },
-        { id: "iad5", name: "Priya Raman", title: "Operations Lead", initials: "PR" },
-    ],
-    officestaff: [
-        { id: "ios1", name: "Suresh Babu", title: "Office Superintendent", initials: "SB" },
-        { id: "ios2", name: "Lakshmi Narayan", title: "Front Desk", initials: "LN" },
-        { id: "ios3", name: "Divya Shree", title: "Records Clerk", initials: "DS" },
-        { id: "ios4", name: "Anand Raj", title: "Stores Clerk", initials: "AR" },
-        { id: "ios5", name: "Nithya S", title: "Reception", initials: "NS" },
-    ],
-    teacher: [
-        { id: "ite1", name: "Vignesh Rao", title: "Class Teacher", initials: "VR" },
-        { id: "ite2", name: "Sangeetha M", title: "Subject Teacher", initials: "SM" },
-        { id: "ite3", name: "Arun Prasad", title: "Sports Coordinator", initials: "AP" },
-        { id: "ite4", name: "Kavitha R", title: "Lab Incharge", initials: "KR" },
-    ],
-};
-
 // How many users the panel lists before the "+ view N more" link.
 export const USERS_PREVIEW_COUNT = 4;
 

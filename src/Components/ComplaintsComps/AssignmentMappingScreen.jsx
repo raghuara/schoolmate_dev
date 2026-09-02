@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
     Box,
     Button,
@@ -20,6 +20,14 @@ import ComplaintsBreadcrumb from "./ComplaintsBreadcrumb";
 import useComplaintsPermissions from "./useComplaintsPermissions";
 import AssignmentMappingDrawer from "./AssignmentMappingDrawer";
 import { STATUS_STYLES } from "./assignmentMappingData";
+import {
+    MODE_VALUE,
+    assignmentRowForTable,
+    createAssignmentMapping,
+    fetchAssignmentMappings,
+    fetchCategories,
+    updateAssignmentMapping,
+} from "./complaintsConfigApi";
 
 // Shared by the parent-side and internal (School Operations) mapping screens —
 // the comps are the same table with different copy, categories and mode tints.
@@ -73,9 +81,10 @@ export default function AssignmentMappingScreen({
     trail,
     title,
     subtitle,
-    initialRows,
+    /* Which stream to configure. Parent and Staff Concern share these endpoints and are
+       told apart by moduleType, so this one screen serves both. */
+    moduleType,
     columns,
-    categories,
     modeStyles,
     modeChipWidth = 120,
 }) {
@@ -85,21 +94,74 @@ export default function AssignmentMappingScreen({
     // Who may open and change this mapping comes from the role permissions.
     const { canViewConfig, canEditConfig } = useComplaintsPermissions();
 
-    const [rows, setRows] = useState(initialRows);
+    const [rows, setRows] = useState([]);
+    /* The picker shows category names but the API addresses them by id, so the active
+       categories are read alongside the mappings to translate one to the other. */
+    const [categoryIndex, setCategoryIndex] = useState({});
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
     // null = closed, {} = adding, row = editing that row.
     const [editing, setEditing] = useState(null);
 
-    if (!canViewConfig) return <Navigate to="/dashboardmenu/dashboard" replace />;
+    const load = useCallback(async () => {
+        setLoading(true);
+        const [mappings, cats] = await Promise.all([
+            fetchAssignmentMappings({ moduleType }),
+            fetchCategories({ moduleType, status: "Active", page: 1, pageSize: 200 }),
+        ]);
+        if (!mappings.ok) {
+            setError(mappings.message);
+            setRows([]);
+        } else {
+            setError("");
+            setRows(mappings.rows.map(assignmentRowForTable));
+        }
+        if (cats.ok) {
+            setCategoryIndex(
+                cats.rows.reduce((acc, c) => ({ ...acc, [c.name]: c.categoryId }), {}),
+            );
+        }
+        setLoading(false);
+    }, [moduleType]);
 
-    // Local only — saves land in component state until the mapping API exists.
-    const saveMapping = (mapping) => {
-        setRows((prev) =>
-            mapping.id
-                ? prev.map((r) => (r.id === mapping.id ? mapping : r))
-                : [...prev, { ...mapping, id: Math.max(0, ...prev.map((r) => r.id)) + 1 }],
-        );
+    useEffect(() => {
+        load();
+    }, [load]);
+
+    const categories = useMemo(() => Object.keys(categoryIndex).sort(), [categoryIndex]);
+
+    const saveMapping = async (mapping) => {
+        const categoryId = mapping.categoryId ?? categoryIndex[mapping.category];
+        if (!categoryId) {
+            setError("That category no longer exists — reload and try again.");
+            return;
+        }
+        const draft = {
+            assignmentMappingId: mapping.assignmentMappingId ?? mapping.id,
+            categoryId,
+            mode: MODE_VALUE[mapping.mode] || "Manual",
+            role: mapping.role || "",
+            // Only a manual row names a person; an auto row is resolved at intake
+            assignToRollNumber: MODE_VALUE[mapping.mode] === "Auto" ? "" : mapping.owner || "",
+            grade: mapping.grade || "",
+            section: mapping.section || "",
+            department: mapping.department || "",
+            priorityOverride: mapping.priorityOverride || "",
+            sortOrder: mapping.sortOrder ?? 0,
+            isActive: mapping.status !== "Inactive",
+        };
+        const result = draft.assignmentMappingId
+            ? await updateAssignmentMapping(draft)
+            : await createAssignmentMapping(draft);
+        if (!result.ok) {
+            setError(result.message);
+            return;
+        }
         setEditing(null);
+        load();
     };
+
+    if (!canViewConfig) return <Navigate to="/dashboardmenu/dashboard" replace />;
 
     return (
         <Box sx={{ p: embedded ? 0 : "28px", display: "flex", flexDirection: "column", gap: 3 }}>
@@ -178,7 +240,33 @@ export default function AssignmentMappingScreen({
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {rows.map((row) => (
+                            {/* Loading, failed and genuinely empty are three different
+                                situations — a bare table says nothing about which. */}
+                            {loading && (
+                                <TableRow>
+                                    <TableCell colSpan={6} sx={{ ...bodyCellSx, textAlign: "center", py: 4, color: C.textMuted }}>
+                                        Loading mappings…
+                                    </TableCell>
+                                </TableRow>
+                            )}
+
+                            {!loading && error && (
+                                <TableRow>
+                                    <TableCell colSpan={6} sx={{ ...bodyCellSx, textAlign: "center", py: 4, color: C.red }}>
+                                        {error}
+                                    </TableCell>
+                                </TableRow>
+                            )}
+
+                            {!loading && !error && rows.length === 0 && (
+                                <TableRow>
+                                    <TableCell colSpan={6} sx={{ ...bodyCellSx, textAlign: "center", py: 4, color: C.textMuted }}>
+                                        No assignment mappings yet — use Add Mapping to route a category to a role.
+                                    </TableCell>
+                                </TableRow>
+                            )}
+
+                            {!loading && rows.map((row) => (
                                 <TableRow key={row.id} hover>
                                     <TableCell sx={{ ...bodyCellSx, width: 220, fontWeight: 600 }}>
                                         {row.category}

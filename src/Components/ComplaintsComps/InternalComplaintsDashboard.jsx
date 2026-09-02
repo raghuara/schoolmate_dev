@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Box, Grid, Typography } from "@mui/material";
 
 import { C, cardSx } from "./complaintsTokens";
@@ -15,18 +15,17 @@ import {
     DonutGauge,
 } from "./ComplaintsCards";
 import {
-    INTERNAL_STATS,
-    ACTIONS_BY_CATEGORY,
-    ACTIONS_BY_PRIORITY,
+    INTERNAL_STAT_DEFS,
     RESOLUTION_TIME,
     ON_TIME_COMPLETION,
     REOPENED_ACTIONS,
-    STAFF_ACTIONS,
     COMPLIANCE_OVERVIEW,
-    REPEATED_ISSUES,
     FEED_CARDS,
-    INTERNAL_SLA_METRICS,
-} from "./internalComplaintsMockData";
+    NOT_IN_DASHBOARD_API,
+} from "./internalDashboardData";
+import { statsFrom, slaMetricsFrom } from "./complaintsDashboardData";
+import { MODULE } from "./complaintsConfigApi";
+import { fetchManagementDashboard } from "./complaintsWorkApi";
 
 // Five tiles per row on desktop — 12 / 5 = 2.4 columns each.
 const STAT_SIZE = { xs: 12, sm: 6, md: 4, lg: 2.4 };
@@ -37,7 +36,9 @@ const NARROW_SIZE = { xs: 12, sm: 12, md: 5, lg: 5 };
 
 // Figma sized the priority bars in fixed pixels; scale against the largest count instead
 // so the row stays proportional at any container width.
-const priorityMax = Math.max(...ACTIONS_BY_PRIORITY.map((p) => p.value), 1);
+/* The priority bars scale against the largest band, so an all-zero response still
+   divides by 1 rather than producing NaN widths. */
+const priorityMaxOf = (rows) => Math.max(...rows.map((p) => p.value), 1);
 
 /* On-Time Completion — headline + caption on the left, gauge on the right. */
 const OnTimeCard = () => {
@@ -77,11 +78,50 @@ const OnTimeCard = () => {
 };
 
 export default function InternalComplaintsDashboard() {
+    const [data, setData] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
+
+    useEffect(() => {
+        let cancelled = false;
+        fetchManagementDashboard({ moduleType: MODULE.staff }).then((result) => {
+            if (cancelled) return;
+            if (result.ok) setData(result);
+            else setError(result.message || "Could not load the dashboard.");
+            setLoading(false);
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    const counts = data?.counts || null;
+    const empty = [];
+    const byPriority = data?.byPriority || empty;
+    const priorityMax = priorityMaxOf(byPriority);
+    const missing = (
+        <Typography sx={{ fontSize: "12px", color: C.textFaint }}>{NOT_IN_DASHBOARD_API}</Typography>
+    );
+
     return (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            {error && (
+                <Box
+                    sx={{
+                        px: 2,
+                        py: 1.25,
+                        bgcolor: "#FFFBEB",
+                        border: "1px solid #FDE68A",
+                        borderRadius: "8px",
+                    }}
+                >
+                    <Typography sx={{ fontSize: "12.5px", color: "#92400E" }}>{error}</Typography>
+                </Box>
+            )}
+
             {/* KPI row */}
             <Grid container spacing={1.5}>
-                {INTERNAL_STATS.map((s) => (
+                {statsFrom(INTERNAL_STAT_DEFS, counts).map((s) => (
                     <Grid key={s.label} size={STAT_SIZE} sx={{ display: "flex" }}>
                         <StatCard {...s} />
                     </Grid>
@@ -92,15 +132,16 @@ export default function InternalComplaintsDashboard() {
             <Grid container spacing={2}>
                 <Grid size={HALF_SIZE} sx={{ display: "flex" }}>
                     <SectionCard title="Actions by Category" subtitle="Internal audit and maintenance">
-                        {ACTIONS_BY_CATEGORY.map((r, i) => (
-                            <StatRow key={r.label} {...r} isLast={i === ACTIONS_BY_CATEGORY.length - 1} />
+                        {(data?.byCategory || empty).map((r, i) => (
+                            <StatRow key={r.label} {...r} isLast={i === (data?.byCategory || empty).length - 1} />
                         ))}
+                        {!loading && !(data?.byCategory || empty).length && missing}
                     </SectionCard>
                 </Grid>
                 <Grid size={HALF_SIZE} sx={{ display: "flex" }}>
                     <SectionCard title="Actions by Priority" subtitle="Urgency distribution" hideChevron>
                         <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-                            {ACTIONS_BY_PRIORITY.map((r) => (
+                            {byPriority.map((r) => (
                                 <MetricBarRow key={r.label} {...r} pct={(r.value / priorityMax) * 100} />
                             ))}
                         </Box>
@@ -129,14 +170,16 @@ export default function InternalComplaintsDashboard() {
                         subtitle="Active workloads assigned to coordinators & leads"
                         hideChevron
                     >
-                        {STAFF_ACTIONS.map((r, i) => (
-                            <ChipRow key={r.label} {...r} divided isLast={i === STAFF_ACTIONS.length - 1} />
+                        {(data?.byOwner || empty).map((r, i) => (
+                            <ChipRow key={r.label} {...r} divided isLast={i === (data?.byOwner || empty).length - 1} />
                         ))}
+                        {!loading && !(data?.byOwner || empty).length && missing}
                     </SectionCard>
                 </Grid>
                 <Grid size={NARROW_SIZE} sx={{ display: "flex" }}>
                     <SectionCard title="Operational & Compliance Overview" hideChevron>
                         <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+                            {!COMPLIANCE_OVERVIEW.length && missing}
                             {COMPLIANCE_OVERVIEW.map((r) => (
                                 <ComplianceRow key={r.label} {...r} />
                             ))}
@@ -149,7 +192,8 @@ export default function InternalComplaintsDashboard() {
             <Grid container spacing={2}>
                 <Grid size={HALF_SIZE} sx={{ display: "flex" }}>
                     <SectionCard title="Repeated Issues" subtitle="Chronic operational bottlenecks" hideChevron>
-                        {REPEATED_ISSUES.map((r) => (
+                        {!loading && !(data?.repeatedIssues || empty).length && missing}
+                        {(data?.repeatedIssues || empty).map((r) => (
                             <ChipRow key={r.label} {...r} />
                         ))}
                     </SectionCard>
@@ -163,7 +207,7 @@ export default function InternalComplaintsDashboard() {
                         hideChevron
                     >
                         <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-                            {INTERNAL_SLA_METRICS.map((r) => (
+                            {slaMetricsFrom(data?.averages).map((r) => (
                                 <SlaRow key={r.label} {...r} />
                             ))}
                         </Box>
@@ -173,6 +217,7 @@ export default function InternalComplaintsDashboard() {
 
             {/* Suggestions / appreciations / flagged staff */}
             <Grid container spacing={2}>
+                {!FEED_CARDS.length && missing}
                 {FEED_CARDS.map((card) => (
                     <Grid key={card.title} size={THIRD_SIZE} sx={{ display: "flex" }}>
                         <ListCard {...card} />

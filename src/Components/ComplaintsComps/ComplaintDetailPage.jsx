@@ -1,6 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { Box, Button, Typography } from "@mui/material";
-import dayjs from "dayjs";
+import React, { useCallback, useEffect, useState } from "react";
+import { Box, Button, Snackbar, Typography } from "@mui/material";
 import { useSelector } from "react-redux";
 import { useNavigate, useParams } from "react-router-dom";
 import ChevronRightOutlinedIcon from "@mui/icons-material/ChevronRightOutlined";
@@ -15,18 +14,23 @@ import HelpOutlineOutlinedIcon from "@mui/icons-material/HelpOutlineOutlined";
 import { selectWebsiteSettings } from "../../Redux/Slices/websiteSettingsSlice";
 import { C } from "./complaintsTokens";
 import {
-    getComplaintDetail,
     DETAIL_CATEGORY_TONE,
     DETAIL_PRIORITY_TONES,
     DETAIL_STATUS_TONES,
     CONTROL_ACTIONS,
-    advanceTimeline,
-    moveTimelineTo,
     nextPendingStep,
-    activeStep,
 } from "./complaintDetailData";
 import ComplaintTimeline from "./ComplaintTimeline";
 import UpdateStatusDrawer from "./UpdateStatusDrawer";
+import ComplaintActionDialog from "./ComplaintActionDialog";
+import { updateComplaintStatus } from "./complaintsActionsApi";
+import { toneFor } from "./complaintsManagementData";
+import {
+    attachmentDownloadUrl,
+    detailForScreen,
+    fetchComplaintDetail,
+    fetchComplaintTimeline,
+} from "./complaintsDetailApi";
 
 // Reached from "View" on a row in the Complaints Management workspace.
 //
@@ -90,53 +94,168 @@ export default function ComplaintDetailPage() {
     const websiteSettings = useSelector(selectWebsiteSettings);
     const accent = websiteSettings.mainColor;
 
-    // Held in state so the control panel can move the complaint along. Re-seeded
-    // when a different reference is opened. Swap the seed for a fetch by ref.
-    const [detail, setDetail] = useState(() => getComplaintDetail(id));
+    /* The route param IS the complaint token — MSMS-CMP-2026-000005 — which is what the
+       detail endpoint addresses. */
+    const [detail, setDetail] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
     const [statusOpen, setStatusOpen] = useState(false);
 
-    useEffect(() => {
-        setDetail(getComplaintDetail(id));
+    /* Which action dialog is open, if any. */
+    const [actionKind, setActionKind] = useState(null);
+    const [toast, setToast] = useState("");
+
+    /* Pulled out of the effect so an action can re-read the record once it has written.
+       None of the action endpoints return the updated complaint, and the timeline entry
+       they write only appears on a re-read. */
+    const loadDetail = useCallback(async () => {
+        const result = await fetchComplaintDetail({ complaintToken: id });
+        if (result.ok) {
+            setError("");
+            setDetail(detailForScreen(result));
+        }
+        return result;
     }, [id]);
 
-    const priorityTone = DETAIL_PRIORITY_TONES[detail.priority] || DETAIL_PRIORITY_TONES["Normal Priority"];
-    const statusTone = DETAIL_STATUS_TONES[detail.status] || { bg: C.track, color: C.textMuted };
+    useEffect(() => {
+        let cancelled = false;
+        setLoading(true);
+        fetchComplaintDetail({ complaintToken: id }).then((result) => {
+            if (cancelled) return;
+            if (!result.ok) {
+                setError(
+                    result.routeMissing
+                        ? "The complaints service is not responding — this is a server-side outage, not this complaint."
+                        : result.notFound
+                          ? `Complaint ${id} was not found on the server.`
+                          : result.message,
+                );
+                setDetail(null);
+            } else {
+                setError("");
+                setDetail(detailForScreen(result));
+            }
+            setLoading(false);
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [id]);
 
-    const stamp = () => dayjs().format("DD MMM YYYY");
 
-    // "Next" advances one step along the timeline with no prompt: the active step
-    // completes, the following one becomes active, and the header status follows it.
-    const upcoming = nextPendingStep(detail.timeline);
-    const handleNext = () => {
-        if (!upcoming) return;
-        const timeline = advanceTimeline(detail.timeline, stamp());
-        setDetail((d) => ({ ...d, timeline, status: activeStep(timeline)?.label || d.status }));
+    /* The detail response already carries the timeline, so this is a refresh of just that
+       section — useful because a complaint moves while someone has it open (the automation
+       escalates, a parent replies) and re-reading the whole record to see one new event is
+       wasteful. */
+    const [refreshingTimeline, setRefreshingTimeline] = useState(false);
+
+    const refreshTimeline = async () => {
+        setRefreshingTimeline(true);
+        const result = await fetchComplaintTimeline({ complaintToken: id });
+        if (result.ok) {
+            setDetail((prev) =>
+                prev
+                    ? {
+                          ...prev,
+                          timeline: result.events.map((event) => ({
+                              label: event.eventType,
+                              at: `${
+                                  event.at
+                                      ? new Date(event.at).toLocaleString(undefined, {
+                                            day: "2-digit",
+                                            month: "short",
+                                            year: "numeric",
+                                            hour: "2-digit",
+                                            minute: "2-digit",
+                                        })
+                                      : ""
+                              }${event.actorName ? ` · ${event.actorName}` : ""}`,
+                              note: event.message,
+                              state: "done",
+                          })),
+                      }
+                    : prev,
+            );
+        }
+        setRefreshingTimeline(false);
     };
 
-    // The drawer can pick a target that is not a timeline step (Escalated, On Hold);
-    // those change the status only, leaving the timeline where it is.
-    const handleStatusSubmit = ({ status, note }) => {
-        setDetail((d) => {
-            const timeline = moveTimelineTo(d.timeline, status, stamp());
-            const noteEntry = note
-                ? [
-                      ...d.internalNotes,
-                      {
-                          id: `n${d.internalNotes.length + 1}`,
-                          text: `"${note}"`,
-                          author: "Admin Tamil",
-                          at: dayjs().format("DD MMM YYYY, hh:mm A"),
-                      },
-                  ]
-                : d.internalNotes;
-            return { ...d, status, timeline, internalNotes: noteEntry };
+    if (loading) {
+        return (
+            <Box sx={{ p: "28px" }}>
+                <Typography sx={{ fontSize: "14px", color: C.textMuted }}>Loading complaint…</Typography>
+            </Box>
+        );
+    }
+
+    if (error || !detail) {
+        return (
+            <Box sx={{ p: "28px" }}>
+                <Typography sx={{ fontSize: "14px", color: C.red }}>
+                    {error || "That complaint could not be found."}
+                </Typography>
+            </Box>
+        );
+    }
+
+    const priorityTone = DETAIL_PRIORITY_TONES[detail.priority] || DETAIL_PRIORITY_TONES["Normal Priority"];
+    const statusTone = toneFor(DETAIL_STATUS_TONES, detail.status) || { bg: C.track, color: C.textMuted };
+
+
+    /* "Next" names the step the complaint would move to, but moving it is a status
+       change like any other, so the button opens the same drawer. It used to advance the
+       timeline in local state only, which showed progress the server did not have. */
+    const upcoming = nextPendingStep(detail.timeline);
+
+    /**
+     * Send the status change, then re-read.
+     *
+     * The drawer's note is the INTERNAL record; `parentMessage` is left empty because the
+     * drawer does not ask for parent-facing wording, and publishing an internal note to a
+     * parent is not a default worth taking.
+     */
+    const handleStatusSubmit = async ({ status, note }) => {
+        const result = await updateComplaintStatus({
+            complaintToken: id,
+            status: STATUS_TO_API[status] || status,
+            staffResponse: note || "",
         });
         setStatusOpen(false);
+        if (!result.ok) {
+            setToast(result.message || "Could not update the status");
+            return;
+        }
+        setToast(result.message || "Status updated");
+        loadDetail();
     };
 
     const CONTROL_HANDLER = {
-        next: handleNext,
+        next: () => setStatusOpen(true),
         updateStatus: () => setStatusOpen(true),
+        escalate: () => setActionKind("escalate"),
+        requestInfo: () => setActionKind("requestInfo"),
+        addNote: () => setActionKind("addNote"),
+        assign: () => setActionKind("assign"),
+    };
+
+    /* What the SERVER says this user may do to this complaint. The comps' CONTROL_ACTIONS
+       list is what the design drew; allowedActions is what is actually permitted, so a
+       button is offered only when it appears in both. */
+    const API_ACTION = {
+        escalate: "Escalate",
+        requestInfo: "RequestParentInformation",
+        assign: "Assign",
+    };
+    const permitted = (key) => !API_ACTION[key] || detail.allowedActions.includes(API_ACTION[key]);
+
+    /* The status endpoint takes PascalCase without spaces, while the drawer offers the
+       comps' wording. Anything unmapped is sent through as-is rather than silently dropped,
+       so a new option surfaces as a server-side rejection rather than a no-op. */
+    const STATUS_TO_API = {
+        "Action in Progress": "InProgress",
+        Resolved: "Resolved",
+        Escalated: "Escalated",
+        "On Hold": "OnHold",
     };
 
     const crumbSx = (current) => ({
@@ -310,8 +429,19 @@ export default function ComplaintDetailPage() {
                                                 {a.name}
                                             </Typography>
                                             <Box sx={{ pl: 1 }}>
+                                                {/* The endpoint answers with the file itself and a
+                                                    Content-Disposition filename, so the browser is handed
+                                                    the URL rather than the bytes being pulled through axios
+                                                    and re-wrapped into a blob. Opened in a new tab so a
+                                                    failed download cannot replace the detail screen. */}
                                                 <Typography
-                                                    onClick={runAction}
+                                                    component="a"
+                                                    href={attachmentDownloadUrl({
+                                                        complaintToken: detail.ref,
+                                                        attachmentId: a.id,
+                                                    })}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
                                                     sx={{
                                                         fontSize: "12px",
                                                         fontWeight: 700,
@@ -483,7 +613,20 @@ export default function ComplaintDetailPage() {
 
                     {/* Timeline */}
                     <Box sx={cardSx}>
-                        <Typography sx={sectionTitleSx}>Complaint Timeline</Typography>
+                        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                            <Typography sx={sectionTitleSx}>Complaint Timeline</Typography>
+                            <Typography
+                                onClick={refreshingTimeline ? undefined : refreshTimeline}
+                                sx={{
+                                    fontSize: "12px",
+                                    fontWeight: 700,
+                                    color: refreshingTimeline ? C.textFaint : C.blue,
+                                    cursor: refreshingTimeline ? "default" : "pointer",
+                                }}
+                            >
+                                {refreshingTimeline ? "Refreshing…" : "Refresh"}
+                            </Typography>
+                        </Box>
                         <Divider />
                         <ComplaintTimeline steps={detail.timeline} accent={accent} />
                     </Box>
@@ -497,7 +640,8 @@ export default function ComplaintDetailPage() {
                                 const Icon = CONTROL_ICON[a.key];
                                 const primary = a.variant === "primary";
                                 // Next is dead once the timeline has nothing left to advance to.
-                                const disabled = a.key === "next" && !upcoming;
+                                const disabled =
+                                    !permitted(a.key) || (a.key === "next" && !upcoming);
                                 return (
                                     <Button
                                         key={a.key}
@@ -545,6 +689,26 @@ export default function ComplaintDetailPage() {
                 complaint={detail}
                 onClose={() => setStatusOpen(false)}
                 onSubmit={handleStatusSubmit}
+            />
+
+            <ComplaintActionDialog
+                open={Boolean(actionKind)}
+                kind={actionKind}
+                complaintToken={id}
+                onClose={() => setActionKind(null)}
+                onDone={(message) => {
+                    setActionKind(null);
+                    setToast(message);
+                    loadDetail();
+                }}
+            />
+
+            <Snackbar
+                open={Boolean(toast)}
+                autoHideDuration={4000}
+                onClose={() => setToast("")}
+                message={toast}
+                anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
             />
         </Box>
     );
