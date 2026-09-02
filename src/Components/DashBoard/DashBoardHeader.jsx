@@ -28,6 +28,7 @@ import { logout, hasMainMenuAccess } from '../../Redux/Slices/AuthSlice';
 import { selectChatUnreadTotal } from '../../Redux/Slices/chatSlice';
 import { DashboardUsers } from '../../Api/Api';
 import { fetchComplaintNotifications } from '../ComplaintsComps/complaintsDetailApi';
+import HelpCenterDrawer from './HelpComps/HelpCenterDrawer';
 import {
   fetchAcademicYearConfig,
   setSelectedAcademicYear,
