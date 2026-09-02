@@ -97,8 +97,6 @@ export default function FeaturePermissionsPage() {
     const isSuperAdmin = (role.name || "").toLowerCase() === "super admin";
 
     const [search, setSearch] = useState("");
-    // Access map — driven by GetUserTypePermissions (super admin always full).
-    const [access, setAccess] = useState(() => Object.fromEntries(MODULES.map((m) => [m.key, isSuperAdmin])));
     const [permissions, setPermissions] = useState(null);
     const [loadingPerms, setLoadingPerms] = useState(false);
 
@@ -136,12 +134,6 @@ export default function FeaturePermissionsPage() {
             setDashboardView(storedView);
             setSavedDashboardView(storedView);
 
-            const menus = data?.mainMenus || [];
-            // A module is enabled if its mainMenu is present in the response (super admin = all on).
-            setAccess(Object.fromEntries(MODULES.map((m) => {
-                const present = menus.some((x) => x.mainMenu === MODULE_TO_MAINMENU[m.key]);
-                return [m.key, isSuperAdmin ? true : present];
-            })));
         } catch (err) {
             showSnack(err?.response?.data?.message || "Failed to load permissions for this user type.", false);
         } finally {
@@ -153,12 +145,6 @@ export default function FeaturePermissionsPage() {
         fetchPermissions();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [role?.id]);
-
-    const toggle = (key) => {
-        if (isSuperAdmin) { showSnack("Super Admin always has full access.", false); return; }
-        setAccess((prev) => ({ ...prev, [key]: !prev[key] }));
-        // TODO: PUT module-access for this role
-    };
 
     const dashboardDirty = dashboardView !== savedDashboardView;
     const activeDashboard = DASHBOARD_VIEWS.find((v) => v.key === dashboardView);
@@ -194,12 +180,37 @@ export default function FeaturePermissionsPage() {
         }
     };
 
+    /* GetUserTypePermissions returns EVERY mainMenu for every role, each with its
+       full permission tree - only the Y/N flags inside differ. So "is this module
+       on" has to count the flags that are actually granted. Testing that the
+       mainMenu exists reports every module as on for every role, which is what
+       showed Fee & Finance enabled for Staff while all 17 of its permissions
+       were "N" and the Configure screen read 0/3, 0/2, 0/4 ... */
+    const moduleGrants = useMemo(() => {
+        const menus = permissions?.mainMenus || [];
+        return Object.fromEntries(MODULES.map((m) => {
+            const menu = menus.find((x) => x.mainMenu === MODULE_TO_MAINMENU[m.key]);
+            let granted = 0;
+            let total = 0;
+            (menu?.subMenus || []).forEach((sub) => {
+                Object.values(sub?.permissions || {}).forEach((value) => {
+                    total += 1;
+                    if (String(value).toUpperCase() === "Y") granted += 1;
+                });
+            });
+            return [m.key, { granted, total }];
+        }));
+    }, [permissions]);
+
+    const grantsFor = (key) => moduleGrants[key] || { granted: 0, total: 0 };
+    const isOn = (key) => isSuperAdmin || grantsFor(key).granted > 0;
+
     const filteredModules = useMemo(() => {
         const q = search.trim().toLowerCase();
         return q ? MODULES.filter((m) => m.name.toLowerCase().includes(q)) : MODULES;
     }, [search]);
 
-    const enabledCount = MODULES.filter((m) => access[m.key]).length;
+    const enabledCount = MODULES.filter((m) => isOn(m.key)).length;
 
     const showDashboardPicker = useMemo(() => {
         const q = search.trim().toLowerCase();
@@ -467,7 +478,15 @@ export default function FeaturePermissionsPage() {
                 <Grid container spacing={1.5}>
                     {filteredModules.map((m) => {
                         const Icon = m.icon;
-                        const on = isSuperAdmin || access[m.key];
+                        const grants = grantsFor(m.key);
+                        const on = isOn(m.key);
+                        const statusText = isSuperAdmin
+                            ? "Always on for Super Admin"
+                            : grants.total === 0
+                                ? "No permissions published for this module yet"
+                                : on
+                                    ? `${grants.granted} of ${grants.total} permissions enabled`
+                                    : "Nothing enabled - open Manage Access to grant permissions";
                         return (
                             <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={m.key} sx={{ display: "flex" }}>
                                 <Box
@@ -503,14 +522,19 @@ export default function FeaturePermissionsPage() {
                                         <Typography sx={{ fontSize: "13px", fontWeight: 700, color: DASH.ink, flex: 1, minWidth: 0, ...oneLine }}>
                                             {m.name}
                                         </Typography>
-                                        <Tooltip arrow title={isSuperAdmin ? "Always on for Super Admin" : on ? "Access enabled" : "Access disabled"}>
+                                        {/* A status light, not a control. It reflects what is granted
+                                            inside; permissions are changed in Manage Access, which is
+                                            the only thing that writes them. */}
+                                        <Tooltip arrow title={statusText}>
                                             <span>
                                                 <Switch
                                                     size="small"
                                                     checked={on}
-                                                    onChange={() => toggle(m.key)}
-                                                    disabled={isSuperAdmin}
+                                                    readOnly
+                                                    inputProps={{ "aria-readonly": true, tabIndex: -1 }}
                                                     sx={{
+                                                        cursor: "default",
+                                                        "& .MuiSwitch-input": { cursor: "default" },
                                                         "& .MuiSwitch-switchBase.Mui-checked": { color: m.color },
                                                         "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": { backgroundColor: m.color },
                                                     }}
@@ -546,21 +570,39 @@ export default function FeaturePermissionsPage() {
 
                                     <Box sx={{ height: "1px", bgcolor: `${m.color}1F`, mt: "auto", mb: 1 }} />
 
-                                    <Button
-                                        onClick={() => (on
-                                            ? navigate(`/dashboardmenu/access/config/${m.key}`, { state: { role, roles: allRoles, permissions, mainMenu: MODULE_TO_MAINMENU[m.key] } })
-                                            : showSnack(`Enable ${m.name} first.`, false))}
-                                        endIcon={<ArrowForwardIcon className="fpArrow" sx={{ fontSize: 14, transition: "transform 0.2s ease" }} />}
-                                        disabled={!on}
-                                        sx={{
-                                            textTransform: "none", fontWeight: 700, fontSize: "11.5px", color: m.color,
-                                            alignSelf: "flex-start", minWidth: 0, p: 0.3,
-                                            "&:hover": { bgcolor: "transparent", textDecoration: "underline" },
-                                            "&.Mui-disabled": { color: DASH.faint },
-                                        }}
-                                    >
-                                        Manage Access
-                                    </Button>
+                                    {/* Never gated on `on` - this is where the first permission gets
+                                        granted, so locking it while the module reads off would leave
+                                        no way to switch anything on. */}
+                                    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
+                                        <Button
+                                            onClick={() => navigate(`/dashboardmenu/access/config/${m.key}`, { state: { role, roles: allRoles, permissions, mainMenu: MODULE_TO_MAINMENU[m.key] } })}
+                                            endIcon={<ArrowForwardIcon className="fpArrow" sx={{ fontSize: 14, transition: "transform 0.2s ease" }} />}
+                                            sx={{
+                                                textTransform: "none", fontWeight: 700, fontSize: "11.5px", color: m.color,
+                                                minWidth: 0, p: 0.3,
+                                                "&:hover": { bgcolor: "transparent", textDecoration: "underline" },
+                                            }}
+                                        >
+                                            Manage Access
+                                        </Button>
+
+                                        {/* The number behind the switch, so "off" is never a mystery */}
+                                        {!isSuperAdmin && grants.total > 0 && (
+                                            <Tooltip arrow title={statusText}>
+                                                <Typography
+                                                    sx={{
+                                                        fontSize: "10.5px", fontWeight: 700, flexShrink: 0,
+                                                        px: 0.7, borderRadius: RADIUS,
+                                                        bgcolor: on ? `${m.color}14` : DASH.lineSoft,
+                                                        color: on ? m.color : DASH.muted,
+                                                        lineHeight: "18px",
+                                                    }}
+                                                >
+                                                    {grants.granted}/{grants.total}
+                                                </Typography>
+                                            </Tooltip>
+                                        )}
+                                    </Box>
                                 </Box>
                             </Grid>
                         );

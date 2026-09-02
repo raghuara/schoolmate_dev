@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
     Box, Grid, Typography, Button, IconButton, TextField, Tooltip, Divider,
-    Dialog, DialogTitle, DialogContent, DialogActions, MenuItem,
+    Dialog, DialogTitle, DialogContent, DialogActions, MenuItem, Skeleton,
 } from "@mui/material";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useSelector } from "react-redux";
+import axios from "axios";
 
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
@@ -15,7 +17,6 @@ import CallSplitIcon from "@mui/icons-material/CallSplit";
 import AddIcon from "@mui/icons-material/Add";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
-import SaveOutlinedIcon from "@mui/icons-material/SaveOutlined";
 import MenuBookOutlinedIcon from "@mui/icons-material/MenuBookOutlined";
 import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
 import NotesOutlinedIcon from "@mui/icons-material/NotesOutlined";
@@ -26,36 +27,59 @@ import UndoIcon from "@mui/icons-material/Undo";
 import PictureAsPdfOutlinedIcon from "@mui/icons-material/PictureAsPdfOutlined";
 import DownloadOutlinedIcon from "@mui/icons-material/DownloadOutlined";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
+import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 
 import SnackBar from "../../SnackBar";
-import Loader from "../../Loader";
 import { DASH, RADIUS, SOFT, Panel } from "../../DashBoardComps/dashboardTheme";
-import { MOCK_BOOKS, bookPageUrl, chapterPageCount, downloadBook } from "./bookApi";
-import { fieldSx, subjectTone, StatusPill, Pill, outlineBtnSx, softBtnSx, primaryBtnSx, headerActionSx, HEADER_ACTION_H } from "./bookTheme";
+import { selectGrades } from "../../../Redux/Slices/DropdownController";
+import { GetBookStatus, ConfirmBookChapters } from "../../../Api/Api";
+import {
+    apiFailed, bookPageUrl, chapterPageCount, downloadBook,
+    normalizeBookResponse, confirmChaptersPayload, findChapterRangeIssue,
+} from "./bookApi";
+import {
+    fieldSx, subjectTone, StatusPill, Pill, outlineBtnSx, softBtnSx, primaryBtnSx,
+    headerActionSx, HEADER_ACTION_H, ChapterRowSkeleton, PanelSkeleton,
+} from "./bookTheme";
+import { BookProgressPanel } from "./bookProgress";
+
+const token = "123";
 
 const renumber = (list) => list.map((c, i) => ({ ...c, number: i + 1 }));
-
-/* Wide enough for the longest trailing action ("Not confirmed"), so the view
-   switch sits in one place whichever view is open. */
-const VIEW_ACTION_W = 140;
 
 export default function BookChaptersPage() {
     const navigate = useNavigate();
     const location = useLocation();
     const { bookId } = useParams();
+    const grades = useSelector(selectGrades) || [];
+    const user = useSelector((state) => state.auth);
+    const rollNumber = user.rollNumber;
 
     const [book, setBook] = useState(location.state?.book || null);
     const [chapters, setChapters] = useState(location.state?.book?.chapters || []);
     /* The last saved split. Revert copies this back, so an edit session can be
        abandoned without reloading the page. */
     const [baseline, setBaseline] = useState(location.state?.book?.chapters || []);
-    const [isLoading, setIsLoading] = useState(!location.state?.book);
+    /* Always true to begin with. The row the library hands over has no chapters,
+       so treating it as "already loaded" showed an empty editor - 0 chapters,
+       "Pick a chapter on the left" - until the real read landed. */
+    const [isLoading, setIsLoading] = useState(true);
     const [selectedId, setSelectedId] = useState(location.state?.book?.chapters?.[0]?.id || null);
     const [editingId, setEditingId] = useState(null);
     const [draftTitle, setDraftTitle] = useState("");
     const [dirty, setDirty] = useState(false);
-    // Read the extracted text, or the book it was pulled from.
-    const [view, setView] = useState("details");
+    // Chapters the server knows about that this session deleted.
+    const [removed, setRemoved] = useState([]);
+    const [saving, setSaving] = useState(false);
+    /* The page-range clash that stopped the last confirm, and which chapters it
+       is about. Cleared only when a confirm actually goes through. */
+    const [issue, setIssue] = useState(null);
+    /* The dialog is the interruption; the banner and the red rows are the trace
+       it leaves behind, so closing one must not clear the other. */
+    const [issueOpen, setIssueOpen] = useState(false);
+    // How far the reader has got, for a book opened while it is still processing.
+    const [processing, setProcessing] = useState(null);
+    const [elapsed, setElapsed] = useState(0);
     // The chapter list is read-only until the teacher asks to change it.
     const [editing, setEditing] = useState(false);
     const [dragIndex, setDragIndex] = useState(null);
@@ -71,23 +95,72 @@ export default function BookChaptersPage() {
         setMessage(msg); setColor(ok); setStatus(ok); setOpen(true);
     };
 
-    /* Mock read. Replace with axios.get(GetBookById, { params: { bookId } })
-       and normalizeBook(res.data, grades). */
+    /* getBookStatus is also the detail read - it carries the chapters, the file
+       and the metadata once the book is past Processing. */
     useEffect(() => {
-        if (book) return;
+        /* A book handed over by the library is only the list row - listBooks
+           carries no chapters - so it is never a reason to skip this read, and
+           the page waits on it rather than drawing an empty split. */
         setIsLoading(true);
-        const timer = setTimeout(() => {
-            const found = MOCK_BOOKS.find((b) => String(b.id) === String(bookId));
-            if (found) {
+        axios
+            .get(GetBookStatus, {
+                params: { bookId, requestedByRollNumber: rollNumber },
+                headers: { Authorization: `Bearer ${token}` },
+            })
+            .then((res) => {
+                const rejected = apiFailed(res.data);
+                if (rejected) { notify(rejected); return; }
+
+                const found = normalizeBookResponse(res.data, grades);
                 setBook(found);
                 setChapters(found.chapters);
                 setBaseline(found.chapters);
                 setSelectedId(found.chapters[0]?.id || null);
-            }
-            setIsLoading(false);
-        }, 300);
-        return () => clearTimeout(timer);
-    }, [book, bookId]);
+                setProcessing(found.processing);
+                setElapsed(found.processing.elapsedSeconds);
+            })
+            .catch((error) => notify(error?.response?.data?.message || "This book could not be loaded"))
+            .finally(() => setIsLoading(false));
+        /* Keyed on the book being looked at, not on `book` - the effect sets
+           that, and depending on it would refetch forever. */
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [bookId, rollNumber]);
+
+    /* A book opened from the library while it is still being read has nothing to
+       edit yet, so the page keeps polling and turns into the chapter list on its
+       own the moment the split lands - the same beat the upload screen uses. */
+    useEffect(() => {
+        if (book?.status !== "Processing") return undefined;
+
+        const seconds = processing?.pollSeconds || 15;
+        const tick = setInterval(() => setElapsed((s) => s + 1), 1000);
+        const timer = setTimeout(() => {
+            axios
+                .get(GetBookStatus, {
+                    params: { bookId, requestedByRollNumber: rollNumber },
+                    headers: { Authorization: `Bearer ${token}` },
+                })
+                .then((res) => {
+                    if (apiFailed(res.data)) return;
+                    const found = normalizeBookResponse(res.data, grades);
+                    setBook(found);
+                    setProcessing(found.processing);
+                    setElapsed(found.processing.elapsedSeconds);
+                    if (found.status !== "Processing") {
+                        setChapters(found.chapters);
+                        setBaseline(found.chapters);
+                        setSelectedId(found.chapters[0]?.id || null);
+                        if (found.status === "Failed") notify(found.failureReason || "The book could not be read");
+                        else notify(`${found.chapterCount} chapters detected - check the split`, true);
+                    }
+                })
+                // A dropped poll is not a failed book; the next tick tries again.
+                .catch(() => {});
+        }, seconds * 1000);
+
+        return () => { clearTimeout(timer); clearInterval(tick); };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [book, processing, bookId, rollNumber]);
 
     const selected = useMemo(
         () => chapters.find((c) => c.id === selectedId) || chapters[0] || null,
@@ -102,10 +175,6 @@ export default function BookChaptersPage() {
        an edit has been made since the last confirm. A cleanly detected book can
        therefore still be confirmed without touching anything. */
     const needsConfirm = !allConfirmed || dirty;
-
-    /* A chapter is confirmed as part of an edit session. With no session open, or
-       nothing changed in it, the badge is a status and not a button. */
-    const canConfirmChapter = editing && dirty;
 
     const mutate = (next) => { setChapters(renumber(next)); setDirty(true); };
 
@@ -138,6 +207,9 @@ export default function BookChaptersPage() {
 
     const removeChapter = (chapter) => {
         if (chapters.length === 1) { notify("A book needs at least one chapter"); return; }
+        /* A chapter the server knows about has to be sent back flagged deleted,
+           not simply dropped from the list. */
+        setRemoved((prev) => [...prev, chapter]);
         mutate(chapters.filter((c) => c.id !== chapter.id));
         if (selectedId === chapter.id) setSelectedId(chapters.find((c) => c.id !== chapter.id)?.id || null);
         notify(`"${chapter.title}" removed`, true);
@@ -218,35 +290,136 @@ export default function BookChaptersPage() {
         mutate(chapters.map((c) => (c.id === id ? { ...c, [key]: value, confirmed: false } : c)));
     };
 
-    const toggleConfirm = (chapter) =>
-        mutate(chapters.map((c) => (c.id === chapter.id ? { ...c, confirmed: !c.confirmed } : c)));
-
-    /* Replace with POST book/updateChapters { bookId, chapters }. */
-    const saveChapters = () => {
-        setBaseline(chapters);
-        setDirty(false);
-        notify("Chapter list saved", true);
-    };
-
     /* Throws away the current edit session and puts the last saved split back. */
     const revertChapters = () => {
         setChapters(baseline);
+        setRemoved([]);
         setDirty(false);
         setEditingId(null);
         if (!baseline.some((c) => c.id === selectedId)) setSelectedId(baseline[0]?.id || null);
         notify("Changes reverted", true);
     };
 
+    /* The only write there is. confirmChapters saves the edited list and marks
+       the book confirmed in one call - there is no draft save, so this button is
+       both. Validation is all-or-nothing on the server: one overlapping page
+       range rejects the whole list and nothing is stored. */
     const confirmAll = () => {
-        const next = renumber(chapters.map((c) => ({ ...c, confirmed: true })));
-        setChapters(next);
-        setBaseline(next);
-        setBook((prev) => (prev ? { ...prev, status: "Ready" } : prev));
-        setDirty(false);
-        notify("Book is ready for question papers", true);
+        if (!book?.id) return;
+
+        /* Caught here first so the teacher is told which two chapters disagree
+           rather than a bare page number, and the offending rows are marked. */
+        const local = findChapterRangeIssue(chapters, book.pages);
+        if (local) {
+            setIssue(local);
+            setIssueOpen(true);
+            return;
+        }
+
+        setSaving(true);
+        axios
+            .post(
+                ConfirmBookChapters,
+                confirmChaptersPayload(book.id, renumber(chapters), removed, rollNumber),
+                { headers: { Authorization: `Bearer ${token}` } }
+            )
+            .then((res) => {
+                /* A rejected save still answers 200 with error:true. Without this
+                   the page would say the book was ready when nothing was stored. */
+                const rejected = apiFailed(res.data);
+                if (rejected) {
+                    /* The server checks the same rule and answers with a page
+                       number. Shown in the same dialog, without the two titles
+                       the local check would have found. */
+                    setIssue({
+                        kind: "server",
+                        ids: [],
+                        items: [],
+                        title: "The chapters could not be saved",
+                        message: rejected,
+                        hint: "Check the page ranges - no two chapters can share a page.",
+                    });
+                    setIssueOpen(true);
+                    return;
+                }
+
+                const next = renumber(chapters.map((c) => ({ ...c, confirmed: true })));
+                setIssue(null);
+                setChapters(next);
+                setBaseline(next);
+                setRemoved([]);
+                setBook((prev) => (prev ? { ...prev, status: "Ready" } : prev));
+                setDirty(false);
+                notify("Book is ready for question papers", true);
+            })
+            .catch((error) => {
+                setIssue({
+                    kind: "server",
+                    ids: [],
+                    items: [],
+                    title: "The chapters could not be saved",
+                    message: error?.response?.data?.message || "The request did not reach the server.",
+                    hint: "Check the page ranges - no two chapters can share a page.",
+                });
+                setIssueOpen(true);
+            })
+            .finally(() => setSaving(false));
     };
 
-    if (isLoading) return <Loader />;
+    /* The same two-panel grid the page settles into, so the chapter list and the
+       reader do not jump sideways when the book lands. */
+    if (isLoading) {
+        return (
+            <Box sx={{ px: { xs: 1.5, md: 2 }, pt: { xs: 1.5, md: 2 }, pb: 4, bgcolor: DASH.canvas, minHeight: "100%" }}>
+                <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.4, mb: 2 }}>
+                    <Skeleton variant="circular" width={34} height={34} sx={{ flexShrink: 0 }} />
+                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                        <Skeleton variant="text" width={260} height={26} />
+                        <Box sx={{ display: "flex", gap: 0.6, mt: 0.7 }}>
+                            <Skeleton variant="rounded" width={34} height={18} />
+                            <Skeleton variant="rounded" width={64} height={18} />
+                            <Skeleton variant="rounded" width={58} height={18} />
+                            <Skeleton variant="rounded" width={72} height={18} />
+                        </Box>
+                    </Box>
+                    <Skeleton variant="rounded" width={128} height={HEADER_ACTION_H} sx={{ flexShrink: 0 }} />
+                    <Skeleton variant="rounded" width={168} height={HEADER_ACTION_H} sx={{ flexShrink: 0 }} />
+                </Box>
+
+                <Grid container spacing={1.8}>
+                    <Grid size={{ xs: 12, md: 6, lg: 5 }}>
+                        <Box
+                            sx={{
+                                bgcolor: "#fff", border: `1px solid ${DASH.primary}38`,
+                                borderRadius: RADIUS, overflow: "hidden",
+                            }}
+                        >
+                            <Box
+                                sx={{
+                                    display: "flex", alignItems: "center", gap: 1.2,
+                                    px: 2, py: 1.4, borderBottom: `1px solid ${DASH.primary}22`,
+                                }}
+                            >
+                                <Box sx={{ width: 3, height: 20, borderRadius: RADIUS, bgcolor: `${DASH.primary}55`, flexShrink: 0 }} />
+                                <Box sx={{ flex: 1, minWidth: 0 }}>
+                                    <Skeleton variant="text" width={110} height={16} />
+                                    <Skeleton variant="text" width={150} height={12} />
+                                </Box>
+                                <Skeleton variant="rounded" width={104} height={34} sx={{ flexShrink: 0 }} />
+                            </Box>
+                            <Box sx={{ p: 1.2 }}>
+                                {Array.from({ length: 6 }, (_, i) => <ChapterRowSkeleton key={i} />)}
+                            </Box>
+                        </Box>
+                    </Grid>
+
+                    <Grid size={{ xs: 12, md: 6, lg: 7 }}>
+                        <PanelSkeleton accent={DASH.blue} bodyHeight={320} />
+                    </Grid>
+                </Grid>
+            </Box>
+        );
+    }
 
     if (!book) {
         return (
@@ -257,6 +430,103 @@ export default function BookChaptersPage() {
                         Back to library
                     </Button>
                 </Typography>
+            </Box>
+        );
+    }
+
+    /* Still being read, or the read failed - there is no split to review yet, so
+       the page shows how far it has got instead of an empty editor. It turns
+       into the chapter list on its own when the poll comes back done. */
+    if (book.status === "Processing" || book.status === "Failed") {
+        return (
+            <Box sx={{ px: { xs: 1.5, md: 2 }, pt: { xs: 1.5, md: 2 }, pb: 4, bgcolor: DASH.canvas, minHeight: "100%" }}>
+                <SnackBar open={open} setOpen={setOpen} status={status} color={color} message={message} />
+
+                <Box sx={{ display: "flex", alignItems: "flex-start", gap: 0.5, mb: 2, minWidth: 0 }}>
+                    <IconButton onClick={() => navigate("/dashboardmenu/books")} sx={{ mt: -0.5 }}>
+                        <ArrowBackIcon sx={{ fontSize: 20, color: DASH.text }} />
+                    </IconButton>
+                    <Box sx={{ minWidth: 0 }}>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, flexWrap: "wrap" }}>
+                            <Typography sx={{ fontSize: "21px", fontWeight: 700, color: DASH.ink, lineHeight: 1.3 }}>
+                                {book.title}
+                            </Typography>
+                            <StatusPill status={book.status} />
+                        </Box>
+                        <Box sx={{ display: "flex", gap: 0.6, flexWrap: "wrap", mt: 0.7 }}>
+                            <Pill label={book.grade || "-"} color={DASH.text} bg={DASH.lineSoft} />
+                            <Pill label={book.subject} color={tone.color} bg={tone.bg} border={`${tone.color}33`} />
+                            <Pill label={book.medium} color={DASH.muted} bg={DASH.lineSoft} />
+                            <Pill label={book.academicYear} color={DASH.muted} bg={DASH.lineSoft} />
+                        </Box>
+                    </Box>
+                </Box>
+
+                <Grid container spacing={1.8}>
+                    <Grid size={{ xs: 12, md: 7, lg: 7 }}>
+                        <BookProgressPanel
+                            book={book}
+                            processing={processing}
+                            elapsed={elapsed}
+                            footNote={book.status === "Processing"
+                                ? "Leaving is safe - the book keeps being read, and the library shows it as Processing until the chapters are ready."
+                                : ""}
+                            actions={(
+                                <>
+                                    {book.status === "Failed" && (
+                                        <Button
+                                            onClick={() => navigate("/dashboardmenu/books/upload")}
+                                            sx={{ ...primaryBtnSx, height: 38 }}
+                                        >
+                                            Upload the file again
+                                        </Button>
+                                    )}
+                                    <Button
+                                        onClick={() => navigate("/dashboardmenu/books")}
+                                        sx={{ ...outlineBtnSx, height: 38 }}
+                                    >
+                                        Back to library
+                                    </Button>
+                                </>
+                            )}
+                        />
+                    </Grid>
+
+                    <Grid size={{ xs: 12, md: 5, lg: 5 }}>
+                        <Panel
+                            title="Book details"
+                            subtitle="Read from the book's own cover pages"
+                            accent={DASH.cyan}
+                        >
+                            {[
+                                { label: "Class", value: book.grade },
+                                { label: "Subject", value: book.subject },
+                                { label: "Medium", value: book.medium },
+                                { label: "Board or publisher", value: book.board },
+                                { label: "Edition year", value: book.edition },
+                                { label: "Academic year", value: book.academicYear },
+                                { label: "File", value: book.fileName },
+                            ].map((row, i, list) => (
+                                <Box key={row.label}>
+                                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, py: 0.9 }}>
+                                        <Typography sx={{ fontSize: "12.5px", color: DASH.muted, flex: 1, minWidth: 0 }}>
+                                            {row.label}
+                                        </Typography>
+                                        <Typography
+                                            sx={{
+                                                fontSize: "12.5px", fontWeight: 600, color: row.value ? DASH.ink : DASH.faint,
+                                                maxWidth: "62%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                                            }}
+                                        >
+                                            {row.value || "Not detected yet"}
+                                        </Typography>
+                                    </Box>
+                                    {i < list.length - 1 && <Divider sx={{ borderColor: DASH.lineSoft }} />}
+                                </Box>
+                            ))}
+                        </Panel>
+                    </Grid>
+                </Grid>
             </Box>
         );
     }
@@ -302,16 +572,9 @@ export default function BookChaptersPage() {
                     >
                         Download
                     </Button>
-                    {/* Save only matters once something has actually changed. */}
-                    {dirty && (
-                        <Button
-                            onClick={saveChapters}
-                            startIcon={<SaveOutlinedIcon sx={{ fontSize: 16 }} />}
-                            sx={{ ...softBtnSx(SOFT.purple), ...headerActionSx }}
-                        >
-                            Save
-                        </Button>
-                    )}
+                    {/* No separate Save. confirmChapters is the only write there
+                       is - it stores the edited list and confirms it in one go -
+                       so a half-saved, unconfirmed split cannot exist. */}
 
                     {/* The submit action. It shows while there is something left to
                        confirm - either unconfirmed chapters or unsaved edits - and
@@ -319,6 +582,7 @@ export default function BookChaptersPage() {
                     {needsConfirm ? (
                         <Button
                             onClick={confirmAll}
+                            disabled={saving}
                             startIcon={<CheckCircleIcon sx={{ fontSize: 16 }} />}
                             sx={{
                                 textTransform: "none",
@@ -331,7 +595,7 @@ export default function BookChaptersPage() {
                                 ...headerActionSx,
                             }}
                         >
-                            Confirm All Chapters
+                            {saving ? "Saving..." : "Confirm All Chapters"}
                         </Button>
                     ) : (
                         <Box
@@ -351,7 +615,36 @@ export default function BookChaptersPage() {
                 </Box>
             </Box>
 
-            {!allConfirmed && (
+            {/* Nothing was saved when this shows - the server rejects the whole
+                list on one bad range - so it stays until the clash is fixed. */}
+            {issue && (
+                <Box
+                    sx={{
+                        display: "flex", gap: 1.2, alignItems: "flex-start",
+                        bgcolor: DASH.redLight, border: "1px solid #FECACA",
+                        borderRadius: RADIUS, px: 1.8, py: 1.3, mb: 2,
+                    }}
+                >
+                    <ErrorOutlineIcon sx={{ fontSize: 17, color: DASH.red, flexShrink: 0, mt: 0.1 }} />
+                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                        <Typography sx={{ fontSize: "12.5px", fontWeight: 700, color: "#991B1B" }}>
+                            Nothing was saved
+                        </Typography>
+                        <Typography sx={{ fontSize: "12.5px", color: "#991B1B", mt: 0.3, lineHeight: 1.6 }}>
+                            {issue.message}
+                            {issue.ids.length > 0 && " The rows below are marked in red - fix the pages and confirm again."}
+                        </Typography>
+                    </Box>
+                    <Button
+                        onClick={() => setIssueOpen(true)}
+                        sx={{ ...outlineBtnSx, flexShrink: 0 }}
+                    >
+                        What went wrong
+                    </Button>
+                </Box>
+            )}
+
+            {!allConfirmed && !issue && (
                 <Box
                     sx={{
                         display: "flex", gap: 1.2, alignItems: "flex-start",
@@ -414,6 +707,8 @@ export default function BookChaptersPage() {
                     >
                         {chapters.map((chapter, index) => {
                             const active = selected?.id === chapter.id;
+                            // One of the two chapters the server refused to store.
+                            const clashing = (issue?.ids || []).includes(chapter.id);
                             return (
                                 <Box
                                     key={chapter.id}
@@ -423,8 +718,8 @@ export default function BookChaptersPage() {
                                     onDrop={() => handleDrop(index)}
                                     onClick={() => setSelectedId(chapter.id)}
                                     sx={{
-                                        border: `1px solid ${active ? DASH.primary : DASH.line}`,
-                                        bgcolor: active ? DASH.primaryLight : "#fff",
+                                        border: `1px solid ${clashing ? DASH.red : active ? DASH.primary : DASH.line}`,
+                                        bgcolor: clashing ? DASH.redLight : active ? DASH.primaryLight : "#fff",
                                         borderRadius: RADIUS,
                                         p: 1.2,
                                         mb: 1,
@@ -546,149 +841,62 @@ export default function BookChaptersPage() {
 
                 <Grid size={{ xs: 12, md: 6, lg: 7 }}>
                     <Panel
-                        title={
-                            view === "pdf"
-                                ? book.fileName || "Book file"
-                                : selected ? `Chapter ${selected.number} - ${selected.title}` : "Chapter"
-                        }
-                        subtitle={
-                            view === "pdf"
-                                ? selected
-                                    ? `Opened at page ${selected.startPage} - where chapter ${selected.number} begins`
-                                    : "The uploaded book"
-                                : "Extracted content used to generate questions"
-                        }
+                        title={selected ? `Chapter ${selected.number} - ${selected.title}` : "Chapter"}
+                        subtitle="Extracted content used to generate questions"
                         accent={DASH.blue}
                         right={(
                             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                                {/* Read the extracted text, or the book it came from. */}
-                                <Box sx={{ display: "flex", alignItems: "center", height: 34, bgcolor: DASH.lineSoft, borderRadius: RADIUS, p: 0.4 }}>
-                                    {[
-                                        { key: "details", label: "Details", icon: NotesOutlinedIcon },
-                                        { key: "pdf", label: "Book PDF", icon: PictureAsPdfOutlinedIcon },
-                                    ].map((t) => {
-                                        const TabIcon = t.icon;
-                                        const active = view === t.key;
-                                        return (
-                                            <Box
-                                                key={t.key}
-                                                onClick={() => setView(t.key)}
-                                                sx={{
-                                                    display: "flex", alignItems: "center", gap: 0.5, height: 26,
-                                                    px: 1.1, borderRadius: RADIUS, cursor: "pointer",
-                                                    bgcolor: active ? "#fff" : "transparent",
-                                                    boxShadow: active ? "0 1px 3px rgba(17,24,39,0.12)" : "none",
-                                                    transition: "background-color .15s ease",
-                                                }}
-                                            >
-                                                <TabIcon sx={{ fontSize: 14, color: active ? DASH.blue : DASH.muted }} />
-                                                <Typography
-                                                    sx={{
-                                                        fontSize: "11.5px",
-                                                        fontWeight: active ? 700 : 600,
-                                                        color: active ? DASH.ink : DASH.muted,
-                                                        whiteSpace: "nowrap",
-                                                    }}
-                                                >
-                                                    {t.label}
-                                                </Typography>
-                                            </Box>
-                                        );
-                                    })}
-                                </Box>
+                                {/* The book cannot be drawn inside the page - storage
+                                    serves it as a download and blocks the read a
+                                    viewer would need - so the action is to open the
+                                    real file at this chapter's first page. */}
+                                {book.fileUrl && selected && (
+                                    <Tooltip title={`Opens the book at page ${selected.startPage}`} arrow>
+                                        <Button
+                                            onClick={() => window.open(
+                                                bookPageUrl(book, selected.startPage),
+                                                "_blank",
+                                                "noopener"
+                                            )}
+                                            startIcon={<PictureAsPdfOutlinedIcon sx={{ fontSize: 15 }} />}
+                                            endIcon={<OpenInNewIcon sx={{ fontSize: 13 }} />}
+                                            sx={outlineBtnSx}
+                                        >
+                                            Open page {selected.startPage}
+                                        </Button>
+                                    </Tooltip>
+                                )}
 
-                                {/* Each view has its own trailing action, and they are
-                                    different widths. The slot is fixed so the Details /
-                                    Book PDF switch stays put when the view changes. */}
-                                <Box
-                                    sx={{
-                                        width: VIEW_ACTION_W, flexShrink: 0,
-                                        display: "flex", alignItems: "center", justifyContent: "flex-end",
-                                    }}
-                                >
-                                    {view === "details" && selected && (
-                                        canConfirmChapter ? (
-                                            /* Only an open edit session with unsaved
-                                               changes turns this into an action. */
-                                            <Button
-                                                onClick={() => toggleConfirm(selected)}
-                                                startIcon={
-                                                    selected.confirmed
-                                                        ? <CheckCircleIcon sx={{ fontSize: 15 }} />
-                                                        : <CheckCircleOutlineIcon sx={{ fontSize: 15 }} />
-                                                }
-                                                sx={selected.confirmed ? softBtnSx(SOFT.green) : outlineBtnSx}
-                                            >
-                                                {selected.confirmed ? "Confirmed" : "Confirm"}
-                                            </Button>
-                                        ) : (
-                                            /* Otherwise it is just where this chapter stands. */
-                                            <Box
-                                                sx={{
-                                                    display: "flex", alignItems: "center", gap: 0.6,
-                                                    height: 34, px: 1.4, borderRadius: RADIUS,
-                                                    bgcolor: selected.confirmed ? DASH.greenLight : DASH.lineSoft,
-                                                    border: `1px solid ${selected.confirmed ? "#BBF7D0" : DASH.line}`,
-                                                }}
-                                            >
-                                                {selected.confirmed
-                                                    ? <CheckCircleIcon sx={{ fontSize: 15, color: DASH.green }} />
-                                                    : <CheckCircleOutlineIcon sx={{ fontSize: 15, color: DASH.muted }} />}
-                                                <Typography
-                                                    sx={{
-                                                        fontSize: "12.5px", fontWeight: 700, whiteSpace: "nowrap",
-                                                        color: selected.confirmed ? "#065F46" : DASH.muted,
-                                                    }}
-                                                >
-                                                    {selected.confirmed ? "Confirmed" : "Not confirmed"}
-                                                </Typography>
-                                            </Box>
-                                        )
-                                    )}
-
-                                    {view === "pdf" && book.fileUrl && (
-                                        <Tooltip title="Open in a new tab" arrow>
-                                            <IconButton
-                                                onClick={() => window.open(bookPageUrl(book, selected?.startPage), "_blank", "noopener")}
-                                                sx={{ border: `1px solid ${DASH.line}`, borderRadius: RADIUS, width: 34, height: 34, bgcolor: "#fff" }}
-                                            >
-                                                <OpenInNewIcon sx={{ fontSize: 16, color: DASH.text }} />
-                                            </IconButton>
-                                        </Tooltip>
-                                    )}
-                                </Box>
-                            </Box>
-                        )}
-                        bodySx={view === "pdf" ? { p: 0 } : { maxHeight: "62vh", overflowY: "auto" }}
-                    >
-                        {view === "pdf" ? (
-                            book.fileUrl ? (
-                                <Box sx={{ height: "62vh", bgcolor: "#EEF0F4" }}>
-                                    <iframe
-                                        key={`${book.id}-${selected?.startPage || 1}`}
-                                        title={book.fileName || "Book"}
-                                        src={bookPageUrl(book, selected?.startPage)}
-                                        style={{ width: "100%", height: "100%", border: "none", display: "block" }}
-                                    />
-                                </Box>
-                            ) : (
-                                /* The mock library has no file URL. Once book/getById
-                                   returns one this renders the real PDF. */
-                                <Box sx={{ height: "62vh", display: "flex", alignItems: "center", justifyContent: "center", bgcolor: "#EEF0F4" }}>
-                                    <Box sx={{ textAlign: "center", px: 3 }}>
-                                        <PictureAsPdfOutlinedIcon sx={{ fontSize: 44, color: DASH.line }} />
-                                        <Typography sx={{ fontSize: "14px", fontWeight: 700, color: DASH.ink, mt: 1 }}>
-                                            The file is not attached to this record
-                                        </Typography>
-                                        <Typography sx={{ fontSize: "12.5px", color: DASH.muted, mt: 0.6, maxWidth: 420, lineHeight: 1.7 }}>
-                                            {book.fileName
-                                                ? `"${book.fileName}" was uploaded, but this record carries no file link yet. The book appears here as soon as the API returns one.`
-                                                : "No file was uploaded with this book."}
+                                {selected && (
+                                    /* Confirmation is a book-level state on the
+                                       server, so a single chapter shows where it
+                                       stands, it is not a switch. */
+                                    <Box
+                                        sx={{
+                                            display: "flex", alignItems: "center", gap: 0.6, flexShrink: 0,
+                                            height: 34, px: 1.4, borderRadius: RADIUS,
+                                            bgcolor: selected.confirmed ? DASH.greenLight : DASH.lineSoft,
+                                            border: `1px solid ${selected.confirmed ? "#BBF7D0" : DASH.line}`,
+                                        }}
+                                    >
+                                        {selected.confirmed
+                                            ? <CheckCircleIcon sx={{ fontSize: 15, color: DASH.green }} />
+                                            : <CheckCircleOutlineIcon sx={{ fontSize: 15, color: DASH.muted }} />}
+                                        <Typography
+                                            sx={{
+                                                fontSize: "12.5px", fontWeight: 700, whiteSpace: "nowrap",
+                                                color: selected.confirmed ? "#065F46" : DASH.muted,
+                                            }}
+                                        >
+                                            {selected.confirmed ? "Confirmed" : "Not confirmed"}
                                         </Typography>
                                     </Box>
-                                </Box>
-                            )
-                        ) : !selected ? (
+                                )}
+                            </Box>
+                        )}
+                        bodySx={{ maxHeight: "62vh", overflowY: "auto" }}
+                    >
+                        {!selected ? (
                             <Typography sx={{ fontSize: "12.5px", color: DASH.faint, textAlign: "center", py: 4 }}>
                                 Pick a chapter on the left.
                             </Typography>
@@ -767,6 +975,106 @@ export default function BookChaptersPage() {
                     </Panel>
                 </Grid>
             </Grid>
+
+            {/* A refused confirm stops the teacher, so it is a dialog and not a
+                notice that slides away. It names the two chapters and puts the
+                page they fight over between them. */}
+            <Dialog
+                open={issueOpen}
+                onClose={() => setIssueOpen(false)}
+                slotProps={{ paper: { sx: { borderRadius: "10px", width: 460, maxWidth: "94vw" } } }}
+            >
+                <Box sx={{ px: 3, pt: 3, pb: 1, textAlign: "center" }}>
+                    <Box
+                        sx={{
+                            width: 52, height: 52, borderRadius: "50%", mx: "auto",
+                            bgcolor: DASH.redLight, border: "1px solid #FECACA",
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                        }}
+                    >
+                        <ErrorOutlineIcon sx={{ fontSize: 26, color: DASH.red }} />
+                    </Box>
+                    <Typography sx={{ fontSize: "16px", fontWeight: 700, color: DASH.ink, mt: 1.6 }}>
+                        {issue?.title || "The chapters could not be saved"}
+                    </Typography>
+                    <Typography sx={{ fontSize: "12.5px", color: DASH.muted, mt: 0.6, lineHeight: 1.65 }}>
+                        {issue?.message}
+                    </Typography>
+                </Box>
+
+                <DialogContent sx={{ pt: 1 }}>
+                    {issue?.items?.length > 0 && (
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                            {issue.items.map((item, i) => (
+                                <React.Fragment key={item.id}>
+                                    {i > 0 && issue.page && (
+                                        <Box
+                                            sx={{
+                                                flexShrink: 0, px: 1, py: 0.5, borderRadius: RADIUS,
+                                                bgcolor: DASH.red, textAlign: "center",
+                                            }}
+                                        >
+                                            <Typography sx={{ fontSize: "9.5px", fontWeight: 700, color: "#FEE2E2", letterSpacing: "0.05em" }}>
+                                                PAGE
+                                            </Typography>
+                                            <Typography sx={{ fontSize: "13px", fontWeight: 800, color: "#fff", lineHeight: 1.1 }}>
+                                                {issue.page}
+                                            </Typography>
+                                        </Box>
+                                    )}
+                                    <Box
+                                        sx={{
+                                            flex: 1, minWidth: 0, borderRadius: RADIUS,
+                                            border: `1px solid ${DASH.line}`, borderLeft: `3px solid ${DASH.red}`,
+                                            px: 1.2, py: 1,
+                                        }}
+                                    >
+                                        <Typography
+                                            sx={{
+                                                fontSize: "12.5px", fontWeight: 700, color: DASH.ink,
+                                                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                                            }}
+                                        >
+                                            {item.title}
+                                        </Typography>
+                                        <Typography sx={{ fontSize: "11.5px", color: DASH.muted, mt: 0.2 }}>
+                                            p.{item.startPage}-{item.endPage}
+                                        </Typography>
+                                    </Box>
+                                </React.Fragment>
+                            ))}
+                        </Box>
+                    )}
+
+                    <Box
+                        sx={{
+                            display: "flex", gap: 1, alignItems: "flex-start",
+                            bgcolor: DASH.lineSoft, borderRadius: RADIUS, px: 1.4, py: 1.1, mt: 1.8,
+                        }}
+                    >
+                        <InfoOutlinedIcon sx={{ fontSize: 15, color: DASH.muted, mt: 0.2, flexShrink: 0 }} />
+                        <Typography sx={{ fontSize: "11.5px", color: DASH.text, lineHeight: 1.6 }}>
+                            {issue?.hint} Nothing was saved - the whole list is stored at once, so the
+                            book is exactly as it was.
+                        </Typography>
+                    </Box>
+                </DialogContent>
+
+                <DialogActions sx={{ px: 3, pb: 2.4, pt: 0 }}>
+                    <Button onClick={() => setIssueOpen(false)} sx={outlineBtnSx}>Close</Button>
+                    <Button
+                        onClick={() => {
+                            setEditing(true);
+                            if (issue?.ids?.length) setSelectedId(issue.ids[0]);
+                            setIssueOpen(false);
+                        }}
+                        startIcon={<EditOutlinedIcon sx={{ fontSize: 15 }} />}
+                        sx={primaryBtnSx}
+                    >
+                        Fix the pages
+                    </Button>
+                </DialogActions>
+            </Dialog>
 
             <Dialog
                 open={Boolean(splitTarget)}

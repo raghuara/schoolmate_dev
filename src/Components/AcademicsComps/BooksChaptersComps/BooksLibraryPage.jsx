@@ -6,6 +6,7 @@ import {
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
+import axios from "axios";
 
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import AddIcon from "@mui/icons-material/Add";
@@ -24,13 +25,17 @@ import PendingOutlinedIcon from "@mui/icons-material/PendingOutlined";
 import DownloadOutlinedIcon from "@mui/icons-material/DownloadOutlined";
 
 import SnackBar from "../../SnackBar";
-import Loader from "../../Loader";
 import { DASH, RADIUS, KPI_TONES, SolidStatCard } from "../../DashBoardComps/dashboardTheme";
 import { selectGrades } from "../../../Redux/Slices/DropdownController";
 import { selectAcademicYear } from "../../../Redux/Slices/academicYearSlice";
-import { BOOK_STATUSES, MEDIUMS, MOCK_BOOKS, downloadBook, fmtDate, parseApiDate } from "./bookApi";
+import { ListBooks } from "../../../Api/Api";
+import {
+    BOOK_STATUSES, MEDIUMS, downloadBook, fmtDate, parseApiDate,
+    normalizeBookList, normalizeBookCounts,
+} from "./bookApi";
 import {
     fieldSx, subjectTone, StatusPill, Pill, MetaItem, outlineBtnSx, createBtnSx, primaryBtnSx,
+    BOOK_GRID, KPI_GRID, BookCardSkeleton, KpiSkeleton,
 } from "./bookTheme";
 
 const PER_PAGE = 8;
@@ -210,7 +215,12 @@ export default function BooksLibraryPage() {
     const academicYear = useSelector(selectAcademicYear);
     const gradeOptions = useSelector(selectGrades) || [];
 
+    const user = useSelector((state) => state.auth);
+    const rollNumber = user.rollNumber;
+    const token = "123";
+
     const [books, setBooks] = useState([]);
+    const [counts, setCounts] = useState({});
     const [isLoading, setIsLoading] = useState(false);
 
     const [search, setSearch] = useState("");
@@ -231,31 +241,46 @@ export default function BooksLibraryPage() {
         setMessage(msg); setColor(ok); setStatus(ok); setOpen(true);
     };
 
-    /* Mock source. Replace the body with:
-       axios.get(GetAllBooks, { params: { academicYear, gradeId } })
-       then setBooks(normalizeBookList(res.data, gradeOptions)). */
+    /* The year's books in one call. listBooks also accepts grade / subject /
+       medium / status / search, but the KPI counts it returns are relative to
+       whatever was filtered - so the fetch stays unfiltered and the narrowing
+       happens below, which also keeps typing in the search box instant. Push the
+       dropdowns into params here if the library ever outgrows one response. */
     const loadBooks = useCallback(() => {
         setIsLoading(true);
-        const timer = setTimeout(() => {
-            setBooks(MOCK_BOOKS);
-            setIsLoading(false);
-        }, 350);
-        return () => clearTimeout(timer);
-    }, []);
+        axios
+            .get(ListBooks, {
+                params: { academicYear, requestedByRollNumber: rollNumber },
+                headers: { Authorization: `Bearer ${token}` },
+            })
+            .then((res) => {
+                setBooks(normalizeBookList(res.data, gradeOptions));
+                setCounts(normalizeBookCounts(res.data));
+            })
+            .catch((error) => {
+                setBooks([]);
+                notify(error?.response?.data?.message || "Could not load the book library");
+            })
+            .finally(() => setIsLoading(false));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [academicYear, rollNumber]);
 
-    useEffect(() => { loadBooks(); }, [loadBooks]);
+    useEffect(() => { if (academicYear) loadBooks(); }, [academicYear, loadBooks]);
 
     const subjects = useMemo(
         () => Array.from(new Set(books.map((b) => b.subject).filter(Boolean))).sort(),
         [books]
     );
 
+    /* The server sends the badge counts with the list. Falling back to counting
+       the rows keeps the cards honest if an older build answers without them. */
     const stats = useMemo(() => ({
-        total: books.length,
-        ready: books.filter((b) => b.status === "Ready").length,
-        review: books.filter((b) => b.status === "Needs Review" || b.status === "Failed").length,
-        chapters: books.reduce((sum, b) => sum + (b.chapterCount || 0), 0),
-    }), [books]);
+        total: counts.total || books.length,
+        ready: counts.confirmed || books.filter((b) => b.status === "Ready").length,
+        review: counts.needsAttention
+            || books.filter((b) => b.status === "Needs Review" || b.status === "Failed").length,
+        chapters: counts.chaptersIndexed || books.reduce((sum, b) => sum + (b.chapterCount || 0), 0),
+    }), [books, counts]);
 
     const activeFilterCount =
         (search.trim() ? 1 : 0) +
@@ -270,7 +295,8 @@ export default function BooksLibraryPage() {
         return books
             .filter((b) => {
                 if (statusFilter !== "all" && b.status !== statusFilter) return false;
-                if (gradeFilter !== "all" && String(b.gradeId) !== String(gradeFilter)) return false;
+                // Rows carry the class sign ("VIII"), not a grade id.
+                if (gradeFilter !== "all" && String(b.grade) !== String(gradeFilter)) return false;
                 if (subjectFilter !== "all" && b.subject !== subjectFilter) return false;
                 if (mediumFilter !== "all" && b.medium !== mediumFilter) return false;
                 if (search.trim()) {
@@ -322,7 +348,7 @@ export default function BooksLibraryPage() {
     const filters = [
         {
             key: "grade", value: gradeFilter, set: setGradeFilter, width: 118, allLabel: "All Classes",
-            options: gradeOptions.map((g) => ({ value: String(g.id), label: g.sign })),
+            options: gradeOptions.map((g) => ({ value: String(g.sign), label: g.sign })),
         },
         {
             key: "subject", value: subjectFilter, set: setSubjectFilter, width: 142, allLabel: "All Subjects",
@@ -340,7 +366,6 @@ export default function BooksLibraryPage() {
 
     return (
         <Box sx={{ px: { xs: 1.5, md: 2 }, pt: { xs: 1.5, md: 2 }, pb: 4, bgcolor: DASH.canvas, minHeight: "100%" }}>
-            {isLoading && <Loader />}
             <SnackBar open={open} setOpen={setOpen} status={status} color={color} message={message} />
 
             <Box
@@ -392,8 +417,16 @@ export default function BooksLibraryPage() {
                 </Box>
             </Box>
 
+            {/* The counts arrive with the list, so the tiles wait with it. */}
+            {isLoading ? (
+                <Grid container spacing={1.5} sx={{ mb: 2 }}>
+                    {[0, 1, 2, 3].map((i) => (
+                        <Grid key={i} size={KPI_GRID}><KpiSkeleton /></Grid>
+                    ))}
+                </Grid>
+            ) : (
             <Grid container spacing={1.5} sx={{ mb: 2 }}>
-                <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
+                <Grid size={KPI_GRID}>
                     <SolidStatCard
                         icon={MenuBookOutlinedIcon}
                         label="Books in Library"
@@ -402,7 +435,7 @@ export default function BooksLibraryPage() {
                         tone={KPI_TONES.orange}
                     />
                 </Grid>
-                <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
+                <Grid size={KPI_GRID}>
                     <SolidStatCard
                         icon={FactCheckOutlinedIcon}
                         label="Ready for Papers"
@@ -412,7 +445,7 @@ export default function BooksLibraryPage() {
                         onClick={() => { setStatusFilter("Ready"); setPage(1); }}
                     />
                 </Grid>
-                <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
+                <Grid size={KPI_GRID}>
                     <SolidStatCard
                         icon={PendingOutlinedIcon}
                         label="Needs Attention"
@@ -422,7 +455,7 @@ export default function BooksLibraryPage() {
                         onClick={() => { setStatusFilter("Needs Review"); setPage(1); }}
                     />
                 </Grid>
-                <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
+                <Grid size={KPI_GRID}>
                     <SolidStatCard
                         icon={LayersOutlinedIcon}
                         label="Chapters Indexed"
@@ -432,6 +465,7 @@ export default function BooksLibraryPage() {
                     />
                 </Grid>
             </Grid>
+            )}
 
             {/* One toolbar: search takes the space on the left, every filter sits
                 on the right in a fixed order so the row never reshuffles. */}
@@ -527,7 +561,15 @@ export default function BooksLibraryPage() {
                 </Typography>
             </Box>
 
-            {paged.length === 0 ? (
+            {isLoading ? (
+                /* Placeholders in the same grid the cards land in, so nothing
+                   reflows when the answer arrives. */
+                <Grid container spacing={1.8}>
+                    {Array.from({ length: PER_PAGE }, (_, i) => (
+                        <Grid key={i} size={BOOK_GRID}><BookCardSkeleton /></Grid>
+                    ))}
+                </Grid>
+            ) : paged.length === 0 ? (
                 <Box
                     sx={{
                         bgcolor: "#fff", border: `1px dashed ${DASH.line}`, borderRadius: RADIUS,
@@ -559,7 +601,7 @@ export default function BooksLibraryPage() {
             ) : (
                 <Grid container spacing={1.8}>
                     {paged.map((book) => (
-                        <Grid key={book.id} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+                        <Grid key={book.id} size={BOOK_GRID}>
                             <BookCard book={book} onOpen={openBook} onDelete={setDeleteTarget} onDownload={saveBook} />
                         </Grid>
                     ))}

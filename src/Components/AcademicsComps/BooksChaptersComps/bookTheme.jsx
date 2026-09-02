@@ -1,5 +1,5 @@
 import React from "react";
-import { Box, Typography } from "@mui/material";
+import { Box, Typography, Skeleton } from "@mui/material";
 import { DASH, RADIUS } from "../../DashBoardComps/dashboardTheme";
 
 export { createBtnSx } from "../../DashBoardComps/dashboardTheme";
@@ -151,3 +151,117 @@ export const primaryBtnSx = {
     "&:hover": { bgcolor: "#D89400", boxShadow: "none" },
     "&.Mui-disabled": { bgcolor: DASH.line, color: DASH.faint },
 };
+
+/* ------------------------------- Skeletons -------------------------------- */
+
+/* One source for the book grid. The skeletons and the real cards read the same
+   breakpoints, so a placeholder can never sit in a different column count than
+   the row it is standing in for. */
+export const BOOK_GRID = { xs: 12, sm: 6, md: 4, lg: 3 };
+export const KPI_GRID = { xs: 12, sm: 6, md: 3, lg: 3 };
+
+// Matches SolidStatCard's fixed 100px tile.
+export const KpiSkeleton = () => (
+    <Box
+        sx={{
+            height: 100, borderRadius: "7px", boxSizing: "border-box",
+            border: `1px solid ${DASH.line}`, bgcolor: "#fff", p: "11px 14px",
+        }}
+    >
+        <Skeleton variant="text" width="52%" height={11} />
+        <Skeleton variant="text" width="38%" height={30} sx={{ mt: 0.4 }} />
+        <Skeleton variant="text" width="64%" height={11} />
+    </Box>
+);
+
+/* Mirrors BookCard: the spine, the two title lines, the pill row, the chapter
+   block and the footer - at the height a real card settles on, so the page does
+   not jump when the answer lands. */
+export const BookCardSkeleton = () => (
+    <Box
+        sx={{
+            display: "flex", height: 226, boxSizing: "border-box",
+            bgcolor: "#fff", border: `1px solid ${DASH.line}`,
+            borderRadius: "8px", overflow: "hidden",
+        }}
+    >
+        <Box sx={{ width: 34, flexShrink: 0, bgcolor: DASH.lineSoft }} />
+        <Box sx={{ display: "flex", flexDirection: "column", minWidth: 0, flex: 1 }}>
+            <Box sx={{ p: 1.7, flex: 1, minWidth: 0 }}>
+                <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1 }}>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Skeleton variant="text" width="88%" height={17} />
+                        <Skeleton variant="text" width="52%" height={13} />
+                    </Box>
+                    <Skeleton variant="rounded" width={62} height={17} sx={{ flexShrink: 0 }} />
+                </Box>
+
+                <Box sx={{ display: "flex", gap: 0.6, mt: 1.3 }}>
+                    <Skeleton variant="rounded" width={34} height={17} />
+                    <Skeleton variant="rounded" width={58} height={17} />
+                    <Skeleton variant="rounded" width={46} height={17} />
+                </Box>
+
+                <Skeleton variant="rounded" height={44} sx={{ mt: 1.4, borderRadius: RADIUS }} />
+
+                <Box sx={{ display: "flex", gap: 1.4, mt: 1.4 }}>
+                    <Skeleton variant="text" width={68} height={13} />
+                    <Skeleton variant="text" width={52} height={13} />
+                </Box>
+            </Box>
+
+            <Box
+                sx={{
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                    px: 1.7, py: 1.1, borderTop: `1px solid ${DASH.lineSoft}`, bgcolor: "#FCFCFD",
+                }}
+            >
+                <Skeleton variant="text" width={94} height={12} />
+                <Skeleton variant="text" width={38} height={12} />
+            </Box>
+        </Box>
+    </Box>
+);
+
+// One row of the chapter list, at the height the real row occupies.
+export const ChapterRowSkeleton = () => (
+    <Box sx={{ border: `1px solid ${DASH.line}`, borderRadius: RADIUS, p: 1.2, mb: 1 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
+            <Skeleton variant="rounded" width={22} height={22} sx={{ flexShrink: 0 }} />
+            <Skeleton variant="text" width="70%" height={16} />
+        </Box>
+        <Skeleton variant="text" width="55%" height={13} sx={{ mt: 0.8, ml: 3.6 }} />
+    </Box>
+);
+
+/* A panel-shaped placeholder: the header band with its accent bar, then a body
+   of lines. Used where the panel's contents are one block of text rather than a
+   list of rows. */
+export const PanelSkeleton = ({ accent = DASH.primary, lines = 4, bodyHeight }) => (
+    <Box
+        sx={{
+            bgcolor: "#fff", border: `1px solid ${accent}38`, borderRadius: RADIUS,
+            display: "flex", flexDirection: "column", overflow: "hidden",
+        }}
+    >
+        <Box
+            sx={{
+                display: "flex", alignItems: "center", gap: 1.2,
+                px: 2, py: 1.4, borderBottom: `1px solid ${accent}22`,
+            }}
+        >
+            <Box sx={{ width: 3, height: 20, borderRadius: RADIUS, bgcolor: `${accent}55`, flexShrink: 0 }} />
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Skeleton variant="text" width="34%" height={16} />
+                <Skeleton variant="text" width="52%" height={12} />
+            </Box>
+        </Box>
+        <Box sx={{ p: 2 }}>
+            {bodyHeight
+                ? <Skeleton variant="rounded" height={bodyHeight} sx={{ borderRadius: RADIUS }} />
+                : Array.from({ length: lines }, (_, i) => (
+                    <Skeleton key={i} variant="text" height={14} width={`${92 - i * 9}%`} sx={{ mb: 0.6 }} />
+                ))}
+        </Box>
+    </Box>
+);

@@ -646,12 +646,13 @@ const CommonDashboardForMe = `${baseApiurl}commonDashboard/forMe`;
 //----------------------------------- Books & Chapters ----------------------------------
 //----------------------------------- xxxxxxxx ----------------------------------
 
-const UploadBook = `${baseApiurl}book/upload`;
-const GetAllBooks = `${baseApiurl}book/getAll`;
-const GetBookById = `${baseApiurl}book/getById`;
-const UpdateBookChapters = `${baseApiurl}book/updateChapters`;
-const ConfirmBookChapters = `${baseApiurl}book/confirmChapters`;
-const DeleteBook = `${baseApiurl}book/delete`;
+/* questionpapergeneration > bookupload. view for the two GETs, create for the
+   upload, edit for confirm/update. UAT only - not on Live yet. */
+const UploadBook = `${baseApiurl}questionpapergeneration/uploadBook`;
+const GetBookStatus = `${baseApiurl}questionpapergeneration/getBookStatus`;
+const ListBooks = `${baseApiurl}questionpapergeneration/listBooks`;
+const ConfirmBookChapters = `${baseApiurl}questionpapergeneration/confirmChapters`;
+const UpdateBookMetadata = `${baseApiurl}questionpapergeneration/updateBookMetadata`;
 
 //----------------------------------- xxxxxxxx ----------------------------------
 
@@ -1134,11 +1135,10 @@ export {
     CommonDashboardWork,
     CommonDashboardForMe,
     UploadBook,
-    GetAllBooks,
-    GetBookById,
-    UpdateBookChapters,
+    GetBookStatus,
+    ListBooks,
     ConfirmBookChapters,
-    DeleteBook,
+    UpdateBookMetadata,
     GetQuestionPaperPatterns,
     PostQuestionPaperPattern,
     UpdateQuestionPaperPattern,

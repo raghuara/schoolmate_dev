@@ -40,9 +40,17 @@ export default function HelpArticle({ article, color = '#EEA200', expanded, onTo
           {showCategory && article.category ? (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.7, mb: 0.35 }}>
               <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: article.category.color, flexShrink: 0 }} />
-              <Typography sx={{ fontSize: 11, fontWeight: 600, color: '#111827' }}>
+              <Typography sx={{ fontSize: 11, fontWeight: 600, color: '#111827' }} noWrap>
                 {article.category.title}
               </Typography>
+              {article.topic ? (
+                <>
+                  <Box sx={{ width: 3, height: 3, borderRadius: '50%', bgcolor: '#D1D5DB', flexShrink: 0 }} />
+                  <Typography sx={{ fontSize: 11, fontWeight: 600, color: '#6B7280' }} noWrap>
+                    {article.topic.title}
+                  </Typography>
+                </>
+              ) : null}
             </Box>
           ) : null}
           <Typography sx={{ fontSize: 13.5, fontWeight: 600, color: '#111827', lineHeight: 1.45 }}>
