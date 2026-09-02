@@ -726,14 +726,16 @@ const GetComplaintConfigAuditLog = `${complaintsConfig}audit-log/get`;
    `actorRollNumber`. */
 const GetComplaintLookupCategories = `${baseApiurl}complaints/categories`;
 const SearchComplaintStudents = `${baseApiurl}complaints/students/search`;
-/* Detail and timeline take the token as a PATH segment, not a query parameter.
-   The `complaints/detail?complaintToken=` and `complaints/timeline?complaintToken=` forms
-   that the module 04 collection documents were replaced when modules 06/07 shipped: they
-   now answer 404 "ComplaintToken was not found" for every token, including ones the list
-   endpoint returns, because `complaints/{token}` matches them with token="detail". */
-const GetComplaintDetail = (complaintToken) =>
+/* Detail and timeline have been served in BOTH shapes on this API and have swapped over
+   at least twice mid-development: `complaints/detail?complaintToken=` (what module 04
+   documents) and `complaints/{token}` (what modules 06/07 introduced). Whichever is not
+   deployed answers 404, so both are defined and the wrapper falls back — see
+   fetchComplaintDetail. Delete the unused pair once the backend settles on one. */
+const GetComplaintDetail = `${baseApiurl}complaints/detail`;
+const GetComplaintTimeline = `${baseApiurl}complaints/timeline`;
+const GetComplaintDetailByPath = (complaintToken) =>
     `${baseApiurl}complaints/${encodeURIComponent(complaintToken)}`;
-const GetComplaintTimeline = (complaintToken) =>
+const GetComplaintTimelineByPath = (complaintToken) =>
     `${baseApiurl}complaints/${encodeURIComponent(complaintToken)}/timeline`;
 const DownloadComplaintAttachment = `${baseApiurl}complaints/attachments/download`;
 const GetComplaintNotifications = `${baseApiurl}complaints/notifications`;
@@ -745,7 +747,6 @@ const PostComplaintAcknowledge = `${baseApiurl}complaints/acknowledge`;
 const PostComplaintStatus = `${baseApiurl}complaints/status`;
 const PostComplaintNote = `${baseApiurl}complaints/notes`;
 const PostComplaintRequestInformation = `${baseApiurl}complaints/request-information`;
-const PostComplaintResolution = `${baseApiurl}complaints/resolution`;
 const PostComplaintAssign = `${baseApiurl}complaints/management/assign`;
 const PostComplaintEscalate = `${baseApiurl}complaints/management/escalate`;
 const PostComplaintManagementReopen = `${baseApiurl}complaints/management/reopen`;
@@ -1266,14 +1267,15 @@ export {
     GetComplaintLookupCategories,
     SearchComplaintStudents,
     GetComplaintDetail,
+    GetComplaintDetailByPath,
     GetComplaintTimeline,
+    GetComplaintTimelineByPath,
     DownloadComplaintAttachment,
     GetComplaintNotifications,
     PostComplaintAcknowledge,
     PostComplaintStatus,
     PostComplaintNote,
     PostComplaintRequestInformation,
-    PostComplaintResolution,
     PostComplaintAssign,
     PostComplaintEscalate,
     PostComplaintManagementReopen,

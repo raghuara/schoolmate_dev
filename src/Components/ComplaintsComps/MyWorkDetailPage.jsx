@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { Box, Button, Divider, TextField, Typography } from "@mui/material";
+import React, { useCallback, useEffect, useState } from "react";
+import { Box, Button, Divider, Snackbar, TextField, Typography } from "@mui/material";
 import { useSelector } from "react-redux";
 import { useNavigate, useParams } from "react-router-dom";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
@@ -9,6 +9,7 @@ import PlaceOutlinedIcon from "@mui/icons-material/PlaceOutlined";
 import { selectWebsiteSettings } from "../../Redux/Slices/websiteSettingsSlice";
 import { C } from "./complaintsTokens";
 import { myWorkDetailFrom, DETAIL_STATUS_TONES } from "./myWorkDetailData";
+import { updateComplaintStatus } from "./complaintsActionsApi";
 import { fetchComplaintDetail, detailForScreen } from "./complaintsDetailApi";
 import { toneFor } from "./complaintsManagementData";
 
@@ -82,34 +83,62 @@ export default function MyWorkDetailPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
 
+    /* Named so a status update can re-read the record: the action endpoints return no
+       updated copy, and the new status and timeline entry only appear on a re-read. */
+    const loadDetail = useCallback(async () => {
+        const result = await fetchComplaintDetail({ complaintToken: token });
+        if (result.ok) {
+            setError("");
+            setItem(myWorkDetailFrom(detailForScreen(result), token));
+        } else {
+            setError(result.message || `${token} could not be loaded.`);
+        }
+        return result;
+    }, [token]);
+
     useEffect(() => {
         let cancelled = false;
         setLoading(true);
-        fetchComplaintDetail({ complaintToken: token }).then((result) => {
-            if (cancelled) return;
-            if (result.ok) {
-                setError("");
-                setItem(myWorkDetailFrom(detailForScreen(result), token));
-            } else {
-                setError(result.message || `${token} could not be loaded.`);
-            }
-            setLoading(false);
+        loadDetail().finally(() => {
+            if (!cancelled) setLoading(false);
         });
         return () => {
             cancelled = true;
         };
-    }, [token]);
+    }, [loadDetail]);
 
     // Hooks must run before the early return below, so the fallbacks stand in
     // while `item` is missing.
     const [status, setStatus] = useState(item?.currentStatus || "");
     const [note, setNote] = useState("");
 
-    // No endpoint yet — wire these to the status-update API when it lands.
-    const submitUpdate = (nextStatus = status) => {
-        console.log("Status update:", { id: item?.id, status: nextStatus, note });
-        setStatus(nextStatus);
+    const [saving, setSaving] = useState(false);
+    const [toast, setToast] = useState("");
+
+    /**
+     * Send the status change, then re-read.
+     *
+     * `status` holds the entry's key; the API wants its `api` value, which differs per
+     * stream. The note is the internal record — parentMessage is left empty because this
+     * panel does not ask for parent-facing wording.
+     */
+    const submitUpdate = async (nextStatus = status) => {
+        const choice = (item?.config?.statuses || []).find((s) => s.key === nextStatus);
+        if (!choice) return;
+        setSaving(true);
+        const result = await updateComplaintStatus({
+            complaintToken: token,
+            status: choice.api,
+            staffResponse: note.trim(),
+        });
+        setSaving(false);
+        if (!result.ok) {
+            setToast(result.message || "Could not update the status");
+            return;
+        }
+        setToast(result.message || "Status updated");
         setNote("");
+        loadDetail();
     };
 
     if (loading || !item) {
@@ -539,6 +568,10 @@ export default function MyWorkDetailPage() {
                         <Box sx={{ alignSelf: "stretch", display: "flex", flexDirection: "column", gap: 1 }}>
                         <Button
                             onClick={() => submitUpdate()}
+                            /* No status picked yet, or a send already in flight — the panel
+                               opens with nothing selected on a complaint that has no
+                               matching status. */
+                            disabled={saving || !status}
                             fullWidth
                             sx={{
                                 py: 1.5,
@@ -552,7 +585,7 @@ export default function MyWorkDetailPage() {
                                 "&:hover": { bgcolor: websiteSettings.darkColor },
                             }}
                         >
-                            Submit Update
+                            {saving ? "Saving…" : "Submit Update"}
                         </Button>
 
                         {completeAction && (
@@ -578,6 +611,13 @@ export default function MyWorkDetailPage() {
                     </Box>
                 </Box>
             </Box>
+        <Snackbar
+                open={Boolean(toast)}
+                autoHideDuration={4000}
+                onClose={() => setToast("")}
+                message={toast}
+                anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+            />
         </Box>
     );
 }

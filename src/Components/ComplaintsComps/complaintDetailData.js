@@ -33,7 +33,12 @@ export const DETAIL_STATUS_TONES = {
 // "Move to" options in the Update Status drawer. Note that Escalated and On Hold
 // are NOT timeline steps — they are side states the complaint can sit in — so
 // moving to one changes the status without advancing the timeline.
-export const STATUS_OPTIONS = ["Action in Progress", "Resolved", "Escalated", "On Hold"];
+/* Only what POST /complaints/status accepts for a parent complaint. The 06/07 mapping is
+   explicit: "Parent: UnderReview/ActionInProgress/ActionRequired ... Resolution states use
+   /resolution." Resolved therefore needs the evidence form, which staff file on mobile, and
+   Escalated goes through /management/escalate — the Escalate button. Offering them here
+   sent values the endpoint rejects. */
+export const STATUS_OPTIONS = ["Under Review", "Action in Progress", "Action Required"];
 
 export const activeStep = (timeline = []) =>
     timeline.find((s) => s.state === TIMELINE_STATE.ACTIVE) || null;

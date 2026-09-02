@@ -214,11 +214,8 @@ export default function ActionDetailPage() {
        PascalCase, no spaces. Anything unmapped is sent through unchanged so a new option
        fails loudly server-side rather than silently doing nothing. */
     const STATUS_TO_API = {
-        "Evidence Submitted": "EvidenceSubmitted",
-        "Under Review": "UnderReview",
-        Completed: "Completed",
-        "On Hold": "OnHold",
-        Escalated: "Escalated",
+        "In Progress": "InProgress",
+        "Action Required": "ActionRequired",
     };
 
     /**
@@ -530,10 +527,23 @@ export default function ActionDetailPage() {
                     <Box sx={cardSx}>
                         <IconTitle icon={AssignmentOutlinedIcon}>Resolution</IconTitle>
                         <Divider />
-                        {detail.resolution ? (
-                            <Typography sx={{ fontSize: "14px", fontWeight: 400, color: C.textMuted }}>
-                                {detail.resolution}
-                            </Typography>
+                        {detail.resolution.length > 0 ? (
+                            <Box sx={{ display: "flex", flexDirection: "column", gap: 1.25 }}>
+                                {detail.resolution.map((line) => (
+                                    <Box key={line.label}>
+                                        <Typography
+                                            sx={{ fontSize: "12px", fontWeight: 600, color: C.labelText }}
+                                        >
+                                            {line.label}
+                                        </Typography>
+                                        <Typography
+                                            sx={{ fontSize: "14px", fontWeight: 400, color: C.textMuted }}
+                                        >
+                                            {line.value}
+                                        </Typography>
+                                    </Box>
+                                ))}
+                            </Box>
                         ) : (
                             <Box
                                 sx={{

@@ -5,7 +5,6 @@ import {
     PostComplaintStatus,
     PostComplaintNote,
     PostComplaintRequestInformation,
-    PostComplaintResolution,
     PostComplaintAssign,
     PostComplaintEscalate,
     PostComplaintManagementReopen,
@@ -158,54 +157,13 @@ export const requestParentInformation = async ({
         "Could not send the request",
     );
 
-/**
- * File the resolution. Multipart, because it carries evidence.
- *
- * Sent as FormData with no explicit Content-Type: the browser must set it so it can append
- * the multipart boundary, and naming the header here would strip that and the server would
- * reject the body.
- */
-export const submitResolution = async ({
-    complaintToken,
-    investigationSummary = "",
-    rootCause = "",
-    immediateAction = "",
-    correctiveAction = "",
-    preventiveAction = "",
-    responsiblePersonRollNumber = "",
-    completionDate = "",
-    parentCommunication = "",
-    parentFacingMessage = "",
-    followUpRequired = false,
-    followUpOnUtc = "",
-    attachments = [],
-}) => {
-    const form = new FormData();
-    form.append("actorRollNumber", actorRollNumber());
-    form.append("complaintToken", complaintToken);
-    form.append("investigationSummary", investigationSummary);
-    form.append("rootCause", rootCause);
-    form.append("immediateAction", immediateAction);
-    form.append("correctiveAction", correctiveAction);
-    form.append("preventiveAction", preventiveAction);
-    form.append("responsiblePersonRollNumber", responsiblePersonRollNumber);
-    form.append("completionDate", completionDate);
-    form.append("parentCommunication", parentCommunication);
-    form.append("parentFacingMessage", parentFacingMessage);
-    form.append("followUpRequired", String(followUpRequired));
-    form.append("followUpOnUtc", followUpOnUtc);
-    attachments.forEach((file) => form.append("attachments", file));
+/* Filing a resolution (POST /resolution) is deliberately absent. Staff submit the
+   root-cause/action/evidence form on MOBILE — the backend team confirmed it is not a
+   website flow, despite the 06/07 mapping listing it for both platforms. That mapping
+   lists EVERY endpoint for both, so its platform column cannot tell them apart.
 
-    try {
-        const res = await client.post(PostComplaintResolution, form);
-        if (res?.data?.error) {
-            return { ok: false, message: res.data.message || "Could not submit the resolution" };
-        }
-        return { ok: true, body: res?.data ?? {}, message: res?.data?.message || "" };
-    } catch (error) {
-        return { ok: false, message: messageOf(error, "Could not submit the resolution") };
-    }
-};
+   Review and close stay here: management reviews on the website what staff filed on
+   mobile, which is why reviewResolution takes a resolutionId it never creates. */
 
 /* ─────────────── Management actions ─────────────── */
 

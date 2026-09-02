@@ -37,13 +37,11 @@ export const ACTION_STATUS_TONES = {
 };
 
 // "Move to" options for the Update Status drawer on this screen.
-export const ACTION_STATUS_OPTIONS = [
-    "Evidence Submitted",
-    "Under Review",
-    "Completed",
-    "On Hold",
-    "Escalated",
-];
+/* Only what POST /complaints/status accepts for a staff concern — the mapping says
+   "Staff: InProgress/ActionRequired". Evidence Submitted and Completed are resolution
+   states filed through /resolution, which staff submit on mobile; Escalated goes
+   through /management/escalate, which is the Escalate button in the Control Panel. */
+export const ACTION_STATUS_OPTIONS = ["In Progress", "Action Required"];
 
 // Control panel. The comp gives Update Status the accent fill and Reassign a
 // darker label than the three below it.
