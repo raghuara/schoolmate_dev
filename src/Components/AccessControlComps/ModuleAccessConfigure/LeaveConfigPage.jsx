@@ -14,7 +14,13 @@ const PAGES = [
     "Attendance Access",
     "Leave Management",
     "Payroll Management",
+    "Payroll & Attendance Coverage",
 ];
+
+/* The one leaveandpayroll subMenu no screen here edits. It rides along on every
+   save untouched so a backend that replaces a main menu's subMenus rather than
+   merging them cannot drop it. */
+const PRESERVED_SUBMENUS = ["leavemanagementapplyleaveapproval"];
 
 const PAGE_OVERRIDES = {
     "Policy Setup": { subMenu: "leavepolicymasterpolicysetup", opsKeys: ["view", "create", "edit"] },
@@ -23,6 +29,10 @@ const PAGE_OVERRIDES = {
     "Attendance Access": { subMenu: "leaveandattendanceattendanceaccess", opsKeys: [] },
     "Leave Management": { subMenu: "leaveandattendanceleavemanagement", opsKeys: [] },
     "Payroll Management": { subMenu: "payrollmanagement", opsKeys: ["view", "create", "edit", "delete"] },
+    /* The backend publishes delete on payrollcoverage too, but nothing on that
+       screen deletes - a staff member is included or excluded, never removed -
+       so it is not offered here. */
+    "Payroll & Attendance Coverage": { subMenu: "payrollcoverage", opsKeys: ["view", "create", "edit"] },
 };
 
 const EXTRA_OPS = {
@@ -60,6 +70,7 @@ export default function LeaveConfigPage() {
             pageOverrides={PAGE_OVERRIDES}
             extraOps={EXTRA_OPS}
             extraOpsLabels={EXTRA_OPS_LABELS}
+            preserveSubMenus={PRESERVED_SUBMENUS}
             onSave={handleSave}
         />
     );

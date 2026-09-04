@@ -4,6 +4,8 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import React, { useEffect, useState } from 'react'
 import { selectGrades } from '../../../Redux/Slices/DropdownController';
 import { useSelector } from 'react-redux';
+import { DASH, RADIUS } from "../../DashBoardComps/dashboardTheme";
+import { AttendanceTableSkeleton } from "./AttendanceSkeletons";
 import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import { selectWebsiteSettings } from '../../../Redux/Slices/websiteSettingsSlice';
 import { Link } from 'react-router-dom';
@@ -12,7 +14,6 @@ import dayjs from 'dayjs';
 import { dresscodeStatusReport, fetchDressCodeStatus, fetchHomeworkStatus, homeworkStatusReport, postDresscodeStatus, postHomeworkStatus, updateDressCodeStatus, updateHomeworkStatus } from '../../../Api/Api';
 import axios from 'axios';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
-import Loader from '../../Loader';
 import SnackBar from '../../SnackBar';
 import * as XLSX from 'xlsx';
 
@@ -326,7 +327,6 @@ export default function UniformStatusPage() {
     };
     return (
         <Box>
-            {isLoading && <Loader />}
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
             <Box sx={{ display: "flex", marginTop: "-15px", mb: 1.5, pl: 1 }}>
                 <ThemeProvider theme={darkTheme}>
@@ -772,36 +772,55 @@ export default function UniformStatusPage() {
 
                     </Grid>
                 </Box>
+                {isLoading ? (
+                    <AttendanceTableSkeleton columns={6} rows={9} height="64vh" />
+                ) : (
                 <TableContainer
                     sx={{
-                        border: "1px solid #E8DDEA",
+                        border: `1px solid ${DASH.line}`,
                         maxHeight: "64vh",
                         overflowY: "auto",
 
                     }}
                 >
-                    <Table stickyHeader aria-label="attendance table" sx={{ minWidth: '100%' }}>
+                    <Table
+                        stickyHeader
+                        aria-label="attendance table"
+                        sx={{
+                            minWidth: '100%',
+                            '& thead .MuiTableCell-root': {
+                                color: DASH.muted,
+                                fontSize: '10.5px',
+                                fontWeight: 700,
+                                letterSpacing: '0.06em',
+                                textTransform: 'uppercase',
+                                py: 1,
+                            },
+                            '& tbody .MuiTableCell-root': { fontSize: '12.5px', color: DASH.text, py: 0.9 },
+                            '& tbody .MuiTableRow-root:hover .MuiTableCell-root': { backgroundColor: DASH.surface },
+                        }}
+                    >
                         <TableHead>
                             <TableRow>
-                                <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#faf6fc" }}>
+                                <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center", backgroundColor: DASH.surface }}>
                                     S.No
                                 </TableCell>
-                                <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#faf6fc" }}>
+                                <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center", backgroundColor: DASH.surface }}>
                                     Roll Number
                                 </TableCell>
-                                <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#faf6fc" }}>
+                                <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center", backgroundColor: DASH.surface }}>
                                     Student Name
                                 </TableCell>
-                                <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#faf6fc" }}>
+                                <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center", backgroundColor: DASH.surface }}>
                                     Class
                                 </TableCell>
-                                <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#faf6fc" }}>
+                                <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center", backgroundColor: DASH.surface }}>
                                     Section
                                 </TableCell>
-                                <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#faf6fc" }}>
+                                <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center", backgroundColor: DASH.surface }}>
                                     Status
                                 </TableCell>
-                                <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#faf6fc" }}>
+                                <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center", backgroundColor: DASH.surface }}>
                                     Remarks
                                 </TableCell>
                             </TableRow>
@@ -809,23 +828,23 @@ export default function UniformStatusPage() {
                         <TableBody>
                             {visibleData.map((row, index) => (
                                 <TableRow key={row.id}>
-                                    <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center" }}>
+                                    <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center" }}>
                                         {index + 1}
                                     </TableCell>
-                                    <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center" }}>
+                                    <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center" }}>
                                         {row.rollNumber}
                                     </TableCell>
-                                    <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", color: row.name ? "inherit" : "red", }}>
+                                    <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center", color: row.name ? "inherit" : "red", }}>
                                         {row.name || "Name not provided"}
                                     </TableCell>
-                                    <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center" }}>
+                                    <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center" }}>
                                         {row.grade}
                                     </TableCell>
-                                    <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center" }}>
+                                    <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center" }}>
                                         {row.section}
                                     </TableCell>
 
-                                    <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", width: "200px" }}>
+                                    <TableCell sx={{ borderRight: 1, borderColor: DASH.line, width: "200px" }}>
                                         <Autocomplete
                                             disablePortal
                                             options={["Uniform", "Ununiform", "Permission"]}
@@ -895,7 +914,7 @@ export default function UniformStatusPage() {
                                     </TableCell>
 
                                     <TableCell
-                                        sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center" }}
+                                        sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center" }}
                                     >
                                         <Button
                                             onClick={() => handleAdd(row.rollNumber)}
@@ -991,6 +1010,7 @@ export default function UniformStatusPage() {
                     </Table>
                     <Box sx={{ height: '50px' }}></Box>
                 </TableContainer>
+                )}
             </Box>
             <Box sx={{ display: "flex", justifyContent: "center", }}>
                 <Box sx={{ position: "absolute", bottom: "10px" }}>

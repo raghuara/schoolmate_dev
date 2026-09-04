@@ -6,7 +6,6 @@ import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import dayjs from "dayjs";
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
-import Loader from "../../Loader";
 import axios from "axios";
 import { DashboardStudentsAttendance, fetchAttendance, postAttendance, updateAttendance, StudentsOnLeaveToday } from "../../../Api/Api";
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -23,10 +22,13 @@ import SearchIcon from '@mui/icons-material/Search';
 import { Link } from "react-router-dom";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useSelector } from "react-redux";
+import { DASH, RADIUS } from "../../DashBoardComps/dashboardTheme";
+import { AttendanceTableSkeleton, StatusChipsSkeleton } from "./AttendanceSkeletons";
 import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlice";
 import { findSubMenuPermissions } from "../../../Redux/Slices/AuthSlice";
 import AddIcon from '@mui/icons-material/Add';
 import SnackBar from "../../SnackBar";
+import Loader from "../../Loader";
 import fallbackImage from "../../../Images/PagesImage/dummy-image.jpg";
 import { selectGrades } from "../../../Redux/Slices/DropdownController";
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
@@ -109,6 +111,12 @@ export default function AddAttendancePage() {
     const getHalfConfig = (roll) => halfDayConfig[roll] || { half: "first" };
     const halfDayLabel = (cfg) => (cfg.half === "first" ? "1st Half" : "2nd Half");
 
+    // The API sends "half day" with a space; the radio group uses "halfday".
+    const normalizeStatus = (value) => String(value || "").toLowerCase().replace(/\s+/g, "");
+    // ...and Forenoon / Afternoon, which map onto first / second.
+    const sessionToHalf = (session) =>
+        String(session || "").toLowerCase().startsWith("after") ? "second" : "first";
+
     const selectedGrade = grades.find((grade) => grade.id === selectedGradeId);
     const sections = selectedGrade?.sections.map((section) => ({ sectionName: section })) || [];
     const sectionOptions = [{ sectionName: "All" }, ...sections];
@@ -132,13 +140,15 @@ export default function AddAttendancePage() {
             halfday: 0
         };
 
+        const initialHalf = {};
+
         filteredData.forEach(row => {
-            const action = row.attendanceAction?.toLowerCase();
+            const action = normalizeStatus(row.attendanceAction);
             const onLeave = leaveRollSet.has(String(row.rollNumber));
             // No attendance marked yet → default to "leave" when an approved leave exists, else "present".
             // If attendance already marked, respect the saved value (teacher can still change it).
             let status;
-            if (!action || action === "no data") {
+            if (!action || action === "nodata") {
                 status = onLeave ? "leave" : "present";
             } else {
                 status = action;
@@ -148,9 +158,17 @@ export default function AddAttendancePage() {
             if (counts[status] !== undefined) {
                 counts[status]++;
             }
+
+            // Bring the saved Forenoon/Afternoon back, otherwise re-saving a
+            // reloaded page would silently reset every 2nd-half student.
+            if (status === "halfday") {
+                const session = row.halfDaySession ?? row.HalfDaySession ?? row.halfday ?? row.half;
+                if (session) initialHalf[row.rollNumber] = { half: sessionToHalf(session) };
+            }
         });
 
         setSelectedActions(initialActions);
+        setHalfDayConfig((prev) => ({ ...initialHalf, ...prev }));
         setAttendanceData(counts);
     }, [filteredData, leaveRollSet]);
 
@@ -188,15 +206,16 @@ export default function AddAttendancePage() {
     const prepareAttendanceData = () => {
         return attendanceTableData.map((row) => {
             const rollNumber = row.rollNumber;
+            const saved = normalizeStatus(row.attendanceAction);
             const status = selectedActions[rollNumber] ||
-                (row.attendanceAction?.toLowerCase() === "no data" ? "present" : row.attendanceAction?.toLowerCase());
+                (saved === "nodata" ? "present" : saved);
 
             if (status === "halfday") {
                 const cfg = getHalfConfig(rollNumber);
                 return {
                     rollNumber,
-                    status: "HalfDay",
-                    half: cfg.half === "first" ? "FirstHalf" : "SecondHalf",
+                    status: "half day",
+                    halfDaySession: cfg.half === "first" ? "Forenoon" : "Afternoon",
                 };
             }
 
@@ -367,6 +386,7 @@ export default function AddAttendancePage() {
         try {
             const res = await axios.get(fetchAttendance, {
                 params: {
+                    requestedByRollNumber: rollNumber,
                     date: formattedDate,
                     grade: selectedGradeSign || grades?.[0]?.sign || "",
                     section: selectedSection || "all",
@@ -436,6 +456,7 @@ export default function AddAttendancePage() {
             const res = await axios.post(
                 postAttendance,
                 {
+                    requestedByRollNumber: rollNumber,
                     grade: selectedGradeSign || grades?.[0]?.sign || "",
                     section: selectedSection || grades?.[0]?.sections?.[0] || "",
                     date: today,
@@ -469,6 +490,7 @@ export default function AddAttendancePage() {
             const res = await axios.put(
                 updateAttendance,
                 {
+                    requestedByRollNumber: rollNumber,
                     grade: selectedGradeSign || grades?.[0]?.sign || "",
                     section: selectedSection || grades?.[0]?.sections?.[0] || "",
                     date: today,
@@ -502,7 +524,8 @@ export default function AddAttendancePage() {
     };
 
     return (
-        <Box sx={{ backgroundColor: "#F6F6F8", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+        <Box sx={{ backgroundColor: DASH.canvas, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+            {/* Save and update only - the roster fetch shows skeletons instead. */}
             {isLoading && <Loader />}
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
             <Box sx={{
@@ -535,26 +558,39 @@ export default function AddAttendancePage() {
                                     md: 6,
                                     lg: 6
                                 }}>
-                                <Box sx={{ display: "flex" }}>
-                                    <Link style={{ textDecoration: "none" }} to="/dashboardmenu/attendance">
-                                        <IconButton sx={{ width: "27px", height: "27px", marginTop: '3px', '&:hover': { backgroundColor: "rgba(252, 190, 58, 0.2)" } }}>
-                                            <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
-                                        </IconButton>
-                                    </Link>
+                                <Box>
+                                    <Box sx={{ display: "flex", alignItems: "center" }}>
+                                        <Link style={{ textDecoration: "none" }} to="/dashboardmenu/attendance">
+                                            <IconButton sx={{ width: "27px", height: "27px", '&:hover': { backgroundColor: "rgba(252, 190, 58, 0.2)" } }}>
+                                                <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
+                                            </IconButton>
+                                        </Link>
 
-                                    <Typography sx={{ fontWeight: "600", ml: 1, marginTop: "3px", fontSize: "19px" }}>
-                                        Add Attendance
-                                    </Typography>
-                                </Box>
+                                        <Typography sx={{ ml: 1, fontSize: "18px", fontWeight: 700, color: DASH.ink, lineHeight: 1.2, whiteSpace: "nowrap" }}>
+                                            Add Attendance
+                                        </Typography>
+                                    </Box>
 
-                                <Box sx={{ display: "inline-flex", ml: "34px", mt: "1px" }}>
+                                    <Box sx={{ display: "inline-flex", ml: "34px", mt: 0.4 }}>
                                     <Box
                                         ref={dateAnchorRef}
                                         onClick={handleOpen}
-                                        sx={{ display: "inline-flex", alignItems: "center", cursor: "pointer" }}
+                                        sx={{
+                                            display: "inline-flex",
+                                            alignItems: "center",
+                                            gap: 0.7,
+                                            height: 28,
+                                            px: 1.2,
+                                            borderRadius: RADIUS,
+                                            bgcolor: "#fff",
+                                            border: `1px solid ${DASH.line}`,
+                                            cursor: "pointer",
+                                            transition: "border-color .2s ease, background-color .2s ease",
+                                            "&:hover": { bgcolor: DASH.lineSoft, borderColor: DASH.faint },
+                                        }}
                                     >
-                                        <CalendarMonthIcon sx={{ fontSize: "18px", mr: "5px", color: "#555" }} />
-                                        <Typography sx={{ fontSize: "12px", color: "#777", borderBottom: "1px solid #000", lineHeight: 1.2 }}>
+                                        <CalendarMonthIcon sx={{ fontSize: 15, color: DASH.muted }} />
+                                        <Typography sx={{ fontSize: "12px", fontWeight: 700, color: DASH.ink, lineHeight: 1.2, whiteSpace: "nowrap" }}>
                                             {dayjs(selectedDate).format('DD MMMM YYYY')}
                                         </Typography>
                                     </Box>
@@ -583,6 +619,7 @@ export default function AddAttendancePage() {
                                             />
                                         </LocalizationProvider>
                                     </ThemeProvider>
+                                </Box>
                                 </Box>
 
                             </Grid>
@@ -907,7 +944,7 @@ export default function AddAttendancePage() {
                 </Grid>
             </Box>
 
-            <Box sx={{ pt: "78px", pb: 2, px: 2, flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+            <Box sx={{ pt: "74px", pb: 2, px: 2, flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
                 {/* <Box hidden={value !== 0}> */}
                 <Box sx={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
                     <Box
@@ -920,7 +957,11 @@ export default function AddAttendancePage() {
                             mb: 1.5,
                         }}
                     >
-                        {selectedSection?.toLowerCase() !== "all" && (
+                        {selectedSection?.toLowerCase() !== "all" && attendanceDataLoading && (
+                            <StatusChipsSkeleton count={5} />
+                        )}
+
+                        {selectedSection?.toLowerCase() !== "all" && !attendanceDataLoading && (
                             <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
                                 {[
                                     { label: "Present", value: attendanceData.present, color: "#018535", bg: "#E7F6EE" },
@@ -995,9 +1036,12 @@ export default function AddAttendancePage() {
                             </Box>
 
                         ) : (
+                            attendanceDataLoading ? (
+                                <AttendanceTableSkeleton columns={8} rows={9} height="100%" />
+                            ) : (
                             <TableContainer
                                 sx={{
-                                    border: "1px solid #E8DDEA",
+                                    border: `1px solid ${DASH.line}`,
                                     borderRadius: "14px",
                                     flex: 1,
                                     minHeight: 0,
@@ -1018,16 +1062,16 @@ export default function AddAttendancePage() {
                                 >
                                     <TableHead>
                                         <TableRow>
-                                            <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#F8F4FB", fontWeight: 700, fontSize: "12.5px", color: "#475569", textTransform: "uppercase", letterSpacing: "0.3px" }}>
+                                            <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center", backgroundColor: DASH.surface, fontWeight: 700, fontSize: "10.5px", color: DASH.muted, textTransform: "uppercase", letterSpacing: "0.06em" }}>
                                                 S.No
                                             </TableCell>
-                                            <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#F8F4FB", fontWeight: 700, fontSize: "12.5px", color: "#475569", textTransform: "uppercase", letterSpacing: "0.3px" }}>
+                                            <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center", backgroundColor: DASH.surface, fontWeight: 700, fontSize: "10.5px", color: DASH.muted, textTransform: "uppercase", letterSpacing: "0.06em" }}>
                                                 Roll Number
                                             </TableCell>
                                             <TableCell
                                                 sx={{
                                                     borderRight: 1,
-                                                    borderColor: "#E8DDEA",
+                                                    borderColor: DASH.line,
                                                     textAlign: "center",
                                                     backgroundColor: "#F8F4FB",
                                                     fontWeight: 700,
@@ -1073,19 +1117,19 @@ export default function AddAttendancePage() {
                                                 </Button>
                                             </TableCell>
 
-                                            <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#F8F4FB", fontWeight: 700, fontSize: "12.5px", color: "#475569", textTransform: "uppercase", letterSpacing: "0.3px" }}>
+                                            <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center", backgroundColor: DASH.surface, fontWeight: 700, fontSize: "10.5px", color: DASH.muted, textTransform: "uppercase", letterSpacing: "0.06em" }}>
                                                 Class
                                             </TableCell>
-                                            <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#F8F4FB", fontWeight: 700, fontSize: "12.5px", color: "#475569", textTransform: "uppercase", letterSpacing: "0.3px" }}>
+                                            <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center", backgroundColor: DASH.surface, fontWeight: 700, fontSize: "10.5px", color: DASH.muted, textTransform: "uppercase", letterSpacing: "0.06em" }}>
                                                 Profile
                                             </TableCell>
-                                            <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#F8F4FB", fontWeight: 700, fontSize: "12.5px", color: "#475569", textTransform: "uppercase", letterSpacing: "0.3px" }}>
+                                            <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center", backgroundColor: DASH.surface, fontWeight: 700, fontSize: "10.5px", color: DASH.muted, textTransform: "uppercase", letterSpacing: "0.06em" }}>
                                                 Attendance Action
                                             </TableCell>
-                                            <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#F8F4FB", fontWeight: 700, fontSize: "12.5px", color: "#475569", textTransform: "uppercase", letterSpacing: "0.3px" }}>
+                                            <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center", backgroundColor: DASH.surface, fontWeight: 700, fontSize: "10.5px", color: DASH.muted, textTransform: "uppercase", letterSpacing: "0.06em" }}>
                                                 Current Status
                                             </TableCell>
-                                            <TableCell sx={{ textAlign: "center", backgroundColor: "#F8F4FB", fontWeight: 700, fontSize: "12.5px", color: "#475569", textTransform: "uppercase", letterSpacing: "0.3px" }}>
+                                            <TableCell sx={{ textAlign: "center", backgroundColor: DASH.surface, fontWeight: 700, fontSize: "10.5px", color: DASH.muted, textTransform: "uppercase", letterSpacing: "0.06em" }}>
                                                 Attendance%
                                             </TableCell>
                                         </TableRow>
@@ -1100,20 +1144,20 @@ export default function AddAttendancePage() {
                                                     "&:hover": { backgroundColor: "#F3F0FA" },
                                                 }}
                                             >
-                                                <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", fontSize: "13px", color: "#64748B" }}>
+                                                <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center", fontSize: "13px", color: "#64748B" }}>
                                                     {index + 1}
                                                 </TableCell>
-                                                <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", fontSize: "13px", fontWeight: 600, color: "#334155" }}>
+                                                <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center", fontSize: "13px", fontWeight: 600, color: "#334155" }}>
                                                     {row.rollNumber}
                                                 </TableCell>
-                                                <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", fontSize: "13.5px", fontWeight: 600, color: "#1E293B" }}>
+                                                <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center", fontSize: "13.5px", fontWeight: 600, color: "#1E293B" }}>
                                                     {row.studentName}
                                                 </TableCell>
-                                                <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", fontSize: "13px", color: "#475569" }}>{row.grade} - {row.section}</TableCell>
+                                                <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center", fontSize: "13px", color: "#475569" }}>{row.grade} - {row.section}</TableCell>
                                                 <TableCell
                                                     sx={{
                                                         borderRight: 1,
-                                                        borderColor: "#E8DDEA",
+                                                        borderColor: DASH.line,
                                                         textAlign: "center",
                                                     }}
                                                 >
@@ -1134,11 +1178,11 @@ export default function AddAttendancePage() {
                                                     </Tooltip>
                                                 </TableCell>
 
-                                                <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", pl: 1, py: 0.5, pr: 0.5, width: "210px" }}>
+                                                <TableCell sx={{ borderRight: 1, borderColor: DASH.line, pl: 1, py: 0.5, pr: 0.5, width: "210px" }}>
                                                     <FormControl sx={{ width: "100%" }}>
                                                         <RadioGroup
                                                             value={selectedActions[row.rollNumber] ||
-                                                                (row.attendanceAction?.toLowerCase() === "no data" ? "present" : row.attendanceAction?.toLowerCase())}
+                                                                (normalizeStatus(row.attendanceAction) === "nodata" ? "present" : normalizeStatus(row.attendanceAction))}
                                                             onChange={(e) => handleAttendanceChange(row.rollNumber, e.target.value)}
                                                         >
                                                             <Grid container>
@@ -1242,7 +1286,7 @@ export default function AddAttendancePage() {
                                                 <TableCell
                                                     sx={{
                                                         borderRight: 1,
-                                                        borderColor: "#E8DDEA",
+                                                        borderColor: DASH.line,
                                                         textAlign: "center",
                                                     }}
                                                 >
@@ -1255,7 +1299,7 @@ export default function AddAttendancePage() {
                                                             backgroundColor: (() => {
                                                                 const value =
                                                                     selectedActions[row.rollNumber] ||
-                                                                    (row.attendanceAction?.toLowerCase() === "no data" ? "Present" : row.attendanceAction);
+                                                                    (normalizeStatus(row.attendanceAction) === "nodata" ? "Present" : row.attendanceAction);
                                                                 switch (value.toLowerCase()) {
                                                                     case "present":
                                                                         return "#018535";
@@ -1279,12 +1323,11 @@ export default function AddAttendancePage() {
                                                             py: 0.5,
                                                         }}
                                                     >
-                                                        {(selectedActions[row.rollNumber] ||
-                                                            (row.attendanceAction?.toLowerCase() === "no data" ? "present" : row.attendanceAction))?.toLowerCase() === "halfday"
+                                                        {normalizeStatus(selectedActions[row.rollNumber] || row.attendanceAction) === "halfday"
                                                             ? "Half Day"
                                                             : capitalizeFirstLetter(
                                                                 selectedActions[row.rollNumber] ||
-                                                                (row.attendanceAction?.toLowerCase() === "no data" ? "Present" : row.attendanceAction)
+                                                                (normalizeStatus(row.attendanceAction) === "nodata" ? "Present" : row.attendanceAction)
                                                             )}
                                                     </Box>
                                                     {selectedActions[row.rollNumber] === "halfday" && (
@@ -1300,7 +1343,7 @@ export default function AddAttendancePage() {
                                                     )}
                                                 </TableCell>
 
-                                                {/* <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center" }}>
+                                                {/* <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center" }}>
                                             <Box
                                                 sx={{
                                                     backgroundColor:
@@ -1342,6 +1385,7 @@ export default function AddAttendancePage() {
                                 </Table>
                                 {/* <Box sx={{ height: '50px' }}></Box> */}
                             </TableContainer>
+                            )
                         )}
                     </Box>
                 </Box>

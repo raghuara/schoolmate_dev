@@ -63,7 +63,12 @@ export default function CircularsPage() {
     const userTypeID = useSelector(selectUserTypeID);
     const approvalMatrix = useSelector(selectApprovalMatrix);
     const canActDirect = approvalRoleFor(approvalMatrix, APPROVAL_SUBMENUS.CIRCULAR, userTypeID).canPublishDirect;
-    const canBulkDelete = canDelete && canActDirect;
+    /* Bulk delete follows the single delete: the delete permission grants it, and
+       the approval flow only decides whether it happens straight away or goes up
+       as a request. Requiring canActDirect here hid the whole bulk bar from a role
+       that holds delete but sits below Level 1 - a role that can already delete the
+       same items one at a time. */
+    const canBulkDelete = canDelete;
 
     /*
        Shortcuts out of Circulars, each shown only when it leads somewhere useful.
@@ -433,7 +438,7 @@ export default function CircularsPage() {
             setOpen(true);
             setColor(true);
             setStatus(true);
-            setMessage("Circulars Deleted Successfully");
+            setMessage(canActDirect ? "Circulars Deleted Successfully" : "Requested Successfully");
             setSelectedMessageIds([]);
         } catch (error) {
             setOpen(true);
@@ -718,17 +723,21 @@ export default function CircularsPage() {
                 >
                     <Box sx={{ p: 3, backgroundColor: '#fff', textAlign: 'center' }}>
                         <Typography sx={{ fontSize: "17px", fontWeight: 600, color: "#111827" }}>
-                            Delete {selectedMessageIds.length} selected circulars?
+                            {canActDirect
+                                ? `Delete ${selectedMessageIds.length} selected circulars?`
+                                : `Send a delete request for ${selectedMessageIds.length} circulars?`}
                         </Typography>
                         <Typography sx={{ fontSize: "13px", color: "#6B7280", mt: 0.8 }}>
-                            This will remove them for everyone. It cannot be undone.
+                            {canActDirect
+                                ? "This will remove them for everyone. It cannot be undone."
+                                : "An approver has to clear the request before they are removed."}
                         </Typography>
                         <DialogActions sx={{ justifyContent: 'center', backgroundColor: '#fff', pt: 2.5, gap: 1 }}>
                             <Button variant="outlined" onClick={() => handleCloseBulkDeleteDialog(false)} sx={dialogGhostSx}>
                                 Cancel
                             </Button>
                             <Button onClick={() => handleCloseBulkDeleteDialog(true)} sx={dialogPrimarySx}>
-                                Delete
+                                {canActDirect ? "Delete" : "Send Request"}
                             </Button>
                         </DialogActions>
                     </Box>

@@ -20,6 +20,7 @@ import FilterAltOffOutlinedIcon from "@mui/icons-material/FilterAltOffOutlined";
 import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
 import InsertDriveFileOutlinedIcon from "@mui/icons-material/InsertDriveFileOutlined";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import ContentCopyOutlinedIcon from "@mui/icons-material/ContentCopyOutlined";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import PendingOutlinedIcon from "@mui/icons-material/PendingOutlined";
 import DownloadOutlinedIcon from "@mui/icons-material/DownloadOutlined";
@@ -28,10 +29,10 @@ import SnackBar from "../../SnackBar";
 import { DASH, RADIUS, KPI_TONES, SolidStatCard } from "../../DashBoardComps/dashboardTheme";
 import { selectGrades } from "../../../Redux/Slices/DropdownController";
 import { selectAcademicYear } from "../../../Redux/Slices/academicYearSlice";
-import { ListBooks } from "../../../Api/Api";
+import { ListBooks, DeleteBook } from "../../../Api/Api";
 import {
     BOOK_STATUSES, MEDIUMS, downloadBook, fmtDate, parseApiDate,
-    normalizeBookList, normalizeBookCounts,
+    apiFailed, normalizeBookList, normalizeBookCounts,
 } from "./bookApi";
 import {
     fieldSx, subjectTone, StatusPill, Pill, MetaItem, outlineBtnSx, createBtnSx, primaryBtnSx,
@@ -132,6 +133,7 @@ const BookCard = ({ book, onOpen, onDelete, onDownload }) => {
                         <Pill label={book.grade || "-"} color={DASH.text} bg={DASH.lineSoft} />
                         <Pill label={book.subject} color={tone.color} bg={tone.bg} border={`${tone.color}33`} />
                         <Pill label={book.medium} color={DASH.muted} bg={DASH.lineSoft} />
+                        {book.term ? <Pill label={`Term ${book.term}`} color={DASH.muted} bg={DASH.lineSoft} /> : null}
                     </Box>
 
                     {/* Chapters is the number that decides whether the book is usable */}
@@ -231,6 +233,7 @@ export default function BooksLibraryPage() {
     const [sortKey, setSortKey] = useState("newest");
     const [page, setPage] = useState(1);
     const [deleteTarget, setDeleteTarget] = useState(null);
+    const [deleting, setDeleting] = useState(false);
 
     const [open, setOpen] = useState(false);
     const [status, setStatus] = useState(false);
@@ -278,7 +281,8 @@ export default function BooksLibraryPage() {
         total: counts.total || books.length,
         ready: counts.confirmed || books.filter((b) => b.status === "Ready").length,
         review: counts.needsAttention
-            || books.filter((b) => b.status === "Needs Review" || b.status === "Failed").length,
+            || books.filter((b) => ["Needs Review", "Failed", "Duplicate"].includes(b.status)).length,
+        duplicates: counts.duplicate || books.filter((b) => b.status === "Duplicate").length,
         chapters: counts.chaptersIndexed || books.reduce((sum, b) => sum + (b.chapterCount || 0), 0),
     }), [books, counts]);
 
@@ -323,11 +327,10 @@ export default function BooksLibraryPage() {
         setMediumFilter("all"); setStatusFilter("all"); setPage(1);
     };
 
+    /* Every status has a screen of its own now - progress while it is being
+       read, the duplicate notice, the failure reason, the chapter list when it
+       is ready - so nothing is turned away at the door. */
     const openBook = (book) => {
-        if (book.status === "Processing") {
-            notify("This book is still being processed. Chapters appear once it finishes.");
-            return;
-        }
         navigate(`/dashboardmenu/books/${book.id}`, { state: { book } });
     };
 
@@ -338,9 +341,30 @@ export default function BooksLibraryPage() {
     const confirmDelete = () => {
         const target = deleteTarget;
         setDeleteTarget(null);
-        if (!target) return;
-        setBooks((prev) => prev.filter((b) => b.id !== target.id));
-        notify(`"${target.title}" removed from the library`, true);
+        if (!target?.id) return;
+
+        setDeleting(true);
+        axios
+            .delete(DeleteBook, {
+                params: { bookId: target.id, deletedByRollNumber: rollNumber },
+                headers: { Authorization: `Bearer ${token}` },
+            })
+            .then((res) => {
+                const rejected = apiFailed(res.data);
+                if (rejected) { notify(rejected); return; }
+
+                /* Deleting a book that a duplicate was waiting behind releases
+                   that copy into processing, so the list is re-read rather than
+                   just having the row spliced out of it. */
+                const root = res.data?.data ?? res.data ?? {};
+                const promoted = root.promotedBookId || root.PromotedBookId;
+                notify(promoted
+                    ? `"${target.title}" was deleted - the copy waiting behind it is being read now`
+                    : `"${target.title}" was deleted`, true);
+                loadBooks();
+            })
+            .catch((error) => notify(error?.response?.data?.message || "The book could not be deleted"))
+            .finally(() => setDeleting(false));
     };
 
     // Every filter behaves the same way, so they are declared once and rendered
@@ -450,7 +474,7 @@ export default function BooksLibraryPage() {
                         icon={PendingOutlinedIcon}
                         label="Needs Attention"
                         value={stats.review}
-                        note="Review or re-upload"
+                        note="Review, re-upload or de-duplicate"
                         tone={KPI_TONES.pink}
                         onClick={() => { setStatusFilter("Needs Review"); setPage(1); }}
                     />
@@ -554,6 +578,30 @@ export default function BooksLibraryPage() {
                 </Box>
             </Box>
 
+            {/* Duplicates are stored but never read, so the library says so once
+                rather than leaving the rows looking merely unfinished. */}
+            {stats.duplicates > 0 && statusFilter !== "Duplicate" && (
+                <Box
+                    sx={{
+                        display: "flex", alignItems: "center", gap: 1.2,
+                        bgcolor: "#FFFBEB", border: "1px solid #FDE68A",
+                        borderRadius: RADIUS, px: 1.8, py: 1.3, mb: 1.6,
+                    }}
+                >
+                    <ContentCopyOutlinedIcon sx={{ fontSize: 17, color: "#92400E", flexShrink: 0 }} />
+                    <Typography sx={{ fontSize: "12.5px", color: "#92400E", lineHeight: 1.6, flex: 1, minWidth: 0 }}>
+                        <strong>{stats.duplicates} book{stats.duplicates > 1 ? "s were" : " was"} already in the library.</strong>{" "}
+                        {stats.duplicates > 1 ? "They are" : "It is"} stored but not read - delete the copy
+                        or the book it repeats to carry on.
+                    </Typography>
+                    <Button
+                        onClick={() => { setStatusFilter("Duplicate"); setPage(1); }}
+                        sx={{ ...outlineBtnSx, flexShrink: 0 }}
+                    >
+                        Show {stats.duplicates > 1 ? "them" : "it"}
+                    </Button>
+                </Box>
+            )}
             <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1, mb: 1.4, px: 0.4 }}>
                 <Typography sx={{ fontSize: "12px", color: DASH.muted }}>
                     Showing <strong>{filtered.length}</strong> of {books.length} book{books.length === 1 ? "" : "s"}
@@ -634,6 +682,10 @@ export default function BooksLibraryPage() {
                 <DialogContent>
                     <DialogContentText sx={{ fontSize: "13px", color: DASH.muted }}>
                         "{deleteTarget?.title}" and its {deleteTarget?.chapterCount} chapters will be removed.
+                        This cannot be undone - the file itself is deleted too.
+                        {deleteTarget?.status === "Duplicate"
+                            ? " The book it repeats stays where it is."
+                            : " If another upload is waiting behind this one as a duplicate, that copy starts being read."}
                         {deleteTarget?.usedInPapers > 0
                             ? ` It is used by ${deleteTarget.usedInPapers} question paper(s) - those papers keep their questions but lose the chapter link.`
                             : ""}
@@ -643,9 +695,10 @@ export default function BooksLibraryPage() {
                     <Button onClick={() => setDeleteTarget(null)} sx={outlineBtnSx}>Cancel</Button>
                     <Button
                         onClick={confirmDelete}
+                        disabled={deleting}
                         sx={{ ...primaryBtnSx, bgcolor: DASH.red, "&:hover": { bgcolor: "#DC2626" } }}
                     >
-                        Delete
+                        {deleting ? "Deleting..." : "Delete"}
                     </Button>
                 </DialogActions>
             </Dialog>

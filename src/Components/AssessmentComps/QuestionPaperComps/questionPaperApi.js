@@ -65,6 +65,7 @@ export const QUESTION_TYPES = [
     { key: "graph", label: "Graph / Chart Based", short: "Graph", color: "#EA580C", bg: "#FFF7ED", hasOptions: false, defaultMarks: 2, needsSpace: true },
     { key: "picture", label: "Look at the Picture and Write", short: "Picture", color: "#F97316", bg: "#FFF7ED", hasOptions: false, defaultMarks: 1, needsSpace: true },
     { key: "handwriting", label: "Writing Practice (Ruled Lines)", short: "Handwriting", color: "#14B8A6", bg: "#F0FDFA", hasOptions: false, defaultMarks: 1, ruled: true },
+    { key: "custom", label: "Other - name it yourself", short: "Custom", color: "#64748B", bg: "#F1F5F9", hasOptions: false, defaultMarks: 1, isCustom: true },
 ];
 
 /* How the marks are printed next to a section heading.
@@ -303,6 +304,8 @@ export const newSection = (index = 0) => {
         choiceMode: "none",
         internalChoiceCount: 0,
         optionCount: 4,
+        customLabel: "",
+        baseType: "long",
         instruction: "",
         marksDisplay: "equation",
         equationOrder: "count",
@@ -323,7 +326,7 @@ export const emptyPattern = () => ({
     name: "",
     exam: "",
     gradeIds: [],
-    subject: "Any",
+    subject: "",
     totalMarks: 50,
     durationMinutes: 90,
     readingTimeMinutes: 0,
@@ -850,48 +853,6 @@ export const buildMockQuestions = (pattern, chapters) => {
     return questions;
 };
 
-export const normalizePattern = (row) => ({
-    id: val(row, ["patternId", "id"], null),
-    name: val(row, ["patternName", "name", "title"], "Untitled pattern"),
-    exam: val(row, ["exam", "examName", "examCategory", "category"], ""),
-    gradeIds: (() => {
-        const raw = val(row, ["gradeIds", "grades", "gradeId"], []);
-        if (Array.isArray(raw)) return raw.map(String);
-        return String(raw || "").split(",").map((g) => g.trim()).filter(Boolean);
-    })(),
-    subject: val(row, ["subject", "subjectName"], "Any"),
-    totalMarks: Number(val(row, ["totalMarks", "marks"], 0)) || 0,
-    durationMinutes: Number(val(row, ["durationMinutes", "duration", "timing"], 0)) || 0,
-    readingTimeMinutes: Number(val(row, ["readingTimeMinutes", "readingTime"], 0)) || 0,
-    showPaperCode: String(val(row, ["showPaperCode", "paperCode"], "N")).toUpperCase() === "Y",
-    instructions: val(row, ["instructions", "generalInstructions", "notes"], ""),
-    createdBy: val(row, ["createdByName", "createdBy"], "-"),
-    createdDate: val(row, ["createdOn", "createdDate", "postedDateAndTime"], null),
-    usedCount: Number(val(row, ["usedCount", "paperCount"], 0)) || 0,
-    sections: pickArray(val(row, ["sections", "patternSections"], []) || []).map((s, i) => ({
-        id: val(s, ["sectionId", "id"], `sec-${i}`),
-        label: val(s, ["label", "sectionLabel", "part"], `PART - ${String.fromCharCode(65 + i)}`),
-        subLabel: val(s, ["subLabel", "subPart"], ""),
-        groupName: val(s, ["groupName", "group", "partName"], ""),
-        title: val(s, ["title", "sectionTitle", "heading"], ""),
-        type: val(s, ["type", "questionType"], "mcq"),
-        marksPerQuestion: Number(val(s, ["marksPerQuestion", "marks"], 1)) || 1,
-        questionsToPrint: Number(val(s, ["questionsToPrint", "totalQuestions", "printCount"], 0)) || 0,
-        questionsToAnswer: Number(val(s, ["questionsToAnswer", "answerCount"], 0)) || 0,
-        choiceMode: val(s, ["choiceMode", "choice"], "none"),
-        internalChoiceCount: Number(val(s, ["internalChoiceCount", "internalChoice"], 0)) || 0,
-        optionCount: Number(val(s, ["optionCount", "options"], 4)) || 4,
-        instruction: val(s, ["instruction", "note"], ""),
-        marksDisplay: val(s, ["marksDisplay", "marksStyle"], "equation"),
-        equationOrder: val(s, ["equationOrder"], "count"),
-        answerLines: Number(val(s, ["answerLines", "ruledLines"], 0)) || 0,
-        difficulty: val(s, ["difficulty", "difficultyMix"], { easy: 50, medium: 30, hard: 20 }),
-    })),
-});
-
-export const normalizePatternList = (payload) =>
-    pickArray(payload?.data ?? payload).map(normalizePattern);
-
 export const normalizePaper = (row, grades) => {
     const gradeId = val(row, ["gradeId", "gradeID"], null);
     return {
@@ -1057,3 +1018,217 @@ const MOCK_BOOK_CHAPTERS = {
 };
 
 export const MOCK_QUESTION_BANK = bankSeed();
+
+/* ------------------------- Pattern wire conversion ------------------------ */
+
+/* The screens carry more than the endpoint stores. What travels is exactly the
+   documented body; what does not is listed in DROPPED_ON_SAVE below so the loss
+   is visible rather than discovered later. */
+export const PATTERN_FIELDS_NOT_STORED = [
+    "exam", "readingTimeMinutes", "showPaperCode",
+    "section title", "section group", "internal choice count",
+    "answer lines", "difficulty mix",
+];
+
+// choice travels as a word, not our key.
+const CHOICE_TO_API = { none: "All", any: "Any", internal: "Internal" };
+
+const choiceFromApi = (raw) => {
+    const value = String(raw || "").trim().toLowerCase();
+    if (value.startsWith("any")) return "any";
+    if (value.startsWith("internal")) return "internal";
+    return "none";
+};
+
+// questionType travels as the printed label ("Choose the Best Answer").
+const typeFromLabel = (label, options) => {
+    const wanted = String(label || "").trim().toLowerCase();
+    const hit = QUESTION_TYPES.find((t) => !t.isCustom && t.label.trim().toLowerCase() === wanted)
+        || QUESTION_TYPES.find((t) => !t.isCustom && t.short.trim().toLowerCase() === wanted);
+
+    if (hit) return { type: hit.key, customLabel: "", baseType: "long" };
+    if (!wanted) return { type: "mcq", customLabel: "", baseType: "long" };
+
+    return {
+        type: "custom",
+        customLabel: String(label).trim(),
+        baseType: Number(options) > 0 ? "mcq" : "long",
+    };
+};
+
+/* "5 x 1 = 5" - the endpoint stores the printed string rather than recomputing
+   it, so it is built here from whatever the section currently says. */
+export const marksShownAs = (section) => {
+    const answered = Number(section.questionsToAnswer) || 0;
+    const per = Number(section.marksPerQuestion) || 0;
+    return `${answered} x ${per} = ${answered * per}`;
+};
+
+export const patternToApi = (pattern, { gradeSignOf, rollNumber, patternId }) => {
+    const instructions = String(pattern.instructions || "")
+        .split("\n").map((line) => line.trim()).filter(Boolean);
+
+    const body = {
+        patternName: (pattern.name || "").trim(),
+        /* The endpoint takes ONE class; the builder lets several be ticked. The
+           first is sent and the screen says so rather than silently dropping. */
+        grade: gradeSignOf(pattern.gradeIds?.[0]),
+        subject: pattern.subject === "Any" ? "" : pattern.subject,
+        totalMarks: Number(pattern.totalMarks) || 0,
+        durationMinutes: Number(pattern.durationMinutes) || 0,
+        generalInstructions: instructions,
+        sections: (pattern.sections || []).map((s, i) => ({
+            displayOrder: i,
+            questionLabel: s.label || "",
+            sub: s.subLabel || null,
+            questionType: s.type === "custom"
+                ? ((s.customLabel || "").trim() || "Other")
+                : typeMeta(s.type).label,
+            choice: CHOICE_TO_API[s.choiceMode] || "All",
+            marksPerQuestion: Number(s.marksPerQuestion) || 0,
+            questionsPrinted: Number(s.questionsToPrint) || 0,
+            toBeAnswered: Number(s.questionsToAnswer) || 0,
+            options: typeMeta(effectiveTypeKey(s)).hasOptions ? Number(s.optionCount) || 0 : null,
+            marksShownAs: marksShownAs(s),
+            extraInstruction: s.instruction || null,
+        })),
+    };
+
+    if (patternId) {
+        body.patternId = patternId;
+        body.updatedByRollNumber = rollNumber;
+    } else {
+        body.createdByRollNumber = rollNumber;
+    }
+    return body;
+};
+
+export const patternFromApi = (row, { gradeIdOf } = {}) => {
+    if (!row) return null;
+    const sections = (row.sections || row.patternSections || [])
+        .slice()
+        .sort((a, b) => (Number(a.displayOrder) || 0) - (Number(b.displayOrder) || 0))
+        .map((s, i) => ({
+            ...newSection(i),
+            id: s.sectionId ?? s.id ?? `sec-${i}`,
+            label: s.questionLabel || "",
+            subLabel: s.sub || "",
+            ...typeFromLabel(s.questionType, s.options),
+            choiceMode: choiceFromApi(s.choice),
+            marksPerQuestion: Number(s.marksPerQuestion) || 0,
+            questionsToPrint: Number(s.questionsPrinted) || 0,
+            questionsToAnswer: Number(s.toBeAnswered) || 0,
+            optionCount: Number(s.options) || 4,
+            instruction: s.extraInstruction || "",
+        }));
+
+    const gradeSign = row.grade || "";
+    const gradeId = gradeIdOf ? gradeIdOf(gradeSign) : "";
+
+    return {
+        id: row.patternId ?? row.id ?? null,
+        name: row.patternName || row.name || "Untitled pattern",
+        exam: "",
+        grade: gradeSign,
+        gradeIds: gradeId ? [String(gradeId)] : [],
+        subject: row.subject || "Any",
+        totalMarks: Number(row.totalMarks) || 0,
+        durationMinutes: Number(row.durationMinutes) || 0,
+        readingTimeMinutes: 0,
+        showPaperCode: false,
+        instructions: Array.isArray(row.generalInstructions)
+            ? row.generalInstructions.join("\n")
+            : String(row.generalInstructions || ""),
+        sections: sections.length ? sections : [newSection(0)],
+        // Shown on the list card; absent from a create/update response.
+        sectionCount: Number(row.sectionCount) || sections.length,
+        createdBy: row.createdByRollNumber || row.createdBy || "-",
+        createdDate: row.createdOn || row.createdDate || null,
+        usedCount: Number(row.usedCount) || 0,
+    };
+};
+
+export const normalizePatternList = (payload, opts) => {
+    const root = payload?.data ?? payload;
+    const rows = Array.isArray(root) ? root : (root?.data ?? root?.patterns ?? []);
+    return (Array.isArray(rows) ? rows : []).map((r) => patternFromApi(r, opts)).filter(Boolean);
+};
+
+export const PRINT_LANGUAGES = [
+    { key: "en", label: "English" },
+    { key: "ta", label: "தமிழ்" },
+    { key: "hi", label: "हिन्दी" },
+];
+
+export const TYPE_PROMPTS = {
+    mcq: { en: "Choose the best answer", ta: "சரியான விடையைத் தேர்ந்தெடுத்து எழுதுக", hi: "सही उत्तर चुनकर लिखिए" },
+    fillblank: { en: "Fill in the blanks", ta: "கோடிட்ட இடங்களை நிரப்புக", hi: "रिक्त स्थानों की पूर्ति कीजिए" },
+    truefalse: { en: "Write True or False", ta: "சரியா? தவறா? எனக் குறிப்பிடுக", hi: "सत्य या असत्य लिखिए" },
+    match: { en: "Match the following", ta: "பொருத்துக", hi: "सुमेलित कीजिए" },
+    oneword: { en: "Answer in one word", ta: "ஒரு சொல்லில் விடையளிக்கவும்", hi: "एक शब्द में उत्तर दीजिए" },
+    short: { en: "Answer briefly", ta: "சுருக்கமாக விடையளிக்கவும்", hi: "संक्षेप में उत्तर दीजिए" },
+    long: { en: "Answer in detail", ta: "விரிவாக விடையளிக்கவும்", hi: "विस्तार से उत्तर दीजिए" },
+    assertion: { en: "Read the Assertion and Reason and choose the correct option", ta: "கூற்று மற்றும் காரணத்தைப் படித்து சரியான விடையைத் தேர்ந்தெடுக்க", hi: "अभिकथन और कारण पढ़कर सही विकल्प चुनिए" },
+    casestudy: { en: "Read the passage and answer the questions", ta: "பத்தியைப் படித்து வினாக்களுக்கு விடையளிக்கவும்", hi: "गद्यांश पढ़कर प्रश्नों के उत्तर दीजिए" },
+    writing: { en: "Write as directed", ta: "குறிப்புகளின் அடிப்படையில் எழுதுக", hi: "निर्देशानुसार लिखिए" },
+    mapwork: { en: "Mark on the given map", ta: "தரப்பட்ட வரைபடத்தில் குறிக்கவும்", hi: "दिए गए मानचित्र पर अंकित कीजिए" },
+    graph: { en: "Study the chart and answer", ta: "விளக்கப்படத்தைப் பார்த்து விடையளிக்கவும்", hi: "आलेख देखकर उत्तर दीजिए" },
+    picture: { en: "Look at the picture and write", ta: "படத்தைப் பார்த்து எழுதுக", hi: "चित्र देखकर लिखिए" },
+    handwriting: { en: "Copy the following neatly", ta: "கீழ்க்கண்டவற்றை அழகாக எழுதுக", hi: "निम्नलिखित को सुंदर अक्षरों में लिखिए" },
+};
+
+const CHOICE_PROMPTS = {
+    en: {
+        all: () => "Answer all the questions.",
+        internal: (choices, print) => (choices > 0 && choices < print
+            ? `Answer all questions. An internal choice is provided in ${choices} question${choices > 1 ? "s" : ""}.`
+            : "Answer all questions. Each question carries an internal choice."),
+        any: (answer, print) => (answer === 1
+            ? "Answer any one of the following questions."
+            : `Answer any ${answer} of the following ${print} questions.`),
+    },
+    ta: {
+        all: () => "அனைத்து வினாக்களுக்கும் விடையளிக்கவும்.",
+        internal: () => "அனைத்து வினாக்களுக்கும் விடையளிக்கவும். உள் தேர்வு வழங்கப்பட்டுள்ளது.",
+        any: (answer, print) => (answer === 1
+            ? "ஏதேனும் ஒன்றுக்கு மட்டும் விடை அளிக்கவும்."
+            : `${print} வினாக்களில் ஏதேனும் ${answer} வினாக்களுக்கு விடையளிக்கவும்.`),
+    },
+    hi: {
+        all: () => "सभी प्रश्नों के उत्तर दीजिए।",
+        internal: () => "सभी प्रश्नों के उत्तर दीजिए। आंतरिक विकल्प दिया गया है।",
+        any: (answer, print) => (answer === 1
+            ? "किसी एक प्रश्न का उत्तर दीजिए।"
+            : `निम्नलिखित ${print} प्रश्नों में से किन्हीं ${answer} प्रश्नों के उत्तर दीजिए।`),
+    },
+};
+
+export const choicePrompt = (section, lang = "en") => {
+    const set = CHOICE_PROMPTS[lang] || CHOICE_PROMPTS.en;
+    const print = Number(section?.questionsToPrint) || 0;
+    const answer = Number(section?.questionsToAnswer) || 0;
+    const choices = Number(section?.internalChoiceCount) || 0;
+
+    if (section?.choiceMode === "internal") return set.internal(choices, print);
+    if (section?.choiceMode === "any" && answer < print) return set.any(answer, print);
+    return set.all();
+};
+
+const SENTENCE_END = { en: ". ", ta: ". ", hi: "। " };
+
+export const suggestedPrompt = (section, lang = "en") => {
+    const key = section?.type === "custom" ? section?.baseType || "long" : section?.type;
+    const typeLine = (TYPE_PROMPTS[key]?.[lang] || TYPE_PROMPTS[key]?.en || "").trim();
+    const choiceLine = choicePrompt(section, lang).trim();
+    if (!typeLine) return choiceLine;
+    if (!choiceLine) return typeLine;
+    return `${typeLine}${SENTENCE_END[lang] || ". "}${choiceLine}`;
+};
+
+export const effectiveTypeKey = (section) =>
+    (section?.type === "custom" ? section?.baseType || "long" : section?.type) || "mcq";
+
+export const sectionTypeLabel = (section) =>
+    (section?.type === "custom"
+        ? (section?.customLabel || "").trim() || "Other"
+        : typeMeta(section?.type).label);

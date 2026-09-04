@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Box, Grid, Typography, Button, Switch, FormControlLabel, TextField } from "@mui/material";
+import { Box, Grid, Typography, Button, Switch, FormControlLabel, TextField, CircularProgress } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
@@ -46,7 +46,7 @@ const PatternOption = ({ pattern, active, matches, onPick }) => {
                     {pattern.name}
                 </Typography>
                 <Typography sx={{ fontSize: "11px", color: DASH.faint, mt: 0.3 }}>
-                    {pattern.exam || "Any exam"}
+                    {pattern.subject || "Any subject"}
                 </Typography>
 
                 <Box sx={{ display: "flex", gap: 0.6, flexWrap: "wrap", mt: 1.2 }}>
@@ -101,7 +101,7 @@ const PatternOption = ({ pattern, active, matches, onPick }) => {
                         <Box sx={{ display: "flex", alignItems: "center", gap: 0.4 }}>
                             <ErrorOutlineIcon sx={{ fontSize: 13, color: DASH.red }} />
                             <Typography sx={{ fontSize: "11px", color: DASH.red, fontWeight: 600 }}>
-                                For a different exam
+                                For a different subject
                             </Typography>
                         </Box>
                     )}
@@ -112,16 +112,18 @@ const PatternOption = ({ pattern, active, matches, onPick }) => {
 };
 
 export default function PatternStep({
-    patterns, gradeId, exam, selectedPattern, onPick, durationMinutes, onDurationChange,
+    patterns, gradeId, subject, selectedPattern, onPick, durationMinutes, onDurationChange,
+    loading = false,
 }) {
     const navigate = useNavigate();
     const [onlyMatching, setOnlyMatching] = useState(true);
 
+
     const list = useMemo(() => {
-        const wanted = String(exam || "").trim().toLowerCase();
+        const wanted = String(subject || "").trim().toLowerCase();
         const scored = patterns.map((pattern) => ({
             pattern,
-            matches: !wanted || String(pattern.exam || "").trim().toLowerCase() === wanted,
+            matches: !wanted || String(pattern.subject || "").trim().toLowerCase() === wanted,
             forClass: !pattern.gradeIds?.length || pattern.gradeIds.map(String).includes(String(gradeId)),
         }));
 
@@ -134,7 +136,19 @@ export default function PatternStep({
             if (a.matches !== b.matches) return a.matches ? -1 : 1;
             return 0;
         });
-    }, [patterns, gradeId, exam, onlyMatching]);
+    }, [patterns, gradeId, subject, onlyMatching]);
+
+    /* Patterns come over the network now, so waiting is its own state rather
+       than reading as "this class has no pattern yet". It sits after every
+       hook above - returning before them would change the hook order. */
+    if (loading) {
+        return (
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1.4, py: 5, justifyContent: "center" }}>
+                <CircularProgress size={20} thickness={4} sx={{ color: DASH.violet }} />
+                <Typography sx={{ fontSize: "13px", color: DASH.muted }}>Loading the patterns</Typography>
+            </Box>
+        );
+    }
 
     return (
         <>
@@ -191,7 +205,7 @@ export default function PatternStep({
                     }
                     label={
                         <Typography sx={{ fontSize: "12.5px", color: DASH.text }}>
-                            Only show patterns for this class and exam
+                            Only show patterns for this class and subject
                         </Typography>
                     }
                 />
@@ -209,7 +223,7 @@ export default function PatternStep({
                 <Box sx={{ bgcolor: "#fff", border: `1px dashed ${DASH.line}`, borderRadius: RADIUS, py: 6, px: 3, textAlign: "center" }}>
                     <DashboardCustomizeOutlinedIcon sx={{ fontSize: 42, color: DASH.line }} />
                     <Typography sx={{ fontSize: "14.5px", fontWeight: 700, color: DASH.ink, mt: 1 }}>
-                        No pattern for this class and exam yet
+                        No pattern for this class and subject yet
                     </Typography>
                     <Typography sx={{ fontSize: "12.5px", color: DASH.muted, mt: 0.5, mb: 2 }}>
                         Turn off the filter to see every pattern, or build one for this exam.

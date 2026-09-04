@@ -23,6 +23,7 @@ import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import HighlightOffIcon from '@mui/icons-material/HighlightOff';
 import { DASH, RADIUS, PageHeader } from "../../../DashBoardComps/dashboardTheme";
+import { readMoreBtnSx } from "../../../Approvals/approvalTheme";
 import { selectGrades } from "../../../../Redux/Slices/DropdownController";
 
 export default function ApprovalStatusMessagesPage() {
@@ -405,7 +406,23 @@ export default function ApprovalStatusMessagesPage() {
                                     <Grid key={statusItem.id} size={{ xs: 12, sm: 12, lg: 6 }}>
                                         <>
                                             <Box sx={{ display: "flex", justifyContent: "end" }}>
-                                                <Box sx={{ backgroundColor: "#FFF9EC", py: 0.5, width: "200px", textAlign: "center", borderRadius: "5px 5px 0px 0px", mr: 2 }}>
+                                                <Box sx={{
+                                            position: "relative",
+                                            top: "1px",
+                                            zIndex: 1,
+                                            bgcolor: DASH.primaryLight,
+                                            border: `1px solid ${DASH.primaryBorder}`,
+                                            borderBottom: "none",
+                                            px: 1.4,
+                                            py: 0.5,
+                                            mr: 2,
+                                            fontSize: "11.5px",
+                                            fontWeight: 600,
+                                            color: DASH.muted,
+                                            whiteSpace: "nowrap",
+                                            borderRadius: "6px 6px 0 0",
+                                            "& b": { color: DASH.ink, fontWeight: 700 },
+                                        }}>
                                                     Requested For : <b>{statusItem.requestFor}</b>
                                                 </Box>
                                             </Box>
@@ -413,9 +430,10 @@ export default function ApprovalStatusMessagesPage() {
                                             <Box
                                                 key={statusItem.id}
                                                 sx={{
-                                                    boxShadow: "0px 2px 4px 0px rgba(0,0,0,0.19)",
-                                                    borderRadius: "7px",
-                                                    backgroundColor: "#fff",
+                                                    boxShadow: "0 1px 3px rgba(16,24,40,0.06)",
+                                            border: `1px solid ${DASH.line}`,
+                                            borderRadius: "8px",
+                                            backgroundColor: "#fff",
                                                     p: 2,
                                                     mb: 2,
                                                     position: "relative",
@@ -500,17 +518,7 @@ export default function ApprovalStatusMessagesPage() {
                                                         />
                                                         {statusItem.message.length > 900 && (
                                                             <Button
-                                                                sx={{
-                                                                    mt: 1,
-                                                                    position: "absolute",
-                                                                    borderRadius: "50px",
-                                                                    backgroundColor: "black",
-                                                                    color: "#fff",
-                                                                    bottom: "10px",
-                                                                    textTransform: "none",
-                                                                    fontSize: "12px",
-                                                                    padding: '2px 15px',
-                                                                }}
+                                                                sx={readMoreBtnSx}
                                                                 onClick={() => toggleReadMore(statusItem.id)}
                                                             >
                                                                 {isReadMore ? "Read Less" : "Read More"}
@@ -529,11 +537,24 @@ export default function ApprovalStatusMessagesPage() {
                                                 >
                                                     {
                                                         statusItem.messageStatus === "pending" &&
-                                                        <Box sx={{ backgroundColor: "#fbe6cc", color: "#EB8200", width: "90px", height: "25px", display: "flex", justifyContent: "center", alignItems: "center", border: "1px dashed #EB8200", borderRadius: "5px" }}>
-                                                            <Box>
-                                                                | Pending
-                                                            </Box>
-                                                        </Box>
+                                                        <Box
+                                                    sx={{
+                                                        display: "inline-flex",
+                                                        alignItems: "center",
+                                                        gap: 0.7,
+                                                        px: 1.2,
+                                                        height: 24,
+                                                        bgcolor: DASH.primaryLight,
+                                                        color: DASH.primary,
+                                                        border: `1px solid ${DASH.primaryBorder}`,
+                                                        borderRadius: "20px",
+                                                        fontSize: "11.5px",
+                                                        fontWeight: 700,
+                                                    }}
+                                                >
+                                                    <Box sx={{ width: 6, height: 6, borderRadius: "50%", bgcolor: DASH.primary, flexShrink: 0 }} />
+                                                    Pending
+                                                </Box>
                                                     }
                                                     {
                                                         statusItem.messageStatus === "declined" &&
@@ -606,7 +627,7 @@ export default function ApprovalStatusMessagesPage() {
                                                                 </Box>
                                                             </Dialog>
 
-                                                            <Box sx={{ backgroundColor: "#fff", color: "#FF0000", width: "100px", height: "23px", display: "flex", justifyContent: "center", alignItems: "center", border: "1px solid #FF0000", borderRadius: "50px" }}>
+                                                            <Box sx={{ bgcolor: DASH.redLight, color: DASH.red, px: 1.2, height: 24, display: "inline-flex", justifyContent: "center", alignItems: "center", border: `1px solid ${DASH.red}3D`, borderRadius: "20px", fontSize: "11.5px", fontWeight: 700 }}>
                                                                 <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", }}>
                                                                     <HighlightOffIcon style={{ fontSize: "20px", }} />
                                                                     <Typography sx={{ ml: 0.5 }}>

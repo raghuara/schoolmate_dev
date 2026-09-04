@@ -77,6 +77,7 @@ import axios from 'axios';
 import * as signalR from '@microsoft/signalr';
 import { useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
+import { findSubMenuPermissions } from '../../../Redux/Slices/AuthSlice';
 import { selectWebsiteSettings } from '../../../Redux/Slices/websiteSettingsSlice';
 import { setChatUnreadTotal } from '../../../Redux/Slices/chatSlice';
 import { creategroup, fetchgroups, fetchgroupinfo, sendmessage, fetchmessages, getchatusers, markread, pinmessage, deletemessage, updategroup, updategroupmembers, mutegroup, updatememberrole, leavegroup, deletegroup, clearchat, editmessage, reactmessage, messagereadinfo, searchmessages, fetchmedia, chathub } from '../../../Api/Api';
@@ -316,7 +317,16 @@ export default function ChatPage({ embedded = false }) {
 
     const rollNumber = auth?.rollNumber;
     const userType = auth?.userType;
-    const canCreateGroup = ['admin', 'superadmin'].includes(String(userType || '').toLowerCase().replace(/\s/g, ''));
+    /* Who may start a group is a permission, not a job title. communication > chats
+       is configured in Feature Permissions but is not published in the login
+       response yet, so while that submenu is absent this keeps the old user-type
+       rule and nothing changes today. Once the backend ships the key,
+       allowcreategroup decides - and a Teacher granted it gets the option, which
+       the user-type test could never have allowed. */
+    const chatPerms = findSubMenuPermissions(auth?.permissions, "communication", "chats");
+    const canCreateGroup = chatPerms
+        ? chatPerms.allowcreategroup === "Y"
+        : ['admin', 'superadmin'].includes(String(userType || '').toLowerCase().replace(/\s/g, ''));
     const token = '123';
 
     const ACCENT = settings?.darkColor || '#EEA200';
@@ -2329,21 +2339,23 @@ export default function ChatPage({ embedded = false }) {
                                     list: { sx: { py: 1 } },
                                 }}
                             >
-                                <MenuItem
-                                    onClick={openGroupPopover}
-                                    sx={{
-                                        px: 2,
-                                        py: 1.1,
-                                        gap: 1.6,
-                                        fontSize: '14px',
-                                        fontWeight: 500,
-                                        color: DARK_TEXT,
-                                        '&:hover': { backgroundColor: '#F6F6F8' },
-                                    }}
-                                >
-                                    <GroupAddRoundedIcon sx={{ fontSize: 20, color: '#555' }} />
-                                    New group
-                                </MenuItem>
+                                {canCreateGroup && (
+                                    <MenuItem
+                                        onClick={openGroupPopover}
+                                        sx={{
+                                            px: 2,
+                                            py: 1.1,
+                                            gap: 1.6,
+                                            fontSize: '14px',
+                                            fontWeight: 500,
+                                            color: DARK_TEXT,
+                                            '&:hover': { backgroundColor: '#F6F6F8' },
+                                        }}
+                                    >
+                                        <GroupAddRoundedIcon sx={{ fontSize: 20, color: '#555' }} />
+                                        New group
+                                    </MenuItem>
+                                )}
                             </Menu>
                         </Box>
 

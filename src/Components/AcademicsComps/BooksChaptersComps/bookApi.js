@@ -1,6 +1,10 @@
 export const RADIUS = "5px";
 
-export const BOOK_STATUSES = ["Ready", "Needs Review", "Processing", "Failed"];
+export const BOOK_STATUSES = ["Ready", "Needs Review", "Processing", "Duplicate", "Failed"];
+
+/* Books are often split per term, so the same class and subject can hold more
+   than one. Without this a second-term book reads as a duplicate of the first. */
+export const TERMS = ["I", "II", "III"];
 
 export const MEDIUMS = ["English", "Tamil", "Hindi", "Malayalam", "Telugu", "Kannada", "French", "Sanskrit"];
 
@@ -101,6 +105,7 @@ const STATUS_MAP = {
     queued: "Processing",
     failed: "Failed",
     error: "Failed",
+    duplicate: "Duplicate",
 };
 
 export const bookStatusLabel = (raw) => {
@@ -166,6 +171,7 @@ export const normalizeBook = (row, grades) => {
         medium: val(row, ["medium", "language"], "English"),
         board: val(row, ["boardOrPublisher", "board", "publisher", "syllabus"], ""),
         edition: val(row, ["editionYear", "edition"], ""),
+        term: String(val(row, ["term"], "") || "").trim(),
         fileName: val(row, ["fileName", "originalFileName", "documentName"], ""),
         fileType: val(row, ["fileType"], ""),
         fileUrl: val(row, ["filePath", "fileUrl", "documentUrl", "url"], ""),
@@ -176,6 +182,9 @@ export const normalizeBook = (row, grades) => {
         chapters,
         status,
         failureReason: val(row, ["failureReason", "errorMessage", "error"], ""),
+        /* Set only on a Duplicate: the book this one repeats. Nothing is read from
+           a duplicate until one of the pair is deleted. */
+        duplicateOfBookId: val(row, ["duplicateOfBookId", "duplicateOfBookID"], null),
         // Kept even after an admin corrects the metadata, as an audit trail.
         detectedGrade: val(row, ["detectedGrade"], ""),
         detectedSubject: val(row, ["detectedSubject"], ""),
@@ -199,6 +208,7 @@ export const normalizeBookCounts = (payload) => {
         needsReview: num(["needsReviewCount"]),
         confirmed: num(["confirmedCount"]),
         failed: num(["failedCount"]),
+        duplicate: num(["duplicateCount"]),
         needsAttention: num(["needsAttentionCount"]),
         chaptersIndexed: num(["totalChaptersIndexed"]),
     };

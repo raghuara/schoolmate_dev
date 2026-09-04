@@ -33,6 +33,7 @@ import { selectSubMenuPermissions, selectUserTypeID } from "../../Redux/Slices/A
 import {
     COVERAGE_MAIN_MENU,
     COVERAGE_SUB_MENU,
+    COVERAGE_WRITE_OPS,
     EXCLUSION_EFFECTS,
     fetchCoverage,
     resolveCoverageAccess,
@@ -128,6 +129,13 @@ export default function StaffCoveragePage() {
     // raw value, not a boolean — undefined (submenu absent) must not read as a refusal
     const coverageView = coveragePerms?.view;
     const payrollEdit = payrollPerms?.edit === "Y";
+
+    /* View alone opens the screen read-only; changing coverage needs create or edit.
+       An absent subMenu means the session predates it, so payroll edit stands in -
+       the same tolerance resolveCoverageAccess applies to view. */
+    const canEdit = coveragePerms
+        ? COVERAGE_WRITE_OPS.some((key) => coveragePerms[key] === "Y")
+        : payrollEdit;
 
     /* Only a staff-leave approver may open this. "checking" holds the screen blank until
        the settings answer, so a denied user never sees the roster flash first. */
@@ -323,7 +331,20 @@ export default function StaffCoveragePage() {
                 title="Payroll & Attendance Coverage"
                 subtitle="Choose who is treated as an employee. Excluding someone keeps their login and removes them from payroll and attendance."
                 onBack={() => navigate(-1)}
-                right={
+                right={!canEdit ? (
+                    <Chip
+                        size="small"
+                        label="View only"
+                        sx={{
+                            height: 26,
+                            fontSize: "11.5px",
+                            fontWeight: 700,
+                            borderRadius: RADIUS,
+                            bgcolor: DASH.lineSoft,
+                            color: DASH.muted,
+                        }}
+                    />
+                ) : (
                     <Button
                         onClick={handleSave}
                         disabled={!dirty || saving}
@@ -345,7 +366,7 @@ export default function StaffCoveragePage() {
                     >
                         {saving ? "Saving…" : "Save changes"}
                     </Button>
-                }
+                )}
             />
 
             {/* What exclusion actually does — stated before the switches, not after. */}
@@ -436,7 +457,7 @@ export default function StaffCoveragePage() {
 
                 <Box sx={{ flex: 1 }} />
 
-                {selected.size > 0 ? (
+                {canEdit && selected.size > 0 ? (
                     <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
                         <Typography sx={{ fontSize: "13px", color: DASH.muted }}>
                             {selected.size} selected
@@ -488,7 +509,7 @@ export default function StaffCoveragePage() {
                                         checked={allVisibleSelected}
                                         indeterminate={!allVisibleSelected && rows.some((r) => selected.has(r.rollNumber))}
                                         onChange={toggleSelectAll}
-                                        disabled={rows.length === 0}
+                                        disabled={rows.length === 0 || !canEdit}
                                     />
                                 </TableCell>
                                 <TableCell sx={headCellSx}>Staff member</TableCell>
@@ -536,6 +557,7 @@ export default function StaffCoveragePage() {
                                                     size="small"
                                                     checked={selected.has(row.rollNumber)}
                                                     onChange={() => toggleSelect(row.rollNumber)}
+                                                    disabled={!canEdit}
                                                 />
                                             </TableCell>
 
@@ -589,6 +611,7 @@ export default function StaffCoveragePage() {
                                                         placeholder="Why is this person excluded?"
                                                         variant="standard"
                                                         size="small"
+                                                        disabled={!canEdit}
                                                         sx={{
                                                             width: "100%",
                                                             minWidth: 180,
@@ -625,6 +648,7 @@ export default function StaffCoveragePage() {
                                                         <Switch
                                                             size="small"
                                                             checked={entry.included}
+                                                            disabled={!canEdit}
                                                             onChange={(event) =>
                                                                 setIncluded(row.rollNumber, event.target.checked)
                                                             }

@@ -94,9 +94,17 @@ export const useGradeSubjects = () => {
             missingIn: gradeIds.filter((id, i) => !lists[i].includes(exam)),
         }));
     }, [examsForGrade]);
+    const subjectsForGrades = useCallback((gradeIds = []) => {
+        const lists = gradeIds.map((id) => subjectsForGrade(id));
+        if (!lists.length) return [];
+        return uniq(lists.flat()).map((subject) => ({
+            subject,
+            missingIn: gradeIds.filter((id, i) => !lists[i].includes(subject)),
+        }));
+    }, [subjectsForGrade]);
 
     return {
-        grades, byGrade, subjectsForGrade, examsForGrade, examsForGrades,
+        grades, byGrade, subjectsForGrade, subjectsForGrades, examsForGrade, examsForGrades,
         sectionsForGrade, allSubjects, loading, reload: load,
     };
 };

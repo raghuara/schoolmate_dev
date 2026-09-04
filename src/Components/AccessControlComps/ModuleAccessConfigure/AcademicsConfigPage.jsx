@@ -3,19 +3,19 @@ import axios from "axios";
 import ModuleConfigShell from "./ModuleConfigShell";
 import { UpdateUserTypePermissions } from "../../../Api/Api";
 import {
-    COMMUNICATION_PAGES,
-    COMMUNICATION_EXTRA_OPS,
-    COMMUNICATION_EXTRA_OPS_LABELS,
-    ACADEMICS_SUBMENUS,
+    ACADEMICS_PAGES,
+    COMMUNICATION_SUBMENUS,
     PAGE_OVERRIDES,
-    PAGE_REQUIRES,
 } from "./communicationGroups";
 
 const TOKEN = "123";
 
-const MODULE = { key: "communication", name: "Communication", color: "#2563EB" };
+/* Academics has no main menu of its own - it edits the teaching half of the
+   `communication` main menu. FeaturePermissionsPage passes that key through
+   route state, so the shell writes to `communication` either way. */
+const MODULE = { key: "academics", name: "Academics", color: "#7C3AED" };
 
-export default function CommunicationConfigPage() {
+export default function AcademicsConfigPage() {
     const validate = () => null;
 
     const handleSave = async (payload) => {
@@ -26,16 +26,13 @@ export default function CommunicationConfigPage() {
     return (
         <ModuleConfigShell
             moduleMeta={MODULE}
-            pages={COMMUNICATION_PAGES}
+            pages={ACADEMICS_PAGES}
             opsKeys={["view", "create", "edit", "delete"]}
             approval={true}
             validate={validate}
             pageOverrides={PAGE_OVERRIDES}
-            pageRequires={PAGE_REQUIRES}
-            extraOps={COMMUNICATION_EXTRA_OPS}
-            extraOpsLabels={COMMUNICATION_EXTRA_OPS_LABELS}
-            // Academics edits the other half of this same main menu.
-            preserveSubMenus={ACADEMICS_SUBMENUS}
+            // Communication edits the other half of this same main menu.
+            preserveSubMenus={COMMUNICATION_SUBMENUS}
             onSave={handleSave}
         />
     );

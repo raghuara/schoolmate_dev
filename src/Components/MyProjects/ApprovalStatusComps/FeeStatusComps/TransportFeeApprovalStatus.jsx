@@ -23,7 +23,7 @@ import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import dayjs from 'dayjs';
-import { DASH } from "../../../DashBoardComps/dashboardTheme";
+import { DASH, RADIUS, PageHeader } from "../../../DashBoardComps/dashboardTheme";
 
 export default function TransportFeeApprovalStatus() {
   const user = useSelector((state) => state.auth);
@@ -197,7 +197,10 @@ export default function TransportFeeApprovalStatus() {
             >
               <ArrowBackIcon sx={{ fontSize: 20, color: DASH.ink }} />
             </IconButton>
-            <Typography sx={{ fontSize: "20px", fontWeight: 700, color: DASH.ink, lineHeight: 1.2 }}>Transport Fee Approval Status</Typography>
+            <Box>
+                            <Typography sx={{ fontSize: "20px", fontWeight: 700, color: DASH.ink, lineHeight: 1.2 }}>Transport Fee Approval Status</Typography>
+                            <Typography sx={{ fontSize: "11.5px", color: DASH.muted, mt: 0.2 }}>Track the route-wise fees you sent for approval</Typography>
+                        </Box>
           </Grid>
           <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }} sx={{ display: "flex", alignItems: "center", justifyContent: "end", gap: 1.5, py: 1 }}>
             <Autocomplete
@@ -301,7 +304,7 @@ export default function TransportFeeApprovalStatus() {
                         sx={{ width: 25, height: 25, ml: 1, "&:hover .MuiSvgIcon-root": { color: "red" } }}
                         onClick={() => { setDeleteId(fee.id); setOpenDeleteDialog(true); }}
                       >
-                        <DeleteIcon sx={{ fontSize: "20px", color: "#FF00009A", transition: "color 0.2s ease" }} />
+                        <DeleteIcon sx={{ fontSize: "20px", color: DASH.red, transition: "color 0.2s ease" }} />
                       </IconButton>
                     )}
 
@@ -435,7 +438,7 @@ export default function TransportFeeApprovalStatus() {
                 </Box>
 
                 {/* Card body */}
-                <Box p={2} sx={{ backgroundColor: "#fff", border: "1px solid #E8DDEA", borderRadius: "5px" }}>
+                <Box p={2} sx={{ backgroundColor: "#fff", border: `1px solid ${DASH.line}`, borderRadius: "5px" }}>
                   {/* Trip info */}
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 2, bgcolor: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: "8px", px: 2, py: 1.2 }}>
                     <Box sx={{ width: 38, height: 38, borderRadius: "10px", bgcolor: "#EFF6FF", border: "1px solid #BFDBFE", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>

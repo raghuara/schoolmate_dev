@@ -10,6 +10,7 @@ import { selectWebsiteSettings } from '../../../Redux/Slices/websiteSettingsSlic
 import { Link } from 'react-router-dom';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import dayjs from 'dayjs';
+import { DASH, RADIUS } from "../../DashBoardComps/dashboardTheme";
 
 export default function ExportAttendancePage() {
     const [fromDate, setFromDate] = useState(null);
@@ -62,7 +63,14 @@ export default function ExportAttendancePage() {
                                 <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
                             </IconButton>
                         </Link>
-                        <Typography sx={{ fontWeight: "600", fontSize: "20px" }} >Export Attendance</Typography>
+                        <Box sx={{ ml: 0.5 }}>
+                            <Typography sx={{ fontSize: "20px", fontWeight: 700, color: DASH.ink, lineHeight: 1.2 }}>
+                                Export Attendance
+                            </Typography>
+                            <Typography sx={{ fontSize: "11.5px", color: DASH.muted }}>
+                                Download a date range as a spreadsheet
+                            </Typography>
+                        </Box>
                     </Grid>
                 </Grid>
             </Box>
@@ -300,31 +308,36 @@ export default function ExportAttendancePage() {
                         variant="outlined"
                         onClick={handleClear}
                         sx={{
-                            borderColor: "#A9A9A9",
-                            backgroundColor: "#fff",
-                            py: 0.3,
-                            width: "100px",
-                            color: "#000",
                             textTransform: "none",
-                            borderRadius: "30px",
-                            mr: 2
-
+                            fontSize: "12.5px",
+                            fontWeight: 700,
+                            height: 34,
+                            px: 2,
+                            mr: 1,
+                            borderRadius: RADIUS,
+                            color: DASH.text,
+                            backgroundColor: "#fff",
+                            borderColor: DASH.line,
+                            "&:hover": { backgroundColor: DASH.lineSoft, borderColor: DASH.faint },
                         }}>
                         Clear
                     </Button>
                     <Button
                         variant="outlined"
                         onClick={handleExport}
+                        disableElevation
                         sx={{
-                            border: "none",
-                            backgroundColor: "#fff",
-                            py: 0.3,
-                            width: "100px",
-                            color: websiteSettings.textColor,
                             textTransform: "none",
-                            borderRadius: "30px",
-                            backgroundColor: websiteSettings.mainColor
-
+                            fontSize: "12.5px",
+                            fontWeight: 700,
+                            height: 34,
+                            px: 2.2,
+                            border: "none",
+                            borderRadius: RADIUS,
+                            color: websiteSettings.textColor,
+                            backgroundColor: websiteSettings.mainColor,
+                            boxShadow: "none",
+                            "&:hover": { backgroundColor: websiteSettings.mainColor, filter: "brightness(0.95)", boxShadow: "none" },
                         }}>
                         <ExitToAppIcon sx={{ fontSize: "20px" }} />
                         &nbsp;Export

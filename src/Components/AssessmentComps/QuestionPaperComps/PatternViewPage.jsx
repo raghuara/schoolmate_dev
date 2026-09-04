@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Box, Grid, Typography, Button, IconButton, Divider } from "@mui/material";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useSelector } from "react-redux";
+import axios from "axios";
 
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
@@ -18,8 +19,10 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Loader from "../../Loader";
 import { DASH, RADIUS, SOFT, KPI_TONES, Panel, MeterRow, SolidStatCard } from "../../DashBoardComps/dashboardTheme";
 import { selectGrades } from "../../../Redux/Slices/DropdownController";
+import { GetPattern } from "../../../Api/Api";
+import { apiFailed } from "../../AcademicsComps/BooksChaptersComps/bookApi";
 import {
-    MOCK_PATTERNS, choiceHint, durationLabel, groupMarks, groupSections,
+    patternFromApi, choiceHint, durationLabel, groupMarks, groupSections,
     patternBalanced, patternQuestionCount, patternSpread, patternTotal, patternTypeSpread,
     sectionEquation, sectionHeading, sectionInstruction, sectionMarks, typeMeta,
 } from "./questionPaperApi";
@@ -52,26 +55,39 @@ const DifficultyBar = ({ difficulty }) => {
     );
 };
 
+const token = "123";
+
 export default function PatternViewPage() {
     const navigate = useNavigate();
     const location = useLocation();
     const { patternId } = useParams();
     const grades = useSelector(selectGrades) || [];
+    const user = useSelector((state) => state.auth);
+    const rollNumber = user?.rollNumber;
 
     const [pattern, setPattern] = useState(location.state?.pattern || null);
     const [isLoading, setIsLoading] = useState(!location.state?.pattern);
 
-    /* Mock read. Replace with axios.get(GetQuestionPaperPatternById, { params:
-       { patternId } }) + normalizePattern. */
+    const gradeIdOf = (sign) => grades.find((g) => String(g.sign) === String(sign))?.id || "";
+
+    /* The row handed over by the list has no sections - listPatterns returns
+       counts only - so the full pattern is read even when one was passed. */
     useEffect(() => {
-        if (pattern) return;
+        if (!patternId) return;
         setIsLoading(true);
-        const timer = setTimeout(() => {
-            setPattern(MOCK_PATTERNS.find((p) => String(p.id) === String(patternId)) || null);
-            setIsLoading(false);
-        }, 300);
-        return () => clearTimeout(timer);
-    }, [pattern, patternId]);
+        axios
+            .get(GetPattern, {
+                params: { patternId, requestedByRollNumber: rollNumber },
+                headers: { Authorization: `Bearer ${token}` },
+            })
+            .then((res) => {
+                if (apiFailed(res.data)) { setPattern(null); return; }
+                setPattern(patternFromApi(res.data?.data ?? res.data, { gradeIdOf }));
+            })
+            .catch(() => setPattern(null))
+            .finally(() => setIsLoading(false));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [patternId, rollNumber]);
 
     const groups = useMemo(() => groupSections(pattern?.sections || []), [pattern]);
     const spread = useMemo(() => patternSpread(pattern), [pattern]);
@@ -129,7 +145,7 @@ export default function PatternViewPage() {
                             {pattern.name}
                         </Typography>
                         <Box sx={{ display: "flex", gap: 0.6, flexWrap: "wrap", mt: 0.6 }}>
-                            <Pill label={pattern.exam || "Any exam"} color={DASH.violet} bg={DASH.violetLight} border={`${DASH.violet}33`} />
+                            <Pill label={pattern.subject || "Any subject"} color={DASH.violet} bg={DASH.violetLight} border={`${DASH.violet}33`} />
                             <Pill label={classLabel || "Any class"} color={DASH.text} bg={DASH.lineSoft} />
                             <Pill label={pattern.subject || "Any subject"} color={DASH.muted} bg={DASH.lineSoft} />
                         </Box>

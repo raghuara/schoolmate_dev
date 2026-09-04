@@ -13,7 +13,7 @@ import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import dayjs from "dayjs";
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
-import newsImage from '../../Images/PagesImage/news.png';
+
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import ReactPlayer from "react-player";
@@ -56,12 +56,29 @@ export default function NewsPage() {
     const canCreate = newsPerms.create === "Y";
     const canEdit = newsPerms.edit === "Y";
     const canDelete = newsPerms.delete === "Y";
+
+    /* NewsFetch returns its own isAlterAvilable flag per item, and it is computed
+       without reference to the granted communication > news permissions. Checked
+       against UAT on 02 Sep 2026: a Teacher holding delete:"Y" gets "N" on every
+       item - including the one that Teacher posted - while a Super Admin gets "Y"
+       on all of them. It carries no per-item information today, so gating the
+       buttons on it hid Delete from exactly the roles that had just been granted it.
+
+       The permission decides. The flag is kept only as a fallback for a session
+       that carries no explicit news permission at all, so nothing that worked
+       before this stops working. */
+    const canAlter = (item) => (canEdit || canDelete) || item?.isAlterAvilable === "Y";
     // Level 1 of the News approval flow acts straight away; every other level
     // and anyone outside the flow raises a request instead.
     const userTypeID = useSelector(selectUserTypeID);
     const approvalMatrix = useSelector(selectApprovalMatrix);
     const canActDirect = approvalRoleFor(approvalMatrix, APPROVAL_SUBMENUS.NEWS, userTypeID).canPublishDirect;
-    const canBulkDelete = canDelete && canActDirect;
+    /* Bulk delete follows the single delete: the delete permission grants it, and
+       the approval flow only decides whether it happens straight away or goes up
+       as a request. Requiring canActDirect here hid the whole bulk bar from a role
+       that holds delete but sits below Level 1 - a role that can already delete the
+       same items one at a time. */
+    const canBulkDelete = canDelete;
 
     /*
        Shortcuts out of News, each shown only when it would lead somewhere useful.
@@ -397,7 +414,7 @@ export default function NewsPage() {
             setOpen(true);
             setColor(true);
             setStatus(true);
-            setMessage("News Deleted Successfully");
+            setMessage(canActDirect ? "News Deleted Successfully" : "Requested Successfully");
             setSelectedMessageIds([]);
         } catch (error) {
             setOpen(true);
@@ -662,10 +679,14 @@ export default function NewsPage() {
                 >
                     <Box sx={{ p: 3, backgroundColor: '#fff', textAlign: 'center' }}>
                         <Typography sx={{ fontSize: "17px", fontWeight: 600, color: "#111827" }}>
-                            Delete {selectedMessageIds.length} selected news?
+                            {canActDirect
+                                ? `Delete ${selectedMessageIds.length} selected news?`
+                                : `Send a delete request for ${selectedMessageIds.length} news?`}
                         </Typography>
                         <Typography sx={{ fontSize: "13px", color: "#6B7280", mt: 0.8 }}>
-                            This will remove them for everyone. It cannot be undone.
+                            {canActDirect
+                                ? "This will remove them for everyone. It cannot be undone."
+                                : "An approver has to clear the request before they are removed."}
                         </Typography>
                         <DialogActions sx={{ justifyContent: 'center', backgroundColor: '#fff', pt: 2.5, gap: 1 }}>
                             <Button
@@ -679,7 +700,7 @@ export default function NewsPage() {
                                 onClick={() => handleCloseBulkDeleteDialog(true)}
                                 sx={dialogPrimarySx}
                             >
-                                Delete
+                                {canActDirect ? "Delete" : "Send Request"}
                             </Button>
                         </DialogActions>
                     </Box>
@@ -1198,7 +1219,7 @@ export default function NewsPage() {
                                                     </Grid>
 
                                                     {/* Edit and Delete Buttons */}
-                                                    {newsItem.isAlterAvilable === "Y" && (canEdit || canDelete) && (
+                                                    {canAlter(newsItem) && (canEdit || canDelete) && (
                                                         <Box
                                                             sx={{
                                                                 position: "absolute",

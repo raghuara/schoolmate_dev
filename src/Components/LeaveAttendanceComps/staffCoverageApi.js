@@ -130,6 +130,12 @@ export const COVERAGE_MAIN_MENU = "leaveandpayroll";
 export const COVERAGE_SUB_MENU = "payrollcoverage";
 export const STAFF_LEAVE_CATEGORY = "Staff";
 
+/* The operations this screen recognises. delete is published by the backend but
+   nothing here removes a staff member - they are included or excluded - so it is
+   neither offered in Feature Permissions nor read here. */
+export const COVERAGE_OPS = ["view", "create", "edit"];
+export const COVERAGE_WRITE_OPS = ["create", "edit"];
+
 /* userTypeIDs marked isSelected for one leave category. */
 export const approverTypeIdsFor = (data, category = STAFF_LEAVE_CATEGORY) => {
     const categories = data?.categories || data?.data?.categories || [];

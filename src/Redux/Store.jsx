@@ -80,7 +80,17 @@ const approvalMatrixPersistConfig = {
   whitelist: ['list', 'lastFetched'],
 };
 
+// Logo and school name are cached so a refresh paints the school's branding
+// immediately instead of flashing the SchoolMate default while getSchoolConfig
+// is still in flight. Colours are frontend-owned and never persisted.
+const websiteSettingsPersistConfig = {
+  key: 'websiteSettings',
+  storage,
+  whitelist: ['logo', 'title'],
+};
+
 const persistedAuthReducer = persistReducer(authPersistConfig, authReducer);
+const persistedWebsiteSettingsReducer = persistReducer(websiteSettingsPersistConfig, websiteSettingsReducer);
 const persistedGradesReducer = persistReducer(gradesPersistConfig, gradesReducer);
 const persistedSidebarReducer = persistReducer(sidebarPersistConfig, sidebarReducer);
 const persistedVersionReducer = persistReducer(versionPersistConfig, versionReducer);
@@ -95,7 +105,7 @@ const store = configureStore({
     submenu: submenuReducer,
     paths: pathsReducer,
     dialogs: dialogsReducer,
-    websiteSettings: websiteSettingsReducer,
+    websiteSettings: persistedWebsiteSettingsReducer,
     grades: persistedGradesReducer,
     sidebar: persistedSidebarReducer,
     version: persistedVersionReducer,

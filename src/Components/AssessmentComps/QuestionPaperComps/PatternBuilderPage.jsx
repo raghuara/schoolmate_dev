@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
     Box, Grid, Typography, Button, IconButton, TextField, MenuItem, Tooltip,
-    Select, OutlinedInput, Checkbox, ListItemText, Divider, Autocomplete,
+    Select, OutlinedInput, Checkbox, ListItemText, Divider,
     FormControl, InputLabel, FormHelperText,
 } from "@mui/material";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useSelector } from "react-redux";
+import axios from "axios";
 
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import AddIcon from "@mui/icons-material/Add";
@@ -18,9 +20,12 @@ import ContentCopyOutlinedIcon from "@mui/icons-material/ContentCopyOutlined";
 
 import SnackBar from "../../SnackBar";
 import { DASH, RADIUS, Panel } from "../../DashBoardComps/dashboardTheme";
-import { useGradeSubjects } from "../../AcademicsComps/academicMeta";
+import { useGradeSubjects, gradeSign } from "../../AcademicsComps/academicMeta";
+import { CreatePattern, UpdatePattern, GetPattern } from "../../../Api/Api";
+import { apiFailed } from "../../AcademicsComps/BooksChaptersComps/bookApi";
 import {
-    CHOICE_MODES, MARK_DISPLAYS, MOCK_PATTERNS, QUESTION_TYPES, DIFFICULTY_LEVELS,
+    CHOICE_MODES, MARK_DISPLAYS, patternToApi, patternFromApi, QUESTION_TYPES, DIFFICULTY_LEVELS,
+    PRINT_LANGUAGES, suggestedPrompt, effectiveTypeKey,
     emptyPattern, newSection, patternTotal, sectionEquation, sectionHeading, sectionInstruction,
     sectionMarks, sectionMarksLabel, typeMeta, withSectionDefaults,
 } from "./questionPaperApi";
@@ -66,7 +71,7 @@ const NumberField = ({
 };
 
 const SectionCard = ({ section, index, total, onChange, onRemove, onMove, onDuplicate }) => {
-    const meta = typeMeta(section.type);
+    const meta = typeMeta(effectiveTypeKey(section));
     const marks = sectionMarks(section);
     // The counts are text while they are being typed, so compare as numbers.
     const printCount = Number(section.questionsToPrint) || 0;
@@ -208,16 +213,8 @@ const SectionCard = ({ section, index, total, onChange, onRemove, onMove, onDupl
                             sx={fieldSx}
                         />
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }}>
-                        <TextField
-                            fullWidth size="small" label="Section title (printed)"
-                            placeholder="Choose the best answer"
-                            value={section.title}
-                            onChange={(e) => set("title", e.target.value)}
-                            helperText=" "
-                            sx={fieldSx}
-                        />
-                    </Grid>
+                    {/* Hidden for now, at the FE request - the value it was bound to
+                        is untouched, so restoring the block brings the field back. */}
                     <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
                         <TextField
                             select fullWidth size="small" label="Question type"
@@ -236,6 +233,33 @@ const SectionCard = ({ section, index, total, onChange, onRemove, onMove, onDupl
                             ))}
                         </TextField>
                     </Grid>
+                    {section.type === "custom" && (
+                        <>
+                            <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
+                                <TextField
+                                    fullWidth size="small" label="Type name"
+                                    placeholder="Mind Map"
+                                    value={section.customLabel || ""}
+                                    onChange={(e) => set("customLabel", e.target.value)}
+                                    helperText="Printed and stored as this"
+                                    sx={fieldSx}
+                                />
+                            </Grid>
+                            <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
+                                <TextField
+                                    select fullWidth size="small" label="Behaves like"
+                                    value={section.baseType || "long"}
+                                    onChange={(e) => set("baseType", e.target.value)}
+                                    helperText="Decides options and answer space"
+                                    sx={fieldSx}
+                                >
+                                    {QUESTION_TYPES.filter((t) => !t.isCustom).map((t) => (
+                                        <MenuItem key={t.key} value={t.key} sx={{ fontSize: "13px" }}>{t.label}</MenuItem>
+                                    ))}
+                                </TextField>
+                            </Grid>
+                        </>
+                    )}
                     <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
                         <TextField
                             select fullWidth size="small" label="Choice"
@@ -329,31 +353,44 @@ const SectionCard = ({ section, index, total, onChange, onRemove, onMove, onDupl
                         </TextField>
                     </Grid>
 
-                    <Grid size={{ xs: 6, sm: 4, md: 2, lg: 2 }}>
-                        <NumberField
-                            label="Blank lines to write on"
-                            value={section.answerLines}
-                            onChange={(v) => set("answerLines", v)}
-                            min={0} max={20}
-                            required={false}
-                            helper="Ruled lines printed under each question. 0 = none"
-                        />
-                    </Grid>
+                    {/* Hidden for now, at the FE request - the value it was bound to
+                        is untouched, so restoring the block brings the field back. */}
 
                     <Grid size={{ xs: 12, sm: 12, md: 12, lg: 12 }}>
                         <TextField
-                            fullWidth size="small" label="Extra instruction (optional)"
+                            fullWidth size="small" label="Section direction (printed)"
                             placeholder={sectionInstruction(section)}
                             value={section.instruction}
                             onChange={(e) => set("instruction", e.target.value)}
-                            helperText=" "
+                            helperText="Prints under the part heading, above the questions. Suggestions cover English, Tamil and Hindi - any other language can be typed in."
                             sx={fieldSx}
                         />
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.8, mt: 0.6, flexWrap: "wrap" }}>
+                            <Typography sx={{ fontSize: "11px", color: DASH.faint }}>Suggest:</Typography>
+                            {PRINT_LANGUAGES.map((lang) => (
+                                <Button
+                                    key={lang.key}
+                                    onClick={() => set("instruction", suggestedPrompt(section, lang.key))}
+                                    sx={{ ...outlineBtnSx, py: 0.15, px: 1.1, fontSize: "11px", minWidth: 0 }}
+                                >
+                                    {lang.label}
+                                </Button>
+                            ))}
+                            {section.instruction ? (
+                                <Button
+                                    onClick={() => set("instruction", "")}
+                                    sx={{ ...outlineBtnSx, py: 0.15, px: 1.1, fontSize: "11px", minWidth: 0, color: DASH.muted }}
+                                >
+                                    Clear
+                                </Button>
+                            ) : null}
+                        </Box>
                     </Grid>
                 </Grid>
 
-                <Divider sx={{ my: 1.2, borderColor: DASH.lineSoft }} />
-
+                {/* Difficulty mix hidden for now, at the FE request. The mix is still
+                    carried on the section, so nothing downstream changes. */}
+                {false && (
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
                     <Typography sx={{ fontSize: "11.5px", fontWeight: 700, color: DASH.muted, textTransform: "uppercase", letterSpacing: "0.06em" }}>
                         Difficulty mix
@@ -379,6 +416,7 @@ const SectionCard = ({ section, index, total, onChange, onRemove, onMove, onDupl
                         {mixTotal}%
                     </Typography>
                 </Box>
+                )}
 
                 <Box
                     sx={{
@@ -399,11 +437,15 @@ const SectionCard = ({ section, index, total, onChange, onRemove, onMove, onDupl
     );
 };
 
+const token = "123";
+
 export default function PatternBuilderPage() {
     const navigate = useNavigate();
     const location = useLocation();
     const { patternId } = useParams();
-    const { grades, examsForGrades } = useGradeSubjects();
+    const { grades, subjectsForGrades } = useGradeSubjects();
+    const user = useSelector((state) => state.auth);
+    const rollNumber = user?.rollNumber;
 
     const incoming = location.state?.pattern;
     // Patterns saved before a field existed still open cleanly.
@@ -414,6 +456,8 @@ export default function PatternBuilderPage() {
     });
     const [pattern, setPattern] = useState(() => (incoming ? hydrate(incoming) : emptyPattern()));
     const [errors, setErrors] = useState({});
+    const [saving, setSaving] = useState(false);
+    const [loading, setLoading] = useState(false);
 
     const [open, setOpen] = useState(false);
     const [status, setStatus] = useState(false);
@@ -424,28 +468,40 @@ export default function PatternBuilderPage() {
         setMessage(msg); setColor(ok); setStatus(ok); setOpen(true);
     };
 
-    /* Mock read for a direct link. Replace with GET qpaper/patterns/:id. */
+    /* Opened by id - from the list, or a direct link. The row the list carries
+       has no sections, so the pattern is always read in full before editing. */
     useEffect(() => {
-        if (incoming || !patternId || patternId === "create") return;
-        const found = MOCK_PATTERNS.find((p) => String(p.id) === String(patternId));
-        if (found) setPattern(hydrate(found));
+        if (!patternId || patternId === "create") return;
+        setLoading(true);
+        axios
+            .get(GetPattern, {
+                params: { patternId, requestedByRollNumber: rollNumber },
+                headers: { Authorization: `Bearer ${token}` },
+            })
+            .then((res) => {
+                if (apiFailed(res.data)) return;
+                const found = patternFromApi(res.data?.data ?? res.data, {
+                    gradeIdOf: (sign) => grades.find((g) => String(g.sign) === String(sign))?.id || "",
+                });
+                if (found) setPattern(hydrate(found));
+            })
+            .catch((error) => notify(error?.response?.data?.message || "The pattern could not be loaded"))
+            .finally(() => setLoading(false));
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [incoming, patternId]);
+    }, [patternId, rollNumber, grades]);
 
     const sectionsTotal = patternTotal(pattern);
     const balanced = sectionsTotal === Number(pattern.totalMarks);
     const isEdit = Boolean(pattern.id);
 
-    // Exams the selected classes actually have, from fetchAllSubjects. An exam
-    // that only some of them offer is still selectable, just flagged.
-    const examOptions = useMemo(
-        () => examsForGrades(pattern.gradeIds || []),
-        [examsForGrades, pattern.gradeIds]
+    const subjectOptions = useMemo(
+        () => subjectsForGrades(pattern.gradeIds || []),
+        [subjectsForGrades, pattern.gradeIds]
     );
-    const examHelper = (() => {
+    const subjectHelper = (() => {
         if (!pattern.gradeIds?.length) return "Pick the classes first";
-        if (!examOptions.length) return "No exams mapped to these classes yet - type one";
-        const picked = examOptions.find((e) => e.exam === pattern.exam);
+        if (!subjectOptions.length) return "No subjects mapped to these classes yet";
+        const picked = subjectOptions.find((s) => s.subject === pattern.subject);
         if (picked?.missingIn?.length) {
             const names = picked.missingIn
                 .map((id) => grades.find((g) => String(g.id) === String(id))?.sign || id)
@@ -510,7 +566,7 @@ export default function PatternBuilderPage() {
     const validate = () => {
         const next = {};
         if (!pattern.name.trim()) next.name = "Give the pattern a name";
-        if (!pattern.exam.trim()) next.exam = "Pick or type the exam";
+        if (!String(pattern.subject || "").trim()) next.subject = "Pick the subject";
         if (!pattern.totalMarks) next.totalMarks = "Set the total marks";
         if (!pattern.durationMinutes) next.durationMinutes = "Set the duration";
         setErrors(next);
@@ -545,8 +601,27 @@ export default function PatternBuilderPage() {
     /* Replace with POST / PUT qpaper/patterns. */
     const savePattern = () => {
         if (!validate()) return;
-        notify(isEdit ? "Pattern updated" : "Pattern created", true);
-        setTimeout(() => navigate("/dashboardmenu/assessment/question-paper/patterns"), 700);
+
+        const body = patternToApi(pattern, {
+            gradeSignOf: (id) => gradeSign(grades, id),
+            rollNumber,
+            patternId: isEdit ? pattern.id : null,
+        });
+
+        setSaving(true);
+        const request = isEdit
+            ? axios.put(UpdatePattern, body, { headers: { Authorization: `Bearer ${token}` } })
+            : axios.post(CreatePattern, body, { headers: { Authorization: `Bearer ${token}` } });
+
+        request
+            .then((res) => {
+                const rejected = apiFailed(res.data);
+                if (rejected) { notify(rejected); return; }
+                notify(isEdit ? "Pattern updated" : "Pattern created", true);
+                setTimeout(() => navigate("/dashboardmenu/assessment/question-paper/patterns"), 700);
+            })
+            .catch((error) => notify(error?.response?.data?.message || "The pattern could not be saved"))
+            .finally(() => setSaving(false));
     };
 
     return (
@@ -579,7 +654,7 @@ export default function PatternBuilderPage() {
                             sx={fieldSx}
                         />
                     </Grid>
-                    {/* Classes come first - the exam list below is built from them. */}
+                    {/* Classes come first - the subject list below is built from them. */}
                     <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
                         {/* The label sits in the notch like every other field on
                             this row - a caption above the control left it taller
@@ -618,27 +693,23 @@ export default function PatternBuilderPage() {
                         </FormControl>
                     </Grid>
 
-                    {/* Real exams mapped to those classes, not a made-up category. */}
                     <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
-                        <Autocomplete
-                            freeSolo
-                            size="small"
-                            options={examOptions.map((e) => e.exam)}
-                            value={pattern.exam}
-                            onChange={(e, value) => setField("exam", value || "")}
-                            onInputChange={(e, value) => setField("exam", value)}
+                        <TextField
+                            select fullWidth size="small" label="Subject"
+                            value={pattern.subject}
+                            onChange={(e) => setField("subject", e.target.value)}
                             disabled={pattern.gradeIds.length === 0}
-                            renderInput={(params) => (
-                                <TextField
-                                    {...params}
-                                    label="Exam"
-                                    placeholder="Half Yearly Examination"
-                                    error={Boolean(errors.exam)}
-                                    helperText={errors.exam || examHelper}
-                                    sx={fieldSx}
-                                />
-                            )}
-                        />
+                            error={Boolean(errors.subject)}
+                            helperText={errors.subject || subjectHelper}
+                            sx={fieldSx}
+                        >
+                            {subjectOptions.map((s) => (
+                                <MenuItem key={s.subject} value={s.subject} sx={{ fontSize: "13px" }}>
+                                    {s.subject}
+                                    {s.missingIn.length > 0 ? ` - not in ${s.missingIn.length} of the picked classes` : ""}
+                                </MenuItem>
+                            ))}
+                        </TextField>
                     </Grid>
 
                     <Grid size={{ xs: 6, sm: 4, md: 2, lg: 2 }}>
@@ -659,16 +730,8 @@ export default function PatternBuilderPage() {
                             error={errors.durationMinutes}
                         />
                     </Grid>
-                    <Grid size={{ xs: 6, sm: 4, md: 2, lg: 2 }}>
-                        <NumberField
-                            label="Reading time (min)"
-                            value={pattern.readingTimeMinutes || 0}
-                            onChange={(v) => setField("readingTimeMinutes", v)}
-                            min={0} max={30}
-                            required={false}
-                            helper="0 = not printed"
-                        />
-                    </Grid>
+                    {/* Hidden for now, at the FE request - the value it was bound to
+                        is untouched, so restoring the block brings the field back. */}
                     {/* No Q.P. Code control here. Whether the code box prints is
                         decided by the template chosen on the paper, and the code
                         itself is typed per paper - the pattern had no say in
@@ -813,7 +876,7 @@ export default function PatternBuilderPage() {
                             }}
                         >
                             {pattern.sections.map((s, i) => {
-                                const meta = typeMeta(s.type);
+                                const meta = typeMeta(effectiveTypeKey(s));
                                 const label = (sectionHeading(s) || s.groupName || `S${i + 1}`)
                                     .replace("PART - ", "")
                                     .replace("SECTION ", "");
@@ -846,10 +909,11 @@ export default function PatternBuilderPage() {
                             <Button onClick={() => navigate(-1)} sx={outlineBtnSx}>Cancel</Button>
                             <Button
                                 onClick={savePattern}
+                                disabled={saving || loading}
                                 startIcon={<SaveOutlinedIcon sx={{ fontSize: 16 }} />}
                                 sx={primaryBtnSx}
                             >
-                                {isEdit ? "Update Pattern" : "Save Pattern"}
+                                {saving ? "Saving..." : isEdit ? "Update Pattern" : "Save Pattern"}
                             </Button>
                         </Box>
                     </Box>

@@ -122,12 +122,12 @@ const PANEL_TINTS = {
     violet: { main: DASH.violet, bg: DASH.violetLight, border: "#DDD6FE" },
 };
 
-// fade = where the tint has fully turned to white. Lower it on tall panels so
-// the wash stays a hint behind the header instead of colouring the whole card.
-const tintedPanel = (tone, fade = 60) => ({
+// White cards on a coloured border, exactly like the master dashboard panels -
+// the hue lives in the border and the accent rule, not the surface.
+const tintedPanel = (tone) => ({
     height: "100%",
+    bgcolor: "#fff",
     borderColor: tone.border,
-    background: `linear-gradient(160deg, ${tone.bg} 0%, #FFFFFF ${fade}%)`,
     "&:hover": { borderColor: tone.main },
 });
 
@@ -561,6 +561,7 @@ export default function OnlineQuizDashboard() {
                     <Panel
                         title="Overall Completion"
                         subtitle="Across all published quizzes"
+                        accent={completionColors.main}
                         sx={tintedPanel(completionColors)}
                         bodySx={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}
                     >
@@ -573,12 +574,6 @@ export default function OnlineQuizDashboard() {
                             <Box sx={{ position: "relative", width: 152, height: 152, flexShrink: 0 }}>
                                 <ResponsiveContainer width="100%" height="100%">
                                     <PieChart>
-                                        <defs>
-                                            <linearGradient id="quizCompletionFill" x1="0" y1="0" x2="1" y2="1">
-                                                <stop offset="0%" stopColor={completionColors.soft} />
-                                                <stop offset="100%" stopColor={completionColors.main} />
-                                            </linearGradient>
-                                        </defs>
                                         <Pie
                                             data={donutData}
                                             dataKey="value"
@@ -590,7 +585,7 @@ export default function OnlineQuizDashboard() {
                                             paddingAngle={2}
                                             cornerRadius={6}
                                         >
-                                            <Cell fill="url(#quizCompletionFill)" />
+                                            <Cell fill={completionColors.main} />
                                             <Cell fill={DASH.lineSoft} />
                                         </Pie>
                                     </PieChart>
@@ -642,7 +637,7 @@ export default function OnlineQuizDashboard() {
                                     }}
                                 >
                                     {[
-                                        { label: "Completed", value: completion, fill: `linear-gradient(135deg, ${completionColors.soft}, ${completionColors.main})` },
+                                        { label: "Completed", value: completion, fill: completionColors.main },
                                         { label: "Remaining", value: Math.max(0, 100 - completion), fill: DASH.lineSoft },
                                     ].map((row) => (
                                         <Box key={row.label} sx={{ display: "flex", alignItems: "center", gap: 0.9, py: 0.45 }}>
@@ -664,7 +659,8 @@ export default function OnlineQuizDashboard() {
                 <Grid size={{ xs: 12, sm: 12, md: 8, lg: 5 }}>
                     <Panel
                         title="Grade-wise Performance"
-                        sx={tintedPanel(PANEL_TINTS.amber, 18)}
+                        accent={PANEL_TINTS.amber.main}
+                        sx={tintedPanel(PANEL_TINTS.amber)}
                         right={
                             <Select size="small" value={rangeKey} onChange={(e) => setRangeKey(e.target.value)} sx={selectSx}>
                                 {GRADE_VIEWS.map((r) => (
@@ -708,7 +704,7 @@ export default function OnlineQuizDashboard() {
                 </Grid>
 
                 <Grid size={{ xs: 12, sm: 12, md: 12, lg: 4 }}>
-                    <Panel title="Upcoming Quizzes" subtitle={`${upcoming.length} scheduled`} sx={tintedPanel(PANEL_TINTS.blue)}>
+                    <Panel title="Upcoming Quizzes" subtitle={`${upcoming.length} scheduled`} accent={PANEL_TINTS.blue.main} sx={tintedPanel(PANEL_TINTS.blue)}>
                         {upcoming.length === 0 && <EmptyNote text="Nothing scheduled." />}
                         {upcoming.map((u) => (
                             <Box
@@ -743,7 +739,7 @@ export default function OnlineQuizDashboard() {
             <SectionTitle icon={GroupsOutlinedIcon}>Engagement</SectionTitle>
             <Grid container spacing={2} sx={{ alignItems: "stretch", mb: 2 }}>
                 <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }}>
-                    <Panel title="Participation This Week" subtitle="Attempted vs assigned" sx={tintedPanel(PANEL_TINTS.cyan)}>
+                    <Panel title="Participation This Week" subtitle="Attempted vs assigned" accent={PANEL_TINTS.cyan.main} sx={tintedPanel(PANEL_TINTS.cyan)}>
                         {participation.length === 0 && <EmptyNote text="No participation recorded this week." />}
                         <Box sx={{ height: participation.length ? 230 : 0 }}>
                             <ResponsiveContainer width="100%" height="100%">
@@ -760,7 +756,7 @@ export default function OnlineQuizDashboard() {
                     </Panel>
                 </Grid>
                 <Grid size={{ xs: 12, sm: 12, md: 6, lg: 6 }}>
-                    <Panel title="Average Score by Grade" subtitle="Rolling average across published quizzes" sx={tintedPanel(PANEL_TINTS.violet)}>
+                    <Panel title="Average Score by Grade" subtitle="Rolling average across published quizzes" accent={PANEL_TINTS.violet.main} sx={tintedPanel(PANEL_TINTS.violet)}>
                         <Box sx={{ height: 230 }}>
                             <ResponsiveContainer width="100%" height="100%">
                                 <LineChart data={scoreByGrade}>

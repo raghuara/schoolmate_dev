@@ -41,6 +41,7 @@ export const STATUS_TONES = {
     Ready: { bg: DASH.greenLight, color: DASH.green, border: "#BBF7D0" },
     "Needs Review": { bg: DASH.primaryLight, color: "#B45309", border: DASH.primaryBorder },
     Processing: { bg: DASH.blueLight, color: DASH.blue, border: "#BFDBFE" },
+    Duplicate: { bg: "#FEF3C7", color: "#92400E", border: "#FDE68A" },
     Failed: { bg: DASH.redLight, color: DASH.red, border: "#FECACA" },
 };
 

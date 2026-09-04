@@ -1,4 +1,6 @@
 import { createSlice } from '@reduxjs/toolkit';
+import axios from 'axios';
+import { GetUserTypePermissions } from '../../Api/Api';
 
 const initialState = {
     name: '',
@@ -77,6 +79,18 @@ const authSlice = createSlice({
             state.permissions = permissions ?? null;
             state.isAuthenticated = true;
         },
+        /* Permissions are captured at login and then persisted, so a session that
+           has been open since before a permission key existed never sees it - the
+           screen still hides, and the route guard still redirects, however many
+           times an admin sets it to "Y". This lets the app re-read the tree
+           without forcing everyone to log out and back in. */
+        setPermissions: (state, action) => {
+            const permissions = action.payload;
+            if (!permissions?.mainMenus?.length) return; // never blank a working session
+            state.permissions = permissions;
+            state.userTypeID = permissions.userTypeID ?? state.userTypeID;
+        },
+
         logout: () => {
             localStorage.removeItem("sessionId");
             return { ...initialState };
@@ -84,7 +98,25 @@ const authSlice = createSlice({
     },
 });
 
-export const { loginSuccess, logout } = authSlice.actions;
+export const { loginSuccess, setPermissions, logout } = authSlice.actions;
+
+/* Re-reads this user type's permissions from the server. Fired once on app load;
+   a failure is silent because the persisted tree is still perfectly usable. */
+export const refreshPermissions = () => async (dispatch, getState) => {
+    const { userTypeID, userType } = getState().auth || {};
+    if (userTypeID === null || userTypeID === undefined || !userType) return;
+    try {
+        const res = await axios.post(
+            GetUserTypePermissions,
+            { userTypeID, userType },
+            { headers: { Authorization: "Bearer 123" } },
+        );
+        const data = res?.data?.data;
+        if (data?.mainMenus?.length) dispatch(setPermissions(data));
+    } catch {
+        // keep what login stored
+    }
+};
 
 // ── Permission helpers ──────────────────────────────────────────────────────
 // The login response's `userTypePermissions` shape:

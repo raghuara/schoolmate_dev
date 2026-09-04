@@ -1,12 +1,16 @@
 import React from "react";
-import { Box, Typography, CircularProgress } from "@mui/material";
+import { Box, Typography, CircularProgress, Button } from "@mui/material";
 
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import AutoAwesomeOutlinedIcon from "@mui/icons-material/AutoAwesomeOutlined";
 import HourglassEmptyOutlinedIcon from "@mui/icons-material/HourglassEmptyOutlined";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
+import ContentCopyOutlinedIcon from "@mui/icons-material/ContentCopyOutlined";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 
-import { DASH, Panel } from "../../DashBoardComps/dashboardTheme";
+import { DASH, RADIUS, Panel } from "../../DashBoardComps/dashboardTheme";
+import { outlineBtnSx } from "./bookTheme";
 
 export const mmss = (seconds) => {
     const total = Math.max(0, Math.round(Number(seconds) || 0));
@@ -142,3 +146,75 @@ export const BookProgressPanel = ({ book, processing, elapsed, actions, footNote
         </Panel>
     );
 };
+
+/* A duplicate is stored but never read: the server refuses to process a second
+   book for the same year, class, subject, medium and term. Nothing moves until
+   one of the pair is deleted, so the screen says exactly that and offers the
+   one action that resolves it. */
+export const DuplicatePanel = ({ book, onDelete, onOpenOriginal, deleting }) => (
+    <Panel
+        title="This book is already in the library"
+        subtitle={book?.fileName || book?.title || ""}
+        accent="#D97706"
+    >
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1.6, mb: 2 }}>
+            <Box
+                sx={{
+                    width: 54, height: 54, borderRadius: "50%", flexShrink: 0,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    bgcolor: "#FEF3C7", border: "1px solid #FDE68A",
+                }}
+            >
+                <ContentCopyOutlinedIcon sx={{ fontSize: 24, color: "#92400E" }} />
+            </Box>
+            <Box sx={{ minWidth: 0 }}>
+                <Typography sx={{ fontSize: "15px", fontWeight: 700, color: DASH.ink }}>
+                    Not read - a matching book already exists
+                </Typography>
+                <Typography sx={{ fontSize: "12px", color: DASH.muted, mt: 0.3, lineHeight: 1.6 }}>
+                    {[book?.grade, book?.subject, book?.medium, book?.term ? `Term ${book.term}` : ""]
+                        .filter(Boolean).join(" - ")} for {book?.academicYear || "this year"} is
+                    already uploaded, so this copy was stored but never read.
+                </Typography>
+            </Box>
+        </Box>
+
+        <Box
+            sx={{
+                display: "flex", gap: 1.2, alignItems: "flex-start",
+                bgcolor: "#FFFBEB", border: "1px solid #FDE68A",
+                borderRadius: RADIUS, px: 1.6, py: 1.3,
+            }}
+        >
+            <InfoOutlinedIcon sx={{ fontSize: 16, color: "#92400E", mt: 0.1, flexShrink: 0 }} />
+            <Typography sx={{ fontSize: "12px", color: "#92400E", lineHeight: 1.7 }}>
+                <strong>Delete one of the two to carry on.</strong> Deleting this copy keeps the
+                book already in the library. Deleting the original instead starts this copy
+                reading straight away - useful when this file is the newer edition.
+                {book?.term ? "" : " If the two books are actually different terms, set the term on the original and upload this one again."}
+            </Typography>
+        </Box>
+
+        <Box sx={{ display: "flex", gap: 1, mt: 2, flexWrap: "wrap" }}>
+            <Button
+                onClick={onDelete}
+                disabled={deleting}
+                startIcon={<DeleteOutlineIcon sx={{ fontSize: 16 }} />}
+                sx={{
+                    textTransform: "none", fontSize: "13px", fontWeight: 700, height: 38,
+                    px: 2, borderRadius: RADIUS, bgcolor: DASH.red, color: "#fff",
+                    boxShadow: "none",
+                    "&:hover": { bgcolor: "#B91C1C", boxShadow: "none" },
+                    "&.Mui-disabled": { bgcolor: DASH.line, color: DASH.faint },
+                }}
+            >
+                {deleting ? "Deleting..." : "Delete this copy"}
+            </Button>
+            {onOpenOriginal && book?.duplicateOfBookId && (
+                <Button onClick={onOpenOriginal} sx={{ ...outlineBtnSx, height: 38 }}>
+                    Open the book already there
+                </Button>
+            )}
+        </Box>
+    </Panel>
+);

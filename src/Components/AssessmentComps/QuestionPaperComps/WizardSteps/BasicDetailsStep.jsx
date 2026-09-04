@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
 import {
-    Box, Grid, Typography, TextField, MenuItem, Autocomplete,
+    Box, Grid, Typography, TextField, MenuItem,
     Checkbox, ListItemText,
 } from "@mui/material";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
@@ -16,12 +16,10 @@ export default function BasicDetailsStep({
     errors,
     grades,
     subjectsForGrade,
-    examsForGrade,
     sectionsForGrade,
     yearOptions,
 }) {
     const subjects = useMemo(() => subjectsForGrade(form.gradeId), [subjectsForGrade, form.gradeId]);
-    const exams = useMemo(() => examsForGrade(form.gradeId), [examsForGrade, form.gradeId]);
     const sections = useMemo(() => sectionsForGrade(form.gradeId), [sectionsForGrade, form.gradeId]);
 
     const durationLabel = (() => {
@@ -126,26 +124,8 @@ export default function BasicDetailsStep({
                                 </TextField>
                             </Grid>
 
-                            <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
-                                <Autocomplete
-                                    freeSolo
-                                    size="small"
-                                    options={exams}
-                                    value={form.examName}
-                                    onChange={(e, value) => setField("examName", value || "")}
-                                    onInputChange={(e, value) => setField("examName", value)}
-                                    renderInput={(params) => (
-                                        <TextField
-                                            {...params}
-                                            label="Exam name"
-                                            placeholder="Half Yearly Examination"
-                                            error={Boolean(errors.examName)}
-                                            helperText={errors.examName || "Pick a mapped exam, or type your own"}
-                                            sx={fieldSx}
-                                        />
-                                    )}
-                                />
-                            </Grid>
+                            {/* Exam name removed - the paper name carries it. */}
+
 
                             <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
                                 <TextField

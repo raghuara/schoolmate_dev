@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import {
     Box, Grid, Typography, Button, Checkbox, Slider, TextField, MenuItem, LinearProgress,
+    CircularProgress,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 
@@ -18,6 +19,8 @@ import { fieldSx, outlineBtnSx, primaryBtnSx, Banner } from "../questionPaperThe
 export default function ChaptersStep({
     books,
     pendingBooks = [],
+    loading = false,
+    chaptersLoading = false,
     gradeLabel,
     subject,
     bookId,
@@ -41,9 +44,28 @@ export default function ChaptersStep({
     const selected = chapters.filter((c) => selectedChapterIds.includes(c.id));
     const weightTotal = selected.reduce((sum, c) => sum + (Number(weightage[c.id]) || 0), 0);
     const balanced = selected.length === 0 || weightTotal === 100;
+    const remaining = 100 - weightTotal;
+
+    /* Weightage is a share of one paper, so the shares always add up to 100.
+       Raising one chapter takes the difference off the others rather than pushing
+       the total past 100 - see setChapterWeight in CreateQuestionPaperPage. */
 
     const portion = [gradeLabel, subject].filter(Boolean).join(" - ");
 
+    /* The library is read over the network, so waiting is its own state - not
+       the same thing as "there is no book for this class". */
+    if (loading) {
+        return (
+            <Panel title="Chapters" subtitle="Reading the library" accent={DASH.primary}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1.4, py: 3, justifyContent: "center" }}>
+                    <CircularProgress size={20} thickness={4} sx={{ color: DASH.primary }} />
+                    <Typography sx={{ fontSize: "13px", color: DASH.muted }}>
+                        Looking for confirmed books{portion ? ` for ${portion}` : ""}
+                    </Typography>
+                </Box>
+            </Panel>
+        );
+    }
     if (!books.length) {
         /* The library does hold books for this class and subject - they just are
            not confirmed. Listing them turns a dead end into one click. */
@@ -55,12 +77,12 @@ export default function ChaptersStep({
                     <MenuBookOutlinedIcon sx={{ fontSize: 44, color: DASH.line }} />
                     <Typography sx={{ fontSize: "15px", fontWeight: 700, color: DASH.ink, mt: 1.2 }}>
                         {hasPending
-                            ? `No confirmed book yet${portion ? ` for ${portion}` : ""}`
+                            ? `No book filed under ${portion || "this class and subject"}`
                             : `No book in the library${portion ? ` for ${portion}` : " for this class and subject"}`}
                     </Typography>
                     <Typography sx={{ fontSize: "12.5px", color: DASH.muted, mt: 0.6, mb: 2.4, maxWidth: 540, mx: "auto", lineHeight: 1.7 }}>
                         {hasPending
-                            ? "Questions are generated from chapters, so the chapter split has to be confirmed first. These are already in the library:"
+                            ? `Nothing here is filed under ${subject || "this subject"} with a confirmed chapter split. The library does hold these for this class - open one to set its subject or confirm its chapters:`
                             : "Questions are generated from chapters, so a book has to be in the library first. Upload it, confirm the detected chapter split, then come back to this step."}
                     </Typography>
                 </Box>
@@ -87,6 +109,7 @@ export default function ChaptersStep({
                                     </Typography>
                                     <Typography sx={{ fontSize: "11px", color: DASH.muted, mt: 0.2 }}>
                                         {b.chapterCount || (b.chapters || []).length} chapters - {b.pages} pages
+                                        {b.subject ? ` - ${b.subject}` : ""}
                                     </Typography>
                                 </Box>
                                 <StatusPill status={b.status} dense />
@@ -123,10 +146,20 @@ export default function ChaptersStep({
 
     return (
         <>
-            <Banner tone="info" icon={InfoOutlinedIcon} title="Pick the portion">
-                Only the chapters you tick are used to generate questions. Weightage is optional -
-                set it when a chapter should carry more of the paper than the others.
-            </Banner>
+            {book && book.status !== "Ready" ? (
+                /* Picking from a split nobody has checked yet. Worth saying once,
+                   rather than letting a wrong chapter range reach the paper. */
+                <Banner tone="warn" icon={InfoOutlinedIcon} title="This book is not confirmed yet">
+                    The chapters below were detected automatically and have not been reviewed. You can
+                    still pick from them, but check the split in Books &amp; Chapters before the paper is
+                    published.
+                </Banner>
+            ) : (
+                <Banner tone="info" icon={InfoOutlinedIcon} title="Pick the portion">
+                    Only the chapters you tick are used to generate questions. Weightage is optional -
+                    set it when a chapter should carry more of the paper than the others.
+                </Banner>
+            )}
 
             <Grid container spacing={1.8}>
                 <Grid size={{ xs: 12, md: 7, lg: 8 }}>
@@ -146,7 +179,7 @@ export default function ChaptersStep({
                         }
                         bodySx={{ p: 1.4 }}
                     >
-                        {books.length > 1 && (
+                        {books.length > 0 && (
                             <TextField
                                 select fullWidth size="small" label="Book"
                                 value={String(book?.id ?? "")}
@@ -155,13 +188,18 @@ export default function ChaptersStep({
                             >
                                 {books.map((b) => (
                                     <MenuItem key={b.id} value={String(b.id)} sx={{ fontSize: "13px" }}>
-                                        {b.title} - {b.chapterCount} chapters
+                                        {b.title} - {b.chapterCount} chapters{b.status === "Ready" ? "" : ` (${b.status})`}
                                     </MenuItem>
                                 ))}
                             </TextField>
                         )}
 
-                        {chapters.length === 0 ? (
+                        {chaptersLoading ? (
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, py: 2.5, justifyContent: "center" }}>
+                                <CircularProgress size={18} thickness={4} sx={{ color: DASH.primary }} />
+                                <Typography sx={{ fontSize: "12.5px", color: DASH.muted }}>Reading the chapters</Typography>
+                            </Box>
+                        ) : chapters.length === 0 ? (
                             <EmptyNote text="This book has no confirmed chapters yet." />
                         ) : (
                             chapters.map((chapter) => {
@@ -300,7 +338,11 @@ export default function ChaptersStep({
                             <BalanceOutlinedIcon sx={{ fontSize: 17, color: balanced ? "#065F46" : "#92400E" }} />
                             <Typography sx={{ fontSize: "12px", color: balanced ? "#065F46" : "#92400E", flex: 1, minWidth: 120 }}>
                                 Weightage totals <strong>{weightTotal}%</strong>
-                                {balanced ? " - balanced." : " - it should add up to 100%."}
+                                {balanced
+                                    ? " - balanced."
+                                    : remaining > 0
+                                        ? ` - ${remaining}% still to give out.`
+                                        : ` - ${-remaining}% over. Bring a chapter down or split evenly.`}
                             </Typography>
                             {!balanced && (
                                 <Button onClick={onBalanceWeightage} sx={{ ...outlineBtnSx, py: 0.3, fontSize: "11.5px" }}>

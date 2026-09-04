@@ -779,11 +779,13 @@ export default function ApprovePayroll() {
                                         width: 56, height: 56, borderRadius: '4px', flexShrink: 0,
                                         border: '1.5px solid #D1D5DB', overflow: 'hidden', bgcolor: '#F3F4F6',
                                     }}>
-                                        <img
-                                            src={websiteSettings.logo}
-                                            alt="School Logo"
-                                            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                                        />
+                                        {websiteSettings.logo && (
+                                            <img
+                                                src={websiteSettings.logo}
+                                                alt="School Logo"
+                                                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                                            />
+                                        )}
                                     </Box>
                                     <Box>
                                         <Typography sx={{ fontSize: 18, fontWeight: 800, color: '#111827', lineHeight: 1.2 }}>

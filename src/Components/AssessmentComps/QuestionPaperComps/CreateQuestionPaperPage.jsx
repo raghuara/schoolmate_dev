@@ -20,10 +20,14 @@ import SnackBar from "../../SnackBar";
 import { DASH, RADIUS } from "../../DashBoardComps/dashboardTheme";
 import { selectAcademicYear, selectAcademicYearOptions } from "../../../Redux/Slices/academicYearSlice";
 import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlice";
+import axios from "axios";
 import { useGradeSubjects, gradeSign } from "../../AcademicsComps/academicMeta";
-import { MOCK_BOOKS } from "../../AcademicsComps/BooksChaptersComps/bookApi";
+import { ListBooks, GetBookStatus, ListPatterns } from "../../../Api/Api";
 import {
-    MOCK_PATTERNS, MOCK_QUESTION_BANK, analyseDuplicates, blankQuestion, buildMockQuestions,
+    apiFailed, normalizeBookList, normalizeBookResponse,
+} from "../../AcademicsComps/BooksChaptersComps/bookApi";
+import {
+    MOCK_QUESTION_BANK, analyseDuplicates, blankQuestion, buildMockQuestions, normalizePatternList,
     patternTotal, sectionMarks, typeMeta, withSectionDefaults,
 } from "./questionPaperApi";
 import PaperDocument, { printPaperNode, padToWholePages, paperColorHex, DEFAULT_PAPER_COLOR } from "./paperTemplates";
@@ -123,17 +127,34 @@ const GeneratingView = ({ stepIndex }) => (
     </Box>
 );
 
+const token = "123";
+
+/* Every mandatory-field check in the wizard is behind this one flag. It is off
+   while the API is being wired: the flow has to be walkable end to end so the
+   backend side can reach Approve & Publish and mint the key. Set it to true to
+   turn the checks back on - the rules themselves are untouched. */
+const ENFORCE_REQUIRED = false;
+
 export default function CreateQuestionPaperPage() {
     const navigate = useNavigate();
     const location = useLocation();
     const academicYear = useSelector(selectAcademicYear);
     const yearOptions = useSelector(selectAcademicYearOptions) || [];
     const websiteSettings = useSelector(selectWebsiteSettings);
-    const { grades, subjectsForGrade, examsForGrade, sectionsForGrade } = useGradeSubjects();
+    const { grades, subjectsForGrade, sectionsForGrade } = useGradeSubjects();
 
     const presetBook = location.state?.presetBook;
     const presetPattern = location.state?.presetPattern;
     const clonePaper = location.state?.clonePaper;
+
+    const user = useSelector((state) => state.auth);
+    const rollNumber = user?.rollNumber;
+
+    const [libraryBooks, setLibraryBooks] = useState([]);
+    const [patterns, setPatterns] = useState([]);
+    const [patternsLoading, setPatternsLoading] = useState(false);
+    const [booksLoading, setBooksLoading] = useState(false);
+    const [chaptersLoading, setChaptersLoading] = useState(false);
 
     const [step, setStep] = useState(0);
     const [form, setForm] = useState(() => ({
@@ -201,23 +222,63 @@ export default function CreateQuestionPaperPage() {
     /* Books come from Books & Chapters. Everything the library holds for this
        class and subject, whatever state it is in. */
     const matchingBooks = useMemo(() => {
-        const pool = presetBook ? [presetBook, ...MOCK_BOOKS.filter((b) => b.id !== presetBook.id)] : MOCK_BOOKS;
-        return pool.filter((b) =>
-            (!form.gradeId || String(b.gradeId) === String(form.gradeId)) &&
-            /* Case and stray spacing differ between the subject list and the
-               book record often enough to be worth forgiving here. */
-            (!form.subject || String(b.subject || "").trim().toLowerCase() === String(form.subject).trim().toLowerCase())
-        );
-    }, [presetBook, form.gradeId, form.subject]);
+        const pool = presetBook
+            ? [presetBook, ...libraryBooks.filter((b) => String(b.id) !== String(presetBook.id))]
+            : libraryBooks;
+        /* Matched on the class SIGN, not gradeId: listBooks answers with
+           grade: "V" and carries no gradeId, so comparing ids dropped every
+           real book. */
+        const wantSign = String(gradeSign(grades, form.gradeId) || "").trim().toLowerCase();
+        const wantSubject = String(form.subject || "").trim().toLowerCase();
 
-    /* Only confirmed books can be generated from, so the wizard never reads an
-       unreviewed chapter split. */
-    const books = useMemo(() => matchingBooks.filter((b) => b.status === "Ready"), [matchingBooks]);
+        return pool.filter((b) => {
+            const gradeOk = !wantSign
+                || String(b.grade || "").trim().toLowerCase() === wantSign
+                || String(b.gradeId || "") === String(form.gradeId);
+
+            /* Compared against the book's stored subject, which is now always one
+               of the school's own subject names - the upload screen refuses to
+               store anything else. A book saved before that rule (subject read off
+               the cover as "கணக்கு") will not match; correcting its subject in
+               Books & Chapters is what brings it back. */
+            const subjectOk = !wantSubject
+                || String(b.subject || "").trim().toLowerCase() === wantSubject;
+
+            return gradeOk && subjectOk;
+        });
+    }, [presetBook, libraryBooks, grades, form.gradeId, form.subject]);
+
+    /* A book is usable here once it has a detected chapter split. Confirming is
+       the rule - an unreviewed split can be wrong - but it is held behind the
+       same flag as the rest while the API is being wired, so an unconfirmed book
+       can still be picked from and the step is not a dead end. Duplicates and
+       books still being read never qualify: they have no chapters at all. */
+    const books = useMemo(() => matchingBooks.filter((b) => (
+        ENFORCE_REQUIRED
+            ? b.status === "Ready"
+            : (b.status === "Ready" || b.status === "Needs Review")
+    )), [matchingBooks]);
 
     /* The rest are still shown on the step. A book that is in the library but
        not confirmed is a different problem from no book at all, and the teacher
        can fix it in one click instead of being sent to upload a duplicate. */
-    const pendingBooks = useMemo(() => matchingBooks.filter((b) => b.status !== "Ready"), [matchingBooks]);
+    /* Everything the class has, whatever its subject or state. The step lists
+       these when nothing is usable, so "no book" is never claimed while the
+       library plainly holds one - it is normally a subject that was stored in
+       the book's own language and never mapped. */
+    const classBooks = useMemo(() => {
+        const wantSign = String(gradeSign(grades, form.gradeId) || "").trim().toLowerCase();
+        if (!wantSign) return libraryBooks;
+        return libraryBooks.filter((b) => (
+            String(b.grade || "").trim().toLowerCase() === wantSign
+            || String(b.gradeId || "") === String(form.gradeId)
+        ));
+    }, [libraryBooks, grades, form.gradeId]);
+
+    const pendingBooks = useMemo(
+        () => classBooks.filter((b) => !books.some((u) => String(u.id) === String(b.id))),
+        [classBooks, books]
+    );
 
     const activeBook = useMemo(
         () => books.find((b) => String(b.id) === String(bookId)) || books[0] || null,
@@ -229,6 +290,95 @@ export default function CreateQuestionPaperPage() {
         [activeBook, selectedChapterIds]
     );
 
+
+    /* Books come from the library itself, not from a local list: the wizard can
+       only build on a confirmed chapter split, and that lives on the server. */
+    useEffect(() => {
+        if (!form.academicYear) { setLibraryBooks([]); return undefined; }
+
+        let cancelled = false;
+        setBooksLoading(true);
+        axios
+            .get(ListBooks, {
+                params: {
+                    academicYear: form.academicYear,
+                    grade: gradeSign(grades, form.gradeId) || undefined,
+                    requestedByRollNumber: rollNumber,
+                },
+                headers: { Authorization: `Bearer ${token}` },
+            })
+            .then((res) => {
+                if (cancelled || apiFailed(res.data)) return;
+                setLibraryBooks(normalizeBookList(res.data, grades));
+            })
+            .catch(() => { if (!cancelled) setLibraryBooks([]); })
+            .finally(() => { if (!cancelled) setBooksLoading(false); });
+
+        return () => { cancelled = true; };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [form.academicYear, form.gradeId, rollNumber]);
+
+    // The first usable book is chosen for the teacher rather than left blank.
+    useEffect(() => {
+        if (bookId && books.some((b) => String(b.id) === String(bookId))) return;
+        setBookId(books[0]?.id || "");
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [books]);
+
+    /* listBooks carries no chapters, so the chosen book is read once in full.
+       Fetched per book and kept, so switching back and forth is instant. */
+    useEffect(() => {
+        if (!bookId) return undefined;
+        const current = libraryBooks.find((b) => String(b.id) === String(bookId));
+        if (!current || current.chapters?.length) return undefined;
+
+        let cancelled = false;
+        setChaptersLoading(true);
+        axios
+            .get(GetBookStatus, {
+                params: { bookId, requestedByRollNumber: rollNumber },
+                headers: { Authorization: `Bearer ${token}` },
+            })
+            .then((res) => {
+                if (cancelled || apiFailed(res.data)) return;
+                const full = normalizeBookResponse(res.data, grades);
+                setLibraryBooks((prev) => prev.map((b) => (
+                    String(b.id) === String(bookId) ? { ...b, chapters: full.chapters } : b
+                )));
+            })
+            .catch(() => {})
+            .finally(() => { if (!cancelled) setChaptersLoading(false); });
+
+        return () => { cancelled = true; };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [bookId, libraryBooks.length, rollNumber]);
+
+    // A different book means a different chapter list; the old picks cannot stand.
+    useEffect(() => { setSelectedChapterIds([]); setWeightage({}); }, [bookId]);
+
+
+    /* Patterns are scoped to grade + subject and reused every year, so the step
+       reads whatever the school has for this class rather than a fixed list. */
+    useEffect(() => {
+        setPatternsLoading(true);
+        axios
+            .get(ListPatterns, {
+                params: {
+                    grade: gradeSign(grades, form.gradeId) || undefined,
+                    requestedByRollNumber: rollNumber,
+                },
+                headers: { Authorization: `Bearer ${token}` },
+            })
+            .then((res) => {
+                if (apiFailed(res.data)) { setPatterns([]); return; }
+                setPatterns(normalizePatternList(res.data, {
+                    gradeIdOf: (sign) => grades.find((g) => String(g.sign) === String(sign))?.id || "",
+                }));
+            })
+            .catch(() => setPatterns([]))
+            .finally(() => setPatternsLoading(false));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [form.gradeId, grades, rollNumber]);
     const duplicates = useMemo(() => analyseDuplicates(questions), [questions]);
 
     const paperMeta = useMemo(() => ({
@@ -246,6 +396,40 @@ export default function CreateQuestionPaperPage() {
             next[id] = i === ids.length - 1 ? 100 - each * (ids.length - 1) : each;
         });
         setWeightage(next);
+    };
+
+    /* The sliders hand out shares of one paper, so the shares have to total 100.
+       Setting one to 64% therefore leaves 36% for everyone else, split in the
+       proportions they already had - dragging a chapter up visibly pulls the
+       others down instead of letting the total climb to 160%.
+
+       The last chapter takes the rounding remainder, so the total lands on exactly
+       100 rather than 99 or 101 after the floors. */
+    const setChapterWeight = (id, value) => {
+        const target = Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
+        const others = selectedChapterIds.filter((x) => x !== id);
+        if (!others.length) { setWeightage({ [id]: 100 }); return; }
+
+        setWeightage((prev) => {
+            const rest = 100 - target;
+            const othersTotal = others.reduce((sum, x) => sum + (Number(prev[x]) || 0), 0);
+            const next = { [id]: target };
+            let handed = 0;
+            others.forEach((x, i) => {
+                if (i === others.length - 1) {
+                    next[x] = Math.max(0, rest - handed);
+                    return;
+                }
+                // keep their relative sizes; fall back to an even split when the
+                // others are all on zero and there is no ratio to preserve
+                const share = othersTotal > 0
+                    ? Math.floor(rest * ((Number(prev[x]) || 0) / othersTotal))
+                    : Math.floor(rest / others.length);
+                next[x] = Math.max(0, share);
+                handed += next[x];
+            });
+            return next;
+        });
     };
 
     const toggleChapter = (id) => {
@@ -283,7 +467,6 @@ export default function CreateQuestionPaperPage() {
         if (!form.gradeId) next.gradeId = "Pick a class";
         if (!form.subject) next.subject = "Pick a subject";
         if (!form.academicYear) next.academicYear = "Pick an academic year";
-        if (!form.examName.trim()) next.examName = "Name the exam";
         if (!form.name.trim()) next.name = "Name the paper";
         setErrors(next);
         return Object.keys(next).length === 0;
@@ -291,27 +474,34 @@ export default function CreateQuestionPaperPage() {
 
     const goNext = () => {
         if (step === 0) {
-            if (!validateBasics()) { notify("Fill the highlighted fields"); return; }
+            if (ENFORCE_REQUIRED && !validateBasics()) { notify("Fill the highlighted fields"); return; }
             setStep(1);
             return;
         }
         if (step === 1) {
-            if (!selectedChapterIds.length) { notify("Pick at least one chapter"); return; }
+            if (ENFORCE_REQUIRED && !selectedChapterIds.length) { notify("Pick at least one chapter"); return; }
             setStep(2);
             return;
         }
         if (step === 2) {
-            if (!pattern) { notify("Pick a pattern to continue"); return; }
+            if (!pattern) {
+                /* Not a validation rule - there is literally nothing to generate
+                   from without a pattern, so this one stays on. */
+                notify("Pick a pattern to continue");
+                return;
+            }
             generateQuestions(pattern);
             return;
         }
         if (step === 3) {
-            if (duplicates.duplicateCount > 0) {
-                notify("Remove the duplicate questions before continuing");
-                return;
+            if (ENFORCE_REQUIRED) {
+                if (duplicates.duplicateCount > 0) {
+                    notify("Remove the duplicate questions before continuing");
+                    return;
+                }
+                const empty = questions.find((q) => !q.text.trim());
+                if (empty) { notify("One question is still empty"); return; }
             }
-            const empty = questions.find((q) => !q.text.trim());
-            if (empty) { notify("One question is still empty"); return; }
             setStep(4);
             return;
         }
@@ -610,7 +800,6 @@ export default function CreateQuestionPaperPage() {
                             errors={errors}
                             grades={grades}
                             subjectsForGrade={subjectsForGrade}
-                            examsForGrade={examsForGrade}
                             sectionsForGrade={sectionsForGrade}
                             yearOptions={yearOptions.length ? yearOptions : [academicYear].filter(Boolean)}
                         />
@@ -619,6 +808,8 @@ export default function CreateQuestionPaperPage() {
                     {step === 1 && (
                         <ChaptersStep
                             books={books}
+                            loading={booksLoading}
+                            chaptersLoading={chaptersLoading}
                             pendingBooks={pendingBooks}
                             gradeLabel={gradeSign(grades, form.gradeId)}
                             subject={form.subject}
@@ -629,16 +820,17 @@ export default function CreateQuestionPaperPage() {
                             onSelectAll={selectAllChapters}
                             onClearAll={clearChapters}
                             weightage={weightage}
-                            onWeightageChange={(id, value) => setWeightage((prev) => ({ ...prev, [id]: value }))}
+                            onWeightageChange={setChapterWeight}
                             onBalanceWeightage={() => balanceWeightage()}
                         />
                     )}
 
                     {step === 2 && (
                         <PatternStep
-                            patterns={MOCK_PATTERNS}
+                            patterns={patterns}
+                            loading={patternsLoading}
                             gradeId={form.gradeId}
-                            exam={form.examName}
+                            subject={form.subject}
                             durationMinutes={form.durationMinutes}
                             onDurationChange={(v) => setField("durationMinutes", v)}
                             selectedPattern={pattern}

@@ -32,7 +32,7 @@ import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import SnackBar from "../../SnackBar";
 import { DASH, RADIUS, SOFT, Panel } from "../../DashBoardComps/dashboardTheme";
 import { selectGrades } from "../../../Redux/Slices/DropdownController";
-import { GetBookStatus, ConfirmBookChapters } from "../../../Api/Api";
+import { GetBookStatus, ConfirmBookChapters, DeleteBook } from "../../../Api/Api";
 import {
     apiFailed, bookPageUrl, chapterPageCount, downloadBook,
     normalizeBookResponse, confirmChaptersPayload, findChapterRangeIssue,
@@ -41,7 +41,7 @@ import {
     fieldSx, subjectTone, StatusPill, Pill, outlineBtnSx, softBtnSx, primaryBtnSx,
     headerActionSx, HEADER_ACTION_H, ChapterRowSkeleton, PanelSkeleton,
 } from "./bookTheme";
-import { BookProgressPanel } from "./bookProgress";
+import { BookProgressPanel, DuplicatePanel } from "./bookProgress";
 
 const token = "123";
 
@@ -80,6 +80,7 @@ export default function BookChaptersPage() {
     // How far the reader has got, for a book opened while it is still processing.
     const [processing, setProcessing] = useState(null);
     const [elapsed, setElapsed] = useState(0);
+    const [deleting, setDeleting] = useState(false);
     // The chapter list is read-only until the teacher asks to change it.
     const [editing, setEditing] = useState(false);
     const [dragIndex, setDragIndex] = useState(null);
@@ -434,6 +435,72 @@ export default function BookChaptersPage() {
         );
     }
 
+
+    /* A duplicate has no chapters to review - the only thing this screen can do
+       is delete it, or delete the book it repeats so this one takes over. */
+    const removeBook = (targetId, { promoted = false } = {}) => {
+        if (!targetId) return;
+        setDeleting(true);
+        axios
+            .delete(DeleteBook, {
+                params: { bookId: targetId, deletedByRollNumber: rollNumber },
+                headers: { Authorization: `Bearer ${token}` },
+            })
+            .then((res) => {
+                const rejected = apiFailed(res.data);
+                if (rejected) { notify(rejected); return; }
+                if (promoted) {
+                    notify("The earlier book was deleted - this one is being read now", true);
+                    setBook((prev) => (prev ? { ...prev, status: "Processing", duplicateOfBookId: null } : prev));
+                    return;
+                }
+                navigate("/dashboardmenu/books", { state: { deletedBookId: targetId } });
+            })
+            .catch((error) => notify(error?.response?.data?.message || "The book could not be deleted"))
+            .finally(() => setDeleting(false));
+    };
+
+    /* Stored, but never read - so there is no split to review. */
+    if (book.status === "Duplicate") {
+        return (
+            <Box sx={{ px: { xs: 1.5, md: 2 }, pt: { xs: 1.5, md: 2 }, pb: 4, bgcolor: DASH.canvas, minHeight: "100%" }}>
+                <SnackBar open={open} setOpen={setOpen} status={status} color={color} message={message} />
+
+                <Box sx={{ display: "flex", alignItems: "flex-start", gap: 0.5, mb: 2, minWidth: 0 }}>
+                    <IconButton onClick={() => navigate("/dashboardmenu/books")} sx={{ mt: -0.5 }}>
+                        <ArrowBackIcon sx={{ fontSize: 20, color: DASH.text }} />
+                    </IconButton>
+                    <Box sx={{ minWidth: 0 }}>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, flexWrap: "wrap" }}>
+                            <Typography sx={{ fontSize: "21px", fontWeight: 700, color: DASH.ink, lineHeight: 1.3 }}>
+                                {book.title}
+                            </Typography>
+                            <StatusPill status={book.status} />
+                        </Box>
+                        <Box sx={{ display: "flex", gap: 0.6, flexWrap: "wrap", mt: 0.7 }}>
+                            <Pill label={book.grade || "-"} color={DASH.text} bg={DASH.lineSoft} />
+                            <Pill label={book.subject} color={tone.color} bg={tone.bg} border={`${tone.color}33`} />
+                            <Pill label={book.medium} color={DASH.muted} bg={DASH.lineSoft} />
+                            {book.term ? <Pill label={`Term ${book.term}`} color={DASH.muted} bg={DASH.lineSoft} /> : null}
+                            <Pill label={book.academicYear} color={DASH.muted} bg={DASH.lineSoft} />
+                        </Box>
+                    </Box>
+                </Box>
+
+                <Grid container spacing={1.8}>
+                    <Grid size={{ xs: 12, md: 8, lg: 7 }}>
+                        <DuplicatePanel
+                            book={book}
+                            deleting={deleting}
+                            onDelete={() => removeBook(book.id)}
+                            onOpenOriginal={() => navigate(`/dashboardmenu/books/${book.duplicateOfBookId}`)}
+                        />
+                    </Grid>
+                </Grid>
+            </Box>
+        );
+    }
+
     /* Still being read, or the read failed - there is no split to review yet, so
        the page shows how far it has got instead of an empty editor. It turns
        into the chapter list on its own when the poll comes back done. */
@@ -457,6 +524,7 @@ export default function BookChaptersPage() {
                             <Pill label={book.grade || "-"} color={DASH.text} bg={DASH.lineSoft} />
                             <Pill label={book.subject} color={tone.color} bg={tone.bg} border={`${tone.color}33`} />
                             <Pill label={book.medium} color={DASH.muted} bg={DASH.lineSoft} />
+                            {book.term ? <Pill label={`Term ${book.term}`} color={DASH.muted} bg={DASH.lineSoft} /> : null}
                             <Pill label={book.academicYear} color={DASH.muted} bg={DASH.lineSoft} />
                         </Box>
                     </Box>
@@ -502,6 +570,7 @@ export default function BookChaptersPage() {
                                 { label: "Class", value: book.grade },
                                 { label: "Subject", value: book.subject },
                                 { label: "Medium", value: book.medium },
+                                { label: "Term", value: book.term ? `Term ${book.term}` : "" },
                                 { label: "Board or publisher", value: book.board },
                                 { label: "Edition year", value: book.edition },
                                 { label: "Academic year", value: book.academicYear },
@@ -557,6 +626,7 @@ export default function BookChaptersPage() {
                             <Pill label={book.grade || "-"} color={DASH.text} bg={DASH.lineSoft} />
                             <Pill label={book.subject} color={tone.color} bg={tone.bg} border={`${tone.color}33`} />
                             <Pill label={book.medium} color={DASH.muted} bg={DASH.lineSoft} />
+                            {book.term ? <Pill label={`Term ${book.term}`} color={DASH.muted} bg={DASH.lineSoft} /> : null}
                             <Pill label={book.academicYear} color={DASH.muted} bg={DASH.lineSoft} />
                         </Box>
                     </Box>

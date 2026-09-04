@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     Box, Grid, Typography, Button, IconButton, TextField, MenuItem, Tooltip,
-    CircularProgress,
+    CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
@@ -21,13 +21,13 @@ import SnackBar from "../../SnackBar";
 import { DASH, RADIUS, Panel } from "../../DashBoardComps/dashboardTheme";
 import { selectAcademicYear, selectAcademicYearOptions } from "../../../Redux/Slices/academicYearSlice";
 import { useGradeSubjects } from "../academicMeta";
-import { UploadBook, GetBookStatus, UpdateBookMetadata } from "../../../Api/Api";
+import { UploadBook, GetBookStatus, UpdateBookMetadata, DeleteBook } from "../../../Api/Api";
 import {
-    ACCEPTED_TYPES, BOARDS, MAX_FILE_MB, MEDIUMS,
+    ACCEPTED_TYPES, BOARDS, MAX_FILE_MB, MEDIUMS, TERMS,
     apiFailed, normalizeBookResponse, normalizeProcessing,
 } from "./bookApi";
 import { fieldSx, outlineBtnSx, primaryBtnSx } from "./bookTheme";
-import { BookProgressPanel } from "./bookProgress";
+import { BookProgressPanel, DuplicatePanel } from "./bookProgress";
 
 const token = "123";
 
@@ -38,6 +38,7 @@ const emptyForm = {
     medium: "",
     board: "",
     edition: "",
+    term: "",
 };
 
 /* Detection can return a class or subject the dropdown does not carry. Showing
@@ -47,6 +48,17 @@ const withDetected = (options, value) => {
     const list = (options || []).map(String).filter(Boolean);
     const detected = String(value || "").trim();
     return detected && !list.includes(detected) ? [detected, ...list] : list;
+};
+
+/* Detection reads the subject off the cover in the book's own language - a Tamil
+   maths book comes back as "கணக்கு". That is not one of the school's subjects, and
+   storing it makes the book unfindable in the question paper wizard, which matches
+   on the mapped name. So a detected value is only accepted when it IS one of the
+   options; otherwise the field is left empty for the teacher to set. */
+const matchOption = (options, value) => {
+    const wanted = String(value || "").trim().toLowerCase();
+    if (!wanted) return "";
+    return (options || []).find((o) => String(o).trim().toLowerCase() === wanted) || "";
 };
 
 const FileIcon = ({ name }) =>
@@ -76,8 +88,17 @@ export default function BookUploadPage() {
     const [elapsed, setElapsed] = useState(0);
     const [saving, setSaving] = useState(false);
     const [fileError, setFileError] = useState("");
+    /* The detected details have to be confirmed before the progress screen takes
+       over, so a book is never filed with no title or the wrong class. */
+    const [detailsSaved, setDetailsSaved] = useState(false);
+    const [detailErrors, setDetailErrors] = useState({});
+    const [deleting, setDeleting] = useState(false);
+    // "uploading" or "details" - which warning the back button raised.
+    const [leaveGuard, setLeaveGuard] = useState(null);
 
     const pollTimer = useRef(null);
+    // Lets "cancel and leave" actually stop the request rather than orphan it.
+    const uploadAbort = useRef(null);
     const tickTimer = useRef(null);
 
     const [open, setOpen] = useState(false);
@@ -95,9 +116,18 @@ export default function BookUploadPage() {
         clearTimeout(pollTimer.current);
         clearInterval(tickTimer.current);
     }, []);
+    // Closing the tab really does kill the upload, so that one gets a warning.
+    useEffect(() => {
+        if (!uploading) return undefined;
+        const warn = (event) => { event.preventDefault(); event.returnValue = ""; };
+        window.addEventListener("beforeunload", warn);
+        return () => window.removeEventListener("beforeunload", warn);
+    }, [uploading]);
+
 
     const setField = (key, value) => {
         setForm((prev) => ({ ...prev, [key]: value }));
+        setDetailErrors((prev) => ({ ...prev, [key]: "" }));
         setDirty(true);
     };
 
@@ -105,11 +135,12 @@ export default function BookUploadPage() {
        and subject the teacher already picked to get the upload accepted. */
     const seedForm = (next) => setForm((prev) => ({
         grade: next.grade || prev.grade || "",
-        subject: next.subject || prev.subject || "",
+        subject: matchOption(allSubjects, next.subject) || prev.subject || "",
         title: next.title === "Untitled book" ? prev.title : (next.title || prev.title || ""),
         medium: next.medium || prev.medium || "",
         board: next.board || prev.board || "",
         edition: next.edition || prev.edition || "",
+        term: next.term || prev.term || "",
     }));
 
     const onDrop = (accepted, rejected) => {
@@ -170,11 +201,12 @@ export default function BookUploadPage() {
                    started correcting it - their edits outrank a later read. */
                 setForm((prevForm) => ({
                     grade: prevForm.grade || next.grade || "",
-                    subject: prevForm.subject || next.subject || "",
+                    subject: prevForm.subject || matchOption(allSubjects, next.subject) || "",
                     title: prevForm.title || (next.title === "Untitled book" ? "" : next.title || ""),
                     medium: prevForm.medium || next.medium || "",
                     board: prevForm.board || next.board || "",
                     edition: prevForm.edition || next.edition || "",
+                    term: prevForm.term || next.term || "",
                 }));
                 notify(`${next.chapterCount} chapters detected - check the split`, true);
             })
@@ -196,11 +228,15 @@ export default function BookUploadPage() {
         body.append("academicYear", year);
         body.append("uploadedByRollNumber", rollNumber);
 
+        const controller = new AbortController();
+        uploadAbort.current = controller;
+
         setUploading(true);
         setPercent(0);
 
         axios
             .post(UploadBook, body, {
+                signal: controller.signal,
                 /* No Content-Type here on purpose. The browser sets
                    "multipart/form-data; boundary=..." itself for a FormData body;
                    writing the header by hand drops the boundary, the server
@@ -226,6 +262,15 @@ export default function BookUploadPage() {
                 setBook(created);
                 seedForm(created);
                 setDirty(false);
+
+                /* A duplicate is stored but never processed, so there is nothing
+                   to poll and nothing to confirm - it goes straight to the one
+                   screen that can resolve it. */
+                if (created.status === "Duplicate") {
+                    notify("This book is already in the library");
+                    return;
+                }
+
                 setProcessing(created.processing);
                 setElapsed(created.processing.elapsedSeconds);
 
@@ -238,9 +283,66 @@ export default function BookUploadPage() {
                 notify("Book uploaded - reading it now", true);
             })
             .catch((error) => {
+                // Cancelled on purpose by "cancel and leave" - not a failure to report.
+                if (axios.isCancel?.(error) || error?.code === "ERR_CANCELED") return;
                 notify(error?.response?.data?.message || "The book could not be uploaded");
             })
             .finally(() => setUploading(false));
+    };
+
+    /* The detected details are confirmed before the progress screen takes over.
+       Detection can come back with no title at all, and a book filed under the
+       wrong class or with no name is hard to find later - so this is a stop, not
+       a suggestion. The reading itself is already running on the server; what is
+       being confirmed here is where the book gets filed. */
+    const saveDetails = () => {
+        const next = {};
+        if (!form.title.trim()) next.title = "Give the book a title";
+        if (!form.grade) next.grade = "Pick the class";
+        if (!form.subject) next.subject = "Pick the subject";
+        if (!form.term) next.term = "Pick the term";
+        setDetailErrors(next);
+        if (Object.keys(next).length) {
+            notify("Fill the highlighted fields before continuing");
+            return;
+        }
+
+        setSaving(true);
+        axios
+            .put(
+                UpdateBookMetadata,
+                {
+                    bookId: book.id,
+                    grade: form.grade,
+                    subject: form.subject,
+                    bookTitle: form.title.trim(),
+                    medium: form.medium || null,
+                    boardOrPublisher: form.board || null,
+                    editionYear: form.edition || null,
+                    term: form.term || null,
+                    updatedByRollNumber: rollNumber,
+                },
+                { headers: { Authorization: `Bearer ${token}` } }
+            )
+            .then((res) => {
+                const rejected = apiFailed(res.data);
+                if (rejected) { notify(rejected); return; }
+                setBook((prev) => (prev ? {
+                    ...prev,
+                    title: form.title.trim(),
+                    grade: form.grade,
+                    subject: form.subject,
+                    medium: form.medium,
+                    board: form.board,
+                    edition: form.edition,
+                    term: form.term,
+                } : prev));
+                setDirty(false);
+                setDetailsSaved(true);
+                notify("Details saved", true);
+            })
+            .catch((error) => notify(error?.response?.data?.message || "The details could not be saved"))
+            .finally(() => setSaving(false));
     };
 
     // Metadata is corrected on its own call; it never re-triggers the reading.
@@ -260,6 +362,7 @@ export default function BookUploadPage() {
                     medium: form.medium || null,
                     boardOrPublisher: form.board || null,
                     editionYear: form.edition || null,
+                    term: form.term || null,
                     updatedByRollNumber: rollNumber,
                 },
                 { headers: { Authorization: `Bearer ${token}` } }
@@ -273,35 +376,195 @@ export default function BookUploadPage() {
             .finally(() => setSaving(false));
     };
 
+
+    /* The only way out of a Duplicate: delete one of the pair. Deleting the
+       original promotes this copy - the server answers with promotedBookId - so
+       the screen follows it into processing rather than dead-ending. */
+    const removeBook = (targetId, { promoted = false } = {}) => {
+        if (!targetId) return;
+        setDeleting(true);
+        axios
+            .delete(DeleteBook, {
+                params: { bookId: targetId, deletedByRollNumber: rollNumber },
+                headers: { Authorization: `Bearer ${token}` },
+            })
+            .then((res) => {
+                const rejected = apiFailed(res.data);
+                if (rejected) { notify(rejected); return; }
+
+                if (!promoted) {
+                    notify("The duplicate was deleted", true);
+                    reset();
+                    return;
+                }
+
+                const root = res.data?.data ?? res.data ?? {};
+                const nextId = root.promotedBookId || root.PromotedBookId || book?.id;
+                notify("The earlier book was deleted - this one is being read now", true);
+                setBook((prev) => (prev ? { ...prev, id: nextId, status: "Processing", duplicateOfBookId: null } : prev));
+                setElapsed(0);
+                tickTimer.current = setInterval(() => setElapsed((s) => s + 1), 1000);
+                pollTimer.current = setTimeout(() => poll(nextId), 15000);
+            })
+            .catch((error) => notify(error?.response?.data?.message || "The book could not be deleted"))
+            .finally(() => setDeleting(false));
+    };
+
+
+    /* Navigating away does not stop an upload - the browser keeps sending the
+       file - so leaving is allowed, but not silently: the book would be created
+       with only what detection found, and no term, which is exactly what the
+       next upload then collides with as a duplicate. */
+    const goBack = () => navigate("/dashboardmenu/books");
+
+    const handleBack = () => {
+        if (uploading) { setLeaveGuard("uploading"); return; }
+        if (book && !detailsSaved && book.status !== "Duplicate") { setLeaveGuard("details"); return; }
+        goBack();
+    };
+
+    const cancelUpload = () => {
+        uploadAbort.current?.abort();
+        setLeaveGuard(null);
+        goBack();
+    };
+
     const reset = () => {
         clearTimeout(pollTimer.current);
         clearInterval(tickTimer.current);
         setBook(null); setFile(null); setForm(emptyForm);
         setDirty(false); setProcessing(null); setElapsed(0); setPercent(0);
+        setDetailsSaved(false); setDetailErrors({});
     };
 
     const gradeChoices = useMemo(
         () => withDetected(grades.map((g) => g.sign), form.grade),
         [grades, form.grade]
     );
-    const subjectChoices = useMemo(
-        () => withDetected(allSubjects, form.subject),
-        [allSubjects, form.subject]
-    );
+    const subjectChoices = allSubjects;
+
+    /* What the cover said, when it is not a subject the school has. Kept so the
+       field can say why it is empty instead of just being empty. */
+    const unmappedSubject = useMemo(() => {
+        const detected = String(book?.subject || "").trim();
+        return detected && !matchOption(allSubjects, detected) ? detected : "";
+    }, [book, allSubjects]);
 
     const working = Boolean(book);
     const bookStatus = book?.status || "";
     const ready = bookStatus === "Needs Review" || bookStatus === "Ready";
     const failed = bookStatus === "Failed";
+    const duplicate = bookStatus === "Duplicate";
 
     const dropBorder = fileError ? DASH.red : isDragActive ? DASH.primary : DASH.line;
+
+    /* Written once and rendered twice - as the confirm step before the reading
+       is watched, and beside the progress afterwards - so the two can never
+       drift into showing different fields. */
+    const detailFields = (
+        <Grid container spacing={1.4}>
+            <Grid size={{ xs: 12, sm: 6, md: detailsSaved ? 12 : 6, lg: 6 }}>
+                <TextField
+                    select fullWidth size="small" label="Class"
+                    value={form.grade}
+                    onChange={(e) => setField("grade", e.target.value)}
+                    error={Boolean(detailErrors.grade)}
+                    helperText={detailErrors.grade || " "}
+                    sx={fieldSx}
+                >
+                    {gradeChoices.map((sign) => (
+                        <MenuItem key={sign} value={sign} sx={{ fontSize: "13px" }}>{sign}</MenuItem>
+                    ))}
+                </TextField>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, md: detailsSaved ? 12 : 6, lg: 6 }}>
+                <TextField
+                    select fullWidth size="small" label="Subject"
+                    value={form.subject}
+                    onChange={(e) => setField("subject", e.target.value)}
+                    error={Boolean(detailErrors.subject) || Boolean(unmappedSubject)}
+                    helperText={detailErrors.subject
+                        || (unmappedSubject
+                            ? `The cover reads "${unmappedSubject}" - not one of the school's subjects. Pick the matching one.`
+                            : " ")}
+                    sx={fieldSx}
+                >
+                    {subjectChoices.map((name) => (
+                        <MenuItem key={name} value={name} sx={{ fontSize: "13px" }}>{name}</MenuItem>
+                    ))}
+                </TextField>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, md: detailsSaved ? 12 : 6, lg: 6 }}>
+                <TextField
+                    select fullWidth size="small" label="Term"
+                    value={form.term}
+                    onChange={(e) => setField("term", e.target.value)}
+                    error={Boolean(detailErrors.term)}
+                    helperText={detailErrors.term || "Which term this book covers"}
+                    sx={fieldSx}
+                >
+                    {TERMS.map((t) => (
+                        <MenuItem key={t} value={t} sx={{ fontSize: "13px" }}>Term {t}</MenuItem>
+                    ))}
+                </TextField>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 12, md: 12, lg: 12 }}>
+                <TextField
+                    fullWidth size="small" label="Book title"
+                    placeholder="The name printed on the cover"
+                    value={form.title}
+                    onChange={(e) => setField("title", e.target.value)}
+                    error={Boolean(detailErrors.title)}
+                    helperText={detailErrors.title || "This is the name the book is listed under"}
+                    sx={fieldSx}
+                />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, md: detailsSaved ? 12 : 6, lg: 6 }}>
+                <TextField
+                    select fullWidth size="small" label="Medium"
+                    value={form.medium}
+                    onChange={(e) => setField("medium", e.target.value)}
+                    sx={fieldSx}
+                    helperText=" "
+                >
+                    {withDetected(MEDIUMS, form.medium).map((m) => (
+                        <MenuItem key={m} value={m} sx={{ fontSize: "13px" }}>{m}</MenuItem>
+                    ))}
+                </TextField>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, md: detailsSaved ? 12 : 6, lg: 6 }}>
+                <TextField
+                    fullWidth size="small" label="Edition year"
+                    value={form.edition}
+                    onChange={(e) => setField("edition", e.target.value.replace(/[^0-9]/g, ""))}
+                    sx={fieldSx}
+                    helperText=" "
+                />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 12, md: 12, lg: 12 }}>
+                <TextField
+                    select fullWidth size="small" label="Board or publisher"
+                    value={form.board}
+                    onChange={(e) => setField("board", e.target.value)}
+                    sx={fieldSx}
+                    helperText={book?.detectionMethod
+                        ? `Chapters found by ${book.detectionMethod === "Toc" ? "the table of contents" : "scanning the headings"}`
+                        : " "}
+                >
+                    {withDetected(BOARDS, form.board).map((b) => (
+                        <MenuItem key={b} value={b} sx={{ fontSize: "13px" }}>{b}</MenuItem>
+                    ))}
+                </TextField>
+            </Grid>
+        </Grid>
+    );
 
     return (
         <Box sx={{ px: { xs: 1.5, md: 2 }, pt: { xs: 1.5, md: 2 }, pb: 4, bgcolor: DASH.canvas, minHeight: "100%" }}>
             <SnackBar open={open} setOpen={setOpen} status={status} color={color} message={message} />
 
             <Box sx={{ display: "flex", alignItems: "flex-start", gap: 0.5, mb: 2 }}>
-                <IconButton onClick={() => navigate("/dashboardmenu/books")} sx={{ mt: -0.5 }}>
+                <IconButton onClick={handleBack} sx={{ mt: -0.5 }}>
                     <ArrowBackIcon sx={{ fontSize: 20, color: DASH.text }} />
                 </IconButton>
                 <Box sx={{ minWidth: 0 }}>
@@ -314,9 +577,10 @@ export default function BookUploadPage() {
                 </Box>
             </Box>
 
-            {/* One centred column until there is a second thing to show. */}
-            <Grid container spacing={1.8} sx={working ? {} : { maxWidth: 820, mx: "auto" }}>
-                <Grid size={{ xs: 12, md: working ? 7 : 12, lg: working ? 7 : 12 }}>
+            {/* One centred column until the details have been confirmed - before
+                that there is only ever one thing to do on the screen. */}
+            <Grid container spacing={1.8} sx={detailsSaved && !duplicate ? {} : { maxWidth: 820, mx: "auto" }}>
+                <Grid size={{ xs: 12, md: detailsSaved && !duplicate ? 7 : 12, lg: detailsSaved && !duplicate ? 7 : 12 }}>
                     {!working ? (
                         <Panel title="The book file" subtitle="PDF or Word, up to 100 MB" accent={DASH.primary}>
                             {/* While the file is going up the drop area becomes the
@@ -464,6 +728,56 @@ export default function BookUploadPage() {
                                 </Typography>
                             </Box>
                         </Panel>
+                    ) : duplicate ? (
+                        <DuplicatePanel
+                            book={book}
+                            deleting={deleting}
+                            onDelete={() => removeBook(book.id)}
+                            onOpenOriginal={() => navigate(`/dashboardmenu/books/${book.duplicateOfBookId}`)}
+                        />
+                    ) : !detailsSaved ? (
+                        /* The stop between uploading and watching it read: what
+                           was taken off the cover, checked and saved before the
+                           screen moves on. */
+                        <Panel
+                            title="Check the book details"
+                            subtitle="Read from the book - correct anything that is wrong, then continue"
+                            accent={DASH.cyan}
+                        >
+                            <Box
+                                sx={{
+                                    display: "flex", gap: 1.2, alignItems: "flex-start",
+                                    bgcolor: DASH.cyanLight, border: `1px solid ${DASH.cyan}33`,
+                                    borderRadius: RADIUS, px: 1.4, py: 1.1, mb: 2,
+                                }}
+                            >
+                                <InfoOutlinedIcon sx={{ fontSize: 16, color: DASH.cyan, mt: 0.1, flexShrink: 0 }} />
+                                <Typography sx={{ fontSize: "11.5px", color: "#0E7490", lineHeight: 1.6 }}>
+                                    These were read off the cover pages. Detection does not always find a title,
+                                    and the class decides where the book is filed - so check them before going
+                                    on. The book is already being read in the background.
+                                </Typography>
+                            </Box>
+
+                            {detailFields}
+
+                            <Box sx={{ display: "flex", gap: 1, mt: 1, flexWrap: "wrap" }}>
+                                <Button
+                                    onClick={saveDetails}
+                                    disabled={saving}
+                                    endIcon={<ArrowForwardIcon sx={{ fontSize: 16 }} />}
+                                    sx={{ ...primaryBtnSx, height: 40 }}
+                                >
+                                    {saving ? "Saving..." : "Save and continue"}
+                                </Button>
+                                <Button
+                                    onClick={handleBack}
+                                    sx={{ ...outlineBtnSx, height: 40 }}
+                                >
+                                    Back to library
+                                </Button>
+                            </Box>
+                        </Panel>
                     ) : (
                         <BookProgressPanel
                             book={{ ...book, fileName: book.fileName || file?.name }}
@@ -490,7 +804,7 @@ export default function BookUploadPage() {
                                         </Button>
                                     )}
                                     <Button
-                                        onClick={() => navigate("/dashboardmenu/books")}
+                                        onClick={handleBack}
                                         sx={{ ...outlineBtnSx, height: 38 }}
                                     >
                                         {ready || failed ? "Back to library" : "Leave it running"}
@@ -505,105 +819,66 @@ export default function BookUploadPage() {
                     nothing to put beside the drop area. The second column - and
                     the whole two-column layout - only appears once there are
                     detected details worth reading. */}
-                {working && (
+                {/* Once confirmed, the same fields stay beside the progress so a
+                    late correction is still one click away. */}
+                {detailsSaved && !duplicate && (
                     <Grid size={{ xs: 12, md: 5, lg: 5 }}>
                         <Panel
                             title="Book details"
-                            subtitle="Read from the book - correct anything that is wrong"
+                            subtitle="Saved - edit and they are stored again when you open the chapters"
                             accent={DASH.cyan}
                         >
-                            <>
-                                <Box
-                                    sx={{
-                                        display: "flex", gap: 1.2, alignItems: "flex-start",
-                                        bgcolor: DASH.cyanLight, border: `1px solid ${DASH.cyan}33`,
-                                        borderRadius: RADIUS, px: 1.4, py: 1.1, mb: 1.8,
-                                    }}
-                                >
-                                    <InfoOutlinedIcon sx={{ fontSize: 16, color: DASH.cyan, mt: 0.1, flexShrink: 0 }} />
-                                    <Typography sx={{ fontSize: "11.5px", color: "#0E7490", lineHeight: 1.6 }}>
-                                        These were read off the book. Check them and edit anything that is wrong -
-                                        they are saved when you move on, and never restart the reading.
-                                    </Typography>
-                                </Box>
-
-                                <Grid container spacing={1.4}>
-                                    <Grid size={{ xs: 12, sm: 6, md: 12, lg: 6 }}>
-                                        <TextField
-                                            select fullWidth size="small" label="Class"
-                                            value={form.grade}
-                                            onChange={(e) => setField("grade", e.target.value)}
-                                            sx={fieldSx}
-                                            helperText=" "
-                                        >
-                                            {gradeChoices.map((sign) => (
-                                                <MenuItem key={sign} value={sign} sx={{ fontSize: "13px" }}>{sign}</MenuItem>
-                                            ))}
-                                        </TextField>
-                                    </Grid>
-                                    <Grid size={{ xs: 12, sm: 6, md: 12, lg: 6 }}>
-                                        <TextField
-                                            select fullWidth size="small" label="Subject"
-                                            value={form.subject}
-                                            onChange={(e) => setField("subject", e.target.value)}
-                                            sx={fieldSx}
-                                            helperText=" "
-                                        >
-                                            {subjectChoices.map((name) => (
-                                                <MenuItem key={name} value={name} sx={{ fontSize: "13px" }}>{name}</MenuItem>
-                                            ))}
-                                        </TextField>
-                                    </Grid>
-                                    <Grid size={{ xs: 12, sm: 12, md: 12, lg: 12 }}>
-                                        <TextField
-                                            fullWidth size="small" label="Book title"
-                                            value={form.title}
-                                            onChange={(e) => setField("title", e.target.value)}
-                                            sx={fieldSx}
-                                            helperText=" "
-                                        />
-                                    </Grid>
-                                    <Grid size={{ xs: 12, sm: 6, md: 12, lg: 6 }}>
-                                        <TextField
-                                            select fullWidth size="small" label="Medium"
-                                            value={form.medium}
-                                            onChange={(e) => setField("medium", e.target.value)}
-                                            sx={fieldSx}
-                                            helperText=" "
-                                        >
-                                            {withDetected(MEDIUMS, form.medium).map((m) => (
-                                                <MenuItem key={m} value={m} sx={{ fontSize: "13px" }}>{m}</MenuItem>
-                                            ))}
-                                        </TextField>
-                                    </Grid>
-                                    <Grid size={{ xs: 12, sm: 6, md: 12, lg: 6 }}>
-                                        <TextField
-                                            fullWidth size="small" label="Edition year"
-                                            value={form.edition}
-                                            onChange={(e) => setField("edition", e.target.value.replace(/[^0-9]/g, ""))}
-                                            sx={fieldSx}
-                                            helperText=" "
-                                        />
-                                    </Grid>
-                                    <Grid size={{ xs: 12, sm: 12, md: 12, lg: 12 }}>
-                                        <TextField
-                                            select fullWidth size="small" label="Board or publisher"
-                                            value={form.board}
-                                            onChange={(e) => setField("board", e.target.value)}
-                                            sx={fieldSx}
-                                            helperText={book?.detectionMethod ? `Chapters found by ${book.detectionMethod === "Toc" ? "the table of contents" : "scanning the headings"}` : " "}
-                                        >
-                                            {withDetected(BOARDS, form.board).map((b) => (
-                                                <MenuItem key={b} value={b} sx={{ fontSize: "13px" }}>{b}</MenuItem>
-                                            ))}
-                                        </TextField>
-                                    </Grid>
-                                </Grid>
-                            </>
+                            {detailFields}
                         </Panel>
                     </Grid>
                 )}
             </Grid>
+
+            {/* Leaving is allowed - it just should not be an accident. */}
+            <Dialog
+                open={Boolean(leaveGuard)}
+                onClose={() => setLeaveGuard(null)}
+                slotProps={{ paper: { sx: { borderRadius: "10px", width: 440, maxWidth: "94vw" } } }}
+            >
+                <DialogTitle sx={{ fontSize: "15.5px", fontWeight: 700, color: DASH.ink, pb: 1 }}>
+                    {leaveGuard === "uploading"
+                        ? `The book is still going up - ${percent}%`
+                        : "The book details are not saved yet"}
+                </DialogTitle>
+                <DialogContent>
+                    <Typography sx={{ fontSize: "13px", color: DASH.muted, lineHeight: 1.75 }}>
+                        {leaveGuard === "uploading"
+                            ? "Leaving does not stop it - the file keeps uploading and the book will appear in the library, being read. What it will not have is the class, subject, title and term you were about to check, and a book with no term is what the next upload clashes with as a duplicate."
+                            : "The book is uploaded and already being read, but the details have not been saved. It will keep whatever was read off the cover - and with no term set, the next book for this class and subject will be refused as a duplicate."}
+                    </Typography>
+                    <Box
+                        sx={{
+                            display: "flex", gap: 1, alignItems: "flex-start",
+                            bgcolor: DASH.lineSoft, borderRadius: RADIUS, px: 1.4, py: 1.1, mt: 1.8,
+                        }}
+                    >
+                        <InfoOutlinedIcon sx={{ fontSize: 15, color: DASH.muted, mt: 0.2, flexShrink: 0 }} />
+                        <Typography sx={{ fontSize: "11.5px", color: DASH.text, lineHeight: 1.6 }}>
+                            {leaveGuard === "uploading"
+                                ? "Cancelling stops the upload for good - nothing is stored and you would attach the file again."
+                                : "Nothing is lost either way: the details can be corrected later from the book's own page."}
+                        </Typography>
+                    </Box>
+                </DialogContent>
+                <DialogActions sx={{ px: 3, pb: 2.4, pt: 0 }}>
+                    {leaveGuard === "uploading" && (
+                        <Button onClick={cancelUpload} sx={{ ...outlineBtnSx, color: DASH.red, borderColor: "#FECACA" }}>
+                            Cancel the upload
+                        </Button>
+                    )}
+                    <Button onClick={() => { setLeaveGuard(null); goBack(); }} sx={outlineBtnSx}>
+                        Leave anyway
+                    </Button>
+                    <Button onClick={() => setLeaveGuard(null)} sx={primaryBtnSx}>
+                        {leaveGuard === "uploading" ? "Stay and wait" : "Stay and finish"}
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     );
 }

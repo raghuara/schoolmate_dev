@@ -16,6 +16,13 @@ function SubMenuPage({active}) {
     const userName = user.name
     const canViewComm = (subMenu) => (findSubMenuPermissions(user.permissions, "communication", subMenu) || {}).view === "Y";
 
+    /* communication > chats is configured in Feature Permissions but is not in the
+       login response yet. An absent submenu therefore means "the backend has not
+       shipped this key", not "denied" - so Chats stays visible exactly as it is
+       today, and starts obeying allowchat the moment the key appears. */
+    const chatPerms = findSubMenuPermissions(user.permissions, "communication", "chats");
+    const canChat = !chatPerms || chatPerms.allowchat === "Y";
+
     const communicationMenuItems = [
         ...(canViewComm("dashboard") ? [{ path: '/dashboardmenu/com-dashboard', label: 'Dashboard' }] : []),
         ...(canViewComm("news") ? [{ path: '/dashboardmenu/news', label: 'News' }] : []),
@@ -27,7 +34,7 @@ function SubMenuPage({active}) {
         ...(canViewComm("birthdaypost") ? [{ path: '/dashboardmenu/birthday-post', label: 'Birthday Post' }] : []),
         ...(canViewComm("feedback") ? [{ path: '/dashboardmenu/feedback', label: 'Feedback' }] : []),
         ...((findSubMenuPermissions(user.permissions, "communication", "notification") || {}).create === "Y" ? [{ path: '/dashboardmenu/notification', label: 'Notification' }] : []),
-        { path: '/dashboardmenu/chats', label: 'Chats' },
+        ...(canChat ? [{ path: '/dashboardmenu/chats', label: 'Chats' }] : []),
     ];
 
     // Academics reuses the existing "communication > *" permission keys - the

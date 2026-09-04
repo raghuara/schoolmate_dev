@@ -3,6 +3,10 @@ import {
     choiceHint, groupMarks, groupSections, sectionHeading, sectionInstruction,
     sectionMarks, sectionMarksLabel, typeMeta,
 } from "./questionPaperApi";
+import {
+    paperText, paperLang, optionLetterFor, durationLabel as langDuration,
+    classLine, partLabel,
+} from "./paperText";
 
 export const PAPER_TEMPLATES = [
     {
@@ -179,15 +183,6 @@ export const templateById = (id) =>
 const ROMAN = ["i", "ii", "iii", "iv", "v", "vi", "vii", "viii", "ix", "x", "xi", "xii", "xiii", "xiv", "xv"];
 const roman = (n) => ROMAN[n] || String(n + 1);
 
-const minutesToLabel = (minutes, short = false) => {
-    const total = Number(minutes) || 0;
-    const hours = Math.floor(total / 60);
-    const mins = total % 60;
-    if (hours && mins) return short ? `${hours} Hrs ${mins} Min` : `${hours} hours ${mins} minutes`;
-    if (hours) return short ? `${hours} Hours` : `${hours} hour${hours > 1 ? "s" : ""}`;
-    return `${mins} minutes`;
-};
-
 const linesFor = (marks) => Math.min(10, Math.max(1, Math.round(Number(marks) || 1) * 2));
 
 const RuledLines = ({ count, spacing = 22 }) => (
@@ -198,9 +193,9 @@ const RuledLines = ({ count, spacing = 22 }) => (
     </div>
 );
 
-const RollNoBoxes = ({ accent, count = 9 }) => (
+const RollNoBoxes = ({ accent, count = 9, lang }) => (
     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={{ fontSize: 12.5, fontWeight: 700 }}>Roll No.</span>
+        <span style={{ fontSize: 12.5, fontWeight: 700 }}>{paperText(lang).rollNo}</span>
         <div style={{ display: "flex" }}>
             {Array.from({ length: count }, (_, i) => (
                 <div
@@ -236,7 +231,7 @@ const WorkBox = ({ label, height = 120, accent }) => (
     </div>
 );
 
-const OptionList = ({ options, style }) => {
+const OptionList = ({ options, style, lang }) => {
     if (!options?.length) return null;
     const longOption = options.some((o) => String(o.text || "").length > 26);
     const stacked = style.stackedOptions || longOption;
@@ -251,9 +246,9 @@ const OptionList = ({ options, style }) => {
                 marginLeft: 22,
             }}
         >
-            {options.map((option) => (
+            {options.map((option, oi) => (
                 <div key={option.id} style={{ fontSize: style.bodySize - 0.5, display: "flex", gap: 6 }}>
-                    <span style={{ fontWeight: 600 }}>{option.id})</span>
+                    <span style={{ fontWeight: 600 }}>{optionLetterFor(option.id, oi, lang)})</span>
                     <span>{option.text || " "}</span>
                 </div>
             ))}
@@ -337,11 +332,11 @@ const PassageBox = ({ passage, style, accent }) => {
     );
 };
 
-const QuestionBody = ({ question, style, accent, answerSpace }) => {
+const QuestionBody = ({ question, style, accent, answerSpace, lang }) => {
     const meta = typeMeta(question.type);
     return (
         <>
-            {meta.hasOptions && <OptionList options={question.options} style={style} />}
+            {meta.hasOptions && <OptionList options={question.options} style={style} lang={lang} />}
             {meta.hasPairs && <PairTable pairs={question.pairs} style={style} accent={accent} />}
             {meta.hasBullets && <BulletBrief bullets={question.bullets} style={style} />}
             {answerSpace && meta.needsSpace && (
@@ -362,7 +357,7 @@ const QuestionBody = ({ question, style, accent, answerSpace }) => {
     );
 };
 
-const QuestionBlock = ({ question, number, section, style, accent, showAnswers, answerSpace }) => {
+const QuestionBlock = ({ question, number, section, style, accent, showAnswers, answerSpace, lang }) => {
     const meta = typeMeta(question.type);
     // Answer ruling is part of the answer space, never part of the question, so
     // the whole thing is off in "questions only" mode however the pattern or
@@ -391,7 +386,7 @@ const QuestionBlock = ({ question, number, section, style, accent, showAnswers, 
                 )}
             </div>
 
-            <QuestionBody question={question} style={style} accent={accent} answerSpace={answerSpace} />
+            <QuestionBody question={question} style={style} accent={accent} answerSpace={answerSpace} lang={lang} />
 
             {style.bilingual && (
                 <div
@@ -415,7 +410,7 @@ const QuestionBlock = ({ question, number, section, style, accent, showAnswers, 
                             {question.alternative.text}
                         </span>
                     </div>
-                    {meta.hasOptions && <OptionList options={question.alternative.options} style={style} />}
+                    {meta.hasOptions && <OptionList options={question.alternative.options} style={style} lang={lang} />}
                 </>
             )}
 
@@ -434,10 +429,10 @@ const QuestionBlock = ({ question, number, section, style, accent, showAnswers, 
     );
 };
 
-const CbseHeader = ({ paper, pattern, style, accent, school }) => (
+const CbseHeader = ({ paper, pattern, style, accent, school, lang }) => (
     <>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
-            <RollNoBoxes accent={accent} />
+            <RollNoBoxes accent={accent} lang={lang} />
             {style.qpCode && (
                 <div style={{ fontSize: 12.5, fontWeight: 700 }}>
                     Q.P. Code <span style={{ fontSize: 15 }}>{paper?.paperCode || "01"}</span>
@@ -471,8 +466,8 @@ const CbseHeader = ({ paper, pattern, style, accent, school }) => (
                 border: `1px dashed ${accent}`, padding: "5px 10px", marginTop: 14, fontSize: 12,
             }}
         >
-            <span>Time allowed : {minutesToLabel(paper?.durationMinutes)}</span>
-            <span>Maximum Marks : {paper?.totalMarks ?? 0}</span>
+            <span>{paperText(lang).timeAllowed} : {langDuration(paper?.durationMinutes, lang)}</span>
+            <span>{paperText(lang).maximumMarks} : {paper?.totalMarks ?? 0}</span>
         </div>
 
         {style.noteBox && (
@@ -496,14 +491,14 @@ const CbseHeader = ({ paper, pattern, style, accent, school }) => (
     </>
 );
 
-const StateBoardHeader = ({ paper, style, accent }) => (
+const StateBoardHeader = ({ paper, style, accent, lang }) => (
     <>
         <div style={{ textAlign: "center", fontSize: style.titleSize, fontWeight: 700, marginBottom: 12 }}>
             {paper?.name || "Question Paper"}
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, fontWeight: 700 }}>
-            <span>Time: {minutesToLabel(paper?.durationMinutes, true)}</span>
-            <span>Marks: {paper?.totalMarks ?? 0}</span>
+            <span>{paperText(lang).time}: {langDuration(paper?.durationMinutes, lang, true)}</span>
+            <span>{paperText(lang).marks}: {paper?.totalMarks ?? 0}</span>
         </div>
         <div style={{ textAlign: "center", fontSize: style.titleSize - 1, fontWeight: 700, textTransform: "uppercase", marginTop: 12 }}>
             {paper?.subject || ""}
@@ -512,7 +507,7 @@ const StateBoardHeader = ({ paper, style, accent }) => (
     </>
 );
 
-const PrimaryHeader = ({ paper, style }) => (
+const PrimaryHeader = ({ paper, style, lang }) => (
     <>
         <div style={{ textAlign: "center" }}>
             {[paper?.examName, paper?.grade ? `${paper.grade} CLASS` : "", paper?.subject].filter(Boolean).map((line, i) => (
@@ -531,13 +526,13 @@ const PrimaryHeader = ({ paper, style }) => (
             ))}
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, fontWeight: 700, marginTop: 12 }}>
-            <span>Time : {minutesToLabel(paper?.durationMinutes, true)}</span>
-            <span>M.M.:{paper?.totalMarks ?? 0}</span>
+            <span>{paperText(lang).time} : {langDuration(paper?.durationMinutes, lang, true)}</span>
+            <span>{paperText(lang).mmShort}:{paper?.totalMarks ?? 0}</span>
         </div>
     </>
 );
 
-const SimpleHeader = ({ paper, style, accent, school }) => (
+const SimpleHeader = ({ paper, style, accent, school, lang }) => (
     <>
         <div style={{ textAlign: "center" }}>
             <div style={{ fontSize: style.titleSize, fontWeight: 800, letterSpacing: 0.4, textTransform: "uppercase" }}>
@@ -553,13 +548,13 @@ const SimpleHeader = ({ paper, style, accent, school }) => (
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, fontSize: 12.5, fontWeight: 600 }}>
             <div>
-                <div>Class : {paper?.grade || "-"}</div>
-                <div style={{ marginTop: 3 }}>Subject : {paper?.subject || "-"}</div>
+                <div>{classLine(paper?.grade, lang)}</div>
+                <div style={{ marginTop: 3 }}>{paperText(lang).subject} : {paper?.subject || "-"}</div>
             </div>
-            {style.registerBox && <RollNoBoxes accent={accent} count={8} />}
+            {style.registerBox && <RollNoBoxes accent={accent} count={8} lang={lang} />}
             <div style={{ textAlign: "right" }}>
-                <div>Time : {minutesToLabel(paper?.durationMinutes, true)}</div>
-                <div style={{ marginTop: 3 }}>Max. Marks : {paper?.totalMarks ?? 0}</div>
+                <div>{paperText(lang).time} : {langDuration(paper?.durationMinutes, lang, true)}</div>
+                <div style={{ marginTop: 3 }}>{paperText(lang).maxMarks} : {paper?.totalMarks ?? 0}</div>
             </div>
         </div>
 
@@ -567,16 +562,16 @@ const SimpleHeader = ({ paper, style, accent, school }) => (
     </>
 );
 
-const Instructions = ({ pattern, paper, style, accent }) => {
+const Instructions = ({ pattern, paper, style, accent, lang }) => {
     const lines = String(pattern?.instructions || "").split("\n").map((l) => l.trim()).filter(Boolean);
     if (!lines.length && !paper?.notes) return null;
 
     if (style.romanInstructions) {
         return (
             <div style={{ marginTop: 14, marginBottom: 14 }}>
-                <div style={{ fontSize: 12.5, fontWeight: 800, marginBottom: 4 }}>GENERAL INSTRUCTIONS:</div>
+                <div style={{ fontSize: 12.5, fontWeight: 800, marginBottom: 4 }}>{paperText(lang).generalInstructions}</div>
                 <div style={{ fontSize: 11.5, fontWeight: 700, fontStyle: "italic", marginBottom: 6 }}>
-                    Read the following instructions very carefully and strictly follow them:
+                    {paperText(lang).generalInstructionsNote}
                 </div>
                 {lines.map((line, i) => (
                     <div key={i} style={{ display: "flex", gap: 8, fontSize: 11.5, lineHeight: 1.75, marginBottom: 2 }}>
@@ -623,13 +618,13 @@ const Instructions = ({ pattern, paper, style, accent }) => {
     );
 };
 
-const BlueprintTable = ({ groups, style, accent }) => (
+const BlueprintTable = ({ groups, style, accent, lang }) => (
     <div style={{ marginTop: 6 }}>
         <div style={{ borderTop: `1px dashed ${accent}`, borderBottom: `1px dashed ${accent}`, padding: "5px 0", marginBottom: 10 }}>
             <div style={{ display: "flex", fontSize: 12, fontWeight: 700 }}>
-                <span style={{ width: 62 }}>Q. No.</span>
-                <span style={{ flex: 1 }}>Nature of questions</span>
-                <span style={{ width: 60, textAlign: "right" }}>Marks</span>
+                <span style={{ width: 62 }}>{paperText(lang).questionNo}</span>
+                <span style={{ flex: 1 }}>{paperText(lang).natureOfQuestions}</span>
+                <span style={{ width: 60, textAlign: "right" }}>{paperText(lang).marksColumn}</span>
             </div>
         </div>
 
@@ -642,7 +637,7 @@ const BlueprintTable = ({ groups, style, accent }) => (
                 )}
                 {group.sections.map((section) => (
                     <div key={section.id} style={{ display: "flex", alignItems: "flex-start", fontSize: style.bodySize, marginBottom: 7, breakInside: "avoid" }}>
-                        <span style={{ width: 62, fontWeight: 700 }}>{sectionHeading(section)}</span>
+                        <span style={{ width: 62, fontWeight: 700 }}>{partLabel(sectionHeading(section), lang)}</span>
                         <span style={{ flex: 1, lineHeight: 1.6 }}>
                             {section.title || typeMeta(section.type).label}
                             {choiceHint(section) && (
@@ -753,7 +748,9 @@ const PaperDocument = forwardRef(({
     showAnswers = false,
     paperColor = DEFAULT_PAPER_COLOR,
     answerSpace = false,
+    language,
 }, ref) => {
+    const lang = paperLang(language || paper?.medium);
     const template = templateById(templateId);
     const style = template.style;
     const accent = template.accent;
@@ -763,10 +760,10 @@ const PaperDocument = forwardRef(({
     let running = 0;
 
     const header = (() => {
-        if (style.header === "cbse") return <CbseHeader paper={paper} pattern={pattern} style={style} accent={accent} school={school} />;
-        if (style.header === "stateboard") return <StateBoardHeader paper={paper} style={style} accent={accent} />;
-        if (style.header === "primary") return <PrimaryHeader paper={paper} style={style} />;
-        return <SimpleHeader paper={paper} style={style} accent={accent} school={school} />;
+        if (style.header === "cbse") return <CbseHeader paper={paper} pattern={pattern} style={style} accent={accent} school={school} lang={lang} />;
+        if (style.header === "stateboard") return <StateBoardHeader paper={paper} style={style} accent={accent} lang={lang} />;
+        if (style.header === "primary") return <PrimaryHeader paper={paper} style={style} lang={lang} />;
+        return <SimpleHeader paper={paper} style={style} accent={accent} school={school} lang={lang} />;
     })();
 
     return (
@@ -794,10 +791,10 @@ const PaperDocument = forwardRef(({
             >
                 {header}
 
-                <Instructions pattern={pattern} paper={paper} style={style} accent={accent} />
+                <Instructions pattern={pattern} paper={paper} style={style} accent={accent} lang={lang} />
 
                 {style.blueprint ? (
-                    <BlueprintTable groups={groups} style={style} accent={accent} />
+                    <BlueprintTable groups={groups} style={style} accent={accent} lang={lang} />
                 ) : (
                     groups.map((group) => (
                         <div key={group.name || "main"} style={{ marginBottom: 6 }}>
@@ -831,7 +828,7 @@ const PaperDocument = forwardRef(({
 
                             {group.sections.map((section) => {
                                 const items = questions.filter((q) => q.sectionId === section.id);
-                                const heading = sectionHeading(section);
+                                const heading = partLabel(sectionHeading(section), lang);
                                 const marksLabel = sectionMarksLabel(section);
                                 const tightMarks = style.tightEquation ? marksLabel.replace(/[()]/g, "").replace(/\s/g, "") : marksLabel;
 
@@ -891,6 +888,7 @@ const PaperDocument = forwardRef(({
                                                             accent={accent}
                                                             showAnswers={showAnswers}
                                                             answerSpace={answerSpace}
+                                                            lang={lang}
                                                         />
                                                     );
                                                 })

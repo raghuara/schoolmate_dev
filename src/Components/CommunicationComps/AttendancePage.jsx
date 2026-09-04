@@ -13,8 +13,9 @@ import FullWidthBarChartPage from "../Chart/FullWidthBarChart";
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import StyledPieChart from "../Chart/StyledPieChart";
 import CloseIcon from '@mui/icons-material/Close';
-import Loader from "../Loader";
 import { useDispatch, useSelector } from "react-redux";
+import { DASH, RADIUS } from "../DashBoardComps/dashboardTheme";
+import AttendanceOverviewSkeleton from "./AttendanceComps/AttendanceOverviewSkeleton";
 import '../../Css/Page.css'
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import * as XLSX from 'xlsx';
@@ -364,9 +365,8 @@ export default function AttendancePage() {
     const idFilter = open ? 'class-dropdown-popover' : undefined;
 
     return (
-        <Box sx={{ backgroundColor: "#FFFDF7", width: "100%", }}>
-            {isLoading && <Loader />}
-            <Box sx={{ backgroundColor: "#F6F6F8", borderRadius: "10px 10px 10px 0px" }}>
+        <Box sx={{ backgroundColor: DASH.canvas, width: "100%" }}>
+            <Box sx={{ backgroundColor: DASH.canvas, borderRadius: "10px 10px 10px 0px" }}>
                 <Box sx={{ p: 2, }}>
                     <Grid container spacing={2}>
                         <Grid
@@ -376,24 +376,44 @@ export default function AttendancePage() {
                             }}>
                             <Box>
                                 {(!selectedPage || selectedPage === "Attendance") && (
-                                    <Typography variant="h6" sx={{ fontWeight: "600" }}>
-                                        Students Attendance
-                                    </Typography>
+                                    <Box>
+                                        <Typography sx={{ fontSize: "20px", fontWeight: 700, color: DASH.ink, lineHeight: 1.2 }}>
+                                            Students Attendance
+                                        </Typography>
+                                        <Typography sx={{ fontSize: "11.5px", color: DASH.muted, mt: 0.2 }}>
+                                            Who is present today, class by class
+                                        </Typography>
+                                    </Box>
                                 )}
                                 {selectedPage === "Homework" &&
-                                    <Typography variant="h6" sx={{ fontWeight: "600" }}>
-                                        Homework Completion Status
-                                    </Typography>
+                                    <Box>
+                                        <Typography sx={{ fontSize: "20px", fontWeight: 700, color: DASH.ink, lineHeight: 1.2 }}>
+                                            Homework Completion Status
+                                        </Typography>
+                                        <Typography sx={{ fontSize: "11.5px", color: DASH.muted, mt: 0.2 }}>
+                                            Which classes have marked homework
+                                        </Typography>
+                                    </Box>
                                 }
                                 {selectedPage === "Diary" &&
-                                    <Typography variant="h6" sx={{ fontWeight: "600" }}>
-                                        Diary Signature Status
-                                    </Typography>
+                                    <Box>
+                                        <Typography sx={{ fontSize: "20px", fontWeight: 700, color: DASH.ink, lineHeight: 1.2 }}>
+                                            Diary Signature Status
+                                        </Typography>
+                                        <Typography sx={{ fontSize: "11.5px", color: DASH.muted, mt: 0.2 }}>
+                                            Diaries signed by parents
+                                        </Typography>
+                                    </Box>
                                 }
                                 {selectedPage === "Dress Code" &&
-                                    <Typography variant="h6" sx={{ fontWeight: "600" }}>
-                                        Dress Code Status
-                                    </Typography>
+                                    <Box>
+                                        <Typography sx={{ fontSize: "20px", fontWeight: 700, color: DASH.ink, lineHeight: 1.2 }}>
+                                            Dress Code Status
+                                        </Typography>
+                                        <Typography sx={{ fontSize: "11.5px", color: DASH.muted, mt: 0.2 }}>
+                                            Uniform checks for today
+                                        </Typography>
+                                    </Box>
                                 }
                                 {selectedPage === "Attendance" &&
                                     <Box sx={{ display: "flex" }}>
@@ -423,9 +443,25 @@ export default function AttendancePage() {
                                                 />
                                             </LocalizationProvider>
                                         </ThemeProvider>
-                                        <Box onClick={handleOpen} sx={{ display: "flex", cursor: "pointer" }}>
-                                            <CalendarMonthIcon style={{ marginTop: "0px", fontSize: "20px", marginRight: "5px", textDecoration: "underline" }} />
-                                            <Typography style={{ fontSize: "12px", color: "#777", borderBottom: "1px solid #000" }}>
+                                        <Box
+                                            onClick={handleOpen}
+                                            sx={{
+                                                display: "inline-flex",
+                                                alignItems: "center",
+                                                gap: 0.7,
+                                                mt: 0.6,
+                                                height: 28,
+                                                px: 1.2,
+                                                borderRadius: RADIUS,
+                                                bgcolor: "#fff",
+                                                border: `1px solid ${DASH.line}`,
+                                                cursor: "pointer",
+                                                transition: "border-color .2s ease, background-color .2s ease",
+                                                "&:hover": { bgcolor: DASH.lineSoft, borderColor: DASH.faint },
+                                            }}
+                                        >
+                                            <CalendarMonthIcon sx={{ fontSize: 15, color: DASH.muted }} />
+                                            <Typography sx={{ fontSize: "12px", fontWeight: 700, color: DASH.ink }}>
                                                 {dayjs(selectedDate).format('DD MMMM YYYY')}
                                             </Typography>
                                         </Box>
@@ -444,14 +480,24 @@ export default function AttendancePage() {
                                 <Box sx={{ display: "flex", }}>
                                     <Link to="addattendance">
                                         <Button
-                                            variant="contained" sx={{
+                                            variant="contained"
+                                            disableElevation
+                                            startIcon={<AddIcon sx={{ fontSize: 18 }} />}
+                                            sx={{
                                                 textTransform: "none",
-                                                height: "2rem",
+                                                fontSize: "12.5px",
+                                                fontWeight: 700,
+                                                height: 34,
+                                                px: 2,
+                                                borderRadius: RADIUS,
                                                 boxShadow: "none",
                                                 backgroundColor: websiteSettings.mainColor,
                                                 color: websiteSettings.textColor,
-                                                fontWeight: "600"
-                                            }}><AddIcon style={{ marginRight: "8px", fontSize: "20px" }} />Attendance</Button>
+                                                "&:hover": { backgroundColor: websiteSettings.mainColor, filter: "brightness(0.95)", boxShadow: "none" },
+                                            }}
+                                        >
+                                            Attendance
+                                        </Button>
 
                                     </Link>
                                     {/* <AddAttendancePage open={isDialog3Open} selectedClass={selectedClassValue} onClose={handleClose3} /> */}
@@ -519,9 +565,13 @@ export default function AttendancePage() {
                         </Grid>
                     </Grid>
                 </Box>
-                {(!selectedPage || selectedPage === "Attendance") && (
+                {(!selectedPage || selectedPage === "Attendance") && isLoading && (
+                    <AttendanceOverviewSkeleton />
+                )}
+
+                {(!selectedPage || selectedPage === "Attendance") && !isLoading && (
                     <Box>
-                        <Box sx={{ backgroundColor: "#fff", mx: 2, borderRadius: "5px", boxShadow: "0px 2px 4px 0px rgba(0,0,0,0.17)" }}>
+                        <Box sx={{ backgroundColor: "#fff", mx: 2, borderRadius: RADIUS, border: `1px solid ${DASH.line}`, boxShadow: "0 1px 3px rgba(16,24,40,0.06)" }}>
                             <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", }}>
                                 <Grid container spacing={2} sx={{width:"100%"}}>
                                     <Grid
@@ -530,12 +580,12 @@ export default function AttendancePage() {
                                             lg: 6
                                         }}>
                                         <Box px={2} pt={2}>
-                                            <Typography sx={{ fontWeight: "550", fontSize: "18px" }}>
+                                            <Typography sx={{ fontWeight: 700, fontSize: "15px", color: DASH.ink }}>
                                                 Total Attendance Graph
                                             </Typography>
 
-                                            <Typography style={{ fontSize: "12px", color: "#000" }}>
-                                                Attendance History
+                                            <Typography sx={{ fontSize: "11.5px", color: DASH.muted }}>
+                                                Attendance history for the selected class
                                             </Typography>
 
                                         </Box>
@@ -632,12 +682,12 @@ export default function AttendancePage() {
                                     </Grid>
                                 </Grid>
                             </Box>
-                            <Box px={2}>
-                                <FullWidthBarChartPage style={{ width: '100%', height: '100px' }} teachersData={teachersGraphData} />
+                            <Box px={2} pb={2} sx={{ height: 260 }}>
+                                <FullWidthBarChartPage style={{ width: '100%', height: '100%' }} teachersData={teachersGraphData} />
                             </Box>
                         </Box>
 
-                        <Grid container mb={2}>
+                        <Grid container spacing={2} sx={{ px: 2, mt: 2, mb: 2, alignItems: "stretch" }}>
                             <Grid
                                 size={{
                                     xs: 12,
@@ -645,9 +695,10 @@ export default function AttendancePage() {
                                     md: 12,
                                     lg: 6
                                 }}>
-                                <Box sx={{ backgroundColor: "#fff", ml: 2, mr: { sm: 2, md: 2, lg: 0 }, mt: 2, px: 2, pb: 2, borderRadius: "5px", boxShadow: "0px 2px 4px 0px rgba(0,0,0,0.17)", height: "333px" }}>
-                                    <Typography pt={1} sx={{ fontWeight: "550", fontSize: "18px" }}>
-                                        Irregular attendees <span style={{ fontSize: "12px" }}>Overall</span>
+                                <Box sx={{ backgroundColor: "#fff", px: 2, pb: 2, borderRadius: RADIUS, border: `1px solid ${DASH.line}`, boxShadow: "0 1px 3px rgba(16,24,40,0.06)", height: "100%", minHeight: 320, boxSizing: "border-box" }}>
+                                    <Typography pt={1.5} pb={0.5} sx={{ fontWeight: 700, fontSize: "15px", color: DASH.ink }}>
+                                        Irregular attendees{" "}
+                                        <Box component="span" sx={{ fontSize: "11.5px", fontWeight: 600, color: DASH.muted }}>Overall</Box>
                                     </Typography>
 
                                     <Box onClick={() => handleOpenPage(0)} sx={{
@@ -751,9 +802,10 @@ export default function AttendancePage() {
                                     md: 12,
                                     lg: 6
                                 }}>
-                                <Box sx={{ backgroundColor: "#fff", mx: 2, mt: 2, px: 2, pb: 2, borderRadius: "5px", boxShadow: "0px 2px 4px 0px rgba(0,0,0,0.17)" }}>
-                                    <Typography pt={1} sx={{ fontWeight: "550", fontSize: "18px" }}>
-                                        Students Counts <span style={{ fontSize: "12px" }}>Overall</span>
+                                <Box sx={{ backgroundColor: "#fff", px: 2, pb: 2, borderRadius: RADIUS, border: `1px solid ${DASH.line}`, boxShadow: "0 1px 3px rgba(16,24,40,0.06)", height: "100%", minHeight: 320, boxSizing: "border-box" }}>
+                                    <Typography pt={1.5} pb={0.5} sx={{ fontWeight: 700, fontSize: "15px", color: DASH.ink }}>
+                                        Students Counts{" "}
+                                        <Box component="span" sx={{ fontSize: "11.5px", fontWeight: 600, color: DASH.muted }}>Overall</Box>
                                     </Typography>
                                     <Grid container spacing={2}>
                                         <Grid
@@ -1095,8 +1147,7 @@ export default function AttendancePage() {
                                         }}>
                                         <Box sx={{
 
-                                            borderRadius: "50px", minHeight: '30px',
-                                            height: '30px', display: 'flex', marginTop: "0px",
+                                            minHeight: 32, height: 32, display: 'flex',
                                         }}>
                                             <Typography sx={{ fontSize: "12px", color: "#000", pr: 1, marginTop: "5px", pl: 2, whiteSpace: "nowrap", }}>
                                             </Typography>
@@ -1109,25 +1160,28 @@ export default function AttendancePage() {
                                                     sx: { display: 'none', }
                                                 }}
                                                 sx={{
-                                                    backgroundColor: '#f8f6fd',
-                                                    minHeight: "10px",
-                                                    borderRadius: "50px",
+                                                    backgroundColor: DASH.lineSoft,
+                                                    border: `1px solid ${DASH.line}`,
+                                                    minHeight: 32,
+                                                    height: 32,
+                                                    borderRadius: RADIUS,
+                                                    p: 0.4,
                                                     '& .MuiTab-root': {
                                                         textTransform: 'none',
-                                                        fontSize: '12px',
-                                                        color: '#555',
-                                                        fontWeight: 'bold',
+                                                        fontSize: '12.5px',
+                                                        fontWeight: 600,
+                                                        color: DASH.muted,
                                                         minWidth: 0,
-                                                        paddingX: 1,
-                                                        minHeight: '30px',
-                                                        height: '30px',
-                                                        px: 2
-
+                                                        minHeight: 24,
+                                                        height: 24,
+                                                        px: 1.4,
+                                                        borderRadius: RADIUS,
                                                     },
                                                     '& .Mui-selected': {
-                                                        color: '#fff !important',
-                                                        bgcolor: '#000',
-                                                        borderRadius: "50px",
+                                                        color: `${DASH.ink} !important`,
+                                                        bgcolor: '#fff',
+                                                        fontWeight: 700,
+                                                        boxShadow: '0 1px 3px rgba(17,24,39,0.12)',
                                                     },
                                                 }}
                                             >
@@ -1361,17 +1415,20 @@ export default function AttendancePage() {
                                     </Grid>
                                 </Grid>
                             </Box>
-                            <Box sx={{ display: "flex", border: "1px solid #eee", width: "300px" }}>
-                                <Typography sx={{ width: "65px", fontSize: "12px", color: "#fff", backgroundColor: "#8600BB", padding: "0px 5px 0px 5px", borderRadius: "4px 0px 0px 0px", fontWeight: "600" }}>
+                            <Box sx={{ display: "flex", alignItems: "center", width: "fit-content", position: "relative", top: "1px", zIndex: 1 }}>
+                                <Typography sx={{ fontSize: "11.5px", fontWeight: 700, color: "#fff", bgcolor: DASH.violet, border: `1px solid ${DASH.violet}`, borderBottom: "none", px: 1.2, py: 0.3, borderRadius: "5px 5px 0 0", whiteSpace: "nowrap" }}>
                                     {selectedClass} - {selectedClassSection}
                                 </Typography>
-                                <Typography sx={{ fontSize: "12px", color: "#000", px: 1 }}>
-                                    Class Teacher - {attendanceDetails.classTeacher}
+                                <Typography sx={{ fontSize: "11.5px", color: DASH.muted, px: 1.2, whiteSpace: "nowrap" }}>
+                                    Class Teacher - {attendanceDetails.classTeacher || "Not assigned"}
                                 </Typography>
                             </Box>
                             <TableContainer
                                 sx={{
-                                    border: "1px solid #F6F6F6",
+                                    border: `1px solid ${DASH.line}`,
+                                    borderRadius: RADIUS,
+                                    borderTopLeftRadius: 0,
+                                    bgcolor: "#fff",
                                     maxHeight: "80vh",
                                     overflowY: "auto",
                                 }}
@@ -1396,7 +1453,7 @@ export default function AttendancePage() {
                                                         borderRight: 1,
                                                         borderColor: "#F6F6F6",
                                                         textAlign: "center",
-                                                        backgroundColor: "#faf6fc",
+                                                        backgroundColor: DASH.surface,
                                                     }}
                                                 >
                                                     {header}
@@ -1409,8 +1466,13 @@ export default function AttendancePage() {
                                             <TableRowsSkeleton rows={8} columns={9} wideColumn={2} />
                                         ) : attendanceTableDetails.length === 0 ? (
                                             <TableRow>
-                                                <TableCell colSpan={9} sx={{ textAlign: "center", py: 3 }}>
-                                                    No data available
+                                                <TableCell colSpan={9} sx={{ textAlign: "center", py: 5, borderBottom: "none" }}>
+                                                    <Typography sx={{ fontSize: "13.5px", fontWeight: 700, color: DASH.ink }}>
+                                                        No attendance recorded
+                                                    </Typography>
+                                                    <Typography sx={{ fontSize: "12px", color: DASH.muted, mt: 0.5 }}>
+                                                        Nothing was marked for this class on the selected date.
+                                                    </Typography>
                                                 </TableCell>
                                             </TableRow>
                                         ) : (

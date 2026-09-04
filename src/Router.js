@@ -41,6 +41,7 @@ import EditHomeWorkPage from "./Components/CommunicationComps/HomeworkComps/Edit
 import { fetchGradesData, selectGrades, selectGradesError, selectGradesLoading } from "./Redux/Slices/DropdownController";
 import { fetchUserTypes } from "./Redux/Slices/userTypesSlice";
 import { fetchApprovalMatrix } from "./Redux/Slices/approvalMatrixSlice";
+import { refreshPermissions } from "./Redux/Slices/AuthSlice";
 import { useDispatch, useSelector } from "react-redux";
 import Loader from "./Components/Loader";
 import CreateExamTimeTablesPage from "./Components/CommunicationComps/ExamTimeTablesComps/CreateExamTimeTables";
@@ -102,6 +103,8 @@ import RolesPermissionsPage from "./Components/AccessControlComps/RolesPermissio
 import FeaturePermissionsPage from "./Components/AccessControlComps/FeaturePermissionsPage";
 import ProfileConfigPage from "./Components/AccessControlComps/ModuleAccessConfigure/ProfileConfigPage";
 import CommunicationConfigPage from "./Components/AccessControlComps/ModuleAccessConfigure/CommunicationConfigPage";
+import AcademicsConfigPage from "./Components/AccessControlComps/ModuleAccessConfigure/AcademicsConfigPage";
+import BooksConfigPage from "./Components/AccessControlComps/ModuleAccessConfigure/BooksConfigPage";
 import FinanceConfigPage from "./Components/AccessControlComps/ModuleAccessConfigure/FinanceConfigPage";
 import LeaveConfigPage from "./Components/AccessControlComps/ModuleAccessConfigure/LeaveConfigPage";
 import TransportConfigPage from "./Components/AccessControlComps/ModuleAccessConfigure/TransportConfigPage";
@@ -252,6 +255,8 @@ export default function RouterPage() {
         dispatch(fetchGradesData());
         dispatch(fetchUserTypes());
         dispatch(fetchApprovalMatrix());
+        // Picks up permission keys added since this session logged in.
+        dispatch(refreshPermissions());
     }, [dispatch]);
 
     // if (loading) return <div> <Loader /> </div>;
@@ -613,6 +618,8 @@ export default function RouterPage() {
                 <Route path="access/feature-permissions" element={<FeaturePermissionsPage />} />
                 <Route path="access/config/profile" element={<ProfileConfigPage />} />
                 <Route path="access/config/communication" element={<CommunicationConfigPage />} />
+                <Route path="access/config/academics" element={<AcademicsConfigPage />} />
+                <Route path="access/config/books" element={<BooksConfigPage />} />
                 <Route path="access/config/finance" element={<FinanceConfigPage />} />
                 <Route path="access/config/leave" element={<LeaveConfigPage />} />
                 <Route path="access/config/transport" element={<TransportConfigPage />} />
@@ -654,10 +661,12 @@ export default function RouterPage() {
                 <Route path="assessment/question-paper/all" element={<AllQuestionPapersPage />} />
                 <Route path="assessment/question-paper/create" element={<CreateQuestionPaperPage />} />
                 <Route path="assessment/question-paper/bank" element={<QuestionBankPage />} />
-                <Route path="assessment/question-paper/patterns" element={<PatternListPage />} />
-                <Route path="assessment/question-paper/patterns/create" element={<PatternBuilderPage />} />
-                <Route path="assessment/question-paper/patterns/view/:patternId" element={<PatternViewPage />} />
-                <Route path="assessment/question-paper/patterns/:patternId" element={<PatternBuilderPage />} />
+                {/* questionpapergeneration > pattern. Each route asks for the operation it
+                    performs, so a deep link cannot reach a screen the buttons would hide. */}
+                <Route path="assessment/question-paper/patterns" element={<RequirePermission mainMenu="questionpapergeneration" subMenu="pattern" anyOf={["view", "create", "edit", "delete"]}><PatternListPage /></RequirePermission>} />
+                <Route path="assessment/question-paper/patterns/create" element={<RequirePermission mainMenu="questionpapergeneration" subMenu="pattern" anyOf={["create"]}><PatternBuilderPage /></RequirePermission>} />
+                <Route path="assessment/question-paper/patterns/view/:patternId" element={<RequirePermission mainMenu="questionpapergeneration" subMenu="pattern" anyOf={["view"]}><PatternViewPage /></RequirePermission>} />
+                <Route path="assessment/question-paper/patterns/:patternId" element={<RequirePermission mainMenu="questionpapergeneration" subMenu="pattern" anyOf={["edit"]}><PatternBuilderPage /></RequirePermission>} />
                 {/* Question paper approvals live in the Approvals module now - the old path is a shortcut. */}
                 <Route path="assessment/question-paper/approvals" element={<Navigate to="/dashboardmenu/approvals/question-paper" replace />} />
                 <Route path="assessment/question-paper/:paperId" element={<QuestionPaperPreviewPage />} />

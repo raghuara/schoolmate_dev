@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Dialog, IconButton, Box, Typography, ThemeProvider, createTheme, Button, Grid, Tabs, Tab, DialogContent, DialogActions, TextField, InputAdornment, Popover, ToggleButtonGroup, ToggleButton, Autocomplete } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import { display, fontSize, keyframes, useMediaQuery, useTheme } from "@mui/system";
@@ -7,9 +7,8 @@ import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import dayjs from "dayjs";
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import SimpleBarChartPage from "../../Chart/SimpleBarChart";
-import Loader from "../../Loader";
 import axios from "axios";
-import { attendanceSpecific, attendanceTable, DashboardTeachersAttendance, irregularAttendees, postAttendanceMessage, sectionsDropdown } from "../../../Api/Api";
+import { attendanceSpecific, attendanceTable, DashboardTeachersAttendance, irregularAttendees, postAttendanceMessage } from "../../../Api/Api";
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
@@ -20,12 +19,14 @@ import Paper from '@mui/material/Paper';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import PrintIcon from '@mui/icons-material/Print';
-import ImageStudent from '../../../Images/PagesImage/studentimg.png'
 import * as XLSX from 'xlsx';
 import SearchIcon from '@mui/icons-material/Search';
 import { Link, useLocation } from "react-router-dom";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useSelector } from "react-redux";
+import { selectGrades } from "../../../Redux/Slices/DropdownController";
+import { DASH, RADIUS } from "../../DashBoardComps/dashboardTheme";
+import { IrregularSectionSkeleton } from "./AttendanceSkeletons";
 import { selectWebsiteSettings } from "../../../Redux/Slices/websiteSettingsSlice";
 import { findSubMenuPermissions } from "../../../Redux/Slices/AuthSlice";
 import ImageIcon from '@mui/icons-material/Image';
@@ -146,18 +147,34 @@ const SectionTables = ({ data, status, searchQuery, setFilteredData }) => {
                                 {/* Table Section */}
                                 <TableContainer
                                     sx={{
-                                        border: "1px solid #E8DDEA",
+                                        border: `1px solid ${DASH.line}`,
                                     }}
                                 >
-                                    <Table stickyHeader aria-label={`${sectionKey} attendance table`} sx={{ minWidth: "100%" }}>
+                                    <Table
+                                        stickyHeader
+                                        aria-label={`${sectionKey} attendance table`}
+                                        sx={{
+                                            minWidth: "100%",
+                                            "& thead .MuiTableCell-root": {
+                                                color: DASH.muted,
+                                                fontSize: "10.5px",
+                                                fontWeight: 700,
+                                                letterSpacing: "0.06em",
+                                                textTransform: "uppercase",
+                                                py: 1,
+                                            },
+                                            "& tbody .MuiTableCell-root": { fontSize: "12.5px", color: DASH.text, py: 0.9 },
+                                            "& tbody .MuiTableRow-root:hover .MuiTableCell-root": { backgroundColor: DASH.surface },
+                                        }}
+                                    >
                                         <TableHead>
                                             <TableRow>
                                                 <TableCell
                                                     sx={{
                                                         borderRight: 1,
-                                                        borderColor: "#E8DDEA",
+                                                        borderColor: DASH.line,
                                                         textAlign: "center",
-                                                        backgroundColor: "#faf6fc",
+                                                        backgroundColor: DASH.surface,
                                                     }}
                                                 >
                                                     S.No
@@ -165,9 +182,9 @@ const SectionTables = ({ data, status, searchQuery, setFilteredData }) => {
                                                 <TableCell
                                                     sx={{
                                                         borderRight: 1,
-                                                        borderColor: "#E8DDEA",
+                                                        borderColor: DASH.line,
                                                         textAlign: "center",
-                                                        backgroundColor: "#faf6fc",
+                                                        backgroundColor: DASH.surface,
                                                     }}
                                                 >
                                                     Roll Number
@@ -175,9 +192,9 @@ const SectionTables = ({ data, status, searchQuery, setFilteredData }) => {
                                                 <TableCell
                                                     sx={{
                                                         borderRight: 1,
-                                                        borderColor: "#E8DDEA",
+                                                        borderColor: DASH.line,
                                                         textAlign: "center",
-                                                        backgroundColor: "#faf6fc",
+                                                        backgroundColor: DASH.surface,
                                                     }}
                                                 >
                                                     Student Name
@@ -185,9 +202,9 @@ const SectionTables = ({ data, status, searchQuery, setFilteredData }) => {
                                                 <TableCell
                                                     sx={{
                                                         borderRight: 1,
-                                                        borderColor: "#E8DDEA",
+                                                        borderColor: DASH.line,
                                                         textAlign: "center",
-                                                        backgroundColor: "#faf6fc",
+                                                        backgroundColor: DASH.surface,
                                                     }}
                                                 >
                                                     Grade
@@ -195,9 +212,9 @@ const SectionTables = ({ data, status, searchQuery, setFilteredData }) => {
                                                 <TableCell
                                                     sx={{
                                                         borderRight: 1,
-                                                        borderColor: "#E8DDEA",
+                                                        borderColor: DASH.line,
                                                         textAlign: "center",
-                                                        backgroundColor: "#faf6fc",
+                                                        backgroundColor: DASH.surface,
                                                     }}
                                                 >
                                                     Sec
@@ -205,9 +222,9 @@ const SectionTables = ({ data, status, searchQuery, setFilteredData }) => {
                                                 <TableCell
                                                     sx={{
                                                         borderRight: 1,
-                                                        borderColor: "#E8DDEA",
+                                                        borderColor: DASH.line,
                                                         textAlign: "center",
-                                                        backgroundColor: "#faf6fc",
+                                                        backgroundColor: DASH.surface,
                                                     }}
                                                 >
                                                     Student Picture
@@ -215,9 +232,9 @@ const SectionTables = ({ data, status, searchQuery, setFilteredData }) => {
                                                 <TableCell
                                                     sx={{
                                                         borderRight: 1,
-                                                        borderColor: "#E8DDEA",
+                                                        borderColor: DASH.line,
                                                         textAlign: "center",
-                                                        backgroundColor: "#faf6fc",
+                                                        backgroundColor: DASH.surface,
                                                     }}
                                                 >
                                                     Current Status
@@ -225,9 +242,9 @@ const SectionTables = ({ data, status, searchQuery, setFilteredData }) => {
                                                 <TableCell
                                                     sx={{
                                                         borderRight: 1,
-                                                        borderColor: "#E8DDEA",
+                                                        borderColor: DASH.line,
                                                         textAlign: "center",
-                                                        backgroundColor: "#faf6fc",
+                                                        backgroundColor: DASH.surface,
                                                     }}
                                                 >
                                                     Student History
@@ -240,7 +257,7 @@ const SectionTables = ({ data, status, searchQuery, setFilteredData }) => {
                                                     <TableCell
                                                         sx={{
                                                             borderRight: 1,
-                                                            borderColor: "#E8DDEA",
+                                                            borderColor: DASH.line,
                                                             textAlign: "center",
                                                         }}
                                                     >
@@ -249,7 +266,7 @@ const SectionTables = ({ data, status, searchQuery, setFilteredData }) => {
                                                     <TableCell
                                                         sx={{
                                                             borderRight: 1,
-                                                            borderColor: "#E8DDEA",
+                                                            borderColor: DASH.line,
                                                             textAlign: "center",
                                                         }}
                                                     >
@@ -258,7 +275,7 @@ const SectionTables = ({ data, status, searchQuery, setFilteredData }) => {
                                                     <TableCell
                                                         sx={{
                                                             borderRight: 1,
-                                                            borderColor: "#E8DDEA",
+                                                            borderColor: DASH.line,
                                                             textAlign: "center",
                                                         }}
                                                     >
@@ -267,7 +284,7 @@ const SectionTables = ({ data, status, searchQuery, setFilteredData }) => {
                                                     <TableCell
                                                         sx={{
                                                             borderRight: 1,
-                                                            borderColor: "#E8DDEA",
+                                                            borderColor: DASH.line,
                                                             textAlign: "center",
                                                         }}
                                                     >
@@ -276,7 +293,7 @@ const SectionTables = ({ data, status, searchQuery, setFilteredData }) => {
                                                     <TableCell
                                                         sx={{
                                                             borderRight: 1,
-                                                            borderColor: "#E8DDEA",
+                                                            borderColor: DASH.line,
                                                             textAlign: "center",
                                                         }}
                                                     >
@@ -285,7 +302,7 @@ const SectionTables = ({ data, status, searchQuery, setFilteredData }) => {
                                                     <TableCell
                                                         sx={{
                                                             borderRight: 1,
-                                                            borderColor: "#E8DDEA",
+                                                            borderColor: DASH.line,
                                                             textAlign: "center",
                                                         }}
                                                     >
@@ -300,7 +317,7 @@ const SectionTables = ({ data, status, searchQuery, setFilteredData }) => {
                                                     <TableCell
                                                         sx={{
                                                             borderRight: 1,
-                                                            borderColor: "#E8DDEA",
+                                                            borderColor: DASH.line,
                                                             textAlign: "center",
                                                             px: 4,
                                                         }}
@@ -329,7 +346,7 @@ const SectionTables = ({ data, status, searchQuery, setFilteredData }) => {
                                                     <TableCell
                                                         sx={{
                                                             borderRight: 1,
-                                                            borderColor: "#E8DDEA",
+                                                            borderColor: DASH.line,
                                                             textAlign: "center",
                                                         }}
                                                     >
@@ -351,27 +368,6 @@ const SectionTables = ({ data, status, searchQuery, setFilteredData }) => {
 };
 
 
-
-const gradeOptions = [
-    { label: "PreKG", value: "PreKG" },
-    { label: "LKG", value: "LKG" },
-    { label: "UKG", value: "UKG" },
-    { label: "I", value: "I" },
-    { label: "II", value: "II" },
-    { label: "III", value: "III" },
-    { label: "IV", value: "IV" },
-    { label: "V", value: "V" },
-    { label: "VI", value: "VI" },
-    { label: "VII", value: "VII" },
-    { label: "VIII", value: "VIII" },
-    { label: "IX", value: "IX" },
-    { label: "X", value: "X" },
-];
-
-const optionsWithOverall = [
-    { label: "Over All", value: "overall" },
-    ...gradeOptions,
-];
 
 export default function IrregularAttendeesPage({ onClose }) {
     const location = useLocation();
@@ -405,10 +401,24 @@ export default function IrregularAttendeesPage({ onClose }) {
     const [value, setValue] = React.useState(PageValue);
 
     const websiteSettings = useSelector(selectWebsiteSettings);
+    // Classes and their sections come from the shared grades store - the same
+    // source every other screen uses - instead of a hardcoded list.
+    const grades = useSelector(selectGrades);
 
     const [selectedClass, setSelectedClass] = useState("overall");
     const [selectedClassSection, setSelectedClassSection] = useState({ sectionName: "OverAll" });
-    const [sections, setSections] = useState([]);
+
+    const optionsWithOverall = useMemo(() => ([
+        { label: "Over All", value: "overall" },
+        ...(grades || []).map((g) => ({ label: g.sign, value: g.sign })),
+    ]), [grades]);
+
+    const sections = useMemo(() => {
+        if (!selectedClass || selectedClass === "overall") return [];
+        const grade = (grades || []).find((g) => g.sign === selectedClass);
+        return (grade?.sections || []).map((sectionName) => ({ sectionName }));
+    }, [grades, selectedClass]);
+
     const [sectionDetails, setSectionDetails] = useState([]);
 
     const [selectedValue, setSelectedValue] = useState(0);
@@ -455,32 +465,6 @@ export default function IrregularAttendeesPage({ onClose }) {
 
     useEffect(() => {
         if (selectedClass) {
-            fetchSections(selectedClass);
-        }
-    }, [selectedClass]);
-
-    const fetchSections = async (selectedClass) => {
-        setIsLoading(true);
-        try {
-            const res = await axios.get(sectionsDropdown, {
-                params: {
-                    grade: selectedClass,
-                },
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            });
-
-            setSections(res.data.sections);
-        } catch (error) {
-            console.error(error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        if (selectedClass) {
             fetchAbsentTable(selectedClass, selectedClassSection.sectionName);
             fetchLeaveTable(selectedClass, selectedClassSection.sectionName);
             fetchLateTable(selectedClass, selectedClassSection.sectionName);
@@ -502,10 +486,6 @@ export default function IrregularAttendeesPage({ onClose }) {
                 },
             });
             setAbsentData(res.data);
-            setOpen(true)
-            setMessage("Absent Data Fetched Successfully");
-            setColor(true)
-            setStatus(true)
         } catch (error) {
             console.error(error);
         } finally {
@@ -662,7 +642,6 @@ export default function IrregularAttendeesPage({ onClose }) {
         <Box sx={{ backgroundColor: "#F6F6F8" }}>
             <SnackBar open={open} color={color} setOpen={setOpen} status={status} message={message} />
             <Box >
-                {isLoading && <Loader />}
                 <Grid container py={1} px={2} sx={{ backgroundColor: "#F2F2F2" }}>
                     <Grid
                         size={{
@@ -821,7 +800,11 @@ export default function IrregularAttendeesPage({ onClose }) {
                                     getOptionLabel={(option) => option.label}
                                     value={optionsWithOverall.find((option) => option.value === selectedClass) || null}
                                     onChange={(event, value) => {
-                                        if (value) setSelectedClass(value.value);
+                                        if (value) {
+                                            setSelectedClass(value.value);
+                                            // The old section may not exist on the new class.
+                                            setSelectedClassSection({ sectionName: "OverAll" });
+                                        }
                                     }}
                                     sx={{ width: "100%" }}
                                     PaperComponent={(props) => (
@@ -921,13 +904,16 @@ export default function IrregularAttendeesPage({ onClose }) {
                                     variant="outlined"
                                     onClick={handleExport}
                                     sx={{
-                                        borderColor: "#A9A9A9",
-                                        backgroundColor: "#fff",
-                                        py: 0.3,
+                                        height: 34,
                                         width: "100%",
-                                        color: "#000",
                                         textTransform: "none",
-                                        mb: 1
+                                        fontSize: "12.5px",
+                                        fontWeight: 700,
+                                        color: DASH.cyan,
+                                        bgcolor: DASH.cyanLight,
+                                        borderColor: "#A5F3FC",
+                                        borderRadius: RADIUS,
+                                        "&:hover": { bgcolor: DASH.cyanLight, borderColor: DASH.cyan },
                                     }}>
                                     <ExitToAppIcon />
                                     &nbsp;Export
@@ -940,12 +926,12 @@ export default function IrregularAttendeesPage({ onClose }) {
 
                 <Box hidden={value !== 0} >
                     <Box sx={{ height: "77vh", overflowY: "auto", }}>
-                        <SectionTables
+                        {isLoading ? <IrregularSectionSkeleton sections={2} columns={7} /> : <SectionTables
                             status={'Absent'}
                             data={absentData}
                             searchQuery={searchQuery}
                             setFilteredData={setFilteredData}
-                        />
+                        />}
                     </Box>
 
                     {canNotify &&
@@ -953,18 +939,19 @@ export default function IrregularAttendeesPage({ onClose }) {
                             <Button
                                 variant="contained"
                                 onClick={() => handleNotifyClick("absent", absentData)}
+                                disableElevation
                                 sx={{
-                                    bottom: '12px',
-                                    textTransform: 'none',
+                                    textTransform: "none",
+                                    fontSize: "12.5px",
+                                    fontWeight: 700,
+                                    height: 34,
+                                    px: 2.2,
+                                    mt: 2,
+                                    borderRadius: RADIUS,
                                     backgroundColor: websiteSettings.mainColor,
                                     color: websiteSettings.textColor,
-                                    fontWeight: '600',
-                                    borderRadius: '50px',
-                                    paddingTop: '0px',
-                                    paddingBottom: '0px',
-                                    px: 3,
-                                    mt:3,
                                     boxShadow: "none",
+                                    "&:hover": { backgroundColor: websiteSettings.mainColor, filter: "brightness(0.95)", boxShadow: "none" },
                                 }}
                             >
                                 Notify Absentees
@@ -975,30 +962,31 @@ export default function IrregularAttendeesPage({ onClose }) {
 
                 <Box hidden={value !== 1}>
                     <Box sx={{ height: "77vh", overflowY: "auto", }}>
-                        <SectionTables
+                        {isLoading ? <IrregularSectionSkeleton sections={2} columns={7} /> : <SectionTables
                             status={'Leave'}
                             data={leaveData}
                             searchQuery={searchQuery}
                             setFilteredData={setFilteredData}
-                        />
+                        />}
                     </Box>
                     <Box sx={{ display: "flex", justifyContent: "center" }}>
                         {canNotify &&
                             <Button
                                 variant="contained"
                                 onClick={() => handleNotifyClick("leave", leaveData)}
+                                disableElevation
                                 sx={{
-                                    bottom: '12px',
-                                    textTransform: 'none',
+                                    textTransform: "none",
+                                    fontSize: "12.5px",
+                                    fontWeight: 700,
+                                    height: 34,
+                                    px: 2.2,
+                                    mt: 2,
+                                    borderRadius: RADIUS,
                                     backgroundColor: websiteSettings.mainColor,
                                     color: websiteSettings.textColor,
-                                    fontWeight: '600',
-                                    borderRadius: '50px',
-                                    paddingTop: '0px',
-                                    paddingBottom: '0px',
-                                    px: 3,
-                                    mt:3,
                                     boxShadow: "none",
+                                    "&:hover": { backgroundColor: websiteSettings.mainColor, filter: "brightness(0.95)", boxShadow: "none" },
                                 }}
                             >
                                 Notify Leaves
@@ -1009,30 +997,31 @@ export default function IrregularAttendeesPage({ onClose }) {
 
                 <Box hidden={value !== 2} >
                     <Box sx={{ height: "77vh", overflowY: "auto", }}>
-                        <SectionTables
+                        {isLoading ? <IrregularSectionSkeleton sections={2} columns={7} /> : <SectionTables
                             status={'Late'}
                             data={lateData}
                             searchQuery={searchQuery}
                             setFilteredData={setFilteredData}
-                        />
+                        />}
                     </Box>
                     <Box sx={{ display: "flex", justifyContent: "center" }}>
                         {canNotify &&
                             <Button
                                 variant="contained"
                                 onClick={() => handleNotifyClick("late", lateData)}
+                                disableElevation
                                 sx={{
-                                    bottom: '12px',
-                                    textTransform: 'none',
+                                    textTransform: "none",
+                                    fontSize: "12.5px",
+                                    fontWeight: 700,
+                                    height: 34,
+                                    px: 2.2,
+                                    mt: 2,
+                                    borderRadius: RADIUS,
                                     backgroundColor: websiteSettings.mainColor,
                                     color: websiteSettings.textColor,
-                                    fontWeight: '600',
-                                    borderRadius: '50px',
-                                    paddingTop: '0px',
-                                    paddingBottom: '0px',
-                                    px: 3,
-                                    mt:3,
                                     boxShadow: "none",
+                                    "&:hover": { backgroundColor: websiteSettings.mainColor, filter: "brightness(0.95)", boxShadow: "none" },
                                 }}
                             >
                                 Notify Latecomers

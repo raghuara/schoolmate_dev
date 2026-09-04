@@ -5,6 +5,8 @@ import {
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
+import { findSubMenuPermissions } from "../../../Redux/Slices/AuthSlice";
+import axios from "axios";
 
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import AddIcon from "@mui/icons-material/Add";
@@ -21,11 +23,16 @@ import SnackBar from "../../SnackBar";
 import Loader from "../../Loader";
 import { DASH, RADIUS } from "../../DashBoardComps/dashboardTheme";
 import { selectGrades } from "../../../Redux/Slices/DropdownController";
+import { gradeSign } from "../../AcademicsComps/academicMeta";
+import { ListPatterns, DeletePattern } from "../../../Api/Api";
+import { apiFailed } from "../../AcademicsComps/BooksChaptersComps/bookApi";
 import {
-    MOCK_PATTERNS, patternBalanced, patternQuestionCount, patternSpread,
+    normalizePatternList, patternBalanced, patternQuestionCount, patternSpread,
     patternTotal, durationLabel,
 } from "./questionPaperApi";
 import { fieldSx, outlineBtnSx, createBtnSx, primaryBtnSx } from "./questionPaperTheme";
+
+const token = "123";
 
 /* Every card is the same height. The section count varies from three to eight
    across the blueprints, so the spread is drawn as one bar of fixed height
@@ -53,7 +60,7 @@ const classRange = (grades, gradeIds) => {
 
 /* The card reads as a mark sheet: a ruled head with the total, one bar showing
    where the marks sit, and the section letters underneath it. */
-const PatternSheetCard = ({ pattern, grades, onOpen, onEdit, onClone, onDelete }) => {
+const PatternSheetCard = ({ pattern, grades, onOpen, onEdit, onClone, onDelete, canEdit, canClone, canDelete }) => {
     const total = patternTotal(pattern);
     const balanced = patternBalanced(pattern);
     const spread = patternSpread(pattern);
@@ -117,7 +124,7 @@ const PatternSheetCard = ({ pattern, grades, onOpen, onEdit, onClone, onDelete }
                                 overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                             }}
                         >
-                            {pattern.exam || "Any exam"} - {classRange(grades, pattern.gradeIds)}
+                            {pattern.subject || "Any subject"} - {classRange(grades, pattern.gradeIds)}
                         </Typography>
                     </Box>
 
@@ -126,21 +133,28 @@ const PatternSheetCard = ({ pattern, grades, onOpen, onEdit, onClone, onDelete }
                         onClick={(e) => e.stopPropagation()}
                         sx={{ display: "flex", gap: 0.1, opacity: { xs: 1, md: 0 }, transition: "opacity .2s ease", flexShrink: 0 }}
                     >
-                        <Tooltip title="Edit" arrow>
-                            <IconButton size="small" onClick={() => onEdit(pattern)} sx={{ width: 26, height: 26 }}>
-                                <EditOutlinedIcon sx={{ fontSize: 15, color: DASH.muted }} />
-                            </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Duplicate" arrow>
-                            <IconButton size="small" onClick={() => onClone(pattern)} sx={{ width: 26, height: 26 }}>
-                                <ContentCopyOutlinedIcon sx={{ fontSize: 14, color: DASH.muted }} />
-                            </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Delete" arrow>
-                            <IconButton size="small" onClick={() => onDelete(pattern)} sx={{ width: 26, height: 26 }}>
-                                <DeleteOutlineIcon sx={{ fontSize: 15, color: DASH.red }} />
-                            </IconButton>
-                        </Tooltip>
+                        {canEdit && (
+                            <Tooltip title="Edit" arrow>
+                                <IconButton size="small" onClick={() => onEdit(pattern)} sx={{ width: 26, height: 26 }}>
+                                    <EditOutlinedIcon sx={{ fontSize: 15, color: DASH.muted }} />
+                                </IconButton>
+                            </Tooltip>
+                        )}
+                        {/* Duplicate writes a new pattern, so it is a create, not an edit. */}
+                        {canClone && (
+                            <Tooltip title="Duplicate" arrow>
+                                <IconButton size="small" onClick={() => onClone(pattern)} sx={{ width: 26, height: 26 }}>
+                                    <ContentCopyOutlinedIcon sx={{ fontSize: 14, color: DASH.muted }} />
+                                </IconButton>
+                            </Tooltip>
+                        )}
+                        {canDelete && (
+                            <Tooltip title="Delete" arrow>
+                                <IconButton size="small" onClick={() => onDelete(pattern)} sx={{ width: 26, height: 26 }}>
+                                    <DeleteOutlineIcon sx={{ fontSize: 15, color: DASH.red }} />
+                                </IconButton>
+                            </Tooltip>
+                        )}
                     </Box>
                 </Box>
             </Box>
@@ -231,7 +245,29 @@ const PatternSheetCard = ({ pattern, grades, onOpen, onEdit, onClone, onDelete }
 
 export default function PatternListPage() {
     const navigate = useNavigate();
-    const grades = useSelector(selectGrades) || [];
+    /* `|| []` builds a new array on every render, which would make every memo
+       below it change identity and refetch. Held steady here instead. */
+    const gradeList = useSelector(selectGrades);
+    const grades = useMemo(() => gradeList || [], [gradeList]);
+    const user = useSelector((state) => state.auth);
+    const rollNumber = user?.rollNumber;
+
+    /* questionpapergeneration > pattern. Only an explicit "N" refuses: a session
+       whose stored login payload predates the submenu has no key to read, and
+       treating "not in my payload" as denied would lock out someone who holds
+       the right. Once the key is there it decides on its own. */
+    const patternPerms = findSubMenuPermissions(user?.permissions, "questionpapergeneration", "pattern");
+    const may = (key) => !patternPerms || patternPerms[key] === "Y";
+    const canCreate = may("create");
+    const canEditPattern = may("edit");
+    const canDeletePattern = may("delete");
+
+    /* A pattern stores the class as its sign ("II"); the filters work in ids.
+       Declared once so the list, the view and the builder all resolve alike. */
+    const gradeIdOf = useCallback(
+        (sign) => grades.find((g) => String(g.sign) === String(sign))?.id || "",
+        [grades]
+    );
 
     const [patterns, setPatterns] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -239,6 +275,7 @@ export default function PatternListPage() {
     const [categoryFilter, setCategoryFilter] = useState("all");
     const [gradeFilter, setGradeFilter] = useState("all");
     const [deleteTarget, setDeleteTarget] = useState(null);
+    const [deleting, setDeleting] = useState(false);
 
     const [open, setOpen] = useState(false);
     const [status, setStatus] = useState(false);
@@ -249,30 +286,44 @@ export default function PatternListPage() {
         setMessage(msg); setColor(ok); setStatus(ok); setOpen(true);
     };
 
-    /* Mock source. Replace with axios.get(GetQuestionPaperPatterns) +
-       normalizePatternList. */
+    /* Patterns are scoped to grade + subject, not to an academic year, so the
+       list is fetched once and the class filter is applied server-side when one
+       is chosen - the search box stays local, it reads the same rows. */
     const load = useCallback(() => {
         setIsLoading(true);
-        const timer = setTimeout(() => {
-            setPatterns(MOCK_PATTERNS);
-            setIsLoading(false);
-        }, 300);
-        return () => clearTimeout(timer);
-    }, []);
+        axios
+            .get(ListPatterns, {
+                params: {
+                    grade: gradeFilter !== "all" ? gradeSign(grades, gradeFilter) || undefined : undefined,
+                    requestedByRollNumber: rollNumber,
+                },
+                headers: { Authorization: `Bearer ${token}` },
+            })
+            .then((res) => {
+                if (apiFailed(res.data)) { setPatterns([]); return; }
+                setPatterns(normalizePatternList(res.data, { gradeIdOf }));
+            })
+            .catch((error) => {
+                setPatterns([]);
+                notify(error?.response?.data?.message || "The patterns could not be loaded");
+            })
+            .finally(() => setIsLoading(false));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [gradeFilter, grades, rollNumber]);
 
     useEffect(() => { load(); }, [load]);
 
-    const examFilterOptions = useMemo(
-        () => Array.from(new Set(patterns.map((p) => p.exam).filter(Boolean))).sort(),
+    const subjectFilterOptions = useMemo(
+        () => Array.from(new Set(patterns.map((p) => p.subject).filter(Boolean))).sort(),
         [patterns]
     );
 
     const filtered = useMemo(() => patterns.filter((p) => {
-        if (categoryFilter !== "all" && p.exam !== categoryFilter) return false;
+        if (categoryFilter !== "all" && p.subject !== categoryFilter) return false;
         if (gradeFilter !== "all" && !p.gradeIds.map(String).includes(String(gradeFilter))) return false;
         if (search.trim()) {
             const t = search.trim().toLowerCase();
-            if (!`${p.name} ${p.exam} ${p.createdBy}`.toLowerCase().includes(t)) return false;
+            if (!`${p.name} ${p.subject} ${p.createdBy}`.toLowerCase().includes(t)) return false;
         }
         return true;
     }), [patterns, search, categoryFilter, gradeFilter]);
@@ -291,9 +342,22 @@ export default function PatternListPage() {
     const confirmDelete = () => {
         const target = deleteTarget;
         setDeleteTarget(null);
-        if (!target) return;
-        setPatterns((prev) => prev.filter((p) => p.id !== target.id));
-        notify(`"${target.name}" deleted`, true);
+        if (!target?.id) return;
+
+        setDeleting(true);
+        axios
+            .delete(DeletePattern, {
+                params: { patternId: target.id, deletedByRollNumber: rollNumber },
+                headers: { Authorization: `Bearer ${token}` },
+            })
+            .then((res) => {
+                const rejected = apiFailed(res.data);
+                if (rejected) { notify(rejected); return; }
+                notify(`"${target.name}" deleted`, true);
+                load();
+            })
+            .catch((error) => notify(error?.response?.data?.message || "The pattern could not be deleted"))
+            .finally(() => setDeleting(false));
     };
 
     return (
@@ -323,14 +387,16 @@ export default function PatternListPage() {
                 </Box>
 
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexShrink: 0, pl: { xs: 5, md: 0 } }}>
-                    <Button
-                        onClick={() => navigate("/dashboardmenu/assessment/question-paper/patterns/create")}
-                        variant="contained"
-                        startIcon={<AddIcon sx={{ fontSize: 18 }} />}
-                        sx={createBtnSx}
-                    >
-                        Create Pattern
-                    </Button>
+                    {canCreate && (
+                        <Button
+                            onClick={() => navigate("/dashboardmenu/assessment/question-paper/patterns/create")}
+                            variant="contained"
+                            startIcon={<AddIcon sx={{ fontSize: 18 }} />}
+                            sx={createBtnSx}
+                        >
+                            Create Pattern
+                        </Button>
+                    )}
                 </Box>
             </Box>
 
@@ -363,8 +429,8 @@ export default function PatternListPage() {
                     onChange={(e) => setCategoryFilter(e.target.value)}
                     sx={{ ...fieldSx, minWidth: 160, fontSize: "13px" }}
                 >
-                    <MenuItem value="all" sx={{ fontSize: "13px" }}>All Exams</MenuItem>
-                    {examFilterOptions.map((c) => (
+                    <MenuItem value="all" sx={{ fontSize: "13px" }}>All Subjects</MenuItem>
+                    {subjectFilterOptions.map((c) => (
                         <MenuItem key={c} value={c} sx={{ fontSize: "13px" }}>{c}</MenuItem>
                     ))}
                 </Select>
@@ -387,17 +453,21 @@ export default function PatternListPage() {
                     <Typography sx={{ fontSize: "14.5px", fontWeight: 700, color: DASH.ink, mt: 1 }}>
                         No patterns match this view
                     </Typography>
-                    <Typography sx={{ fontSize: "12.5px", color: DASH.muted, mt: 0.5, mb: 2 }}>
-                        Build one once - every paper of that exam type reuses it.
+                    <Typography sx={{ fontSize: "12.5px", color: DASH.muted, mt: 0.5, mb: canCreate ? 2 : 0 }}>
+                        {canCreate
+                            ? "Build one once - every paper of that exam type reuses it."
+                            : "Patterns are built by a role that holds create access for them."}
                     </Typography>
-                    <Button
-                        onClick={() => navigate("/dashboardmenu/assessment/question-paper/patterns/create")}
-                        variant="contained"
-                        startIcon={<AddIcon sx={{ fontSize: 18 }} />}
-                        sx={createBtnSx}
-                    >
-                        Create Pattern
-                    </Button>
+                    {canCreate && (
+                        <Button
+                            onClick={() => navigate("/dashboardmenu/assessment/question-paper/patterns/create")}
+                            variant="contained"
+                            startIcon={<AddIcon sx={{ fontSize: 18 }} />}
+                            sx={createBtnSx}
+                        >
+                            Create Pattern
+                        </Button>
+                    )}
                 </Box>
             ) : (
                 <Grid container spacing={1.8}>
@@ -410,6 +480,9 @@ export default function PatternListPage() {
                                 onEdit={editPattern}
                                 onClone={clonePattern}
                                 onDelete={setDeleteTarget}
+                                canEdit={canEditPattern}
+                                canClone={canCreate}
+                                canDelete={canDeletePattern}
                             />
                         </Grid>
                     ))}
@@ -432,8 +505,12 @@ export default function PatternListPage() {
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2 }}>
                     <Button onClick={() => setDeleteTarget(null)} sx={outlineBtnSx}>Cancel</Button>
-                    <Button onClick={confirmDelete} sx={{ ...primaryBtnSx, bgcolor: DASH.red, "&:hover": { bgcolor: "#DC2626" } }}>
-                        Delete
+                    <Button
+                        onClick={confirmDelete}
+                        disabled={deleting}
+                        sx={{ ...primaryBtnSx, bgcolor: DASH.red, "&:hover": { bgcolor: "#DC2626" } }}
+                    >
+                        {deleting ? "Deleting..." : "Delete"}
                     </Button>
                 </DialogActions>
             </Dialog>

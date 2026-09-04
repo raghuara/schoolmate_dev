@@ -16,7 +16,7 @@ import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
-import { DASH } from "../../../DashBoardComps/dashboardTheme";
+import { DASH, RADIUS, PageHeader } from "../../../DashBoardComps/dashboardTheme";
 
 
 export default function ExtraCurricularFeeApprovalStatus() {
@@ -204,7 +204,10 @@ export default function ExtraCurricularFeeApprovalStatus() {
               <ArrowBackIcon sx={{ fontSize: 20, color: DASH.ink }} />
             </IconButton>
 
-            <Typography sx={{ fontSize: "20px", fontWeight: 700, color: DASH.ink, lineHeight: 1.2 }}>ECA Fee Approval Status</Typography>
+            <Box>
+                            <Typography sx={{ fontSize: "20px", fontWeight: 700, color: DASH.ink, lineHeight: 1.2 }}>ECA Fee Approval Status</Typography>
+                            <Typography sx={{ fontSize: "11.5px", color: DASH.muted, mt: 0.2 }}>Track the activity fees you sent for approval</Typography>
+                        </Box>
           </Grid>
           <Grid
             size={{ xs: 0, sm: 0, md: 0, lg: 2 }}
@@ -517,7 +520,7 @@ export default function ExtraCurricularFeeApprovalStatus() {
                           <DeleteIcon
                             sx={{
                               fontSize: "20px",
-                              color: "#FF00009A",
+                              color: DASH.red,
                               transition: "color 0.2s ease",
                             }}
                           />
@@ -676,42 +679,58 @@ export default function ExtraCurricularFeeApprovalStatus() {
                       </Dialog>
                     </Box>
                   </Box>
-                  <Box p={2} sx={{ backgroundColor: "#fff", border: "1px solid #E8DDEA", borderRadius: "5px" }}>
+                  <Box p={2} sx={{ backgroundColor: "#fff", border: `1px solid ${DASH.line}`, borderRadius: "5px" }}>
                     <TableContainer
                       sx={{
-                        border: "1px solid #E8DDEA",
+                        border: `1px solid ${DASH.line}`,
                         backgroundColor: "#fff",
                         boxShadow: "none",
                         borderBottom: "none"
                       }}
                     >
-                      <Table stickyHeader aria-label="attendance table" sx={{ minWidth: '100%' }}>
+                      <Table
+                                            stickyHeader
+                                            aria-label="approval status table"
+                                            sx={{
+                                                minWidth: '100%',
+                                                "& thead .MuiTableCell-root": {
+                                                    color: DASH.muted,
+                                                    fontSize: "10.5px",
+                                                    fontWeight: 700,
+                                                    letterSpacing: "0.06em",
+                                                    textTransform: "uppercase",
+                                                    py: 1,
+                                                },
+                                                "& tbody .MuiTableCell-root": { fontSize: "12.5px", color: DASH.text, py: 0.9 },
+                                                "& tbody .MuiTableRow-root:hover .MuiTableCell-root": { backgroundColor: DASH.surface },
+                                            }}
+                                        >
                         <TableHead>
                           <TableRow>
-                            <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#faf6fc" }}>
+                            <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center", backgroundColor: DASH.surface }}>
                               Fee Name
                             </TableCell>
-                            <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#faf6fc" }}>
+                            <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center", backgroundColor: DASH.surface }}>
                               Remarks
                             </TableCell>
-                            <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center", backgroundColor: "#faf6fc" }}>
+                            <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center", backgroundColor: DASH.surface }}>
                               Payment Status
                             </TableCell>
-                            <TableCell sx={{ textAlign: "center", backgroundColor: "#faf6fc" }}>
+                            <TableCell sx={{ textAlign: "center", backgroundColor: DASH.surface }}>
                               Due Date
                             </TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
                           <TableRow>
-                            <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center" }}>
+                            <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center" }}>
                               {item.activityName}
                             </TableCell>
 
-                            <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center" }}>
+                            <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center" }}>
                               {item.activityCategory}
                             </TableCell>
-                            <TableCell sx={{ borderRight: 1, borderColor: "#E8DDEA", textAlign: "center" }}>
+                            <TableCell sx={{ borderRight: 1, borderColor: DASH.line, textAlign: "center" }}>
                               {item.paid === "Y" ? "Paid" : "Unpaid"}
                             </TableCell>
 
@@ -724,7 +743,7 @@ export default function ExtraCurricularFeeApprovalStatus() {
                     </TableContainer>
 
                     {item.paid === "Y" &&
-                      <Box sx={{ backgroundColor: "#FFE5E5", p: 3, border: "1px solid #E8DDEA", borderTop: "none", }}>
+                      <Box sx={{ backgroundColor: "#FFE5E5", p: 3, border: `1px solid ${DASH.line}`, borderTop: "none", }}>
                         <Grid container spacing={2}>
                           {Object.entries(item.grades || {}).map(
                             ([gradeKey, amount]) => (

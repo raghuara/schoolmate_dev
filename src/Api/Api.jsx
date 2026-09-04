@@ -44,6 +44,8 @@ const searchmessages = `${chatHubBaseUrl}/api/chat/searchmessages`;
 
 const Login = `${baseApiurl}Login`;
 
+const getSchoolConfig = `${baseApiurl}schoolconfig/getSchoolConfig`;
+
 // Common Apis 
 const sectionsDropdown = `${baseApiurl}attendance/sectionsDropdown`;
 const GettingGradesData = `${baseApiurl}GradeValueFetch/GettingGrades`;
@@ -659,6 +661,16 @@ const GetBookStatus = `${baseApiurl}questionpapergeneration/getBookStatus`;
 const ListBooks = `${baseApiurl}questionpapergeneration/listBooks`;
 const ConfirmBookChapters = `${baseApiurl}questionpapergeneration/confirmChapters`;
 const UpdateBookMetadata = `${baseApiurl}questionpapergeneration/updateBookMetadata`;
+const DeleteBook = `${baseApiurl}questionpapergeneration/deleteBook`;
+
+/* questionpapergeneration > pattern. Patterns are scoped to grade + subject and
+   are NOT tied to an academic year or a book - the same one is reused every
+   year. UAT only, not on Live yet. */
+const CreatePattern = `${baseApiurl}questionpapergeneration/createPattern`;
+const UpdatePattern = `${baseApiurl}questionpapergeneration/updatePattern`;
+const GetPattern = `${baseApiurl}questionpapergeneration/getPattern`;
+const ListPatterns = `${baseApiurl}questionpapergeneration/listPatterns`;
+const DeletePattern = `${baseApiurl}questionpapergeneration/deletePattern`;
 
 //----------------------------------- xxxxxxxx ----------------------------------
 
@@ -766,6 +778,7 @@ const GetStaffMyWork = `${baseApiurl}complaints/staff/my-work`;
 //----------------------------------- xxxxxxxx ----------------------------------
 
 export {
+    getSchoolConfig,
     poststudyMaterial,
     deleteDashboardSlider,
     LoginList,
@@ -1226,6 +1239,12 @@ export {
     CommonDashboardWork,
     CommonDashboardForMe,
     UploadBook,
+    DeleteBook,
+    CreatePattern,
+    UpdatePattern,
+    GetPattern,
+    ListPatterns,
+    DeletePattern,
     GetBookStatus,
     ListBooks,
     ConfirmBookChapters,

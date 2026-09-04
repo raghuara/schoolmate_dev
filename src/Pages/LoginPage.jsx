@@ -13,15 +13,16 @@ import { Form } from 'react-bootstrap';
 import SnackBar from '../Components/SnackBar';
 import Loader from '../Components/Loader';
 import { useDispatch, useSelector } from 'react-redux';
-import { selectWebsiteSettings } from '../Redux/Slices/websiteSettingsSlice';
-import Slider from 'react-slick';
+import { selectWebsiteSettings, fetchWebsiteSettings } from '../Redux/Slices/websiteSettingsSlice';
 import ErrorIcon from '@mui/icons-material/Error';
 import { loginSuccess } from '../Redux/Slices/AuthSlice';
 import { setVersion } from '../Redux/Slices/versionSlice';
 import { generateToken } from '../Components/Notification/Firebase';
-import productLogo from '../Images/Login/SchoolMate Logo.png'
-import SchoolLogo from '../Images/Login/MSMSLogo.png'
+import productLogo from '../Images/Login/SchoolMate Logo.png';
 import { broadcastLogin, generateSessionId } from '../Redux/Slices/sessionManager';
+
+const SHOW_FORGOT_PASSWORD = false;
+const SHOW_VERSION_CONTROL = false;
 
 export default function LoginPage() {
     const [userId, setUserId] = useState('');
@@ -44,6 +45,10 @@ export default function LoginPage() {
     const [versionData, setVersionData] = useState({ LITE: false, PRO: false, PLUS: false, FULL_360: false });
     const [versionFetching, setVersionFetching] = useState(false);
     const [versionSaving, setVersionSaving] = useState(false);
+
+    useEffect(() => {
+        dispatch(fetchWebsiteSettings());
+    }, [dispatch]);
 
     const handleOpenVersionDialog = async () => {
         setVersionDialogOpen(true);
@@ -78,32 +83,6 @@ export default function LoginPage() {
 
     const togglePasswordVisibility = () => {
         setShowPassword(!showPassword);
-    };
-
-
-    const settings = {
-        dots: true,
-        infinite: true,
-        speed: 1000,
-        slidesToShow: 1,
-        slidesToScroll: 1,
-        arrows: false,
-        autoplay: true,
-        autoplaySpeed: 3500,
-        responsive: [
-            {
-                breakpoint: 1024,
-                settings: { slidesToShow: 1, slidesToScroll: 1 },
-            },
-            {
-                breakpoint: 600,
-                settings: { slidesToShow: 1, slidesToScroll: 1 },
-            },
-            {
-                breakpoint: 480,
-                settings: { slidesToShow: 1, slidesToScroll: 1 },
-            },
-        ],
     };
 
     const handleSubmit = async (e) => {
@@ -234,7 +213,12 @@ export default function LoginPage() {
         }
     };
 
-    const isButtonEnabled = userId.trim() !== '' && password.trim() !== '';
+    const accent = websiteSettings.mainColor || "#4299e1";
+    const accentDark = websiteSettings.darkColor || "#3182ce";
+    const accentText = websiteSettings.textColor || "#ffffff";
+    const panelBg = websiteSettings.backgroundColor || "#FFFBE2";
+
+    const isButtonEnabled = userId.trim() !== '' && password.trim() !== '' && !isLoading;
 
     return (
         <Box sx={{ height: "100vh", width: "100%" }}>
@@ -245,7 +229,7 @@ export default function LoginPage() {
                 {/* Slider Section - Left Side */}
                 <Grid
                     sx={{
-                        backgroundColor: "#FFFBE2",
+                        background: `linear-gradient(160deg, ${panelBg} 0%, ${websiteSettings.lightColor || panelBg} 100%)`,
                         display: { xs: "none", md: "flex" },
                         alignItems: "center",
                         justifyContent: "center",
@@ -299,30 +283,49 @@ export default function LoginPage() {
                     
                     <Box sx={{ width: "100%", maxWidth: "460px", position: "relative", zIndex: 1 }}>
                         {/* Title */}
-                        {/* <Box sx={{ display: "flex", justifyContent: "center", mb: 2 }}>
-                            <motion.img
-                                initial={{ opacity: 0, scale: 0.5 }}
-                                animate={{
-                                    opacity: 1,
-                                    scale: 1,
-                                    y: [0, -10, 0]
-                                }}
-                                transition={{
-                                    opacity: { duration: 0.5, ease: "easeOut" },
-                                    scale: { duration: 0.5, ease: "easeOut" },
-                                    y: {
-                                        duration: 2,
-                                        repeat: Infinity,
-                                        ease: "easeInOut",
-                                        delay: 0.5
-                                    }
-                                }}
-                                src={SchoolLogo}
-                                alt="logo"
-                                width={"100px"}
-                            />
-                        </Box> */}
-                        <Box sx={{ mb: 3, display: "flex", justifyContent: "center" }}>
+                        <Box
+                            sx={{
+                                display: "flex",
+                                justifyContent: "center",
+                                alignItems: "center",
+                                mb: 2,
+                                height: { xs: "80px", md: "96px" },
+                                width: "100%",
+                            }}
+                        >
+                            {websiteSettings.logo && (
+                                <motion.img
+                                    key={websiteSettings.logo}
+                                    initial={{ opacity: 0, scale: 0.5 }}
+                                    animate={{
+                                        opacity: 1,
+                                        scale: 1,
+                                        y: [0, -10, 0]
+                                    }}
+                                    transition={{
+                                        opacity: { duration: 0.5, ease: "easeOut" },
+                                        scale: { duration: 0.5, ease: "easeOut" },
+                                        y: {
+                                            duration: 2,
+                                            repeat: Infinity,
+                                            ease: "easeInOut",
+                                            delay: 0.5
+                                        }
+                                    }}
+                                    src={websiteSettings.logo}
+                                    alt={websiteSettings.title || "School logo"}
+                                    style={{
+                                        maxHeight: "100%",
+                                        maxWidth: "240px",
+                                        width: "auto",
+                                        height: "auto",
+                                        objectFit: "contain",
+                                        display: "block",
+                                    }}
+                                />
+                            )}
+                        </Box>
+                        <Box sx={{ mb: 3, display: "flex", justifyContent: "center", textAlign: "center" }}>
                             <motion.div
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
@@ -395,7 +398,7 @@ export default function LoginPage() {
                                             "&.Mui-focused": {
                                                 backgroundColor: "#ffffff",
                                                 "& fieldset": {
-                                                    borderColor: activateError ? "#f56565" : activateSuccess ? "#48bb78" : "#4299e1",
+                                                    borderColor: activateError ? "#f56565" : activateSuccess ? "#48bb78" : accent,
                                                     borderWidth: "2px",
                                                 }
                                             },
@@ -458,24 +461,26 @@ export default function LoginPage() {
                                     //     onPaste: (e) => e.preventDefault(),
                                     //     onCut: (e) => e.preventDefault(),
                                     // }}
-                                    InputProps={{
-                                        endAdornment: (
-                                            <InputAdornment position="end">
-                                                <IconButton
-                                                    aria-label="toggle password visibility"
-                                                    onClick={togglePasswordVisibility}
-                                                    edge="end"
-                                                    sx={{
-                                                        color: "#718096",
-                                                        "&:hover": {
-                                                            backgroundColor: "rgba(0,0,0,0.04)"
-                                                        }
-                                                    }}
-                                                >
-                                                    {showPassword ? <VisibilityIcon /> : <VisibilityOffIcon />}
-                                                </IconButton>
-                                            </InputAdornment>
-                                        ),
+                                    slotProps={{
+                                        input: {
+                                            endAdornment: (
+                                                <InputAdornment position="end">
+                                                    <IconButton
+                                                        aria-label="toggle password visibility"
+                                                        onClick={togglePasswordVisibility}
+                                                        edge="end"
+                                                        sx={{
+                                                            color: "#718096",
+                                                            "&:hover": {
+                                                                backgroundColor: "rgba(0,0,0,0.04)"
+                                                            }
+                                                        }}
+                                                    >
+                                                        {showPassword ? <VisibilityIcon /> : <VisibilityOffIcon />}
+                                                    </IconButton>
+                                                </InputAdornment>
+                                            ),
+                                        }
                                     }}
                                     sx={{
                                         "& .MuiOutlinedInput-root": {
@@ -495,7 +500,7 @@ export default function LoginPage() {
                                             "&.Mui-focused": {
                                                 backgroundColor: "#ffffff",
                                                 "& fieldset": {
-                                                    borderColor: activateError ? "#f56565" : activateSuccess ? "#48bb78" : "#4299e1",
+                                                    borderColor: activateError ? "#f56565" : activateSuccess ? "#48bb78" : accent,
                                                     borderWidth: "2px",
                                                 }
                                             },
@@ -527,36 +532,40 @@ export default function LoginPage() {
                             </motion.div>
 
                             {/* Forgot Password */}
-                            <motion.div
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                transition={{ duration: 0.5, delay: 0.6, ease: "easeOut" }}
-                            >
-                            <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 3 }}>
+                            {SHOW_FORGOT_PASSWORD ? (
                                 <motion.div
-                                    animate={{
-                                        opacity: [1, 0.7, 1]
-                                    }}
-                                    transition={{
-                                        duration: 2,
-                                        repeat: Infinity,
-                                        ease: "easeInOut"
-                                    }}
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    transition={{ duration: 0.5, delay: 0.6, ease: "easeOut" }}
                                 >
-                                    <Link
-                                        to="#"
-                                        style={{
-                                            color: "#4299e1",
-                                            textDecoration: "none",
-                                            fontSize: "14px",
-                                            fontWeight: 600,
-                                        }}
-                                    >
-                                        Forgot Password?
-                                    </Link>
+                                    <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 3 }}>
+                                        <motion.div
+                                            animate={{
+                                                opacity: [1, 0.7, 1]
+                                            }}
+                                            transition={{
+                                                duration: 2,
+                                                repeat: Infinity,
+                                                ease: "easeInOut"
+                                            }}
+                                        >
+                                            <Link
+                                                to="#"
+                                                style={{
+                                                    color: "#4299e1",
+                                                    textDecoration: "none",
+                                                    fontSize: "14px",
+                                                    fontWeight: 600,
+                                                }}
+                                            >
+                                                Forgot Password?
+                                            </Link>
+                                        </motion.div>
+                                    </Box>
                                 </motion.div>
-                            </Box>
-                            </motion.div>
+                            ) : (
+                                <Box sx={{ mb: 3 }} />
+                            )}
 
                             {/* Login Button */}
                             <motion.div
@@ -583,8 +592,8 @@ export default function LoginPage() {
                                 disabled={!isButtonEnabled}
                                 variant="contained"
                                 sx={{
-                                    backgroundColor: isButtonEnabled ? "#4299e1" : "#e2e8f0",
-                                    color: isButtonEnabled ? "#ffffff" : "#a0aec0",
+                                    backgroundColor: isButtonEnabled ? accent : "#e2e8f0",
+                                    color: isButtonEnabled ? accentText : "#a0aec0",
                                     padding: "12px 24px",
                                     fontSize: "16px",
                                     fontWeight: 700,
@@ -593,9 +602,9 @@ export default function LoginPage() {
                                     boxShadow: "none",
                                     transition: "all 0.3s ease",
                                     "&:hover": {
-                                        backgroundColor: isButtonEnabled ? "#3182ce" : "#e2e8f0",
+                                        backgroundColor: isButtonEnabled ? accentDark : "#e2e8f0",
                                         transform: isButtonEnabled ? "translateY(-2px)" : "none",
-                                        boxShadow: isButtonEnabled ? "0 6px 20px rgba(66, 153, 225, 0.5)" : "none",
+                                        boxShadow: isButtonEnabled ? "0 8px 22px rgba(0,0,0,0.18)" : "none",
                                     },
                                     "&.Mui-disabled": {
                                         backgroundColor: "#e2e8f0",
@@ -603,7 +612,12 @@ export default function LoginPage() {
                                     }
                                 }}
                             >
-                                Login
+                                {isLoading ? (
+                                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.2 }}>
+                                        <CircularProgress size={18} sx={{ color: "#a0aec0" }} />
+                                        Signing in...
+                                    </Box>
+                                ) : "Login"}
                             </Button>
                             </motion.div>
 
@@ -622,23 +636,72 @@ export default function LoginPage() {
                             >
                             <Box sx={{ mt: 3, textAlign: "center" }}>
                                 <Typography sx={{ fontSize: "13px", color: "#a0aec0", mb: 1 }}>
-                                    Secure Login • SchoolMate © 2024
+                                    Secure Login • Protected by enterprise-grade security
                                 </Typography>
-                                <Typography sx={{ fontSize: "12px", color: "#cbd5e0" }}>
-                                    Protected by enterprise-grade security
+
+                                <Box
+                                    sx={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        gap: 1,
+                                        mt: 2,
+                                        pt: 2,
+                                        borderTop: "1px solid #edf2f7",
+                                    }}
+                                >
+                                    <Typography
+                                        sx={{
+                                            fontSize: "11px",
+                                            color: "#cbd5e0",
+                                            letterSpacing: "0.4px",
+                                            textTransform: "uppercase",
+                                            fontWeight: 600,
+                                        }}
+                                    >
+                                        Powered by
+                                    </Typography>
+                                    <Box
+                                        component="img"
+                                        src={productLogo}
+                                        alt="SchoolMate"
+                                        sx={{
+                                            height: "20px",
+                                            width: "auto",
+                                            objectFit: "contain",
+                                            display: "block",
+                                            opacity: 0.75,
+                                            transition: "opacity 0.25s ease",
+                                            "&:hover": { opacity: 1 },
+                                        }}
+                                    />
+                                </Box>
+
+                                <Typography sx={{ fontSize: "11px", color: "#cbd5e0", mt: 1 }}>
+                                    © {new Date().getFullYear()} SchoolMate. All rights reserved.
                                 </Typography>
                             </Box>
                             </motion.div>
                         </Form>
-                        <Button
-                            onClick={handleOpenVersionDialog}
-                            sx={{ textTransform: 'none', fontSize: '12px', color: '#a0aec0' }}
-                        >
-                            Version Change
-                        </Button>
+                        {SHOW_VERSION_CONTROL && (
+                            <Box sx={{ display: "flex", justifyContent: "center", mt: 1 }}>
+                                <Button
+                                    onClick={handleOpenVersionDialog}
+                                    sx={{
+                                        textTransform: 'none',
+                                        fontSize: '11px',
+                                        color: '#cbd5e0',
+                                        minWidth: 'auto',
+                                        '&:hover': { color: '#a0aec0', backgroundColor: 'transparent' },
+                                    }}
+                                >
+                                    Version Change
+                                </Button>
+                            </Box>
+                        )}
 
                         {/* Version Control Dialog */}
-                        <Dialog open={versionDialogOpen} onClose={() => setVersionDialogOpen(false)} PaperProps={{ sx: { borderRadius: '16px', minWidth: '320px', p: 1 } }}>
+                        <Dialog open={SHOW_VERSION_CONTROL && versionDialogOpen} onClose={() => setVersionDialogOpen(false)} PaperProps={{ sx: { borderRadius: '16px', minWidth: '320px', p: 1 } }}>
                             <DialogTitle sx={{ fontWeight: 700, fontSize: '18px', pb: 0 }}>
                                 Version Control
                             </DialogTitle>

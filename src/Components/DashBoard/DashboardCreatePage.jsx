@@ -12,8 +12,7 @@ import SnackBar from "../SnackBar";
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import CancelIcon from "@mui/icons-material/Cancel";
 import { selectGrades } from "../../Redux/Slices/DropdownController";
-import SliderImage from "../../Images/PagesImage/timetable.png"
-import SliderImages from "../../Images/PagesImage/news.png"
+
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import CloseIcon from "@mui/icons-material/Close";
 import Loader from "../Loader";

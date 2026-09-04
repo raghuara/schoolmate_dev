@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
 import {
-    Box, Typography, Button, IconButton, Switch, Chip, Checkbox, FormControlLabel, FormGroup,
+    Box, Typography, Button, Switch, Chip, Checkbox, FormControlLabel,
     Accordion, AccordionSummary, AccordionDetails, FormControl, Select, MenuItem, Divider, Tooltip, Grid, CircularProgress,
+    Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions,
 } from "@mui/material";
 import axios from "axios";
 import { UpdateUserTypePermissions, GetUserTypePermissions } from "../../../Api/Api";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
@@ -14,12 +14,16 @@ import VerifiedOutlinedIcon from "@mui/icons-material/VerifiedOutlined";
 import SaveOutlinedIcon from "@mui/icons-material/SaveOutlined";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
+import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
+import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
+import TuneOutlinedIcon from "@mui/icons-material/TuneOutlined";
 import { useNavigate, useLocation } from "react-router-dom";
 import SnackBar from "../../SnackBar";
-import { useSelector } from "react-redux";
+import { DASH, RADIUS, PageHeader } from "../../DashBoardComps/dashboardTheme";
 
 const TOKEN = "123";
 const ACCENT = "#4338CA";
+const oneLine = { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" };
 
 export const OPS = [
     { key: "view", label: "View" },
@@ -27,6 +31,66 @@ export const OPS = [
     { key: "edit", label: "Edit" },
     { key: "delete", label: "Delete" },
 ];
+
+/* A real checkbox, in a tile that shows its state at a glance. The tick is the
+   control people look for; the surround only gives the row edges so a column of
+   them scans as a list of choices instead of a ragged line of text.
+
+   No icons: the four core operations and the per-module extras sit side by side
+   in the same card, and giving only the four a glyph made them read as a
+   different kind of control from the plain ones next to them. */
+const PermChip = ({ label, active, disabled, accent, onClick, title }) => {
+    const tile = (
+        <Box
+            sx={{
+                borderRadius: RADIUS,
+                border: `1px solid ${disabled ? DASH.line : active ? accent : DASH.line}`,
+                bgcolor: disabled ? DASH.lineSoft : active ? `${accent}0A` : "#fff",
+                transition: "background-color .15s, border-color .15s",
+                "&:hover": disabled ? {} : { borderColor: active ? accent : DASH.faint, bgcolor: active ? `${accent}14` : DASH.surface },
+            }}
+        >
+            <FormControlLabel
+                disabled={disabled}
+                control={
+                    <Checkbox
+                        size="small"
+                        checked={active}
+                        disabled={disabled}
+                        onChange={onClick}
+                        sx={{
+                            p: 0.5,
+                            color: "#C7CDD6",
+                            "&.Mui-checked": { color: accent },
+                            "&.Mui-disabled": { color: "#DCE0E6" },
+                        }}
+                    />
+                }
+                label={
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.6, minWidth: 0 }}>
+                        <Typography
+                            sx={{
+                                fontSize: 12.5,
+                                fontWeight: active ? 700 : 600,
+                                color: disabled ? "#B6BCC6" : active ? DASH.ink : DASH.text,
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                            }}
+                        >
+                            {label}
+                        </Typography>
+                        {disabled && <LockOutlinedIcon sx={{ fontSize: 12, color: "#B6BCC6", flexShrink: 0 }} />}
+                    </Box>
+                }
+                sx={{ m: 0, width: "100%", px: 0.7, py: 0.35, "& .MuiFormControlLabel-label": { minWidth: 0, flex: 1 } }}
+            />
+        </Box>
+    );
+    return title
+        ? <Tooltip title={title} arrow placement="top"><Box sx={{ minWidth: 0 }}>{tile}</Box></Tooltip>
+        : tile;
+};
 
 const IMPLIES = {
     create: ["view"],
@@ -41,7 +105,7 @@ export const defaultPageConfig = () => ({
     allowSameLevel: false, // peer approval within the same level (Level 2+)
 });
 
-export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view", "create", "edit", "delete"], approval = false, validate, extraOps = {}, extraOpsLabels = {}, pageOverrides = {}, pageRequires = {}, approvalText = {}, approvalNoun = "post", onSave }) {
+export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view", "create", "edit", "delete"], approval = false, validate, extraOps = {}, extraOpsLabels = {}, pageOverrides = {}, pageRequires = {}, approvalText = {}, approvalNoun = "post", preserveSubMenus = [], onSave }) {
     const nounS = approvalNoun;
     const nounP = `${approvalNoun}s`;
     const navigate = useNavigate();
@@ -50,7 +114,6 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
     const allRoles = location.state?.roles || [];
     const mainMenuKey = location.state?.mainMenu || moduleMeta.key;
     const color = moduleMeta.color || ACCENT;
-    const isExpanded = useSelector((state) => state.sidebar.isExpanded);
 
     const pageOpsKeys = (page) => pageOverrides[page]?.opsKeys || opsKeys;
     const pageOps = (page) => OPS.filter((o) => pageOpsKeys(page).includes(o.key));
@@ -62,6 +125,14 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
 
     const flatten = (list) => (list || []).flatMap((e) => (e.items ? [...(e.gate ? [e.gate] : []), ...e.items] : [e]));
     const flatExtraOps = (page) => flatten(extraOps[page]);
+
+    /* subMenus of this main menu that another screen owns. Communication and
+       Academics are two screens over one `communication` main menu, so each save
+       has to carry the other half's stored values back untouched - otherwise a
+       backend that replaces a main menu's subMenus instead of merging them would
+       silently wipe whichever half was not on screen. Empty for every module
+       that owns its whole main menu. */
+    const [storedMenu, setStoredMenu] = useState(null);
 
     const [config, setConfig] = useState(() => Object.fromEntries(pages.map((p) => [p, {
         ...defaultPageConfig(),
@@ -95,12 +166,23 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
     const requirementMet = (page, o) => !o.requires || !!config[page]?.[o.requires];
     const opEnabled = (page, o) => extrasEnabled(page) && requirementMet(page, o);
     const dependentsOf = (page, key) => flatExtraOps(page).filter((e) => e.requires === key);
+    /* Set by every checkbox on this screen, cleared whenever the stored values are
+       (re)loaded - which includes the reload that follows a successful save. A
+       flag rather than a snapshot diff: toggling something on and back off still
+       counts as touched, which is the safer side to err on when the question is
+       "are you sure you want to throw this away". */
+    const [dirty, setDirty] = useState(false);
+    const [leaveOpen, setLeaveOpen] = useState(false);
+
     const [snack, setSnack] = useState({ open: false, ok: true, msg: "" });
     const showSnack = (msg, ok = true) => setSnack({ open: true, ok, msg });
     const [expandedPages, setExpandedPages] = useState({});
     const [saving, setSaving] = useState(false);
 
-    const setPage = (page, patch) => setConfig((prev) => ({ ...prev, [page]: { ...prev[page], ...patch } }));
+    const setPage = (page, patch) => {
+        setDirty(true);
+        setConfig((prev) => ({ ...prev, [page]: { ...prev[page], ...patch } }));
+    };
 
     // Operations that sit above this one: Edit is above Create and View,
     // Create is above View. Delete only needs View, so it is not above Create.
@@ -184,6 +266,7 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
     const isGlobalAllOn = () =>
         pages.some((p) => pageAllKeys(p).length) && pages.every((p) => pageAllKeys(p).every((k) => config[p][k]));
     const setAllPages = (val) => {
+        setDirty(true);
         setConfig((prev) => {
             const next = { ...prev };
             pages.forEach((p) => { next[p] = { ...next[p], ...Object.fromEntries(pageAllKeys(p).map((k) => [k, val])) }; });
@@ -236,6 +319,8 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
     // Same-key mapping: "Y" -> checked, "N" / null / missing -> unchecked.
     const applyData = (data) => {
         const menu = (data?.mainMenus || []).find((m) => m.mainMenu === mainMenuKey);
+        setStoredMenu(menu || null);
+        setDirty(false);
         if (!menu) return; // nothing saved yet for this module — keep defaults
         setConfig((prev) => {
             const next = { ...prev };
@@ -270,9 +355,17 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    // Resolves true only when the configuration reached the server, so "Save and
+    // leave" can tell the difference between a save and a failed one.
     const save = async () => {
         const err = runValidation();
-        if (err) return showSnack(err, false);
+        if (err) { showSnack(err, false); return false; }
+
+        // Resent verbatim, never rebuilt - this screen has no checkboxes for them.
+        const preserved = (preserveSubMenus || [])
+            .map((key) => (storedMenu?.subMenus || []).find((sm) => sm.subMenu === key))
+            .filter(Boolean)
+            .map((sm) => ({ subMenu: sm.subMenu, permissions: { ...(sm.permissions || {}) } }));
 
         const payload = {
             data: {
@@ -281,10 +374,13 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
                 mainMenus: [
                     {
                         mainMenu: mainMenuKey,
-                        subMenus: pages.map((page) => ({
-                            subMenu: subMenuKey(page),
-                            permissions: buildPermissions(page),
-                        })),
+                        subMenus: [
+                            ...pages.map((page) => ({
+                                subMenu: subMenuKey(page),
+                                permissions: buildPermissions(page),
+                            })),
+                            ...preserved,
+                        ],
                     },
                 ],
             },
@@ -295,21 +391,68 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
             // If the wrapper page provides its own save handler, delegate the API call to it.
             if (typeof onSave === "function") {
                 const res = await onSave(payload, { role, mainMenuKey });
-                if (res?.error === true) { showSnack(res?.message || "Could not save the configuration.", false); return; }
+                if (res?.error === true) { showSnack(res?.message || "Could not save the configuration.", false); return false; }
                 showSnack(res?.message || `Saved access configuration for ${moduleMeta.name} · ${role.name}.`);
                 await fetchPermissions(); // re-fetch so the screen shows the stored values
             } else {
                 const res = await axios.put(UpdateUserTypePermissions, payload, { headers: { Authorization: `Bearer ${TOKEN}` } });
                 const ok = !res?.data || res.data.error === false || res.status === 200;
-                if (!ok) { showSnack(res?.data?.message || "Could not save the configuration.", false); return; }
+                if (!ok) { showSnack(res?.data?.message || "Could not save the configuration.", false); return false; }
                 showSnack(res?.data?.message || `Saved access configuration for ${moduleMeta.name} · ${role.name}.`);
                 await fetchPermissions(); // re-fetch so the screen shows the stored values
             }
+            return true;
         } catch (e) {
             showSnack(e?.response?.data?.message || e?.message || "Failed to save the configuration. Please try again.", false);
+            return false;
         } finally {
             setSaving(false);
         }
+    };
+
+    /* Leaving with unsaved work ------------------------------------------------
+       The back arrow is the one exit this screen owns, so it asks first. A tab
+       close or reload is caught by beforeunload, which can only show the
+       browser's own wording. Sidebar links are plain <Link>s under a non-data
+       router, so useBlocker is not available to intercept them - those still
+       leave silently, and would need the router swapped to createBrowserRouter. */
+    useEffect(() => {
+        if (!dirty) return undefined;
+        const warn = (e) => { e.preventDefault(); e.returnValue = ""; };
+        window.addEventListener("beforeunload", warn);
+        return () => window.removeEventListener("beforeunload", warn);
+    }, [dirty]);
+
+    const handleBack = () => {
+        if (dirty) { setLeaveOpen(true); return; }
+        navigate(-1);
+    };
+
+    const discardAndLeave = () => {
+        setLeaveOpen(false);
+        setDirty(false);
+        navigate(-1);
+    };
+
+    const saveAndLeave = async () => {
+        const ok = await save();
+        if (!ok) { setLeaveOpen(false); return; } // stay put so the error is readable
+        setLeaveOpen(false);
+        navigate(-1);
+    };
+
+    // Every permission this screen can grant, and how many are currently on.
+    const grantTotals = () => {
+        let granted = 0;
+        let total = 0;
+        pages.forEach((page) => {
+            const met = pageDependencyMet(page);
+            pageAllKeys(page).forEach((key) => {
+                total += 1;
+                if (met && config[page]?.[key]) granted += 1;
+            });
+        });
+        return { granted, total };
     };
 
     const explain = (cfg) => {
@@ -332,53 +475,34 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
         return lines;
     };
 
-    const renderOps = (page, cfg) => {
-        const keys = pageOpsKeys(page);
-        return (
-            <FormGroup row sx={{ gap: 1 }}>
-                {pageOps(page).map((o) => {
-                    const depMet = pageDependencyMet(page);
-                    const active = depMet && cfg[o.key];
-                    // Only a missing prerequisite page can disable a box now. An
-                    // operation held on by a higher one stays clickable, and
-                    // clicking it reduces access to that level.
-                    const forcedBy = depMet ? includedBy(page, cfg, o.key) : [];
-                    const labelOf = (k) => OPS.find((x) => x.key === k)?.label || k;
-                    const hint = forcedBy.length
-                        ? `Included by ${forcedBy.map(labelOf).join(" and ")}. Click to reduce access to ${o.label}.`
-                        : "";
+    const renderOps = (page, cfg) => (
+        <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))", gap: 1 }}>
+            {pageOps(page).map((o) => {
+                const depMet = pageDependencyMet(page);
+                const active = depMet && cfg[o.key];
+                // Only a missing prerequisite page can disable a chip. An operation
+                // held on by a higher one stays clickable, and clicking it reduces
+                // access to that level.
+                const forcedBy = depMet ? includedBy(page, cfg, o.key) : [];
+                const labelOf = (k) => OPS.find((x) => x.key === k)?.label || k;
+                const hint = forcedBy.length
+                    ? `Included by ${forcedBy.map(labelOf).join(" and ")}. Click to reduce access to ${o.label}.`
+                    : "";
 
-                    const box = (
-                        <FormControlLabel
-                            key={o.key}
-                            control={
-                                <Checkbox
-                                    size="small"
-                                    checked={active}
-                                    disabled={!depMet}
-                                    onChange={() => toggleOp(page, o.key)}
-                                    sx={{ p: 0.5, color: "#C7CDD6", "&.Mui-checked": { color }, "&.Mui-disabled.Mui-checked": { color: `${color}99` } }}
-                                />
-                            }
-                            label={
-                                <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.4 }}>
-                                    <Typography sx={{ fontSize: 13, fontWeight: 600, color: active ? "#111827" : "#6B7280" }}>{o.label}</Typography>
-                                    {!depMet && isLockable(o.key, keys) && (
-                                        <LockOutlinedIcon sx={{ fontSize: 13, color: "#9CA3AF" }} />
-                                    )}
-                                </Box>
-                            }
-                            sx={{ m: 0, mr: 1 }}
-                        />
-                    );
-
-                    return hint
-                        ? <Tooltip key={o.key} title={hint} arrow placement="top">{box}</Tooltip>
-                        : box;
-                })}
-            </FormGroup>
-        );
-    };
+                return (
+                    <PermChip
+                        key={o.key}
+                        label={o.label}
+                        active={active}
+                        disabled={!depMet}
+                        accent={color}
+                        title={hint}
+                        onClick={() => toggleOp(page, o.key)}
+                    />
+                );
+            })}
+        </Box>
+    );
 
     const extraCheckbox = (page, cfg, o) => {
         const enabled = opEnabled(page, o);
@@ -387,28 +511,16 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
         const blockedBy = !requirementMet(page, o)
             ? (flatExtraOps(page).find((e) => e.key === o.requires)?.label || o.requires)
             : null;
-        const control = (
-            <FormControlLabel
-                key={o.key}
-                disabled={!enabled}
-                control={
-                    <Checkbox
-                        size="small"
-                        checked={active}
-                        disabled={!enabled}
-                        onChange={() => toggleOp(page, o.key)}
-                        sx={{ p: 0.5, color: "#C7CDD6", "&.Mui-checked": { color }, "&.Mui-disabled": { color: "#E3E6EA" } }}
-                    />
-                }
-                label={<Typography sx={{ fontSize: 13, fontWeight: 600, color: !enabled ? "#B6BCC6" : active ? "#111827" : "#6B7280" }}>{o.label}</Typography>}
-                sx={{ m: 0, mr: 1 }}
-            />
-        );
-        if (!blockedBy) return control;
         return (
-            <Tooltip key={o.key} title={`Enable "${blockedBy}" first`} arrow placement="top">
-                <Box component="span" sx={{ display: "inline-flex" }}>{control}</Box>
-            </Tooltip>
+            <PermChip
+                key={o.key}
+                label={o.label}
+                active={active}
+                disabled={!enabled}
+                accent={color}
+                title={blockedBy ? `Enable "${blockedBy}" first` : ""}
+                onClick={() => toggleOp(page, o.key)}
+            />
         );
     };
 
@@ -421,33 +533,37 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
             <Box sx={{ mt: pageOps(page).length > 0 ? 1.5 : 0 }}>
                 {heading && (
                     <Box sx={{ display: "flex", alignItems: "center", gap: 0.8, mb: 1, flexWrap: "wrap" }}>
-                        <Typography sx={{ fontSize: 11, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: 0.4 }}>{heading}</Typography>
+                        <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: DASH.muted, textTransform: "uppercase", letterSpacing: 0.6 }}>{heading}</Typography>
                         {!extrasEnabled(page) && (
-                            <Typography sx={{ fontSize: 11, fontWeight: 600, color: "#B45309", bgcolor: "#FEF3C7", px: 0.9, py: 0.15, borderRadius: "4px" }}>
-                                Enable View first
-                            </Typography>
+                            <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.4, px: 0.9, py: 0.15, borderRadius: RADIUS, bgcolor: DASH.amberLight, border: "1px solid #FDE68A" }}>
+                                <VisibilityOutlinedIcon sx={{ fontSize: 12, color: "#B45309" }} />
+                                <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: "#B45309" }}>
+                                    Enable View first
+                                </Typography>
+                            </Box>
                         )}
                     </Box>
                 )}
                 {hasGroups ? (
                     extras.map((e) => {
                         if (!e.items) {
-                            return <FormGroup key={e.key} row sx={{ gap: 1, mb: 1.2 }}>{extraCheckbox(page, cfg, e)}</FormGroup>;
+                            return <Box key={e.key} sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))", gap: 1, mb: 1.2 }}>{extraCheckbox(page, cfg, e)}</Box>;
                         }
                         if (e.gate) {
                             const gateOn = !!cfg[e.gate.key];
                             return (
                                 <Box key={e.group} sx={{ mb: 1.2 }}>
-                                    <FormControlLabel
+                                    <PermChip
+                                        label={e.gate.label}
+                                        active={gateOn}
                                         disabled={!extrasEnabled(page)}
-                                        control={<Checkbox size="small" checked={gateOn} disabled={!extrasEnabled(page)} onChange={() => toggleGate(page, e.gate.key, e.items.map((i) => i.key))} sx={{ p: 0.5, color: "#C7CDD6", "&.Mui-checked": { color }, "&.Mui-disabled": { color: "#E3E6EA" } }} />}
-                                        label={<Typography sx={{ fontSize: 13, fontWeight: 600, color: !extrasEnabled(page) ? "#B6BCC6" : gateOn ? "#111827" : "#6B7280" }}>{e.gate.label}</Typography>}
-                                        sx={{ m: 0 }}
+                                        accent={color}
+                                        onClick={() => toggleGate(page, e.gate.key, e.items.map((i) => i.key))}
                                     />
                                     {gateOn && (
                                         <Box sx={{ pl: 3.5, mt: 0.3 }}>
-                                            {e.group && <Typography sx={{ fontSize: 11, fontWeight: 600, color: "#9CA3AF", mb: 0.2 }}>{e.group} for</Typography>}
-                                            <FormGroup row sx={{ gap: 1 }}>{e.items.map((o) => extraCheckbox(page, cfg, o))}</FormGroup>
+                                            {e.group && <Typography sx={{ fontSize: 11, fontWeight: 600, color: DASH.faint, mb: 0.5 }}>{e.group} for</Typography>}
+                                            <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))", gap: 1 }}>{e.items.map((o) => extraCheckbox(page, cfg, o))}</Box>
                                         </Box>
                                     )}
                                 </Box>
@@ -455,13 +571,13 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
                         }
                         return (
                             <Box key={e.group} sx={{ mb: 1.2 }}>
-                                <Typography sx={{ fontSize: 12, fontWeight: 700, color: "#374151", mb: 0.4 }}>{e.group}</Typography>
-                                <FormGroup row sx={{ gap: 1 }}>{e.items.map((o) => extraCheckbox(page, cfg, o))}</FormGroup>
+                                <Typography sx={{ fontSize: 12, fontWeight: 700, color: DASH.text, mb: 0.6 }}>{e.group}</Typography>
+                                <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))", gap: 1 }}>{e.items.map((o) => extraCheckbox(page, cfg, o))}</Box>
                             </Box>
                         );
                     })
                 ) : (
-                    <FormGroup row sx={{ gap: 1 }}>{extras.map((o) => extraCheckbox(page, cfg, o))}</FormGroup>
+                    <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))", gap: 1 }}>{extras.map((o) => extraCheckbox(page, cfg, o))}</Box>
                 )}
             </Box>
         );
@@ -471,99 +587,186 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
         const keys = pageOpsKeys(page);
         const show = pageOps(page).some((o) => isLockable(o.key, keys) && isLocked(cfg, o.key, keys));
         return (
-            <Typography sx={{ fontSize: 10.5, color: "#9CA3AF", mt: 1.2, display: "flex", alignItems: "center", gap: 0.4, visibility: show ? "visible" : "hidden" }}>
+            <Typography sx={{ fontSize: 10.5, color: DASH.faint, mt: 1.2, display: "flex", alignItems: "center", gap: 0.4, visibility: show ? "visible" : "hidden" }}>
                 <ArrowDownwardIcon sx={{ fontSize: 12 }} /> Each operation includes the ones below it. Tick a lower box to reduce access to that level.
             </Typography>
         );
     };
 
+    const { granted: grantedCount, total: grantTotal } = grantTotals();
+
     return (
-        <Box sx={{ width: "100%" }}>
+        <Box sx={{ px: { xs: 1.5, md: 3 }, pt: { xs: 1.5, md: 2 }, pb: 4, bgcolor: DASH.canvas, minHeight: "100vh", boxSizing: "border-box" }}>
             <SnackBar open={snack.open} color={snack.ok} setOpen={(v) => setSnack((s) => ({ ...s, open: v }))} status={snack.ok} message={snack.msg} />
 
-            <Box sx={{
-                position: "fixed",
-                top: "60px",
-                left: isExpanded ? "260px" : "80px",
-                right: 0,
-                backgroundColor: "#f2f2f2",
-                px: 2,
-                py: 1,
-                borderBottom: "1px solid #ddd",
-                borderTop: "1px solid #ddd",
-                zIndex: 1200,
-                transition: "left 0.3s ease-in-out",
-                overflow: 'hidden',
-                 display:"flex",
-                justifyContent:"space-between"
-            }}>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <IconButton onClick={() => navigate(-1)} sx={{ width: 30, height: 30 }}>
-                        <ArrowBackIcon sx={{ fontSize: 20, color: "#000" }} />
-                    </IconButton>
-                    <Box sx={{ width: 38, height: 38, borderRadius: "10px", bgcolor: `${color}16`, color, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800 }}>
-                        {moduleMeta.name?.[0]}
+            {/* The same header Feature Permissions uses, so the two screens read as
+                one flow rather than two designs one click apart. */}
+            <PageHeader
+                title={`Configure · ${moduleMeta.name}`}
+                subtitle={`Feature Permissions / ${role.name} / ${moduleMeta.name}`}
+                onBack={handleBack}
+                right={(
+                    <>
+                        {grantTotal > 0 && (
+                            <Box sx={{
+                                display: { xs: "none", md: "flex" }, alignItems: "center", gap: 0.8,
+                                px: 1.4, height: 34, borderRadius: RADIUS,
+                                bgcolor: grantedCount ? `${color}0A` : DASH.lineSoft,
+                                border: `1px solid ${grantedCount ? `${color}38` : DASH.line}`,
+                            }}>
+                                <Typography sx={{ fontSize: 15, fontWeight: 800, color: grantedCount ? color : DASH.faint, lineHeight: 1 }}>
+                                    {grantedCount}
+                                </Typography>
+                                <Typography sx={{ fontSize: 11.5, color: DASH.muted, whiteSpace: "nowrap" }}>
+                                    of {grantTotal} permissions on
+                                </Typography>
+                            </Box>
+                        )}
+                        {dirty && !saving && (
+                            <Chip
+                                size="small"
+                                label="Unsaved changes"
+                                sx={{ height: 22, fontSize: 10.5, fontWeight: 700, borderRadius: RADIUS, bgcolor: DASH.amberLight, color: "#92400E" }}
+                            />
+                        )}
+                        <Button
+                            onClick={save}
+                            disabled={saving}
+                            startIcon={saving ? <CircularProgress size={16} sx={{ color: "#fff" }} /> : <SaveOutlinedIcon sx={{ fontSize: 18 }} />}
+                            sx={{
+                                textTransform: "none", fontWeight: 700, fontSize: 13,
+                                bgcolor: color, color: "#fff", borderRadius: RADIUS, height: 34, px: 2,
+                                boxShadow: `0 2px 8px ${color}33`,
+                                "&:hover": { bgcolor: color, filter: "brightness(0.92)", boxShadow: `0 4px 12px ${color}40` },
+                                "&.Mui-disabled": { bgcolor: DASH.line, color: DASH.faint, boxShadow: "none" },
+                            }}
+                        >
+                            {saving ? "Saving…" : "Save Configuration"}
+                        </Button>
+                    </>
+                )}
+            />
+
+            <Box>
+                <Box
+                    sx={{
+                        display: "flex", alignItems: "center", justifyContent: "space-between",
+                        gap: 1.5, mb: 2, flexWrap: "wrap",
+                        bgcolor: "#fff", borderRadius: RADIUS,
+                        border: `1px solid ${DASH.line}`, borderLeft: `3px solid ${color}`,
+                        px: 1.8, py: 1.3,
+                    }}
+                >
+                    <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.2, flex: 1, minWidth: 260 }}>
+                        <TuneOutlinedIcon sx={{ fontSize: 17, color, mt: "1px", flexShrink: 0 }} />
+                        <Box sx={{ minWidth: 0 }}>
+                            <Typography sx={{ fontSize: 13, fontWeight: 700, color: DASH.ink, lineHeight: 1.3 }}>
+                                What the {role.name} role can do in {moduleMeta.name}
+                            </Typography>
+                            <Typography sx={{ fontSize: 11.5, color: DASH.muted, mt: 0.2, lineHeight: 1.5 }}>
+                                Each operation includes the ones below it — granting Edit also grants Create and View
+                                {approval ? ", and the approval flow is set per page." : "."}
+                            </Typography>
+                        </Box>
                     </Box>
-                    <Box>
-                        <Typography sx={{ fontWeight: 700, fontSize: "19px", lineHeight: 1.1 }}>Configure · {moduleMeta.name}</Typography>
-                        <Typography sx={{ fontSize: 11.5, color: "#6B7280" }}>Feature Permissions / {role.name} / {moduleMeta.name}</Typography>
+
+                    <Box
+                        sx={{
+                            display: "flex", alignItems: "center", gap: 0.8, flexShrink: 0,
+                            px: 1.4, py: 0.4, borderRadius: RADIUS,
+                            border: `1px solid ${isGlobalAllOn() ? color : DASH.line}`,
+                            bgcolor: isGlobalAllOn() ? `${color}0A` : "#fff",
+                            transition: "background-color .15s, border-color .15s",
+                        }}
+                    >
+                        <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: isGlobalAllOn() ? color : DASH.text }}>
+                            Allow all features
+                        </Typography>
+                        <Switch
+                            checked={isGlobalAllOn()}
+                            onChange={() => setAllPages(!isGlobalAllOn())}
+                            sx={{
+                                "& .MuiSwitch-switchBase.Mui-checked": { color },
+                                "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": { backgroundColor: color },
+                            }}
+                        />
                     </Box>
                 </Box>
-                <Button onClick={save} disabled={saving} startIcon={saving ? <CircularProgress size={16} sx={{ color: "#fff" }} /> : <SaveOutlinedIcon sx={{ fontSize: 18 }} />} sx={{ textTransform: "none", fontWeight: 700, fontSize: 13, bgcolor: ACCENT, color: "#fff", borderRadius: "8px", height: 38, px: 2, "&:hover": { bgcolor: ACCENT, filter: "brightness(0.92)" }, "&.Mui-disabled": { bgcolor: "#C7C9D9", color: "#fff" } }}>
-                    {saving ? "Saving…" : "Save Configuration"}
-                </Button>
-            </Box>
 
-            <Box sx={{ pb: 2, pt:"70px", px:2 }}>
-                <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5, mb: 1.5, flexWrap: "wrap" }}>
-                    <Typography sx={{ fontSize: 12.5, color: "#6B7280", flex: 1, minWidth: 240 }}>
-                        Pick exactly which pages of <strong>{moduleMeta.name}</strong> the <strong>{role.name}</strong> role can use{approval ? ", the operations they can perform, and the approval flow for each page." : " and the operations they can perform."}
-                    </Typography>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, px: 1.4, py: 0.6, borderRadius: "10px", border: `1px solid ${ACCENT}33`, bgcolor: `${ACCENT}0A` }}>
-                        <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: "#3730A3" }}>Allow all features</Typography>
-                        <Switch checked={isGlobalAllOn()} onChange={() => setAllPages(!isGlobalAllOn())} sx={{ "& .MuiSwitch-switchBase.Mui-checked": { color: ACCENT }, "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": { backgroundColor: ACCENT } }} />
-                    </Box>
-                </Box>
-
-                <Grid container spacing={1.5} alignItems="flex-start">
+                <Grid container spacing={2} alignItems="flex-start">
                     {pages.map((page) => {
                         const cfg = config[page];
                         const lines = explain(cfg);
+                        const pageTotal = pageAllKeys(page).length;
+                        const pageOn = pageDependencyMet(page) ? pageAllKeys(page).filter((k) => cfg[k]).length : 0;
 
                         return (
                             <Grid key={page} size={{ xs: 12, md: 6 }}>
-                                <Accordion disableGutters expanded={!!expandedPages[page]} onChange={(e, isExp) => setExpandedPages((prev) => ({ ...prev, [page]: isExp }))} sx={{ borderRadius: "12px !important", border: "1px solid #ddd", boxShadow: "none", "&:before": { display: "none" }, overflow: "hidden" }}>
-                                    <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ bgcolor: `${color}12`, "& .MuiAccordionSummary-content": { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1, pr: 1 } }}>
-                                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                                            <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: color }} />
-                                            <Typography sx={{ fontSize: 14, fontWeight: 700, color: "#111827" }}>{page}</Typography>
+                                <Accordion
+                                    disableGutters
+                                    expanded={!!expandedPages[page]}
+                                    onChange={(e, isExp) => setExpandedPages((prev) => ({ ...prev, [page]: isExp }))}
+                                    sx={{
+                                        bgcolor: "#fff",
+                                        borderRadius: `${RADIUS} !important`,
+                                        border: `1px solid ${pageOn > 0 ? `${color}38` : DASH.line}`,
+                                        boxShadow: "none",
+                                        overflow: "hidden",
+                                        transition: "box-shadow .2s ease, border-color .2s ease",
+                                        "&:before": { display: "none" },
+                                        "&:hover": { boxShadow: "0 4px 16px rgba(17,24,39,0.08)" },
+                                    }}
+                                >
+                                    <AccordionSummary
+                                        expandIcon={<ExpandMoreIcon sx={{ fontSize: 20, color: DASH.faint }} />}
+                                        sx={{
+                                            minHeight: 52,
+                                            px: 1.6,
+                                            bgcolor: pageOn > 0 ? `${color}08` : "#fff",
+                                            borderBottom: expandedPages[page] ? `1px solid ${DASH.lineSoft}` : "none",
+                                            "& .MuiAccordionSummary-content": { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1, pr: 1, my: 1 },
+                                        }}
+                                    >
+                                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, minWidth: 0 }}>
+                                            <Box sx={{ width: 3, height: 18, borderRadius: RADIUS, bgcolor: pageOn > 0 ? color : DASH.line, flexShrink: 0 }} />
+                                            <Typography sx={{ fontSize: 13.5, fontWeight: 700, color: DASH.ink, ...oneLine }}>{page}</Typography>
                                         </Box>
-                                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.6, flexWrap: "wrap" }}>
-                                            {pageAllKeys(page).length > 0 && (
-                                                <FormControlLabel
-                                                    onClick={(e) => e.stopPropagation()}
-                                                    control={<Switch size="small" disabled={!pageDependencyMet(page)} checked={pageDependencyMet(page) && isPageAllOn(page)} onChange={() => pageDependencyMet(page) && setPageAll(page, !isPageAllOn(page))} sx={{ "& .MuiSwitch-switchBase.Mui-checked": { color: ACCENT }, "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": { backgroundColor: ACCENT } }} />}
-                                                    label={<Typography sx={{ fontSize: 11, fontWeight: 700, color: "#6B7280" }}>Allow all</Typography>}
-                                                    sx={{ m: 0, mr: 0.3 }}
-                                                />
-                                            )}
+                                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.6, flexWrap: "wrap", flexShrink: 0 }}>
                                             {requiredPageFor(page) && !pageDependencyMet(page) && (
-                                                <Box sx={{ display: "flex", alignItems: "center", gap: 0.4, px: 0.9, height: 20, borderRadius: "10px", bgcolor: "#FEF3C7", border: "1px solid #FDE68A" }}>
+                                                <Box sx={{ display: "flex", alignItems: "center", gap: 0.4, px: 0.9, height: 21, borderRadius: RADIUS, bgcolor: DASH.amberLight, border: "1px solid #FDE68A" }}>
                                                     <LockOutlinedIcon sx={{ fontSize: 12, color: "#B45309" }} />
                                                     <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: "#B45309" }}>
                                                         Needs {requiredPageFor(page).page}
                                                     </Typography>
                                                 </Box>
                                             )}
-                                            {pageAllKeys(page).length > 0 && (() => {
-                                                const total = pageAllKeys(page).length;
-                                                const on = pageDependencyMet(page) ? pageAllKeys(page).filter((k) => cfg[k]).length : 0;
-                                                return (
-                                                    <Box sx={{ px: 1, height: 20, borderRadius: "10px", display: "flex", alignItems: "center", fontSize: 10.5, fontWeight: 700, bgcolor: on > 0 ? `${color}14` : "#F8FAFC", color: on > 0 ? color : "#9CA3AF", border: `1px solid ${on > 0 ? `${color}33` : "#E5E7EB"}` }}>
-                                                        {on}/{total}
-                                                    </Box>
-                                                );
-                                            })()}
+                                            {pageTotal > 0 && (
+                                                <Box sx={{
+                                                    px: 1, height: 21, borderRadius: RADIUS, display: "flex", alignItems: "center",
+                                                    fontSize: 10.5, fontWeight: 700,
+                                                    bgcolor: pageOn > 0 ? `${color}14` : DASH.lineSoft,
+                                                    color: pageOn > 0 ? color : DASH.faint,
+                                                    border: `1px solid ${pageOn > 0 ? `${color}33` : DASH.line}`,
+                                                }}>
+                                                    {pageOn}/{pageTotal}
+                                                </Box>
+                                            )}
+                                            {pageTotal > 0 && (
+                                                <Tooltip arrow title={isPageAllOn(page) ? "Turn every permission off" : "Turn every permission on"}>
+                                                    <span onClick={(e) => e.stopPropagation()} style={{ display: "inline-flex" }}>
+                                                        <Switch
+                                                            size="small"
+                                                            disabled={!pageDependencyMet(page)}
+                                                            checked={pageDependencyMet(page) && isPageAllOn(page)}
+                                                            onChange={() => pageDependencyMet(page) && setPageAll(page, !isPageAllOn(page))}
+                                                            sx={{
+                                                                "& .MuiSwitch-switchBase.Mui-checked": { color },
+                                                                "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": { backgroundColor: color },
+                                                            }}
+                                                        />
+                                                    </span>
+                                                </Tooltip>
+                                            )}
                                         </Box>
                                     </AccordionSummary>
                                     <AccordionDetails sx={{ p: 2 }}>
@@ -571,8 +774,8 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
                                             <Box
                                                 sx={{
                                                     display: "flex", alignItems: "flex-start", gap: 0.8,
-                                                    bgcolor: "#FEF3C7", border: "1px solid #FDE68A",
-                                                    borderRadius: "6px", px: 1.2, py: 0.8, mb: 1.4,
+                                                    bgcolor: DASH.amberLight, border: "1px solid #FDE68A",
+                                                    borderRadius: RADIUS, px: 1.2, py: 0.8, mb: 1.4,
                                                 }}
                                             >
                                                 <LockOutlinedIcon sx={{ fontSize: 14, color: "#B45309", mt: "1px" }} />
@@ -585,7 +788,7 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
                                         )}
 
                                         {pageOps(page).length > 0 && (<>
-                                            <Typography sx={{ fontSize: 11, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: 0.4, mb: 1 }}>Allowed operations</Typography>
+                                            <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: DASH.muted, textTransform: "uppercase", letterSpacing: 0.6, mb: 1 }}>Allowed operations</Typography>
                                             {renderOps(page, cfg)}
                                             {viewHint(cfg, page)}
                                         </>)}
@@ -597,6 +800,76 @@ export default function ModuleConfigShell({ moduleMeta, pages, opsKeys = ["view"
                     })}
                 </Grid>
             </Box>
+
+            {/* Asked on the way out, never on the way in - the screen stays usable
+                and the choice only appears when there is something to lose. */}
+            <Dialog
+                open={leaveOpen}
+                onClose={() => setLeaveOpen(false)}
+                maxWidth="xs"
+                fullWidth
+                PaperProps={{ sx: { borderRadius: "14px", border: "1px solid #E5E7EB" } }}
+            >
+                <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1.2, pb: 1 }}>
+                    <Box
+                        sx={{
+                            width: 34, height: 34, borderRadius: "10px", flexShrink: 0,
+                            bgcolor: "#FEF3C7", display: "flex", alignItems: "center", justifyContent: "center",
+                        }}
+                    >
+                        <WarningAmberRoundedIcon sx={{ fontSize: 20, color: "#B45309" }} />
+                    </Box>
+                    <Typography sx={{ fontSize: 16.5, fontWeight: 700, color: "#111827" }}>
+                        Discard unsaved changes?
+                    </Typography>
+                </DialogTitle>
+
+                <DialogContent sx={{ pt: 0 }}>
+                    <DialogContentText sx={{ fontSize: 13, color: "#4B5563", lineHeight: 1.6 }}>
+                        Your changes to <strong>{moduleMeta.name}</strong> for <strong>{role.name}</strong> have
+                        not been saved. Leaving now throws them away.
+                    </DialogContentText>
+                </DialogContent>
+
+                <DialogActions sx={{ px: 3, pb: 2.4, pt: 0.5, gap: 1, flexWrap: "wrap" }}>
+                    <Button
+                        onClick={() => setLeaveOpen(false)}
+                        sx={{
+                            textTransform: "none", fontWeight: 700, fontSize: 12.5, height: 34, px: 2,
+                            borderRadius: "8px", color: "#374151", border: "1px solid #D6DAE1",
+                            "&:hover": { borderColor: "#9AA3AF", bgcolor: "#FAFAFA" },
+                        }}
+                    >
+                        Keep editing
+                    </Button>
+                    <Button
+                        onClick={discardAndLeave}
+                        disabled={saving}
+                        sx={{
+                            textTransform: "none", fontWeight: 700, fontSize: 12.5, height: 34, px: 2,
+                            borderRadius: "8px", color: "#DC2626", border: "1px solid #FECACA",
+                            "&:hover": { bgcolor: "#FEF2F2", borderColor: "#DC2626" },
+                        }}
+                    >
+                        Discard
+                    </Button>
+                    <Button
+                        onClick={saveAndLeave}
+                        disabled={saving}
+                        startIcon={saving
+                            ? <CircularProgress size={14} sx={{ color: "#fff" }} />
+                            : <SaveOutlinedIcon sx={{ fontSize: 16 }} />}
+                        sx={{
+                            textTransform: "none", fontWeight: 700, fontSize: 12.5, height: 34, px: 2,
+                            borderRadius: "8px", bgcolor: ACCENT, color: "#fff", boxShadow: "none",
+                            "&:hover": { bgcolor: ACCENT, filter: "brightness(0.92)", boxShadow: "none" },
+                            "&.Mui-disabled": { bgcolor: "#C7C9D9", color: "#fff" },
+                        }}
+                    >
+                        {saving ? "Saving…" : "Save and leave"}
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     );
 }
