@@ -33,17 +33,24 @@ export const PRIORITY_LABELS = {
 
 // The statuses each stream can move to, with the dot colour its comp gives them
 // and the tint that fills the row while it is selected.
+/* `api` is the value POST /complaints/status accepts — carried per entry because the two
+   streams disagree: "inProgress" means ActionInProgress on a parent complaint and
+   InProgress on a staff concern.
+
+   Dropped from these lists, because /status rejects them:
+     Resolved / Completed        — resolution states, filed through /resolution on mobile
+     Awaiting Parent Information — the result of /request-information, not a status to pick
+   The 06/07 mapping is explicit: "Parent: UnderReview/ActionInProgress/ActionRequired;
+   Staff: InProgress/ActionRequired. Resolution states use /resolution." */
 const PARENT_STATUSES = [
-    { key: "underReview", label: "Under Review", color: "#0D9488", tint: "#F0FDFA" },
-    { key: "inProgress", label: "Action in Progress", color: "#F59E0B", tint: "#FFFBEB" },
-    { key: "awaitingParent", label: "Awaiting Parent Information", color: "#3B82F6", tint: "#EFF6FF" },
-    { key: "resolved", label: "Resolved", color: "#10B981", tint: "#ECFDF5" },
+    { key: "underReview", api: "UnderReview", label: "Under Review", color: "#0D9488", tint: "#F0FDFA" },
+    { key: "inProgress", api: "ActionInProgress", label: "Action in Progress", color: "#F59E0B", tint: "#FFFBEB" },
+    { key: "actionRequired", api: "ActionRequired", label: "Action Required", color: "#3B82F6", tint: "#EFF6FF" },
 ];
 
 const INTERNAL_STATUSES = [
-    { key: "inProgress", label: "In Progress", color: "#0D9488", tint: "#CCFBF1" },
-    { key: "actionRequired", label: "Action Required", color: "#F59E0B", tint: "#FEF3C7" },
-    { key: "completed", label: "Completed", color: "#10B981", tint: "#D1FAE5" },
+    { key: "inProgress", api: "InProgress", label: "In Progress", color: "#0D9488", tint: "#CCFBF1" },
+    { key: "actionRequired", api: "ActionRequired", label: "Action Required", color: "#F59E0B", tint: "#FEF3C7" },
 ];
 
 // The two comps draw the status list slightly differently — the operations one
@@ -69,8 +76,10 @@ export const VARIANTS = {
         subjectTitle: "Location Details",
         notesTitle: "Internal Maintenance Notes",
         statuses: INTERNAL_STATUSES,
-        // The operations comp adds a one-tap close beneath Submit Update.
-        completeAction: { label: "Mark as Completed", status: "completed" },
+        /* The operations comp draws a one-tap "Mark as Completed" here, but completion is a
+           resolution state: it needs /resolution, which staff file on mobile. Left off
+           rather than offering a button this API would reject. */
+        completeAction: null,
         listStyle: {
             radius: "12px",
             rowPadding: "14px",

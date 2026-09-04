@@ -4,7 +4,9 @@ import {
     GetComplaintLookupCategories,
     SearchComplaintStudents,
     GetComplaintDetail,
+    GetComplaintDetailByPath,
     GetComplaintTimeline,
+    GetComplaintTimelineByPath,
     DownloadComplaintAttachment,
     GetComplaintNotifications,
 } from "../../Api/Api";
@@ -190,7 +192,15 @@ export const attachmentFromApi = (row = {}) => ({
 
 /** The whole record for one complaint, addressed by its token. */
 export const fetchComplaintDetail = async ({ complaintToken }) => {
-    const result = await get(GetComplaintDetail(complaintToken), {}, "Could not load the complaint");
+    /* Query form first — it is what module 04 documents and what the server answers
+       today — then the path form, which it answered earlier in development. A 404 is the
+       only signal that distinguishes them, and trying both costs one wasted request on a
+       genuinely missing complaint. */
+    let result = await get(GetComplaintDetail, { complaintToken }, "Could not load the complaint");
+    if (!result.ok && result.notFound) {
+        const byPath = await get(GetComplaintDetailByPath(complaintToken), {}, "Could not load the complaint");
+        if (byPath.ok) result = byPath;
+    }
     if (!result.ok) return result;
     const d = result.body.data || {};
     const summary = d.summary || {};
@@ -232,6 +242,31 @@ export const fetchComplaintDetail = async ({ complaintToken }) => {
      API never mentions would be inventing a workflow.
    - Internal notes arrive as one string, not a list of authored notes. It is shown as a
      single entry attributed to nobody rather than fabricating an author and a timestamp. */
+/**
+ * A filed resolution, flattened to labelled lines.
+ *
+ * The detail screens render this straight into a card, and the API returns an OBJECT —
+ * putting that object into JSX throws "Objects are not valid as a React child" and blanks
+ * the whole page. It has never fired only because no complaint on UAT carries a resolution
+ * yet; it would the moment one did. Empty fields are dropped so a sparse resolution does
+ * not render a column of blank labels.
+ */
+export const resolutionLines = (row) => {
+    if (!row || typeof row !== "object") return [];
+    return [
+        ["Investigation", row.investigationSummary],
+        ["Root cause", row.rootCause],
+        ["Immediate action", row.immediateAction],
+        ["Corrective action", row.correctiveAction],
+        ["Preventive action", row.preventiveAction],
+        ["Responsible", row.responsiblePersonName || row.responsiblePersonRollNumber],
+        ["Completed on", row.completionDate],
+        ["Shared with parent", row.parentFacingMessage],
+    ]
+        .filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== "")
+        .map(([label, value]) => ({ label, value: String(value) }));
+};
+
 export const detailForScreen = (d) => {
     const s = d.summary || {};
     const dateTime = (iso) =>
@@ -281,7 +316,7 @@ export const detailForScreen = (d) => {
         internalNotes: d.internalStaffNotes
             ? [{ id: "notes", text: d.internalStaffNotes, author: "", at: "" }]
             : [],
-        resolution: (d.resolutions || [])[0] || null,
+        resolution: resolutionLines((d.resolutions || [])[0]),
 
         /* Every event is something that happened, so every step is complete. */
         timeline: d.timeline.map((event) => ({
@@ -336,7 +371,7 @@ export const actionDetailForScreen = (d) => {
         internalNotes: d.internalStaffNotes
             ? [{ id: "notes", text: d.internalStaffNotes, author: "", at: "" }]
             : [],
-        resolution: (d.resolutions || [])[0] || null,
+        resolution: resolutionLines((d.resolutions || [])[0]),
 
         /* The card wants a person. An unassigned action has none, so it says so rather
            than rendering an empty avatar. */
@@ -366,7 +401,11 @@ export const actionDetailForScreen = (d) => {
 
 /** The timeline on its own, for refreshing without re-reading the whole record. */
 export const fetchComplaintTimeline = async ({ complaintToken }) => {
-    const result = await get(GetComplaintTimeline(complaintToken), {}, "Could not load the timeline");
+    let result = await get(GetComplaintTimeline, { complaintToken }, "Could not load the timeline");
+    if (!result.ok && result.notFound) {
+        const byPath = await get(GetComplaintTimelineByPath(complaintToken), {}, "Could not load the timeline");
+        if (byPath.ok) result = byPath;
+    }
     if (!result.ok) return result;
     const rows = result.body.data || result.body.items || [];
     return { ok: true, events: (Array.isArray(rows) ? rows : []).map(timelineEventFromApi) };

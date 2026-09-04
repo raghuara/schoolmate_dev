@@ -252,10 +252,9 @@ export default function ComplaintDetailPage() {
        comps' wording. Anything unmapped is sent through as-is rather than silently dropped,
        so a new option surfaces as a server-side rejection rather than a no-op. */
     const STATUS_TO_API = {
-        "Action in Progress": "InProgress",
-        Resolved: "Resolved",
-        Escalated: "Escalated",
-        "On Hold": "OnHold",
+        "Under Review": "UnderReview",
+        "Action in Progress": "ActionInProgress",
+        "Action Required": "ActionRequired",
     };
 
     const crumbSx = (current) => ({
@@ -267,7 +266,12 @@ export default function ComplaintDetailPage() {
     });
 
     // No endpoints yet — each of these becomes its own call at integration.
-    const runAction = () => {};
+    /* The two inline affordances outside the Control Panel — the "Add Note" shortcut under
+       Internal Notes and the "Reassign" chip in the Assignment Details header — open the
+       same dialogs as their panel buttons. They were wired to an empty function, so they
+       hovered and clicked and did nothing. */
+    const runAction = () => setActionKind("addNote");
+    const openReassign = () => setActionKind("assign");
 
     return (
         <Box sx={{ display: "flex", flexDirection: "column" }}>
@@ -532,10 +536,23 @@ export default function ComplaintDetailPage() {
                     <Box sx={cardSx}>
                         <Typography sx={sectionTitleSx}>Resolution</Typography>
                         <Divider />
-                        {detail.resolution ? (
-                            <Typography sx={{ fontSize: "14px", fontWeight: 400, color: C.textMuted }}>
-                                {detail.resolution}
-                            </Typography>
+                        {detail.resolution.length > 0 ? (
+                            <Box sx={{ display: "flex", flexDirection: "column", gap: 1.25 }}>
+                                {detail.resolution.map((line) => (
+                                    <Box key={line.label}>
+                                        <Typography
+                                            sx={{ fontSize: "12px", fontWeight: 600, color: C.labelText }}
+                                        >
+                                            {line.label}
+                                        </Typography>
+                                        <Typography
+                                            sx={{ fontSize: "14px", fontWeight: 400, color: C.textMuted }}
+                                        >
+                                            {line.value}
+                                        </Typography>
+                                    </Box>
+                                ))}
+                            </Box>
                         ) : (
                             <Box
                                 sx={{
@@ -586,7 +603,7 @@ export default function ComplaintDetailPage() {
                         >
                             <Typography sx={sectionTitleSx}>Assignment Details</Typography>
                             <Box
-                                onClick={runAction}
+                                onClick={openReassign}
                                 sx={{
                                     px: "10px",
                                     py: "4px",
