@@ -47,7 +47,7 @@ function SubMenuPage({active}) {
         // Books & Chapters and Question Paper - ungated until the backend adds
         // permission keys for them, same approach as Online Quiz below.
         { path: '/dashboardmenu/books', label: 'Books & Chapters' },
-        { path: '/dashboardmenu/assessment/question-paper', label: 'Question Paper' },
+        { path: '/dashboardmenu/assessment/question-paper', label: 'Question Paper', disabled: true },
         ...(canViewComm("marks") ? [{ path: '/dashboardmenu/marks', label: 'Marks' }] : []),
         ...(canViewComm("attendance") ? [{ path: '/dashboardmenu/attendance', label: 'Attendance' }] : []),
         // Online Quiz - ungated until the backend adds a permission key for it.
@@ -117,8 +117,8 @@ function SubMenuPage({active}) {
                 </Typography> */}
 
                 {/* Render Menu Items */}
-                {menuItems.map(({ path, label, count }) => (
-                    <ListItem key={path} onClick={() => handleMenuClick(path.replace('/dashboardmenu/', ''))} sx={{
+                {menuItems.map(({ path, label, count, disabled }) => (
+                    <ListItem key={path} onClick={() => !disabled && handleMenuClick(path.replace('/dashboardmenu/', ''))} sx={{
                         borderRadius: 2, paddingTop: '5px',
                         paddingBottom: '5px',
                     }}>
@@ -132,18 +132,28 @@ function SubMenuPage({active}) {
                                 paddingBottom: '0px',
                                 borderRadius: '5px',
                                 width: '100%',
-                                boxShadow: isActive(path) ? '1px 1px 2px 0.5px rgba(0, 0, 0, 0.4)' : 'inherit',
-                                backgroundColor: isActive(path) ? websiteSettings.mainColor : 'inherit',
-                                color: isActive(path) ? websiteSettings.textColor : '#ababab',
+                                boxShadow: isActive(path) && !disabled ? '1px 1px 2px 0.5px rgba(0, 0, 0, 0.4)' : 'inherit',
+                                backgroundColor: disabled
+                                    ? 'inherit'
+                                    : isActive(path) ? websiteSettings.mainColor : 'inherit',
+                                color: disabled
+                                    ? '#ababab'
+                                    : isActive(path) ? websiteSettings.textColor : '#ababab',
                                 position: 'relative',
-                                '&:hover': { backgroundColor: isActive(path) ? "" : websiteSettings.lightColor, color: isActive(path) ? websiteSettings.textColor : "#000" },
-                                cursor: "pointer"
+                                opacity: disabled ? 0.5 : 1,
+                                pointerEvents: disabled ? 'none' : 'auto',
+                                '&:hover': disabled
+                                    ? { backgroundColor: 'none' }
+                                    : { backgroundColor: isActive(path) ? "" : websiteSettings.lightColor, color: isActive(path) ? websiteSettings.textColor : "#000" },
+                                cursor: disabled ? "not-allowed" : "pointer"
                             }}
                         >
                             <Box
                                 sx={{
                                     width: '5px',
-                                    backgroundColor: isActive(path) ? websiteSettings.darkColor : 'inherit',
+                                    backgroundColor: disabled
+                                        ? 'transparent'
+                                        : isActive(path) ? websiteSettings.darkColor : 'inherit',
                                     height: '100%',
                                     position: 'absolute',
                                     left: 0,
